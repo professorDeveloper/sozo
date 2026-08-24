@@ -21,6 +21,7 @@ import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/home/presentation/widgets/home_banner.dart';
 import 'package:soplay/features/home/presentation/widgets/home_history_section.dart';
+import 'package:soplay/features/home/presentation/widgets/home_live_tv_section.dart';
 import 'package:soplay/features/home/presentation/widgets/home_movie_section.dart';
 import 'package:soplay/features/home/presentation/widgets/home_state_views.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
@@ -236,6 +237,12 @@ class _HomeContentBody extends StatelessWidget {
                     child: _GenreSection(genres: state.genres),
                   ),
                 ),
+              // Live TV, above the catalogue rails rather than buried in
+              // Profile. It loads itself and renders nothing until it has
+              // channels, so a backend with no line-up leaves Home unchanged.
+              const SliverToBoxAdapter(
+                child: RepaintBoundary(child: LiveTvSection()),
+              ),
               if (state.collectionLoading)
                 const SliverToBoxAdapter(child: CollectionLoadingRow()),
               ...sectionSlivers,
