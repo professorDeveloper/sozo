@@ -58,6 +58,7 @@ class MediaResolveModel extends MediaResolveEntity {
     final loginUrl = raw['loginUrl'] as String?;
     final playType = (raw['playType'] as String?)?.toLowerCase();
     return ExtractorConfigEntity(
+      rewrite: _parseRewrite(raw['rewrite']),
       mode: raw['mode'] as String? ?? 'shouldInterceptRequest',
       hostPattern: hostPattern,
       urlPatterns: patterns,
@@ -66,6 +67,18 @@ class MediaResolveModel extends MediaResolveEntity {
       timeoutMs: timeout is num ? timeout.toInt() : 20000,
       loginUrl: loginUrl != null && loginUrl.isNotEmpty ? loginUrl : null,
       playType: playType == null || playType.isEmpty ? 'hls' : playType,
+    );
+  }
+
+  static UrlRewrite? _parseRewrite(dynamic raw) {
+    if (raw is! Map) return null;
+    final pattern = raw['pattern'] as String?;
+    final replace = raw['replace'] as String?;
+    if (pattern == null || pattern.isEmpty || replace == null) return null;
+    return UrlRewrite(
+      pattern: pattern,
+      replace: replace,
+      verify: raw['verify'] != false,
     );
   }
 

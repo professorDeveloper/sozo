@@ -248,6 +248,55 @@ extension _PlayerMedia on _PlayerPageState {
     }
   }
 
+  /// Swap a sniffed url for the one the server says is worth playing.
+  ///
+  /// Players that request a single rendition leave the sniffer holding one
+  /// fixed quality while the master — and with it the whole ladder — sits under
+  /// a derivable name. The rule comes from the server so the app never learns
+  /// which site it is talking to.
+  ///
+  /// A derived url is a guess about someone else's naming, so it is fetched
+  /// before it is trusted: anything that is not a playlist leaves the sniffed
+  /// url in place. One request, and only when a rule was sent at all.
+  Future<String> _applyRewrite(
+    UrlRewrite? rule,
+    String url,
+    Map<String, String> headers,
+  ) async {
+    if (rule == null) return url;
+    final candidate = rule.apply(url);
+    if (candidate == null) return url;
+    if (!rule.verify) {
+      _plog('rewrite (unverified) -> $candidate');
+      return candidate;
+    }
+    try {
+      final res = await getIt<Dio>().get<String>(
+        candidate,
+        options: Options(
+          headers: headers,
+          responseType: ResponseType.plain,
+          validateStatus: (_) => true,
+          receiveTimeout: const Duration(seconds: 10),
+          extra: const {'skipAuthInterceptor': true},
+        ),
+      );
+      final body = res.data ?? '';
+      if (res.statusCode == 200 && body.trimLeft().startsWith('#EXTM3U')) {
+        _plog('rewrite ok -> $candidate');
+        return candidate;
+      }
+      _plog(
+        'rewrite rejected (${res.statusCode}) — playing the sniffed url',
+        level: LogLevel.warn,
+      );
+    } catch (e) {
+      _plog('rewrite check failed: $e — playing the sniffed url',
+          level: LogLevel.warn);
+    }
+    return url;
+  }
+
   /// Entry point for every playback start. Resolves a page-url source to its
   /// real manifest first, then hands off to [_initializeResolved].
   ///
@@ -284,6 +333,7 @@ extension _PlayerMedia on _PlayerPageState {
         effHeaders = {...headers, ...sniffed.headers};
         effType = sniffed.playType;
         _plog('sniff ok in ${sw.elapsedMilliseconds}ms -> $effUrl');
+        effUrl = await _applyRewrite(cfg.rewrite, effUrl, effHeaders);
       } else {
         // The url in hand is the embed PAGE. Handing that to the player used to
         // cost two doomed retries and a minute of spinner before an error that
