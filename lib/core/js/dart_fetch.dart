@@ -48,7 +48,7 @@ class DartFetch {
         responseType: ResponseType.plain,
         // Without this dart:io stamps `Dart/3.x (dart:io)` on every extension
         // request, which Cloudflare refuses outright.
-        headers: const {'User-Agent': kSozoUserAgent},
+        headers: {'User-Agent': kSozoUserAgent},
       ),
     )..interceptors.add(SafeCookieManager(CookieJar()));
     return DartFetch._(dio, cfService, backendDio);
@@ -119,7 +119,7 @@ class DartFetch {
         // handed the challenge page. Pinning it here means a stale extractor
         // cannot reintroduce the mismatch, and the replay below sends the same
         // agent the clearance was earned under — which Cloudflare requires.
-        const solveAgent = kSozoUserAgent;
+        final solveAgent = kSozoUserAgent;
         final cookieHeader = await cf.solve(
           host: host,
           url: req.url,

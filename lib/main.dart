@@ -33,6 +33,7 @@ import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 
+import 'package:soplay/core/network/user_agent.dart';
 import 'app.dart';
 
 
@@ -54,6 +55,11 @@ void main() async {
   await Future.wait([
     EasyLocalization.ensureInitialized(),
     _initHive(),
+    // Adopt the device's own WebView User-Agent before anything makes a
+    // request. A Cloudflare managed challenge compares the header against the
+    // engine behind it, so a hard-coded version that does not match this
+    // device's WebView is a mismatch the challenge never clears.
+    initSozoUserAgent(),
   ]);
   if (isDesktopPlatform) {
     final native = Hive.box(AppConstants.settingsBox)

@@ -38,9 +38,8 @@ class MangayomiRepoStore {
       connectTimeout: const Duration(seconds: 20),
       receiveTimeout: const Duration(seconds: 30),
       responseType: ResponseType.plain,
-      headers: const {
-        'User-Agent':
-            kSozoUserAgent,
+      headers: {
+        'User-Agent': kSozoUserAgent,
       },
       // GitHub raw serves 404s for missing sibling indexes; treat any status as
       // a response so a missing anime_index.json isn't an exception.
