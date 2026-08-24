@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -34,6 +35,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
   final _scroll = ScrollController();
 
   List<LiveFolder> _folders = const [];
+  List<LiveCountry> _countries = const [];
   List<LiveChannel> _channels = const [];
   Set<String> _favourites = <String>{};
   List<String> _recent = const [];
@@ -41,6 +43,11 @@ class _LiveTvPageState extends State<LiveTvPage> {
 
   /// The folder being read, or empty for the top level.
   String _folder = '';
+
+  /// The country being read, or empty. Mutually exclusive with [_folder] —
+  /// they are two ways of asking the same question and combining them produces
+  /// a screen nobody navigated to.
+  String _country = '';
   String _query = '';
   Timer? _debounce;
 
@@ -72,7 +79,11 @@ class _LiveTvPageState extends State<LiveTvPage> {
   }
 
   /// True while the screen is showing folders rather than channels.
-  bool get _atTopLevel => _folder.isEmpty && _query.trim().isEmpty;
+  bool get _atTopLevel =>
+      _folder.isEmpty && _country.isEmpty && _query.trim().isEmpty;
+
+  /// What the crumb says you are inside of.
+  String get _openName => _folder.isNotEmpty ? _folder : _countryName(_country);
 
   Future<void> _loadFolders() async {
     setState(() {
@@ -80,11 +91,12 @@ class _LiveTvPageState extends State<LiveTvPage> {
       _error = null;
     });
     try {
-      final folders = await _service.folders();
+      final index = await _service.index();
       if (!mounted) return;
       setState(() {
-        _folders = folders;
-        _total = folders.fold(0, (n, f) => n + f.count);
+        _folders = index.folders;
+        _countries = index.countries;
+        _total = index.folders.fold(0, (n, f) => n + f.count);
         _loading = false;
       });
     } catch (_) {
@@ -111,6 +123,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
     try {
       final result = await _service.browse(
         category: _folder.isEmpty ? null : _folder,
+        country: _country.isEmpty ? null : _country,
         search: _query,
         page: page,
       );
@@ -160,6 +173,17 @@ class _LiveTvPageState extends State<LiveTvPage> {
   void _openFolder(String name) {
     setState(() {
       _folder = name;
+      _country = '';
+      _channels = const [];
+    });
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    _loadPage();
+  }
+
+  void _openCountry(String code) {
+    setState(() {
+      _country = code;
+      _folder = '';
       _channels = const [];
     });
     if (_scroll.hasClients) _scroll.jumpTo(0);
@@ -169,6 +193,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
   void _closeFolder() {
     setState(() {
       _folder = '';
+      _country = '';
       _channels = const [];
       _query = '';
     });
@@ -183,12 +208,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
     var changed = false;
     for (final channel in seen) {
       if (!wanted.contains(channel.id)) continue;
-      final card = {
-        'name': channel.name,
-        'streamUrl': channel.streamUrl,
-        'logoUrl': channel.logoUrl ?? '',
-        'category': channel.category,
-      };
+      final card = _cardOf(channel);
       if (_cards[channel.id]?.toString() == card.toString()) continue;
       _cards[channel.id] = card;
       changed = true;
@@ -199,18 +219,91 @@ class _LiveTvPageState extends State<LiveTvPage> {
     if (changed) getIt<HiveService>().setLiveTvCards(_cards);
   }
 
+  /// A country code as something readable.
+  ///
+  /// Only the ones this line-up actually carries are named; anything else keeps
+  /// its code, which is still better than an empty chip. Home comes first
+  /// wherever these are sorted, because it is what most people came for.
+  static const Map<String, String> _countryNames = {
+    'UZ': 'O\'zbekiston',
+    'RU': 'Rossiya',
+    'TR': 'Turkiya',
+    'KZ': 'Qozog\'iston',
+    'KG': 'Qirg\'iziston',
+    'TJ': 'Tojikiston',
+    'TM': 'Turkmaniston',
+    'AZ': 'Ozarbayjon',
+    'US': 'AQSH',
+    'UK': 'Buyuk Britaniya',
+    'GB': 'Buyuk Britaniya',
+    'CA': 'Kanada',
+    'DE': 'Germaniya',
+    'FR': 'Fransiya',
+    'QA': 'Qatar',
+    'AE': 'BAA',
+    'CN': 'Xitoy',
+    'JP': 'Yaponiya',
+    'KR': 'Koreya',
+    'SG': 'Singapur',
+    'IL': 'Isroil',
+    'AT': 'Avstriya',
+    'SK': 'Slovakiya',
+  };
+
+  String _countryName(String code) =>
+      _countryNames[code.toUpperCase()] ?? code.toUpperCase();
+
+  /// The flag for an ISO country code, built from regional-indicator letters.
+  ///
+  /// A picture rather than two letters, and no asset to ship or fail to load —
+  /// every platform this runs on renders these.
+  String _flagOf(String code) {
+    final c = code.toUpperCase();
+    if (c.length != 2 || !RegExp(r'^[A-Z]{2}$').hasMatch(c)) return '';
+    return String.fromCharCodes([
+      0x1F1E6 + c.codeUnitAt(0) - 0x41,
+      0x1F1E6 + c.codeUnitAt(1) - 0x41,
+    ]);
+  }
+
+  /// Everything needed to draw and PLAY a pinned channel without its page.
+  ///
+  /// `headers` rides along encoded, because a favourite is opened straight from
+  /// this cache: dropping them here meant a header-gated channel worked the
+  /// first time and 403'd every time after it was pinned.
+  Map<String, String> _cardOf(LiveChannel channel) => {
+    'name': channel.name,
+    'streamUrl': channel.streamUrl,
+    'logoUrl': channel.logoUrl ?? '',
+    'category': channel.category,
+    if (channel.headers.isNotEmpty) 'headers': jsonEncode(channel.headers),
+  };
+
   LiveChannel? _fromCard(String id) {
     final card = _cards[id];
     if (card == null) return null;
     final url = card['streamUrl'] ?? '';
     final name = card['name'] ?? '';
     if (url.isEmpty || name.isEmpty) return null;
+    Map<String, String> headers = const {};
+    final raw = card['headers'];
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        headers = (jsonDecode(raw) as Map).map(
+          (k, v) => MapEntry(k.toString(), v.toString()),
+        );
+      } catch (_) {
+        // A card written by an older build, or corrupted. Playing without the
+        // headers is worth trying; refusing to draw the channel is not.
+      }
+    }
     return LiveChannel(
       id: id,
       name: name,
       streamUrl: url,
       logoUrl: (card['logoUrl'] ?? '').isEmpty ? null : card['logoUrl'],
       category: card['category'] ?? '',
+      headers: headers,
     );
   }
 
@@ -218,12 +311,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
     setState(() {
       if (!_favourites.remove(channel.id)) {
         _favourites.add(channel.id);
-        _cards[channel.id] = {
-          'name': channel.name,
-          'streamUrl': channel.streamUrl,
-          'logoUrl': channel.logoUrl ?? '',
-          'category': channel.category,
-        };
+        _cards[channel.id] = _cardOf(channel);
       }
     });
     final hive = getIt<HiveService>();
@@ -234,12 +322,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
   void _play(LiveChannel channel) {
     final hive = getIt<HiveService>();
     hive.pushLiveTvRecent(channel.id);
-    _cards[channel.id] = {
-      'name': channel.name,
-      'streamUrl': channel.streamUrl,
-      'logoUrl': channel.logoUrl ?? '',
-      'category': channel.category,
-    };
+    _cards[channel.id] = _cardOf(channel);
     hive.setLiveTvCards(_cards);
     setState(() {
       _recent = [channel.id, ..._recent.where((e) => e != channel.id)]
@@ -251,7 +334,10 @@ class _LiveTvPageState extends State<LiveTvPage> {
       extra: PlayerArgs(
         title: channel.name,
         provider: 'live',
-        headers: const {},
+        // Some broadcast CDNs 403 anything that does not present the
+        // User-Agent or Referer they expect. The server records which channels
+        // those are; sending an empty map made them look dead.
+        headers: channel.headers,
         movieUrl: channel.streamUrl,
         thumbnail: channel.logoUrl,
         // Live has no episodes and nothing to resume to, and offering a
@@ -329,9 +415,9 @@ class _LiveTvPageState extends State<LiveTvPage> {
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   isDense: true,
-                  hintText: _folder.isEmpty
+                  hintText: _atTopLevel
                       ? 'live_tv.search_hint'.tr()
-                      : 'live_tv.search_in'.tr(namedArgs: {'folder': _folder}),
+                      : 'live_tv.search_in'.tr(namedArgs: {'folder': _openName}),
                   prefixIcon: const Icon(Icons.search_rounded, size: 20),
                   suffixIcon: _query.isEmpty
                       ? null
@@ -348,10 +434,10 @@ class _LiveTvPageState extends State<LiveTvPage> {
           ),
 
           // Which folder is open, and the way back out of it.
-          if (_folder.isNotEmpty)
+          if (_folder.isNotEmpty || _country.isNotEmpty)
             SliverToBoxAdapter(
               child: _FolderCrumb(
-                folder: _folder,
+                folder: _openName,
                 total: _total,
                 onBack: _closeFolder,
               ),
@@ -376,6 +462,15 @@ class _LiveTvPageState extends State<LiveTvPage> {
             // folders, and the one somebody wants is two taps away rather than
             // twenty megabytes and a scroll.
             _FolderGrid(folders: _folders, onOpen: _openFolder),
+            if (_countries.isNotEmpty) ...[
+              _Header(label: 'live_tv.countries'.tr()),
+              _CountryRow(
+                countries: _countries,
+                nameOf: _countryName,
+                flagOf: _flagOf,
+                onOpen: _openCountry,
+              ),
+            ],
           ] else if (_loading) ...[
             const SliverToBoxAdapter(
               child: Padding(
@@ -939,6 +1034,89 @@ class _Empty extends StatelessWidget {
               OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The countries the line-up covers, as a strip you scroll sideways.
+///
+/// A row rather than a grid, and below the folders: it is a shortcut for
+/// somebody who already knows what they are after, not the main navigation.
+/// Ordered by how much each country actually contributes — the line-up leads
+/// with channels people recognise, and pinning a home country in front of that
+/// puts a provincial station where a famous one should be.
+class _CountryRow extends StatelessWidget {
+  const _CountryRow({
+    required this.countries,
+    required this.nameOf,
+    required this.flagOf,
+    required this.onOpen,
+  });
+
+  final List<LiveCountry> countries;
+  final String Function(String) nameOf;
+  final String Function(String) flagOf;
+  final ValueChanged<String> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final ordered = [...countries]..sort((a, b) => b.count.compareTo(a.count));
+
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 40,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          itemCount: ordered.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, i) {
+            final country = ordered[i];
+            final flag = flagOf(country.code);
+            return Material(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => onOpen(country.code),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (flag.isNotEmpty) ...[
+                        Text(flag, style: const TextStyle(fontSize: 15)),
+                        const SizedBox(width: 7),
+                      ],
+                      Text(
+                        nameOf(country.code),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${country.count}',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textHint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

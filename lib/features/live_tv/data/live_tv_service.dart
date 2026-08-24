@@ -12,6 +12,7 @@ class LiveChannel {
     this.country = '',
     this.language = '',
     this.category = '',
+    this.headers = const {},
   });
 
   final String id;
@@ -20,6 +21,14 @@ class LiveChannel {
   final String? logoUrl;
   final String country;
   final String language;
+
+  /// Headers this stream's origin insists on, or empty.
+  ///
+  /// A good share of broadcast CDNs answer 403 to a request that does not
+  /// present the User-Agent or Referer they expect. The server knows which
+  /// channels those are; without carrying them here the player asks plainly and
+  /// the channel looks simply broken.
+  final Map<String, String> headers;
 
   /// Filled in from the group it arrived in, so a channel carries its own
   /// category once it is out of the list.
@@ -33,6 +42,7 @@ class LiveChannel {
     country: country,
     language: language,
     category: value,
+    headers: headers,
   );
 
   static LiveChannel? fromJson(Map<String, dynamic> json) {
@@ -54,6 +64,13 @@ class LiveChannel {
       // Present when the channel arrives from a flat listing rather than from
       // inside a group; withCategory still fills it in for the grouped shape.
       category: json['category']?.toString() ?? '',
+      headers: switch (json['headers']) {
+        final Map<dynamic, dynamic> m => {
+          for (final entry in m.entries)
+            if (entry.value != null) entry.key.toString(): entry.value.toString(),
+        },
+        _ => const {},
+      },
     );
   }
 }
@@ -74,6 +91,30 @@ class LiveFolder {
   final String name;
   final int count;
   final String? logoUrl;
+}
+
+/// One country in the line-up, and how many channels come from it.
+///
+/// Alongside the folders rather than instead of them: the folders answer "what
+/// do I feel like watching", this answers "show me our channels", and for most
+/// people opening Live TV the second question is the one they have.
+@immutable
+class LiveCountry {
+  const LiveCountry({required this.code, required this.count});
+
+  final String code;
+  final int count;
+}
+
+/// What `/channels/categories` returns: both ways of slicing the line-up.
+@immutable
+class LiveIndex {
+  const LiveIndex({required this.folders, required this.countries});
+
+  final List<LiveFolder> folders;
+  final List<LiveCountry> countries;
+
+  static const empty = LiveIndex(folders: [], countries: []);
 }
 
 /// One page of channels.
@@ -109,22 +150,38 @@ class LiveTvService {
 
   final Dio _dio;
 
-  /// The folders. A few dozen rows however large the line-up behind them is.
-  Future<List<LiveFolder>> folders() async {
+  /// The folders and the countries. A few dozen rows however large the line-up
+  /// behind them is.
+  Future<LiveIndex> index() async {
     final response = await _dio.get('/channels/categories');
-    final raw = (response.data as Map?)?['categories'];
-    if (raw is! List) return const [];
-    return [
-      for (final item in raw.whereType<Map>())
-        if ((item['name']?.toString() ?? '').isNotEmpty)
-          LiveFolder(
-            name: item['name'].toString(),
-            count: (item['count'] as num?)?.toInt() ?? 0,
-            logoUrl: (item['logoUrl'] as String?)?.trim().isEmpty ?? true
-                ? null
-                : item['logoUrl'] as String,
-          ),
-    ];
+    final data = response.data as Map?;
+    final raw = data?['categories'];
+    final rawCountries = data?['countries'];
+    return LiveIndex(
+      folders: raw is! List
+          ? const []
+          : [
+              for (final item in raw.whereType<Map>())
+                if ((item['name']?.toString() ?? '').isNotEmpty)
+                  LiveFolder(
+                    name: item['name'].toString(),
+                    count: (item['count'] as num?)?.toInt() ?? 0,
+                    logoUrl: (item['logoUrl'] as String?)?.trim().isEmpty ?? true
+                        ? null
+                        : item['logoUrl'] as String,
+                  ),
+            ],
+      countries: rawCountries is! List
+          ? const []
+          : [
+              for (final item in rawCountries.whereType<Map>())
+                if ((item['code']?.toString() ?? '').isNotEmpty)
+                  LiveCountry(
+                    code: item['code'].toString(),
+                    count: (item['count'] as num?)?.toInt() ?? 0,
+                  ),
+            ],
+    );
   }
 
   /// One page, optionally inside a folder or matching a search.
@@ -134,6 +191,7 @@ class LiveTvService {
   /// megabytes with extra steps.
   Future<LivePage> browse({
     String? category,
+    String? country,
     String? search,
     int page = 1,
     int limit = 40,
@@ -144,6 +202,7 @@ class LiveTvService {
         'page': page,
         'limit': limit,
         if (category != null && category.isNotEmpty) 'category': category,
+        if (country != null && country.isNotEmpty) 'country': country,
         if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
       },
     );

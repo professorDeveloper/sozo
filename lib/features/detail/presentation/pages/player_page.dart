@@ -73,6 +73,24 @@ part 'player_page.tv.dart';
 /// Hard ceiling on auto-retries per episode — see [_PlayerPageState._lifetimeRetries].
 const int _kMaxLifetimeRetries = 4;
 
+/// Reconnect budget for a live broadcast, which is a different problem.
+///
+/// A film either plays or is broken, so four attempts in a session is generous.
+/// A channel drops — a segment gap, a CDN failing over, a phone changing
+/// network — and the only correct response is to reconnect and keep watching.
+/// Four in a two-hour evening meant the player gave up permanently on something
+/// that was working again seconds later.
+const int _kMaxLiveRetries = 1000;
+
+/// How long to wait before reconnecting a dropped channel, by attempt.
+///
+/// Fast enough that a blip is invisible, and backing off so a channel that is
+/// genuinely off air is not hammered all evening.
+Duration _liveRetryBackoff(int attempt) {
+  const steps = [1, 2, 4, 8, 15];
+  return Duration(seconds: steps[attempt < steps.length ? attempt : steps.length - 1]);
+}
+
 class PlayerPage extends StatefulWidget {
   const PlayerPage({super.key, required this.args});
   final PlayerArgs args;
@@ -113,6 +131,15 @@ class _PlayerPageState extends State<PlayerPage>
   Map<String, String> _headers = const {};
   bool _isNetworkVideo = false;
   bool _isHls = false;
+  /// True while the current media is a live broadcast.
+  ///
+  /// Seeded from what the caller SAID it is rather than guessed alone: Live TV
+  /// hands the player `type: 'live'`, and a stream that is live does not stop
+  /// being live because its playlist happens to report a duration. Plenty of
+  /// live HLS carries a sliding DVR window, so the duration heuristic below
+  /// says "not live" for real channels — which drew a scrub bar on something
+  /// unscrubbable, ran frame-preview extraction against an endless stream, and
+  /// treated the live edge as the end of the file.
   bool _isLive = false;
   List<VideoSourceEntity> _videoSources = const [];
 

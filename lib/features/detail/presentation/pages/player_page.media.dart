@@ -411,6 +411,11 @@ extension _PlayerMedia on _PlayerPageState {
     _videoUrl = effectiveUrl;
     _mediaType = type;
     _isNetworkVideo = !isLocal;
+    // Known BEFORE the first frame, not after it. A channel that is down at the
+    // moment you open it fails during initialize(), and the error path has to
+    // already know it is looking at a broadcast — otherwise the one case that
+    // most needs reconnecting is the one that gets a dead end.
+    if (type == 'live' || widget.args.type == 'live') _isLive = true;
 
     try {
       await controller.initialize();
@@ -431,7 +436,13 @@ extension _PlayerMedia on _PlayerPageState {
         return;
       }
       final dur = controller.value.duration;
-      _isLive = dur <= Duration.zero || dur.inHours >= 12;
+      // What the caller said, OR what the duration implies. The declared type is
+      // the reliable half: a live channel with a DVR window reports a perfectly
+      // finite duration and would otherwise be treated as a file.
+      _isLive = _mediaType == 'live' ||
+          widget.args.type == 'live' ||
+          dur <= Duration.zero ||
+          dur.inHours >= 12;
       PlayerLog.instance.setContext({
         'live': _isLive.toString(),
         'duration': _isLive ? 'live' : dur.toString(),
@@ -517,6 +528,15 @@ extension _PlayerMedia on _PlayerPageState {
         _isCodecError = true;
         msg =
             'This video format is not supported on your device. You can try playing it in your browser.';
+      } else if (_isLive && _lifetimeRetries < _kMaxLiveRetries) {
+        // A channel that would not open is very often a channel that will open
+        // in a moment — the origin was mid-restart, or the playlist rolled. The
+        // same reconnect the mid-playback path uses applies here.
+        _retryAttempts++;
+        _lifetimeRetries++;
+        _autoRetrying = true;
+        _liveReconnect();
+        return;
       } else if (_isRecoverableError(raw) &&
           _retryAttempts < 2 &&
           _lifetimeRetries < _kMaxLifetimeRetries) {
@@ -601,14 +621,25 @@ extension _PlayerMedia on _PlayerPageState {
       if (msg != null && msg != _lastError && mounted) {
         _lastError = msg;
         _plog('playback error: $msg', level: LogLevel.error);
+        // A live channel reconnects rather than giving up: a drop mid-broadcast
+        // is the normal case, not a broken source. It also reconnects on errors
+        // a file would call fatal — a 403 or a 404 on a live edge is usually a
+        // rotated token or a segment that expired while we were away, and the
+        // next playlist fetch has the current one.
+        final liveRetry = _isLive && _lifetimeRetries < _kMaxLiveRetries;
         if (!_autoRetrying &&
-            _retryAttempts < 2 &&
-            _lifetimeRetries < _kMaxLifetimeRetries &&
-            _isRecoverableError(msg)) {
+            (liveRetry ||
+                (_retryAttempts < 2 &&
+                    _lifetimeRetries < _kMaxLifetimeRetries &&
+                    _isRecoverableError(msg)))) {
           _retryAttempts++;
           _lifetimeRetries++;
           _autoRetrying = true;
-          _autoRetry();
+          if (_isLive) {
+            _liveReconnect();
+          } else {
+            _autoRetry();
+          }
           return;
         }
         setState(() => _errorMessage = _humanizeError(msg));
@@ -677,6 +708,39 @@ extension _PlayerMedia on _PlayerPageState {
     }
 
     if (changed && mounted) setState(() {});
+  }
+
+  /// Reconnects a dropped live channel, backing off between attempts.
+  ///
+  /// Deliberately NOT [_autoRetry]: that one's first move is to fall through to
+  /// the next quality source, which for a channel with a single url is a no-op,
+  /// and its second is to surface an error. A broadcast has nowhere else to go —
+  /// the same url IS the channel — so this reopens it, waits longer each time,
+  /// and keeps the last frame on screen instead of flashing an error at somebody
+  /// whose stream will be back in two seconds.
+  Future<void> _liveReconnect() async {
+    if (!mounted) return;
+    final attempt = _lifetimeRetries;
+    _plog('live stream dropped — reconnecting (attempt $attempt)');
+
+    setState(() {
+      _stage = _LoadingStage.loading;
+      _errorMessage = null;
+      _isCodecError = false;
+    });
+
+    await Future<void>.delayed(_liveRetryBackoff(attempt - 1));
+    if (!mounted) return;
+
+    final url = _videoUrl;
+    if (url == null) {
+      _autoRetrying = false;
+      return;
+    }
+    await _disposeController();
+    if (!mounted) return;
+    await _initializeWith(url: url, headers: _headers, type: _mediaType);
+    _autoRetrying = false;
   }
 
   Future<void> _autoRetry() async {

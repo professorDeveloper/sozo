@@ -75,6 +75,11 @@ extension _PlayerControls on _PlayerPageState {
 
   void _seekRelative(Duration delta) {
     if (_partyBlockLocal()) return;
+    // There is nothing to skip forward into on a broadcast, and skipping back
+    // lands outside the DVR window on most channels — the stream stalls and the
+    // viewer's only way out is to leave and come back. The double-tap gesture
+    // reaches here too, which is how a stray tap used to kill a channel.
+    if (_isLive) return;
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
     final next = c.value.position + delta;
@@ -94,6 +99,9 @@ extension _PlayerControls on _PlayerPageState {
     if (_partyBlockLocal()) return;
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
+    // `Go live` is the one seek a broadcast accepts, and it asks for the very
+    // end; anything else is a scrub bar that should not have been reachable.
+    if (_isLive && position < c.value.duration) return;
     c.seekTo(position);
     _scheduleHide();
     if (!_isLive) {

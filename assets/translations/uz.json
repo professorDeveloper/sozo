@@ -1217,6 +1217,7 @@
     "retry": "Qayta urinish",
     "recent": "YAQINDA KO‘RILGAN",
     "folders": "PAPKALAR",
+    "countries": "DAVLATLAR",
     "search_in": "{folder} ichida qidirish…",
     "channel_count": {
       "one": "{} kanal",

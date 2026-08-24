@@ -1217,6 +1217,7 @@
     "retry": "Повторить",
     "recent": "НЕДАВНО СМОТРЕЛИ",
     "folders": "ПАПКИ",
+    "countries": "СТРАНЫ",
     "search_in": "Поиск в {folder}…",
     "channel_count": {
       "one": "{} канал",

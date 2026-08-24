@@ -1217,6 +1217,7 @@
     "retry": "Try again",
     "recent": "RECENTLY WATCHED",
     "folders": "FOLDERS",
+    "countries": "COUNTRIES",
     "search_in": "Search in {folder}…",
     "channel_count": {
       "one": "{} channel",
