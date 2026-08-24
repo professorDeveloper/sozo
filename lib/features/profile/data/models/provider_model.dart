@@ -11,6 +11,8 @@ class ProviderModel extends ProviderEntity {
     super.mode,
     super.category,
     super.requiresCfBypass,
+    super.browseOnly,
+    super.browseOnlyReason,
     super.nsfw,
     super.extractor,
   });
@@ -37,6 +39,8 @@ class ProviderModel extends ProviderEntity {
           ? json['category'] as String
           : 'other',
       requiresCfBypass: json['requiresCfBypass'] == true,
+      browseOnly: json['browseOnly'] == true,
+      browseOnlyReason: (json['browseOnlyReason'] as String?)?.trim(),
       nsfw: json['nsfw'] == true,
       extractor: _parseExtractor(json['extractor']),
     );
@@ -52,6 +56,8 @@ class ProviderModel extends ProviderEntity {
     'mode': mode,
     'category': category,
     'requiresCfBypass': requiresCfBypass,
+    'browseOnly': browseOnly,
+    if (browseOnlyReason != null) 'browseOnlyReason': browseOnlyReason,
     'nsfw': nsfw,
     if (extractor != null)
       'extractor': {

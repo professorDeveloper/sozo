@@ -685,6 +685,10 @@ class _ProviderListTile extends StatelessWidget {
                             const _ServerDownBadge()
                           else
                             _ProviderModeBadge(mode: provider.mode),
+                          if (provider.browseOnly) ...[
+                            const SizedBox(width: 4),
+                            const _BrowseOnlyBadge(),
+                          ],
                           if (provider.requiresCfBypass) ...[
                             const SizedBox(width: 4),
                             const _CfBypassBadge(),
@@ -695,7 +699,23 @@ class _ProviderListTile extends StatelessWidget {
                           ],
                         ],
                       ),
-                      if (provider.description.isNotEmpty) ...[
+                      // A browse-only source says why in place of its blurb:
+                      // the reason is the one thing a user needs before they
+                      // pick it, and the blurb is still one tap away.
+                      if (provider.browseOnly &&
+                          (provider.browseOnlyReason?.isNotEmpty ?? false)) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          provider.browseOnlyReason!,
+                          style: const TextStyle(
+                            color: Color(0xFFD08A3E),
+                            fontSize: 11,
+                            height: 1.25,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ] else if (provider.description.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
                           provider.description,
@@ -912,6 +932,39 @@ class _ProviderModeBadge extends StatelessWidget {
           fontWeight: FontWeight.w700,
           letterSpacing: 0.4,
         ),
+      ),
+    );
+  }
+}
+
+class _BrowseOnlyBadge extends StatelessWidget {
+  const _BrowseOnlyBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFFD08A3E);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 0.8),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.visibility_outlined, size: 9, color: color),
+          SizedBox(width: 3),
+          Text(
+            'FAQAT KO\'RISH',
+            style: TextStyle(
+              color: color,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
       ),
     );
   }

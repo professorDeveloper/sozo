@@ -23,6 +23,18 @@ class ProviderEntity {
   final String category;
   final bool requiresCfBypass;
 
+  /// The source can be browsed but nothing on it will play.
+  ///
+  /// Set by the backend when a provider's media has gone away at the source
+  /// while its catalog still answers — mochitv, whose storage stopped serving,
+  /// is the current case. Surfacing it means a user learns the source is
+  /// read-only from the list, instead of by tapping an episode and watching a
+  /// player fail.
+  final bool browseOnly;
+
+  /// Why [browseOnly] is set, in the user's language. Backend-supplied.
+  final String? browseOnlyReason;
+
   final bool nsfw;
   final ExtractorRef? extractor;
 
@@ -36,6 +48,8 @@ class ProviderEntity {
     this.mode = 'server',
     this.category = 'other',
     this.requiresCfBypass = false,
+    this.browseOnly = false,
+    this.browseOnlyReason,
     this.nsfw = false,
     this.extractor,
   });
