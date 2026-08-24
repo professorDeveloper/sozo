@@ -40,6 +40,7 @@ class HistorySyncService {
   static const String _cursorKey = 'history_sync_cursor';
   static const String _pushedAtKey = 'history_sync_pushed_at';
   static const String _tombstonesKey = 'history_sync_tombstones';
+  static const String _ownerKey = 'history_sync_owner';
 
   bool _running = false;
 
@@ -133,10 +134,44 @@ class HistorySyncService {
   }
 
   /// Sign-out must not leave one account's cursor pointing at another's history.
+  ///
+  /// The Hive rows are deliberately LEFT ALONE here — someone who signs out and
+  /// keeps watching still has their Continue Watching list. What makes that safe
+  /// is [adoptFor], which refuses to hand those rows to a different account.
   Future<void> clear() async {
     await _state.delete(_cursorKey);
     await _state.delete(_pushedAtKey);
     await _state.delete(_tombstonesKey);
+  }
+
+  /// Decides whether the rows already on this phone belong to [userId].
+  ///
+  /// Sign-out clears the cursor, which resets the push watermark to zero — so
+  /// the first sync after ANY sign-in uploads every local row. That is right
+  /// when the same person signs back in, or when someone who had been watching
+  /// signed out finally makes an account: their viewing follows them.
+  ///
+  /// It is badly wrong when the next sign-in is somebody else. Handing one
+  /// person's watch history to another account is not a sync bug, it is a leak,
+  /// and nothing was stopping it. So the rows are stamped with the account they
+  /// belong to, and a different owner wipes them before the first sync can push
+  /// them anywhere.
+  ///
+  /// Unstamped rows have no owner yet (signed-out viewing, or an install from
+  /// before this existed) and are adopted rather than destroyed.
+  Future<void> adoptFor(String userId) async {
+    final id = userId.trim();
+    if (id.isEmpty) return;
+
+    final owner = _state.get(_ownerKey) as String?;
+    if (owner == id) return;
+
+    if (owner != null && owner != id) {
+      await _local.clearLocalOnly();
+      // The cursor and the outgoing tombstones described the previous account.
+      await clear();
+    }
+    await _state.put(_ownerKey, id);
   }
 
   // ─── applying the server's answer ──────────────────────────────────────────

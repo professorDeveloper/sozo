@@ -386,6 +386,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   /// tests where the sync service is not wired.
   Future<void> _syncHistory() async {
     if (!getIt.isRegistered<HistorySyncService>()) return;
+    // Before anything is uploaded: the rows sitting on this phone may belong to
+    // whoever signed in last. Signing out resets the push watermark, so the
+    // first sync pushes EVERYTHING local — which is what you want when the same
+    // person returns, and a data leak when it is somebody else.
+    final userId = hiveService.getUser()?.id;
+    if (userId != null && userId.isNotEmpty) {
+      await getIt<HistorySyncService>().adoptFor(userId);
+    }
     await getIt<HistorySyncService>().sync();
     // The AniList link is stored on the account, so signing in on a new device
     // is exactly when it should reappear — without this, connecting on the

@@ -127,6 +127,17 @@ class HistoryService {
     if (keys.isNotEmpty) revision.value++;
   }
 
+  /// Drops every local row WITHOUT recording tombstones.
+  ///
+  /// The distinction from [clearAll] matters: this is not a user deleting their
+  /// history, it is these rows turning out to belong to a different account
+  /// (see HistorySyncService.adoptFor). Tombstoning them would push a delete
+  /// for each one into whichever account signs in next.
+  Future<void> clearLocalOnly() async {
+    await _box.clear();
+    revision.value++;
+  }
+
   Future<void> clearAll() async {
     if (getIt.isRegistered<HistorySyncService>()) {
       final sync = getIt<HistorySyncService>();
