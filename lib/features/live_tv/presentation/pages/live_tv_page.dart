@@ -8,9 +8,28 @@ import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
+import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/live_tv/data/live_tv_service.dart';
+import 'package:soplay/features/live_tv/presentation/widgets/channel_sheet.dart';
+
+const double _kGutter = 14;
+const double _kSpacing = 10;
+
+int _columnsFor(double width) => width >= 900 ? 5 : (width >= 620 ? 4 : 3);
+
+/// Width factor for a channel card's progress hairline, or null for no bar.
+///
+/// The 0.02 floor stops a slot that started a minute ago rendering as a
+/// zero-width sliver, which reads as a paint bug rather than as a beginning.
+double? _barFactor(LiveProgramme? slot, DateTime at) {
+  if (slot == null || !slot.isBarWorthy) return null;
+  final value = slot.progressAt(at); // already clamped to 0..1 by the model
+  if (value <= 0) return null;
+  return value < 0.02 ? 0.02 : value;
+}
 
 /// Live TV.
 ///
@@ -41,6 +60,10 @@ class _LiveTvPageState extends State<LiveTvPage> {
   List<String> _recent = const [];
   Map<String, Map<String, String>> _cards = {};
 
+  /// Pinned channels, rebuilt only when the pins change — never in build().
+  List<LiveChannel> _favouriteCards = const [];
+  List<LiveChannel> _recentCards = const [];
+
   /// The folder being read, or empty for the top level.
   String _folder = '';
 
@@ -50,13 +73,30 @@ class _LiveTvPageState extends State<LiveTvPage> {
   String _country = '';
   String _query = '';
   Timer? _debounce;
+  Timer? _ticker;
 
   int _page = 1;
   bool _hasMore = false;
+
+  /// How many channels the OPEN scope has, as browse reports it.
   int _total = 0;
-  bool _loading = true;
+
+  /// The whole line-up, summed from the folder counts. A different number with
+  /// a different meaning, and the one the Categories header wants.
+  int _indexTotal = 0;
+
+  /// The index request has finished, succeeded or not.
+  bool _booted = false;
+  bool _loading = false;
   bool _loadingMore = false;
   String? _error;
+
+  /// Request generation. Bumped by every scope change, and checked after every
+  /// await, so a response for a folder the user already left is dropped.
+  int _seq = 0;
+
+  /// One "now" per tick, so every bar and slot line on screen agrees.
+  DateTime _now = DateTime.now();
 
   @override
   void initState() {
@@ -65,57 +105,80 @@ class _LiveTvPageState extends State<LiveTvPage> {
     _favourites = hive.getLiveTvFavourites().toSet();
     _recent = hive.getLiveTvRecent();
     _cards = hive.getLiveTvCards();
+    _rebuildPins();
     _scroll.addListener(_onScroll);
-    _loadFolders();
+    _ticker = Timer.periodic(const Duration(seconds: 60), _onTick);
+    _loadIndex();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _ticker?.cancel();
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     _search.dispose();
     super.dispose();
   }
 
-  /// True while the screen is showing folders rather than channels.
-  bool get _atTopLevel =>
-      _folder.isEmpty && _country.isEmpty && _query.trim().isEmpty;
+  void _onTick(Timer _) {
+    if (!mounted) return;
+    // The tab lives inside main_page's IndexedStack for the whole session, so
+    // this refuses to rebuild anything that has no bar on it.
+    if (!_scoped) return;
+    if (!_channels.any((c) => c.now != null)) return;
+    setState(() => _now = DateTime.now());
+  }
 
-  /// What the crumb says you are inside of.
-  String get _openName => _folder.isNotEmpty ? _folder : _countryName(_country);
+  /// True while a folder, a country or a search is open — i.e. whenever the
+  /// screen is showing channels rather than the line-up's index.
+  bool get _scoped =>
+      _folder.isNotEmpty || _country.isNotEmpty || _query.trim().isNotEmpty;
 
-  Future<void> _loadFolders() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  bool get _searching => _query.trim().isNotEmpty;
+
+  String get _scopeName {
+    if (_folder.isNotEmpty) return _folder;
+    if (_country.isNotEmpty) return _countryName(_country);
+    return 'live_tv.results'.tr();
+  }
+
+  Future<void> _loadIndex({bool silent = false}) async {
+    if (!silent) setState(() => _error = null);
     try {
       final index = await _service.index();
       if (!mounted) return;
+      // Ordered here, once, and by the same rule for both strips: the line-up
+      // leads with what it actually carries.
+      final folders = [...index.folders]
+        ..sort((a, b) => b.count.compareTo(a.count));
+      final countries = [...index.countries]
+        ..sort((a, b) => b.count.compareTo(a.count));
       setState(() {
-        _folders = index.folders;
-        _countries = index.countries;
-        _total = index.folders.fold(0, (n, f) => n + f.count);
-        _loading = false;
+        _folders = folders;
+        _countries = countries;
+        _indexTotal = folders.fold(0, (n, f) => n + f.count);
+        _booted = true;
+        _error = null;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _loading = false;
+        _booted = true;
         _error = 'live_tv.load_failed'.tr();
       });
     }
   }
 
-  /// One page of channels for the open folder, or for the current search.
-  Future<void> _loadPage({bool append = false}) async {
+  /// One page of channels for the open scope.
+  Future<void> _loadPage({bool append = false, bool silent = false}) async {
     if (append && (_loadingMore || !_hasMore)) return;
+    final seq = ++_seq;
     setState(() {
       if (append) {
         _loadingMore = true;
       } else {
-        _loading = true;
+        if (!silent) _loading = true;
         _error = null;
       }
     });
@@ -127,54 +190,57 @@ class _LiveTvPageState extends State<LiveTvPage> {
         search: _query,
         page: page,
       );
-      if (!mounted) return;
+      if (!mounted || seq != _seq) return;
       setState(() {
-        _channels = append ? [..._channels, ...result.channels] : result.channels;
+        _channels = append
+            ? [..._channels, ...result.channels]
+            : result.channels;
         _page = result.page;
         _hasMore = result.hasMore;
         _total = result.total;
         _loading = false;
         _loadingMore = false;
+        _error = null;
       });
       _rememberCards(result.channels);
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || seq != _seq) return;
+      final hasContent = _channels.isNotEmpty;
       setState(() {
         _loading = false;
         _loadingMore = false;
-        if (!append) _error = 'live_tv.load_failed'.tr();
+        if (!hasContent) _error = 'live_tv.load_failed'.tr();
       });
+      // With a grid already on screen there is nowhere to put an error state,
+      // and stopping without a word looks like the list simply ended.
+      if (hasContent) _toast('live_tv.load_failed'.tr());
     }
   }
 
-  /// The next page, once the list is close enough to its end to need one.
-  void _onScroll() {
-    if (!_scroll.hasClients || _atTopLevel) return;
-    final position = _scroll.position;
-    if (position.pixels >= position.maxScrollExtent - 600) _loadPage(append: true);
+  void _toast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// Searching goes to the server, so it waits for a pause in the typing.
-  void _onQueryChanged(String value) {
-    _debounce?.cancel();
-    setState(() => _query = value);
-    if (value.trim().isEmpty) {
-      // Back to whatever was on screen before the search started.
-      if (_folder.isEmpty) {
-        setState(() => _channels = const []);
-      } else {
-        _loadPage();
-      }
-      return;
-    }
-    _debounce = Timer(const Duration(milliseconds: 350), _loadPage);
+  /// Pull to refresh. Silent because RefreshIndicator draws its own spinner and
+  /// raising [_loading] would swap the grid for skeletons underneath it.
+  Future<void> _refresh() =>
+      _scoped ? _loadPage(silent: true) : _loadIndex(silent: true);
+
+  /// Everything a scope change must forget. Always called inside a setState.
+  void _resetPaging() {
+    _page = 1;
+    _hasMore = false;
+    _total = 0;
+    _error = null;
+    _channels = const [];
   }
 
   void _openFolder(String name) {
     setState(() {
       _folder = name;
       _country = '';
-      _channels = const [];
+      _resetPaging();
     });
     if (_scroll.hasClients) _scroll.jumpTo(0);
     _loadPage();
@@ -184,27 +250,74 @@ class _LiveTvPageState extends State<LiveTvPage> {
     setState(() {
       _country = code;
       _folder = '';
-      _channels = const [];
+      _resetPaging();
     });
     if (_scroll.hasClients) _scroll.jumpTo(0);
     _loadPage();
   }
 
-  void _closeFolder() {
+  void _closeScope() {
+    _debounce?.cancel();
+    _search.clear();
+    _seq++; // drop anything already in flight for the scope being left
     setState(() {
       _folder = '';
       _country = '';
-      _channels = const [];
       _query = '';
+      _resetPaging();
     });
-    _search.clear();
     if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  /// Searching goes to the server, so it waits for a pause in the typing.
+  void _onQueryChanged(String value) {
+    _debounce?.cancel();
+    setState(() {
+      _query = value;
+      _resetPaging();
+    });
+    if (value.trim().isEmpty) {
+      if (_folder.isEmpty && _country.isEmpty) {
+        _seq++; // back to the top level; nothing to fetch, nothing in flight
+        return;
+      }
+      // Still inside a folder or a country: the scope itself is what to show.
+      _loadPage();
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 350), _loadPage);
+  }
+
+  /// The next page, once the list is close enough to its end to need one.
+  void _onScroll() {
+    if (!_scroll.hasClients || !_scoped) return;
+    if (_loading || _loadingMore || !_hasMore) return;
+    final position = _scroll.position;
+    if (position.pixels >= position.maxScrollExtent - 600) {
+      _loadPage(append: true);
+    }
+  }
+
+  /// Rebuilds the two pinned rails from the saved cards.
+  void _rebuildPins() {
+    final favourites = <LiveChannel>[];
+    for (final id in _favourites) {
+      final channel = _fromCard(id);
+      if (channel != null) favourites.add(channel);
+    }
+    final recents = <LiveChannel>[];
+    for (final id in _recent) {
+      if (_favourites.contains(id)) continue;
+      final channel = _fromCard(id);
+      if (channel != null) recents.add(channel);
+    }
+    _favouriteCards = favourites.take(12).toList(growable: false);
+    _recentCards = recents.take(12).toList(growable: false);
   }
 
   /// Keeps enough of the pinned channels to draw them without their page.
   void _rememberCards(List<LiveChannel> seen) {
     final wanted = {..._favourites, ..._recent};
-    if (wanted.isEmpty) return;
     var changed = false;
     for (final channel in seen) {
       if (!wanted.contains(channel.id)) continue;
@@ -215,39 +328,57 @@ class _LiveTvPageState extends State<LiveTvPage> {
     }
     // Only what is still pinned; a cache that only grows is a leak with a nicer
     // name.
+    final before = _cards.length;
     _cards.removeWhere((id, _) => !wanted.contains(id));
-    if (changed) getIt<HiveService>().setLiveTvCards(_cards);
+    if (_cards.length != before) changed = true;
+    if (!changed) return;
+    getIt<HiveService>().setLiveTvCards(_cards);
+    if (!mounted) return;
+    setState(_rebuildPins);
   }
 
-  /// A country code as something readable.
+  /// A country code as something readable, in English.
   ///
-  /// Only the ones this line-up actually carries are named; anything else keeps
-  /// its code, which is still better than an empty chip. Home comes first
-  /// wherever these are sorted, because it is what most people came for.
+  /// English because the channel names beside it are: a strip reading
+  /// "O'zbekiston · Rossiya" above a grid of "Pluto TV Comedy" and "Al Jazeera"
+  /// is two languages doing one job. Only the countries this line-up actually
+  /// carries are named; anything else keeps its code, which still beats a blank.
   static const Map<String, String> _countryNames = {
-    'UZ': 'O\'zbekiston',
-    'RU': 'Rossiya',
-    'TR': 'Turkiya',
-    'KZ': 'Qozog\'iston',
-    'KG': 'Qirg\'iziston',
-    'TJ': 'Tojikiston',
-    'TM': 'Turkmaniston',
-    'AZ': 'Ozarbayjon',
-    'US': 'AQSH',
-    'UK': 'Buyuk Britaniya',
-    'GB': 'Buyuk Britaniya',
-    'CA': 'Kanada',
-    'DE': 'Germaniya',
-    'FR': 'Fransiya',
+    'UZ': 'Uzbekistan',
+    'RU': 'Russia',
+    'TR': 'Turkey',
+    'KZ': 'Kazakhstan',
+    'KG': 'Kyrgyzstan',
+    'TJ': 'Tajikistan',
+    'TM': 'Turkmenistan',
+    'AZ': 'Azerbaijan',
+    'US': 'United States',
+    'UK': 'United Kingdom',
+    'GB': 'United Kingdom',
+    'CA': 'Canada',
+    'AU': 'Australia',
+    'DE': 'Germany',
+    'FR': 'France',
+    'ES': 'Spain',
+    'IT': 'Italy',
     'QA': 'Qatar',
-    'AE': 'BAA',
-    'CN': 'Xitoy',
-    'JP': 'Yaponiya',
-    'KR': 'Koreya',
-    'SG': 'Singapur',
-    'IL': 'Isroil',
-    'AT': 'Avstriya',
-    'SK': 'Slovakiya',
+    'AE': 'UAE',
+    'SA': 'Saudi Arabia',
+    'CN': 'China',
+    'JP': 'Japan',
+    'KR': 'South Korea',
+    'IN': 'India',
+    'SG': 'Singapore',
+    'IL': 'Israel',
+    'AT': 'Austria',
+    'SK': 'Slovakia',
+    'SE': 'Sweden',
+    'NL': 'Netherlands',
+    'PL': 'Poland',
+    'UA': 'Ukraine',
+    'GE': 'Georgia',
+    'BR': 'Brazil',
+    'MX': 'Mexico',
   };
 
   String _countryName(String code) =>
@@ -255,8 +386,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
 
   /// The flag for an ISO country code, built from regional-indicator letters.
   ///
-  /// A picture rather than two letters, and no asset to ship or fail to load —
-  /// every platform this runs on renders these.
+  /// A picture rather than two letters, and no asset to ship or fail to load.
   String _flagOf(String code) {
     final c = code.toUpperCase();
     if (c.length != 2 || !RegExp(r'^[A-Z]{2}$').hasMatch(c)) return '';
@@ -313,6 +443,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
         _favourites.add(channel.id);
         _cards[channel.id] = _cardOf(channel);
       }
+      _rebuildPins();
     });
     final hive = getIt<HiveService>();
     hive.setLiveTvFavourites(_favourites.toList());
@@ -328,6 +459,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
       _recent = [channel.id, ..._recent.where((e) => e != channel.id)]
           .take(12)
           .toList();
+      _rebuildPins();
     });
     context.push(
       '/player',
@@ -348,6 +480,16 @@ class _LiveTvPageState extends State<LiveTvPage> {
     );
   }
 
+  Future<void> _openSheet(LiveChannel channel) {
+    return showChannelSheet(
+      context: context,
+      channel: channel,
+      favourite: _favourites.contains(channel.id),
+      onPlay: () => _play(channel),
+      onToggleFavourite: () => _toggleFavourite(channel),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -358,460 +500,330 @@ class _LiveTvPageState extends State<LiveTvPage> {
         scrolledUnderElevation: 0,
         elevation: 0,
         automaticallyImplyLeading: !widget.embedded,
-        titleSpacing: widget.embedded ? 18 : null,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'live_tv.title'.tr(),
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(width: 8),
-            const _LivePill(),
-          ],
+        titleSpacing: widget.embedded ? _kGutter : null,
+        // Inside a folder, a country or a search, back closes the scope rather
+        // than the screen; outside one this is null and the usual leading
+        // behaviour applies.
+        leading: _scoped
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, size: 22),
+                color: AppColors.textPrimary,
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                onPressed: _closeScope,
+              )
+            : null,
+        title: Text(
+          'live_tv.title'.tr(),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            height: 1.1,
+          ),
         ),
       ),
-      body: SafeArea(child: _body()),
+      body: SafeArea(
+        // Inside the SafeArea and outside the RefreshIndicator, so the width
+        // every grid divides up is the real content width — a notch in
+        // landscape makes it several points narrower than the screen.
+        child: LayoutBuilder(
+          builder: (context, constraints) => RefreshIndicator(
+            color: AppColors.primary,
+            backgroundColor: AppColors.surface,
+            onRefresh: _refresh,
+            child: CustomScrollView(
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: _slivers(constraints.maxWidth),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _body() {
-    if (_loading && _folders.isEmpty && _channels.isEmpty) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2.5));
-    }
-    if (_error != null && _folders.isEmpty && _channels.isEmpty) {
-      return _Empty(
-        icon: Icons.cloud_off_rounded,
-        text: _error!,
-        actionLabel: 'live_tv.retry'.tr(),
-        onAction: _loadFolders,
-      );
-    }
-
-    final searching = _query.trim().isNotEmpty;
-    final favourites = [
-      for (final id in _favourites)
-        if (_fromCard(id) != null) _fromCard(id)!,
+  /// Every state of this screen is a sliver under the search field, so the
+  /// field is never unmounted underneath somebody's typing.
+  List<Widget> _slivers(double width) {
+    return [
+      _searchSliver(),
+      if (_scoped) ..._scopedSlivers(width) else ..._topSlivers(width),
+      SliverToBoxAdapter(child: SizedBox(height: widget.embedded ? 96 : 28)),
     ];
-    final recent = [
-      for (final id in _recent)
-        if (!_favourites.contains(id) && _fromCard(id) != null) _fromCard(id)!,
-    ];
+  }
 
-    return RefreshIndicator(
-      color: AppColors.primary,
-      backgroundColor: AppColors.surface,
-      onRefresh: _atTopLevel ? _loadFolders : () => _loadPage(),
-      child: CustomScrollView(
-        controller: _scroll,
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-              child: TextField(
-                controller: _search,
-                onChanged: _onQueryChanged,
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: _atTopLevel
-                      ? 'live_tv.search_hint'.tr()
-                      : 'live_tv.search_in'.tr(namedArgs: {'folder': _openName}),
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 18),
-                          onPressed: () {
-                            _search.clear();
-                            _onQueryChanged('');
-                          },
-                        ),
-                ),
-              ),
+  Widget _searchSliver() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(_kGutter, 8, _kGutter, 10),
+        child: TextField(
+          controller: _search,
+          onChanged: _onQueryChanged,
+          textInputAction: TextInputAction.search,
+          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+          // Fill, padding and radius all come from inputDecorationTheme, so
+          // this field is the same field as every other one in the app.
+          decoration: InputDecoration(
+            hintText: (_folder.isEmpty && _country.isEmpty)
+                ? 'live_tv.search_hint'.tr()
+                : 'live_tv.search_in'.tr(namedArgs: {'folder': _scopeName}),
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              size: 20,
+              color: AppColors.textSecondary,
             ),
-          ),
-
-          // Which folder is open, and the way back out of it.
-          if (_folder.isNotEmpty || _country.isNotEmpty)
-            SliverToBoxAdapter(
-              child: _FolderCrumb(
-                folder: _openName,
-                total: _total,
-                onBack: _closeFolder,
-              ),
-            ),
-
-          if (_atTopLevel) ...[
-            if (recent.isNotEmpty) ...[
-              _Header(label: 'live_tv.recent'.tr()),
-              _RecentRow(channels: recent, onPlay: _play),
-            ],
-            if (favourites.isNotEmpty) ...[
-              _Header(label: 'live_tv.favourites'.tr()),
-              _Grid(
-                channels: favourites,
-                favourites: _favourites,
-                onPlay: _play,
-                onFavourite: _toggleFavourite,
-              ),
-            ],
-            _Header(label: 'live_tv.folders'.tr()),
-            // Folders, not channels. A hundred thousand channels is a few dozen
-            // folders, and the one somebody wants is two taps away rather than
-            // twenty megabytes and a scroll.
-            _FolderGrid(folders: _folders, onOpen: _openFolder),
-            if (_countries.isNotEmpty) ...[
-              _Header(label: 'live_tv.countries'.tr()),
-              _CountryRow(
-                countries: _countries,
-                nameOf: _countryName,
-                flagOf: _flagOf,
-                onOpen: _openCountry,
-              ),
-            ],
-          ] else if (_loading) ...[
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.only(top: 60),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
-              ),
-            ),
-          ] else if (_channels.isEmpty) ...[
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 60),
-                child: _Empty(
-                  icon: searching ? Icons.search_off_rounded : Icons.live_tv_rounded,
-                  text: searching ? 'live_tv.no_match'.tr() : 'live_tv.empty'.tr(),
-                ),
-              ),
-            ),
-          ] else ...[
-            _Grid(
-              channels: _channels,
-              favourites: _favourites,
-              onPlay: _play,
-              onFavourite: _toggleFavourite,
-            ),
-            if (_loadingMore)
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 18),
-                  child: Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2.2),
+            suffixIcon: _query.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: AppColors.textSecondary,
                     ),
+                    onPressed: () {
+                      _search.clear();
+                      _onQueryChanged('');
+                    },
                   ),
-                ),
-              ),
-          ],
-
-          SliverToBoxAdapter(child: SizedBox(height: widget.embedded ? 96 : 28)),
-        ],
+          ),
+        ),
       ),
     );
+  }
+
+  List<Widget> _topSlivers(double width) {
+    final indexEmpty = _booted && _folders.isEmpty;
+
+    return [
+      if (_recentCards.isNotEmpty) ...[
+        _SectionHeader(
+          icon: Icons.history_rounded,
+          label: 'live_tv.recent'.tr(),
+        ),
+        _PinRail(
+          channels: _recentCards,
+          favourites: _favourites,
+          onPlay: _play,
+          onMore: _openSheet,
+        ),
+      ],
+      if (_favouriteCards.isNotEmpty) ...[
+        _SectionHeader(
+          icon: Icons.star_rounded,
+          label: 'live_tv.favourites'.tr(),
+        ),
+        _PinRail(
+          channels: _favouriteCards,
+          favourites: _favourites,
+          onPlay: _play,
+          onMore: _openSheet,
+        ),
+      ],
+      if (_booted &&
+          _recentCards.isEmpty &&
+          _favouriteCards.isEmpty &&
+          _folders.isNotEmpty)
+        const _HintLine(),
+      if (indexEmpty)
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _Empty(
+            icon: _error != null
+                ? Icons.cloud_off_rounded
+                : Icons.live_tv_rounded,
+            text: _error ?? 'live_tv.empty'.tr(),
+            actionLabel: 'live_tv.retry'.tr(),
+            onAction: () => _loadIndex(),
+          ),
+        )
+      else ...[
+        _SectionHeader(
+          icon: Icons.grid_view_rounded,
+          label: 'live_tv.categories'.tr(),
+          trailing: _indexTotal > 0
+              ? 'live_tv.channel_count'.plural(_indexTotal)
+              : null,
+        ),
+        if (!_booted)
+          _CategorySkeleton(width: width)
+        else
+          _CategoryGrid(folders: _folders, width: width, onOpen: _openFolder),
+        if (!_booted || _countries.isNotEmpty) ...[
+          _SectionHeader(
+            icon: Icons.public_rounded,
+            label: 'live_tv.countries'.tr(),
+          ),
+          if (!_booted)
+            const _CountryRailSkeleton()
+          else
+            _CountryRail(
+              countries: _countries,
+              nameOf: _countryName,
+              flagOf: _flagOf,
+              onOpen: _openCountry,
+            ),
+        ],
+      ],
+    ];
+  }
+
+  List<Widget> _scopedSlivers(double width) {
+    return [
+      _ScopeLine(
+        name: _scopeName,
+        total: _total,
+        showTotal: _channels.isNotEmpty,
+      ),
+      if (_loading && _channels.isEmpty)
+        _GridSkeleton(width: width, count: 9)
+      else if (_error != null && _channels.isEmpty)
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _Empty(
+            icon: Icons.cloud_off_rounded,
+            text: _error!,
+            actionLabel: 'live_tv.retry'.tr(),
+            onAction: () => _loadPage(),
+          ),
+        )
+      else if (_channels.isEmpty)
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _Empty(
+            icon: _searching ? Icons.search_off_rounded : Icons.live_tv_rounded,
+            text: _searching ? 'live_tv.no_match'.tr() : 'live_tv.empty'.tr(),
+          ),
+        )
+      else
+        _ChannelGrid(
+          channels: _channels,
+          favourites: _favourites,
+          width: width,
+          now: _now,
+          onPlay: _play,
+          onMore: _openSheet,
+        ),
+      if (_loadingMore) const _LoadMoreFooter(),
+    ];
   }
 }
 
-/// The folder you are inside, and the way back out.
-class _FolderCrumb extends StatelessWidget {
-  const _FolderCrumb({
-    required this.folder,
-    required this.total,
-    required this.onBack,
+/// A section title, in Home's one header shape.
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.icon,
+    required this.label,
+    this.trailing,
   });
 
-  final String folder;
-  final int total;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
-      child: Row(
-        children: [
-          Material(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(10),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onBack,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                child: Icon(Icons.arrow_back_rounded, size: 17),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              folder,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-            ),
-          ),
-          Text(
-            '$total',
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textHint,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The folders themselves.
-///
-/// Two per row and captioned with a count, because the decision being made here
-/// is "which of these do I want", and a count is the only thing that
-/// distinguishes a folder with four channels in it from one with four thousand.
-class _FolderGrid extends StatelessWidget {
-  const _FolderGrid({required this.folders, required this.onOpen});
-
-  final List<LiveFolder> folders;
-  final ValueChanged<String> onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final columns = width >= 900 ? 4 : (width >= 620 ? 3 : 2);
-
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      sliver: SliverGrid(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: columns,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          mainAxisExtent: 64,
-        ),
-        delegate: SliverChildBuilderDelegate(
-          (context, i) {
-            final folder = folders[i];
-            return Material(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(14),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => onOpen(folder.name),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 32,
-                        height: 32,
-                        child: folder.logoUrl == null
-                            ? Icon(
-                                Icons.folder_rounded,
-                                size: 19,
-                                color: AppColors.textHint,
-                              )
-                            : CachedNetworkImage(
-                                imageUrl: folder.logoUrl!,
-                                fit: BoxFit.contain,
-                                errorWidget: (_, _, _) => Icon(
-                                  Icons.folder_rounded,
-                                  size: 19,
-                                  color: AppColors.textHint,
-                                ),
-                              ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              folder.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'live_tv.channel_count'.plural(folder.count),
-                              style: const TextStyle(
-                                fontSize: 10.5,
-                                color: AppColors.textHint,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        size: 18,
-                        color: AppColors.textHint,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-          childCount: folders.length,
-        ),
-      ),
-    );
-  }
-}
-
-class _LivePill extends StatelessWidget {
-  const _LivePill();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            'LIVE',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.9,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The last few channels, as a rail rather than a grid.
-///
-/// A rail because this is a shortcut, not a section to browse: four or five
-/// entries wide is the whole of it, and it should never push the line-up itself
-/// off the first screen.
-class _RecentRow extends StatelessWidget {
-  const _RecentRow({required this.channels, required this.onPlay});
-
-  final List<LiveChannel> channels;
-  final ValueChanged<LiveChannel> onPlay;
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: SizedBox(
-        height: 62,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          itemCount: channels.length,
-          separatorBuilder: (_, _) => const SizedBox(width: 8),
-          itemBuilder: (context, i) {
-            final channel = channels[i];
-            return Material(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(12),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => onPlay(channel),
-                child: Container(
-                  width: 148,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 34,
-                        height: 34,
-                        child: channel.logoUrl == null
-                            ? Icon(
-                                Icons.live_tv_rounded,
-                                size: 18,
-                                color: AppColors.textHint,
-                              )
-                            : CachedNetworkImage(
-                                imageUrl: channel.logoUrl!,
-                                fit: BoxFit.contain,
-                                errorWidget: (_, _, _) => Icon(
-                                  Icons.live_tv_rounded,
-                                  size: 18,
-                                  color: AppColors.textHint,
-                                ),
-                              ),
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Text(
-                          channel.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            height: 1.15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.label});
-
+  final IconData icon;
   final String label;
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final tail = trailing;
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(_kGutter, 18, _kGutter, 12),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: AppColors.textSecondary),
+            const SizedBox(width: 8),
+            Semantics(
+              header: true,
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  height: 1.1,
+                ),
+              ),
+            ),
+            const Spacer(),
+            if (tail != null)
+              Text(
+                tail,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// What is open, and how much is in it. The way back out is the AppBar's, which
+/// is on screen at every scroll position.
+class _ScopeLine extends StatelessWidget {
+  const _ScopeLine({
+    required this.name,
+    required this.total,
+    required this.showTotal,
+  });
+
+  final String name;
+  final int total;
+  final bool showTotal;
 
   @override
   Widget build(BuildContext context) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+        padding: const EdgeInsets.fromLTRB(_kGutter, 2, _kGutter, 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            if (showTotal) ...[
+              const SizedBox(width: 10),
+              Text(
+                'live_tv.channel_count'.plural(total),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The one line that teaches the long press, shown only while nothing is
+/// pinned — the moment there is a pin, it has been learnt.
+class _HintLine extends StatelessWidget {
+  const _HintLine();
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(_kGutter, 0, _kGutter, 4),
         child: Text(
-          label,
+          'live_tv.hint_long_press'.tr(),
           style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.8,
-            color: AppColors.textHint,
+            color: AppColors.textSecondary,
+            fontSize: 11.5,
+            height: 1.35,
           ),
         ),
       ),
@@ -819,38 +831,392 @@ class _Header extends StatelessWidget {
   }
 }
 
-
-class _Grid extends StatelessWidget {
-  const _Grid({
+/// Recents and favourites, in one shape.
+///
+/// A rail because these are shortcuts, not a section to browse: they should
+/// never push the line-up itself off the first screen.
+class _PinRail extends StatelessWidget {
+  const _PinRail({
     required this.channels,
     required this.favourites,
     required this.onPlay,
-    required this.onFavourite,
+    required this.onMore,
   });
 
   final List<LiveChannel> channels;
   final Set<String> favourites;
   final ValueChanged<LiveChannel> onPlay;
-  final ValueChanged<LiveChannel> onFavourite;
+  final ValueChanged<LiveChannel> onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    // 76 tile + 6 gap + one caption line, so text scaling cannot overflow it.
+    final height = 82 + MediaQuery.textScalerOf(context).scale(10.5) * 1.2;
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: height,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: _kGutter),
+          itemCount: channels.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
+          itemBuilder: (context, i) => _PinTile(
+            channel: channels[i],
+            favourite: favourites.contains(channels[i].id),
+            onPlay: onPlay,
+            onMore: onMore,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One pinned channel: its logo, and its name underneath.
+///
+/// No guide line here on purpose — a pinned channel is rebuilt from a saved
+/// card, which never carries a slot, so the line would be permanently blank.
+class _PinTile extends StatelessWidget {
+  const _PinTile({
+    required this.channel,
+    required this.favourite,
+    required this.onPlay,
+    required this.onMore,
+  });
+
+  final LiveChannel channel;
+  final bool favourite;
+  final ValueChanged<LiveChannel> onPlay;
+  final ValueChanged<LiveChannel> onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return SizedBox(
+      width: 76,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => onPlay(channel),
+              onLongPress: () => onMore(channel),
+              onSecondaryTap: () => onMore(channel),
+              child: Container(
+                width: 76,
+                height: 76,
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: favourite
+                        ? AppColors.primary.withValues(alpha: 0.45)
+                        : Colors.white.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: channel.logoUrl == null
+                    ? const Icon(
+                        Icons.live_tv_rounded,
+                        size: 26,
+                        color: AppColors.textHint,
+                      )
+                    : CachedNetworkImage(
+                        imageUrl: channel.logoUrl!,
+                        fit: BoxFit.contain,
+                        // The 54pt content box, not the 76pt tile.
+                        memCacheWidth: (54 * dpr).round(),
+                        errorWidget: (_, _, _) => const Icon(
+                          Icons.live_tv_rounded,
+                          size: 26,
+                          color: AppColors.textHint,
+                        ),
+                        placeholder: (_, _) => const SizedBox.shrink(),
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          FixedTextLines(
+            fontSize: 10.5,
+            lineHeight: 1.2,
+            lines: 1,
+            child: Text(
+              channel.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The categories, two per row.
+///
+/// Captioned with a count, because the decision being made here is "which of
+/// these do I want", and a count is the only thing that distinguishes a
+/// category with four channels in it from one with four hundred.
+class _CategoryGrid extends StatelessWidget {
+  const _CategoryGrid({
+    required this.folders,
+    required this.width,
+    required this.onOpen,
+  });
+
+  final List<LiveFolder> folders;
+  final double width;
+  final ValueChanged<String> onOpen;
+
+  /// The eleven names the line-up actually uses, each with the glyph somebody
+  /// would draw for it. Anything else the backend grows later falls back.
+  static const Map<String, IconData> _glyphs = {
+    'movies': Icons.movie_rounded,
+    'general': Icons.tv_rounded,
+    'entertainment': Icons.celebration_rounded,
+    'kids': Icons.child_care_rounded,
+    'documentary': Icons.public_rounded,
+    'news': Icons.article_rounded,
+    'music': Icons.music_note_rounded,
+    'sports': Icons.sports_soccer_rounded,
+    'lifestyle': Icons.spa_rounded,
+    'religious': Icons.auto_stories_rounded,
+    'family': Icons.family_restroom_rounded,
+  };
+
+  static IconData _glyphFor(String name) =>
+      _glyphs[name.toLowerCase()] ?? Icons.folder_rounded;
+
+  static int columnsFor(double width) =>
+      width >= 900 ? 4 : (width >= 620 ? 3 : 2);
+
+  /// Two lines of text plus the tile's own padding, floored at the height the
+  /// tile has always had — so it is unchanged at normal text size and grows
+  /// rather than overflows at 1.8×.
+  static double extentFor(BuildContext context) {
+    final ts = MediaQuery.textScalerOf(context);
+    final raw = ts.scale(12.5) * 1.2 + 3 + ts.scale(10.5) * 1.2 + 28;
+    return raw < 64 ? 64.0 : raw;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: _kGutter),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columnsFor(width),
+          mainAxisSpacing: _kSpacing,
+          crossAxisSpacing: _kSpacing,
+          mainAxisExtent: extentFor(context),
+        ),
+        delegate: SliverChildBuilderDelegate((context, i) {
+          final folder = folders[i];
+          return Material(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(14),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => onOpen(folder.name),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        _glyphFor(folder.name),
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            folder.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'live_tv.channel_count'.plural(folder.count),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 10.5,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }, childCount: folders.length),
+      ),
+    );
+  }
+}
+
+/// The countries the line-up covers, as a strip you scroll sideways.
+///
+/// A shortcut for somebody who already knows what they are after, not the main
+/// navigation. Ordered by how much each country contributes, and cut at
+/// sixteen — past that the codes stop resolving to names and the strip goes
+/// ragged.
+class _CountryRail extends StatelessWidget {
+  const _CountryRail({
+    required this.countries,
+    required this.nameOf,
+    required this.flagOf,
+    required this.onOpen,
+  });
+
+  static const int _cap = 16;
+
+  final List<LiveCountry> countries;
+  final String Function(String) nameOf;
+  final String Function(String) flagOf;
+  final ValueChanged<String> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    // Regional-indicator pairs do not render on Windows, where a flag becomes
+    // two letterboxed letters. Phones, where this strip is actually used, get
+    // the picture.
+    final showFlags = !isDesktopPlatform;
+
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 40,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: _kGutter),
+          itemCount: countries.length < _cap ? countries.length : _cap,
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, i) {
+            final country = countries[i];
+            final flag = showFlags ? flagOf(country.code) : '';
+            return Material(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => onOpen(country.code),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.06),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (flag.isNotEmpty) ...[
+                        Text(flag, style: const TextStyle(fontSize: 15)),
+                        const SizedBox(width: 7),
+                      ],
+                      Text(
+                        nameOf(country.code),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${country.count}',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// The channels themselves.
+class _ChannelGrid extends StatelessWidget {
+  const _ChannelGrid({
+    required this.channels,
+    required this.favourites,
+    required this.width,
+    required this.now,
+    required this.onPlay,
+    required this.onMore,
+  });
+
+  final List<LiveChannel> channels;
+  final Set<String> favourites;
+  final double width;
+  final DateTime now;
+  final ValueChanged<LiveChannel> onPlay;
+  final ValueChanged<LiveChannel> onMore;
 
   @override
   Widget build(BuildContext context) {
     // Channel logos are wide, not poster-shaped, so the cell is landscape and
     // the count follows the width rather than a fixed number.
-    const gutter = 14.0;
-    const spacing = 10.0;
-    final width = MediaQuery.sizeOf(context).width;
-    final columns = width >= 900 ? 5 : (width >= 620 ? 4 : 3);
-    final cell = (width - gutter * 2 - spacing * (columns - 1)) / columns;
+    final columns = _columnsFor(width);
+    final cell = (width - _kGutter * 2 - _kSpacing * (columns - 1)) / columns;
     final caption = _ChannelCard.reserveCaption(context);
 
     return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: gutter),
+      padding: const EdgeInsets.symmetric(horizontal: _kGutter),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: columns,
-          mainAxisSpacing: spacing,
-          crossAxisSpacing: spacing,
+          mainAxisSpacing: _kSpacing,
+          crossAxisSpacing: _kSpacing,
           // The logo box is what the cell is for, so the caption's two lines
           // are added to it rather than taken out of it — a fixed ratio let a
           // long name eat the logo, and a one-line name grow it.
@@ -861,8 +1227,10 @@ class _Grid extends StatelessWidget {
             channel: channels[i],
             favourite: favourites.contains(channels[i].id),
             captionHeight: caption,
+            cell: cell,
+            now: now,
             onPlay: () => onPlay(channels[i]),
-            onFavourite: () => onFavourite(channels[i]),
+            onMore: () => onMore(channels[i]),
           ),
           childCount: channels.length,
         ),
@@ -876,12 +1244,15 @@ class _ChannelCard extends StatelessWidget {
     required this.channel,
     required this.favourite,
     required this.captionHeight,
+    required this.cell,
+    required this.now,
     required this.onPlay,
-    required this.onFavourite,
+    required this.onMore,
   });
 
   static const double _fontSize = 11.5;
   static const double _lineHeight = 1.2;
+  static const double _slotFontSize = 10.5;
 
   /// Two lines, always. Channel names run from "TV1" to "Discovery Science HD",
   /// and letting the caption size itself left every logo in a row at a
@@ -892,84 +1263,142 @@ class _ChannelCard extends StatelessWidget {
   final LiveChannel channel;
   final bool favourite;
   final double captionHeight;
+  final double cell;
+  final DateTime now;
   final VoidCallback onPlay;
-  final VoidCallback onFavourite;
+  final VoidCallback onMore;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.card,
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPlay,
-        onLongPress: onFavourite,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: favourite
-                  ? AppColors.primary.withValues(alpha: 0.45)
-                  : Colors.white.withValues(alpha: 0.06),
+    final slot = channel.slotAt(now);
+    final bar = _barFactor(slot, now);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final logoWidth = cell - 24;
+
+    return Semantics(
+      container: true,
+      button: true,
+      label: slot == null ? channel.name : '${channel.name}. ${slot.title}',
+      child: Material(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPlay,
+          onLongPress: onMore,
+          onSecondaryTap: onMore,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: favourite
+                    ? AppColors.primary.withValues(alpha: 0.45)
+                    : Colors.white.withValues(alpha: 0.06),
+              ),
             ),
-          ),
-          child: Column(
-            children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: channel.logoUrl == null
-                            ? _Fallback(name: channel.name)
-                            : CachedNetworkImage(
-                                imageUrl: channel.logoUrl!,
-                                fit: BoxFit.contain,
-                                // Logos come from wherever the playlist points,
-                                // and a dead one is common — the initial reads
-                                // better than a broken-image glyph.
-                                errorWidget: (_, _, _) =>
-                                    _Fallback(name: channel.name),
-                                placeholder: (_, _) =>
-                                    _Fallback(name: channel.name),
-                              ),
-                      ),
-                    ),
-                    if (favourite)
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: Icon(
-                          Icons.star_rounded,
-                          size: 15,
-                          color: AppColors.primary,
+            child: Column(
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: channel.logoUrl == null
+                              ? _Fallback(name: channel.name)
+                              : CachedNetworkImage(
+                                  imageUrl: channel.logoUrl!,
+                                  fit: BoxFit.contain,
+                                  memCacheWidth: logoWidth > 0
+                                      ? (logoWidth * dpr).round()
+                                      : null,
+                                  // Logos come from wherever the playlist
+                                  // points, and a dead one is common — the
+                                  // initial reads better than a broken-image
+                                  // glyph.
+                                  errorWidget: (_, _, _) =>
+                                      _Fallback(name: channel.name),
+                                  placeholder: (_, _) =>
+                                      const SizedBox.shrink(),
+                                ),
                         ),
                       ),
-                  ],
+                      if (favourite)
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: Icon(
+                            Icons.star_rounded,
+                            size: 15,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      // Rides the bottom edge of the logo box, so it costs the
+                      // cell no height at all.
+                      if (bar != null)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: SizedBox(
+                            height: 2,
+                            child: Container(
+                              color: Colors.white.withValues(alpha: 0.08),
+                              child: FractionallySizedBox(
+                                alignment: Alignment.centerLeft,
+                                widthFactor: bar,
+                                heightFactor: 1,
+                                child: Container(color: AppColors.primary),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 9),
-                child: SizedBox(
-                  height: captionHeight,
-                  child: Center(
-                    child: Text(
-                      channel.name,
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: _fontSize,
-                        height: _lineHeight,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 9),
+                  child: SizedBox(
+                    height: captionHeight,
+                    // One name line plus a slot line at 10.5 is strictly
+                    // shorter than the two name lines the box reserves, so a
+                    // guide costs the grid nothing and a channel without one
+                    // simply keeps both lines for its name.
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          channel.name,
+                          maxLines: slot == null ? 2 : 1,
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: _fontSize,
+                            height: _lineHeight,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        if (slot != null)
+                          Text(
+                            slot.title,
+                            maxLines: 1,
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: _slotFontSize,
+                              height: _lineHeight,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -997,6 +1426,123 @@ class _Fallback extends StatelessWidget {
   }
 }
 
+class _LoadMoreFooter extends StatelessWidget {
+  const _LoadMoreFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 18),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2.2),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The channel grid's shape, before it has anything in it.
+///
+/// The same delegate and the same aspect ratio as the real grid, so the
+/// channels land exactly where the skeleton sat.
+class _GridSkeleton extends StatelessWidget {
+  const _GridSkeleton({required this.width, required this.count});
+
+  final double width;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final columns = _columnsFor(width);
+    final cell = (width - _kGutter * 2 - _kSpacing * (columns - 1)) / columns;
+    final caption = _ChannelCard.reserveCaption(context);
+
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: _kGutter),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          mainAxisSpacing: _kSpacing,
+          crossAxisSpacing: _kSpacing,
+          childAspectRatio: cell / (cell * 0.73 + caption + 9),
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (_, _) => const ShimmerWrapper(
+            child: HomeSkeletonBox(
+              width: double.infinity,
+              height: double.infinity,
+              radius: 14,
+            ),
+          ),
+          childCount: count,
+        ),
+      ),
+    );
+  }
+}
+
+class _CategorySkeleton extends StatelessWidget {
+  const _CategorySkeleton({required this.width});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: _kGutter),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _CategoryGrid.columnsFor(width),
+          mainAxisSpacing: _kSpacing,
+          crossAxisSpacing: _kSpacing,
+          mainAxisExtent: _CategoryGrid.extentFor(context),
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (_, _) => const ShimmerWrapper(
+            child: HomeSkeletonBox(
+              width: double.infinity,
+              height: double.infinity,
+              radius: 14,
+            ),
+          ),
+          childCount: 6,
+        ),
+      ),
+    );
+  }
+}
+
+class _CountryRailSkeleton extends StatelessWidget {
+  const _CountryRailSkeleton();
+
+  /// Uneven on purpose: four identical pills read as a rendering artefact
+  /// rather than as country names on their way.
+  static const List<double> _widths = [96, 78, 110, 86];
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 40,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: _kGutter),
+          itemCount: _widths.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, i) => ShimmerWrapper(
+            child: HomeSkeletonBox(width: _widths[i], height: 40, radius: 20),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Empty extends StatelessWidget {
   const _Empty({
     required this.icon,
@@ -1018,13 +1564,17 @@ class _Empty extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 46, color: AppColors.textHint.withValues(alpha: 0.6)),
+            Icon(
+              icon,
+              size: 46,
+              color: AppColors.textHint.withValues(alpha: 0.6),
+            ),
             const SizedBox(height: 14),
             Text(
               text,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: AppColors.textSecondary,
                 fontSize: 13.5,
                 height: 1.5,
               ),
@@ -1034,89 +1584,6 @@ class _Empty extends StatelessWidget {
               OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The countries the line-up covers, as a strip you scroll sideways.
-///
-/// A row rather than a grid, and below the folders: it is a shortcut for
-/// somebody who already knows what they are after, not the main navigation.
-/// Ordered by how much each country actually contributes — the line-up leads
-/// with channels people recognise, and pinning a home country in front of that
-/// puts a provincial station where a famous one should be.
-class _CountryRow extends StatelessWidget {
-  const _CountryRow({
-    required this.countries,
-    required this.nameOf,
-    required this.flagOf,
-    required this.onOpen,
-  });
-
-  final List<LiveCountry> countries;
-  final String Function(String) nameOf;
-  final String Function(String) flagOf;
-  final ValueChanged<String> onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final ordered = [...countries]..sort((a, b) => b.count.compareTo(a.count));
-
-    return SliverToBoxAdapter(
-      child: SizedBox(
-        height: 40,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          itemCount: ordered.length,
-          separatorBuilder: (_, _) => const SizedBox(width: 8),
-          itemBuilder: (context, i) {
-            final country = ordered[i];
-            final flag = flagOf(country.code);
-            return Material(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(20),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => onOpen(country.code),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 13),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (flag.isNotEmpty) ...[
-                        Text(flag, style: const TextStyle(fontSize: 15)),
-                        const SizedBox(width: 7),
-                      ],
-                      Text(
-                        nameOf(country.code),
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${country.count}',
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textHint,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
         ),
       ),
     );

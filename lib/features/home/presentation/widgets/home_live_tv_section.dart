@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/live_tv/data/live_tv_service.dart';
@@ -56,6 +59,20 @@ class _LiveTvSectionState extends State<LiveTvSection> {
   }
 
   void _play(LiveChannel channel) {
+    // Live TV's own "Recently watched" rail is fed from here as well as from
+    // its page: a channel played from Home is still a channel you watched, and
+    // the card is what lets the rail draw it without its listing.
+    final hive = getIt<HiveService>();
+    hive.pushLiveTvRecent(channel.id);
+    final cards = hive.getLiveTvCards();
+    cards[channel.id] = {
+      'name': channel.name,
+      'streamUrl': channel.streamUrl,
+      'logoUrl': channel.logoUrl ?? '',
+      'category': channel.category,
+      if (channel.headers.isNotEmpty) 'headers': jsonEncode(channel.headers),
+    };
+    hive.setLiveTvCards(cards);
     context.push(
       '/player',
       extra: PlayerArgs(
