@@ -235,7 +235,9 @@ class _LiveBadge extends StatelessWidget {
           Container(
             width: 5,
             height: 5,
-            decoration: const BoxDecoration(
+            // Not const: the accent is a user setting, so AppColors.primary is
+            // a getter and cannot appear in a constant expression.
+            decoration: BoxDecoration(
               color: AppColors.primary,
               shape: BoxShape.circle,
             ),
