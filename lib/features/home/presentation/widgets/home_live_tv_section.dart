@@ -80,7 +80,6 @@ class _LiveTvSectionState extends State<LiveTvSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // The whole strip is the tap target, matching every other rail.
           InkWell(
             onTap: () => context.push('/live-tv'),
             child: Padding(
