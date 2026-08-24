@@ -105,7 +105,7 @@ class _ScreenshotCard extends StatelessWidget {
               fit: BoxFit.cover,
               fadeInDuration: const Duration(milliseconds: 180),
               placeholder: (_, _) =>
-                  const ColoredBox(color: AppColors.surfaceVariant),
+                  ColoredBox(color: AppColors.surfaceVariant),
               errorWidget: (_, _, _) => const Center(
                 child: Icon(
                   Icons.broken_image_outlined,

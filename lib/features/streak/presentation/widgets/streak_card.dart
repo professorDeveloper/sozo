@@ -90,10 +90,13 @@ class _CompactStreakRow extends StatelessWidget {
         onTap: () => context.push('/streak'),
         child: Ink(
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            // surface -> background, which is #242424 -> #181818 on the
+            // default theme: the same top-left-lighter fall the literals
+            // #222222 -> #1A1A1A gave, but it follows AMOLED.
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF222222), Color(0xFF1A1A1A)],
+              colors: [AppColors.surface, AppColors.background],
             ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(

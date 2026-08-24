@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/history/data/history_service.dart';
@@ -144,7 +145,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                 foregroundColor: Colors.black,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(kButtonRadius),
                 ),
               ),
               icon: const Icon(Icons.play_arrow_rounded, size: 26),
@@ -169,7 +170,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                 value: progress,
                 minHeight: 3,
                 backgroundColor: AppColors.surfaceVariant,
-                valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                valueColor: AlwaysStoppedAnimation(AppColors.primary),
               ),
             ),
           ],
@@ -475,7 +476,7 @@ class _PlayButton extends StatelessWidget {
           backgroundColor: Colors.white,
           foregroundColor: Colors.black,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kButtonRadius)),
         ),
         icon: Icon(
           reader ? Icons.menu_book_rounded : Icons.play_arrow_rounded,

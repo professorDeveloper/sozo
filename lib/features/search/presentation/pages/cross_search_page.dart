@@ -201,7 +201,7 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
                   final hit = title.hits[i];
                   return ListTile(
                     dense: true,
-                    leading: const Icon(Icons.play_circle_outline,
+                    leading: Icon(Icons.play_circle_outline,
                         color: AppColors.primary, size: 20),
                     title: Text(hit.provider.name,
                         style:
@@ -608,7 +608,7 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text('${r.items.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppColors.primary,
                         fontSize: 11,
                         fontWeight: FontWeight.w700)),

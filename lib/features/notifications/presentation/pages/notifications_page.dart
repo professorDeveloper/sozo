@@ -97,7 +97,7 @@ class _NotificationsViewState extends State<_NotificationsView> {
                     .add(const NotificationsMarkAllRead()),
                 child: Text(
                   'notifications.mark_all_read'.tr(),
-                  style: const TextStyle(color: AppColors.primary),
+                  style: TextStyle(color: AppColors.primary),
                 ),
               );
             },
@@ -107,7 +107,7 @@ class _NotificationsViewState extends State<_NotificationsView> {
       body: BlocBuilder<NotificationsBloc, NotificationsState>(
         builder: (context, state) {
           if (state.loading && state.items.isEmpty) {
-            return const Center(
+            return Center(
               child: CircularProgressIndicator(color: AppColors.primary),
             );
           }
@@ -142,7 +142,7 @@ class _NotificationsViewState extends State<_NotificationsView> {
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           if (index >= state.items.length) {
-            return const Padding(
+            return Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
@@ -340,10 +340,10 @@ class _NotificationTile extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: item.imageUrl!,
                 fit: BoxFit.cover,
-                placeholder: (_, _) => const ColoredBox(
+                placeholder: (_, _) => ColoredBox(
                   color: AppColors.surfaceVariant,
                 ),
-                errorWidget: (_, _, _) => const ColoredBox(
+                errorWidget: (_, _, _) => ColoredBox(
                   color: AppColors.surfaceVariant,
                 ),
               ),
@@ -354,7 +354,7 @@ class _NotificationTile extends StatelessWidget {
                   child: Container(
                     width: 10,
                     height: 10,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
@@ -413,7 +413,7 @@ class _NotificationTile extends StatelessWidget {
               width: 8,
               height: 8,
               margin: const EdgeInsets.only(top: 6, right: 10),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.primary,
                 shape: BoxShape.circle,
               ),
@@ -564,7 +564,7 @@ class _ErrorView extends StatelessWidget {
             onPressed: onRetry,
             child: Text(
               'general.retry'.tr(),
-              style: const TextStyle(color: AppColors.primary),
+              style: TextStyle(color: AppColors.primary),
             ),
           ),
         ],

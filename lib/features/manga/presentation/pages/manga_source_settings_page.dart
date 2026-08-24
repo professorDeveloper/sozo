@@ -19,7 +19,9 @@ class MangaSourceSettingsPage extends StatefulWidget {
 }
 
 class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
-  static const Color _accent = Color(0xFF5B8DEF);
+  /// The manga screens used to carry their own private blue. There is one
+  /// accent in the app now, and the user chooses it.
+  static Color get _accent => AppColors.primary;
 
   List<Map<String, dynamic>> _prefs = const [];
   bool _loading = true;
@@ -58,7 +60,7 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
         title: Text(widget.name),
       ),
       body: _loading
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(color: _accent, strokeWidth: 2))
           : _prefs.isEmpty
               ? Center(
@@ -193,7 +195,7 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
                     style:
                         const TextStyle(color: Colors.white, fontSize: 14)),
                 trailing: isSelected
-                    ? const Icon(Icons.check, color: _accent, size: 20)
+                    ? Icon(Icons.check, color: _accent, size: 20)
                     : null,
                 onTap: () => Navigator.of(context).pop(value),
               );
@@ -276,7 +278,7 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
           controller: controller,
           autofocus: true,
           style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintStyle: TextStyle(color: AppColors.textHint),
             enabledBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white24)),

@@ -472,6 +472,38 @@ class HiveService {
     await _settingsBox.put(AppConstants.amoledModeKey, enabled);
   }
 
+  /// Accent colour id, or `AppAccent.customId`. Empty ⇒ never chosen, so the
+  /// caller falls back to the shipped default rather than to a stored value.
+  String get accentId {
+    final raw = _settingsBox.get(AppConstants.accentIdKey);
+    return raw is String ? raw : '';
+  }
+
+  Future<void> setAccentId(String id) async {
+    await _settingsBox.put(AppConstants.accentIdKey, id);
+  }
+
+  /// The user's own accent as a 32-bit ARGB int, or null if they never picked
+  /// one. Anything non-int in the box is treated as absent: a corrupt value
+  /// must fall back to a preset, never crash the first paint.
+  int? get customAccentArgb {
+    final raw = _settingsBox.get(AppConstants.customAccentKey);
+    return raw is int ? raw : null;
+  }
+
+  Future<void> setCustomAccentArgb(int argb) async {
+    await _settingsBox.put(AppConstants.customAccentKey, argb);
+  }
+
+  bool get isNavTinted {
+    return _settingsBox.get(AppConstants.tintNavKey, defaultValue: true) ==
+        true;
+  }
+
+  Future<void> setNavTinted(bool enabled) async {
+    await _settingsBox.put(AppConstants.tintNavKey, enabled);
+  }
+
   bool get hasOnboardingSeen {
     return _settingsBox.get(AppConstants.onboardingSeenKey, defaultValue: false) == true;
   }

@@ -23,6 +23,7 @@ import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:soplay/core/theme/app_colors.dart';
 
 class ReaderPage extends StatefulWidget {
   final ReaderArgs args;
@@ -33,7 +34,9 @@ class ReaderPage extends StatefulWidget {
 }
 
 class _ReaderPageState extends State<ReaderPage> {
-  static const Color _accent = Color(0xFF5B8DEF);
+  /// The manga screens used to carry their own private blue. There is one
+  /// accent in the app now, and the user chooses it.
+  static Color get _accent => AppColors.primary;
 
   final _hive = getIt<HiveService>();
   final _downloads = getIt<DownloadService>();
@@ -400,7 +403,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   Widget _content() {
     if (_loading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: _accent, strokeWidth: 2),
       );
     }
@@ -1033,7 +1036,9 @@ class _PageImage extends StatefulWidget {
 }
 
 class _PageImageState extends State<_PageImage> {
-  static const Color _accent = Color(0xFF5B8DEF);
+  /// The manga screens used to carry their own private blue. There is one
+  /// accent in the app now, and the user chooses it.
+  static Color get _accent => AppColors.primary;
   int _retry = 0;
 
   /// Chapter headers plus this page's host-scoped cookies, if it has any.
@@ -1077,7 +1082,7 @@ class _PageImageState extends State<_PageImage> {
               width: width,
               height: width * 1.4,
               color: Colors.white.withValues(alpha: 0.02),
-              child: const Center(
+              child: Center(
                 child:
                     CircularProgressIndicator(color: _accent, strokeWidth: 1.8),
               ),

@@ -1012,7 +1012,7 @@ class _MediaActions extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),
@@ -1056,7 +1056,7 @@ class _MediaActions extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              const Divider(color: AppColors.divider, height: 1),
+              Divider(color: AppColors.divider, height: 1),
               _SheetAction(
                 icon: Icons.travel_explore_rounded,
                 label: 'anilist.find_in_sources'.tr(),

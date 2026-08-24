@@ -208,7 +208,7 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
       child: Column(
         children: [
           if (_checking)
-            const LinearProgressIndicator(
+            LinearProgressIndicator(
               minHeight: 2,
               backgroundColor: Colors.transparent,
               valueColor: AlwaysStoppedAnimation(AppColors.primary),

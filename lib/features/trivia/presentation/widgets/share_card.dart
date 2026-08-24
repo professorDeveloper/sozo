@@ -54,7 +54,7 @@ class ShareCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.movie_filter_rounded,
+                Icon(Icons.movie_filter_rounded,
                     color: AppColors.primary, size: 22),
                 const SizedBox(width: 8),
                 Text(

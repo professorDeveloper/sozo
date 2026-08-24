@@ -312,7 +312,7 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppColors.primary, fontSize: 12.5),
                 ),
               ),
@@ -405,7 +405,7 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
             color: AppColors.primary.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.extension_rounded,
+          child: Icon(Icons.extension_rounded,
               color: AppColors.primary, size: 18),
         );
     if (url == null || url.isEmpty) return fallback();

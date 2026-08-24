@@ -211,7 +211,7 @@ class _RepoFileSheetState extends State<_RepoFileSheet> {
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.background,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -240,7 +240,7 @@ class _RepoFileSheetState extends State<_RepoFileSheet> {
                     color: AppColors.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(11),
                   ),
-                  child: const Icon(Icons.extension_rounded,
+                  child: Icon(Icons.extension_rounded,
                       color: AppColors.primary, size: 22),
                 ),
                 const SizedBox(width: 12),

@@ -87,9 +87,14 @@ class OptionChip extends StatelessWidget {
           icon: Icons.check_rounded,
         );
       case OptionChipStatus.wrong:
+        // error, not primary. These two chips are shown side by side and the
+        // whole point is that they read as opposites; under a green accent
+        // "wrong" and "correct" would both have been green.
         return _ChipPalette(
-          fill: AppColors.primary.withValues(alpha: 0.9),
-          border: AppColors.primaryLight,
+          fill: AppColors.error.withValues(alpha: 0.9),
+          // Lifted off the fill so the 1.4px rim still reads as a rim. This is
+          // the exact colour the chip had before the accent became a setting.
+          border: AppColors.errorLight,
           text: Colors.white,
           icon: Icons.close_rounded,
         );

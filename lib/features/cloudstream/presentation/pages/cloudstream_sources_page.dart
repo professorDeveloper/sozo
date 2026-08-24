@@ -225,7 +225,7 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
             borderRadius: BorderRadius.circular(10),
             child: Image.network(_icon, width: 44, height: 44, fit: BoxFit.cover,
                 errorBuilder: (_, _, _) =>
-                    const Icon(Icons.extension_outlined, color: AppColors.primary, size: 40)),
+                    Icon(Icons.extension_outlined, color: AppColors.primary, size: 40)),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -349,7 +349,7 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
           borderRadius: BorderRadius.circular(8),
           child: Image.network(_icon, width: 34, height: 34, fit: BoxFit.cover,
               errorBuilder: (_, _, _) =>
-                  const Icon(Icons.extension_outlined, color: AppColors.primary)),
+                  Icon(Icons.extension_outlined, color: AppColors.primary)),
         ),
         title: Text(name,
             maxLines: 1,

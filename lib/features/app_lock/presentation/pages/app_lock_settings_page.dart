@@ -131,7 +131,7 @@ class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
                   ),
                 ),
                 if (enabled) ...[
-                  const Divider(color: AppColors.divider, height: 1),
+                  Divider(color: AppColors.divider, height: 1),
                   _Row(
                     icon: Icons.pin_rounded,
                     title: 'app_lock.change_pin'.tr(),
@@ -143,7 +143,7 @@ class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
                     onTap: _changePin,
                   ),
                   if (_biometricAvailable) ...[
-                    const Divider(color: AppColors.divider, height: 1),
+                    Divider(color: AppColors.divider, height: 1),
                     _Row(
                       icon: Icons.fingerprint_rounded,
                       title: 'app_lock.biometric'.tr(),
@@ -155,7 +155,7 @@ class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
                     ),
                   ],
                 ],
-                const Divider(color: AppColors.divider, height: 1),
+                Divider(color: AppColors.divider, height: 1),
                 Opacity(
                   opacity: enabled ? 1.0 : 0.5,
                   child: _Row(

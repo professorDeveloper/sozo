@@ -320,8 +320,8 @@ class _SlideOverlays extends StatelessWidget {
                   end: Alignment.topCenter,
                   colors: [
                     AppColors.background,
-                    const Color(0xBB181818),
-                    const Color(0x00000000),
+                    AppColors.background.withValues(alpha: 0.733),
+                    AppColors.background.withValues(alpha: 0.0),
                   ],
                   stops: const [0.0, 0.52, 1.0],
                 ),
@@ -712,19 +712,21 @@ class _DesktopSlideState extends State<_DesktopSlide>
                 ),
               ),
             ),
-          // Scrims for text legibility.
-          const Positioned.fill(
+          // Scrims for text legibility. Same rule as _EdgeBlend directly
+          // below: every stop is the page background at some opacity, so the
+          // scrim follows the theme instead of freezing at #181818.
+          Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    Color(0xF2181818),
-                    Color(0xCC181818),
-                    Color(0x00181818),
+                    AppColors.background.withValues(alpha: 0.949),
+                    AppColors.background.withValues(alpha: 0.8),
+                    AppColors.background.withValues(alpha: 0.0),
                   ],
-                  stops: [0.0, 0.42, 0.72],
+                  stops: const [0.0, 0.42, 0.72],
                 ),
               ),
             ),
@@ -880,12 +882,16 @@ class _DesktopSlideState extends State<_DesktopSlide>
 class _EdgeBlend extends StatelessWidget {
   const _EdgeBlend();
 
-  static const Color _bg = AppColors.background;
-  static const Color _clear = Color(0x00181818);
-
+  /// Every stop is the page background at some opacity — that is the whole
+  /// trick, the card fades into whatever the feed sits on. So they are derived
+  /// from [AppColors.background] rather than written as literals: under AMOLED
+  /// the feed is true black, and a hard-coded #181818 edge would leave a grey
+  /// halo glowing around the hero.
   @override
   Widget build(BuildContext context) {
-    return const IgnorePointer(
+    final bg = AppColors.background;
+    final clear = bg.withValues(alpha: 0.0);
+    return IgnorePointer(
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -895,8 +901,8 @@ class _EdgeBlend extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
-                colors: [_bg, Color(0xCC181818), _clear],
-                stops: [0.0, 0.14, 0.5],
+                colors: [bg, bg.withValues(alpha: 0.8), clear],
+                stops: const [0.0, 0.14, 0.5],
               ),
             ),
           ),
@@ -910,7 +916,7 @@ class _EdgeBlend extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.centerRight,
                   end: Alignment.centerLeft,
-                  colors: [Color(0xCC181818), _clear],
+                  colors: [bg.withValues(alpha: 0.8), clear],
                 ),
               ),
             ),
@@ -925,7 +931,7 @@ class _EdgeBlend extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
-                  colors: [Color(0xB3181818), _clear],
+                  colors: [bg.withValues(alpha: 0.702), clear],
                 ),
               ),
             ),
@@ -940,7 +946,7 @@ class _EdgeBlend extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0x99181818), _clear],
+                  colors: [bg.withValues(alpha: 0.6), clear],
                 ),
               ),
             ),
@@ -974,9 +980,12 @@ class _BannerButtonState extends State<_BannerButton> {
   @override
   Widget build(BuildContext context) {
     final primary = widget.primary;
+    // Play stays white — it sits on artwork and needs the highest contrast
+    // there is. The second action is where the accent belongs: tinted glass,
+    // so the row says which theme is on without ever fighting the poster.
     final bg = primary
         ? Colors.white
-        : Colors.white.withValues(alpha: _hover ? 0.28 : 0.18);
+        : AppColors.primary.withValues(alpha: _hover ? 0.46 : 0.30);
     final fg = primary ? Colors.black : Colors.white;
 
     return MouseRegion(

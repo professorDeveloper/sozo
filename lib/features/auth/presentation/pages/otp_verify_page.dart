@@ -206,7 +206,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
                                   ),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.mark_email_read_rounded,
                                   color: AppColors.primary,
                                   size: 40,

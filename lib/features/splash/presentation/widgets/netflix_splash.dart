@@ -106,7 +106,7 @@ class _NetflixSplashState extends State<NetflixSplash>
                     child: Transform.scale(
                       scale: _sScale.value,
                       alignment: Alignment.center,
-                      child: const Text('S', style: _kStyle),
+                      child: Text('S', style: _kStyle),
                     ),
                   ),
                   ClipRect(
@@ -115,7 +115,7 @@ class _NetflixSplashState extends State<NetflixSplash>
                       widthFactor: _oplayWidth.value,
                       child: Opacity(
                         opacity: _oplayOpacity.value,
-                        child: const Text('OZO', style: _kStyle),
+                        child: Text('OZO', style: _kStyle),
                       ),
                     ),
                   ),
@@ -129,7 +129,9 @@ class _NetflixSplashState extends State<NetflixSplash>
   }
 }
 
-const TextStyle _kStyle = TextStyle(
+/// A getter, not a `const`: the wordmark is painted in the accent colour, and
+/// the accent is a runtime choice now.
+TextStyle get _kStyle => TextStyle(
   color: AppColors.primary,
   fontSize: 80,
   fontWeight: FontWeight.w900,

@@ -204,7 +204,7 @@ class _LoadingOverlay extends StatelessWidget {
               constraints: const BoxConstraints(maxWidth: 360),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(3),
-                child: const LinearProgressIndicator(
+                child: LinearProgressIndicator(
                   minHeight: 3,
                   backgroundColor: Colors.white12,
                   valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
@@ -546,7 +546,7 @@ class _EpisodeRow extends StatelessWidget {
               ),
             ),
             if (isActive)
-              const Icon(
+              Icon(
                 Icons.play_arrow_rounded,
                 color: AppColors.primary,
                 size: 22,
@@ -606,7 +606,7 @@ class _QualityRow extends StatelessWidget {
                 ),
                 child: Text(
                   'player.default'.tr(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.primaryLight,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,

@@ -168,7 +168,7 @@ class _StatusTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       alignment: Alignment.centerLeft,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.divider, width: 0.5)),
       ),
       child: TabBar(

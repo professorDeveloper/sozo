@@ -751,7 +751,7 @@ class _DetailViewState extends State<_DetailView>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(color: AppColors.primary),
+            CircularProgressIndicator(color: AppColors.primary),
             const SizedBox(height: 18),
             TextButton(
               onPressed: () => Navigator.of(dctx).pop(),
@@ -1470,7 +1470,7 @@ class _ErrorView extends StatelessWidget {
               onPressed: onSolveCloudflare,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border),
+                side: BorderSide(color: AppColors.border),
               ),
               icon: const Icon(Icons.shield_outlined, size: 18),
               label: Text('cloudflare.solve'.tr()),

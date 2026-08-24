@@ -141,7 +141,7 @@ class _RelatedThumbnail extends StatelessWidget {
       imageUrl: url!,
       fit: BoxFit.cover,
       fadeInDuration: const Duration(milliseconds: 180),
-      placeholder: (_, _) => const ColoredBox(color: AppColors.surfaceVariant),
+      placeholder: (_, _) => ColoredBox(color: AppColors.surfaceVariant),
       errorWidget: (_, _, _) => Container(
         color: AppColors.surfaceVariant,
         child: const Center(

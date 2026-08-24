@@ -234,7 +234,7 @@ class _PinnedMyRow extends StatelessWidget {
     final bottomSafe = MediaQuery.paddingOf(context).bottom;
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomSafe),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.navBackground,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),

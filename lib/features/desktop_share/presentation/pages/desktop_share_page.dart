@@ -345,7 +345,7 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
             }),
           ),
           if (!_shareAll) ...[
-            const Divider(color: AppColors.divider, height: 16),
+            Divider(color: AppColors.divider, height: 16),
             _pickerControls(),
             const SizedBox(height: 4),
             _pickerList(),
@@ -608,7 +608,7 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
                       ),
                       child: Text(
                         '${i + 1}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.primary,
                           fontSize: 12,
                           fontWeight: FontWeight.w800,

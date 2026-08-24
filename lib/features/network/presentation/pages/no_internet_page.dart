@@ -65,7 +65,7 @@ class _NoInternetPageState extends State<NoInternetPage> {
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.wifi_off_rounded,
                       color: AppColors.primary,
                       size: 26,
@@ -117,7 +117,7 @@ class _NoInternetPageState extends State<NoInternetPage> {
                           label: Text('navigation.downloads'.tr()),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.textPrimary,
-                            side: const BorderSide(color: AppColors.divider),
+                            side: BorderSide(color: AppColors.divider),
                           ),
                         ),
                       ),

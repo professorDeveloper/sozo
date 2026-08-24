@@ -237,7 +237,7 @@ class _ScannerPlaceholder extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.qr_code_scanner,
+            Icon(Icons.qr_code_scanner,
                 size: 64, color: AppColors.primary),
             const SizedBox(height: 16),
             Text('link_tv.scan_button'.tr(),
@@ -494,7 +494,7 @@ class _DeviceRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: const Icon(Icons.tv, color: AppColors.primary),
+        leading: Icon(Icons.tv, color: AppColors.primary),
         title: Text(
           device.deviceName?.isNotEmpty == true
               ? device.deviceName!

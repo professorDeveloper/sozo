@@ -11,7 +11,15 @@ class MyListBackground extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [const Color(0xFF161616), AppColors.background, const Color(0xFF101010)],
+          // The old literals were #161616 and #101010 — a shade under the
+          // background and the same fall-off Profile's backdrop uses. Derived
+          // now, so the page goes true black with everything else instead of
+          // staying a grey slab.
+          colors: [
+            Color.lerp(AppColors.background, Colors.black, 0.083)!,
+            AppColors.background,
+            AppColors.heroBottom,
+          ],
           stops: const [0, 0.42, 1],
         ),
       ),

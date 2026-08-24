@@ -369,7 +369,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
                         },
                       ),
                       if (_loadingMore)
-                        const SliverToBoxAdapter(
+                        SliverToBoxAdapter(
                           child: Padding(
                             padding: EdgeInsets.symmetric(vertical: 22),
                             child: Center(
@@ -738,7 +738,7 @@ class _EpisodeRow extends StatelessWidget {
                     value: progress!,
                     minHeight: 3,
                     backgroundColor: AppColors.divider,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
+                    valueColor: AlwaysStoppedAnimation<Color>(
                       AppColors.primary,
                     ),
                   ),
@@ -795,7 +795,7 @@ class _DownloadControl extends StatelessWidget {
       return Container(
         width: 34,
         height: 34,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.surfaceVariant,
           shape: BoxShape.circle,
         ),
@@ -811,13 +811,15 @@ class _DownloadControl extends StatelessWidget {
     final button = Container(
       width: 34,
       height: 34,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceVariant,
         shape: BoxShape.circle,
       ),
       child: Icon(
         failed ? Icons.refresh_rounded : Icons.download_outlined,
-        color: failed ? AppColors.primary : AppColors.textSecondary,
+        // The retry glyph IS the failure signal on this row — it has to stay
+        // red rather than turn into whatever the accent is.
+        color: failed ? AppColors.error : AppColors.textSecondary,
         size: 18,
       ),
     );

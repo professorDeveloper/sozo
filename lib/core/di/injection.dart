@@ -19,6 +19,7 @@ import 'package:soplay/core/network/provider_interceptor.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
 import 'package:soplay/core/player/webview_stream_extractor.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/theme/theme_controller.dart';
 import 'package:soplay/features/anilist/data/airing_reminders.dart';
 import 'package:soplay/features/live_tv/data/live_tv_service.dart';
 import 'package:soplay/features/remote/data/remote_control_service.dart';
@@ -158,6 +159,13 @@ final getIt = GetIt.instance;
 Future<void> configureDependencies() async {
   getIt.registerSingleton<DeeplinkService>(DeeplinkService());
   getIt.registerSingleton<HiveService>(HiveService());
+  // Eager, and immediately after Hive: the constructor reads the stored accent
+  // and AMOLED preference and installs the palette synchronously, so the first
+  // frame after runApp() is already painted in the user's colours instead of
+  // flashing the default red.
+  getIt.registerSingleton<ThemeController>(
+    ThemeController(getIt<HiveService>()),
+  );
   getIt.registerSingleton<HistoryService>(HistoryService());
   getIt.registerSingleton<DownloadService>(DownloadService());
 

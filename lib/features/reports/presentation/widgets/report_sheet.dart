@@ -4,6 +4,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/reports/domain/entities/report_payload.dart';
 import 'package:soplay/features/reports/domain/repositories/reports_repository.dart';
 
@@ -178,7 +179,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                     backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(kButtonRadius),
                     ),
                   ),
                   onPressed: _sending ? null : _submit,

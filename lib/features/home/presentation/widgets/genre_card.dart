@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/system/responsive.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../search/domain/entities/genre_entity.dart';
 import '../../domain/entities/view_all.dart';
 import 'home_shared_widgets.dart';
@@ -43,6 +44,9 @@ class GenreCard extends StatelessWidget {
                   borderRadius: BorderRadius.zero,
                   placeholderIcon: Icons.category_outlined,
                 ),
+                // The scrim leans onto the accent as it deepens, so a wall of
+                // genre thumbnails carries the chosen colour instead of being
+                // twelve identical black fades.
                 DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -50,10 +54,18 @@ class GenreCard extends StatelessWidget {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.black.withValues(alpha: 0.18),
-                        Colors.black.withValues(alpha: 0.72),
+                        AppColors.primaryDark.withValues(alpha: 0.30),
+                        Colors.black.withValues(alpha: 0.78),
                       ],
+                      stops: const [0, 0.55, 1],
                     ),
                   ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(height: 2.5, color: AppColors.primary),
                 ),
                 Positioned(
                   left: desktop ? 12 : 8,

@@ -138,7 +138,7 @@ class _AnilistEntrySheetState extends State<AnilistEntrySheet> {
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),
@@ -247,7 +247,7 @@ class _AnilistEntrySheetState extends State<AnilistEntrySheet> {
                 ],
               ),
               const SizedBox(height: 20),
-              const Divider(color: AppColors.divider, height: 1),
+              Divider(color: AppColors.divider, height: 1),
               const SizedBox(height: 8),
               _Action(
                 icon: Icons.travel_explore_rounded,

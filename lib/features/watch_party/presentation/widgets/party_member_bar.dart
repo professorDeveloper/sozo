@@ -104,7 +104,7 @@ class _MemberTile extends StatelessWidget {
                   left: -2,
                   child: Container(
                     padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppColors.background,
                       shape: BoxShape.circle,
                     ),

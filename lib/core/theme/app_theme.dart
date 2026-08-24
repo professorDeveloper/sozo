@@ -2,9 +2,28 @@ import 'package:flutter/material.dart';
 import '../system/platform_utils.dart';
 import 'app_colors.dart';
 
+/// The app's one button height and one corner radius.
+///
+/// Named rather than repeated so a screen that has to build its own control by
+/// hand — a gradient CTA, a custom pill — lands on the same grid as the themed
+/// buttons beside it instead of being eyeballed.
+const double kButtonHeight = 52;
+const double kButtonRadius = 10;
+
+/// Fields, cards, sheets and snackbars — everything that is a *surface* rather
+/// than a control. Same 10 as the buttons, so a form reads as one object.
+const double kFieldRadius = 10;
+
 class AppTheme {
   AppTheme._();
 
+  /// Built fresh on every read, from whatever `AppColors` currently resolves to.
+  ///
+  /// That is cheap (one `ThemeData` allocation) and it is what lets Appearance
+  /// change the accent or switch to true black without a restart: `MyApp` reads
+  /// this again on each rebuild, so the Material component defaults follow the
+  /// palette in exactly the same breath as the widgets that read `AppColors`
+  /// directly.
   static ThemeData get dark => ThemeData(
         brightness: Brightness.dark,
         useMaterial3: true,
@@ -12,15 +31,20 @@ class AppTheme {
         colorScheme: ColorScheme(
           brightness: Brightness.dark,
           primary: AppColors.primary,
-          onPrimary: Colors.white,
+          onPrimary: AppColors.onPrimary,
           secondary: AppColors.primary,
-          onSecondary: Colors.white,
+          onSecondary: AppColors.onPrimary,
           error: AppColors.error,
           onError: Colors.white,
           surface: AppColors.surface,
           onSurface: AppColors.textPrimary,
           surfaceContainerHighest: AppColors.surfaceVariant,
           outline: AppColors.border,
+          // Left unset, M3 resolves outlineVariant to onSurface — i.e. white —
+          // and every component that draws its own hairline (TabBar, Divider,
+          // ListTile separators) paints it near-white. Harmless-looking on
+          // #181818, glaring on true black.
+          outlineVariant: AppColors.divider,
         ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent,
@@ -112,22 +136,31 @@ class AppTheme {
           elevation: 0,
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(kFieldRadius),
           ),
         ),
+        // ── The one button shape ────────────────────────────────────────
+        //
+        // 52 tall, 10 radius, 15.5/w700 label. These are the numbers the
+        // onboarding and auth screens were already using through their own
+        // `AuthPrimaryButton`, and they are here now so every ElevatedButton and
+        // FilledButton in the app is that button — no screen has to opt in, and
+        // none can drift.
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
+            foregroundColor: AppColors.onPrimary,
+            disabledBackgroundColor: AppColors.surfaceVariant,
+            disabledForegroundColor: AppColors.textHint,
             elevation: 0,
-            minimumSize: const Size(double.infinity, 50),
+            minimumSize: const Size(double.infinity, kButtonHeight),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(kButtonRadius),
             ),
             textStyle: const TextStyle(
-              fontSize: 16,
+              fontSize: 15.5,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
+              letterSpacing: 0.2,
             ),
           ),
         ),
@@ -137,15 +170,18 @@ class AppTheme {
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
+            foregroundColor: AppColors.onPrimary,
+            disabledBackgroundColor: AppColors.surfaceVariant,
+            disabledForegroundColor: AppColors.textHint,
             elevation: 0,
+            minimumSize: const Size(0, kButtonHeight),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(kButtonRadius),
             ),
             textStyle: const TextStyle(
-              fontSize: 16,
+              fontSize: 15.5,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
+              letterSpacing: 0.2,
             ),
           ),
         ),
@@ -153,13 +189,14 @@ class AppTheme {
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.textPrimary,
             side: const BorderSide(color: AppColors.textSecondary, width: 1.5),
-            minimumSize: const Size(double.infinity, 50),
+            minimumSize: const Size(double.infinity, kButtonHeight),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(kButtonRadius),
             ),
             textStyle: const TextStyle(
-              fontSize: 16,
+              fontSize: 15.5,
               fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
             ),
           ),
         ),
@@ -180,23 +217,23 @@ class AppTheme {
             vertical: 14,
           ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(kFieldRadius),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(kFieldRadius),
             borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+            borderRadius: BorderRadius.circular(kFieldRadius),
+            borderSide: BorderSide(color: AppColors.primary, width: 1.5),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(kFieldRadius),
             borderSide: const BorderSide(color: AppColors.error, width: 1.5),
           ),
           focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(kFieldRadius),
             borderSide: const BorderSide(color: AppColors.error, width: 1.5),
           ),
           hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 14),
@@ -219,7 +256,7 @@ class AppTheme {
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: AppColors.background,
-          indicatorColor: Color(0x33E50914),
+          indicatorColor: AppColors.primary.withValues(alpha: 0.2),
           elevation: 0,
           height: 64,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -229,10 +266,10 @@ class AppTheme {
           selectedColor: AppColors.primary,
           disabledColor: AppColors.surfaceVariant,
           labelStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           side: BorderSide.none,
         ),
-        progressIndicatorTheme: const ProgressIndicatorThemeData(
+        progressIndicatorTheme: ProgressIndicatorThemeData(
           color: AppColors.primary,
         ),
         switchTheme: SwitchThemeData(
@@ -251,13 +288,13 @@ class AppTheme {
           activeTrackColor: AppColors.primary,
           inactiveTrackColor: AppColors.surfaceVariant,
           thumbColor: AppColors.primary,
-          overlayColor: Color(0x33E50914),
+          overlayColor: AppColors.primary.withValues(alpha: 0.2),
         ),
         snackBarTheme: SnackBarThemeData(
           backgroundColor: AppColors.surfaceVariant,
           contentTextStyle: const TextStyle(color: AppColors.textPrimary),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(isDesktopPlatform ? 10 : 4),
+            borderRadius: BorderRadius.circular(kFieldRadius),
           ),
           behavior: SnackBarBehavior.floating,
           elevation: isDesktopPlatform ? 6 : null,
@@ -304,7 +341,7 @@ class AppTheme {
             return AppColors.textSecondary;
           }),
         ),
-        tabBarTheme: const TabBarThemeData(
+        tabBarTheme: TabBarThemeData(
           labelColor: AppColors.textPrimary,
           unselectedLabelColor: AppColors.textHint,
           indicatorColor: AppColors.primary,
@@ -319,7 +356,7 @@ class AppTheme {
         tooltipTheme: TooltipThemeData(
           decoration: BoxDecoration(
             color: AppColors.surfaceVariant,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(8),
           ),
           textStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
         ),

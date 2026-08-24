@@ -323,7 +323,7 @@ class _ShortsViewState extends State<_ShortsView>
                                 top: topPad,
                                 left: 0,
                                 right: 0,
-                                child: const LinearProgressIndicator(
+                                child: LinearProgressIndicator(
                                   minHeight: 2,
                                   color: AppColors.primary,
                                   backgroundColor: Colors.transparent,

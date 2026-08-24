@@ -25,6 +25,13 @@ import 'package:showcaseview/showcaseview.dart';
 import '../../../../core/navigation/app_tab.dart';
 import '../../../../core/navigation/nav_controller.dart';
 
+/// Addressed by name, never through `ShowcaseView.get()`: that returns the most recently
+/// registered instance, so opening a detail page — which registers its own private scope —
+/// silently rebound this page's showcases to it. When the detail page went away it took the
+/// scope with it and the nav capsule threw on its next rebuild.
+const String _showcaseScope = 'main-nav';
+
+
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
 
@@ -84,6 +91,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     _navController.index.addListener(_onNavChange);
     WidgetsBinding.instance.addObserver(this);
     ShowcaseView.register(
+      scope: _showcaseScope,
       blurValue: 1.5,
       overlayColor: Colors.black,
       overlayOpacity: 0.76,
@@ -136,7 +144,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _navController.index.removeListener(_onNavChange);
     NavPrefs.tabOrder.removeListener(_onTabSetChange);
-    ShowcaseView.get().unregister();
+    ShowcaseView.getNamed(_showcaseScope).unregister();
     _tvRailScope.dispose();
     for (final n in _tvTabScopes.values) {
       n.dispose();
@@ -205,7 +213,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           _shortsShowcaseStarted = false;
           return;
         }
-        ShowcaseView.get().startShowCase([_shortsRefreshShowcaseKey]);
+        ShowcaseView.getNamed(_showcaseScope).startShowCase([_shortsRefreshShowcaseKey]);
       });
     });
   }
@@ -463,7 +471,10 @@ class _SoplayGlassCapsule extends StatelessWidget {
   // The rim is deliberately quiet: a bright specular edge on a dark capsule
   // reads as a drawn outline rather than as glass, so the highlight, the
   // fresnel glow and the refraction band are all kept thin.
-  static const _glassSettings = LiquidGlassSettings(
+  // Not const: `backerColor` is the page background, and that is a runtime
+  // value now — on AMOLED the pad has to go to true black with the rest of the
+  // app instead of staying a #1A1A1A slab floating on nothing.
+  static LiquidGlassSettings get _glassSettings => LiquidGlassSettings(
     thickness: 14, // narrower edge band → a finer rim, not a fat outline
     blur: 5, // less haze behind the bar → cleaner, not muddy
     chromaticAberration: 0.08, // barely-there edge tint
@@ -472,14 +483,16 @@ class _SoplayGlassCapsule extends StatelessWidget {
     lightIntensity: 0.6, // soft top-edge sheen instead of a hard stroke
     ambientStrength: 1,
     glowIntensity: 0.25, // faint luminous rim
-    glassColor: Color(0x12FFFFFF), // faint white sheen
-    backerColor: Color(0xE61A1A1A), // near-solid dark pad → premium, not hazy
+    glassColor: const Color(0x12FFFFFF), // faint white sheen
+    // Near-solid pad → premium, not hazy. #181818 at 90% on the default theme,
+    // which is where the old #1A1A1A literal sat.
+    backerColor: AppColors.background.withValues(alpha: 0.902),
     whitenStrength: 0.0,
   );
 
   // Solid (glass off): a near-opaque dark pad, no blur/refraction — the cheap,
   // always-smooth path.
-  static const _solidSettings = LiquidGlassSettings(
+  static LiquidGlassSettings get _solidSettings => LiquidGlassSettings(
     thickness: 0,
     blur: 0,
     chromaticAberration: 0,
@@ -487,8 +500,8 @@ class _SoplayGlassCapsule extends StatelessWidget {
     saturation: 1,
     lightIntensity: 0,
     ambientStrength: 0,
-    glassColor: Color(0x00000000),
-    backerColor: Color(0xF01A1A1A), // ~94% solid dark
+    glassColor: const Color(0x00000000),
+    backerColor: AppColors.background.withValues(alpha: 0.941), // ~94% solid
     whitenStrength: 0.0,
   );
 
@@ -514,19 +527,33 @@ class _SoplayGlassCapsule extends StatelessWidget {
       barBorderRadius: _barHeight / 2, // full capsule
       magnification: glass ? 1.12 : 1.0, // subtle iOS-26 lens on the selected tab
       indicatorPinchStrength: glass ? 0.3 : 0.0,
-      // Selected-tab pill: a soft, restrained light pill on the dark body.
-      indicatorColor: Color(glass ? 0x22FFFFFF : 0x18FFFFFF),
+      // Selected-tab pill: a soft, restrained light pill on the dark body —
+      // unless Appearance → "Colour the tab bar" is on, in which case the whole
+      // selected state moves onto the accent. Off by default: the white pill is
+      // a deliberate part of the shipped design, so it changes only when asked.
+      indicatorColor: AppColors.isNavTinted
+          ? AppColors.primary.withValues(alpha: glass ? 0.26 : 0.20)
+          : Color(glass ? 0x22FFFFFF : 0x18FFFFFF),
       quality: glass ? null : GlassQuality.minimal,
       settings: glass ? _glassSettings : _solidSettings,
-      selectedIconColor: Colors.white,
+      // primaryLight, not primary: a selected icon is a small glyph on a dark
+      // bar, and the lighter variant is the one that reads at that size.
+      selectedIconColor:
+          AppColors.isNavTinted ? AppColors.primaryLight : Colors.white,
       unselectedIconColor: const Color(0xFF7A7A7A),
-      selectedLabelColor: Colors.white,
+      selectedLabelColor:
+          AppColors.isNavTinted ? AppColors.primaryLight : Colors.white,
       unselectedLabelColor: const Color(0xFF7A7A7A),
       labelFontSize: 10.5,
     );
 
     // The package drop shadow is light-mode only, so paint our own soft capsule
     // shadow behind the glass for the "floating" look on the dark UI.
+    //
+    // A black shadow only separates the bar from a background that is lighter
+    // than black. Under AMOLED both are #000000 and the capsule dissolves into
+    // the page, so there it swaps to a faint light halo — the only direction a
+    // true-black page leaves to work in.
     final shadowed = Stack(
       children: [
         Positioned.fill(
@@ -534,13 +561,19 @@ class _SoplayGlassCapsule extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(_barHeight / 2),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x66000000),
-                    blurRadius: 24,
-                    spreadRadius: -4,
-                    offset: Offset(0, 10),
-                  ),
+                boxShadow: [
+                  AppColors.isBlack
+                      ? BoxShadow(
+                          color: Colors.white.withValues(alpha: 0.10),
+                          blurRadius: 18,
+                          spreadRadius: -6,
+                        )
+                      : const BoxShadow(
+                          color: Color(0x66000000),
+                          blurRadius: 24,
+                          spreadRadius: -4,
+                          offset: Offset(0, 10),
+                        ),
                 ],
               ),
             ),
@@ -598,9 +631,10 @@ class _SoplayClassicBar extends StatelessWidget {
         child: Container(
           height: 68 + bottomPad,
           decoration: BoxDecoration(
-            // A translucent frosted grey (not near-black) so content shows
-            // through the blur and the bar reads as frosted glass.
-            color: const Color(0xFF262626).withValues(alpha: 0.72),
+            // A translucent frosted surface (not near-black) so content shows
+            // through the blur and the bar reads as frosted glass. Follows the
+            // palette, so AMOLED gets a genuinely black frosted bar.
+            color: AppColors.surface.withValues(alpha: 0.72),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
             border: Border(
               top: BorderSide(
@@ -668,7 +702,9 @@ class _ClassicNavButtonState extends State<_ClassicNavButton> {
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.selected ? Colors.white : const Color(0xFF7A7A7A);
+    final selectedColor =
+        AppColors.isNavTinted ? AppColors.primaryLight : Colors.white;
+    final color = widget.selected ? selectedColor : const Color(0xFF7A7A7A);
 
     final button = Semantics(
       button: true,
@@ -708,7 +744,7 @@ class _ClassicNavButtonState extends State<_ClassicNavButton> {
                       shadows: widget.selected
                           ? [
                               Shadow(
-                                color: Colors.white.withValues(alpha: 0.28),
+                                color: selectedColor.withValues(alpha: 0.28),
                                 blurRadius: 10,
                               ),
                             ]
@@ -793,7 +829,7 @@ class _SoplayFloatingNav extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF262626).withValues(alpha: 0.72),
+              color: AppColors.surface.withValues(alpha: 0.72),
               borderRadius: radius,
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.10),
@@ -937,7 +973,7 @@ class _TvNavRailState extends State<_TvNavRail> {
             : _TvNavRail.collapsedWidth,
         decoration: BoxDecoration(
           color: AppColors.navBackground,
-          border: const Border(
+          border: Border(
             right: BorderSide(color: AppColors.border, width: 0.6),
           ),
           boxShadow: _expanded
@@ -1088,7 +1124,7 @@ class _ShortsRefreshShowcaseCard extends StatelessWidget {
       width: 276,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF121212).withValues(alpha: 0.96),
+        color: AppColors.navBackground.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
         boxShadow: [
@@ -1114,14 +1150,14 @@ class _ShortsRefreshShowcaseCard extends StatelessWidget {
                 height: 34,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFE53935), Color(0xFFB71C1C)],
+                  gradient: LinearGradient(
+                    colors: [AppColors.primary, AppColors.primaryDark],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFE53935).withValues(alpha: 0.35),
+                      color: AppColors.primary.withValues(alpha: 0.35),
                       blurRadius: 14,
                     ),
                   ],
@@ -1176,7 +1212,7 @@ class _ShortsRefreshShowcaseCard extends StatelessWidget {
               ),
               const Spacer(),
               GestureDetector(
-                onTap: () => ShowcaseView.get().dismiss(),
+                onTap: () => ShowcaseView.getNamed(_showcaseScope).dismiss(),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,

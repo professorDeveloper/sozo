@@ -149,7 +149,7 @@ class _Television extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFF0C0C0C),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF3A3A3A), width: 1.4),
+          border: Border.all(color: AppColors.border, width: 1.4),
           boxShadow: const [
             // Two shadows: one grounds the set, the faint wide one is the
             // screen bleeding onto the wall behind it.
@@ -231,7 +231,7 @@ class _ScreenContent extends StatelessWidget {
                     height: constraints.maxHeight,
                     cacheWidth: width,
                     errorBuilder: (_, _, _) =>
-                        const ColoredBox(color: AppColors.surface),
+                        ColoredBox(color: AppColors.surface),
                   ),
                 ),
               );
@@ -279,7 +279,7 @@ class _LiveBadge extends StatelessWidget {
                   child: Container(
                     width: 6,
                     height: 6,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
@@ -311,12 +311,12 @@ class _Stand extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(width: 14, height: 14, color: const Color(0xFF2A2A2A)),
+        Container(width: 14, height: 14, color: AppColors.divider),
         Container(
           width: 86,
           height: 5,
           decoration: BoxDecoration(
-            color: const Color(0xFF3A3A3A),
+            color: AppColors.border,
             borderRadius: BorderRadius.circular(3),
           ),
         ),

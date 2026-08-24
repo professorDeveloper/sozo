@@ -20,6 +20,18 @@ class SubtitleTranslationResult {
   final bool cached;
 }
 
+/// A translation already made for the current media, ready to load.
+class ReadySubtitle {
+  const ReadySubtitle({
+    required this.url,
+    required this.targetLang,
+    required this.cueCount,
+  });
+  final String url;
+  final String targetLang;
+  final int cueCount;
+}
+
 /// Today's translation allowance for the account.
 class SubtitleQuota {
   const SubtitleQuota({
@@ -51,6 +63,64 @@ class SubtitleDailyLimitReached implements Exception {
 /// Uses the authenticated Dio because the daily limit is counted per account.
 class SubtitleTranslationService {
   const SubtitleTranslationService();
+
+  /// Translations already made for this title/episode, across languages.
+  Future<List<ReadySubtitle>> fetchReady({
+    required String tmdbId,
+    required String type,
+    int? season,
+    int? episode,
+  }) async {
+    try {
+      final response = await getIt<Dio>().get(
+        '/contents/subtitles/ready',
+        queryParameters: {
+          'tmdbId': tmdbId,
+          'type': type,
+          'season': ?season,
+          'episode': ?episode,
+        },
+      );
+      final items = (response.data is Map ? response.data['items'] : null) as List? ??
+          const [];
+      return [
+        for (final m in items)
+          if (m is Map && m['url'] != null)
+            ReadySubtitle(
+              url: '${m['url']}',
+              targetLang: '${m['targetLang'] ?? ''}',
+              cueCount: (m['cueCount'] as num?)?.toInt() ?? 0,
+            ),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Publishes a finished translation so other viewers can load it directly.
+  /// Best-effort — a failure here never blocks playback.
+  Future<void> publishReady({
+    required String tmdbId,
+    required String type,
+    int? season,
+    int? episode,
+    required String targetLang,
+    required String srt,
+  }) async {
+    try {
+      await getIt<Dio>().post(
+        '/contents/subtitles/ready',
+        data: {
+          'tmdbId': tmdbId,
+          'type': type,
+          'season': ?season,
+          'episode': ?episode,
+          'targetLang': targetLang,
+          'srt': srt,
+        },
+      );
+    } catch (_) {}
+  }
 
   /// How many translations the account has left today, for showing before the
   /// person spends one. Returns null if it cannot be read — the UI then simply

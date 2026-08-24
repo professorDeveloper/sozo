@@ -597,7 +597,7 @@ class _LivePill extends StatelessWidget {
           Container(
             width: 5,
             height: 5,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.primary,
               shape: BoxShape.circle,
             ),
@@ -842,7 +842,7 @@ class _ChannelCard extends StatelessWidget {
                       ),
                     ),
                     if (favourite)
-                      const Positioned(
+                      Positioned(
                         top: 6,
                         right: 6,
                         child: Icon(

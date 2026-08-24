@@ -688,7 +688,7 @@ class _EngineRow extends StatelessWidget {
                             ),
                             child: Text(
                               'profile.player_engine_badge_default'.tr(),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.primary,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,

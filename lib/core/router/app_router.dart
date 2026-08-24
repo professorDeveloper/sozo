@@ -50,6 +50,7 @@ import 'package:soplay/features/trivia/presentation/pages/top_fans_page.dart';
 import 'package:soplay/features/trivia/presentation/trivia_args.dart';
 import 'package:soplay/features/user_lists/domain/entities/user_list_kind.dart';
 import 'package:soplay/features/user_lists/presentation/pages/user_lists_page.dart';
+import 'package:soplay/features/profile/presentation/pages/appearance_page.dart';
 import 'package:soplay/features/profile/presentation/pages/player_settings_page.dart';
 import 'package:soplay/features/profile/presentation/pages/providers_page.dart';
 import 'package:soplay/features/live_tv/presentation/pages/live_tv_page.dart';
@@ -238,6 +239,10 @@ class AppRouter {
       GoRoute(
         path: '/mal/links',
         builder: (context, state) => const MalLinksPage(),
+      ),
+      GoRoute(
+        path: '/appearance',
+        builder: (context, state) => const AppearancePage(),
       ),
       GoRoute(
         path: '/navbar',

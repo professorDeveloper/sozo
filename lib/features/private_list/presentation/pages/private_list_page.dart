@@ -43,7 +43,7 @@ class PrivateListPage extends StatelessWidget {
                         shape: BoxShape.circle,
                         color: AppColors.primary.withValues(alpha: 0.12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.lock_outline_rounded,
                         color: AppColors.primary,
                         size: 30,

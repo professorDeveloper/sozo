@@ -70,8 +70,10 @@ class _DownloadsPageState extends State<DownloadsPage> {
             },
             child: Text(
               'general.delete'.tr(),
+              // error, not primary: this wipes every download at once, and the
+              // single-row delete two screens down already reads as error.
               style: const TextStyle(
-                color: AppColors.primary,
+                color: AppColors.error,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -203,7 +205,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
           else
             SliverList.separated(
               itemCount: _items.length,
-              separatorBuilder: (_, _) => const Divider(
+              separatorBuilder: (_, _) => Divider(
                 color: AppColors.divider,
                 height: 1,
                 indent: 82,
@@ -277,8 +279,9 @@ class _PillButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           child: Text(
             label,
+            // The page's only pill is "Clear all" — destructive, so error.
             style: const TextStyle(
-              color: AppColors.primary,
+              color: AppColors.error,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -440,7 +443,7 @@ class _DownloadRow extends StatelessWidget {
                           value: item.progress,
                           minHeight: 3,
                           backgroundColor: AppColors.divider,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
+                          valueColor: AlwaysStoppedAnimation<Color>(
                             AppColors.primary,
                           ),
                         ),
@@ -483,8 +486,11 @@ class _DownloadRow extends StatelessWidget {
                     else if (item.status == DownloadStatus.failed)
                       Text(
                         'downloads.failed'.tr(),
+                        // Sits directly under the green "completed" label —
+                        // a failure has to be the opposite colour, not the
+                        // theme colour.
                         style: const TextStyle(
-                          color: AppColors.primary,
+                          color: AppColors.error,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -511,7 +517,7 @@ class _DownloadRow extends StatelessWidget {
                       color: AppColors.primary.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.refresh_rounded,
                       color: AppColors.primary,
                       size: 20,
@@ -522,7 +528,7 @@ class _DownloadRow extends StatelessWidget {
                 Container(
                   width: 36,
                   height: 36,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.surface,
                     shape: BoxShape.circle,
                   ),

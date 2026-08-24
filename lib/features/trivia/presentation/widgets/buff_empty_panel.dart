@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 
 /// The app's shipped empty / error panel, lifted out of the cast picker so every
 /// Buff surface says "there is nothing here" in exactly one voice.
@@ -84,7 +85,7 @@ class BuffEmptyPanel extends StatelessWidget {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(kButtonRadius),
                       ),
                     ),
                     child: Text(

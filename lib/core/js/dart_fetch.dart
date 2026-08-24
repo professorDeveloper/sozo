@@ -77,6 +77,13 @@ class DartFetch {
         final existing = extraHeaders['Cookie'] ?? extraHeaders['cookie'];
         extraHeaders['Cookie'] =
             existing != null ? '$cached; $existing' : cached;
+        // cf_clearance is bound to the agent that earned it, and it was earned
+        // under the app's own. Letting the extractor's agent ride along with
+        // the cookie made Cloudflare reissue the challenge on every request
+        // after the first — one call solved the challenge three times and still
+        // came back empty.
+        extraHeaders.remove('user-agent');
+        extraHeaders['User-Agent'] = kSozoUserAgent;
       }
     }
 
@@ -102,9 +109,17 @@ class DartFetch {
           cf != null &&
           _looksLikeCfChallenge(status, headers, response.data)) {
         JsLog.req('fetch', 'CF challenge on $host — solving …');
-        final solveAgent = req.headers['User-Agent'] ??
-            req.headers['user-agent'] ??
-            kSozoUserAgent;
+        // ALWAYS the app's own agent, never the one the extractor asked for.
+        //
+        // The challenge is solved inside an Android WebView that is forced to
+        // whatever agent we pass here, and several backend extractors ask for a
+        // desktop one. A desktop agent on an Android WebView is the platform
+        // mismatch Cloudflare's managed challenge is looking for: it never
+        // issued cf_clearance, the 30s watchdog expired, and the extension was
+        // handed the challenge page. Pinning it here means a stale extractor
+        // cannot reintroduce the mismatch, and the replay below sends the same
+        // agent the clearance was earned under — which Cloudflare requires.
+        const solveAgent = kSozoUserAgent;
         final cookieHeader = await cf.solve(
           host: host,
           url: req.url,

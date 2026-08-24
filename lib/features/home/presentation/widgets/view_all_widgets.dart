@@ -120,7 +120,7 @@ class ViewAllGrid extends StatelessWidget {
           ),
         ),
         if (state.isLoadingMore)
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(

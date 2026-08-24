@@ -6,6 +6,7 @@ import 'package:soplay/core/player/media_controller.dart'
 import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 
 /// Icon shown for each backend. Shared with Settings → Player so the row a
 /// user taps in the sheet is visually the same row they see in settings.
@@ -170,7 +171,7 @@ Future<bool> showPlayerEngineSheet(BuildContext context) async {
                       backgroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(kButtonRadius),
                       ),
                     ),
                     onPressed: () => Navigator.of(builderContext).pop(true),

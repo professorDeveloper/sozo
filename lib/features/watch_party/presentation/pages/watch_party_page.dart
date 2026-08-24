@@ -367,14 +367,14 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
             ),
           ),
         ),
-        const Divider(height: 1, color: AppColors.border),
+        Divider(height: 1, color: AppColors.border),
         // Fixed reaction bar directly above the chat — always reachable instead
         // of buried at the bottom of the scrollable top region.
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Center(child: PartyReactionPicker(service: _service)),
         ),
-        const Divider(height: 1, color: AppColors.border),
+        Divider(height: 1, color: AppColors.border),
         Expanded(
           flex: 6,
           child: Stack(
@@ -407,7 +407,7 @@ class _ConnectingView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(
+          SizedBox(
             width: 34,
             height: 34,
             child: CircularProgressIndicator(

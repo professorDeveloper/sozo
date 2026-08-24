@@ -81,18 +81,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
           fit: StackFit.expand,
           children: [
             _Backdrops(controller: _pageController, page: _page),
-            const DecoratedBox(
+            DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
+                  // The last two stops are the page background arriving — the
+                  // third used to be the literal #181818, which under AMOLED
+                  // left the poster fading into grey and then jumping to black.
                   colors: [
-                    Color(0xB3000000),
-                    Color(0x33000000),
-                    Color(0xF2181818),
+                    const Color(0xB3000000),
+                    const Color(0x33000000),
+                    AppColors.background.withValues(alpha: 0.949),
                     AppColors.background,
                   ],
-                  stops: [0, 0.28, 0.62, 0.8],
+                  stops: const [0, 0.28, 0.62, 0.8],
                 ),
               ),
             ),
@@ -107,7 +110,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       children: [
                         Text(
                           'app_name'.tr().toUpperCase(),
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.primary,
                             fontSize: 22,
                             fontWeight: FontWeight.w900,

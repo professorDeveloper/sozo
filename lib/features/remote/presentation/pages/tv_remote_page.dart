@@ -276,7 +276,7 @@ class _ConnectionBanner extends StatelessWidget {
                       minHeight: 3,
                       value: (playing!.positionMs ?? 0) / playing.durationMs!,
                       backgroundColor: AppColors.surfaceVariant,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                      valueColor: AlwaysStoppedAnimation(AppColors.primary),
                     ),
                   ),
                   const SizedBox(height: 4),

@@ -156,7 +156,7 @@ class _HistoryCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(
+              leading: Icon(
                 Icons.play_arrow_rounded,
                 color: AppColors.primary,
               ),
@@ -279,7 +279,7 @@ class _HistoryCard extends StatelessWidget {
                         child: Container(
                           width: 28,
                           height: 28,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: AppColors.primary,
                             shape: BoxShape.circle,
                           ),
@@ -299,7 +299,7 @@ class _HistoryCard extends StatelessWidget {
                             value: item.progress,
                             minHeight: 3,
                             backgroundColor: Colors.white24,
-                            valueColor: const AlwaysStoppedAnimation<Color>(
+                            valueColor: AlwaysStoppedAnimation<Color>(
                               AppColors.primary,
                             ),
                           ),

@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
@@ -458,7 +459,7 @@ class _MediaSheet extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     padding: EdgeInsets.zero,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(kButtonRadius),
                     ),
                   ),
                   child: const Icon(Icons.expand_more_rounded, size: 20),

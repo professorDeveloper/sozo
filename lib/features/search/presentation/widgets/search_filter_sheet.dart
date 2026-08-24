@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 
@@ -119,7 +120,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(kButtonRadius),
                           ),
                         ),
                         child: Text(
@@ -142,7 +143,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(kButtonRadius),
                           ),
                         ),
                         child: Text(

@@ -95,7 +95,7 @@ class ReleaseNotesView extends StatelessWidget {
         'blockquote': Style(
           margin: Margins.only(bottom: 8),
           padding: HtmlPaddings.only(left: 10),
-          border: const Border(
+          border: Border(
             left: BorderSide(color: AppColors.border, width: 3),
           ),
           color: AppColors.textSecondary,

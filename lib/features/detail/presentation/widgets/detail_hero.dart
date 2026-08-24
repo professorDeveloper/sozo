@@ -40,10 +40,14 @@ class DetailHeroBackground extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
+                  // All three stops are the page background at falling
+                  // opacity — that is what makes the poster dissolve INTO the
+                  // page. The middle one used to be the literal #181818, which
+                  // left a grey band hanging in mid-air under AMOLED.
                   colors: [
                     AppColors.background,
-                    const Color(0xEE181818),
-                    const Color(0x00000000),
+                    AppColors.background.withValues(alpha: 0.933),
+                    AppColors.background.withValues(alpha: 0.0),
                   ],
                   stops: const [0.0, 0.5, 1.0],
                 ),
@@ -108,13 +112,13 @@ class _ThumbnailImage extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        const ColoredBox(color: AppColors.surfaceVariant),
+        ColoredBox(color: AppColors.surfaceVariant),
         CachedNetworkImage(
           imageUrl: url!,
           fit: BoxFit.cover,
           fadeInDuration: const Duration(milliseconds: 240),
           fadeInCurve: Curves.easeOut,
-          placeholder: (_, _) => const ColoredBox(color: AppColors.surfaceVariant),
+          placeholder: (_, _) => ColoredBox(color: AppColors.surfaceVariant),
           errorWidget: (_, _, _) => Container(
             color: AppColors.surfaceVariant,
             child: const Center(

@@ -15,6 +15,9 @@ import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/bridge/bridge_control.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
+import 'package:soplay/core/theme/theme_controller.dart';
+import 'package:soplay/features/profile/presentation/pages/appearance_page.dart';
 import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
 import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
@@ -43,6 +46,7 @@ import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/features/mal/presentation/widgets/mal_brand.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
+import 'package:soplay/features/watch_party/presentation/party_entry.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -108,20 +112,24 @@ class _ProfileViewState extends State<_ProfileView> {
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          const DecoratedBox(
+          // Accent-tinted at the top, falling to the page background. Used to
+          // be the literals [#1E1416, #181818, #101010]; those are exactly what
+          // these three resolve to at the default red, and they now follow the
+          // chosen accent and darkness instead of staying red on a blue app.
+          DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFF1E1416),
-                  Color(0xFF181818),
-                  Color(0xFF101010),
+                  AppColors.heroTop,
+                  AppColors.heroMid,
+                  AppColors.heroBottom,
                 ],
-                stops: [0, 0.35, 1],
+                stops: const [0, 0.35, 1],
               ),
             ),
-            child: SizedBox.expand(),
+            child: const SizedBox.expand(),
           ),
           _ProfileScrollFrame(
             child: RefreshIndicator(
@@ -134,58 +142,56 @@ class _ProfileViewState extends State<_ProfileView> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(child: SizedBox(height: headerH + 16)),
+                  // One BlocBuilder over the whole list rather than a stack of
+                  // fixed slivers with conditionals sprinkled through it.
+                  //
+                  // A guest cannot use the streak, a tracker connection or a TV
+                  // pairing — all three bind to a Sozo account — and the old
+                  // list still reserved their gaps, so signed out the page was
+                  // a run of empty space with Settings pushed below the fold.
+                  // Building the sections into a list means the spacing belongs
+                  // to the sections that are actually there, and the reveal
+                  // stagger renumbers itself.
                   SliverToBoxAdapter(
                     child: BlocBuilder<AuthBloc, AuthState>(
                       builder: (context, state) {
-                        final user = state is AuthLoaded
-                            ? state.token.user
-                            : null;
-                        return _Reveal(
-                          order: 0,
-                          child: _ProfileHeader(user: user),
+                        final signedIn = state is AuthLoaded;
+                        final user = signedIn ? state.token.user : null;
+                        final sections = <Widget>[
+                          _ProfileHeader(user: user),
+                          if (signedIn) const StreakCard(),
+                          if (signedIn) const _ConnectionsSection(),
+                          const _ContentSection(),
+                          // signedIn is passed rather than read inside: a
+                          // `const _WatchHistorySection()` is the same widget
+                          // instance every build, so Flutter would skip
+                          // rebuilding it and the Watch Party row would not
+                          // appear until something else disturbed the tree.
+                          _WatchHistorySection(signedIn: signedIn),
+                          const _SettingsEntriesSection(),
+                          const _AboutSection(),
+                          if (signedIn) const _SignOutSection(),
+                        ];
+                        return Column(
+                          children: [
+                            for (var i = 0; i < sections.length; i++) ...[
+                              // The header carries its own padding; the gap
+                              // after it is the wider one it always had.
+                              if (i > 0) SizedBox(height: i == 1 ? 20 : 16),
+                              _Reveal(
+                                // Keyed by section type, which is unique in
+                                // this list: signing out removes three entries
+                                // and every section below shifts index, and an
+                                // unkeyed Column would hand each one the
+                                // previous occupant's Element and State.
+                                key: ValueKey<Type>(sections[i].runtimeType),
+                                order: i,
+                                child: sections[i],
+                              ),
+                            ],
+                          ],
                         );
                       },
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
-                  const SliverToBoxAdapter(
-                    child: _Reveal(order: 1, child: StreakCard()),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                  const SliverToBoxAdapter(
-                    child: _Reveal(order: 2, child: _ConnectionsSection()),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                  const SliverToBoxAdapter(
-                    child: _Reveal(order: 3, child: _ProvidersSection()),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                  const SliverToBoxAdapter(
-                    child: _Reveal(order: 4, child: _ExtensionSourcesSection()),
-                  ),
-                  // Signed-in only: approving a TV pairing binds it to an account, so
-                  // there is nothing this can do for a guest.
-                  const SliverToBoxAdapter(
-                    child: _Reveal(order: 5, child: _WatchHistorySection()),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                  const SliverToBoxAdapter(
-                    child: _Reveal(order: 6, child: _SecuritySection()),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                  const SliverToBoxAdapter(
-                    child: _Reveal(order: 7, child: _SettingsEntriesSection()),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                  const SliverToBoxAdapter(
-                    child: _Reveal(order: 8, child: _AboutSection()),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                  SliverToBoxAdapter(
-                    child: BlocBuilder<AuthBloc, AuthState>(
-                      builder: (context, state) => state is AuthLoaded
-                          ? const _Reveal(order: 9, child: _SignOutSection())
-                          : const SizedBox.shrink(),
                     ),
                   ),
                   SliverToBoxAdapter(
@@ -344,13 +350,29 @@ class _ProfileViewState extends State<_ProfileView> {
           ],
         );
       case 1:
-        return const _ProvidersSection();
+        return const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ProvidersSection(),
+            SizedBox(height: 20),
+            _ExtensionSourcesSection(),
+          ],
+        );
       case 2:
         return const _WatchHistorySection();
       case 3:
         return const _SecuritySection();
       case 4:
-        return const _AppearanceSection();
+        // Theme first, then the window / navigation-bar options that were
+        // already here — one Appearance panel rather than two half-panels.
+        return const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppearanceSettings(showResetRow: true),
+            SizedBox(height: 20),
+            _AppearanceSection(),
+          ],
+        );
       default:
         return const _AboutSection();
     }
@@ -470,7 +492,7 @@ class _SettingsNavItemState extends State<_SettingsNavItem> {
 /// Staggered fade + slide-up entrance for each settings section (desktop only,
 /// akuse-style). Mobile returns the child unchanged.
 class _Reveal extends StatefulWidget {
-  const _Reveal({required this.order, required this.child});
+  const _Reveal({super.key, required this.order, required this.child});
   final int order;
   final Widget child;
 
@@ -593,7 +615,7 @@ class _GuestContent extends StatelessWidget {
                     color: AppColors.primary.withValues(alpha: 0.2),
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.person_outline_rounded,
                   color: AppColors.primaryLight,
                   size: 28,
@@ -636,7 +658,7 @@ class _GuestContent extends StatelessWidget {
               label: Text('profile.sign_in'.tr()),
               style: ElevatedButton.styleFrom(
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(kButtonRadius),
                 ),
               ),
             ),
@@ -788,6 +810,10 @@ class _SignOutSection extends StatelessWidget {
 class _ProvidersSection extends StatelessWidget {
   const _ProvidersSection();
 
+  /// The provider row on its own, so the mobile CONTENT card can put it above
+  /// the extension sources rather than give it a labelled card of its own.
+  static Widget row() => const _ProviderRow();
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -796,7 +822,19 @@ class _ProvidersSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionLabel('profile.section_providers'.tr()),
-          BlocBuilder<ProviderBloc, ProviderState>(
+          _SectionCard(children: [row()]),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProviderRow extends StatelessWidget {
+  const _ProviderRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ProviderBloc, ProviderState>(
             builder: (context, state) {
               final loaded = state is ProviderLoaded ? state : null;
               final currentProvider = loaded?.currentProvider;
@@ -804,9 +842,7 @@ class _ProvidersSection extends StatelessWidget {
                   currentProvider?.name ?? loaded?.currentProviderId ?? '—';
               final total = loaded?.providers.length ?? 0;
 
-              return _SectionCard(
-                children: [
-                  _Tile(
+              return _Tile(
                     icon: Icons.movie_filter_outlined,
                     title: 'profile.provider'.tr(),
                     trailing: Row(
@@ -859,14 +895,9 @@ class _ProvidersSection extends StatelessWidget {
                       ],
                     ),
                     onTap: () => context.push('/providers'),
-                  ),
-                ],
-              );
+                  );
             },
-          ),
-        ],
-      ),
-    );
+          );
   }
 }
 
@@ -875,7 +906,10 @@ void openProviderPicker(BuildContext context, ProviderBloc bloc) {
 }
 
 class _WatchHistorySection extends StatefulWidget {
-  const _WatchHistorySection();
+  const _WatchHistorySection({this.signedIn = true});
+
+  /// Hides the rows that only work with a Sozo account.
+  final bool signedIn;
 
   @override
   State<_WatchHistorySection> createState() => _WatchHistorySectionState();
@@ -967,6 +1001,37 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
                 title: 'tracker.title'.tr(),
                 trailing: const _TileChevron(),
                 onTap: () => context.push('/following'),
+              ),
+              // Moved out of the home top bar, which had five permanent icons
+              // and no room. Each of these is somewhere you go on purpose, and
+              // this list is where the app already keeps those; leaving them
+              // only in the bar was the reason the bar could not be trimmed.
+              //
+              // Watch Party is the one that hard-requires an account — tapping
+              // it signed out only bounces to /login — so a guest is not shown
+              // a door that opens onto a sign-in wall.
+              if (widget.signedIn) ...[
+                const _TileDivider(),
+                _Tile(
+                  icon: Icons.groups_rounded,
+                  title: 'watch_party.title'.tr(),
+                  trailing: const _TileChevron(),
+                  onTap: () => showPartyEntrySheet(context),
+                ),
+              ],
+              const _TileDivider(),
+              _Tile(
+                icon: Icons.track_changes_rounded,
+                title: 'navigation.anilist'.tr(),
+                trailing: const _TileChevron(),
+                onTap: () => context.push('/anilist'),
+              ),
+              const _TileDivider(),
+              _Tile(
+                icon: Icons.live_tv_rounded,
+                title: 'navigation.live_tv'.tr(),
+                trailing: const _TileChevron(),
+                onTap: () => context.push('/live-tv'),
               ),
               const _TileDivider(),
               _Tile(
@@ -1185,18 +1250,40 @@ class _SecuritySection extends StatefulWidget {
 }
 
 class _SecuritySectionState extends State<_SecuritySection> {
-  late final AppLockRepository _lock = getIt<AppLockRepository>();
-
   @override
   Widget build(BuildContext context) {
-    final enabled = _lock.isEnabled;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionLabel('app_lock.section_label'.tr()),
-          _SectionCard(
+          const _SectionCard(children: [_SecurityRows()]),
+        ],
+      ),
+    );
+  }
+}
+
+/// App lock + private list, as two bare rows.
+///
+/// Split out of [_SecuritySection] so the mobile SETTINGS card can hold them
+/// next to Appearance and Player — where they belong — while desktop keeps its
+/// own "Security" panel.
+class _SecurityRows extends StatefulWidget {
+  const _SecurityRows();
+
+  @override
+  State<_SecurityRows> createState() => _SecurityRowsState();
+}
+
+class _SecurityRowsState extends State<_SecurityRows> {
+  late final AppLockRepository _lock = getIt<AppLockRepository>();
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = _lock.isEnabled;
+    return Column(
             children: [
               _Tile(
                 icon: Icons.lock_rounded,
@@ -1238,10 +1325,7 @@ class _SecuritySectionState extends State<_SecuritySection> {
                 },
               ),
             ],
-          ),
-        ],
-      ),
-    );
+          );
   }
 }
 
@@ -1540,12 +1624,12 @@ class NavbarPage extends StatelessWidget {
   }
 }
 
-/// The two rows that open a settings sub-page ([NavbarPage],
-/// [PlayerSettingsPage]).
+/// Everything the user can configure, in ONE card.
 ///
-/// One labelled card rather than two unlabelled single-row cards: floating
-/// alone between the labelled Security and About sections, they read as
-/// leftovers rather than as a group.
+/// Appearance, the navigation bar and the player used to be a three-row card
+/// with app lock and the private list in a separate labelled "Security" card
+/// directly above it. Two labels for five rows that are all "settings" made the
+/// page read as longer than it is; one label reads as one place to look.
 ///
 /// The Player row is unconditional — the page behind it owns playback defaults
 /// and subtitle appearance, which apply everywhere; only its engine block is
@@ -1564,6 +1648,14 @@ class _SettingsEntriesSection extends StatelessWidget {
           _SectionCard(
             children: [
               _Tile(
+                icon: Icons.palette_outlined,
+                title: 'appearance.title'.tr(),
+                subtitle: 'appearance.entry_subtitle'.tr(),
+                trailing: const _AccentDotChevron(),
+                onTap: () => context.push('/appearance'),
+              ),
+              const _TileDivider(),
+              _Tile(
                 icon: Icons.view_week_rounded,
                 title: 'profile.nav_style'.tr(),
                 trailing: const _TileChevron(),
@@ -1576,6 +1668,90 @@ class _SettingsEntriesSection extends StatelessWidget {
                 trailing: const _TileChevron(),
                 onTap: () => context.push('/player-settings'),
               ),
+              const _TileDivider(),
+              const _SecurityRows(),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Where the content comes from: the active provider, and — folded away behind
+/// one row — the installable extension ecosystems.
+///
+/// These were two labelled cards and five rows. Four of those rows were
+/// extension stores most people open once and never again, so they are collapsed
+/// by default; the row still says how many there are, and opens them in place.
+class _ContentSection extends StatefulWidget {
+  const _ContentSection();
+
+  @override
+  State<_ContentSection> createState() => _ContentSectionState();
+}
+
+class _ContentSectionState extends State<_ContentSection> {
+  bool _sourcesOpen = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final sources = _ExtensionSourcesSection.rowsFor(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionLabel('profile.section_content'.tr()),
+          _SectionCard(
+            children: [
+              _ProvidersSection.row(),
+              if (sources.isNotEmpty) ...[
+                const _TileDivider(),
+                _Tile(
+                  icon: Icons.extension_outlined,
+                  title: 'profile.sources_row'.tr(),
+                  subtitle: 'profile.sources_row_subtitle'.tr(),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${sources.length}',
+                        style: const TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      AnimatedRotation(
+                        turns: _sourcesOpen ? 0.25 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: const _TileChevron(),
+                      ),
+                    ],
+                  ),
+                  onTap: () => setState(() => _sourcesOpen = !_sourcesOpen),
+                ),
+                // AnimatedSize rather than a route: the stores are one tap
+                // away either way, and expanding in place keeps the user's
+                // place on a long page.
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: _sourcesOpen
+                      ? Column(
+                          children: [
+                            for (final row in sources) ...[
+                              const _TileDivider(),
+                              row,
+                            ],
+                          ],
+                        )
+                      : const SizedBox(width: double.infinity),
+                ),
+              ],
             ],
           ),
         ],
@@ -1858,6 +2034,10 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
+/// A section heading, with the same accent tick Home puts in front of every
+/// row title. Two jobs: it carries the chosen colour down a screen that is
+/// otherwise all greys, and it gives a long settings list a visual rhythm so
+/// the sections read as separate rather than as one endless column.
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.label);
   final String label;
@@ -1866,14 +2046,34 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: AppColors.textHint,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.8,
-        ),
+      child: Row(
+        children: [
+          Container(
+            width: 2.5,
+            height: 11,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppColors.primary,
+                  AppColors.primary.withValues(alpha: 0.5),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textHint,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2012,7 +2212,39 @@ class _TileDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const Divider(color: AppColors.divider, height: 1, indent: 64);
+      Divider(color: AppColors.divider, height: 1, indent: 64);
+}
+
+/// Chevron with the accent in front of it, for the Appearance row.
+///
+/// The row's whole subject is a colour, so the current one belongs on the row —
+/// it turns "Appearance ›" into an answer as well as a destination.
+class _AccentDotChevron extends StatelessWidget {
+  const _AccentDotChevron();
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = getIt<ThemeController>().accent;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: accent.base,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.18),
+              width: 0.8,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        const _TileChevron(),
+      ],
+    );
+  }
 }
 
 /// Chevron used by every row that opens something.
@@ -2162,8 +2394,10 @@ class _ServerCountdownTileState extends State<_ServerCountdownTile> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
+                    // "Expired" means the server is down and nothing will load.
+                    // That is an error, not a place to show the theme.
                     color: rem == Duration.zero
-                        ? AppColors.primary
+                        ? AppColors.error
                         : AppColors.textSecondary,
                     fontSize: 13,
                     fontFeatures: const [FontFeature.tabularFigures()],
@@ -2233,14 +2467,15 @@ class _ServerSupportSheet extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
+                    color: AppColors.error.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
+                    // Same reasoning as the countdown row above it.
                     'profile.server_expired'.tr(),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: AppColors.primary,
+                      color: AppColors.error,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                     ),
@@ -2353,9 +2588,9 @@ class _SheetCountdownCell extends StatelessWidget {
 class _ExtensionSourcesSection extends StatelessWidget {
   const _ExtensionSourcesSection();
 
-  @override
-  Widget build(BuildContext context) {
-    final rows = <Widget>[
+  /// The rows themselves, so the mobile CONTENT card can host them behind an
+  /// expander instead of standing up a fifth labelled card of its own.
+  static List<Widget> rowsFor(BuildContext context) => <Widget>[
       if (BridgeControl.canHost && CloudStreamChannel.isSupported)
         _Tile(
           leading: const _TileLogo(
@@ -2412,6 +2647,10 @@ class _ExtensionSourcesSection extends StatelessWidget {
           ),
         ),
     ];
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = rowsFor(context);
     if (rows.isEmpty) return const SizedBox.shrink();
 
     return Padding(

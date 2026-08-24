@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/trivia/domain/entities/actor_ref_entity.dart';
 import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
 import 'package:soplay/features/trivia/presentation/trivia_args.dart';
@@ -412,11 +413,11 @@ class _SecondaryButton extends StatelessWidget {
           side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
           foregroundColor: AppColors.textPrimary,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(kButtonRadius),
           ),
         ),
         icon: busy
-            ? const SizedBox(
+            ? SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(

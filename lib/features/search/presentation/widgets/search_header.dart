@@ -47,7 +47,7 @@ class SearchStickyHeader extends StatelessWidget {
     final bottomGap = lerpDouble(16, 10, compactProgress)!;
     final blurred = progress > 0.01;
     final backgroundColor = blurred
-        ? const Color(0xFF181818).withValues(alpha: 0.82)
+        ? AppColors.background.withValues(alpha: 0.82)
         : AppColors.background;
 
     final inner = Column(
@@ -314,7 +314,7 @@ class _FilterButton extends StatelessWidget {
               child: Container(
                 width: 7,
                 height: 7,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.primary,
                   shape: BoxShape.circle,
                 ),

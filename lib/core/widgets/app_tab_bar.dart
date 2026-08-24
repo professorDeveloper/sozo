@@ -16,7 +16,7 @@ class AppTabBar extends StatefulWidget implements PreferredSizeWidget {
     this.controller,
     this.isScrollable = true,
     this.showDivider = true,
-    this.background = AppColors.background,
+    this.background,
     this.padding = const EdgeInsets.only(left: 8),
   });
 
@@ -26,7 +26,10 @@ class AppTabBar extends StatefulWidget implements PreferredSizeWidget {
   final TabController? controller;
   final bool isScrollable;
   final bool showDivider;
-  final Color background;
+  /// Defaults to [AppColors.background]. Nullable rather than defaulted in the
+  /// constructor because the palette is a runtime value now, and a default
+  /// parameter has to be a compile-time constant.
+  final Color? background;
   final EdgeInsets padding;
 
   static const double _dividerHeight = 0.5;
@@ -110,7 +113,7 @@ class _AppTabBarState extends State<AppTabBar>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: widget.background,
+      color: widget.background ?? AppColors.background,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

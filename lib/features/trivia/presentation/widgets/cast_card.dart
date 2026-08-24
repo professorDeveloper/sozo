@@ -219,7 +219,7 @@ class _HighlightedName extends StatelessWidget {
           TextSpan(text: name.substring(0, start)),
           TextSpan(
             text: name.substring(start, end),
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.primaryLight,
               fontWeight: FontWeight.w800,
             ),

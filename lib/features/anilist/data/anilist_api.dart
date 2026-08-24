@@ -35,6 +35,16 @@ class AnilistApi {
 
   static const String _rateLimitMessage = 'AniList is rate limiting requests';
 
+  /// AniList refusing everything, and the reason it gave.
+  ///
+  /// Separate from [_throttledUntil]: a rate limit is our fault and clears in
+  /// seconds, an outage is theirs and lasts as long as it lasts. Keeping them
+  /// apart means we replay AniList's own words instead of telling the user to
+  /// slow down when slowing down cannot help.
+  DateTime? _outageUntil;
+  String? _outageMessage;
+  static const Duration _outageBackoff = Duration(minutes: 5);
+
   static Duration _retryAfter(Response<dynamic>? response) {
     final headers = response?.headers;
     final retryAfter = int.tryParse(headers?.value('retry-after') ?? '');
@@ -100,6 +110,13 @@ class AnilistApi {
     if (until != null && DateTime.now().isBefore(until)) {
       throw const AnilistException(_rateLimitMessage, rateLimited: true);
     }
+    // While AniList is refusing everything there is nothing to gain by asking
+    // again — and the calendar alone fires two requests per visit (the selected
+    // day plus tomorrow's prefetch), every one of them a guaranteed failure.
+    final outage = _outageUntil;
+    if (outage != null && DateTime.now().isBefore(outage)) {
+      throw AnilistException(_outageMessage ?? 'AniList is unavailable');
+    }
 
     final Response<dynamic> response;
     try {
@@ -115,25 +132,55 @@ class AnilistApi {
         _throttledUntil = DateTime.now().add(_retryAfter(e.response));
         throw const AnilistException(_rateLimitMessage, rateLimited: true);
       }
+      // GraphQL errors normally arrive in a 200 body and are read below, but a
+      // refusal comes back as a non-2xx — which Dio throws on, so the body was
+      // discarded and the reason with it. When AniList disabled its API it
+      // answered every query with 403 and "The AniList API has been temporarily
+      // disabled due to severe stability issues", and every screen showed its
+      // own generic "could not load" beside a Try again that could not work.
+      final message = _graphqlError(e.response?.data);
+      if (message != null) {
+        // Back off only when the service is refusing everyone — 403, or a 5xx.
+        // A 400 means we sent something wrong, and muting our own bug for five
+        // minutes would hide it rather than fix it, so that one is reported and
+        // the next call still goes out.
+        final code = e.response?.statusCode ?? 0;
+        if (code == 403 || code >= 500) {
+          _outageUntil = DateTime.now().add(_outageBackoff);
+          _outageMessage = message;
+        }
+        throw AnilistException(message);
+      }
       rethrow;
     }
     _throttledUntil = null;
+    _outageUntil = null;
+    _outageMessage = null;
 
     final body = response.data;
     if (body is! Map) throw const AnilistException('Unexpected AniList reply');
 
     // GraphQL reports failures in a 200 body, so a non-throwing Dio call is not
     // the same as a successful query.
-    final errors = body['errors'];
-    if (errors is List && errors.isNotEmpty) {
-      final first = errors.first;
-      final message = first is Map ? first['message']?.toString() : null;
-      throw AnilistException(message ?? 'AniList rejected the request');
-    }
+    final message = _graphqlError(body);
+    if (message != null) throw AnilistException(message);
 
     final data = body['data'];
     if (data is! Map) throw const AnilistException('AniList returned no data');
     return data.cast<String, dynamic>();
+  }
+
+  /// The first message out of a GraphQL `errors` array, wherever it arrives —
+  /// a 200 body or the body of a refusal. Null when the payload carries none.
+  static String? _graphqlError(dynamic body) {
+    if (body is! Map) return null;
+    final errors = body['errors'];
+    if (errors is! List || errors.isEmpty) return null;
+    final first = errors.first;
+    final message = first is Map ? first['message']?.toString() : null;
+    return (message != null && message.isNotEmpty)
+        ? message
+        : 'AniList rejected the request';
   }
 
   /// Who the stored token belongs to. Also the cheapest way to tell whether a

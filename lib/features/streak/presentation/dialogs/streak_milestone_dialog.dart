@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 
 const Color _ember = Color(0xFFFFA94D);
 const Color _emberDeep = Color(0xFFEF7A35);
@@ -97,10 +98,10 @@ class _StreakMilestoneDialogState extends State<StreakMilestoneDialog>
                 constraints: const BoxConstraints(maxWidth: 360),
                 padding: const EdgeInsets.fromLTRB(24, 30, 24, 22),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF222222), Color(0xFF161616)],
+                    colors: [AppColors.surface, AppColors.background],
                   ),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
@@ -158,7 +159,7 @@ class _StreakMilestoneDialogState extends State<StreakMilestoneDialog>
                               ),
                               foregroundColor: AppColors.textPrimary,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(kButtonRadius),
                               ),
                             ),
                             child: Text(
@@ -178,7 +179,7 @@ class _StreakMilestoneDialogState extends State<StreakMilestoneDialog>
                               padding: const EdgeInsets.symmetric(vertical: 13),
                               backgroundColor: AppColors.primary,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(kButtonRadius),
                               ),
                             ),
                             icon: const Icon(Icons.ios_share_rounded, size: 16),
@@ -374,7 +375,7 @@ class StreakFreezeSavedDialog extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       backgroundColor: _frostDeep,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(kButtonRadius),
                       ),
                     ),
                     child: Text(

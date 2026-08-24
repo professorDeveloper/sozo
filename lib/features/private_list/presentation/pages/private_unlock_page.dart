@@ -88,7 +88,7 @@ class _PrivateUnlockViewState extends State<_PrivateUnlockView> {
                       color: AppColors.primary.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.lock_rounded,
                       color: AppColors.primary,
                       size: 30,

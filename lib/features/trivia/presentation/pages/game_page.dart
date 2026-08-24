@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/trivia/domain/entities/trivia_option_entity.dart';
@@ -181,7 +182,7 @@ class _GameViewState extends State<_GameView> {
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(
               'trivia.forfeit_confirm'.tr(),
-              style: const TextStyle(color: AppColors.primaryLight),
+              style: TextStyle(color: AppColors.primaryLight),
             ),
           ),
         ],
@@ -435,7 +436,7 @@ class _RevealPanel extends StatelessWidget {
                 border: Border.all(
                   color: (reveal.correct
                           ? AppColors.success
-                          : AppColors.primary)
+                          : AppColors.error)
                       .withValues(alpha: 0.5),
                   width: 1.2,
                 ),
@@ -463,7 +464,7 @@ class _RevealPanel extends StatelessWidget {
                               style: TextStyle(
                                 color: reveal.correct
                                     ? AppColors.success
-                                    : AppColors.primaryLight,
+                                    : AppColors.errorLight,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
                                 height: 1.2,
@@ -502,7 +503,7 @@ class _RevealPanel extends StatelessWidget {
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(kButtonRadius),
                         ),
                       ),
                       icon: const Icon(CupertinoIcons.play_fill, size: 16),

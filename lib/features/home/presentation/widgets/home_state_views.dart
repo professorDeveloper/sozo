@@ -241,7 +241,7 @@ class HomeErrorView extends StatelessWidget {
                   onPressed: () => _solveCloudflare(context),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textPrimary,
-                    side: const BorderSide(color: AppColors.border),
+                    side: BorderSide(color: AppColors.border),
                   ),
                   icon: const Icon(Icons.shield_outlined, size: 18),
                   label: Text('cloudflare.solve'.tr()),

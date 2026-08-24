@@ -1,15 +1,15 @@
-import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 import 'dart:async';
 import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
+import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -23,8 +23,9 @@ import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
+import 'package:soplay/features/streak/data/streak_service.dart';
+import 'package:soplay/features/streak/domain/entities/streak_state.dart';
 import 'package:soplay/features/streak/presentation/widgets/streak_badge.dart';
-import 'package:soplay/features/watch_party/presentation/party_entry.dart';
 
 class HomeTopBar extends StatelessWidget {
   const HomeTopBar({super.key, required this.blurProgress});
@@ -36,11 +37,16 @@ class HomeTopBar extends StatelessWidget {
     final topPad = MediaQuery.of(context).padding.top;
     final progress = blurProgress.clamp(0.0, 1.0);
 
-    // Eight targets — wordmark, source pill, streak, and five actions — do not
-    // fit a phone at full spacing; the row overflowed by 18px on a 411dp
-    // screen. The space comes out of the wordmark and the icon gaps, NOT out of
-    // the source name: which source is live is the one piece of state in this
-    // bar, and a bare logo does not say it.
+    // The bar reports state. It does not navigate.
+    //
+    // It had grown to five permanent actions beside the wordmark, source pill
+    // and streak, which overflowed a 411dp phone by 18px and had to be scaled
+    // down to fit — a row that shrinks to survive is a row with too much in it.
+    // Every destination came out: search is already a default bottom tab, and
+    // watch party, AniList and Live TV moved to Profile, which is where a place
+    // you visit occasionally belongs. What is left is what TELLS you something
+    // without being opened — the live source, the streak, a download in flight,
+    // an unread count.
     final compact = MediaQuery.sizeOf(context).width < 430;
     final iconPad = compact ? 6.0 : 8.0;
 
@@ -49,33 +55,17 @@ class HomeTopBar extends StatelessWidget {
         color: AppColors.textPrimary,
         onRefresh: () => context.read<HomeBloc>().add(HomeLoad(silent: true)),
       ),
-      _TopBarIcon(
-        icon: Icons.groups_rounded,
-        pad: iconPad,
-        onTap: () => showPartyEntrySheet(context),
-      ),
-      _TopBarIcon(
-        icon: Icons.search_rounded,
-        pad: iconPad,
-        onTap: () => getIt<NavController>().goToId(TabId.search),
-      ),
-      // AniList lived four taps deep behind the profile. Discovery and the
-      // airing calendar are things people open daily, and a tracker nobody
-      // can find is a tracker nobody connects.
-      _TopBarIcon.custom(
-        pad: iconPad,
-        child: const AnilistLogo(size: 19, radius: 5),
-        onTap: () => context.push('/anilist'),
-      ),
-      // Live TV was reachable only through the profile, which is where
-      // things go to be forgotten. It is a line-up you open and leave, not
-      // a setting.
-      _TopBarIcon(
-        icon: Icons.live_tv_rounded,
-        pad: iconPad,
-        onTap: () => context.push('/live-tv'),
-      ),
+      // Streak sits with the other status, not next to the source pill.
+      // Grouping the two things that report a count — a streak and an unread
+      // badge — puts every "here is where you stand" signal in one place and
+      // leaves the left side to say only what it is: the app, and the source.
+      const StreakBadge(),
       _DownloadIndicator(pad: iconPad),
+      _AnilistShortcut(pad: iconPad),
+      // Search rides next to AniList, but yields to a live streak: when the
+      // streak badge is showing its count the row is already full, so the
+      // search icon steps aside and lives where it always has — the bottom tab.
+      _SearchShortcut(pad: iconPad),
       _NotificationsIndicator(pad: iconPad),
     ];
 
@@ -98,8 +88,6 @@ class HomeTopBar extends StatelessWidget {
             constraints: BoxConstraints(maxWidth: compact ? 116 : 170),
             child: const _ProviderSwitcher(),
           ),
-          const SizedBox(width: 8),
-          const StreakBadge(),
           // The last line of defence: a transient download badge, a long streak
           // count or a large system font can still outgrow what is left, and a
           // strip that scales a few percent reads better than a yellow bar.
@@ -346,7 +334,7 @@ class _ProviderQuickSwitchSheet extends StatelessWidget {
                 ),
               ),
             ),
-          const Divider(color: AppColors.divider, height: 1),
+          Divider(color: AppColors.divider, height: 1),
           ListTile(
             leading: Container(
               width: 36,
@@ -402,7 +390,7 @@ Widget _favoriteProviderTile(
       ),
     ),
     trailing: selected
-        ? const Icon(Icons.check_rounded, color: AppColors.primary, size: 20)
+        ? Icon(Icons.check_rounded, color: AppColors.primary, size: 20)
         : null,
     onTap: () => Navigator.of(context).pop(p.id),
   );
@@ -440,6 +428,88 @@ class _ProviderLogo extends StatelessWidget {
               loadingBuilder: (_, child, chunk) =>
                   chunk == null ? child : fallback,
             ),
+    );
+  }
+}
+
+/// A tap target that matches the notification bell: same 24px icon, same
+/// padding, so the row reads as one set of controls.
+class _TopBarIconButton extends StatelessWidget {
+  const _TopBarIconButton({
+    required this.child,
+    required this.onTap,
+    this.pad = 8,
+  });
+
+  final Widget child;
+  final VoidCallback onTap;
+  final double pad;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: pad, vertical: 10),
+          child: SizedBox(width: 24, height: 24, child: Center(child: child)),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnilistShortcut extends StatelessWidget {
+  const _AnilistShortcut({this.pad = 8});
+
+  final double pad;
+
+  @override
+  Widget build(BuildContext context) {
+    return _TopBarIconButton(
+      pad: pad,
+      onTap: () => context.push('/anilist'),
+      child: SvgPicture.asset(
+        'assets/icons/anilist.svg',
+        width: 22,
+        height: 22,
+      ),
+    );
+  }
+}
+
+/// Search — but only while no streak is showing its count. A live streak fills
+/// the row, so search yields and stays a bottom tab; without one it rides here.
+class _SearchShortcut extends StatelessWidget {
+  const _SearchShortcut({this.pad = 8});
+
+  final double pad;
+
+  @override
+  Widget build(BuildContext context) {
+    final streak = getIt<StreakService>();
+    final loggedIn = getIt<HiveService>().isLoggedIn;
+    return ValueListenableBuilder<StreakState>(
+      valueListenable: streak.state,
+      builder: (context, state, _) {
+        final streakShowing = loggedIn && state.current > 0;
+        if (streakShowing) return const SizedBox.shrink();
+        return _TopBarIconButton(
+          pad: pad,
+          onTap: () {
+            if (!getIt<NavController>().goToId(TabId.search)) {
+              context.push('/cross-search');
+            }
+          },
+          child: const Icon(
+            Icons.search_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
+        );
+      },
     );
   }
 }
@@ -594,50 +664,6 @@ class _NotificationsIndicatorState extends State<_NotificationsIndicator>
                   ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TopBarIcon extends StatelessWidget {
-  const _TopBarIcon({
-    required IconData this.icon,
-    required this.onTap,
-    this.pad = 8,
-  }) : child = null;
-
-  /// For a brand mark, which is an image rather than an icon font glyph.
-  const _TopBarIcon.custom({
-    required Widget this.child,
-    required this.onTap,
-    this.pad = 8,
-  }) : icon = null;
-
-  final IconData? icon;
-  final Widget? child;
-  final VoidCallback onTap;
-
-  /// Horizontal breathing room, tightened on phones where the row is full.
-  final double pad;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Padding(
-          // Vertical 10 (not 8): a 40dp target was under the minimum, and
-          // widening it instead would overflow the row on a small phone.
-          padding: EdgeInsets.symmetric(horizontal: pad, vertical: 10),
-          // Sized to match the icons beside it, so the row stays even.
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: child ?? Icon(icon, color: Colors.white, size: 24),
           ),
         ),
       ),

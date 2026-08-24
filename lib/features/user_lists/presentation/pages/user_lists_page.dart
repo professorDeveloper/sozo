@@ -132,7 +132,7 @@ class _UserListTabState extends State<_UserListTab>
     super.build(context);
     final items = _items;
     if (items == null) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
@@ -148,7 +148,7 @@ class _UserListTabState extends State<_UserListTab>
               physics: const AlwaysScrollableScrollPhysics(),
               itemCount: items.length,
               separatorBuilder: (_, _) =>
-                  const Divider(color: AppColors.divider, height: 1, indent: 84),
+                  Divider(color: AppColors.divider, height: 1, indent: 84),
               itemBuilder: (context, i) {
                 final item = items[i];
                 return _UserListRow(

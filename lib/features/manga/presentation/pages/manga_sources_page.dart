@@ -24,7 +24,9 @@ class MangaSourcesPage extends StatefulWidget {
 class _MangaSourcesPageState extends State<MangaSourcesPage> {
   static const String _logo =
       'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s';
-  static const Color _accent = Color(0xFF5B8DEF);
+  /// The manga screens used to carry their own private blue. There is one
+  /// accent in the app now, and the user chooses it.
+  static Color get _accent => AppColors.primary;
 
   late final HiveService _hive = getIt<HiveService>();
 
@@ -264,7 +266,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
             const SizedBox(height: 24),
             Row(
               children: [
-                const Icon(Icons.tune, size: 15, color: _accent),
+                Icon(Icons.tune, size: 15, color: _accent),
                 const SizedBox(width: 6),
                 Text('manga.source_settings'.tr(),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -415,7 +417,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
               decoration: InputDecoration(
                 labelText: 'manga.repo_url'.tr(),
                 labelStyle: const TextStyle(color: AppColors.textHint),
-                floatingLabelStyle: const TextStyle(color: _accent),
+                floatingLabelStyle: TextStyle(color: _accent),
                 hintText: 'https://…/index.min.json',
                 hintStyle: const TextStyle(color: AppColors.textHint),
                 filled: true,

@@ -407,12 +407,12 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                             width: 38,
                             height: 54,
                             fit: BoxFit.cover,
-                            placeholder: (_, _) => const SizedBox(
+                            placeholder: (_, _) => SizedBox(
                               width: 38,
                               height: 54,
                               child: ColoredBox(color: AppColors.surfaceVariant),
                             ),
-                            errorWidget: (_, _, _) => const SizedBox(
+                            errorWidget: (_, _, _) => SizedBox(
                               width: 38,
                               height: 54,
                               child: ColoredBox(color: AppColors.surfaceVariant),
@@ -522,7 +522,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                                 : widget.onMoveToPrivate,
                           ),
                         ),
-                        const Divider(
+                        Divider(
                           color: AppColors.divider,
                           height: 13,
                           indent: 16,
@@ -574,7 +574,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                           label: 'detail.copy_link'.tr(),
                           onTap: _copyLink,
                         ),
-                        const Divider(
+                        Divider(
                           color: AppColors.divider,
                           height: 13,
                           indent: 16,

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
 import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
 import 'package:soplay/features/mal/presentation/controllers/mal_library_controller.dart';
@@ -124,7 +125,7 @@ class _MalEntrySheetState extends State<MalEntrySheet> {
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -256,10 +257,10 @@ class _MalEntrySheetState extends State<MalEntrySheet> {
                   onPressed: busy ? null : () => _confirmRemove(entry),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.error,
-                    side: const BorderSide(color: AppColors.border),
+                    side: BorderSide(color: AppColors.border),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(11),
+                      borderRadius: BorderRadius.circular(kButtonRadius),
                     ),
                   ),
                   icon: const Icon(Icons.delete_outline_rounded, size: 18),

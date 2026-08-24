@@ -80,7 +80,7 @@ class SettingsDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const Divider(color: AppColors.divider, height: 1, indent: 64);
+      Divider(color: AppColors.divider, height: 1, indent: 64);
 }
 
 /// A row that opens a menu of mutually exclusive values, with the current one
@@ -152,7 +152,7 @@ class SettingsDropdownTile<T> extends StatelessWidget {
                     ),
                   ),
                   if (option == value)
-                    const Icon(
+                    Icon(
                       Icons.check_rounded,
                       color: AppColors.primary,
                       size: 17,

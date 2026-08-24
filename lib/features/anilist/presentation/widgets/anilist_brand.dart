@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 
 /// AniList's own blue. Used only for AniList affordances, so a "connect" or
@@ -187,7 +188,7 @@ class AnilistStateMessage extends StatelessWidget {
                 minimumSize: const Size(0, 42),
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(kButtonRadius),
                 ),
               ),
               child: Text(actionLabel!),
@@ -281,7 +282,7 @@ class AnilistConnectPrompt extends StatelessWidget {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(kButtonRadius),
                 ),
               ),
               icon: busy

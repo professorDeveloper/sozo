@@ -172,6 +172,9 @@ class JsRuntimeService {
       // provider's results under another's name.
       await _ensureExtractor(extractor.name, extractor.version)
           .timeout(kJsCallTimeout);
+      // Any request this call refuses is recorded on DartFetch; clearing it
+      // first means whatever is left afterwards belongs to THIS call.
+      dartFetch.clearBlock();
       // Unlocked on purpose. The provider is looked up by name, so several
       // cross-search legs can be in flight at once and their network waits
       // overlap instead of queueing — which is what made searching several
@@ -203,9 +206,15 @@ class JsRuntimeService {
       }
       final error = result.error;
       if (error != null && error.isNotEmpty) {
-        JsLog.err(tag, '$fn threw: $error');
-        throw Exception(error);
+        // An extractor parses whatever body it is handed, so a Cloudflare
+        // challenge surfaces as a JSON parse error deep in provider code. When
+        // the network layer refused something during this call, that refusal is
+        // the cause and the only half a user can act on.
+        final blocked = dartFetch.takeBlock();
+        JsLog.err(tag, '$fn threw: $error${blocked == null ? '' : ' ($blocked)'}');
+        throw Exception(blocked ?? error);
       }
+      dartFetch.clearBlock();
       final map = _coerceMap(result.value);
       JsLog.res(
         tag,

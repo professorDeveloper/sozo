@@ -142,7 +142,7 @@ class _Ribbon extends StatelessWidget {
                         errorBuilder: (_, _, _) => SizedBox(
                           width: tileWidth,
                           height: tileHeight,
-                          child: const ColoredBox(color: AppColors.surface),
+                          child: ColoredBox(color: AppColors.surface),
                         ),
                       ),
                     ),

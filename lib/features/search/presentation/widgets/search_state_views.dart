@@ -44,7 +44,7 @@ class SearchContentView extends StatelessWidget {
       slivers: [
         SliverToBoxAdapter(child: SizedBox(height: topPad)),
         if (state.status == SearchStatus.refreshing)
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: SizedBox(
               height: 2,
               child: LinearProgressIndicator(
@@ -104,7 +104,7 @@ class SearchContentView extends StatelessWidget {
         return [
           SearchResultsGrid(items: state.items),
           if (state.isLoadingMore)
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
                 child: Center(
@@ -540,7 +540,7 @@ class _ActionChip extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.primary,
               fontSize: 14,
               fontWeight: FontWeight.w600,

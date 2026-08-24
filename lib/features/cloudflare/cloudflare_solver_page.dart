@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:soplay/core/system/webview_env.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 
 class CloudflareSolverPage extends StatefulWidget {
   const CloudflareSolverPage({
@@ -125,7 +126,7 @@ class _CloudflareSolverPageState extends State<CloudflareSolverPage> {
                       },
                     ),
                   if (!_firstLoadDone)
-                    const ColoredBox(
+                    ColoredBox(
                       color: AppColors.background,
                       child: Center(
                         child: CircularProgressIndicator(
@@ -186,7 +187,7 @@ class _CloudflareSolverPageState extends State<CloudflareSolverPage> {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(kButtonRadius),
               ),
             ),
             onPressed: _onManualDone,

@@ -252,12 +252,12 @@ class _Backdrop extends StatelessWidget {
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
               placeholder: (_, _) =>
-                  const ColoredBox(color: AppColors.surfaceVariant),
+                  ColoredBox(color: AppColors.surfaceVariant),
               errorWidget: (_, _, _) =>
-                  const ColoredBox(color: AppColors.surfaceVariant),
+                  ColoredBox(color: AppColors.surfaceVariant),
             )
           else
-            const ColoredBox(color: AppColors.surfaceVariant),
+            ColoredBox(color: AppColors.surfaceVariant),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -267,7 +267,7 @@ class _Backdrop extends StatelessWidget {
               ),
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 0,
             right: 0,
             bottom: 0,
@@ -278,12 +278,15 @@ class _Backdrop extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
+                    // Every stop is the page background at falling opacity,
+                    // so the backdrop dissolves into whatever the page is —
+                    // #181818 or true black.
                     colors: [
                       AppColors.background,
-                      Color(0xEE181818),
-                      Color(0x00181818),
+                      AppColors.background.withValues(alpha: 0.933),
+                      AppColors.background.withValues(alpha: 0.0),
                     ],
-                    stops: [0.0, 0.5, 1.0],
+                    stops: const [0.0, 0.5, 1.0],
                   ),
                 ),
               ),
@@ -402,7 +405,7 @@ class _TitlesChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(CupertinoIcons.film_fill,
+          Icon(CupertinoIcons.film_fill,
               color: AppColors.primaryLight, size: 14),
           const SizedBox(width: 7),
           Text(
@@ -771,7 +774,7 @@ class _SecondaryButton extends StatelessWidget {
           border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
         ),
         child: busy
-            ? const SizedBox(
+            ? SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
@@ -782,7 +785,7 @@ class _SecondaryButton extends StatelessWidget {
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(CupertinoIcons.person_2_fill,
+                  Icon(CupertinoIcons.person_2_fill,
                       color: AppColors.primary, size: 16),
                   const SizedBox(width: 7),
                   Flexible(
@@ -790,7 +793,7 @@ class _SecondaryButton extends StatelessWidget {
                       'trivia.challenge_friend'.tr(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.primary,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -847,7 +850,7 @@ class _InlineError extends StatelessWidget {
                 ),
                 child: Text(
                   'general.retry'.tr(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.primary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,

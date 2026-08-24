@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,7 +19,9 @@ import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
 import 'core/di/injection.dart';
 import 'core/router/app_router.dart';
 import 'core/system/desktop_window.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_controller.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/home/presentation/bloc/home/home_bloc.dart';
 
@@ -45,9 +48,12 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  final ThemeController _theme = getIt<ThemeController>();
+
   @override
   void initState() {
     super.initState();
+    _theme.addListener(_onThemeChanged);
     getIt<NotificationService>().onTap = _handlePushTap;
     // Desktop: hide the custom title-bar strip on the immersive full-bleed
     // routes (player / reader) by watching the router itself — reliable
@@ -69,11 +75,60 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
+    _theme.removeListener(_onThemeChanged);
     if (isDesktopPlatform) {
       AppRouter.router.routerDelegate.removeListener(_syncImmersive);
     }
     getIt<NotificationService>().onTap = null;
     super.dispose();
+  }
+
+  /// Repaint the entire app in the newly chosen colours, without a restart and
+  /// without losing a single route, scroll offset or piece of widget state.
+  ///
+  /// Two things have to happen, and neither one covers the other:
+  ///
+  ///   * `setState` re-reads [AppTheme.dark], so every Material component
+  ///     default (buttons, inputs, tab indicators, dialogs) picks up the new
+  ///     palette through `Theme.of`,
+  ///   * [_rebuildEverything] marks the rest of the tree dirty, because the
+  ///     ~1900 direct `AppColors.*` reads are plain static getters — they have
+  ///     no `InheritedWidget` to notify them, so nothing else would ever tell
+  ///     those widgets that their colours moved.
+  void _onThemeChanged() {
+    if (!mounted) return;
+    setState(() {});
+    _rebuildEverything();
+  }
+
+  /// Mark every element below this one for rebuild.
+  ///
+  /// `markNeedsBuild` works on the *element*, so it reaches widgets a normal
+  /// parent rebuild would skip — including `const` ones, which is most of this
+  /// app's leaf UI.
+  ///
+  /// Guarded on the scheduler phase: a notification that arrives mid-build
+  /// (a theme set from inside a `build`, which nothing does today but is cheap
+  /// to be safe about) would otherwise assert. In that case it is deferred by
+  /// one frame instead.
+  void _rebuildEverything() {
+    void markDirty(Element element) {
+      element.markNeedsBuild();
+      element.visitChildren(markDirty);
+    }
+
+    void run() {
+      if (!mounted) return;
+      (context as Element).visitChildren(markDirty);
+    }
+
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => run());
+    } else {
+      run();
+    }
   }
 
   void _handlePushTap(Map<String, dynamic> data) {
@@ -131,6 +186,11 @@ class _MyAppState extends State<MyApp> {
       child: MaterialApp.router(
         title: 'app_name'.tr(),
         debugShowCheckedModeBanner: false,
+        // The colour the OS paints behind the app — the task-switcher card and
+        // the gap before the first frame. Left at its default it is the theme's
+        // primary, so an accent change would otherwise leave a red card behind
+        // a blue app.
+        color: AppColors.background,
         theme: AppTheme.dark,
         darkTheme: AppTheme.dark,
         themeMode: ThemeMode.dark,

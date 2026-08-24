@@ -56,8 +56,21 @@ class _ActorScaffold extends StatefulWidget {
 class _ActorScaffoldState extends State<_ActorScaffold> {
   late final ScrollController _scroll;
   final ValueNotifier<double> _collapse = ValueNotifier<double>(0);
-  Color _accent = const Color(0xFFB20710);
-  Color _accentDeep = const Color(0xFF3A0306);
+  // Shown until the poster's palette is extracted (and kept when there is no
+  // poster). Follows the chosen accent rather than the old hard-coded brand
+  // red, so the hero never opens in a colour the app no longer uses.
+  Color _accent = AppColors.primaryDark;
+  Color _accentDeep = _deepen(AppColors.primary);
+
+  /// The very dark, desaturated floor a hero gradient falls to. The old literal
+  /// #3A0306 is what this produces for the default red.
+  static Color _deepen(Color c) {
+    final hsl = HSLColor.fromColor(c);
+    return hsl
+        .withSaturation((hsl.saturation * 0.94).clamp(0.0, 1.0))
+        .withLightness((hsl.lightness * 0.265).clamp(0.0, 1.0))
+        .toColor();
+  }
 
   static const double _heroExtent = 320;
 
@@ -154,7 +167,7 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
                       ),
                     ),
                     if (state is ViewAllLoading)
-                      const SliverToBoxAdapter(
+                      SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.symmetric(vertical: 40),
                           child: Center(
@@ -298,7 +311,7 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
         ),
       ),
       if (state.isLoadingMore)
-        const SliverToBoxAdapter(
+        SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
             child: Center(

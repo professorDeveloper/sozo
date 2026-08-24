@@ -311,7 +311,7 @@ class _AvatarPicker extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             child: uploading
-                ? const Center(
+                ? Center(
                     child: SizedBox(
                       width: 24,
                       height: 24,

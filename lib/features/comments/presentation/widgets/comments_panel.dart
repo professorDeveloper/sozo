@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/comments/domain/entities/comment_entity.dart';
 import 'package:soplay/features/comments/presentation/blocs/comments_bloc/comments_bloc.dart';
 import 'package:soplay/features/comments/presentation/widgets/comment_card.dart';
@@ -87,7 +88,7 @@ class _CommentsViewState extends State<_CommentsView> {
     bool loggedIn,
   ) {
     if (state.loading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
           color: AppColors.primary,
           strokeWidth: 2.4,
@@ -237,7 +238,7 @@ class _CommentsViewState extends State<_CommentsView> {
               const _SignInPrompt()
             else
               Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.background,
                   border: Border(
                     top: BorderSide(color: AppColors.divider, width: 0.6),
@@ -289,7 +290,7 @@ class _SignInPrompt extends StatelessWidget {
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(kButtonRadius),
                 ),
               ),
               icon: const Icon(Icons.login_rounded, size: 18),
@@ -362,7 +363,7 @@ class _CommentTree extends StatelessWidget {
             child: Column(
               children: [
                 if (repliesLoading && replies.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(vertical: 16),
                     child: SizedBox(
                       width: 18,

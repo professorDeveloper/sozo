@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/watch_party/data/watch_party_service.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_room.dart';
@@ -102,7 +103,7 @@ class _PartyCreateSheetState extends State<PartyCreateSheet> {
           ),
           const SizedBox(height: 20),
           if (_loading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 28),
               child: Center(
                 child: SizedBox(
@@ -207,7 +208,7 @@ class _CodeReveal extends StatelessWidget {
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(kButtonRadius),
               ),
             ),
             icon: const Icon(Icons.groups_rounded, size: 18),
@@ -358,7 +359,7 @@ class _PartyJoinSheetState extends State<PartyJoinSheet> {
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(kButtonRadius),
                 ),
               ),
               child: Text(
@@ -459,7 +460,7 @@ class _ErrorRetry extends StatelessWidget {
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(kButtonRadius),
               ),
             ),
             child: Text('general.try_again'.tr()),

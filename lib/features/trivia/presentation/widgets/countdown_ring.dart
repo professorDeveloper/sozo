@@ -24,7 +24,9 @@ class CountdownRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _danger ? AppColors.primaryLight : Colors.white;
+    // The last four seconds are an alarm state, so they stay red whatever the
+    // accent is — a green "hurry up" ring says the opposite of what it means.
+    final color = _danger ? AppColors.error : Colors.white;
     final target = totalSeconds <= 0
         ? 0.0
         : (secondsRemaining / totalSeconds).clamp(0.0, 1.0);

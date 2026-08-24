@@ -102,7 +102,7 @@ class _Masthead extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 CupertinoIcons.film_fill,
                 color: AppColors.primary,
                 size: 24,
@@ -292,7 +292,7 @@ class _FaceStack extends StatelessWidget {
           color: AppColors.surfaceVariant,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(
+        child: Icon(
           CupertinoIcons.heart_fill,
           color: AppColors.primaryLight,
           size: 24,
@@ -314,7 +314,7 @@ class _FaceStack extends StatelessWidget {
               left: i * _step,
               child: Container(
                 padding: const EdgeInsets.all(_ring),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.surface,
                   shape: BoxShape.circle,
                 ),
@@ -919,7 +919,7 @@ class _HowStep extends StatelessWidget {
         Container(
           width: 40,
           height: 40,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.surfaceVariant,
             shape: BoxShape.circle,
           ),
@@ -1045,7 +1045,7 @@ class _RankRow extends StatelessWidget {
                       ringWidth: 2,
                     )
                   : Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppColors.surfaceVariant,
                         shape: BoxShape.circle,
                       ),
@@ -1123,7 +1123,7 @@ class _RankRow extends StatelessWidget {
             child: Text(
               'trivia.points_value'.tr(args: ['${entry.score}']),
               maxLines: 1,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.primaryLight,
                 fontSize: 13,
                 fontWeight: FontWeight.w800,

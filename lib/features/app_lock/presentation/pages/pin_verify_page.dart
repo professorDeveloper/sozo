@@ -69,8 +69,10 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
             onPressed: () => Navigator.of(dctx).pop(true),
             child: Text(
               'app_lock.reset'.tr(),
+              // This wipes the user's PIN — the same weight of action as the
+              // app's other error-coloured confirmations.
               style: const TextStyle(
-                color: AppColors.primary,
+                color: AppColors.error,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -126,7 +128,7 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
                         color: AppColors.primary.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.lock_rounded,
                         color: AppColors.primary,
                         size: 30,

@@ -7,6 +7,7 @@ import 'package:soplay/features/reports/domain/entities/report_payload.dart';
 import 'package:soplay/features/reports/presentation/widgets/report_sheet.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/core/theme/app_colors.dart';
 
 import '../../domain/entities/short_entity.dart';
 
@@ -685,7 +686,7 @@ class _ShortReelItemState extends State<ShortReelItem>
                   s.contentThumbnail,
                   fit: BoxFit.cover,
                   errorBuilder: (_, e, st) => Container(
-                    color: const Color(0xFF2A2A2A),
+                    color: AppColors.surfaceVariant,
                     child: const Icon(
                       Icons.movie_rounded,
                       color: Colors.white54,
@@ -830,14 +831,15 @@ class _ShortReelItemState extends State<ShortReelItem>
           padding: const EdgeInsets.only(left: 4, right: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
-            gradient: const LinearGradient(
-              colors: [Color(0xFFE53935), Color(0xFFB71C1C)],
+            // Was a second, hard-coded red — the accent's job, duplicated.
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.primaryDark],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.red.withValues(alpha: 0.3),
+                color: AppColors.primary.withValues(alpha: 0.3),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -999,7 +1001,7 @@ class _ShortReelItemState extends State<ShortReelItem>
           value: _progress,
           minHeight: 3,
           backgroundColor: Colors.white24,
-          color: const Color(0xFFE53935),
+          color: AppColors.primary,
         ),
       ),
     );

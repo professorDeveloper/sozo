@@ -20,7 +20,7 @@ class ShortsLoadingView extends StatelessWidget {
                 color: AppColors.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(14),
                 child: CircularProgressIndicator(
                   color: AppColors.primary,

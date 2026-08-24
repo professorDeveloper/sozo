@@ -6,6 +6,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 
 import 'deeplink_settings.dart';
 
@@ -82,7 +83,7 @@ class _OptInSheet extends StatelessWidget {
                 color: AppColors.primary.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.link_rounded,
                 size: 28,
                 color: AppColors.primary,
@@ -116,7 +117,7 @@ class _OptInSheet extends StatelessWidget {
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(kButtonRadius),
                 ),
               ),
               onPressed: () =>

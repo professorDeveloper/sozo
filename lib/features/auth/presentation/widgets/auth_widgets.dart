@@ -2,7 +2,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:soplay/core/widgets/app_buttons.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/onboarding/presentation/widgets/poster_wall.dart';
 
 /// The shell every auth screen sits in: a living poster header that dissolves
@@ -142,7 +144,7 @@ class _AuthTopBar extends StatelessWidget {
             const SizedBox(width: 12),
           Text(
             'app_name'.tr(),
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.primary,
               fontSize: 22,
               fontWeight: FontWeight.w900,
@@ -333,6 +335,12 @@ class AuthErrorBanner extends StatelessWidget {
 
 /// The one call-to-action on each screen, with the spinner built in so no page
 /// re-invents the swap between label and progress.
+/// The auth screens' name for [AppPrimaryButton].
+///
+/// Kept as a thin alias rather than deleted: its metrics became the app-wide
+/// button in `app_theme.dart`, so there is now exactly one definition of what a
+/// primary button is, and the dozen auth/onboarding call sites did not have to
+/// be rewritten to say so.
 class AuthPrimaryButton extends StatelessWidget {
   const AuthPrimaryButton({
     super.key,
@@ -346,35 +354,11 @@ class AuthPrimaryButton extends StatelessWidget {
   final bool loading;
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
-      child: ElevatedButton(
-        onPressed: loading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        child: loading
-            ? const SizedBox(
-                width: 21,
-                height: 21,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.2,
-                ),
-              )
-            : Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 15.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => AppPrimaryButton(
+    label: label,
+    onPressed: onPressed,
+    loading: loading,
+  );
 }
 
 class AuthDivider extends StatelessWidget {
@@ -384,7 +368,7 @@ class AuthDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(child: Divider(color: AppColors.border, height: 1)),
+        Expanded(child: Divider(color: AppColors.border, height: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
@@ -392,7 +376,7 @@ class AuthDivider extends StatelessWidget {
             style: const TextStyle(color: AppColors.textHint, fontSize: 12.5),
           ),
         ),
-        const Expanded(child: Divider(color: AppColors.border, height: 1)),
+        Expanded(child: Divider(color: AppColors.border, height: 1)),
       ],
     );
   }
@@ -422,7 +406,7 @@ class GoogleAuthButton extends StatelessWidget {
           disabledBackgroundColor: Colors.white24,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(kButtonRadius),
           ),
         ),
         icon: loading
@@ -478,7 +462,7 @@ class AuthSwitchPrompt extends StatelessWidget {
           onPressed: onTap,
           child: Text(
             action,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.primary,
               fontWeight: FontWeight.w700,
             ),

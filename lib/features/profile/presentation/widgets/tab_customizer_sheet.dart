@@ -5,6 +5,7 @@ import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/nav_prefs.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 
 /// Bottom-bar customizer (Settings → Appearance). Ports satashkent's
 /// quick-nav customizer to soplay tokens: a draft copy edited freely, persisted
@@ -336,7 +337,7 @@ class _Footer extends StatelessWidget {
         16,
         MediaQuery.paddingOf(context).bottom + 12,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(top: BorderSide(color: AppColors.divider, width: 1)),
       ),
       child: Row(
@@ -362,7 +363,7 @@ class _Footer extends StatelessWidget {
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(kButtonRadius),
               ),
             ),
             child: Text('nav_customize.save'.tr()),

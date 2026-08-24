@@ -205,7 +205,7 @@ class _Backdrop extends StatelessWidget {
             imageUrl: url,
             fit: BoxFit.cover,
             errorWidget: (_, _, _) =>
-                const ColoredBox(color: AppColors.surfaceVariant),
+                ColoredBox(color: AppColors.surfaceVariant),
           ),
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 34, sigmaY: 34),
@@ -238,7 +238,7 @@ class _SwordsBadge extends StatelessWidget {
     return Container(
       width: 88,
       height: 88,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: AppColors.primary,
       ),
@@ -330,7 +330,7 @@ class _MiniAvatar extends StatelessWidget {
     const size = 34.0;
     return Container(
       padding: const EdgeInsets.all(2),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: AppColors.surface,
       ),
@@ -409,7 +409,7 @@ class _LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: CircularProgressIndicator(color: AppColors.primary),
     );
   }

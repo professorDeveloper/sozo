@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/profile/presentation/widgets/library_accents.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
@@ -80,11 +81,17 @@ class _HistoryPageState extends State<HistoryPage> {
                   .rememberClearedAll()
                   .then((_) => _historyService.clearAll())
                   .then((_) => _syncService.sync());
+              // Appearance suggests accents from these posters and caches the
+              // result for the app run. With the library gone, the cache is
+              // suggesting colours from titles the user just deleted.
+              LibraryAccents.invalidate();
             },
             child: Text(
               'history.clear'.tr(),
+              // error, not primary: clearing history writes a tombstone, so
+              // sync cannot bring it back.
               style: const TextStyle(
-                color: AppColors.primary,
+                color: AppColors.error,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -235,8 +242,9 @@ class _PillButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           child: Text(
             label,
+            // The page's only pill is "Clear all" — destructive, so error.
             style: const TextStyle(
-              color: AppColors.primary,
+              color: AppColors.error,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -349,7 +357,7 @@ class _HistoryRow extends StatelessWidget {
                             value: item.progress,
                             minHeight: 3,
                             backgroundColor: Colors.black45,
-                            valueColor: const AlwaysStoppedAnimation<Color>(
+                            valueColor: AlwaysStoppedAnimation<Color>(
                               AppColors.primary,
                             ),
                           ),
@@ -381,7 +389,7 @@ class _HistoryRow extends StatelessWidget {
                         if (item.isSerial && item.episodeNumber != null) ...[
                           Text(
                             'EP ${item.episodeNumber}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.primary,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -430,7 +438,7 @@ class _HistoryRow extends StatelessWidget {
                   color: AppColors.primary.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.play_arrow_rounded,
                   color: AppColors.primary,
                   size: 20,

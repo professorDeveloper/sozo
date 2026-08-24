@@ -168,7 +168,7 @@ extension _PlayerSubtitles on _PlayerPageState {
               // the standout action, not another neutral row.
               ListTile(
                 focusColor: _kTvFocusFill,
-                leading: const Icon(Icons.auto_awesome_rounded,
+                leading: Icon(Icons.auto_awesome_rounded,
                     color: AppColors.primaryLight, size: 20),
                 title: Text('player.ai_translate_menu'.tr(),
                     style: const TextStyle(
@@ -220,15 +220,64 @@ extension _PlayerSubtitles on _PlayerPageState {
     );
   }
 
-  void _toast(String message) {
+  void _toast(String message, {IconData icon = Icons.info_outline_rounded}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Row(
+          children: [
+            Icon(icon, size: 18, color: AppColors.primaryLight),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(message,
+                  style: const TextStyle(fontSize: 13, color: Colors.white)),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1C1C1E),
         behavior: SnackBarBehavior.floating,
+        elevation: 8,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  /// TMDB id + type parsed from the content url, for finding and publishing
+  /// translations by the media they belong to.
+  ({String id, String type})? _tmdbRef() {
+    final url = widget.args.contentUrl;
+    if (url == null || url.isEmpty) return null;
+    final m = RegExp(r'themoviedb\.org/(movie|tv)/(\d+)').firstMatch(url);
+    if (m == null) return null;
+    return (id: m.group(2)!, type: m.group(1)!);
+  }
+
+  /// Serialises translated cues to SubRip, for publishing a finished track.
+  String _buildSrt(List<Caption> cues) {
+    String stamp(Duration d) {
+      final h = d.inHours.toString().padLeft(2, '0');
+      final m = (d.inMinutes % 60).toString().padLeft(2, '0');
+      final sec = (d.inSeconds % 60).toString().padLeft(2, '0');
+      final ms = (d.inMilliseconds % 1000).toString().padLeft(3, '0');
+      return '$h:$m:$sec,$ms';
+    }
+
+    final buf = StringBuffer();
+    for (var i = 0; i < cues.length; i++) {
+      final c = cues[i];
+      buf.writeln(i + 1);
+      buf.writeln('${stamp(c.start)} --> ${stamp(c.end)}');
+      buf.writeln(c.text);
+      buf.writeln();
+    }
+    return buf.toString();
   }
 
   int? _currentEpisodeNumber() {
@@ -290,14 +339,27 @@ extension _PlayerSubtitles on _PlayerPageState {
         List<OnlineSubtitle> results = const [];
         SubtitleQuota? quota;
         var quotaLoaded = false;
+        List<ReadySubtitle> ready = const [];
 
         return StatefulBuilder(
           builder: (ctx, setSheet) {
             if (!quotaLoaded) {
               quotaLoaded = true;
-              const SubtitleTranslationService().fetchQuota().then((q) {
+              const service = SubtitleTranslationService();
+              service.fetchQuota().then((q) {
                 if (ctx.mounted) setSheet(() => quota = q);
               });
+              final ref = _tmdbRef();
+              if (ref != null) {
+                service.fetchReady(
+                  tmdbId: ref.id,
+                  type: ref.type,
+                  season: _currentSeasonNumber(),
+                  episode: _currentEpisodeNumber(),
+                ).then((r) {
+                  if (ctx.mounted && r.isNotEmpty) setSheet(() => ready = r);
+                });
+              }
             }
             Future<void> runSearch() async {
               final q = queryCtrl.text.trim();
@@ -417,6 +479,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                     ),
                     const SizedBox(height: 10),
                     _aiTranslateBanner(quota),
+                    if (ready.isNotEmpty) _readyTranslations(sheetCtx, ready),
                     const SizedBox(height: 8),
                     ConstrainedBox(
                       constraints: BoxConstraints(maxHeight: listMaxHeight),
@@ -510,6 +573,85 @@ extension _PlayerSubtitles on _PlayerPageState {
           ),
       ],
     );
+  }
+
+  /// Translations other viewers already made for this episode.
+  ///
+  /// One tap loads a ready file straight from the cache — no waiting, no quota
+  /// spent — which is the fast path once a popular title has been translated
+  /// once.
+  Widget _readyTranslations(BuildContext sheetCtx, List<ReadySubtitle> ready) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Row(
+              children: [
+                Icon(Icons.bolt_rounded,
+                    size: 15, color: AppColors.primaryLight),
+                const SizedBox(width: 6),
+                Text('player.ready_translations'.tr(),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+          for (final r in ready)
+            ListTile(
+              dense: true,
+              visualDensity: VisualDensity.compact,
+              leading: const Icon(Icons.subtitles_rounded,
+                  size: 18, color: Colors.white70),
+              title: Text(
+                '${_langName(r.targetLang)} · ${r.cueCount} ${'player.lines'.tr()}',
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+              trailing: const Icon(Icons.download_rounded,
+                  size: 16, color: Colors.white38),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                _applyReadyTranslation(r);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _langName(String code) {
+    const map = {
+      'uz': "O'zbekcha", 'ru': 'Русский', 'en': 'English', 'tr': 'Türkçe',
+      'ar': 'العربية', 'de': 'Deutsch', 'fr': 'Français', 'es': 'Español',
+    };
+    return map[code.toLowerCase()] ?? code.toUpperCase();
+  }
+
+  /// Loads a ready translation straight from its url.
+  Future<void> _applyReadyTranslation(ReadySubtitle r) async {
+    final entity = SubtitleEntity(
+      label: 'AI · ${r.targetLang.toUpperCase()}',
+      file: r.url,
+    );
+    setState(() => _subtitles = [..._subtitles, entity]);
+    final added = _subtitles.length - 1;
+    final ok = await _loadSubtitle(added);
+    if (!mounted) return;
+    if (ok) {
+      _toast('player.subtitle_loaded'.tr(), icon: Icons.check_circle_rounded);
+    } else if (added < _subtitles.length && _activeSubtitleIndex != added) {
+      setState(() => _subtitles = [..._subtitles]..removeAt(added));
+    }
   }
 
   /// The prominent AI-translate explainer at the top of the search sheet.
@@ -724,7 +866,19 @@ extension _PlayerSubtitles on _PlayerPageState {
           setState(() => _captionFile = List<Caption>.from(translated));
         }
       }
-      if (mounted) _toast('player.subtitle_loaded'.tr());
+      if (mounted) _toast('player.subtitle_loaded'.tr(), icon: Icons.check_circle_rounded);
+      // Publish it so the next viewer of this episode loads it in one tap.
+      final ref = _tmdbRef();
+      if (ref != null && applied == source.length) {
+        unawaited(service.publishReady(
+          tmdbId: ref.id,
+          type: ref.type,
+          season: _currentSeasonNumber(),
+          episode: _currentEpisodeNumber(),
+          targetLang: targetLang,
+          srt: _buildSrt(translated),
+        ));
+      }
     } on SubtitleDailyLimitReached catch (e) {
       if (mounted) {
         _toast(e.message);
@@ -1478,12 +1632,12 @@ class _AiTranslateChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.auto_awesome_rounded,
+              Icon(Icons.auto_awesome_rounded,
                   size: 13, color: AppColors.primaryLight),
               const SizedBox(width: 5),
               Text(
                 'AI → $lang',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.primaryLight,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,

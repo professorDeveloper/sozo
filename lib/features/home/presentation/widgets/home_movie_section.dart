@@ -50,17 +50,28 @@ class MovieSection extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),
               child: Row(
                 children: [
-                  if (isHighlighted) ...[
-                    Container(
-                      width: 3,
-                      height: 17,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(2),
+                  // The accent tick is on EVERY row now, not only the
+                  // highlighted one — it is the mark that carries the chosen
+                  // colour down the whole of Home. Highlighted rows keep their
+                  // distinction by being taller and gradient-filled.
+                  Container(
+                    width: 3,
+                    height: isHighlighted ? 19 : 15,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: isHighlighted
+                            ? [AppColors.primaryLight, AppColors.primary]
+                            : [
+                                AppColors.primary,
+                                AppColors.primary.withValues(alpha: 0.55),
+                              ],
                       ),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    const SizedBox(width: 10),
-                  ],
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       title,
@@ -74,9 +85,11 @@ class MovieSection extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right_rounded,
-                    color: AppColors.textHint,
+                    color: isHighlighted
+                        ? AppColors.primary
+                        : AppColors.textHint,
                     size: 22,
                   ),
                 ],

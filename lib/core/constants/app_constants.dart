@@ -94,7 +94,24 @@ class AppConstants {
   static const String playerEngineKey = 'player_engine';
   static const String defaultPlayerEngine = 'default';
   static const String telegramPromoSeenKey = 'telegram_promo_seen';
+  /// Appearance → "Pure black". Absent ⇒ off, i.e. the greys the app has
+  /// always shipped.
   static const String amoledModeKey = 'amoled_mode';
+
+  /// Appearance → accent colour. Holds an [AppAccent] preset id, or
+  /// `AppAccent.customId` when the user picked their own colour — in which case
+  /// the colour itself lives under [customAccentKey]. Absent ⇒ the default red.
+  static const String accentIdKey = 'accent_id';
+
+  /// The user's own accent, stored as a 32-bit ARGB int. Only consulted when
+  /// [accentIdKey] is `AppAccent.customId`.
+  static const String customAccentKey = 'custom_accent';
+
+  /// Appearance → "Colour the tab bar". Absent ⇒ **on**: the accent is a
+  /// setting people choose in order to see it, and the tab bar is the one piece
+  /// of chrome that is on screen the whole time. Turning it off puts the
+  /// original white pill back.
+  static const String tintNavKey = 'tint_nav';
   static const String onboardingSeenKey = 'onboarding_seen';
   static const String deeplinkPromptSeenKey = 'deeplink_prompt_seen';
   static const String deeplinkOptInKey = 'deeplink_opt_in';

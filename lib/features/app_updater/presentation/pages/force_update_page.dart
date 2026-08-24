@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/app_updater/domain/entities/app_version_check.dart';
 import 'package:soplay/features/app_updater/presentation/widgets/release_notes_view.dart';
 
@@ -92,7 +93,7 @@ class ForceUpdatePage extends StatelessWidget {
                         backgroundColor: accent,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(kButtonRadius),
                         ),
                       ),
                       onPressed: () => onUpdate(context),
