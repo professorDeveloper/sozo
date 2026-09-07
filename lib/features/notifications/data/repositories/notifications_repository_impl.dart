@@ -37,9 +37,13 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   Future<Result<void>> registerFcmToken({
     required String token,
     required String platform,
+    required String language,
   }) =>
-      _wrap(() =>
-          dataSource.registerFcmToken(token: token, platform: platform));
+      _wrap(() => dataSource.registerFcmToken(
+            token: token,
+            platform: platform,
+            language: language,
+          ));
 
   @override
   Future<Result<void>> unregisterFcmToken(String token) =>

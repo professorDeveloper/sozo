@@ -42,10 +42,11 @@ class NotificationsDataSource {
   Future<void> registerFcmToken({
     required String token,
     required String platform,
+    required String language,
   }) async {
     await dio.post(
       '/notifications/fcm/register',
-      data: {'token': token, 'platform': platform},
+      data: {'token': token, 'platform': platform, 'language': language},
     );
   }
 

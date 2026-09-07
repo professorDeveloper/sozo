@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/localization/app_language.dart';
 import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/system/platform_utils.dart';
@@ -55,6 +56,11 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     _theme.addListener(_onThemeChanged);
     getIt<NotificationService>().onTap = _handlePushTap;
+    // After the first frame, because `context.locale` reads an inherited widget
+    // and initState is too early to depend on one.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AppLanguage.syncFromDevice(context);
+    });
     // Desktop: hide the custom title-bar strip on the immersive full-bleed
     // routes (player / reader) by watching the router itself — reliable
     // regardless of a page's initState timing.

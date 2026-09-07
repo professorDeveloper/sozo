@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/localization/language_picker.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/auth/data/services/google_auth_service.dart';
@@ -118,6 +119,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           ),
                         ),
                         const Spacer(),
+                        const LanguageChip(),
+                        const SizedBox(width: 8),
                         _SkipChip(onTap: () => _leave('/main')),
                       ],
                     ),

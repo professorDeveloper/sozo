@@ -19,6 +19,7 @@ abstract class NotificationsRepository {
   Future<Result<void>> registerFcmToken({
     required String token,
     required String platform,
+    required String language,
   });
 
   Future<Result<void>> unregisterFcmToken(String token);
