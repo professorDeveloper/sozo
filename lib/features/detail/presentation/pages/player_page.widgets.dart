@@ -856,6 +856,12 @@ class _PlayerInfoOverlay extends StatelessWidget {
                           width: 96,
                           child: Text(
                             row.labelKey.tr(),
+                            // A backstop. The labels were shortened to fit this
+                            // column, but a future one that is not should lose
+                            // its tail rather than silently add a row of height
+                            // and knock the overlay out of alignment.
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 color: Colors.white54, fontSize: 11),
                           ),

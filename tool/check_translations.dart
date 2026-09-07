@@ -29,6 +29,19 @@ import 'dart:io';
 /// identically incomplete and none of them is wrong.
 const String referenceLocale = 'en';
 
+/// Locales a missing key is a build failure in.
+///
+/// The team writes these three, so "you added a key and did not translate it"
+/// is a thing someone here can actually fix before merging.
+///
+/// The other eight are machine-translated and topped up in batches. Blocking a
+/// PR on them would not produce eight translations — it would produce eight
+/// copies of the English string pasted in to get the build green, which is the
+/// same debt with the tracking removed. They are reported instead, and
+/// `useFallbackTranslations` in main.dart means a gap renders as English rather
+/// than as raw dot-notation.
+const Set<String> blockingLocales = {'en', 'uz', 'ru'};
+
 const String translationsDir = 'assets/translations';
 const String sourceDir = 'lib';
 
@@ -84,19 +97,30 @@ void main(List<String> args) {
   }
 
   // ---- 2. Locales that have fallen behind the reference --------------------
+  var behind = 0;
   for (final entry in locales.entries) {
     if (entry.key == referenceLocale) continue;
     final missing = reference.difference(entry.value).toList()..sort();
     if (missing.isEmpty) continue;
-    failures += missing.length;
-    stdout.writeln('\n✗ ${entry.key}.json is missing ${missing.length} key(s) '
-        'that $referenceLocale.json has:');
+    final blocks = blockingLocales.contains(entry.key);
+    if (blocks) {
+      failures += missing.length;
+    } else {
+      behind += missing.length;
+    }
+    stdout.writeln('\n${blocks ? '✗' : '·'} ${entry.key}.json is missing '
+        '${missing.length} key(s) that $referenceLocale.json has'
+        '${blocks ? '' : ' (advisory)'}:');
     for (final key in missing.take(40)) {
       stdout.writeln('    $key');
     }
     if (missing.length > 40) {
       stdout.writeln('    … and ${missing.length - 40} more');
     }
+  }
+  if (behind > 0) {
+    stdout.writeln('\n· $behind key(s) missing across the non-blocking '
+        'locales. Those render in English until the next translation pass.');
   }
 
   // ---- 3. Keys a locale has that the reference does not -------------------
