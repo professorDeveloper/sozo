@@ -632,7 +632,8 @@
     "voice_listening": "Listening…",
     "voice_done": "Stopped listening",
     "voice_hint": "Say the name of a film or series",
-    "try_torrents": "Search torrents"
+    "try_torrents": "Search torrents",
+    "capped_note": "Searched the {} most reliable of {} sources — narrow the scope to reach a specific one."
   },
   "movie": {
     "rating": "Rating",

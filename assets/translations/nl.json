@@ -632,7 +632,8 @@
     "voice_listening": "Luisteren…",
     "voice_done": "Gestopt met luisteren",
     "voice_hint": "Zeg de naam van een film of serie",
-    "try_torrents": "Torrents zoeken"
+    "try_torrents": "Torrents zoeken",
+    "capped_note": "De {} betrouwbaarste van {} bronnen doorzocht — beperk de selectie om een specifieke te bereiken."
   },
   "movie": {
     "rating": "Beoordeling",

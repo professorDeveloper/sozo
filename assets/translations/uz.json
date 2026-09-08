@@ -632,7 +632,8 @@
     "voice_listening": "Tinglanmoqda…",
     "voice_done": "Tinglash to‘xtadi",
     "voice_hint": "Film yoki serial nomini ayting",
-    "try_torrents": "Torrentlarda qidirish"
+    "try_torrents": "Torrentlarda qidirish",
+    "capped_note": "{} ta manbadan eng ishonchli {} tasi qidirildi — aniq bittasiga yetish uchun qamrovni toraytiring."
   },
   "movie": {
     "rating": "Reyting",

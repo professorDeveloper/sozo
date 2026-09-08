@@ -30,7 +30,37 @@ typedef _Leg = ({List<MovieEntity> items, int page, int totalPages});
 ///
 /// Native `cs:`/`an:`/`mn:` searches already run off the platform thread, so the
 /// pool only guards against overwhelming the device — the UI thread never blocks.
-class CrossSearchEngine {
+/// What a cross-search surface actually needs from the engine.
+///
+/// Named so the controller can be driven by a stub in a test. The engine itself
+/// reaches WebViews, a Dio client and the Mangayomi bridge; standing all three
+/// up to assert that arriving legs are batched would test the fakes, not the
+/// batching.
+abstract interface class SearchFanOut {
+  /// The legs an all-source run will actually cover, healthiest first.
+  ///
+  /// Called by the surface that owns the set rather than inside [search], so
+  /// the counters the UI shows — how many are pending, how many answered —
+  /// describe the run that is really happening.
+  List<ProviderRef> planLegs(List<ProviderRef> set, {int limit});
+
+  Stream<ProviderSearchResult> search({
+    required List<ProviderRef> set,
+    required String query,
+    int page,
+    int concurrency,
+    Duration perProviderTimeout,
+  });
+
+  Future<ProviderSearchResult> searchProvider(
+    ProviderRef ref,
+    String query, {
+    int page,
+    Duration timeout,
+  });
+}
+
+class CrossSearchEngine implements SearchFanOut {
   CrossSearchEngine({
     required this.jsRuntime,
     required this.dataSource,
@@ -45,6 +75,22 @@ class CrossSearchEngine {
   /// What each source did last time. Decides who is asked first and for how
   /// long — see [SourceHealthStore].
   final SourceHealthStore health;
+
+  /// How many sources one all-source run will actually ask.
+  ///
+  /// Not a performance tweak — a ceiling on wall-clock. The pool is bounded, so
+  /// a run costs roughly `legs / concurrency * timeout` in the worst case: with
+  /// a couple of thousand extension sources installed that is over an hour, and
+  /// a search nobody waits for is a search that did not happen.
+  ///
+  /// The legs kept are the healthiest ones ([SourceHealthStore.order] runs
+  /// first), which are also the ones most likely to answer at all. Sixty of
+  /// those is roughly two minutes of worst case and, in practice, seconds —
+  /// most legs return long before their budget.
+  ///
+  /// A user who wants a specific source beyond the ceiling can still pick it:
+  /// narrowing the scope is not capped, because then the count is theirs.
+  static const int maxLegs = 60;
 
   static const int defaultConcurrency = 5;
   static const Duration defaultTimeout = Duration(seconds: 10);
@@ -64,6 +110,13 @@ class CrossSearchEngine {
   /// backend takes an explicit `provider`, so collapsing them into one call was
   /// both a lie in the summary ("1 of 1 sources") and a silent no-op for every
   /// server provider the user picked beyond the first.
+  @override
+  List<ProviderRef> planLegs(List<ProviderRef> set, {int limit = maxLegs}) {
+    if (set.length <= limit) return set;
+    return health.order(List<ProviderRef>.of(set), (r) => r.id).take(limit).toList();
+  }
+
+  @override
   Stream<ProviderSearchResult> search({
     required List<ProviderRef> set,
     required String query,
@@ -107,6 +160,7 @@ class CrossSearchEngine {
   }
 
   /// One leg on its own — used to retry a single failed source and to page it.
+  @override
   Future<ProviderSearchResult> searchProvider(
     ProviderRef ref,
     String query, {

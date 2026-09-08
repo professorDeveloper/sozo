@@ -138,8 +138,17 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
     return [...selected, ...rest];
   }
 
-  List<ProviderRef> _refs() =>
-      _scope.resolve(_providers).map(ProviderRef.fromEntity).toList();
+  /// Every source the scope names, before the ceiling.
+  int get _scopedCount => _scope.resolve(_providers).length;
+
+  /// True when an all-source run is covering fewer sources than are installed.
+  /// Only ever true for [CrossSearchScope.all] — a scope the user picked by
+  /// hand is theirs, and is never trimmed.
+  bool get _capped => _scope.isAll && _scopedCount > _refs().length;
+
+  List<ProviderRef> _refs() => getIt<CrossSearchEngine>().planLegs(
+        _scope.resolve(_providers).map(ProviderRef.fromEntity).toList(),
+      );
 
   void _applyScope(CrossSearchScope scope, {bool reorder = false}) {
     if (scope == _scope) return;
@@ -500,6 +509,21 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
             ],
           ),
           _statusPills(c),
+          // Said out loud rather than left to be inferred from a count that
+          // does not match the source list. A user who wants one of the
+          // sources beyond the ceiling can still reach it by narrowing the
+          // scope, and the line is where they find out that is the move.
+          if (_capped)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'search.capped_note'.tr(
+                  args: ['${c.expectedLegs}', '$_scopedCount'],
+                ),
+                style: const TextStyle(
+                    color: AppColors.textHint, fontSize: 11.5),
+              ),
+            ),
         ],
       ),
     );

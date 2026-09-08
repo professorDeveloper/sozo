@@ -632,7 +632,8 @@
     "voice_listening": "Ich höre zu …",
     "voice_done": "Zuhören beendet",
     "voice_hint": "Sag den Namen eines Films oder einer Serie",
-    "try_torrents": "Torrents durchsuchen"
+    "try_torrents": "Torrents durchsuchen",
+    "capped_note": "Die {} verlässlichsten von {} Quellen wurden durchsucht — grenze die Auswahl ein, um eine bestimmte zu erreichen."
   },
   "movie": {
     "rating": "Bewertung",

@@ -18,7 +18,7 @@ class CrossSearchController extends ChangeNotifier {
   CrossSearchController({required this.engine, required List<ProviderRef> set})
       : _set = set;
 
-  final CrossSearchEngine engine;
+  final SearchFanOut engine;
   List<ProviderRef> _set;
 
   final QueryDebouncer _debouncer = QueryDebouncer();
@@ -33,6 +33,20 @@ class CrossSearchController extends ChangeNotifier {
   final Map<String, ProviderSearchResult> _results = {};
   final Set<String> _retrying = {};
   List<MergedSearchTitle> _merged = const [];
+
+  /// Coalesces arriving legs into one merge per tick.
+  ///
+  /// `mergeSearchResults` rebuilds from scratch: it regroups every item of
+  /// every leg collected so far and re-scores each one against the query. Doing
+  /// that per arrival is quadratic in the number of sources — at 2000 installed
+  /// sources it is tens of millions of item comparisons over a run, all of it
+  /// on the UI isolate, which is why the screen stopped responding long before
+  /// the search itself was finished.
+  ///
+  /// Batching does not delay a result by more than this window, and a user
+  /// cannot read a list that reflows sixty times a second anyway.
+  static const Duration _flushWindow = Duration(milliseconds: 250);
+  Timer? _flush;
 
   static const int _cacheEntries = 6;
   static const Duration _cacheTtl = Duration(minutes: 5);
@@ -261,19 +275,31 @@ class CrossSearchController extends ChangeNotifier {
       (result) {
         if (token != _token) return;
         _results[result.provider.id] = result;
-        _remerge();
-        notifyListeners();
+        _scheduleFlush();
       },
       onDone: () {
         if (token != _token) return;
         _phase = CrossSearchPhase.done;
         _store(q);
-        notifyListeners();
+        // The last legs may still be sitting in the current window; the run is
+        // not allowed to report itself finished on a stale list.
+        _flushNow();
       },
     );
   }
 
   void _remerge() => _merged = mergeSearchResults(results, query: _query);
+
+  void _scheduleFlush() {
+    _flush ??= Timer(_flushWindow, _flushNow);
+  }
+
+  void _flushNow() {
+    _flush?.cancel();
+    _flush = null;
+    _remerge();
+    notifyListeners();
+  }
 
   void _store(String q) {
     // Never replay a run that contains a failure: retyping the query is how a
@@ -312,6 +338,8 @@ class CrossSearchController extends ChangeNotifier {
 
   void _cancel() {
     _debouncer.cancel();
+    _flush?.cancel();
+    _flush = null;
     _sub?.cancel();
     _sub = null;
   }

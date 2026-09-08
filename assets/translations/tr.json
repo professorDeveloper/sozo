@@ -632,7 +632,8 @@
     "voice_listening": "Dinleniyor…",
     "voice_done": "Dinleme durduruldu",
     "voice_hint": "Bir film ya da dizi adı söyle",
-    "try_torrents": "Torrent ara"
+    "try_torrents": "Torrent ara",
+    "capped_note": "{} kaynaktan en güvenilir {} tanesinde arandı — belirli birine ulaşmak için kapsamı daralt."
   },
   "movie": {
     "rating": "Puan",
