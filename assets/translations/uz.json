@@ -513,7 +513,8 @@
     "activity_subtitle": "Tarix, yuklamalar, kuzatuv, statistika",
     "connections_subtitle": "Trackerlar, Discord, TV, desktop",
     "trackers": "Trackerlar",
-    "stat_days": "kun ko'rildi"
+    "stat_days": "kun ko'rildi",
+    "mangayomi_sources": "Mangayomi manbalari"
   },
   "appearance": {
     "title": "Ko'rinish",

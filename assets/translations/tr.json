@@ -513,7 +513,8 @@
     "activity_subtitle": "Geçmiş, indirilenler, takip, istatistikler",
     "connections_subtitle": "Takipçiler, Discord, TV, masaüstü",
     "trackers": "Takipçiler",
-    "stat_days": "gün izlendi"
+    "stat_days": "gün izlendi",
+    "mangayomi_sources": "Mangayomi kaynakları"
   },
   "appearance": {
     "title": "Görünüm",

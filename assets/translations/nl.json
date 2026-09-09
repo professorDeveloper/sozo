@@ -513,7 +513,8 @@
     "activity_subtitle": "Geschiedenis, downloads, volgen, statistieken",
     "connections_subtitle": "Trackers, Discord, tv, desktop",
     "trackers": "Trackers",
-    "stat_days": "dagen gekeken"
+    "stat_days": "dagen gekeken",
+    "mangayomi_sources": "Mangayomi-bronnen"
   },
   "appearance": {
     "title": "Weergave",

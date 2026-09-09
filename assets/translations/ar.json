@@ -513,7 +513,8 @@
     "activity_subtitle": "السجل والتنزيلات والمتابعة والإحصاءات",
     "connections_subtitle": "المتتبعات، ديسكورد، التلفاز، سطح المكتب",
     "trackers": "المتتبعات",
-    "stat_days": "أيام مشاهدة"
+    "stat_days": "أيام مشاهدة",
+    "mangayomi_sources": "مصادر Mangayomi"
   },
   "appearance": {
     "title": "المظهر",

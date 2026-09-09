@@ -513,7 +513,8 @@
     "activity_subtitle": "History, downloads, tracking, stats",
     "connections_subtitle": "Trackers, Discord, TV, desktop",
     "trackers": "Trackers",
-    "stat_days": "days watched"
+    "stat_days": "days watched",
+    "mangayomi_sources": "Mangayomi Sources"
   },
   "appearance": {
     "title": "Appearance",

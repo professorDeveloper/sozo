@@ -243,25 +243,46 @@ class _ConnectionsHubTileState extends State<_ConnectionsHubTile> {
   }
 }
 
+/// Two rows, because they are two jobs.
+///
+/// One row showing the current source and leading to the extension-management
+/// screen made the everyday act — switching source — three screens deep:
+/// Sources, then Active source, then the full providers page, which is really
+/// for installing repos. Changing source is the most repeated thing anyone does
+/// here, so it gets the row that names it and opens the switcher directly.
 class _SourcesHubTile extends StatelessWidget {
   const _SourcesHubTile();
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ProviderBloc, ProviderState>(
-      builder: (context, state) {
-        final loaded = state is ProviderLoaded ? state : null;
-        final current = loaded?.currentProvider;
-        return SettingsNavTile(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        BlocBuilder<ProviderBloc, ProviderState>(
+          builder: (context, state) {
+            final loaded = state is ProviderLoaded ? state : null;
+            final current = loaded?.currentProvider;
+            return SettingsNavTile(
+              icon: Icons.swap_horiz_rounded,
+              title: 'profile.provider'.tr(),
+              valueLeading: current != null && current.image.isNotEmpty
+                  ? ProviderMark(url: current.image)
+                  : null,
+              value: current?.name ?? loaded?.currentProviderId,
+              // The same sheet the home screen's chip opens — one decision, one
+              // control, wherever it is reached from.
+              onTap: () => openProviderQuickSwitch(context),
+            );
+          },
+        ),
+        const SettingsDivider(),
+        SettingsNavTile(
           icon: Icons.extension_outlined,
-          title: 'profile.sources_title'.tr(),
-          valueLeading: current != null && current.image.isNotEmpty
-              ? ProviderMark(url: current.image)
-              : null,
-          value: current?.name ?? loaded?.currentProviderId,
+          title: 'profile.sources_row'.tr(),
+          subtitle: 'profile.sources_row_subtitle'.tr(),
           onTap: () => context.push('/sources'),
-        );
-      },
+        ),
+      ],
     );
   }
 }

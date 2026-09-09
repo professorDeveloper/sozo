@@ -513,7 +513,8 @@
     "activity_subtitle": "Histórico, downloads, acompanhamento, estatísticas",
     "connections_subtitle": "Rastreadores, Discord, TV, desktop",
     "trackers": "Rastreadores",
-    "stat_days": "dias assistidos"
+    "stat_days": "dias assistidos",
+    "mangayomi_sources": "Fontes do Mangayomi"
   },
   "appearance": {
     "title": "Aparência",

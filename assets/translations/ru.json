@@ -513,7 +513,8 @@
     "activity_subtitle": "История, загрузки, отслеживание, статистика",
     "connections_subtitle": "Трекеры, Discord, ТВ, десктоп",
     "trackers": "Трекеры",
-    "stat_days": "дней просмотра"
+    "stat_days": "дней просмотра",
+    "mangayomi_sources": "Источники Mangayomi"
   },
   "appearance": {
     "title": "Внешний вид",
