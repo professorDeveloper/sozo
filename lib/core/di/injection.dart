@@ -19,6 +19,8 @@ import 'package:soplay/core/network/provider_interceptor.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
 import 'package:soplay/core/player/webview_stream_extractor.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/discord/discord_presence_service.dart';
+import 'package:soplay/core/trailer/trailer_service.dart';
 import 'package:soplay/core/theme/theme_controller.dart';
 import 'package:soplay/features/anilist/data/airing_reminders.dart';
 import 'package:soplay/features/live_tv/data/live_tv_service.dart';
@@ -27,7 +29,20 @@ import 'package:soplay/features/streak/data/streak_remote_data_source.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/watch_party/data/watch_party_remote_data_source.dart';
 import 'package:soplay/features/watch_party/data/watch_party_service.dart';
-import 'package:soplay/features/download/data/download_service.dart';
+import 'package:soplay/features/download/data/datasources/download_local_data_source.dart';
+import 'package:soplay/features/download/data/datasources/download_native_data_source.dart';
+import 'package:soplay/features/download/data/datasources/download_transfer_data_source.dart';
+import 'package:soplay/features/download/data/repositories/download_repository_impl.dart';
+import 'package:soplay/features/download/data/storage/download_storage.dart';
+import 'package:soplay/features/download/domain/repositories/download_repository.dart';
+import 'package:soplay/features/download/domain/usecases/control_download_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/download_location_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/download_storage_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/export_download_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/remove_download_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/verify_downloads_usecase.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/data/history_sync_remote_data_source.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
@@ -37,6 +52,10 @@ import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/features/mal/data/mal_tracker.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
+import 'package:soplay/features/detail/data/aniskip_service.dart';
+import 'package:soplay/features/profile/data/backup_service.dart';
+import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
+import 'package:soplay/features/profile/domain/services/provider_probe.dart';
 import 'package:soplay/features/auth/data/services/google_auth_service.dart';
 import 'package:soplay/features/auth/domain/usecases/forgot_password_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/google_login_usecase.dart';
@@ -65,6 +84,7 @@ import 'package:soplay/features/notifications/data/repositories/notifications_re
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:soplay/features/notifications/presentation/bloc/notifications_bloc.dart';
+import 'package:soplay/features/extensions/data/catalog_repository.dart';
 import 'package:soplay/features/extensions/data/extension_repo_repository.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
@@ -92,7 +112,10 @@ import 'package:soplay/features/profile/data/repositories/provider_repository_im
 import 'package:soplay/features/profile/domain/repositories/provider_repository.dart';
 import 'package:soplay/features/profile/domain/usecases/get_providers_usecase.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:soplay/core/analytics/analytics.dart';
+import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/search/data/datasources/search_data_source.dart';
+import 'package:soplay/features/search/data/title_suggestion_service.dart';
 import 'package:soplay/features/search/data/repositories/search_repository_imp.dart';
 import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
@@ -167,7 +190,61 @@ Future<void> configureDependencies() async {
     ThemeController(getIt<HiveService>()),
   );
   getIt.registerSingleton<HistoryService>(HistoryService());
-  getIt.registerSingleton<DownloadService>(DownloadService());
+  // Downloads. The repository owns the queue, the filesystem and whichever of
+  // the two transfer engines this platform uses; everything above it sees use
+  // cases. `initialize()` is deliberately NOT awaited here — it resolves the
+  // storage root and re-verifies every row against the disk, and a startup
+  // that blocks on a filesystem sweep is a startup that stutters. main() kicks
+  // it off, and every entry point on the repository awaits it itself.
+  getIt.registerSingleton<DownloadStorage>(DownloadStorage());
+  getIt.registerSingleton<DownloadLocalDataSource>(DownloadLocalDataSource());
+  getIt.registerSingleton<DownloadNativeDataSource>(
+    const DownloadNativeDataSource(),
+  );
+  getIt.registerSingleton<DownloadTransferDataSource>(
+    DownloadTransferDataSource(),
+  );
+  getIt.registerSingleton<DownloadRepository>(
+    DownloadRepositoryImpl(
+      local: getIt<DownloadLocalDataSource>(),
+      storage: getIt<DownloadStorage>(),
+      native: getIt<DownloadNativeDataSource>(),
+      transfer: getIt<DownloadTransferDataSource>(),
+      hive: getIt<HiveService>(),
+    ),
+  );
+  getIt.registerLazySingleton<EnqueueDownloadUseCase>(
+    () => EnqueueDownloadUseCase(getIt<DownloadRepository>()),
+  );
+  getIt.registerLazySingleton<GetDownloadsUseCase>(
+    () => GetDownloadsUseCase(getIt<DownloadRepository>()),
+  );
+  getIt.registerLazySingleton<ControlDownloadUseCase>(
+    () => ControlDownloadUseCase(getIt<DownloadRepository>()),
+  );
+  getIt.registerLazySingleton<RemoveDownloadUseCase>(
+    () => RemoveDownloadUseCase(getIt<DownloadRepository>()),
+  );
+  getIt.registerLazySingleton<VerifyDownloadsUseCase>(
+    () => VerifyDownloadsUseCase(getIt<DownloadRepository>()),
+  );
+  getIt.registerLazySingleton<DownloadStorageUseCase>(
+    () => DownloadStorageUseCase(getIt<DownloadRepository>()),
+  );
+  getIt.registerLazySingleton<ExportDownloadUseCase>(
+    () => ExportDownloadUseCase(getIt<DownloadRepository>()),
+  );
+  getIt.registerLazySingleton<DownloadLocationUseCase>(
+    () => DownloadLocationUseCase(getIt<DownloadRepository>()),
+  );
+  // Lazy: a session that never opens a detail page never constructs the
+  // YouTube client, and constructing one opens an HTTP client of its own.
+  getIt.registerLazySingleton<TrailerService>(() => TrailerService());
+  // Lazy and inert until switched on: constructing it opens nothing and
+  // connects to nothing.
+  getIt.registerLazySingleton<DiscordPresenceService>(
+    () => DiscordPresenceService(),
+  );
 
   final dio = DioClient.instance;
   dio.interceptors.add(ProviderInterceptor(hiveService: getIt<HiveService>()));
@@ -226,6 +303,26 @@ Future<void> configureDependencies() async {
       links: getIt<AnilistLinkStore>(),
     ),
   );
+  getIt.registerLazySingleton<AniSkipService>(() => AniSkipService());
+  getIt.registerLazySingleton<BackupService>(() => BackupService());
+
+  getIt.registerLazySingleton<ProviderProbe>(
+    () => ProviderProbe(
+      engine: getIt<CrossSearchEngine>(),
+      episodes: getIt<GetEpisodesUseCase>(),
+      resolve: getIt<ResolveMediaUseCase>(),
+      dio: getIt<Dio>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<AlternateSourceService>(
+    () => AlternateSourceService(
+      engine: getIt<CrossSearchEngine>(),
+      providers: getIt<GetProvidersUseCase>(),
+      episodes: getIt<GetEpisodesUseCase>(),
+    ),
+  );
+
   getIt.registerSingleton<AnilistTracker>(
     AnilistTracker(
       service: getIt<AnilistService>(),
@@ -368,6 +465,25 @@ Future<void> configureDependencies() async {
       hive: getIt<HiveService>(),
     ),
   );
+  // Metadata autocomplete for the search field. Lazy because a user who never
+  // opens Search never pays for its Dio client, and a singleton because its
+  // whole value is the cache it accumulates while someone types.
+  // Registered before anything that reports, and a singleton because the SDK
+  // holds one queue. Started separately in main() — construction must not do
+  // I/O, so a test that builds the graph does not reach the network.
+  getIt.registerLazySingleton<Analytics>(
+    () => Analytics(
+      // Read per call, not captured: incognito is a toggle someone flips
+      // mid-session and the whole point is that it takes effect then.
+      suppressed: () => getIt<HiveService>().isIncognito,
+    ),
+  );
+  getIt.registerLazySingleton<TitleSuggestionService>(
+    () => TitleSuggestionService(
+      anilist: AnilistApi(),
+      dataSource: getIt<SearchDataSource>(),
+    ),
+  );
   getIt.registerLazySingleton<CrossSearchEngine>(
     () => CrossSearchEngine(
       jsRuntime: getIt<JsRuntimeService>(),
@@ -416,6 +532,9 @@ Future<void> configureDependencies() async {
   );
   // Recommended extension repos for the sources pages — backend-curated with a
   // compiled-in fallback, so the list survives an outage.
+  getIt.registerLazySingleton<CatalogRepository>(
+    () => CatalogRepository(dio: getIt<Dio>()),
+  );
   getIt.registerLazySingleton<ExtensionRepoRepository>(
     () => ExtensionRepoRepository(dio: getIt<Dio>()),
   );
@@ -624,6 +743,7 @@ Future<void> configureDependencies() async {
     () => SearchBloc(
       searchUseCase: getIt<SearchUseCase>(),
       genreUseCase: getIt<GenreUseCase>(),
+      suggestions: getIt<TitleSuggestionService>(),
     ),
   );
   getIt.registerFactory(

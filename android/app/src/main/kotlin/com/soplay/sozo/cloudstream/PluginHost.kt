@@ -16,6 +16,7 @@ import com.lagradost.cloudstream3.TorrentLoadResponse
 import com.lagradost.cloudstream3.TvSeriesLoadResponse
 import com.lagradost.cloudstream3.plugins.BasePlugin
 import com.lagradost.cloudstream3.plugins.Plugin
+import com.lagradost.cloudstream3.plugins.PluginManager as CsPluginManager
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import dalvik.system.PathClassLoader
@@ -65,15 +66,27 @@ class PluginHost(private val appContext: Context) {
     data class Meta(
         val provider: String, val icon: String?, val internalName: String,
         val cs3Path: String, val repo: String? = null,
+        /**
+         * Source language, from the repo's plugin list (`language`).
+         *
+         * Taken there rather than from `MainAPI.lang`, which would be the exact
+         * answer, because reading it means loading the .cs3 — and the whole
+         * point of this metadata is that the provider list is built WITHOUT
+         * loading a single plugin. The repo's own tag is what CloudStream
+         * itself labels a plugin with, and French/Spanish/Arabic packs are the
+         * ones that publish it accurately, which is precisely the case that
+         * needs it. Empty means the repo did not say.
+         */
+        val lang: String = "",
     )
     private val metas = LinkedHashMap<String, Meta>()
 
     /** Register provider metadata WITHOUT loading the plugin (startup path). */
     fun registerMeta(
         provider: String, icon: String?, internalName: String,
-        cs3Path: String, repo: String? = null,
+        cs3Path: String, repo: String? = null, lang: String = "",
     ) {
-        metas[provider] = Meta(provider, icon, internalName, cs3Path, repo)
+        metas[provider] = Meta(provider, icon, internalName, cs3Path, repo, lang)
         if (!icon.isNullOrEmpty()) providerIcons[provider] = icon
     }
 
@@ -82,7 +95,7 @@ class PluginHost(private val appContext: Context) {
         val m = metas[provider] ?: return
         if (loaded.containsKey(m.internalName)) return
         val f = File(m.cs3Path)
-        if (f.exists()) loadCs3(f, m.internalName, m.icon)
+        if (f.exists()) loadCs3(f, m.internalName, m.icon, m.repo, m.lang)
     }
 
     private data class Manifest(
@@ -103,7 +116,10 @@ class PluginHost(private val appContext: Context) {
     }
 
     /** Load a downloaded .cs3; returns the provider names it registered. */
-    fun loadCs3(file: File, internalName: String, iconUrl: String? = null, repo: String? = null): List<String> {
+    fun loadCs3(
+        file: File, internalName: String, iconUrl: String? = null,
+        repo: String? = null, lang: String = "",
+    ): List<String> {
         // Already loaded this process → don't register twice (avoids duplicates).
         loaded[internalName]?.let { return pluginProviders[internalName] ?: emptyList() }
         return try {
@@ -132,16 +148,61 @@ class PluginHost(private val appContext: Context) {
             }
             if (instance is Plugin) instance.load(appContext) else instance.load()
             loaded[internalName] = instance
+            // So a plugin walking PluginManager.getPluginsOnline() to find its
+            // own .cs3 — the usual reason to call it — gets a real answer.
+            CsPluginManager.record(internalName, file.absolutePath)
 
             val added = APIHolder.allProviders.map { it.name }.filter { it !in before }
             pluginProviders[internalName] = added
-            added.forEach { metas[it] = Meta(it, iconUrl, internalName, file.absolutePath, repo) }
+            added.forEach { metas[it] = Meta(it, iconUrl, internalName, file.absolutePath, repo, lang) }
             if (!iconUrl.isNullOrEmpty()) added.forEach { providerIcons[it] = iconUrl }
             Log.i(TAG, "loaded ${file.name}: providers=$added")
             added
         } catch (t: Throwable) {
+            // Kept, not just logged.
+            //
+            // Every failure here used to become an empty list and a line in
+            // logcat. The plugin installed, registered nothing, appeared
+            // nowhere, and the app had nothing to say about it — which is
+            // indistinguishable from the plugin having no sources. The commonest
+            // cause is a NoClassDefFoundError for a CloudStream class that lives
+            // in its app module rather than the `library` artifact this depends
+            // on, and that is a sentence a user can act on.
+            lastErrors[internalName] = describeLoadFailure(t)
             Log.e(TAG, "failed to load ${file.name}: ${Log.getStackTraceString(t)}")
             emptyList()
+        }
+    }
+
+    /** The last load failure per plugin, for the UI to surface. */
+    private val lastErrors = mutableMapOf<String, String>()
+
+    fun lastError(internalName: String): String? = lastErrors[internalName]
+
+    fun lastErrorsJson(): String = JSONObject(lastErrors as Map<*, *>).toString()
+
+    /**
+     * A one-line reason a person could act on.
+     *
+     * A stack trace is the right thing in logcat and the wrong thing in a
+     * dialog. The three cases below are almost all of them in practice, and
+     * they need different actions from the reader: an incompatible plugin, a
+     * corrupt download, and everything else.
+     */
+    private fun describeLoadFailure(t: Throwable): String {
+        val root = generateSequence(t) { it.cause }.last()
+        val name = root.message?.trim().orEmpty()
+        return when (root) {
+            is NoClassDefFoundError, is ClassNotFoundException ->
+                "This plugin needs a part of CloudStream that Sozo does not include" +
+                    (if (name.isNotEmpty()) " ($name)" else "") + "."
+            is NoSuchMethodError, is NoSuchFieldError, is AbstractMethodError ->
+                "This plugin was built against a newer CloudStream than Sozo bundles" +
+                    (if (name.isNotEmpty()) " ($name)" else "") + "."
+            is java.util.zip.ZipException, is java.io.IOException ->
+                "The plugin file could not be read — try removing and adding the repo again."
+            else ->
+                "${root.javaClass.simpleName}${if (name.isNotEmpty()) ": $name" else ""}"
         }
     }
 
@@ -153,7 +214,9 @@ class PluginHost(private val appContext: Context) {
         names.forEach { providerIcons.remove(it); metas.remove(it) }
         // Drop any loaded plugins whose providers are now all gone.
         val internalNames = pluginProviders.filterValues { it.any { n -> n in set } }.keys.toList()
-        internalNames.forEach { loaded.remove(it); pluginProviders.remove(it) }
+        internalNames.forEach {
+            loaded.remove(it); pluginProviders.remove(it); CsPluginManager.forget(it)
+        }
         Log.i(TAG, "removed providers=$names")
     }
 
@@ -189,6 +252,10 @@ class PluginHost(private val appContext: Context) {
             arr.put(JSONObject().apply {
                 put("id", "cs:${m.provider}")
                 put("name", m.provider)
+                // The other three hosts have always sent this; CloudStream was
+                // the one that did not, so its providers arrived in the picker
+                // with no language at all and could not be filtered.
+                if (m.lang.isNotEmpty()) put("lang", m.lang)
                 m.icon?.let { put("icon", it) }
                 m.repo?.let { if (it.isNotEmpty()) put("repo", it) }
             })
@@ -374,12 +441,21 @@ class PluginHost(private val appContext: Context) {
                     put("episode", 1); put("label", "Watch live"); put("mediaRef", ref)
                 })
             }
-            // Torrent/magnet entries have no dataUrl and no HTTP stream — there is
-            // nothing this app's player can do with them. Say so explicitly rather
-            // than rendering the same silent empty page.
+            // A torrent entry carries a magnet (or a .torrent url) instead of a
+            // dataUrl. That used to be a dead end; the app now embeds a torrent
+            // server, so the link is offered as the single playable episode and
+            // the player turns it into a local stream on open.
             is TorrentLoadResponse -> {
-                unsupported =
-                    "This is a torrent entry (magnet link) — Sozo's player cannot open it."
+                val ref = resp.magnet ?: resp.torrent
+                if (ref.isNullOrBlank()) {
+                    unsupported = "This torrent entry has no magnet or .torrent link."
+                } else {
+                    episodes.put(JSONObject().apply {
+                        put("episode", 1)
+                        put("label", resp.name.ifBlank { "Torrent" })
+                        put("mediaRef", ref)
+                    })
+                }
             }
         }
         // Cast (actors) + related (recommendations) when the provider supplies them.
@@ -465,16 +541,20 @@ class PluginHost(private val appContext: Context) {
                         }
                     },
                     callback = { link: ExtractorLink ->
-                        // Torrents and magnets are not streams. Passed through as an
-                        // ordinary source they reached the player as a bare "Source
-                        // error"; the honest thing is to not offer them. Relative urls
-                        // ("dl.php?id=…") go for the same reason — ExoPlayer resolves
-                        // those as a local file path.
-                        val streamable = link.type != ExtractorLinkType.TORRENT &&
-                                link.type != ExtractorLinkType.MAGNET
-                        if (streamable && link.url.startsWith("http", ignoreCase = true) &&
-                            seenUrls.add(link.url)
-                        ) {
+                        // Torrents and magnets used to be dropped here: they are not
+                        // streams, and handing one to ExoPlayer produced a bare "Source
+                        // error". They are now passed through tagged as "torrent",
+                        // because the app embeds a torrent server and the player
+                        // resolves such a link into a local HTTP stream before opening
+                        // it (see core/torrent/ and player_page.media.dart).
+                        //
+                        // Relative urls ("dl.php?id=…") are still dropped — ExoPlayer
+                        // resolves those as a local file path.
+                        val isTorrent = link.type == ExtractorLinkType.TORRENT ||
+                                link.type == ExtractorLinkType.MAGNET
+                        val addressable = link.url.startsWith("http", ignoreCase = true) ||
+                                (isTorrent && link.url.startsWith("magnet:", ignoreCase = true))
+                        if (addressable && seenUrls.add(link.url)) {
                             // getAllHeaders() folds in the referer exactly the way
                             // CloudStream's own player does, instead of us overwriting a
                             // Referer an extractor had deliberately set.
@@ -494,6 +574,11 @@ class PluginHost(private val appContext: Context) {
                                 put("type", when (link.type) {
                                     ExtractorLinkType.M3U8 -> "hls"
                                     ExtractorLinkType.DASH -> "dash"
+                                    // The Dart side recognises a magnet by its scheme
+                                    // anyway, but naming the type keeps the source list
+                                    // honest about what it is offering.
+                                    ExtractorLinkType.TORRENT,
+                                    ExtractorLinkType.MAGNET -> "torrent"
                                     else -> "http"
                                 })
                                 put("host", link.name)

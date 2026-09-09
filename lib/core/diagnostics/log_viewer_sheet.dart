@@ -82,7 +82,7 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 8, 8),
               child: Row(
                 children: [
                   const Icon(Icons.bug_report_outlined,

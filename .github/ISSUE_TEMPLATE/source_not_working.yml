@@ -1,0 +1,82 @@
+name: 🔌 Manba ishlamayapti
+description: Biror manba (provider/kengaytma) qidirmayapti yoki video ochilmayapti
+title: "[Source] "
+labels: ["source"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Manba muammosi Sozo'dagi eng ko'p uchraydigan xabar, va deyarli har doim
+        saytning o'zida bo'ladi — domen almashgan, sahifa tuzilishi o'zgargan
+        yoki fayl o'chirilgan. Quyidagi ma'lumotlarsiz buni tekshirib
+        bo'lmaydi, shuning uchun iltimos hammasini to'ldiring.
+
+  - type: input
+    id: source
+    attributes:
+      label: Qaysi manba?
+      description: Ilovadagi nomi bilan yozing
+      placeholder: "4khdhub / hdhub4u / Aniyomi — AllAnime / ..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Qaysi bosqichda uziladi?
+      options:
+        - Qidiruv hech narsa topmayapti
+        - Bosh sahifa bo'sh
+        - Batafsil sahifa ochilmayapti
+        - Epizodlar ro'yxati bo'sh
+        - Sifat variantlari chiqmayapti
+        - Video ochilmayapti / doim yuklanyapti
+        - Video ochiladi, lekin rasm buzuq / ovoz yo'q
+        - Boshqa
+    validations:
+      required: true
+
+  - type: input
+    id: title
+    attributes:
+      label: Qaysi kontentda?
+      description: Aniq nom — bir film ishlamasligi bilan butun manba o'lgani ikki xil muammo
+      placeholder: "The Whisper Man (2026)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: Nima bo'ldi?
+      description: Ekranda chiqqan xatoni aynan ko'chiring. Skrinshot ham bo'lsa juda yaxshi.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: everything
+    attributes:
+      label: Boshqa manbalar ishlayaptimi?
+      description: Bitta manba o'lgani bilan tarmoq/ilova muammosi butunlay boshqa narsa
+      options:
+        - Ha, boshqalari ishlayapti — faqat shu manba
+        - Yo'q, hech qaysi manba ishlamayapti
+        - Tekshirmadim
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Sozo versiyasi
+      description: "Profil → pastda yozilgan (masalan 3.1.0+6)"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Qurilma va OS
+      placeholder: "Samsung A54, Android 14 / Windows 11 / Android TV boks"
+    validations:
+      required: true

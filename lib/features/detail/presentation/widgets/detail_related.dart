@@ -6,6 +6,9 @@ import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/detail/domain/entities/related_entity.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_empty_state.dart';
+import 'package:soplay/core/widgets/poster_hero.dart';
+import 'package:soplay/features/home/domain/entities/movie.dart';
 
 class DetailRelatedSection extends StatelessWidget {
   const DetailRelatedSection({super.key, required this.related});
@@ -14,28 +17,9 @@ class DetailRelatedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (related.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 56),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.movie_filter_outlined,
-                color: AppColors.textHint,
-                size: 48,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'detail.no_recommendations'.tr(),
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
+      return DetailEmptyState(
+        icon: Icons.movie_filter_outlined,
+        message: 'detail.no_recommendations'.tr(),
       );
     }
 
@@ -63,6 +47,36 @@ class _RelatedCard extends StatelessWidget {
   const _RelatedCard({required this.item});
   final RelatedEntity item;
 
+  /// A [MovieEntity] standing in for what the next page already knows.
+  ///
+  /// Not decoration: a hero tag alone is INERT without it. The no-preview
+  /// branch of the detail page renders `DetailSkeleton`, which contains no
+  /// `PosterHero`, so the flight would have no destination and Hero would
+  /// silently do nothing. Every field below is one this card already holds and
+  /// already drew, so the next page opens with its poster, title and year
+  /// correct instead of shimmering over facts it was handed.
+  MovieEntity get _preview => MovieEntity(
+    externalId: item.externalId,
+    title: item.title,
+    description: item.description,
+    slug: item.slug,
+    url: item.contentUrl,
+    provider: item.provider,
+    thumbnail: item.thumbnail,
+    year: item.year,
+    rating: item.rating,
+    qualities: item.qualities,
+    category: item.category,
+  );
+
+  /// Keyed on the content url rather than a grid position.
+  ///
+  /// This grid is inside a detail page that itself carries a hero — but a
+  /// different one, since a title never lists itself as related. Two heroes
+  /// with one tag on screen is a hard assertion, and the url is what
+  /// guarantees they differ.
+  String get _heroTag => 'related:${item.contentUrl}';
+
   @override
   Widget build(BuildContext context) {
     return HoverTap(
@@ -73,7 +87,11 @@ class _RelatedCard extends StatelessWidget {
             // Related items belong to the SAME source as the open detail — pass
             // it so the right provider resolves them (not the app's "current").
             extra: DetailArgs(
-                contentUrl: item.contentUrl, provider: item.provider),
+              contentUrl: item.contentUrl,
+              provider: item.provider,
+              preview: _preview,
+              heroTag: _heroTag,
+            ),
           );
         }
       },
@@ -83,7 +101,12 @@ class _RelatedCard extends StatelessWidget {
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: _RelatedThumbnail(url: item.thumbnail),
+              child: PosterHero(
+                tag: _heroTag,
+                url: item.thumbnail,
+                fromRadius: 8,
+                child: _RelatedThumbnail(url: item.thumbnail),
+              ),
             ),
           ),
           const SizedBox(height: 6),

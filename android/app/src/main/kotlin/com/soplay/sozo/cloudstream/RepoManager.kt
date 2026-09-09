@@ -43,7 +43,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
         prefs.edit().putString("repos", JSONArray(repos).toString()).apply()
     }
 
-    // Persisted provider metadata per repo: { repoInput: [{provider,icon,internalName,cs3Path}] }
+    // Persisted provider metadata per repo: { repoInput: [{provider,icon,internalName,cs3Path,lang}] }
     private fun loadMeta(): JSONObject =
         try { JSONObject(prefs.getString("meta", "{}") ?: "{}") } catch (_: Throwable) { JSONObject() }
 
@@ -78,6 +78,11 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     e.optString("internalName"),
                     e.optString("cs3Path"),
                     repoName,
+                    // Absent for repos installed before the field existed. They
+                    // pick it up on the next repo update rather than being
+                    // force-reinstalled: a missing language filters nothing out
+                    // (see langMatches), so the cost of waiting is zero.
+                    e.optString("lang"),
                 )
             }
         }
@@ -188,6 +193,8 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
 
     private data class PluginRef(
         val url: String, val internalName: String, val version: Int, val iconUrl: String?,
+        /** The repo's own `language` tag for this plugin; "" when it omits one. */
+        val lang: String = "",
     )
 
     private fun addRepoInternal(input: String, progress: ((Int, Int) -> Unit)? = null): JSONObject {
@@ -209,7 +216,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                 val internalName = p.optString("internalName").ifEmpty { p.optString("name", "plugin$i") }
                 val version = if (p.has("version")) p.optInt("version") else 0
                 val iconUrl = p.optString("iconUrl").ifEmpty { null }
-                all.add(PluginRef(url, internalName, version, iconUrl))
+                all.add(PluginRef(url, internalName, version, iconUrl, p.optString("language")))
             }
         }
 
@@ -222,13 +229,14 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                 pluginCount++
                 // Load now to discover provider names (one-time on add); persist
                 // metadata so future launches can lazy-load without this cost.
-                host.loadCs3(file, ref.internalName, ref.iconUrl, repoName).forEach { name ->
+                host.loadCs3(file, ref.internalName, ref.iconUrl, repoName, ref.lang).forEach { name ->
                     providers.put(name)
                     metaEntries.put(JSONObject().apply {
                         put("provider", name)
                         if (ref.iconUrl != null) put("icon", ref.iconUrl)
                         put("internalName", ref.internalName)
                         put("cs3Path", file.absolutePath)
+                        if (ref.lang.isNotEmpty()) put("lang", ref.lang)
                     })
                 }
             }
@@ -312,7 +320,10 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                 val nm = p.optString("internalName").ifEmpty { p.optString("name", "plugin$i") }
                 if (nm == internalName) {
                     val version = if (p.has("version")) p.optInt("version") else 0
-                    ref = PluginRef(url, nm, version, p.optString("iconUrl").ifEmpty { null })
+                    ref = PluginRef(
+                        url, nm, version, p.optString("iconUrl").ifEmpty { null },
+                        p.optString("language"),
+                    )
                     break
                 }
             }
@@ -325,7 +336,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
         val file = downloadCs3(r.internalName, r.version, r.url)
         val providers = JSONArray()
         if (file != null) {
-            host.loadCs3(file, r.internalName, r.iconUrl, repoName).forEach { providers.put(it) }
+            host.loadCs3(file, r.internalName, r.iconUrl, repoName, r.lang).forEach { providers.put(it) }
             val meta = loadMeta()
             val existing = meta.optJSONArray(repoUrl) ?: JSONArray()
             val merged = JSONArray()
@@ -339,6 +350,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     if (r.iconUrl != null) put("icon", r.iconUrl)
                     put("internalName", r.internalName)
                     put("cs3Path", file.absolutePath)
+                    if (r.lang.isNotEmpty()) put("lang", r.lang)
                 })
             }
             meta.put(repoUrl, merged); saveMeta(meta)
@@ -415,7 +427,9 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     val internalName = p.optString("internalName").ifEmpty { p.optString("name", "plugin$i") }
                     val version = if (p.has("version")) p.optInt("version") else 0
                     val iconUrl = p.optString("iconUrl").ifEmpty { null }
-                    latest[internalName] = PluginRef(url, internalName, version, iconUrl)
+                    latest[internalName] = PluginRef(
+                        url, internalName, version, iconUrl, p.optString("language"),
+                    )
                 }
             }
             val repoName = names.optString(repo).ifEmpty { info.name ?: fallbackName(repo) }
@@ -436,7 +450,12 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     }
                     if (file != null) {
                         e.put("cs3Path", file.absolutePath)
-                        host.loadCs3(file, ref.internalName, ref.iconUrl, repoName)
+                        // Backfills the language onto repos installed before the
+                        // field existed, which is what makes "wait for the next
+                        // update" an honest answer in ensureLoaded rather than
+                        // "reinstall everything".
+                        if (ref.lang.isNotEmpty()) e.put("lang", ref.lang)
+                        host.loadCs3(file, ref.internalName, ref.iconUrl, repoName, ref.lang)
                         updated.put(e.optString("provider"))
                     }
                 }

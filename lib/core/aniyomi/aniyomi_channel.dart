@@ -4,6 +4,8 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
 import 'package:soplay/core/extensions/extension_bridge.dart';
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 
 class AniyomiChannel {
   AniyomiChannel._();
@@ -66,11 +68,22 @@ class AniyomiChannel {
     return decoded is List ? decoded : const [];
   }
 
+  /// The host collapses same-named sources down to one entry, and until now it
+  /// always kept the English one. Sending the picker's language row lets it
+  /// keep the user's instead — and keep each selected language as its own
+  /// entry, so an aggregator that publishes one source per language stops
+  /// showing up as English only. An empty list is the shipped default and
+  /// reproduces the old collapsing exactly.
+  static Map<String, dynamic> _langArgs() {
+    final langs = getIt<HiveService>().getProviderLanguages();
+    return {'languages': langs};
+  }
+
   static Future<List<dynamic>> listProviders() async =>
-      _arr(await _call<String>('listProviders'));
+      _arr(await _call<String>('listProviders', _langArgs()));
 
   static Future<List<dynamic>> ensureLoaded() async =>
-      _arr(await _call<String>('ensureLoaded'));
+      _arr(await _call<String>('ensureLoaded', _langArgs()));
 
   static Future<List<dynamic>> listRepos() async =>
       _arr(await _call<String>('listRepos'));

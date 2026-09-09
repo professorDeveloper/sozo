@@ -738,7 +738,7 @@ class _DesktopSlideState extends State<_DesktopSlide>
             right: 34,
             bottom: 30,
             child: Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: FadeTransition(

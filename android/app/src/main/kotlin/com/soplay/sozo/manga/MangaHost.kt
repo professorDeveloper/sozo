@@ -100,19 +100,45 @@ class MangaHost(private val context: Context) {
         }
     }
 
-    private fun langRank(lang: String): Int = when (lang.trim().lowercase()) {
-        "en" -> 0
-        "all" -> 1
-        else -> 2
+    /**
+     * Where a source's language sits when several sources share a name.
+     *
+     * Lower wins. `preferred` is the user's own order, straight from the
+     * picker's language row; with it empty this is the constant `en → all →
+     * anything else` it replaced, so an install that never touches the filter
+     * sees the identical list.
+     *
+     * That constant was the reason a French user could install a repo carrying
+     * fourteen French sources and be shown none of them: for anything that
+     * ships one entry per language, the English entry held the name and every
+     * other language was dropped with nothing to say it had happened.
+     */
+    private fun langRank(lang: String, preferred: List<String>): Int {
+        val key = lang.trim().lowercase()
+        val i = preferred.indexOfFirst { it.trim().lowercase() == key }
+        if (i >= 0) return i
+        val base = preferred.size
+        if (preferred.isEmpty() && key == "en") return base
+        if (key == "all") return base + 1
+        return base + 2
     }
 
-    fun providersJson(): String {
+    fun providersJson(preferred: List<String> = emptyList()): String {
         val picked = LinkedHashMap<String, SourceMeta>()
         for (s in sources.values) {
-            val key = s.name.trim().lowercase()
-            if (key.isEmpty()) continue
+            val name = s.name.trim().lowercase()
+            if (name.isEmpty()) continue
+            // A language the user asked for does not compete for a name: it is
+            // kept under its own key and the picker labels the variants apart.
+            // Only the languages nobody asked for still collapse, which is what
+            // stops an aggregator that publishes forty-five languages from
+            // filling the list with forty-five identical rows.
+            val wanted = preferred.any { it.trim().lowercase() == s.lang.trim().lowercase() }
+            val key = if (wanted) "$name|${s.lang.trim().lowercase()}" else name
             val cur = picked[key]
-            if (cur == null || langRank(s.lang) < langRank(cur.lang)) picked[key] = s
+            if (cur == null || langRank(s.lang, preferred) < langRank(cur.lang, preferred)) {
+                picked[key] = s
+            }
         }
         val arr = JSONArray()
         for (s in picked.values) {

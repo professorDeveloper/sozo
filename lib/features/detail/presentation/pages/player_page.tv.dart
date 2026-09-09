@@ -254,7 +254,7 @@ extension _PlayerTv on _PlayerPageState {
     }
     if (k == LogicalKeyboardKey.mediaTrackNext) {
       if (widget.args.isSerial &&
-          _episodeIndex + 1 < widget.args.episodes.length) {
+          _episodeIndex + 1 < _episodes.length) {
         _partyEpisodeNav(_episodeIndex + 1);
       }
       return true;
@@ -423,7 +423,7 @@ class _TvSeekBarState extends State<_TvSeekBar> {
             builder: (context, box) {
               final width = box.maxWidth;
               return Stack(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 clipBehavior: Clip.none,
                 children: [
                   Container(

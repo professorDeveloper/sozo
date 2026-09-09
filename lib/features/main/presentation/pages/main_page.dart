@@ -3,6 +3,10 @@ import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
+// Narrow on purpose: the package exports its own `BlurStyle`, which shadows
+// Flutter's and broke the capsule's shadow at a distance from this line.
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart'
+    show AdaptiveNavigationDestination, IOS26NativeTabBar, PlatformInfo;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -402,24 +406,63 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                                 index: _index,
                                 items: defs,
                                 shortsShowcaseKey: _shortsRefreshShowcaseKey,
-                                onTap: _onTabTap,
+                                // _handleTabTap, not _onTabTap: it adds
+                                // reselect-to-refresh and no-ops on every other
+                                // tab. The coach-mark shown to classic users
+                                // described a gesture only the capsule had, so
+                                // following its instructions did nothing.
+                                // Double-tap stays as the additional shortcut.
+                                onTap: _handleTabTap,
                                 onShortsDoubleTap: _refreshShorts,
                               );
                             }
                             // Glass / Solid: a floating capsule inset 16 each side.
+                            final nativeIosBar = PlatformInfo.isIOS &&
+                                PlatformInfo.isIOS26OrHigher();
                             return Padding(
                               padding: EdgeInsets.fromLTRB(
                                 16,
                                 0,
                                 16,
-                                MediaQuery.paddingOf(context).bottom + 12,
+                                // The native bar reserves the home-indicator
+                                // inset itself: the package sizes it from
+                                // `UITabBar.sizeThatFits`, and a UITabBar folds
+                                // the bottom safe area into that height. Adding
+                                // the inset again here counted it twice and
+                                // floated the bar a safe area's worth too high,
+                                // leaving a gap under it. The Flutter capsule
+                                // has no such notion and still needs it.
+                                nativeIosBar
+                                    ? 12
+                                    : MediaQuery.paddingOf(context).bottom + 12,
                               ),
-                              child: _SoplayGlassCapsule(
-                                index: _index,
-                                items: defs,
-                                glass: style == NavPrefs.glass,
-                                shortsShowcaseKey: _shortsRefreshShowcaseKey,
-                                onTabSelected: _handleTabTap,
+                              // A fixed 16dp inset is a capsule on a phone and a
+                              // full-width band on a foldable or a tablet, where
+                              // it stops reading as a floating control at all.
+                              // Nothing changes below 480dp.
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 480),
+                                  // iOS 26+ gets the system's own tab bar;
+                                  // everywhere else keeps the shader capsule.
+                                  // `classic` is handled above and is an
+                                  // explicit user choice on every platform.
+                                  child: nativeIosBar
+                                      ? _SoplayNativeGlassBar(
+                                          index: _index,
+                                          items: defs,
+                                          onTabSelected: _handleTabTap,
+                                        )
+                                      : _SoplayGlassCapsule(
+                                          index: _index,
+                                          items: defs,
+                                          glass: style == NavPrefs.glass,
+                                          shortsShowcaseKey:
+                                              _shortsRefreshShowcaseKey,
+                                          onTabSelected: _handleTabTap,
+                                        ),
+                                ),
                               ),
                             );
                           },
@@ -474,19 +517,37 @@ class _SoplayGlassCapsule extends StatelessWidget {
   // Not const: `backerColor` is the page background, and that is a runtime
   // value now — on AMOLED the pad has to go to true black with the rest of the
   // app instead of staying a #1A1A1A slab floating on nothing.
+  /// Values are PRE-NORMALISED for [GlassQuality.standard].
+  ///
+  /// The package normalises these itself on the premium path, but sets
+  /// `skipNormalization = true` at standard and passes them through raw. The
+  /// same numbers therefore read very differently between tiers, so the
+  /// normalisation factors are applied here by hand — thickness x0.4,
+  /// lightIntensity x0.6, ambientStrength x0.4. Without this the capsule looks
+  /// heavy-handed: a fat outline and a hot top edge instead of a quiet rim.
   static LiquidGlassSettings get _glassSettings => LiquidGlassSettings(
-    thickness: 14, // narrower edge band → a finer rim, not a fat outline
-    blur: 5, // less haze behind the bar → cleaner, not muddy
+    thickness: 1.6, // barely a rim — the edge should be felt, not drawn
+    blur: 14, // real frosting: what makes it read as glass and not a tint
     chromaticAberration: 0.08, // barely-there edge tint
     refractiveIndex: 1.5,
     saturation: 1.08,
-    lightIntensity: 0.6, // soft top-edge sheen instead of a hard stroke
-    ambientStrength: 1,
-    glowIntensity: 0.25, // faint luminous rim
-    glassColor: const Color(0x12FFFFFF), // faint white sheen
-    // Near-solid pad → premium, not hazy. #181818 at 90% on the default theme,
-    // which is where the old #1A1A1A literal sat.
-    backerColor: AppColors.background.withValues(alpha: 0.902),
+    lightIntensity: 0.1, // a sheen where light catches, not a stroke
+    ambientStrength: 0.4, // 1.0 pre-normalised
+    // `glowIntensity` deliberately absent: the bar's glass never reads it. It
+    // is an indicator-shader parameter, reachable only through an
+    // `indicatorSettings:` argument this call site does not pass, so setting it
+    // here was tuning nothing.
+    glassColor: const Color(0x0AFFFFFF), // faint white sheen
+    // 42%, not 90%.
+    //
+    // The old 90% was written when the pad was never actually drawn — the
+    // package silently discards `backerColor` on the premium path the bar used
+    // to run. Once the tier moved to `standard` the value started applying, and
+    // a 90%-opaque pad is not glass: nothing shows through it, so the capsule
+    // read as a dark slab with a ring around it.
+    //
+    // Glass has to let the page move behind it. That is the whole effect.
+    backerColor: AppColors.background.withValues(alpha: 0.42),
     whitenStrength: 0.0,
   );
 
@@ -501,7 +562,14 @@ class _SoplayGlassCapsule extends StatelessWidget {
     lightIntensity: 0,
     ambientStrength: 0,
     glassColor: const Color(0x00000000),
-    backerColor: AppColors.background.withValues(alpha: 0.941), // ~94% solid
+    // On AMOLED the page IS #000000, so a 94%-black pad on a black page has no
+    // body contrast at all and the capsule dissolves into the screen. The faint
+    // halo behind it cannot carry the shape on its own — it is a couple of
+    // percent of luminance. Lifting the pad off pure black is what gives the
+    // capsule an edge there; every other theme keeps today's value.
+    backerColor: AppColors.isBlack
+        ? const Color(0xF00E0E0E)
+        : AppColors.background.withValues(alpha: 0.941), // ~94% solid
     whitenStrength: 0.0,
   );
 
@@ -527,6 +595,9 @@ class _SoplayGlassCapsule extends StatelessWidget {
       barBorderRadius: _barHeight / 2, // full capsule
       magnification: glass ? 1.12 : 1.0, // subtle iOS-26 lens on the selected tab
       indicatorPinchStrength: glass ? 0.3 : 0.0,
+      // The selected pill used to expand 4dp past the top and bottom of the
+      // 62dp capsule on every tap, clipping against the rim.
+      indicatorExpansion: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       // Selected-tab pill: a soft, restrained light pill on the dark body —
       // unless Appearance → "Colour the tab bar" is on, in which case the whole
       // selected state moves onto the accent. Off by default: the white pill is
@@ -534,17 +605,38 @@ class _SoplayGlassCapsule extends StatelessWidget {
       indicatorColor: AppColors.isNavTinted
           ? AppColors.primary.withValues(alpha: glass ? 0.26 : 0.20)
           : Color(glass ? 0x22FFFFFF : 0x18FFFFFF),
-      quality: glass ? null : GlassQuality.minimal,
+      // `standard`, not `null`. Passing null does NOT mean "let the adaptive
+      // scope decide" — the package resolves it against a `premium` fallback,
+      // and the adaptive scope also *starts* at premium and only re-decides
+      // after 270 rastered frames. So every cold start ran the heaviest shader
+      // path, on every device, through the first tab switch and the first
+      // Shorts video — and premium is the tier the package's own source flags
+      // as the Mali/Impeller crash path.
+      //
+      // Standard fixes a second thing for free: `backerColor` (the near-opaque
+      // capsule pad below) is silently dropped on the premium grouped path and
+      // honoured on the lightweight one, so the capsule only now renders the
+      // design that was already written here. It is also the shader
+      // `LiquidGlassWidgets.initialize()` actually pre-warms.
+      quality: glass ? GlassQuality.standard : GlassQuality.minimal,
       settings: glass ? _glassSettings : _solidSettings,
       // primaryLight, not primary: a selected icon is a small glyph on a dark
       // bar, and the lighter variant is the one that reads at that size.
       selectedIconColor:
           AppColors.isNavTinted ? AppColors.primaryLight : Colors.white,
-      unselectedIconColor: const Color(0xFF7A7A7A),
+      // #7A7A7A on the capsule body measured 4.14:1 — under the 4.5:1 WCAG AA
+      // floor that a 10.5px label has to clear. #949494 is 5.7:1.
+      unselectedIconColor: const Color(0xFF949494),
       selectedLabelColor:
           AppColors.isNavTinted ? AppColors.primaryLight : Colors.white,
-      unselectedLabelColor: const Color(0xFF7A7A7A),
-      labelFontSize: 10.5,
+      unselectedLabelColor: const Color(0xFF949494),
+      // Clamped, not raw. The packaged bar shrinks the WHOLE tab — icon
+      // included — to fit its label, and each tab scales independently, so at a
+      // large system text scale the icons ended up different sizes across the
+      // bar. Capping the scale at 1.2 keeps the row even; the label stays
+      // readable because it is a one-word tab name, not body copy.
+      labelFontSize:
+          MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.2).scale(10.5),
     );
 
     // The package drop shadow is light-mode only, so paint our own soft capsule
@@ -583,20 +675,291 @@ class _SoplayGlassCapsule extends StatelessWidget {
       ],
     );
 
-    // No per-tab key on the packaged bar → the Showcase spotlights the whole
-    // capsule (Shorts is the visually central tab). Register/start/seen flow is
-    // unchanged.
+    // ── Taps and semantics are owned here, not by the package ──────────────
+    //
+    // The packaged bar is drawn, then made inert (`IgnorePointer` +
+    // `ExcludeSemantics`) and a row of real hit targets is laid over it. That
+    // single change fixes five separate defects, all of them in the package:
+    //
+    //  * **Taps landed on the wrong tab.** A discrete tap was routed through
+    //    the horizontal-*drag* remap, which places the slot boundaries at
+    //    26/42/58/74% of the bar instead of 20/40/60/80%. The outer ~27% of the
+    //    2nd and 4th tabs opened their neighbour's page.
+    //  * **Screen readers could not select a tab at all.** Every packaged tab
+    //    is built with `onTap: null`, so its semantics node advertises
+    //    button+selected but carries no tap action. TalkBack fell through to
+    //    the bar-level node, whose synthesized tap lands at the render object's
+    //    centre — always the middle tab, whichever one the user asked for.
+    //  * **Duplicate and false semantics.** The masking path mounts both tab
+    //    layers at once and marks a *range* selected, so a 5-tab bar emitted
+    //    6-9 nodes with up to three of them announced as "selected".
+    //  * **Selection committed on press, not release.** It fired from
+    //    `onTapDown`; sliding a finger off never cancelled it, and one
+    //    press-then-drag fired the callback twice with two different index
+    //    formulas — on Shorts that double-refreshed the reel.
+    //  * **The coach-mark spotlit the whole capsule** while its copy talks
+    //    about one tab. It now sits on the Shorts slot, like the classic bar's.
+    //
+    // The price is the package's own press glow and drag-to-switch gesture.
+    // Drag-to-switch is undiscoverable and currently fires selection twice, so
+    // that is a trade worth making. The selected-tab lens still animates: it is
+    // driven by `selectedIndex`, not by touch.
+    return Stack(
+      children: [
+        // Pointers stay with the package; only its semantics are suppressed.
+        //
+        // Owning the taps here fixed the hit-region arithmetic, but it cost the
+        // thing that makes the bar feel like the bar: while you drag, the
+        // package moves its indicator *continuously* with your finger. That
+        // motion cannot be reproduced from outside — `selectedIndex` is an int,
+        // so an app-owned gesture can only snap between whole tabs, and a slow
+        // swipe then gives no sign that anything is happening at all.
+        //
+        // So the gesture goes back. `ExcludeSemantics` stays: the accessibility
+        // defects are in the package's *semantics* tree, not its gestures, and
+        // the layer above supplies one correct, activatable node per tab —
+        // which is what TalkBack was missing entirely.
+        ExcludeSemantics(child: shadowed),
+        Positioned.fill(
+          child: _CapsuleTabLayer(
+            items: items,
+            index: index,
+            onTabSelected: onTabSelected,
+            shortsShowcaseKey: shortsShowcaseKey,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The bottom nav on iOS 26+: a real `UITabBar`, drawn by UIKit.
+///
+/// ## Why the platform's own bar and not a glass surface under Flutter widgets
+///
+/// Two earlier attempts got this wrong in the same way. The first drew a native
+/// glass background with a Flutter pill on top — a flat rectangle over real
+/// glass, which reads as a sticker. The second made the indicator glass too and
+/// morphed it by hand. Both were rebuilding, badly, something the system
+/// already ships: on iOS 26 a plain `UITabBar` *is* Liquid Glass, with the
+/// selection indicator, its liquid morph, the scrub gesture, the haptics, the
+/// minimise-on-scroll behaviour and VoiceOver all included and all correct.
+///
+/// So the app stops drawing an iOS tab bar and asks for one.
+/// [IOS26NativeTabBar] from `adaptive_platform_ui` is that request: a
+/// `UiKitView` over a real `UITabBar`, which is the approach the package's
+/// author documents and the reason it exists.
+///
+/// ## Icons
+///
+/// UIKit wants SF Symbols, not Material glyphs, so [_sfSymbol] maps the app's
+/// tabs by [TabId] — the ids are stable, the [IconData] are not. A tab with no
+/// mapping falls back to a neutral symbol rather than crashing the bar.
+class _SoplayNativeGlassBar extends StatelessWidget {
+  const _SoplayNativeGlassBar({
+    required this.index,
+    required this.items,
+    required this.onTabSelected,
+  });
+
+  final int index;
+  final List<AppTabDef> items;
+  final ValueChanged<int> onTabSelected;
+
+  /// SF Symbol names for the app's tabs.
+  ///
+  /// Keyed on [TabId] rather than on the Material icon: the ids are the stable
+  /// contract, and a redesign that swaps an icon must not silently blank the
+  /// iOS bar.
+  static ({String icon, String selected}) _sfSymbol(TabId id) => switch (id) {
+        TabId.home => (icon: 'house', selected: 'house.fill'),
+        TabId.search => (icon: 'magnifyingglass', selected: 'magnifyingglass'),
+        TabId.shorts => (
+            icon: 'play.rectangle',
+            selected: 'play.rectangle.fill'
+          ),
+        TabId.myList => (icon: 'bookmark', selected: 'bookmark.fill'),
+        TabId.profile => (icon: 'person', selected: 'person.fill'),
+        TabId.downloads => (
+            icon: 'arrow.down.circle',
+            selected: 'arrow.down.circle.fill'
+          ),
+        TabId.history => (icon: 'clock', selected: 'clock.fill'),
+        TabId.following => (icon: 'heart', selected: 'heart.fill'),
+        TabId.buff => (icon: 'sparkles', selected: 'sparkles'),
+        TabId.liveTv => (icon: 'tv', selected: 'tv.fill'),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    // Hidden while another route is ARRIVING or fully arrived over the shell —
+    // never while one is leaving.
+    //
+    // Liquid Glass samples what sits behind it in the *native* view hierarchy.
+    // During a route transition the Flutter content behind this bar is being
+    // re-composited into different layers, so for a few frames the material
+    // has nothing readable to sample. `hidden` is the package's own answer to
+    // this: its doc puts it in terms of modal sheets, but the cause is the same
+    // platform-view compositing. It drives `container.isHidden` natively and
+    // does not touch the Flutter layout, so nothing moves.
+    //
+    // The half that matters is WHEN THE UNHIDE IS ASKED FOR. `!isDismissed`
+    // asked for it on the pop's *last* frame, and `setHidden` is an async
+    // platform-channel round-trip: the bar stayed off screen for however long
+    // that took to land, on a platform thread that has just been handed a
+    // screenful of posters to decode. Coming back to Home that gap was long
+    // enough to read as "the tab bar is gone", and taps in that window hit
+    // nothing. Keying on the status asks for it the moment the pop STARTS
+    // instead, which hands the channel the whole ~350ms of the transition —
+    // and the outgoing page is still covering the bar for nearly all of it.
+    final covering =
+        ModalRoute.of(context)?.secondaryAnimation ?? kAlwaysDismissedAnimation;
+
+    return MediaQuery(
+      // The packaged bar takes its UIKit interface style from
+      // `MediaQuery.platformBrightness` and pushes it to the native container
+      // as `overrideUserInterfaceStyle`. That is the *phone's* Light/Dark
+      // switch, not the app's — and Sozo has exactly one theme, pinned to
+      // ThemeMode.dark. On a phone set to Light the system therefore drew a
+      // light Liquid Glass bar: a white capsule with black labels, floating
+      // under a black app. On iOS 26 the package configures no appearance at
+      // all (`isTranslucent` + direct properties only), so the interface style
+      // is the only lever there is — `unselectedItemTint` and friends are
+      // dropped on that path.
+      //
+      // ios/Runner/Info.plist pins `UIUserInterfaceStyle` to Dark for the same
+      // reason and covers every other native surface (keyboard, share sheet,
+      // alerts). This states it again at the one call site whose *rendering*
+      // depends on it, so the bar cannot silently go white again if the app
+      // ever stops forcing the trait collection.
+      data: MediaQuery.of(context)
+          .copyWith(platformBrightness: Brightness.dark),
+      child: AnimatedBuilder(
+        animation: covering,
+        builder: (context, _) => IOS26NativeTabBar(
+          hidden: covering.status == AnimationStatus.forward ||
+              covering.status == AnimationStatus.completed,
+          destinations: [
+            for (final item in items)
+              AdaptiveNavigationDestination(
+                icon: _sfSymbol(item.id).icon,
+                selectedIcon: _sfSymbol(item.id).selected,
+                label: item.labelKey.tr(),
+              ),
+          ],
+          selectedIndex: index,
+          onTap: onTabSelected,
+          // The accent applies to the selected item only; the material itself is
+          // left alone. Tinting the glass recolours it rather than washing over
+          // it, which is how an earlier version turned the whole bar into a flat
+          // slab.
+          tint: AppColors.isNavTinted ? AppColors.primary : null,
+        ),
+      ),
+    );
+  }
+}
+
+/// Per-tab semantics for a capsule bar, laid over the drawn material.
+///
+/// ## Why the app supplies these instead of the package
+///
+/// Every tab in the packaged bar is built with `onTap: null`, so its semantics
+/// node advertises button+selected while carrying no tap action. TalkBack fell
+/// through to the bar-level node, whose synthesized tap lands at the render
+/// object's centre — so it always selected the middle tab, whichever one the
+/// user asked for. The masking path also mounts both tab layers at once and
+/// marks a *range* selected, which produced 6-9 nodes for a 5-tab bar with up
+/// to three wrongly announced as selected.
+///
+/// So the packaged bar goes inside `ExcludeSemantics` and this supplies one
+/// correct, activatable node per tab.
+///
+/// Pointers are deliberately *not* taken. Owning them would fix the package's
+/// hit-region arithmetic too, but it costs the drag: while you slide a finger
+/// along the bar the package moves its indicator continuously, and that cannot
+/// be driven from outside — the only input the widget takes is `selectedIndex`,
+/// an int, so an app-owned gesture can do nothing but snap between whole tabs.
+/// A slow swipe then looks like nothing is happening. This layer therefore
+/// takes no pointers at all: `Semantics` over an empty `SizedBox` is not a hit
+/// target, so touches pass straight through to the bar beneath.
+class _CapsuleTabLayer extends StatelessWidget {
+  const _CapsuleTabLayer({
+    required this.items,
+    required this.index,
+    required this.onTabSelected,
+    required this.shortsShowcaseKey,
+  });
+
+  final List<AppTabDef> items;
+  final int index;
+  final ValueChanged<int> onTabSelected;
+  final GlobalKey shortsShowcaseKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < items.length; i++)
+          Expanded(
+            child: _CapsuleTabSlot(
+              label: items[i].labelKey.tr(),
+              selected: i == index,
+              onTap: () => onTabSelected(i),
+              showcaseKey:
+                  items[i].id == TabId.shorts ? shortsShowcaseKey : null,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// One tab's semantics node, and the Shorts coach-mark anchor.
+///
+/// Paints nothing and handles no pointers: the bar underneath is the visual and
+/// [_CapsuleTabLayer]'s gesture layer is the input. This exists so a screen
+/// reader has a per-tab node it can actually activate, positioned over the tab
+/// it names.
+class _CapsuleTabSlot extends StatelessWidget {
+  const _CapsuleTabSlot({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.showcaseKey,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  /// Set on the Shorts tab only, to anchor the refresh coach-mark.
+  final GlobalKey? showcaseKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final slot = Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      onTap: onTap,
+      child: const SizedBox.expand(),
+    );
+
+    final key = showcaseKey;
+    if (key == null) return slot;
+
     return Showcase.withWidget(
-      key: shortsShowcaseKey,
+      key: key,
       tooltipPosition: TooltipPosition.top,
-      targetBorderRadius: BorderRadius.circular(_barHeight / 2),
-      targetPadding: const EdgeInsets.all(6),
-      targetTooltipGap: 14,
+      targetBorderRadius: BorderRadius.circular(18),
+      targetPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      targetTooltipGap: 18,
       overlayColor: Colors.black,
       overlayOpacity: 0.76,
       blurValue: 1.5,
       container: const _ShortsRefreshShowcaseCard(),
-      child: shadowed,
+      child: slot,
     );
   }
 }
@@ -704,7 +1067,8 @@ class _ClassicNavButtonState extends State<_ClassicNavButton> {
   Widget build(BuildContext context) {
     final selectedColor =
         AppColors.isNavTinted ? AppColors.primaryLight : Colors.white;
-    final color = widget.selected ? selectedColor : const Color(0xFF7A7A7A);
+    // Same AA floor as the capsule's labels — see the note there.
+    final color = widget.selected ? selectedColor : const Color(0xFF949494);
 
     final button = Semantics(
       button: true,
@@ -1091,7 +1455,7 @@ class _TvRailButtonState extends State<_TvRailButton> {
                     duration: const Duration(milliseconds: 180),
                     opacity: widget.expanded ? 1 : 0,
                     child: Padding(
-                      padding: const EdgeInsets.only(left: 12),
+                      padding: const EdgeInsetsDirectional.only(start: 12),
                       child: Text(
                         widget.item.labelKey.tr(),
                         maxLines: 1,

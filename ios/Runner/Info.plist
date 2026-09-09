@@ -2,6 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Casting. iOS gates both halves: the prompt text below is what the user
+	     is shown when the app first looks for a television, and Bonjour service
+	     types have to be declared up front or mDNS returns nothing at all — with
+	     no error, which reads as "no devices found". -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Sozo looks for Chromecast devices on your Wi-Fi so you can play videos on your TV.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_googlecast._tcp</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -126,6 +136,19 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Sozo ships one theme and it is dark: `MaterialApp` is pinned to
+	     ThemeMode.dark and there is no light palette to switch to. Without this
+	     key UIKit still follows the phone's Light/Dark switch, and every
+	     surface the app does NOT paint itself came back white on a phone set to
+	     Light: the iOS 26 tab bar (Liquid Glass renders *light* under a light
+	     trait collection, which is the white capsule with black labels), the
+	     keyboard, share sheets, alerts, context menus, the photo picker, and
+	     `prefers-color-scheme` inside any WKWebView. Declaring the style makes
+	     the app's own trait collection dark, so all of them match the app —
+	     and Flutter's `platformBrightness`, which it reads from that same
+	     trait collection, reports dark with them. -->
+	<key>UIUserInterfaceStyle</key>
+	<string>Dark</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -133,5 +156,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Used to search by voice.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Used to search by voice.</string>
 </dict>
 </plist>

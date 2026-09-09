@@ -509,7 +509,7 @@ class _SwipeToRemoveBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      alignment: Alignment.centerRight,
+      alignment: AlignmentDirectional.centerEnd,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       color: AppColors.error,
       child: Row(

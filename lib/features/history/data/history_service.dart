@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/my_list/data/private_list_service.dart';
@@ -70,6 +71,14 @@ class HistoryService {
   }
 
   Future<void> save(HistoryItem item) async {
+    // Incognito is enforced here rather than at the call sites. History is
+    // written from the player, the detail page, shorts and the sync service's
+    // own merge, and a mode whose guarantee depends on every one of those
+    // remembering to ask is not a guarantee. One chokepoint, same as the
+    // private-list check below it.
+    if (getIt.isRegistered<HiveService>() && getIt<HiveService>().isIncognito) {
+      return;
+    }
     if (getIt.isRegistered<PrivateListService>() &&
         getIt<PrivateListService>().contains(item.contentUrl)) {
       return;

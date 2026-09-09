@@ -2,7 +2,7 @@ import 'package:soplay/core/network/user_agent.dart';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';

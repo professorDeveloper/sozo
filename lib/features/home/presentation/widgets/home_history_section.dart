@@ -44,10 +44,10 @@ class HistorySection extends StatelessWidget {
         children: [
           // Whole header strip is the target, like every other rail: the old
           // "View all" TextButton was a ~26dp tap target squeezed into the row.
-          InkWell(
+          HomeSectionTapTarget(
             onTap: showViewAll ? () => context.push('/history') : null,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),
+              padding: const EdgeInsetsDirectional.fromSTEB(17, 18, 20, 14),
               child: Row(
                 children: [
                   const Icon(

@@ -498,7 +498,7 @@ class _FilmographySection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(13, 18, 16, 14),
+          padding: const EdgeInsetsDirectional.fromSTEB(13, 18, 16, 14),
           child: Text(
             'trivia.filmography'.tr(),
             maxLines: 1,

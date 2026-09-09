@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/screenshot_entity.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_empty_state.dart';
 
 class DetailScreenshotsSection extends StatelessWidget {
   const DetailScreenshotsSection({super.key, required this.screenshots});
@@ -15,28 +16,9 @@ class DetailScreenshotsSection extends StatelessWidget {
         .where((s) => s.thumb.isNotEmpty || s.full.isNotEmpty)
         .toList();
     if (valid.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.image_outlined,
-                color: AppColors.textHint,
-                size: 48,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'detail.no_screenshots'.tr(),
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
+      return DetailEmptyState(
+        icon: Icons.image_outlined,
+        message: 'detail.no_screenshots'.tr(),
       );
     }
 

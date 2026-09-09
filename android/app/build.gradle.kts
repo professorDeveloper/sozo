@@ -155,8 +155,43 @@ val extensionSerialization = "1.11.0"
 val extensionCoroutines = "1.11.0"
 val extensionJsoup = "1.22.2"
 
+// media3, held level with what video_player_android already pulls in.
+//
+// Two ExoPlayers on one classpath is one ExoPlayer: Gradle resolves to the
+// highest version either side asks for, so declaring a lower number here does
+// not pin anything — it silently becomes video_player's version at both compile
+// and run time. Verified by resolving debugRuntimeClasspath: 1.4.1 declared
+// here came out as 1.9.2, which is what the plugin brings.
+//
+// So the number is written down to MATCH, not to override, and the reason to
+// keep it written down is that this code compiles against these APIs directly.
+// When a Flutter upgrade moves video_player's media3, this must move with it —
+// otherwise the mismatch shows up as a NoSuchMethodError during playback and
+// nothing at all at build time.
+//
+// Check with:
+//   ./gradlew :app:dependencies --configuration debugRuntimeClasspath | grep media3
+val media3 = "1.9.2"
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+
+    // ExoPlayer, driven directly, for the encrypted streams only.
+    //
+    // video_player_android already bundles an ExoPlayer, but its plugin API
+    // exposes no way to attach a DrmSessionManager — the capability is in the
+    // engine, not in the surface it offers. Rather than fork the plugin, DRM
+    // playback drives media3 itself (see drm/DrmPlayerHost.kt) and renders into
+    // a Flutter texture, so it is a drop-in third backend behind the app's
+    // existing PlayerController and the player UI never learns it exists.
+    //
+    // dash because that is what CENC-encrypted channels ship as; hls because a
+    // DRM mirror sometimes falls back to one and a missing extractor there
+    // presents as an unplayable stream rather than a missing feature.
+    implementation("androidx.media3:media3-exoplayer:$media3")
+    implementation("androidx.media3:media3-exoplayer-dash:$media3")
+    implementation("androidx.media3:media3-exoplayer-hls:$media3")
+    implementation("androidx.media3:media3-datasource-okhttp:$media3")
 
     // CloudStream provider runtime (Android-only feature). The `library` module
     // carries MainAPI/APIHolder/`app` HTTP client/extractors/BasePlugin so .cs3
@@ -189,4 +224,14 @@ dependencies {
     // is started only in debug builds (BuildConfig.DEBUG gate in MainActivity).
     // See BridgeServer.kt + docs/DESKTOP_EXTENSIONS_PLAN.md.
     implementation("org.nanohttpd:nanohttpd:2.3.1")
+
+    // Embedded torrent streaming server (Go, via gomobile). Same artifact
+    // CloudStream ships; it descends from YouROK/TorrServer through
+    // Diegopyl1209/torrentserver-aniyomi, with the `os.Exit` paths removed so a
+    // busy port cannot take the whole app down.
+    //
+    // SIZE: this ships libgojni.so for all four ABIs, ~48 MB uncompressed. It is
+    // by far the biggest single native payload in the app — see the size note in
+    // .github/workflows/release.yml before changing how ABIs are split.
+    implementation("com.github.recloudstream:torrentserver:7861970")
 }

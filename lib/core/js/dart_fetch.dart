@@ -32,6 +32,77 @@ class DartFetch {
 
   void clearBlock() => _lastBlock = null;
 
+  /// Host whose Cloudflare challenge still needs solving, if any.
+  ///
+  /// The solve deliberately does NOT happen inside [_send]. An extractor's
+  /// fetch runs inside a JavaScript handler of the runtime WebView, and that
+  /// handler's reply travels the same platform channel a headless WebView needs
+  /// in order to be created and run. Solving there meant the reply could not be
+  /// delivered until the solve finished and the solve could not finish until the
+  /// channel was free: `solved animepahe.pw (16810ms)` in the log, then the
+  /// caller waiting out its whole 60s timeout on a challenge that had already
+  /// passed. It read as a Heisenbug — adding a log statement near the completion
+  /// was enough to jog the channel and let the call through.
+  ///
+  /// So [_send] only records the host here and lets the challenged response go
+  /// back to JS. Whoever drives the call solves afterwards, outside the handler,
+  /// and runs it again.
+  String? _pendingCfHost;
+
+  bool get hasPendingCfChallenge => _pendingCfHost != null;
+
+  /// The host of that challenge, for the *manual* solve.
+  ///
+  /// The button on the error screen has nothing but a provider id to go on, and
+  /// an extension routinely fetches from an API or CDN host its metadata never
+  /// mentions — TeamX is configured as `olympustaff.com` and reads from it, but
+  /// plenty of sources are not so tidy. The host that actually came back
+  /// challenged is the one to send a WebView to.
+  String? get pendingCfHost => _pendingCfHost;
+
+  /// Take on a clearance earned outside this class, and report whether there
+  /// was one to take.
+  ///
+  /// [solvePendingCfChallenge] does its work headlessly, which cannot answer a
+  /// challenge that wants a person — a checkbox, a captcha. Those go to the
+  /// interactive `CloudflareSolverPage` and its visible WebView, and the cookie
+  /// it earns lands in the *WebView's* jar. Dio keeps its own, entirely
+  /// separate one here, so until the value is copied across [_send] cannot see
+  /// it: the solver page popped `true`, the caller reloaded, and the identical
+  /// challenge came straight back.
+  Future<bool> adoptSolvedClearance(String host) async {
+    final cf = _cfService;
+    if (cf == null) return false;
+    final cookieHeader = await cf.readClearance(host);
+    if (cookieHeader == null) return false;
+    JsLog.res('fetch', 'adopted a clearance for $host');
+    _savedCookies[host] = cookieHeader;
+    // The recorded challenge is answered; leaving it would send the next
+    // automatic solve after a host that is already cleared.
+    if (_pendingCfHost == host) _pendingCfHost = null;
+    _lastBlock = null;
+    unawaited(_pushCookiesToBackend(host, cookieHeader, const {}));
+    return true;
+  }
+
+  /// Solve the recorded challenge. Returns whether a clearance was obtained.
+  Future<bool> solvePendingCfChallenge() async {
+    final host = _pendingCfHost;
+    _pendingCfHost = null;
+    final cf = _cfService;
+    if (host == null || cf == null) return false;
+    JsLog.req('fetch', 'CF challenge on $host — solving …');
+    final cookieHeader = await cf.solve(
+      host: host,
+      url: 'https://$host/',
+      userAgent: kSozoUserAgent,
+    );
+    if (cookieHeader == null) return false;
+    _savedCookies[host] = cookieHeader;
+    unawaited(_pushCookiesToBackend(host, cookieHeader, const {}));
+    return true;
+  }
+
   DartFetch._(this._dio, this._cfService, this._backendDio);
 
   Dio get dio => _dio;
@@ -108,35 +179,10 @@ class DartFetch {
           host != null &&
           cf != null &&
           _looksLikeCfChallenge(status, headers, response.data)) {
-        JsLog.req('fetch', 'CF challenge on $host — solving …');
-        // ALWAYS the app's own agent, never the one the extractor asked for.
-        //
-        // The challenge is solved inside an Android WebView that is forced to
-        // whatever agent we pass here, and several backend extractors ask for a
-        // desktop one. A desktop agent on an Android WebView is the platform
-        // mismatch Cloudflare's managed challenge is looking for: it never
-        // issued cf_clearance, the 30s watchdog expired, and the extension was
-        // handed the challenge page. Pinning it here means a stale extractor
-        // cannot reintroduce the mismatch, and the replay below sends the same
-        // agent the clearance was earned under — which Cloudflare requires.
-        final solveAgent = kSozoUserAgent;
-        final cookieHeader = await cf.solve(
-          host: host,
-          url: req.url,
-          userAgent: solveAgent,
-        );
-        if (cookieHeader != null) {
-          _savedCookies[host] = cookieHeader;
-          unawaited(_pushCookiesToBackend(host, cookieHeader, req.headers));
-          // Replay under the SAME agent that earned the clearance. Sending a
-          // different one makes Cloudflare reissue the challenge, and with
-          // allowCfRetry false there is no third attempt — the challenge HTML
-          // goes to the extension, which parses nothing out of it.
-          return _send(
-            req.copyWithHeader('User-Agent', solveAgent),
-            allowCfRetry: false,
-          );
-        }
+        // Record, do not solve — see [_pendingCfHost]. The cookie just sent is
+        // the one that got challenged, so it is dead either way.
+        _savedCookies.remove(host);
+        _pendingCfHost = host;
       }
 
       if (_looksLikeCfChallenge(status, headers, response.data)) {

@@ -111,7 +111,7 @@ class _NetflixSplashState extends State<NetflixSplash>
                   ),
                   ClipRect(
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       widthFactor: _oplayWidth.value,
                       child: Opacity(
                         opacity: _oplayOpacity.value,

@@ -315,7 +315,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
             child: Container(
               color: AppColors.surfaceVariant,
               child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 widthFactor: bar,
                 heightFactor: 1,
                 child: Container(color: AppColors.primary),

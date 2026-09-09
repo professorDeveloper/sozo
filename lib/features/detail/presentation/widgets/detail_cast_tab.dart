@@ -6,6 +6,7 @@ import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/cast_entity.dart';
 import 'package:soplay/features/detail/presentation/pages/actor_page.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_empty_state.dart';
 
 class DetailCastTab extends StatelessWidget {
   const DetailCastTab({super.key, required this.cast, this.director});
@@ -18,28 +19,9 @@ class DetailCastTab extends StatelessWidget {
     final hasDirector = director != null && director!.trim().isNotEmpty;
 
     if (cast.isEmpty && !hasDirector) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 56),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.people_outline_rounded,
-                color: AppColors.textHint,
-                size: 48,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'detail.no_cast'.tr(),
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
+      return DetailEmptyState(
+        icon: Icons.people_outline_rounded,
+        message: 'detail.no_cast'.tr(),
       );
     }
 

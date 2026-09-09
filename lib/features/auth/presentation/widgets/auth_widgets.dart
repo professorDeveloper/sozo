@@ -254,7 +254,7 @@ class _AuthTextFieldState extends State<AuthTextField> {
         ),
         prefixIcon: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.only(left: 14, right: 10),
+          padding: const EdgeInsetsDirectional.only(start: 14, end: 10),
           child: Icon(
             widget.icon,
             size: 20,

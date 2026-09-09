@@ -7,7 +7,9 @@ import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SAnimeImpl
+import eu.kanade.tachiyomi.animesource.model.Hoster
 import eu.kanade.tachiyomi.animesource.model.SEpisodeImpl
+import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.Dispatchers
@@ -93,19 +95,45 @@ class AniyomiHost(private val context: Context) {
         }
     }
 
-    private fun langRank(lang: String): Int = when (lang.trim().lowercase()) {
-        "en" -> 0
-        "all" -> 1
-        else -> 2
+    /**
+     * Where a source's language sits when several sources share a name.
+     *
+     * Lower wins. `preferred` is the user's own order, straight from the
+     * picker's language row; with it empty this is the constant `en → all →
+     * anything else` it replaced, so an install that never touches the filter
+     * sees the identical list.
+     *
+     * That constant was the reason a French user could install a repo carrying
+     * fourteen French sources and be shown none of them: for anything that
+     * ships one entry per language, the English entry held the name and every
+     * other language was dropped with nothing to say it had happened.
+     */
+    private fun langRank(lang: String, preferred: List<String>): Int {
+        val key = lang.trim().lowercase()
+        val i = preferred.indexOfFirst { it.trim().lowercase() == key }
+        if (i >= 0) return i
+        val base = preferred.size
+        if (preferred.isEmpty() && key == "en") return base
+        if (key == "all") return base + 1
+        return base + 2
     }
 
-    fun providersJson(): String {
+    fun providersJson(preferred: List<String> = emptyList()): String {
         val picked = LinkedHashMap<String, SourceMeta>()
         for (s in sources.values) {
-            val key = s.name.trim().lowercase()
-            if (key.isEmpty()) continue
+            val name = s.name.trim().lowercase()
+            if (name.isEmpty()) continue
+            // A language the user asked for does not compete for a name: it is
+            // kept under its own key and the picker labels the variants apart.
+            // Only the languages nobody asked for still collapse, which is what
+            // stops an aggregator that publishes forty-five languages from
+            // filling the list with forty-five identical rows.
+            val wanted = preferred.any { it.trim().lowercase() == s.lang.trim().lowercase() }
+            val key = if (wanted) "$name|${s.lang.trim().lowercase()}" else name
             val cur = picked[key]
-            if (cur == null || langRank(s.lang) < langRank(cur.lang)) picked[key] = s
+            if (cur == null || langRank(s.lang, preferred) < langRank(cur.lang, preferred)) {
+                picked[key] = s
+            }
         }
         val arr = JSONArray()
         for (s in picked.values) {
@@ -209,6 +237,92 @@ class AniyomiHost(private val context: Context) {
             lastError = "apk download ${t.javaClass.simpleName}: ${t.message}"
             Log.e(TAG, "apk download failed: ${t.javaClass.simpleName}: ${t.message}")
             null
+        }
+    }
+
+    /**
+     * Every video for an episode, across both Aniyomi source APIs.
+     *
+     * Aniyomi 0.16 split resolution in two: `getHosterList(episode)` returns
+     * the servers, then `getVideoList(hoster)` returns one server's qualities.
+     * The old single call is still there and still what most extensions
+     * implement, so this asks for hosters FIRST and falls back.
+     *
+     * Order matters. A new-API extension inherits a `getVideoList(episode)`
+     * that returns nothing — its real implementation is on the hoster path — so
+     * calling the old one first got an empty list and stopped, which on screen
+     * is a source that finds the episode and then offers no servers. Calling
+     * the new one first and falling back covers both, because an old-API
+     * extension has no getHosterList to find.
+     *
+     * Resolved reflectively rather than against the type: the shim's
+     * AnimeHttpSource does not declare getHosterList, and a source object comes
+     * from a class loader of its own. A NoSuchMethodException here is the
+     * ordinary case for an old extension, not an error.
+     */
+    private fun fetchVideos(src: Any, episode: SEpisodeImpl, id: String): List<Video> {
+        val viaHosters = try {
+            val method = src.javaClass.methods.firstOrNull {
+                it.name == "getHosterList" && it.parameterTypes.size >= 1
+            }
+            if (method == null) {
+                null
+            } else {
+                @Suppress("UNCHECKED_CAST")
+                val hosters = runBlocking {
+                    suspendCallCompat(method, src, episode) as? List<Hoster>
+                } ?: emptyList()
+                // A hoster that already carries its videos needs no second
+                // call; one that does not is asked for them individually.
+                hosters.flatMap { hoster ->
+                    hoster.videoList ?: fetchHosterVideos(src, hoster)
+                }
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "hosters $id: ${t.message}")
+            null
+        }
+
+        if (!viaHosters.isNullOrEmpty()) return viaHosters
+
+        return try {
+            runBlocking { (src as AnimeHttpSource).getVideoList(episode) }
+        } catch (t: Throwable) {
+            Log.e(TAG, "videos $id: ${t.message}")
+            emptyList()
+        }
+    }
+
+    /** One hoster's qualities, when the hoster list did not carry them. */
+    private fun fetchHosterVideos(src: Any, hoster: Hoster): List<Video> = try {
+        val method = src.javaClass.methods.firstOrNull {
+            it.name == "getVideoList" &&
+                it.parameterTypes.firstOrNull()?.name?.endsWith("Hoster") == true
+        } ?: return emptyList()
+        @Suppress("UNCHECKED_CAST")
+        runBlocking { suspendCallCompat(method, src, hoster) as? List<Video> } ?: emptyList()
+    } catch (t: Throwable) {
+        Log.e(TAG, "hoster videos ${hoster.hosterName}: ${t.message}")
+        emptyList()
+    }
+
+    /**
+     * Calls a Kotlin `suspend` method by reflection.
+     *
+     * A suspend function compiles to one taking an extra `Continuation`, so it
+     * cannot be invoked with the arguments its source declares. `suspendCoroutine`
+     * supplies the continuation; a function that returns without suspending
+     * hands the value back directly, which is why the COROUTINE_SUSPENDED
+     * sentinel has to be checked rather than assumed.
+     */
+    private suspend fun suspendCallCompat(
+        method: java.lang.reflect.Method,
+        target: Any,
+        arg: Any,
+    ): Any? = kotlin.coroutines.suspendCoroutine<Any?> { cont ->
+        val result = method.invoke(target, arg, cont)
+        if (result != kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED) {
+            cont.resumeWith(Result.success(result))
         }
     }
 
@@ -448,8 +562,7 @@ class AniyomiHost(private val context: Context) {
         val seenSub = HashSet<String>()
         if (src != null && meta != null) {
             val episode = SEpisodeImpl().apply { url = data; name = "" }
-            val videos = try { runBlocking { src.getVideoList(episode) } }
-            catch (t: Throwable) { Log.e(TAG, "videos $id: ${t.message}"); emptyList() }
+            val videos = fetchVideos(src, episode, id)
             for (v in videos) {
                 val vu = v.videoUrl ?: continue
                 if (vu.isEmpty() || !seen.add(vu)) continue

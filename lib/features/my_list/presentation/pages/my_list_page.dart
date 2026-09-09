@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -197,12 +198,23 @@ class _MyListViewState extends State<_MyListView>
                     childAspectRatio: 0.56,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                    (_, i) {
+                    (context, i) {
                       final item = items[i];
-                      return FavoriteCard(
-                        item: item,
-                        synced: item is FavoriteModel && item.synced,
-                        onTap: () => _openDetail(item),
+                      return ItemAppear(
+                        index: i,
+                        // The delegate is max-extent rather than fixed-count,
+                        // so the column count has to be derived the same way
+                        // it derives it.
+                        columns: columnsForMaxExtent(
+                          MediaQuery.sizeOf(context).width,
+                          142,
+                          spacing: 10,
+                        ),
+                        child: FavoriteCard(
+                          item: item,
+                          synced: item is FavoriteModel && item.synced,
+                          onTap: () => _openDetail(item),
+                        ),
                       );
                     },
                     childCount: items.length,

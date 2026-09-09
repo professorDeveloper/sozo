@@ -305,7 +305,7 @@ class _ParticipantAvatars extends StatelessWidget {
           ),
         if (extra > 0)
           Padding(
-            padding: const EdgeInsets.only(left: 6),
+            padding: const EdgeInsetsDirectional.only(start: 6),
             child: Text(
               '+$extra',
               style: const TextStyle(

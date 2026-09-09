@@ -16,9 +16,18 @@ class SearchRecentsStore {
     }
   }
 
+  /// Always growable, and always a fresh list.
+  ///
+  /// This returned `const []` when there was nothing stored, and every caller
+  /// below then mutated what it got back. On a device that had never searched
+  /// — which is every device, since the write below was never reached to
+  /// create the key — `add` threw "Cannot remove from an unmodifiable list"
+  /// out of [SearchBloc], between the fetch that had already succeeded and the
+  /// emit that would have shown its results. Search fetched, and then showed
+  /// nothing, on every query.
   List<String> load() {
     final raw = _box?.get(_key);
-    if (raw is! List) return const [];
+    if (raw is! List) return <String>[];
     return raw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
   }
 
@@ -42,7 +51,7 @@ class SearchRecentsStore {
 
   Future<List<String>> clear() async {
     await _write(const []);
-    return const [];
+    return <String>[];
   }
 
   Future<void> _write(List<String> list) async {

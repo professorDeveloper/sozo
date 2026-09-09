@@ -6,7 +6,8 @@ import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
-import 'package:soplay/features/download/data/download_service.dart';
+import 'package:soplay/features/download/domain/entities/download_status.dart';
+import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
@@ -19,25 +20,25 @@ class DownloadsSection extends StatefulWidget {
 }
 
 class _DownloadsSectionState extends State<DownloadsSection> {
-  final DownloadService _service = getIt<DownloadService>();
+  final GetDownloadsUseCase _downloads = getIt<GetDownloadsUseCase>();
   List<DownloadItem> _items = const [];
 
   @override
   void initState() {
     super.initState();
-    _service.revision.addListener(_reload);
+    _downloads.revision.addListener(_reload);
     _reload();
   }
 
   @override
   void dispose() {
-    _service.revision.removeListener(_reload);
+    _downloads.revision.removeListener(_reload);
     super.dispose();
   }
 
   void _reload() {
     if (!mounted) return;
-    final all = _service.getAll();
+    final all = _downloads();
     setState(
       () => _items = all
           .where((i) => i.status == DownloadStatus.completed)
@@ -55,10 +56,10 @@ class _DownloadsSectionState extends State<DownloadsSection> {
         children: [
           // Padding inside the InkWell — outside it the tap target was only as
           // tall as the title text.
-          InkWell(
+          HomeSectionTapTarget(
             onTap: () => context.push('/downloads'),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),
+              padding: const EdgeInsetsDirectional.fromSTEB(17, 18, 20, 14),
               child: Row(
                 children: [
                   const Icon(
@@ -108,6 +109,10 @@ class _DownloadCard extends StatelessWidget {
   final DownloadItem item;
   final List<DownloadItem> siblings;
 
+  /// Read-only access to the library, so the card can resolve a poster and a
+  /// playable path without knowing where either lives on this device.
+  GetDownloadsUseCase get downloads => getIt<GetDownloadsUseCase>();
+
   void _open(BuildContext context) {
     if (item.isManga) {
       final group =
@@ -134,11 +139,25 @@ class _DownloadCard extends StatelessWidget {
           title: item.title,
           provider: item.provider,
           contentUrl: item.contentUrl,
-          thumbnail: item.displayThumbnail,
+          thumbnail: downloads.thumbnailOf(item) ?? item.thumbnailUrl,
           chapters: chapters,
           initialChapterIndex: start,
         ),
       );
+      return;
+    }
+    // Asked for, not assumed. A row can still say "downloaded" for a file that
+    // has gone — an SD card pulled, a cleaner app — and the honest answer is to
+    // say so and send the viewer to the screen that can fix it.
+    final path = downloads.pathOf(item);
+    if (path == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('downloads.file_missing_retry'.tr()),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      context.push('/downloads');
       return;
     }
     context.push(
@@ -150,11 +169,9 @@ class _DownloadCard extends StatelessWidget {
         provider: item.provider,
         headers: const {},
         contentUrl: item.contentUrl,
-        thumbnail: item.displayThumbnail,
-        movieUrl: item.localPath.endsWith('.m3u8')
-            ? Uri.file(item.localPath).toString()
-            : item.localPath,
-        type: item.localPath.endsWith('.m3u8') ? 'hls' : null,
+        thumbnail: downloads.thumbnailOf(item) ?? item.thumbnailUrl,
+        movieUrl: item.isHls ? Uri.file(path).toString() : path,
+        type: item.isHls ? 'hls' : null,
         showDownloadAction: false,
       ),
     );
@@ -178,7 +195,7 @@ class _DownloadCard extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       HomeNetworkImage(
-                        url: item.displayThumbnail,
+                        url: downloads.thumbnailOf(item) ?? item.thumbnailUrl,
                         borderRadius: BorderRadius.zero,
                         placeholderIcon: item.isManga
                             ? Icons.menu_book_outlined

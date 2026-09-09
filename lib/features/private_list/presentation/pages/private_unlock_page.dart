@@ -68,9 +68,9 @@ class _PrivateUnlockViewState extends State<_PrivateUnlockView> {
               child: Column(
                 children: [
                   Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: AlignmentDirectional.centerStart,
                     child: Padding(
-                      padding: const EdgeInsets.only(left: 8),
+                      padding: const EdgeInsetsDirectional.only(start: 8),
                       child: IconButton(
                         icon: const Icon(
                           Icons.close_rounded,

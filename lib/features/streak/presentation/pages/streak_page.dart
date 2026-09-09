@@ -265,7 +265,7 @@ class _StreakPageState extends State<StreakPage>
             ),
             const SizedBox(height: 26),
             Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: Text(
                 'streak.calendar_label'.tr(),
                 style: const TextStyle(

@@ -7,12 +7,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/extensions/source_language.dart' as srclang;
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_sources_page.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:soplay/features/profile/presentation/pages/provider_test_page.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 
@@ -56,9 +58,15 @@ class _ProvidersPageState extends State<ProvidersPage> {
   String _query = '';
   Timer? _searchDebounce;
 
+  /// Source languages the user wants, persisted. Empty — the shipped default —
+  /// means no preference and filters nothing out, so a user who never touches
+  /// the row sees the list exactly as it was before it existed.
+  late List<String> _languages;
+
   @override
   void initState() {
     super.initState();
+    _languages = getIt<HiveService>().getProviderLanguages();
     final hasFavorites = getIt<HiveService>().getFavoriteProviders().isNotEmpty;
     var initial = _providerSheetFilter;
     if (initial == 'favorites' && !hasFavorites) initial = 'all';
@@ -97,10 +105,25 @@ class _ProvidersPageState extends State<ProvidersPage> {
         elevation: 0,
         title: Text('profile.choose_provider'.tr()),
         actions: [
+          // Next to the list it reports on, because that is where someone
+          // already is when a source stops working for them.
+          BlocBuilder<ProviderBloc, ProviderState>(
+            builder: (context, state) => state is ProviderLoaded
+                ? IconButton(
+                    tooltip: 'provider_test.entry'.tr(),
+                    onPressed: () => ProviderTestPage.open(
+                      context,
+                      _filteredProviders(state.providers),
+                    ),
+                    icon: const Icon(Icons.network_check_rounded, size: 21),
+                    color: Colors.white70,
+                  )
+                : const SizedBox.shrink(),
+          ),
           BlocBuilder<ProviderBloc, ProviderState>(
             builder: (context, state) => state is ProviderLoaded
                 ? Padding(
-                    padding: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsetsDirectional.only(end: 6),
                     child: _CategoryFilterButton(
                       providers: state.providers,
                       selected: _selectedCategory,
@@ -168,6 +191,27 @@ class _ProvidersPageState extends State<ProvidersPage> {
                   ),
                 ),
               ),
+              if (state is ProviderLoaded)
+                _LanguageFilterRow(
+                  // Built from the languages the INSTALLED sources actually
+                  // carry, not from a fixed list. A repo that ships Kazakh
+                  // tomorrow shows Kazakh tomorrow, with no app release.
+                  //
+                  // One pass for both the row and its counts. The obvious
+                  // shape — a count per chip, each scanning the provider list —
+                  // is quadratic over a list that reaches four figures once the
+                  // extension hosts are installed, and it runs on every rebuild
+                  // of a page that rebuilds on every keystroke in the search
+                  // box.
+                  counts: _languageCounts(state.providers),
+                  languages: srclang.orderedLanguages(
+                    _languageCounts(state.providers).keys,
+                    _languages,
+                  ),
+                  selected: _languages,
+                  onToggle: _toggleLanguage,
+                  onClear: _languages.isEmpty ? null : _clearLanguages,
+                ),
               if (state is ProviderLoaded && state.offline)
                 _ProvidersOfflineBanner(
                   usableCount: state.usableProviders.length,
@@ -177,9 +221,9 @@ class _ProvidersPageState extends State<ProvidersPage> {
                 ),
               if (state is ProviderLoaded)
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 16, 6),
+                    padding: const EdgeInsetsDirectional.fromSTEB(20, 0, 16, 6),
                     child: Text(
                       _query.isEmpty
                           ? 'profile.count_of_total_shown'.tr(
@@ -237,8 +281,62 @@ class _ProvidersPageState extends State<ProvidersPage> {
   /// short. Scoping the search box to that same subset meant typing an
   /// installed extension's name in the default view found nothing at all —
   /// the one place a user with hundreds of sources actually needs search.
-  List<ProviderEntity> _filteredProviders(List<ProviderEntity> all) {
+  /// How many providers carry each language, computed once per provider list.
+  ///
+  /// Cached on identity: `ProviderLoaded` hands out the same list instance
+  /// until providers are reloaded, so a rebuild driven by typing, favouriting
+  /// or toggling a chip re-uses the tally instead of walking a four-figure
+  /// list again.
+  List<ProviderEntity>? _countsFor;
+  Map<String, int> _countsCache = const {};
+
+  Map<String, int> _languageCounts(List<ProviderEntity> providers) {
+    if (identical(_countsFor, providers)) return _countsCache;
+    final out = <String, int>{};
+    for (final p in providers) {
+      final key = srclang.normalizeLang(p.lang);
+      if (key.isEmpty) continue;
+      out[key] = (out[key] ?? 0) + 1;
+    }
+    _countsFor = providers;
+    _countsCache = out;
+    return out;
+  }
+
+  Future<void> _clearLanguages() async {
+    await getIt<HiveService>().setProviderLanguages(const []);
+    if (!mounted) return;
+    setState(() => _languages = const []);
+    context.read<ProviderBloc>().add(const ProviderLoad());
+  }
+
+  /// Toggling a language writes through immediately.
+  ///
+  /// The same list also decides which variant of a same-named source survives
+  /// collapsing inside the hosts, and that happens the next time providers are
+  /// loaded — so the write has to land before the reload, not after it.
+  Future<void> _toggleLanguage(String code) async {
+    final next = List<String>.from(_languages);
+    if (next.remove(code) == false) next.add(code);
+    await getIt<HiveService>().setProviderLanguages(next);
+    if (!mounted) return;
+    setState(() => _languages = next);
+    // Mangayomi collapses by language at list time, so the set of rows itself
+    // changes with this preference — a rebuild of the current list is not
+    // enough, the list has to be rebuilt.
+    context.read<ProviderBloc>().add(const ProviderLoad());
+  }
+
+  List<ProviderEntity> _filteredProviders(List<ProviderEntity> every) {
     final q = _query.trim().toLowerCase();
+    // The language row narrows a search too, unlike the category chips. A
+    // category is a place to browse and a search deliberately escapes it; a
+    // language is a statement about what the user can actually watch, and a
+    // result they cannot read is not a better result for being findable.
+    final all = [
+      for (final p in every)
+        if (srclang.langMatches(p.lang, _languages)) p,
+    ];
     if (q.isNotEmpty) {
       return all
           .where(
@@ -270,6 +368,124 @@ class _ProvidersPageState extends State<ProvidersPage> {
       list = all.where((p) => providerGroup(p) == _selectedCategory);
     }
     return list.toList();
+  }
+}
+
+/// Horizontal language chips over the provider list.
+///
+/// Multi-select and sticky: it is a statement about the user ("I watch in
+/// French"), not a transient view toggle, so it persists and it also decides
+/// which variant of a same-named source survives collapsing in the hosts.
+///
+/// Nothing here is hardcoded. The row is the set of languages the installed
+/// sources report, which is the only list that can be right — the ecosystems
+/// between them publish well over thirty languages and add more without asking.
+class _LanguageFilterRow extends StatelessWidget {
+  const _LanguageFilterRow({
+    required this.languages,
+    required this.selected,
+    required this.counts,
+    required this.onToggle,
+    required this.onClear,
+  });
+
+  final List<String> languages;
+  final List<String> selected;
+  final Map<String, int> counts;
+  final ValueChanged<String> onToggle;
+
+  /// Null while nothing is selected — there is then nothing to clear, and a
+  /// live-looking button that does nothing is worse than no button.
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    // One language across every installed source is not a choice, it is the
+    // answer. Drawing a row the user cannot act on only costs them height.
+    if (languages.length < 2) return const SizedBox.shrink();
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+        itemCount: languages.length + (onClear == null ? 0 : 1),
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        itemBuilder: (context, i) {
+          if (onClear != null && i == 0) {
+            return _chip(
+              label: 'profile.all_languages'.tr(),
+              active: false,
+              onTap: onClear!,
+            );
+          }
+          final code = languages[i - (onClear == null ? 0 : 1)];
+          final count = counts[code] ?? 0;
+          return _chip(
+            label: srclang.labelFor(code),
+            // Zero means the language is only in the row because the user
+            // picked it and then removed every source that had it. Saying so
+            // beats a chip that silently empties the list when tapped.
+            count: count,
+            active: selected.any((c) => srclang.normalizeLang(c) == code),
+            onTap: () => onToggle(code),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _chip({
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+    int? count,
+  }) {
+    return Material(
+      color: active ? AppColors.primary.withValues(alpha: 0.18) : AppColors.surface,
+      borderRadius: BorderRadius.circular(19),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(19),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(19),
+            border: Border.all(
+              color: active
+                  ? AppColors.primary.withValues(alpha: 0.55)
+                  : Colors.white.withValues(alpha: 0.07),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: active ? AppColors.primaryLight : AppColors.textSecondary,
+                  fontSize: 12.5,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                ),
+              ),
+              if (count != null) ...[
+                const SizedBox(width: 5),
+                Text(
+                  '$count',
+                  style: TextStyle(
+                    color: active
+                        ? AppColors.primaryLight.withValues(alpha: 0.75)
+                        : AppColors.textHint,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -416,7 +632,7 @@ class _CategoryFilterButton extends StatelessWidget {
           ),
       ],
       child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 7, 8, 7),
+        padding: const EdgeInsetsDirectional.fromSTEB(10, 7, 8, 7),
         decoration: BoxDecoration(
           color: AppColors.surfaceVariant.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(10),
@@ -681,6 +897,15 @@ class _ProviderListTile extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 6),
+                          // Before the mode badge on purpose. With the language
+                          // filter cleared a multi-language aggregator now
+                          // occupies several rows under one name, and the code
+                          // is the only thing telling them apart.
+                          if (provider.lang.isNotEmpty &&
+                              !provider.isAllLanguages) ...[
+                            _ProviderLangBadge(lang: provider.lang),
+                            const SizedBox(width: 4),
+                          ],
                           if (unavailable)
                             const _ServerDownBadge()
                           else
@@ -712,7 +937,9 @@ class _ProviderListTile extends StatelessWidget {
                             fontSize: 11,
                             height: 1.25,
                           ),
-                          maxLines: 2,
+                          // One line, like the description it replaces: the row
+                          // is a fixed 44px and a second line overflows it.
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ] else if (provider.description.isNotEmpty) ...[
@@ -901,6 +1128,40 @@ class _ProvidersOfflineBanner extends StatelessWidget {
     final l = at.toLocal();
     String two(int v) => v.toString().padLeft(2, '0');
     return '${two(l.day)}.${two(l.month)} ${two(l.hour)}:${two(l.minute)}';
+  }
+}
+
+/// `FR`, `PT-BR`, `ES` — the source's own language tag.
+///
+/// Drawn only when the ecosystem actually reported one and it is not `all`:
+/// "this source is in every language" is not information worth a badge, and an
+/// empty tag means the ecosystem declined to say rather than that the source
+/// has no language.
+class _ProviderLangBadge extends StatelessWidget {
+  const _ProviderLangBadge({required this.lang});
+  final String lang;
+
+  static const Color _color = Color(0xFF8B5CF6);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: _color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: _color.withValues(alpha: 0.45), width: 0.8),
+      ),
+      child: Text(
+        srclang.shortLabelFor(lang),
+        style: const TextStyle(
+          color: _color,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
   }
 }
 

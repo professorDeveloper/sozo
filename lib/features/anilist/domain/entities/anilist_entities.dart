@@ -294,3 +294,84 @@ enum AnilistStatus {
     return null;
   }
 }
+
+
+/// One title that AniList says is related to another, and how.
+///
+/// The relation TYPE is the whole value here. "There is another Naruto" is
+/// something a search already answers; "Shippuden is the sequel to this" is
+/// not, and it is the actual question somebody has when they finish a series.
+class AnilistRelation {
+  const AnilistRelation({
+    required this.id,
+    required this.relationType,
+    required this.title,
+    this.type,
+    this.format,
+    this.year,
+    this.coverImage,
+  });
+
+  final int id;
+
+  /// AniList's own enum: SEQUEL, PREQUEL, SIDE_STORY, SOURCE, ADAPTATION …
+  /// Kept raw so a value added upstream still renders as something rather than
+  /// disappearing.
+  final String relationType;
+
+  final String title;
+
+  /// ANIME or MANGA. A manga source listed next to an anime sequel needs to be
+  /// distinguishable, because only one of them is watchable here.
+  final String? type;
+
+  /// TV, MOVIE, OVA, SPECIAL, MANGA …
+  final String? format;
+
+  final int? year;
+  final String? coverImage;
+
+  /// Ordered by how likely somebody is to want it next.
+  ///
+  /// A sequel is what a person who just finished something is looking for; the
+  /// manga it was adapted from is interesting and almost never the next thing
+  /// they open. Anything unrecognised sorts last rather than being dropped.
+  static const List<String> order = [
+    'SEQUEL',
+    'PREQUEL',
+    'PARENT',
+    'SIDE_STORY',
+    'ALTERNATIVE',
+    'SPIN_OFF',
+    'SUMMARY',
+    'ADAPTATION',
+    'SOURCE',
+    'CHARACTER',
+    'OTHER',
+  ];
+
+  int get rank {
+    final i = order.indexOf(relationType.toUpperCase());
+    return i < 0 ? order.length : i;
+  }
+
+  factory AnilistRelation.fromEdge(Map<String, dynamic> edge) {
+    final node = (edge['node'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final titles = (node['title'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final english = titles['english'] as String?;
+    final romaji = titles['romaji'] as String?;
+    return AnilistRelation(
+      id: (node['id'] as num?)?.toInt() ?? 0,
+      relationType: (edge['relationType'] as String? ?? 'OTHER').toUpperCase(),
+      // English first: it is what somebody typing in Latin script is looking
+      // for, and the romaji is often a title they have never seen written.
+      title: (english != null && english.isNotEmpty ? english : romaji) ?? '',
+      type: node['type'] as String?,
+      format: node['format'] as String?,
+      year: (node['seasonYear'] as num?)?.toInt(),
+      coverImage:
+          ((node['coverImage'] as Map?)?.cast<String, dynamic>())?['large']
+              as String?,
+    );
+  }
+}

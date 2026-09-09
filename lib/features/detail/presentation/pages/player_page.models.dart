@@ -17,13 +17,41 @@ enum _SidePanel { none, episodes, quality }
 
 enum _LoadingStage { resolving, loading }
 
-enum _SwipeType { brightness, volume }
+/// What the player is switching between, while it is switching.
+///
+/// The loading overlay used to say "Loading video" whether it was opening an
+/// episode for the first time or moving from one mirror to another. Those are
+/// different events: the second one follows a deliberate choice somebody just
+/// made, and the useful thing to show is that the choice was heard — which
+/// server, and that it is on its way — not a generic spinner that looks
+/// identical to the failure they were trying to escape.
+class ServerSwitch {
+  const ServerSwitch({required this.from, required this.to});
+
+  /// Null when nothing was playing yet, so the overlay shows a destination
+  /// rather than a journey.
+  final String? from;
+  final String to;
+}
+
+/// `zoom` carries a scale factor (1.0-3.0), not a 0-1 level like the other
+/// two, and is drawn as a centre pill rather than an edge bar.
+enum _SwipeType { brightness, volume, zoom }
 
 class _SwipeIndicator {
   final _SwipeType type;
   final double value;
   const _SwipeIndicator(this.type, this.value);
 }
+
+/// Pinch-zoom bounds. Top level rather than static on the State, because the
+/// gesture code lives in an extension and Dart will not let an extension reach
+/// a static member of the type it extends unqualified.
+///
+/// 3x is where a 1080p frame stops being watchable; below 1.0 there is nothing
+/// to show but letterbox.
+const double _kMinZoom = 1.0;
+const double _kMaxZoom = 3.0;
 
 const _kSubLang = 'sub';
 const _kDubLang = 'dub';

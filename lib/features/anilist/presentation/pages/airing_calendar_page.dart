@@ -558,7 +558,7 @@ class _DayHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
       child: Align(
-        alignment: Alignment.centerLeft,
+        alignment: AlignmentDirectional.centerStart,
         child: Text(
           label,
           style: const TextStyle(
@@ -688,7 +688,7 @@ class _StaleBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 6, 14, 0),
-      padding: const EdgeInsets.fromLTRB(11, 8, 6, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(11, 8, 6, 8),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(11),

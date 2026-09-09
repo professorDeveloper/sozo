@@ -114,6 +114,22 @@ class MyListLocalDataSource {
   /// unconditionally, and My List refreshes on every bump — so a refresh wrote
   /// the same rows back, bumped, and refreshed again. The loop ran as fast as
   /// the network allowed until the server answered 429.
+
+  /// Drops the whole local cache without recording anything to sync.
+  ///
+  /// For sign-out. These rows came down from the account and go back up on the
+  /// next sign-in (see MyListRepositoryImpl, which upserts the server list),
+  /// so nothing is lost — but leaving them means the next person to open the
+  /// app sees the previous account's saved titles.
+  ///
+  /// Deliberately not a delete-per-row: a row removed the ordinary way is
+  /// queued as a change to push, and pushing a delete for every saved title
+  /// would empty the account rather than the device.
+  Future<void> clearLocalOnly() async {
+    await _box.clear();
+    revision.value++;
+  }
+
   Future<void> upsertAll(Iterable<FavoriteEntity> items) async {
     var changed = false;
     for (final e in items) {

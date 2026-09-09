@@ -192,8 +192,13 @@ class _LiveTvPageState extends State<LiveTvPage> {
       );
       if (!mounted || seq != _seq) return;
       setState(() {
+        // Appended by id, not blindly concatenated. A page boundary is where a
+        // channel added or removed between two requests shifts everything after
+        // it, and the same row arriving twice would render two cards for one
+        // channel — and, since the grid keys on the id, throw on the duplicate
+        // key rather than merely look wrong.
         _channels = append
-            ? [..._channels, ...result.channels]
+            ? _mergeChannels(_channels, result.channels)
             : result.channels;
         _page = result.page;
         _hasMore = result.hasMore;
@@ -215,6 +220,23 @@ class _LiveTvPageState extends State<LiveTvPage> {
       // and stopping without a word looks like the list simply ended.
       if (hasContent) _toast('live_tv.load_failed'.tr());
     }
+  }
+
+  /// Existing channels plus whatever is new, in arrival order.
+  ///
+  /// Deliberately keeps the copy already on screen for anything seen twice: a
+  /// card the user is looking at must not be replaced under them by an
+  /// identical one, and there is nothing in a later copy worth having.
+  static List<LiveChannel> _mergeChannels(
+    List<LiveChannel> current,
+    List<LiveChannel> incoming,
+  ) {
+    final seen = {for (final c in current) c.id};
+    return [
+      ...current,
+      for (final c in incoming)
+        if (seen.add(c.id)) c,
+    ];
   }
 
   void _toast(String message) {
@@ -475,6 +497,9 @@ class _LiveTvPageState extends State<LiveTvPage> {
         // Live has no episodes and nothing to resume to, and offering a
         // download for a stream with no end would be a lie.
         type: 'live',
+        // Lets the player open this channel's guide without going back out to
+        // the channel list to find it.
+        liveChannelId: channel.id,
         showDownloadAction: false,
       ),
     );
@@ -1257,8 +1282,16 @@ class _ChannelCard extends StatelessWidget {
   /// Two lines, always. Channel names run from "TV1" to "Discovery Science HD",
   /// and letting the caption size itself left every logo in a row at a
   /// different scale.
+  ///
+  /// Rounded up, and that is the whole point of the call. 11.5 x 1.2 x 2 is
+  /// 27.6, but the text is laid out in whole logical pixels and takes 28 — so
+  /// every card whose name wrapped to a second line overflowed by exactly the
+  /// 0.4 difference. Reserving the ceiling costs at most a pixel of card and
+  /// removes a sub-pixel deficit that no amount of padding elsewhere could fix,
+  /// because it was arithmetic and not spacing.
   static double reserveCaption(BuildContext context) =>
-      MediaQuery.textScalerOf(context).scale(_fontSize) * _lineHeight * 2;
+      (MediaQuery.textScalerOf(context).scale(_fontSize) * _lineHeight * 2)
+          .ceilToDouble();
 
   final LiveChannel channel;
   final bool favourite;
@@ -1345,7 +1378,7 @@ class _ChannelCard extends StatelessWidget {
                             child: Container(
                               color: Colors.white.withValues(alpha: 0.08),
                               child: FractionallySizedBox(
-                                alignment: Alignment.centerLeft,
+                                alignment: AlignmentDirectional.centerStart,
                                 widthFactor: bar,
                                 heightFactor: 1,
                                 child: Container(color: AppColors.primary),

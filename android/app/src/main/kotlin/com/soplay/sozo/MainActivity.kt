@@ -20,6 +20,7 @@ import android.provider.Settings
 import androidx.annotation.RequiresApi
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONArray
 import org.json.JSONObject
@@ -34,6 +35,7 @@ import com.soplay.sozo.manga.MangaHost
 import com.soplay.sozo.manga.MangaRepoManager
 import com.soplay.sozo.extensions.RepoFileIntent
 import com.soplay.sozo.preview.FramePreview
+import com.soplay.sozo.torrent.TorrentServerBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -45,6 +47,11 @@ class MainActivity : FlutterFragmentActivity() {
     private val channelName = "soplay/pip"
     private val platformChannelName = "soplay/platform"
     private val downloadChannelName = "soplay/downloads"
+
+    // Its own scope rather than borrowing the CloudStream one: exporting a
+    // download is a multi-gigabyte byte copy, and sharing a scope with the
+    // plugin host would mean cancelling one cancels the other.
+    private val downloadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val systemControlsChannelName = "soplay/system_controls"
     private val deeplinkSettingsChannelName = "soplay/deeplink_settings"
     private val actionBroadcastName = "com.soplay.sozo.PIP_ACTION"
@@ -101,6 +108,12 @@ class MainActivity : FlutterFragmentActivity() {
     // attached when the intent arrives.
     private val repoFileChannelName = "soplay/repo_file"
     private var repoFileChannel: MethodChannel? = null
+
+    /// Owns the ExoPlayer instances that play encrypted streams. Held so the
+    /// engine going away releases them — an ExoPlayer that outlives its texture
+    /// keeps a decoder and a DRM session open, which on some devices is a
+    /// hardware resource the next playback cannot get.
+    private var drmPlayerHost: com.soplay.sozo.drm.DrmPlayerHost? = null
     @Volatile private var pendingRepoFile: String? = null
 
     companion object {
@@ -190,6 +203,10 @@ class MainActivity : FlutterFragmentActivity() {
                         .putExtra(DownloadForegroundService.EXTRA_LOCAL_PATH, localPath)
                         .putExtra(DownloadForegroundService.EXTRA_KIND, kind)
                         .putExtra(
+                            DownloadForegroundService.EXTRA_WIFI_ONLY,
+                            call.argument<Boolean>("wifiOnly") ?: false
+                        )
+                        .putExtra(
                             DownloadForegroundService.EXTRA_PAGE_URLS_JSON,
                             JSONArray(pageUrls).toString()
                         )
@@ -197,15 +214,35 @@ class MainActivity : FlutterFragmentActivity() {
                             DownloadForegroundService.EXTRA_HEADERS_JSON,
                             JSONObject(headers).toString()
                         )
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(intent)
-                    } else {
-                        startService(intent)
+                    // Android 12+ throws when a foreground service is started
+                    // from the background. Reported as `false` rather than left
+                    // to crash: the queue can then record why nothing happened,
+                    // instead of a download that silently never starts.
+                    val started = try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent)
+                        } else {
+                            startService(intent)
+                        }
+                        true
+                    } catch (e: Exception) {
+                        false
                     }
-                    result.success(true)
+                    result.success(started)
                 }
                 "getDownloadStates" -> {
                     result.success(DownloadForegroundService.readStates(this))
+                }
+                // Free bytes on the volume the downloads live on.
+                //
+                // Dart has no portable API for this, and starting a two-gigabyte
+                // download onto a phone with 40 MB left breaks far more than
+                // this feature. `getUsableSpace` is what the app may actually
+                // write, which is not the same as the partition's free space on
+                // a device with a storage quota.
+                "freeSpaceBytes" -> {
+                    val dir = filesDir ?: cacheDir
+                    result.success(dir?.usableSpace ?: 0L)
                 }
                 "cancelDownload" -> {
                     val id = call.argument<String>("id").orEmpty()
@@ -215,6 +252,40 @@ class MainActivity : FlutterFragmentActivity() {
                             .putExtra(DownloadForegroundService.EXTRA_ID, id)
                     )
                     result.success(null)
+                }
+                "pauseDownload" -> {
+                    val id = call.argument<String>("id").orEmpty()
+                    startService(
+                        Intent(this, DownloadForegroundService::class.java)
+                            .setAction(DownloadForegroundService.ACTION_PAUSE)
+                            .putExtra(DownloadForegroundService.EXTRA_ID, id)
+                    )
+                    result.success(null)
+                }
+                // Copies a finished download into the shared Downloads folder,
+                // where a file manager, a USB cable or another player can
+                // actually reach it. Off the main thread: this is a byte copy
+                // of a file that is routinely several gigabytes, and doing it
+                // on the UI thread would freeze the app for the duration.
+                "exportToDownloads" -> {
+                    val path = call.argument<String>("path").orEmpty()
+                    val name = call.argument<String>("name").orEmpty()
+                    downloadScope.launch {
+                        val outcome = runCatching {
+                            DownloadExporter.exportToDownloads(applicationContext, path, name)
+                        }
+                        withContext(Dispatchers.Main) {
+                            outcome
+                                .onSuccess { result.success(it) }
+                                .onFailure {
+                                    result.error(
+                                        "export_failed",
+                                        it.message ?: "Could not save to Downloads",
+                                        null
+                                    )
+                                }
+                        }
+                    }
                 }
                 "removeDownloadState" -> {
                     val id = call.argument<String>("id").orEmpty()
@@ -380,9 +451,9 @@ class MainActivity : FlutterFragmentActivity() {
         )
         aniyomiChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
-                "listProviders" -> csAsync(result) { aniyomiHost.providersJson() }
+                "listProviders" -> csAsync(result) { aniyomiHost.providersJson(call.langs()) }
                 "ensureLoaded" -> csAsync(result) {
-                    aniyomiRepoManager.ensureLoaded(); aniyomiHost.providersJson()
+                    aniyomiRepoManager.ensureLoaded(); aniyomiHost.providersJson(call.langs())
                 }
                 "listRepos" -> csAsync(result) { aniyomiRepoManager.listReposJson() }
                 "removeRepo" -> {
@@ -473,9 +544,9 @@ class MainActivity : FlutterFragmentActivity() {
         )
         mangaChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
-                "listProviders" -> csAsync(result) { mangaHost.providersJson() }
+                "listProviders" -> csAsync(result) { mangaHost.providersJson(call.langs()) }
                 "ensureLoaded" -> csAsync(result) {
-                    mangaRepoManager.ensureLoaded(); mangaHost.providersJson()
+                    mangaRepoManager.ensureLoaded(); mangaHost.providersJson(call.langs())
                 }
                 "listRepos" -> csAsync(result) { mangaRepoManager.listReposJson() }
                 "removeRepo" -> {
@@ -586,6 +657,12 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        drmPlayerHost = com.soplay.sozo.drm.DrmPlayerHost(
+            applicationContext,
+            flutterEngine.renderer,
+            flutterEngine.dartExecutor.binaryMessenger,
+        )
 
         previewChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -708,6 +785,12 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        // Embedded TorrServer. Registers its own channel rather than adding
+        // another handler here — the native side is only "load Go, bind a
+        // port"; adding torrents and reading their state is plain HTTP from
+        // Dart. See torrent/TorrentServerBridge.kt.
+        TorrentServerBridge.register(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
     }
 
     /** Current share selection: `{shareAll, ids}`. `shareAll` (default true) means
@@ -856,6 +939,60 @@ class MainActivity : FlutterFragmentActivity() {
             attrs.screenBrightness = -1f
             window.attributes = attrs
         }
+    }
+
+    /**
+     * The volumes downloads may be kept on, as JSON.
+     *
+     * `getExternalFilesDirs` returns the app's own directory on every mounted
+     * volume: index 0 is the built-in "external" storage (which on a modern
+     * phone is the same physical chip as internal), and anything after it is a
+     * real SD card. Both are writable with no permission at all and are wiped
+     * on uninstall, which is the correct lifetime for an offline library.
+     *
+     * `filesDir` is listed first and marked as the default: it is the only one
+     * that can never be unmounted, and it is where every existing install
+     * already keeps its downloads.
+     */
+    private fun describeVolumes(): String {
+        val out = org.json.JSONArray()
+        val seen = HashSet<String>()
+
+        fun add(dir: java.io.File?, id: String, label: String, removable: Boolean, isDefault: Boolean) {
+            if (dir == null) return
+            if (!dir.exists() && !dir.mkdirs()) return
+            if (!seen.add(dir.absolutePath)) return
+            out.put(
+                org.json.JSONObject()
+                    .put("id", id)
+                    .put("path", dir.absolutePath)
+                    .put("label", label)
+                    .put("freeBytes", dir.usableSpace)
+                    .put("totalBytes", dir.totalSpace)
+                    .put("removable", removable)
+                    .put("isDefault", isDefault)
+            )
+        }
+
+        add(filesDir, "app", "internal", removable = false, isDefault = true)
+
+        val external = getExternalFilesDirs(null)
+        for ((index, dir) in external.withIndex()) {
+            if (dir == null) continue
+            val removable = try {
+                android.os.Environment.isExternalStorageRemovable(dir)
+            } catch (_: Exception) {
+                index > 0
+            }
+            add(
+                dir,
+                if (index == 0) "external" else "sdcard_$index",
+                if (removable) "sdcard" else "external",
+                removable = removable,
+                isDefault = false
+            )
+        }
+        return out.toString()
     }
 
     private fun requestNotificationPermission(result: MethodChannel.Result) {
@@ -1024,6 +1161,16 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        // The torrent server itself is deliberately left running: the Go fork
+        // exists because its shutdown paths crash the process, and the activity
+        // being destroyed does not mean playback is over (PiP, rotation).
+        // Only the channel is detached.
+        TorrentServerBridge.dispose()
+        // Unlike the torrent server, these must go: a decoder and a DRM session
+        // left open outlive the texture they were drawing into, and on devices
+        // with one secure decoder that is the next playback failing to start.
+        drmPlayerHost?.dispose()
+        drmPlayerHost = null
         try { bridgeServer?.stop() } catch (_: Throwable) {}
         bridgeServer = null
         pipReceiver?.let {
@@ -1034,4 +1181,15 @@ class MainActivity : FlutterFragmentActivity() {
             pipReceiver = null
         }
     }
+
+    /**
+     * The picker's language row, as the call carried it.
+     *
+     * Passed per call rather than stored on the Android side: it lives in Hive
+     * and changes from a chip tap, and a second copy in SharedPreferences is a
+     * second thing to keep in sync for no benefit. An absent or empty list is
+     * the no-preference default and collapses exactly as this always did.
+     */
+    private fun MethodCall.langs(): List<String> =
+        argument<List<*>>("languages")?.mapNotNull { it?.toString() } ?: emptyList()
 }

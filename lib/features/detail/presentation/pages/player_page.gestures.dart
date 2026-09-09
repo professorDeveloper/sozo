@@ -22,7 +22,15 @@ extension _PlayerGestures on _PlayerPageState {
     if (c == null || !c.value.isInitialized) return;
     _hideTimer?.cancel();
     if (!_controlsVisible) {
-      _controlsVisible = true;
+      // setState, not a bare assignment. The overlay is painted by a
+      // FadeTransition, which rebuilds only itself, while `_controlsVisible` is
+      // also read by the `IgnorePointer` inside _buildControlsOverlay. Flipping
+      // the flag without a rebuild faded the controls in over the video and
+      // left every one of them inert: play/pause, the seek bar, every button.
+      // Measured — a swipe then a tap on the play button gave opacity=1.0 with
+      // zero taps delivered. And since _scheduleHide only fires while the video
+      // is PLAYING, pausing in that state left the dead overlay up for good.
+      setState(() => _controlsVisible = true);
       _controlsAnimation.forward();
     }
     _scrub.value = _ScrubState(
@@ -104,6 +112,83 @@ extension _PlayerGestures on _PlayerPageState {
         _seekRippleSeconds = 0;
       });
     });
+  }
+
+  // ── scale: the one recogniser that covers both hands ──────────────────────
+  //
+  // Flutter refuses a pan recogniser and a scale recogniser on the same
+  // detector — scale is a superset of pan, and having both asserts. So the
+  // player now registers only onScale*, and one finger is routed straight back
+  // into the pan logic below, unchanged. ScaleUpdateDetails carries everything
+  // DragUpdateDetails did: focalPointDelta is delta, localFocalPoint is
+  // localPosition.
+  //
+  // pointerCount is checked on every update rather than once at the start,
+  // because a second finger often lands a frame or two after the first.
+
+  void _onScaleStart(ScaleStartDetails d, BoxConstraints constraints) {
+    _zoomAtPinchStart = _videoZoom;
+    _onPanStart(
+      DragStartDetails(
+        globalPosition: d.focalPoint,
+        localPosition: d.localFocalPoint,
+      ),
+      constraints,
+    );
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails d, BoxConstraints constraints) {
+    if (d.pointerCount >= 2) {
+      // A pinch cancels whatever the single-finger path had begun, so a
+      // brightness slide does not keep running under the zoom.
+      if (_dragStart != null) _onPanCancel();
+      final next =
+          (_zoomAtPinchStart * d.scale).clamp(_kMinZoom, _kMaxZoom).toDouble();
+      if (next != _videoZoom) {
+        setState(() => _videoZoom = next);
+        _swipeIndicator.value = _SwipeIndicator(_SwipeType.zoom, next);
+      }
+      return;
+    }
+    _onPanUpdate(
+      DragUpdateDetails(
+        globalPosition: d.focalPoint,
+        localPosition: d.localFocalPoint,
+        delta: d.focalPointDelta,
+      ),
+      constraints,
+    );
+  }
+
+  void _onScaleEnd(ScaleEndDetails d) {
+    if (d.pointerCount >= 1 || _dragStart == null) {
+      // Fingers lifting out of a pinch, or a pinch that never became a drag.
+      _hideZoomBadgeSoon();
+      _dragStart = null;
+      _dragIsHorizontal = null;
+      _dragSwipeType = null;
+      return;
+    }
+    _onPanEnd(DragEndDetails(velocity: d.velocity));
+  }
+
+  /// Clears the zoom badge a moment after the fingers leave, the same way the
+  /// brightness and volume badges clear.
+  void _hideZoomBadgeSoon() {
+    if (_swipeIndicator.value?.type != _SwipeType.zoom) return;
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      if (_swipeIndicator.value?.type == _SwipeType.zoom) {
+        _swipeIndicator.value = null;
+      }
+    });
+  }
+
+  /// Back to untouched. Called when a new episode loads, since a crop tuned for
+  /// one aspect ratio is wrong for the next.
+  void _resetZoom() {
+    if (_videoZoom == _kMinZoom) return;
+    setState(() => _videoZoom = _kMinZoom);
   }
 
   void _onPanStart(DragStartDetails d, BoxConstraints constraints) {

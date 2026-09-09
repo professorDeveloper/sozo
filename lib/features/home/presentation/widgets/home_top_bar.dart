@@ -13,11 +13,14 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/download/data/download_service.dart';
-import 'package:soplay/features/download/domain/entities/download_item.dart';
+import 'package:soplay/features/download/domain/entities/download_status.dart';
+import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
+import 'package:soplay/features/home/presentation/bloc/home/home_state.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
+import 'package:soplay/core/content/content_mode.dart';
+import 'package:soplay/core/widgets/mode_switch_overlay.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
@@ -51,6 +54,10 @@ class HomeTopBar extends StatelessWidget {
     final iconPad = compact ? 6.0 : 8.0;
 
     final actions = <Widget>[
+      // First, and deliberately. This is the only place a viewer will notice
+      // that history is being suppressed — the player's sheet is not somewhere
+      // anyone opens to check. Renders nothing when incognito is off.
+      _IncognitoIndicator(pad: iconPad),
       DesktopRefreshButton(
         color: AppColors.textPrimary,
         onRefresh: () => context.read<HomeBloc>().add(HomeLoad(silent: true)),
@@ -70,7 +77,7 @@ class HomeTopBar extends StatelessWidget {
     ];
 
     final bar = Padding(
-      padding: EdgeInsets.fromLTRB(20, topPad + 10, 12, 10),
+      padding: EdgeInsetsDirectional.fromSTEB(20, topPad + 10, 12, 10),
       child: Row(
         children: [
           Text(
@@ -98,7 +105,7 @@ class HomeTopBar extends StatelessWidget {
           Expanded(
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
+              alignment: AlignmentDirectional.centerEnd,
               child: Row(mainAxisSize: MainAxisSize.min, children: actions),
             ),
           ),
@@ -180,7 +187,7 @@ class _ProviderSwitcher extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             onTap: () => _openSwitcher(context, state),
             child: Container(
-              padding: const EdgeInsets.fromLTRB(5, 4, 7, 4),
+              padding: const EdgeInsetsDirectional.fromSTEB(5, 4, 7, 4),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(20),
@@ -234,138 +241,405 @@ class _ProviderSwitcher extends StatelessWidget {
     ];
   }
 
+  /// Moves to another kind of catalogue.
+  ///
+  /// The provider has to move with it: the home screen is driven by whichever
+  /// source is current, and leaving a video provider selected in manga mode
+  /// would show an empty screen and look like the switch failed. So the first
+  /// usable source of the new kind is picked — preferring a favourite, because
+  /// somebody who starred a manga source starred it for this.
+  ///
+  /// Nothing happens at all when the new mode has no sources: switching into an
+  /// empty mode is a dead end nobody can get out of except by switching back,
+  /// and saying so beats stranding them there.
+  Future<void> _switchMode(
+    BuildContext context,
+    ProviderBloc bloc,
+    ProviderLoaded state,
+    ContentMode mode,
+  ) async {
+    final hive = getIt<HiveService>();
+    final candidates = [
+      for (final p in state.providers)
+        if (state.isUsable(p) && p.id.contentMode == mode) p,
+    ];
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('mode.none_installed'.tr(args: [mode.labelKey.tr()]))),
+      );
+      return;
+    }
+    final favIds = hive.getFavoriteProviders().toSet();
+    final pick = candidates.firstWhere(
+      (p) => favIds.contains(p.id),
+      orElse: () => candidates.first,
+    );
+
+    await hive.setContentMode(mode.id);
+    if (!context.mounted) return;
+
+    // Subscribed BEFORE the pick is dispatched, or the reload it triggers can
+    // land before anyone is listening and the cover would wait out its whole
+    // timeout over content that is already there.
+    //
+    // Only when the provider actually changes: MainPage reloads Home off the
+    // provider id moving, so an unchanged id means no reload to wait for and
+    // this would be a future that never completes.
+    final Future<void>? loaded = pick.id == state.currentProviderId
+        ? null
+        : context.read<HomeBloc>().stream
+              .firstWhere((s) => s is HomeLoaded || s is HomeError)
+              .then((_) {});
+
+    // Selected BEFORE the animation, so the reload runs underneath the cover
+    // rather than starting when it lifts onto an empty screen.
+    bloc.add(ProviderSelect(pick.id));
+    await ModeSwitchOverlay.play(context, mode, until: loaded);
+  }
+
   Future<void> _openSwitcher(BuildContext context, ProviderLoaded state) async {
     final bloc = context.read<ProviderBloc>();
     final favorites = _resolveFavorites(state);
-    if (favorites.isEmpty) {
-      openProviderPicker(context, bloc);
-      return;
-    }
+    // Everything usable, not only the favourites.
+    //
+    // The sheet used to hold favourites and nothing else, and fell through to
+    // the full providers PAGE when there were none — which is most people, and
+    // is why the report was "I have to go to settings every time I want to
+    // change source". Switching source is the single most repeated action in
+    // this app and it must never leave the home screen.
+    final hive = getIt<HiveService>();
+    final mode = ContentMode.fromId(hive.getContentMode());
+    // Narrowed to the mode. Somebody who came to read should be choosing
+    // between the four readers they have, not finding them among thirty video
+    // providers — which is the version of this that sent people to Settings.
+    final all = [
+      for (final p in state.providers)
+        if (state.isUsable(p) && p.id.contentMode == mode) p,
+    ];
     final result = await showAdaptiveModal<String>(
       context: context,
       backgroundColor: AppColors.surface,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => _ProviderQuickSwitchSheet(
-        favorites: favorites,
+        favorites: [for (final f in favorites) if (f.id.contentMode == mode) f],
+        all: all,
+        mode: mode,
         currentProviderId: state.currentProviderId,
       ),
     );
     if (result == null || !context.mounted) return;
     if (result == _kAllProvidersAction) {
       openProviderPicker(context, bloc);
-    } else {
-      bloc.add(ProviderSelect(result));
+      return;
     }
+    final switched = ContentMode.values
+        .where((m) => result == '$_kModePrefix${m.id}')
+        .firstOrNull;
+    if (switched != null) {
+      await _switchMode(context, bloc, state, switched);
+      return;
+    }
+    bloc.add(ProviderSelect(result));
   }
 }
 
 const String _kAllProvidersAction = '__all_providers__';
 
-class _ProviderQuickSwitchSheet extends StatelessWidget {
+/// Prefix that marks a sheet result as "switch to this mode" rather than
+/// "select this provider". They share one return channel because the sheet is
+/// one list, and a sentinel is cheaper than a second result type.
+const String _kModePrefix = '__mode__:';
+
+/// The one place a source gets changed.
+///
+/// Favourites first because they are what somebody switches BETWEEN, then every
+/// other usable source underneath, with a filter once the list is long enough
+/// to need one. The full providers page is still reachable from the bottom, but
+/// it is now for managing sources rather than for the everyday act of picking
+/// one — which is what it had quietly become.
+class _ProviderQuickSwitchSheet extends StatefulWidget {
   const _ProviderQuickSwitchSheet({
     required this.favorites,
+    required this.all,
+    required this.mode,
     required this.currentProviderId,
   });
 
   final List<ProviderEntity> favorites;
+  final List<ProviderEntity> all;
+
+  /// The kind of catalogue these sources belong to. Shown as a row of chips at
+  /// the top, because the mode is the thing that decides what the rest of the
+  /// sheet contains — putting it anywhere else would make the list look like it
+  /// had lost sources.
+  final ContentMode mode;
+
   final String currentProviderId;
+
+  @override
+  State<_ProviderQuickSwitchSheet> createState() =>
+      _ProviderQuickSwitchSheetState();
+}
+
+class _ProviderQuickSwitchSheetState extends State<_ProviderQuickSwitchSheet> {
+  final TextEditingController _filter = TextEditingController();
+  String _query = '';
+
+  /// Below this the filter is chrome over a list that already fits.
+  static const int _filterThreshold = 8;
+
+  @override
+  void dispose() {
+    _filter.dispose();
+    super.dispose();
+  }
+
+  /// The sources that are not already in the favourites block above.
+  ///
+  /// Listing a favourite twice makes the sheet look like it has duplicates and
+  /// makes the favourites section pointless.
+  List<ProviderEntity> get _rest {
+    final favIds = {for (final p in widget.favorites) p.id};
+    final q = _query.trim().toLowerCase();
+    return [
+      for (final p in widget.all)
+        if (!favIds.contains(p.id) &&
+            (q.isEmpty || p.name.toLowerCase().contains(q)))
+          p,
+    ];
+  }
+
+  List<ProviderEntity> get _shownFavorites {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return widget.favorites;
+    return [
+      for (final p in widget.favorites)
+        if (p.name.toLowerCase().contains(q)) p,
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
+    final favorites = _shownFavorites;
+    final rest = _rest;
+    // Tall enough to be worth opening, short enough to leave the home screen
+    // visible behind it — this is a switch, not a destination.
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
+
     return SafeArea(
       top: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 10),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.border,
-              borderRadius: BorderRadius.circular(2),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-            child: Row(
-              children: [
-                const Icon(Icons.star, color: Colors.amber, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  'profile.favorites'.tr(),
+            const SizedBox(height: 12),
+            // Mode first. It is the widest cut, and every other row below is
+            // filtered by it.
+            SizedBox(
+              height: 34,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsetsDirectional.only(start: 16, end: 16),
+                children: [
+                  for (final m in ContentMode.values) ...[
+                    _ModeChip(
+                      label: m.labelKey.tr(),
+                      active: m == widget.mode,
+                      onTap: m == widget.mode
+                          ? null
+                          : () => Navigator.of(context).pop('$_kModePrefix${m.id}'),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (widget.all.length >= _filterThreshold)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: TextField(
+                  controller: _filter,
+                  onChanged: (v) => setState(() => _query = v),
                   style: const TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    filled: true,
+                    fillColor: AppColors.surfaceVariant,
+                    hintText: 'profile.search_providers_hint'.tr(),
+                    hintStyle: const TextStyle(
+                      color: AppColors.textHint,
+                      fontSize: 13.5,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      size: 19,
+                      color: AppColors.textHint,
+                    ),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 40),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(11),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          if (isDesktopPlatform)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 360),
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                itemCount: favorites.length,
-                itemBuilder: (context, i) => _favoriteProviderTile(
-                  context,
-                  favorites[i],
-                  currentProviderId,
-                ),
               ),
-            )
-          else
             Flexible(
-              child: ListView.builder(
+              child: ListView(
                 shrinkWrap: true,
                 padding: EdgeInsets.zero,
-                itemCount: favorites.length,
-                itemBuilder: (context, i) => _favoriteProviderTile(
-                  context,
-                  favorites[i],
-                  currentProviderId,
+                children: [
+                  if (favorites.isNotEmpty) ...[
+                    _sectionLabel(
+                      icon: Icons.star,
+                      iconColor: Colors.amber,
+                      text: 'profile.favorites'.tr(),
+                    ),
+                    for (final p in favorites)
+                      _favoriteProviderTile(context, p, widget.currentProviderId),
+                  ],
+                  if (rest.isNotEmpty) ...[
+                    _sectionLabel(
+                      icon: Icons.apps_rounded,
+                      iconColor: AppColors.textSecondary,
+                      text: 'profile.all_providers'.tr(),
+                    ),
+                    for (final p in rest)
+                      _favoriteProviderTile(context, p, widget.currentProviderId),
+                  ],
+                  if (favorites.isEmpty && rest.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                      child: Text(
+                        'profile.no_providers_in_category'.tr(),
+                        style: const TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Divider(color: AppColors.divider, height: 1),
+            // Still here, but now for MANAGING sources — favouriting, testing,
+            // installing — rather than for the everyday act of picking one.
+            ListTile(
+              leading: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.tune_rounded,
+                  color: AppColors.textSecondary,
+                  size: 18,
                 ),
               ),
-            ),
-          Divider(color: AppColors.divider, height: 1),
-          ListTile(
-            leading: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceVariant,
-                borderRadius: BorderRadius.circular(8),
+              title: Text(
+                'profile.section_providers'.tr(),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              child: const Icon(
-                Icons.apps_rounded,
-                color: AppColors.textSecondary,
-                size: 18,
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textHint,
+                size: 20,
               ),
+              onTap: () => Navigator.of(context).pop(_kAllProvidersAction),
             ),
-            title: Text(
-              'profile.all_providers'.tr(),
+            SizedBox(height: bottomPad + 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionLabel({
+    required IconData icon,
+    required Color iconColor,
+    required String text,
+  }) =>
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              text,
               style: const TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
               ),
             ),
-            trailing: const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textHint,
-              size: 20,
+          ],
+        ),
+      );
+}
+
+/// One of the three catalogue kinds.
+///
+/// The active one is not tappable: switching to the mode you are already in
+/// would replay the animation and reload the screen for no change, which reads
+/// as the app stuttering.
+class _ModeChip extends StatelessWidget {
+  const _ModeChip({required this.label, required this.active, this.onTap});
+
+  final String label;
+  final bool active;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: active,
+      child: Material(
+        color: active ? AppColors.primary : AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: active ? Colors.white : AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
             ),
-            onTap: () => Navigator.of(context).pop(_kAllProvidersAction),
           ),
-          SizedBox(height: bottomPad + 8),
-        ],
+        ),
       ),
     );
   }
@@ -682,7 +956,7 @@ class _DownloadIndicator extends StatefulWidget {
 
 class _DownloadIndicatorState extends State<_DownloadIndicator>
     with SingleTickerProviderStateMixin {
-  final DownloadService _service = getIt<DownloadService>();
+  final GetDownloadsUseCase _downloads = getIt<GetDownloadsUseCase>();
   late final AnimationController _pulse;
   bool _hasActive = false;
   int _activeCount = 0;
@@ -694,20 +968,20 @@ class _DownloadIndicatorState extends State<_DownloadIndicator>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    _service.revision.addListener(_check);
+    _downloads.revision.addListener(_check);
     _check();
   }
 
   @override
   void dispose() {
-    _service.revision.removeListener(_check);
+    _downloads.revision.removeListener(_check);
     _pulse.dispose();
     super.dispose();
   }
 
   void _check() {
     if (!mounted) return;
-    final items = _service.getAll();
+    final items = _downloads();
     final active = items
         .where((i) => i.status == DownloadStatus.downloading)
         .length;
@@ -782,6 +1056,95 @@ class _DownloadIndicatorState extends State<_DownloadIndicator>
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Shown on the home bar whenever incognito is on.
+///
+/// The mode persists across restarts, which is the right default for a privacy
+/// setting but makes it easy to leave on for weeks — and the symptom is silent:
+/// Continue Watching simply stays empty. A badge on the screen the viewer opens
+/// first is what turns that into something they can see and undo.
+///
+/// Tapping asks before turning it off. A single tap silently disabling a
+/// privacy mode is the wrong direction to fail in, and the dialog doubles as
+/// the explanation for anyone who does not remember switching it on.
+class _IncognitoIndicator extends StatefulWidget {
+  const _IncognitoIndicator({this.pad = 8});
+
+  final double pad;
+
+  @override
+  State<_IncognitoIndicator> createState() => _IncognitoIndicatorState();
+}
+
+class _IncognitoIndicatorState extends State<_IncognitoIndicator> {
+  final HiveService _hive = getIt<HiveService>();
+
+  @override
+  void initState() {
+    super.initState();
+    _hive.incognitoChanged.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    _hive.incognitoChanged.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _confirmOff() async {
+    final off = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('profile.incognito'.tr()),
+        content: Text('profile.incognito_active'.tr()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('general.cancel'.tr()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('profile.incognito_turn_off'.tr()),
+          ),
+        ],
+      ),
+    );
+    if (off != true) return;
+    await _hive.setIncognito(false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('profile.incognito_off'.tr()),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_hive.isIncognito) return const SizedBox.shrink();
+    return _TopBarIconButton(
+      pad: widget.pad,
+      onTap: _confirmOff,
+      child: Tooltip(
+        message: 'profile.incognito'.tr(),
+        child: Icon(
+          Icons.visibility_off_rounded,
+          // The one item in this bar that is a warning rather than a
+          // shortcut, so it does not wear the same colour as the rest.
+          color: AppColors.errorLight,
+          size: 22,
         ),
       ),
     );

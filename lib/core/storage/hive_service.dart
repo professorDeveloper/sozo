@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/app_constants.dart';
 import '../../features/auth/data/models/user_model.dart';
@@ -159,6 +160,29 @@ class HiveService {
 
   bool isFavoriteProvider(String id) => getFavoriteProviders().contains(id);
 
+  /// Source languages the user reads/watches in, most-wanted first.
+  ///
+  /// Empty is the shipped default and means "no preference" — every list then
+  /// behaves exactly as it did before this setting existed. It is deliberately
+  /// NOT seeded from the app locale: the UI language and the language someone
+  /// watches anime in are routinely different, and guessing wrong silently
+  /// hides sources.
+  ///
+  /// Order carries meaning. The extension ecosystems publish one source per
+  /// language for the big aggregators — MangaDex ships 45 entries all called
+  /// "MangaDex" — and only one of them can hold a given name in the picker.
+  /// This list is what decides which, replacing a hard-coded "English, then
+  /// `all`, then whatever" that no French or Spanish user ever agreed to.
+  List<String> getProviderLanguages() {
+    return (_settingsBox.get('provider_languages') as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const <String>[];
+  }
+
+  Future<void> setProviderLanguages(List<String> codes) =>
+      _settingsBox.put('provider_languages', codes);
+
   Future<void> toggleFavoriteProvider(String id) async {
     final list = getFavoriteProviders();
     if (list.contains(id)) {
@@ -238,6 +262,69 @@ class HiveService {
     await _settingsBox.put(AppConstants.preferredMediaLangKey, lang);
   }
 
+  /// The catalogue kind currently being browsed.
+  ///
+  /// Persisted, because somebody who came to read manga is still reading manga
+  /// tomorrow — resetting to video on every launch would make the mode a thing
+  /// you set rather than a thing you are in.
+  /// The home bands, repaired on the way out — see [sanitizeRailOrder].
+  List<String> getHomeRailOrder() {
+    final raw = _settingsBox.get(AppConstants.homeRailOrderKey);
+    if (raw is! List) return const [];
+    return raw.map((e) => e.toString()).toList();
+  }
+
+  Set<String> getHomeRailHidden() {
+    final raw = _settingsBox.get(AppConstants.homeRailHiddenKey);
+    if (raw is! List) return const {};
+    return raw.map((e) => e.toString()).toSet();
+  }
+
+  Future<void> saveHomeRails(List<String> order, Set<String> hidden) async {
+    await _settingsBox.put(AppConstants.homeRailOrderKey, order);
+    await _settingsBox.put(AppConstants.homeRailHiddenKey, hidden.toList());
+    homeRailsChanged.value = !homeRailsChanged.value;
+  }
+
+  /// Notified when the bands change, so Home rebuilds the moment the sheet is
+  /// saved rather than on its next visit.
+  final ValueNotifier<bool> homeRailsChanged = ValueNotifier<bool>(false);
+
+  /// Whether downloads wait for Wi-Fi.
+  bool get downloadWifiOnly =>
+      _settingsBox.get(AppConstants.downloadWifiOnlyKey, defaultValue: false) ==
+      true;
+
+  Future<void> setDownloadWifiOnly(bool value) async {
+    await _settingsBox.put(AppConstants.downloadWifiOnlyKey, value);
+    downloadWifiOnlyChanged.value = value;
+  }
+
+  /// Notified when the setting changes, so a queue that is holding can start
+  /// the moment it is switched off rather than at the next app launch.
+  final ValueNotifier<bool> downloadWifiOnlyChanged = ValueNotifier<bool>(false);
+
+  /// The volume downloads are kept on, or empty for the app's own directory.
+  String getDownloadLocation() =>
+      _settingsBox.get(AppConstants.downloadLocationKey, defaultValue: '')
+          as String;
+
+  Future<void> setDownloadLocation(String path) =>
+      _settingsBox.put(AppConstants.downloadLocationKey, path.trim());
+
+  String getContentMode() =>
+      _settingsBox.get(AppConstants.contentModeKey, defaultValue: 'video')
+          as String;
+
+  Future<void> setContentMode(String id) async {
+    await _settingsBox.put(AppConstants.contentModeKey, id);
+    contentModeChanged.value = !contentModeChanged.value;
+  }
+
+  /// Notified when the mode changes, so every surface showing a source list
+  /// narrows at the same moment rather than on its next rebuild.
+  final ValueNotifier<bool> contentModeChanged = ValueNotifier<bool>(false);
+
   String getPlayerEngine() {
     return _settingsBox.get(
       AppConstants.playerEngineKey,
@@ -247,6 +334,40 @@ class HiveService {
 
   Future<void> savePlayerEngine(String engineId) async {
     await _settingsBox.put(AppConstants.playerEngineKey, engineId);
+  }
+
+  /// The picture profile every video starts on.
+  ///
+  /// A setting rather than a per-episode choice: the reason to darken the
+  /// picture is the room, not the title, and re-picking it every episode is how
+  /// a feature becomes one nobody uses.
+  String getColorProfile() =>
+      _settingsBox.get(AppConstants.colorProfileKey, defaultValue: 'natural')
+          as String;
+
+  Future<void> setColorProfile(String id) async {
+    await _settingsBox.put(AppConstants.colorProfileKey, id);
+  }
+
+  /// The Anime4K preset, off by default.
+  ///
+  /// Off rather than "sharpen on a good phone": the chain is a download and a
+  /// real GPU cost, and turning it on for somebody who never asked is how a
+  /// player starts dropping frames on a device that was fine yesterday.
+  String getShaderPreset() =>
+      _settingsBox.get(AppConstants.shaderPresetKey, defaultValue: 'off')
+          as String;
+
+  Future<void> setShaderPreset(String id) async {
+    await _settingsBox.put(AppConstants.shaderPresetKey, id);
+  }
+
+  String getShaderTier() =>
+      _settingsBox.get(AppConstants.shaderTierKey, defaultValue: 'mid')
+          as String;
+
+  Future<void> setShaderTier(String id) async {
+    await _settingsBox.put(AppConstants.shaderTierKey, id);
   }
   bool get askEngineOnPlay {
     return _settingsBox.get(
@@ -305,6 +426,58 @@ class HiveService {
 
   Future<void> setAutoPlayNextEpisode(bool value) async {
     await _settingsBox.put(AppConstants.autoPlayNextEpisodeKey, value);
+  }
+
+  /// Watch without recording what was watched.
+  ///
+  /// Persisted rather than session-scoped, and deliberately so: the failure a
+  /// viewer cares about is the one where it was off when they thought it was
+  /// on. Surviving a restart errs toward privacy; the player and the settings
+  /// row both show it is active so it cannot be left on unnoticed.
+  bool get isIncognito {
+    return _settingsBox.get(AppConstants.incognitoKey, defaultValue: false) ==
+        true;
+  }
+
+  /// Notified when [isIncognito] changes.
+  ///
+  /// A mode that suppresses history has to be visible wherever the viewer
+  /// actually is, and that is the home screen — not a sheet inside the player,
+  /// which nobody opens to check whether they are being recorded. Anything
+  /// showing the state listens here rather than polling.
+  final ValueNotifier<bool> incognitoChanged =
+      ValueNotifier<bool>(false);
+
+  Future<void> setIncognito(bool value) async {
+    await _settingsBox.put(AppConstants.incognitoKey, value);
+    incognitoChanged.value = value;
+  }
+
+  /// Skip openings and endings automatically instead of offering a button.
+  ///
+  /// Defaults to off. Skip times are crowd-sourced, and a wrong one that jumps
+  /// the viewer ninety seconds into the episode is a far worse first impression
+  /// than a button they chose not to press.
+  bool get autoSkipIntro {
+    return _settingsBox.get(AppConstants.autoSkipIntroKey, defaultValue: false) ==
+        true;
+  }
+
+  Future<void> setAutoSkipIntro(bool value) async {
+    await _settingsBox.put(AppConstants.autoSkipIntroKey, value);
+  }
+
+  /// The `category` the backend gave a provider ('anime', 'movies', …).
+  ///
+  /// Read from the cached provider list rather than fetched: callers are on hot
+  /// paths (the player asks once per episode) and an empty answer is harmless —
+  /// it only ever gates an optional extra.
+  String providerCategory(String providerId) {
+    if (providerId.isEmpty) return '';
+    for (final p in getCachedProviders()) {
+      if (p['id'] == providerId) return '${p['category'] ?? ''}';
+    }
+    return '';
   }
 
   int getDoubleTapSeekSeconds() {
@@ -416,6 +589,35 @@ class HiveService {
     await _settingsBox.put(AppConstants.brightnessGestureKey, value);
   }
 
+  bool get heroTrailerAutoplay {
+    return _settingsBox.get(
+          AppConstants.heroTrailerAutoplayKey,
+          defaultValue: true,
+        ) ==
+        true;
+  }
+
+  bool get discordPresenceEnabled {
+    return _settingsBox.get(
+          AppConstants.discordPresenceKey,
+          defaultValue: false,
+        ) ==
+        true;
+  }
+
+  Future<void> setDiscordPresenceEnabled(bool value) async {
+    await _settingsBox.put(AppConstants.discordPresenceKey, value);
+  }
+
+  Future<void> setHeroTrailerAutoplay(bool value) async {
+    await _settingsBox.put(AppConstants.heroTrailerAutoplayKey, value);
+    heroTrailerAutoplayChanged.value = value;
+  }
+
+  /// So an open detail page stops its preview the moment the setting is turned
+  /// off, rather than on the next visit.
+  final ValueNotifier<bool> heroTrailerAutoplayChanged = ValueNotifier<bool>(true);
+
   bool get volumeGestureEnabled {
     return _settingsBox.get(
           AppConstants.volumeGestureKey,
@@ -427,6 +629,43 @@ class HiveService {
   Future<void> setVolumeGestureEnabled(bool value) async {
     await _settingsBox.put(AppConstants.volumeGestureKey, value);
   }
+
+  /// Explicit on/off answers for the player info overlay, or null when the
+  /// viewer has never opened the picker.
+  ///
+  /// Hive hands back `Map<dynamic, dynamic>`, so the cast is not optional —
+  /// reading it as `Map<String, bool>` throws on the first launch after a
+  /// write, which is the one path a debug run never takes.
+  Map<String, bool>? getPlayerInfoFields() {
+    final raw = _settingsBox.get(AppConstants.playerInfoFieldsKey);
+    if (raw is! Map) return null;
+    final out = <String, bool>{};
+    raw.forEach((k, v) {
+      if (k is String && v is bool) out[k] = v;
+    });
+    return out.isEmpty ? null : out;
+  }
+
+  Future<void> setPlayerInfoFields(Map<String, bool> value) =>
+      _settingsBox.put(AppConstants.playerInfoFieldsKey, value);
+
+  /// The stored bar arrangement, or an empty map when it has never been edited.
+  Map<String, List<String>> getPlayerControlsLayout() {
+    final raw = _settingsBox.get(AppConstants.playerControlsLayoutKey);
+    if (raw is! Map) return const {};
+    final out = <String, List<String>>{};
+    raw.forEach((k, v) {
+      if (k is! String || v is! List) return;
+      out[k] = [for (final e in v) if (e is String) e];
+    });
+    return out;
+  }
+
+  Future<void> setPlayerControlsLayout(Map<String, List<String>> value) =>
+      _settingsBox.put(AppConstants.playerControlsLayoutKey, value);
+
+  Future<void> clearPlayerControlsLayout() =>
+      _settingsBox.delete(AppConstants.playerControlsLayoutKey);
 
   bool get keepScreenOn {
     return _settingsBox.get(
@@ -624,6 +863,12 @@ class HiveService {
   Future<void> setShowNsfwMangaSources(bool enabled) async {
     await _settingsBox.put(AppConstants.showNsfwMangaSourcesKey, enabled);
   }
+
+  bool get readerSpread =>
+      _settingsBox.get(AppConstants.readerSpreadKey, defaultValue: false) == true;
+
+  Future<void> setReaderSpread(bool value) async =>
+      _settingsBox.put(AppConstants.readerSpreadKey, value);
 
   String getReaderMode(String contentUrl) {
     return _settingsBox.get('reader_mode::$contentUrl', defaultValue: 'vertical');

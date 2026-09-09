@@ -5,6 +5,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_linked_badge.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:soplay/core/widgets/poster_hero.dart';
 
 const double _posterRatio = 2 / 3;
 const double _captionHeight = 48;
@@ -52,6 +53,7 @@ class SearchResultCard extends StatelessWidget {
     this.sourceLabel,
     this.sourceCount = 1,
     this.width,
+    this.heroTag,
   });
 
   final MovieEntity movie;
@@ -69,6 +71,10 @@ class SearchResultCard extends StatelessWidget {
 
   final double? width;
 
+  /// Ties this poster to the detail page's header so it flies rather than the
+  /// page appearing from nothing. Null leaves the card exactly as it was.
+  final String? heroTag;
+
   @override
   Widget build(BuildContext context) {
     final subtitle = sourceLabel ?? (movie.year != null ? '${movie.year}' : '');
@@ -80,10 +86,17 @@ class SearchResultCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              HomeNetworkImage(
+              // Only the artwork flies. The AniList badge and the rating pill
+              // stay with the grid — a 9pt pill interpolated up to header size
+              // reads as a glitch, not a transition.
+              PosterHero(
+                tag: heroTag,
                 url: movie.thumbnail,
-                borderRadius: BorderRadius.circular(10),
-                placeholderIcon: Icons.movie_rounded,
+                child: HomeNetworkImage(
+                  url: movie.thumbnail,
+                  borderRadius: BorderRadius.circular(10),
+                  placeholderIcon: Icons.movie_rounded,
+                ),
               ),
               Positioned(
                 top: 6,

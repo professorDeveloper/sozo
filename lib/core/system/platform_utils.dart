@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart' show PlatformInfo;
 import 'package:flutter/services.dart';
 
 /// Resolved once at startup by [initTvPlatform]. Never mutated afterwards.
@@ -45,8 +46,29 @@ void debugSetTvPlatform(bool value) {
   _tvResolved = true;
 }
 
+/// Where the app has to *emulate* glass with Flutter shaders.
+///
+/// This is the axis the shader runtime should have been gated on all along.
+/// [isMobilePlatform] answers "is this a phone", which is the right question
+/// for layout and the wrong one for "do we need a GLSL glass pipeline" — on
+/// iOS 26 the bottom bar is a real `UITabBar` drawn by UIKit, so compiling
+/// shaders and wrapping the whole app in an adaptive-quality scope would be
+/// pure cost for a worse result.
+///
+/// iOS 25 and below still fall through to the Flutter capsule, so they are
+/// deliberately *not* excluded.
+bool get usesFlutterGlass =>
+    isMobilePlatform && !(Platform.isIOS && PlatformInfo.isIOS26OrHigher());
+
 bool get isDesktopPlatform =>
     !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
+/// True on EVERY Android build, television included — unlike [isMobilePlatform],
+/// which deliberately excludes leanback. Always pair it with the surrounding
+/// `!isTvPlatform` branch, or an Android-only affordance comes back on a TV that
+/// removed it on purpose (player_page.controls.dart drops PiP, the touch lock
+/// and orientation lock there).
+bool get isAndroidPlatform => !kIsWeb && Platform.isAndroid;
 
 // Android TV reports Platform.isAndroid, but it is not a phone: the liquid-glass
 // bottom nav and its shader pre-warm are phone affordances that are wrong on a

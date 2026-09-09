@@ -1,0 +1,34 @@
+name: 💡 Yangi imkoniyat taklifi
+description: Sozo'da nima bo'lishini istardingiz
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qanday muammoni hal qiladi?
+      description: |
+        Yechimdan oldin muammoni yozing. "X tugmasi kerak" dan ko'ra
+        "Y qilmoqchi bo'lganimda Z ni har safar qaytadan qilishga to'g'ri
+        kelyapti" ancha foydali.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Qanday ishlashini tasavvur qilasiz?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Hozir buni qanday aylanib o'tyapsiz?
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Qaysi platformada kerak?
+      multiple: true
+      options: [Android, Android TV, iOS, Windows, Linux, macOS, Hammasi]

@@ -1,6 +1,8 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/material.dart';
+import 'package:soplay/features/profile/presentation/pages/discord_settings_page.dart';
+import 'package:soplay/features/profile/presentation/pages/discord_web_login_page.dart';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:go_router/go_router.dart';
@@ -29,6 +31,7 @@ import 'package:soplay/features/manga/presentation/pages/reader_page.dart';
 import 'package:soplay/features/main/presentation/pages/main_page.dart';
 import 'package:soplay/features/network/presentation/pages/no_internet_page.dart';
 import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
+import 'package:soplay/features/torrent/presentation/pages/torrent_search_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_browse_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/airing_calendar_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_library_page.dart';
@@ -53,6 +56,13 @@ import 'package:soplay/features/user_lists/presentation/pages/user_lists_page.da
 import 'package:soplay/features/profile/presentation/pages/appearance_page.dart';
 import 'package:soplay/features/profile/presentation/pages/player_settings_page.dart';
 import 'package:soplay/features/profile/presentation/pages/providers_page.dart';
+import 'package:soplay/features/profile/presentation/pages/about_page.dart';
+import 'package:soplay/features/profile/presentation/pages/activity_page.dart';
+import 'package:soplay/features/profile/presentation/pages/backup_page.dart';
+import 'package:soplay/features/profile/presentation/pages/library_page.dart';
+import 'package:soplay/features/profile/presentation/pages/profile_connections_page.dart';
+import 'package:soplay/features/profile/presentation/pages/settings_page.dart';
+import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
 import 'package:soplay/features/live_tv/presentation/pages/live_tv_page.dart';
 import 'package:soplay/features/remote/presentation/pages/tv_remote_page.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
@@ -113,19 +123,55 @@ class AppRouter {
       ),
       GoRoute(
         path: '/detail',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final extra = state.extra;
-          if (extra is DetailArgs) return DetailPage(args: extra);
-          final q = state.uri.queryParameters;
-          final url = q['url'] ?? '';
-          final provider = q['provider']?.trim();
-          return DetailPage(
-            args: DetailArgs(
-              contentUrl: url,
-              provider: provider != null && provider.isNotEmpty
-                  ? provider
-                  : null,
+          final args = extra is DetailArgs
+              ? extra
+              : () {
+                  final q = state.uri.queryParameters;
+                  final provider = q['provider']?.trim();
+                  return DetailArgs(
+                    contentUrl: q['url'] ?? '',
+                    provider: provider != null && provider.isNotEmpty
+                        ? provider
+                        : null,
+                  );
+                }();
+
+          final page = DetailPage(args: args);
+
+          // A fade, but ONLY when a poster is flying in.
+          //
+          // The platform default on Android is ZoomPageTransitionsBuilder: the
+          // incoming page scales as well as fades. A Hero flies in the
+          // navigator's overlay, in absolute coordinates, so while the page
+          // underneath is still scaling the rectangle the poster is aiming at
+          // is not where the eye sees the header. Two motions, disagreeing.
+          //
+          // The fade is not applied unconditionally, because on iOS it would
+          // cost the interactive edge-swipe back — a real gesture traded for a
+          // transition nobody asked to change. So: fade where there is a
+          // flight to protect, platform default everywhere else, which is
+          // every deeplink, search result and player hand-off.
+          final flying = args.heroTag != null && !Platform.isIOS;
+          if (!flying) return MaterialPage<void>(key: state.pageKey, child: page);
+
+          return CustomTransitionPage<void>(
+            key: state.pageKey,
+            // On the house durations, and long enough that
+            // _HeroOverlayFade's Interval(0.45, 1.0) gets the ~140ms window
+            // it was tuned for.
+            transitionDuration: const Duration(milliseconds: 260),
+            reverseTransitionDuration: const Duration(milliseconds: 200),
+            transitionsBuilder: (_, animation, _, child) => FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOut,
+                reverseCurve: Curves.easeIn,
+              ),
+              child: child,
             ),
+            child: page,
           );
         },
       ),
@@ -195,6 +241,14 @@ class AppRouter {
         },
       ),
       GoRoute(
+        // Pops a `TorrentStreamHandle` when the user picks a torrent, so the
+        // caller decides what to do with the stream. `extra` pre-fills the
+        // search box — set when arriving from a title's detail page.
+        path: '/torrents',
+        builder: (context, state) =>
+            TorrentSearchPage(initialQuery: state.extra as String?),
+      ),
+      GoRoute(
         path: '/following',
         builder: (context, state) => const FollowingPage(),
       ),
@@ -253,8 +307,44 @@ class AppRouter {
         builder: (context, state) => const PlayerSettingsPage(),
       ),
       GoRoute(
+        path: '/discord',
+        builder: (context, state) => const DiscordSettingsPage(),
+      ),
+      GoRoute(
+        path: '/discord/login',
+        builder: (context, state) => const DiscordWebLoginPage(),
+      ),
+            GoRoute(
         path: '/providers',
         builder: (context, state) => const ProvidersPage(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsPage(),
+      ),
+      GoRoute(
+        path: '/library',
+        builder: (context, state) => const LibraryPage(),
+      ),
+      GoRoute(
+        path: '/activity',
+        builder: (context, state) => const ActivityPage(),
+      ),
+      GoRoute(
+        path: '/backup',
+        builder: (context, state) => const BackupPage(),
+      ),
+      GoRoute(
+        path: '/sources',
+        builder: (context, state) => const SourcesPage(),
+      ),
+      GoRoute(
+        path: '/profile/connections',
+        builder: (context, state) => const ProfileConnectionsPage(),
+      ),
+      GoRoute(
+        path: '/about',
+        builder: (context, state) => const AboutPage(),
       ),
       GoRoute(
         path: '/notifications',

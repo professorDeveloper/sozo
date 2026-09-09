@@ -134,7 +134,7 @@ class _LoginPageState extends State<LoginPage> {
                         validator: _validatePassword,
                       ),
                       Align(
-                        alignment: Alignment.centerRight,
+                        alignment: AlignmentDirectional.centerEnd,
                         child: TextButton(
                           // Carries whatever was typed, so the reset page
                           // does not ask for an address the user just gave.

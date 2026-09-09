@@ -146,7 +146,7 @@ class _CloudflareSolverPageState extends State<CloudflareSolverPage> {
   Widget _banner() {
     return Container(
       color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(6, 8, 12, 10),
+      padding: const EdgeInsetsDirectional.fromSTEB(6, 8, 12, 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [

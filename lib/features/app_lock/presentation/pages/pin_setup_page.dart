@@ -138,7 +138,7 @@ class _LengthOption extends StatelessWidget {
                 children: List.generate(
                   length,
                   (i) => Container(
-                    margin: const EdgeInsets.only(right: 6),
+                    margin: const EdgeInsetsDirectional.only(end: 6),
                     width: 10,
                     height: 10,
                     decoration: BoxDecoration(

@@ -4,6 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
+import 'package:soplay/features/stats/data/watch_stats_store.dart';
+import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/auth/data/models/user_model.dart';
 import 'package:soplay/features/auth/domain/entities/auth_token.dart';
 import 'package:soplay/features/auth/domain/entities/user_entity.dart';
@@ -263,7 +266,11 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> _clearAccountScopedData() async {
     await _hiveService.clearAuth();
     if (getIt.isRegistered<HistorySyncService>()) {
-      await getIt<HistorySyncService>().clear();
+      // The rows as well as the cursor. Clearing only the cursor left the
+      // previous account's watch history on screen after they signed out —
+      // Continue Watching, the History page and the counts in Profile all
+      // still listed it, which is the account's data outliving the account.
+      await getIt<HistorySyncService>().forgetAfterSignOut();
     }
     if (getIt.isRegistered<AnilistService>()) {
       await getIt<AnilistService>().forgetLocal();
@@ -277,6 +284,24 @@ class AuthRepositoryImpl implements AuthRepository {
     if (getIt.isRegistered<MalLinkStore>()) {
       await getIt<MalLinkStore>().clear();
     }
+
+    // Everything else the account put on this device.
+    //
+    // All of it is server-backed and comes back on the next sign-in: My List is
+    // re-upserted from the server, the streak is refetched, and the statistics
+    // are rebuilt from the account's own history. Leaving any of it behind
+    // means somebody signs out, hands over the phone, and the next person opens
+    // the app to another person's saved titles, streak and viewing totals.
+    if (getIt.isRegistered<MyListLocalDataSource>()) {
+      await getIt<MyListLocalDataSource>().clearLocalOnly();
+    }
+    if (getIt.isRegistered<StreakService>()) {
+      getIt<StreakService>().reset();
+    }
+    // Not server-backed, and cleared for exactly that reason: nothing would
+    // ever remove it otherwise, and a watch-time total is as personal as the
+    // history it was counted from.
+    await WatchStatsStore().clear();
   }
 
   String _messageFrom(DioException e) {

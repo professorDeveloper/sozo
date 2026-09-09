@@ -1,5 +1,10 @@
+# The package name stays `soplay` — it is the prefix of every `package:soplay/…`
+# import in 600+ files and of the Android applicationId already installed on
+# users' devices. Renaming it would be a rename of the app on disk, not of the
+# brand. The brand lives in the Android/iOS app label and in `Sozo` everywhere
+# a person can see it.
 name: soplay
-description: "A new Flutter project."
+description: "Sozo — kino, serial, anime, manga va light novellalar uchun ochiq kodli Flutter ilovasi."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -110,6 +115,11 @@ dependencies:
   flutter_html: ^3.0.0-beta.2
   markdown: ^7.3.0
   flutter_dotenv: ^5.2.1
+  # Product analytics. Chosen over Firebase Analytics — already a dependency —
+  # because the questions here are behavioural funnels ("how many people who
+  # search actually play something"), which Firebase answers only after a
+  # BigQuery export, and Amplitude answers in its own UI.
+  amplitude_flutter: ^4.7.1
   media_kit_libs_macos_video: ^1.1.4
   media_kit_libs_linux: ^1.2.1
   liquid_glass_widgets: ^0.18.4
@@ -117,6 +127,39 @@ dependencies:
   firebase_auth: ^5.7.0
   google_sign_in: ^7.2.0
   image_picker: ^1.2.3
+
+  # Torrent indexers. Nyaa, Sukebei and Tokyo Toshokan publish RSS, so the
+  # torrent search needs a real XML parser -- already in the lockfile
+  # transitively. The HTML-only trackers are parsed magnet-first with regex
+  # instead: they are Nuxt apps whose class names are utility soup, and an
+  # anchor on `href="magnet:"` survives a redesign that CSS selectors do not.
+  xml: ^6.6.1
+  # Trailer playback without a YouTube iframe. TrailerService resolves a title
+  # to a YouTube video id, then this resolves that id to a direct muxed
+  # (video+audio) URL the app's own player can open. Pure Dart, no API key and
+  # no native dependency — the alternative was a WebView showing YouTube's own
+  # chrome, ads and "watch on YouTube" button inside our detail page.
+  # Pinned to the 3.x line deliberately. YouTube rotates its player cipher
+  # every few weeks and only the newest release of this package keeps up; an
+  # older one fails to resolve a stream at all, which looks exactly like "the
+  # trailer button is broken".
+  youtube_explode_dart: ^3.1.0
+
+  # Save a frame from the player to the device gallery (Android MediaStore /
+  # iOS Photos). One tap, and the thing people were going to screenshot badly
+  # with the system shortcut — with our controls burned into it — comes out
+  # clean at the video's own resolution.
+  gal: ^2.3.0
+  file_picker: ^11.0.3
+  speech_to_text: ^7.4.0
+  adaptive_platform_ui: ^0.1.111
+  dart_cast: ^0.7.4
+  connectivity_plus: ^7.3.1
+
+  # Discord Rich Presence on mobile, where there is no Discord client to reach
+  # over a local socket. Already in the lockfile transitively; declared because
+  # this now depends on it directly.
+  web_socket_channel: ^3.0.1
 
 dev_dependencies:
   flutter_test:
@@ -144,6 +187,7 @@ flutter:
   assets:
     - assets/translations/
     - assets/icons/
+    - assets/brand/
     - assets/onboarding/
     - assets/onboarding/channels/
     - assets/js/

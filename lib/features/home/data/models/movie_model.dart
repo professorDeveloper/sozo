@@ -7,6 +7,7 @@ class MovieModel extends MovieEntity {
     required super.slug,
     required super.url,
     required super.thumbnail,
+    super.banner,
     required super.provider,
     required super.year,
     required super.rating,
@@ -24,6 +25,7 @@ class MovieModel extends MovieEntity {
       url: json['contentUrl'] as String? ?? json['url'] as String? ?? '',
       provider: json['provider'] as String? ?? '',
       thumbnail: json['thumbnail'] as String?,
+      banner: json['banner'] as String?,
       year: (json['year'] as num?)?.toInt(),
       rating: (json['rating'] as num?)?.toInt(),
       qualities: json['qualities'] != null

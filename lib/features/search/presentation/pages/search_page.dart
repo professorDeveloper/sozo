@@ -1,9 +1,13 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
+import 'package:soplay/features/search/presentation/widgets/voice_search_button.dart';
 import 'package:soplay/features/search/presentation/widgets/search_filter_sheet.dart';
 import 'package:soplay/features/search/presentation/widgets/search_header.dart';
 import 'package:soplay/features/search/presentation/widgets/search_state_views.dart';
@@ -74,6 +78,17 @@ class _SearchViewState extends State<_SearchView> {
     });
   }
 
+  /// Torrent streaming is Android-only — the engine is a native Android
+  /// library with no iOS or desktop build. The option is hidden rather than
+  /// shown and failing.
+  static bool get _torrentsAvailable => !kIsWeb && Platform.isAndroid;
+
+  void _openTorrents(String query) {
+    // The query travels with it, so the torrent search opens already looking
+    // for the same thing rather than making the user type it a second time.
+    context.push('/torrents', extra: query);
+  }
+
   void _clearSearch() {
     _controller.clear();
     context.read<SearchBloc>().add(const SearchQueryChanged(''));
@@ -132,6 +147,9 @@ class _SearchViewState extends State<_SearchView> {
               onClearRecents: () =>
                   context.read<SearchBloc>().add(const SearchRecentsCleared()),
               onTryAllSources: () => _openCrossSearch(state.criteria.text),
+              onSearchTorrents: _torrentsAvailable
+                  ? () => _openTorrents(state.criteria.text)
+                  : null,
             ),
             ValueListenableBuilder<double>(
               valueListenable: _blurProgress,
@@ -143,12 +161,27 @@ class _SearchViewState extends State<_SearchView> {
                 hasActiveFilter: state.criteria.genre.isNotEmpty,
                 showFilter: state.hasGenres,
                 onFilterTap: _openFilter,
+                onTorrentTap: _torrentsAvailable
+                    ? () => _openTorrents(_controller.text)
+                    : null,
                 onMultiSearchTap: _openCrossSearch,
                 onQueryChanged: (q) =>
                     context.read<SearchBloc>().add(SearchQueryChanged(q)),
                 onSubmitted: (q) =>
                     context.read<SearchBloc>().add(SearchSubmitted(q)),
                 onClear: _clearSearch,
+                voiceButton: VoiceSearchButton(
+                  // Partial results land in the field as they are heard; only
+                  // the final transcript runs a search, so a half-heard title
+                  // never fires a query of its own.
+                  onText: (t) {
+                    _controller.text = t;
+                    _controller.selection =
+                        TextSelection.collapsed(offset: t.length);
+                    context.read<SearchBloc>().add(SearchQueryChanged(t));
+                  },
+                  onSubmit: _runQuery,
+                ),
               ),
             ),
           ],

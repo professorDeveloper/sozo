@@ -50,7 +50,7 @@ class CommentCard extends StatelessWidget {
     final hasReplies = comment.replyCount > 0 && comment.isTopLevel;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(compact ? 0 : 16, 10, 16, 10),
+      padding: EdgeInsetsDirectional.fromSTEB(compact ? 0 : 16, 10, 16, 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -177,7 +177,7 @@ class _ActionButton extends StatelessWidget {
             ? AppColors.primary
             : AppColors.textSecondary;
     return Padding(
-      padding: const EdgeInsets.only(right: 14),
+      padding: const EdgeInsetsDirectional.only(end: 14),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(6),

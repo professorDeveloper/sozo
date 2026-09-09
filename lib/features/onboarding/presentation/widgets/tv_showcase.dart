@@ -264,7 +264,7 @@ class _LiveBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(7, 4, 9, 4),
+        padding: const EdgeInsetsDirectional.fromSTEB(7, 4, 9, 4),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -370,7 +370,7 @@ class _ChannelStrip extends StatelessWidget {
         child: ClipRect(
           child: OverflowBox(
             maxWidth: double.infinity,
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: AnimatedBuilder(
               animation: controller,
               builder: (context, child) {
@@ -388,7 +388,7 @@ class _ChannelStrip extends StatelessWidget {
                   for (var pass = 0; pass < 2; pass++)
                     for (final logo in logos)
                       Padding(
-                        padding: const EdgeInsets.only(right: _gap),
+                        padding: const EdgeInsetsDirectional.only(end: _gap),
                         child: Container(
                           width: _tileWidth,
                           height: _tileHeight,

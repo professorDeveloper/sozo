@@ -21,7 +21,7 @@ class MyListHeader extends StatelessWidget {
     final progress = blurProgress.clamp(0.0, 1.0);
 
     final content = Container(
-      padding: EdgeInsets.fromLTRB(20, topPad + 14, 16, 14),
+      padding: EdgeInsetsDirectional.fromSTEB(20, topPad + 14, 16, 14),
       decoration: BoxDecoration(
         color: AppColors.navBackground.withValues(alpha: 0.78 * progress),
         border: progress > 0.05

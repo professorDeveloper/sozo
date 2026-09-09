@@ -19,6 +19,7 @@ import 'package:soplay/features/home/domain/entities/hero_slide.dart';
 import 'package:soplay/features/home/domain/entities/home_section_entity.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
+import 'package:soplay/features/home/domain/home_rail.dart';
 import 'package:soplay/features/home/presentation/widgets/home_banner.dart';
 import 'package:soplay/features/home/presentation/widgets/home_history_section.dart';
 import 'package:soplay/features/home/presentation/widgets/home_live_tv_section.dart';
@@ -26,6 +27,7 @@ import 'package:soplay/features/home/presentation/widgets/home_movie_section.dar
 import 'package:soplay/features/home/presentation/widgets/home_state_views.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 
+import 'package:soplay/features/home/domain/catalogue_status.dart';
 import '../bloc/home/home_state.dart';
 import 'genre_card.dart';
 
@@ -43,11 +45,12 @@ bool _isMyListSection(HomeSectionEntity section) {
 class HomeContent extends StatefulWidget {
   const HomeContent({
     super.key,
-    required this.state,
+    required this.catalogue,
     required this.blurProgress,
   });
 
-  final HomeLoaded state;
+  /// Ready or failed. Home renders either way — see [CatalogueStatus].
+  final CatalogueStatus catalogue;
 
   /// Owned by HomePage (which mounts the top bar once, outside the bloc
   /// builder); we only publish our scroll progress into it.
@@ -101,7 +104,7 @@ class _HomeContentState extends State<HomeContent> {
       create: (_) =>
           getIt<BannersBloc>()..add(BannersLoad(BannerPlacement.homeTop)),
       child: _HomeContentBody(
-        state: widget.state,
+        catalogue: widget.catalogue,
         topPad: topPad,
         scrollController: _scrollController,
         historyItems: _historyItems,
@@ -122,22 +125,29 @@ class _HomeContentState extends State<HomeContent> {
 
 class _HomeContentBody extends StatelessWidget {
   const _HomeContentBody({
-    required this.state,
+    required this.catalogue,
     required this.topPad,
     required this.scrollController,
     required this.historyItems,
     required this.onRefresh,
   });
 
-  final HomeLoaded state;
+  final CatalogueStatus catalogue;
   final double topPad;
   final ScrollController scrollController;
   final List<HistoryItem> historyItems;
   final Future<void> Function() onRefresh;
 
+  /// The loaded catalogue, or null when it failed. Every read below goes
+  /// through this, so a failure cannot be mistaken for empty data.
+  HomeLoaded? get _loaded =>
+      catalogue is CatalogueReady ? (catalogue as CatalogueReady).data : null;
+
   List<HeroSlide> _composeSlides(List<BannerItem> cmsBanners) {
+    final data = _loaded;
     return [
-      for (final m in state.homeData.banner) MovieHeroSlide(m),
+      if (data != null)
+        for (final m in data.homeData.banner) MovieHeroSlide(m),
       for (final b in cmsBanners) BannerHeroSlide(b),
     ];
   }
@@ -157,8 +167,10 @@ class _HomeContentBody extends StatelessWidget {
           final slides = _composeSlides(bannersState.items);
           final showHero = slides.isNotEmpty || bannersState.loading;
 
+          final loaded = _loaded;
           final sectionSlivers = <Widget>[
-            for (final section in state.homeData.sections)
+            if (loaded != null)
+            for (final section in loaded.homeData.sections)
               if (section.items.isNotEmpty)
                 SliverToBoxAdapter(
                   child: RepaintBoundary(
@@ -175,9 +187,14 @@ class _HomeContentBody extends StatelessWidget {
                 ),
           ];
 
-          final isEmpty = !showHero &&
+          // Unchanged in meaning, with one addition: a FAILED catalogue is
+          // never "empty". Empty means the source returned nothing and there is
+          // genuinely nothing to show; failed means we could not ask, and the
+          // strip below has to be reachable to say so.
+          final isEmpty = catalogue is CatalogueReady &&
+              !showHero &&
               historyItems.isEmpty &&
-              state.genres.isEmpty &&
+              (loaded?.genres.isEmpty ?? true) &&
               sectionSlivers.isEmpty;
           if (isEmpty) {
             return CustomScrollView(
@@ -212,40 +229,76 @@ class _HomeContentBody extends StatelessWidget {
             );
           }
 
+          // The bands, in the order this install put them in. Each one still
+          // decides for itself whether it has anything to show — reordering
+          // never makes an empty rail appear, and hiding one is separate from
+          // it being empty.
+          final hive = getIt<HiveService>();
+          final rails = visibleRails(
+            sanitizeRailOrder(hive.getHomeRailOrder()),
+            hive.getHomeRailHidden(),
+          );
+
+          Iterable<Widget> sliversFor(HomeRail rail) sync* {
+            switch (rail) {
+              case HomeRail.hero:
+                if (showHero) {
+                  yield SliverToBoxAdapter(
+                    child: HomeBanner(
+                      slides: slides,
+                      topPadding: topPad,
+                      showSkeleton:
+                          (loaded?.homeData.banner.isEmpty ?? true) &&
+                              bannersState.loading,
+                    ),
+                  );
+                }
+              case HomeRail.resume:
+                if (historyItems.isNotEmpty) {
+                  yield SliverToBoxAdapter(
+                    child: RepaintBoundary(
+                      child: HistorySection(items: historyItems),
+                    ),
+                  );
+                }
+              case HomeRail.genres:
+                if (loaded != null && loaded.genres.isNotEmpty) {
+                  yield SliverToBoxAdapter(
+                    child: RepaintBoundary(
+                      child: _GenreSection(genres: loaded.genres),
+                    ),
+                  );
+                }
+              case HomeRail.liveTv:
+                // Loads itself and renders nothing until it has channels, so a
+                // backend with no line-up leaves Home unchanged.
+                yield const SliverToBoxAdapter(
+                  child: RepaintBoundary(child: LiveTvSection()),
+                );
+              case HomeRail.catalogue:
+                if (loaded != null && loaded.collectionLoading) {
+                  yield const SliverToBoxAdapter(child: CollectionLoadingRow());
+                }
+                yield* sectionSlivers;
+            }
+          }
+
+          // The hero sits under the status bar when it is first. Moved down, it
+          // is an ordinary rail and something else needs that clearance —
+          // otherwise the top band renders behind the clock.
+          final needsTopPad = rails.first != HomeRail.hero || !showHero;
+
           return CustomScrollView(
             controller: scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              if (showHero)
-                SliverToBoxAdapter(
-                  child: HomeBanner(
-                    slides: slides,
-                    topPadding: topPad,
-                    showSkeleton:
-                        state.homeData.banner.isEmpty && bannersState.loading,
-                  ),
-                ),
-              if (historyItems.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: RepaintBoundary(
-                    child: HistorySection(items: historyItems),
-                  ),
-                ),
-              if (state.genres.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: RepaintBoundary(
-                    child: _GenreSection(genres: state.genres),
-                  ),
-                ),
-              // Live TV, above the catalogue rails rather than buried in
-              // Profile. It loads itself and renders nothing until it has
-              // channels, so a backend with no line-up leaves Home unchanged.
-              const SliverToBoxAdapter(
-                child: RepaintBoundary(child: LiveTvSection()),
-              ),
-              if (state.collectionLoading)
-                const SliverToBoxAdapter(child: CollectionLoadingRow()),
-              ...sectionSlivers,
+              if (needsTopPad)
+                SliverToBoxAdapter(child: SizedBox(height: topPad + 56)),
+              // Above the rails, because it explains why some of them are
+              // missing. Everything below it is local and still works.
+              if (catalogue case CatalogueFailed(:final message))
+                SliverToBoxAdapter(child: HomeErrorStrip(message: message)),
+              for (final rail in rails) ...sliversFor(rail),
               SliverToBoxAdapter(
                 child: SizedBox(
                   // Clear the floating nav capsule: desktop pill (~66+18) and
@@ -276,7 +329,7 @@ class _GenreSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(17, 18, 16, 14),
+            padding: const EdgeInsetsDirectional.fromSTEB(17, 18, 16, 14),
             child: Text(
               "home.genres".tr(),
               style: const TextStyle(

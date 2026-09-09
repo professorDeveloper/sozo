@@ -50,7 +50,7 @@ class _StreakCardState extends State<StreakCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
             child: Text(
               'streak.section_label'.tr(),
               style: const TextStyle(
@@ -145,7 +145,7 @@ class _CompactStreakRow extends StatelessWidget {
                 const SizedBox(width: 8),
                 if (state.freezes.available > 0)
                   Padding(
-                    padding: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsetsDirectional.only(end: 6),
                     child: Row(
                       children: [
                         const Icon(
@@ -167,7 +167,7 @@ class _CompactStreakRow extends StatelessWidget {
                   ),
                 if (state.longest > 0)
                   Padding(
-                    padding: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsetsDirectional.only(end: 6),
                     child: Row(
                       children: [
                         const Icon(

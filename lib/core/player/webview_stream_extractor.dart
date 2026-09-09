@@ -65,6 +65,47 @@ class WebViewStreamExtractor {
 ''';
 
   // ignore: unnecessary_string_escapes  // backslashes are JS-regex chars
+  /// Nudge a player that waits for a tap before it asks for anything.
+  ///
+  /// `mediaPlaybackRequiresUserGesture: false` only lifts the autoplay policy.
+  /// It does nothing about a page whose own JS builds the source only after its
+  /// overlay is clicked — and those pages are exactly the ones worth sniffing,
+  /// because until the click there is no manifest to see. Measured on one such
+  /// embed: passive load requested the app chunks and nothing else until the
+  /// 30s watchdog; a synthetic click produced the manifest in seconds.
+  ///
+  /// Deliberately blunt and repeated: the overlay often mounts after first
+  /// paint, so one early click lands on nothing. Clicking is idempotent for a
+  /// player that has already started, so the cost of the extra tries is nil.
+  static const String _gestureShim = '''
+(function(){
+  var tries = 0;
+  function nudge() {
+    if (tries++ > 12) { clearInterval(t); return; }
+    try {
+      var v = document.querySelector('video');
+      if (v) { v.muted = true; var p = v.play(); if (p && p.catch) p.catch(function(){}); }
+      var cx = Math.floor(window.innerWidth / 2);
+      var cy = Math.floor(window.innerHeight / 2);
+      var el = document.elementFromPoint(cx, cy) || document.body;
+      if (el) {
+        ['mousedown','mouseup','click'].forEach(function(type){
+          try {
+            el.dispatchEvent(new MouseEvent(type, {
+              bubbles: true, cancelable: true, view: window,
+              clientX: cx, clientY: cy,
+            }));
+          } catch (_) {}
+        });
+        if (el.click) { try { el.click(); } catch (_) {} }
+      }
+    } catch (_) {}
+  }
+  var t = setInterval(nudge, 1500);
+  setTimeout(nudge, 400);
+})();
+''';
+
   static String _xhrCaptureShim(
     List<String> hostFragments,
     List<String> urlPatterns,
@@ -329,6 +370,12 @@ class WebViewStreamExtractor {
             userScript: UserScript(
               source: _xhrCaptureShim([config.hostPattern], config.urlPatterns),
               injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+            ),
+          );
+          await controller.addUserScript(
+            userScript: UserScript(
+              source: _gestureShim,
+              injectionTime: UserScriptInjectionTime.AT_DOCUMENT_END,
             ),
           );
           controller.addJavaScriptHandler(

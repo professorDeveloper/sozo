@@ -126,56 +126,82 @@ class _CommentsViewState extends State<_CommentsView> {
         ),
       );
     }
-    return ListView(
+    // Built on demand rather than all at once.
+    //
+    // `ListView(children: [...])` constructs every child widget before the
+    // list decides which of them to lay out — so a title with three hundred
+    // comments built three hundred comment trees, each with its own replies,
+    // on the frame the tab opened. Layout was already lazy; construction was
+    // not, and this is the one list on the detail page that grows without
+    // bound as somebody presses "show more".
+    //
+    // Index 0 is the count header and the last index is the load-more button,
+    // so the item count carries both.
+    final hasMore = state.hasMore;
+    final itemCount = 1 + state.items.length + (hasMore ? 1 : 0);
+
+    return ListView.builder(
       padding: const EdgeInsets.only(bottom: 8),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: Row(
-            children: [
-              Text(
-                state.total == 1
-                    ? 'comments.count_one'.tr()
-                    : 'comments.count_other'.tr(args: ['${state.total}']),
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Row(
+              children: [
+                Text(
+                  state.total == 1
+                      ? 'comments.count_one'.tr()
+                      : 'comments.count_other'.tr(args: ['${state.total}']),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        for (final c in state.items)
-          _CommentTree(
-            comment: c,
-            replies: state.repliesByParent[c.id] ?? const [],
-            repliesLoading: state.repliesLoading.contains(c.id),
-            expanded: state.expandedIds.contains(c.id),
-            currentUserId: currentUserId,
-            canInteract: loggedIn,
-            onLike: () => bloc.add(CommentsToggleLike(c.id)),
-            onReply: () => _startReply(c),
-            onEdit: () => _startEdit(c),
-            onDelete: () => _confirmDelete(c),
-            onToggle: () => bloc.add(CommentsToggleReplies(c.id)),
-            onReplyLike: (id) => bloc.add(CommentsToggleLike(id)),
-            onReplyEdit: _startEdit,
-            onReplyDelete: _confirmDelete,
-          ),
-        if (state.hasMore)
-          Padding(
+              ],
+            ),
+          );
+        }
+
+        if (hasMore && index == itemCount - 1) {
+          return Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 16),
             child: TextButton(
               onPressed: state.loadingMore
                   ? null
                   : () => bloc.add(const CommentsLoadMore()),
-              child: Text(state.loadingMore
-                  ? 'general.loading'.tr()
-                  : 'comments.show_more'.tr()),
+              child: Text(
+                state.loadingMore
+                    ? 'general.loading'.tr()
+                    : 'comments.show_more'.tr(),
+              ),
             ),
-          ),
-      ],
+          );
+        }
+
+        final c = state.items[index - 1];
+        return _CommentTree(
+          // Keyed by the comment, not by position: pressing "show more"
+          // appends, and an unkeyed builder would rebuild every tree's state
+          // — a half-typed reply among them — against a shifted index.
+          key: ValueKey(c.id),
+          comment: c,
+          replies: state.repliesByParent[c.id] ?? const [],
+          repliesLoading: state.repliesLoading.contains(c.id),
+          expanded: state.expandedIds.contains(c.id),
+          currentUserId: currentUserId,
+          canInteract: loggedIn,
+          onLike: () => bloc.add(CommentsToggleLike(c.id)),
+          onReply: () => _startReply(c),
+          onEdit: () => _startEdit(c),
+          onDelete: () => _confirmDelete(c),
+          onToggle: () => bloc.add(CommentsToggleReplies(c.id)),
+          onReplyLike: (id) => bloc.add(CommentsToggleLike(id)),
+          onReplyEdit: _startEdit,
+          onReplyDelete: _confirmDelete,
+        );
+      },
     );
   }
 
@@ -311,6 +337,7 @@ class _SignInPrompt extends StatelessWidget {
 
 class _CommentTree extends StatelessWidget {
   const _CommentTree({
+    super.key,
     required this.comment,
     required this.replies,
     required this.repliesLoading,
@@ -359,7 +386,7 @@ class _CommentTree extends StatelessWidget {
         ),
         if (expanded)
           Padding(
-            padding: const EdgeInsets.only(left: 46),
+            padding: const EdgeInsetsDirectional.only(start: 46),
             child: Column(
               children: [
                 if (repliesLoading && replies.isEmpty)

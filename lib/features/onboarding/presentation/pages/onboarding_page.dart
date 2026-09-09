@@ -105,7 +105,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   Padding(
                     // Sits clear of the status bar rather than tucked against
                     // it — over artwork the two collide and both stop reading.
-                    padding: const EdgeInsets.fromLTRB(20, 18, 16, 0),
+                    padding: const EdgeInsetsDirectional.fromSTEB(20, 18, 16, 0),
                     child: Row(
                       children: [
                         Text(
@@ -190,7 +190,7 @@ class _SkipChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+          padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

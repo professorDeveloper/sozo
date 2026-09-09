@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/di/injection.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/features/home/domain/catalogue_status.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/home/presentation/widgets/backend_outage_banner.dart';
@@ -25,11 +28,20 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    // Home rebuilds the moment the customizer is saved, not on its next
+    // visit: the sheet closes onto this screen and a stale order would read as
+    // the change not having taken.
+    getIt<HiveService>().homeRailsChanged.addListener(_onRailsChanged);
     context.read<HomeBloc>().add(HomeLoad());
+  }
+
+  void _onRailsChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    getIt<HiveService>().homeRailsChanged.removeListener(_onRailsChanged);
     _blurProgress.dispose();
     super.dispose();
   }
@@ -55,11 +67,22 @@ class _HomePageState extends State<HomePage> {
                 if (state is HomeLoading || state is HomeInitial) {
                   return const HomeSkeleton();
                 }
+                // A failed catalogue no longer takes the screen with it.
+                // Continue Watching is Hive rows and the downloads are files;
+                // neither needs a network, and both used to vanish because one
+                // cloud provider timed out. HomeContent renders them and puts
+                // the reason in a strip above.
                 if (state is HomeError) {
-                  return HomeErrorView(message: state.message);
+                  return HomeContent(
+                    catalogue: CatalogueFailed(state.message),
+                    blurProgress: _blurProgress,
+                  );
                 }
                 if (state is HomeLoaded) {
-                  return HomeContent(state: state, blurProgress: _blurProgress);
+                  return HomeContent(
+                    catalogue: CatalogueReady(state),
+                    blurProgress: _blurProgress,
+                  );
                 }
                 return const SizedBox.shrink();
               },

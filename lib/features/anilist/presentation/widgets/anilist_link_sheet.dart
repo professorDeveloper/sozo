@@ -319,7 +319,7 @@ class _CurrentLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(10, 8, 4, 8),
       decoration: BoxDecoration(
         color: kAnilistBlue.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(11),

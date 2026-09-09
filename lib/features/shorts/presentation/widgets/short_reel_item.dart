@@ -723,7 +723,7 @@ class _ShortReelItemState extends State<ShortReelItem>
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.only(right: 60),
+          padding: const EdgeInsetsDirectional.only(end: 60),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -784,7 +784,7 @@ class _ShortReelItemState extends State<ShortReelItem>
                         .take(3)
                         .map(
                           (tag) => Padding(
-                            padding: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsetsDirectional.only(end: 6),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
@@ -828,7 +828,7 @@ class _ShortReelItemState extends State<ShortReelItem>
         child: Container(
           height: 44,
           margin: const EdgeInsets.symmetric(horizontal: 6),
-          padding: const EdgeInsets.only(left: 4, right: 14),
+          padding: const EdgeInsetsDirectional.only(start: 4, end: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             // Was a second, hard-coded red — the accent's job, duplicated.
@@ -850,7 +850,7 @@ class _ShortReelItemState extends State<ShortReelItem>
               Container(
                 width: 36,
                 height: 36,
-                margin: const EdgeInsets.only(right: 10),
+                margin: const EdgeInsetsDirectional.only(end: 10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   color: Colors.black.withValues(alpha: 0.2),

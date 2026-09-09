@@ -16,10 +16,16 @@ class SearchStickyHeader extends StatelessWidget {
     required this.showFilter,
     required this.onFilterTap,
     required this.onMultiSearchTap,
+    this.onTorrentTap,
     required this.onQueryChanged,
     required this.onSubmitted,
     required this.onClear,
+    this.voiceButton,
   });
+
+  /// Shown inside the field while it is empty, where the clear button sits once
+  /// there is something to clear. Null on the platforms with no recogniser.
+  final Widget? voiceButton;
 
   final double progress;
   final double topPad;
@@ -32,6 +38,11 @@ class SearchStickyHeader extends StatelessWidget {
   final bool showFilter;
   final VoidCallback onFilterTap;
   final VoidCallback onMultiSearchTap;
+
+  /// Jumps to the torrent search with whatever is typed. Null where torrents
+  /// are unavailable (iOS, desktop), so the action is absent rather than
+  /// present and failing.
+  final VoidCallback? onTorrentTap;
   final ValueChanged<String> onQueryChanged;
   final ValueChanged<String> onSubmitted;
   final VoidCallback onClear;
@@ -90,8 +101,27 @@ class SearchStickyHeader extends StatelessWidget {
                   onChanged: onQueryChanged,
                   onSubmitted: onSubmitted,
                   onClear: onClear,
+                  voiceButton: voiceButton,
                 ),
               ),
+              // Only once something is typed. The action needs a query to
+              // carry, so showing it on an empty field would offer a button
+              // that cannot do anything — and it would cost the search field a
+              // permanent 40dp on a phone that has none to spare.
+              if (onTorrentTap != null)
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: controller,
+                  builder: (context, value, _) => value.text.trim().isEmpty
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsetsDirectional.only(start: 10),
+                          child: _HeaderIconButton(
+                            icon: Icons.hub_rounded,
+                            onTap: onTorrentTap!,
+                            tooltip: 'search.try_torrents'.tr(),
+                          ),
+                        ),
+                ),
               const SizedBox(width: 10),
               _HeaderIconButton(
                 icon: Icons.travel_explore_rounded,
@@ -143,7 +173,10 @@ class _SearchField extends StatelessWidget {
     required this.onChanged,
     required this.onSubmitted,
     required this.onClear,
+    this.voiceButton,
   });
+
+  final Widget? voiceButton;
 
   final TextEditingController controller;
   final FocusNode focus;
@@ -174,7 +207,12 @@ class _SearchField extends StatelessWidget {
         suffixIcon: ValueListenableBuilder<TextEditingValue>(
           valueListenable: controller,
           builder: (context, value, _) {
-            if (value.text.isEmpty) return const SizedBox.shrink();
+            // Microphone while there is nothing to clear, clear button once
+            // there is. They never both apply, so the two share one slot rather
+            // than crowding the field with a second icon.
+            if (value.text.isEmpty) {
+              return voiceButton ?? const SizedBox.shrink();
+            }
             const icon = Icon(
               Icons.close_rounded,
               color: AppColors.textHint,

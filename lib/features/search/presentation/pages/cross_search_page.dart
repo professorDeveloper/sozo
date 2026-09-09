@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -539,6 +541,10 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
                 color: color, fontSize: 11, fontWeight: FontWeight.w600)),
       );
 
+  /// Torrent streaming is Android-only — the engine is a native Android
+  /// library. Hidden elsewhere rather than shown and failing.
+  static bool get _torrentsAvailable => !kIsWeb && Platform.isAndroid;
+
   /// Nothing to show — but *why* nothing decides what the user should do next.
   Widget _emptyResults() {
     final c = _controller;
@@ -568,6 +574,16 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
           onPressed: () =>
               _applyScope(const CrossSearchScope.all(), reorder: true),
           child: Text('search.search_all_sources'.tr()),
+        ),
+      // Every catalogue source has now been asked and none of them has it.
+      // That is the point at which torrents stop being a shortcut and start
+      // being the only remaining answer.
+      if (_torrentsAvailable && _textController.text.trim().isNotEmpty)
+        FilledButton.tonalIcon(
+          onPressed: () =>
+              context.push('/torrents', extra: _textController.text.trim()),
+          icon: const Icon(Icons.hub_rounded, size: 18),
+          label: Text('search.try_torrents'.tr()),
         ),
     ];
 
@@ -676,7 +692,7 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
           for (final leg in legs)
             ListTile(
               dense: true,
-              contentPadding: const EdgeInsets.only(left: 16, right: 8),
+              contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
               title: Text(leg.provider.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -707,7 +723,7 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
           for (final name in pending)
             ListTile(
               dense: true,
-              contentPadding: const EdgeInsets.only(left: 16, right: 8),
+              contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
               title: Text(name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

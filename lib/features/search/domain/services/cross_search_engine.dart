@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
+import 'package:dio/dio.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
@@ -7,8 +10,10 @@ import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/search/data/datasources/search_data_source.dart';
+import 'package:soplay/features/search/data/source_health_store.dart';
 import 'package:soplay/features/search/data/model/search_model.dart';
 import 'package:soplay/features/search/domain/entities/cross_search_result.dart';
+import 'package:soplay/features/search/domain/services/search_relevance.dart';
 
 typedef _Leg = ({List<MovieEntity> items, int page, int totalPages});
 
@@ -30,11 +35,16 @@ class CrossSearchEngine {
     required this.jsRuntime,
     required this.dataSource,
     required this.mangayomi,
-  });
+    SourceHealthStore? health,
+  }) : health = health ?? SourceHealthStore();
 
   final JsRuntimeService jsRuntime;
   final SearchDataSource dataSource;
   final MangayomiBridge mangayomi;
+
+  /// What each source did last time. Decides who is asked first and for how
+  /// long — see [SourceHealthStore].
+  final SourceHealthStore health;
 
   static const int defaultConcurrency = 5;
   static const Duration defaultTimeout = Duration(seconds: 10);
@@ -61,7 +71,10 @@ class CrossSearchEngine {
     int concurrency = defaultConcurrency,
     Duration perProviderTimeout = defaultTimeout,
   }) {
-    final tasks = List<ProviderRef>.of(set);
+    // Healthiest first. With a bounded pool, the order is the whole game: a
+    // dead source at the head of the queue occupies a worker for its full
+    // budget while results that were ready in 400ms wait behind it.
+    final tasks = health.order(List<ProviderRef>.of(set), (r) => r.id);
     final controller = StreamController<ProviderSearchResult>();
     var cancelled = false;
     controller.onCancel = () => cancelled = true;
@@ -101,35 +114,84 @@ class CrossSearchEngine {
     Duration timeout = defaultTimeout,
   }) async {
     // Extension hosts get the longer budget — see [channelTimeout].
-    final effective =
-        ref.kind == ProviderKind.channel && timeout < channelTimeout
-            ? channelTimeout
-            : timeout;
+    final full = ref.kind == ProviderKind.channel && timeout < channelTimeout
+        ? channelTimeout
+        : timeout;
+    // A source that broke last time is still asked, on a shorter leash. Enough
+    // for a recovered source to prove it; not enough to hold up the batch.
+    final effective = health.budgetFor(ref.id, full);
+    final started = DateTime.now();
+    Future<void> mark(bool succeeded) => health.record(
+          ref.id,
+          succeeded: succeeded,
+          elapsed: DateTime.now().difference(started),
+          budget: effective,
+        );
     try {
       final leg = await _dispatch(ref, query, page).timeout(effective);
+      unawaited(mark(true));
+      // A source that answered with its front page is reported as having no
+      // match, which it does not. Its rows are worse than none: they are
+      // confident, well-formed cards for a completely different title, and on
+      // the single-source page they are the whole answer.
+      if (SearchRelevance.looksUnsearched(leg.items, query)) {
+        developer.log(
+          '${ref.id} ignored "$query" — dropping ${leg.items.length} rows',
+          name: 'search',
+        );
+        return ProviderSearchResult(
+          provider: ref,
+          items: const [],
+          page: leg.page,
+          totalPages: leg.totalPages,
+          status: ProviderSearchStatus.empty,
+        );
+      }
+      // Ranked, never filtered. A zero-scoring row can still be the best answer
+      // in the set — see [SearchRelevance] — so it sinks rather than vanishing.
+      final items = SearchRelevance.rank(leg.items, query);
       return ProviderSearchResult(
         provider: ref,
-        items: leg.items,
+        items: items,
         page: leg.page,
         totalPages: leg.totalPages,
-        status: leg.items.isEmpty
+        status: items.isEmpty
             ? ProviderSearchStatus.empty
             : ProviderSearchStatus.ok,
       );
     } on TimeoutException {
+      unawaited(mark(false));
       return ProviderSearchResult(
         provider: ref,
         items: const [],
         status: ProviderSearchStatus.timeout,
       );
     } catch (e) {
+      unawaited(mark(false));
       return ProviderSearchResult(
         provider: ref,
         items: const [],
         status: ProviderSearchStatus.error,
-        message: e.toString().replaceFirst('Exception: ', ''),
+        message: describeFailure(e),
       );
     }
+  }
+
+  /// A failed leg's one-line reason.
+  ///
+  /// `DioException.toString()` is a paragraph about `validateStatus` that the
+  /// page used to print under the source's name. The server's own message is
+  /// the useful part when it sent one; the status code is the next best thing.
+  static String describeFailure(Object e) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      final msg = data is Map ? data['message'] : null;
+      if (msg is String && msg.trim().isNotEmpty) return msg.trim();
+      final code = e.response?.statusCode;
+      if (code != null) return 'errors.source_http'.tr(args: ['$code']);
+      return 'errors.network'.tr();
+    }
+    return e.toString().replaceFirst('Exception: ', '');
   }
 
   /// Unwraps an extension host's response.

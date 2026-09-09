@@ -17,13 +17,13 @@ IconData playerEngineIcon(PlayerEngine engine) => switch (engine) {
     };
 
 String playerEngineTitleKey(PlayerEngine engine) => switch (engine) {
-      PlayerEngine.native => 'profile.player_engine_default',
+      PlayerEngine.native => 'profile.player_engine_native',
       PlayerEngine.mediaKit => 'profile.player_engine_media_kit',
       PlayerEngine.external => 'profile.player_engine_external',
     };
 
 String playerEngineDescKey(PlayerEngine engine) => switch (engine) {
-      PlayerEngine.native => 'profile.player_engine_default_desc',
+      PlayerEngine.native => 'profile.player_engine_native_desc',
       PlayerEngine.mediaKit => 'profile.player_engine_media_kit_desc',
       PlayerEngine.external => 'profile.player_engine_external_desc',
     };
@@ -44,6 +44,25 @@ String playerEngineDescKey(PlayerEngine engine) => switch (engine) {
 /// Returns false when the user dismissed the sheet without choosing, so the
 /// caller can back out of playback instead of starting with an engine the user
 /// never confirmed.
+/// Asks for the engine BEFORE the player is opened, when the setting is on.
+///
+/// ## Why this is not inside the player
+///
+/// It used to be, and the sheet then arrived over a player that was already on
+/// screen with nothing decoded — a black rectangle with a question on top,
+/// which reads as the video having failed rather than as a choice being asked
+/// for. Dismissing it then had to close a page the user had just opened.
+///
+/// Asked here, the question is part of pressing Play: answer it and the player
+/// opens on the engine you chose; dismiss it and nothing happened.
+///
+/// Returns false when the user backed out, and the caller must not navigate.
+Future<bool> confirmPlayerEngine(BuildContext context) async {
+  if (!canChoosePlayerEngine) return true;
+  if (!getIt<HiveService>().askEngineOnPlay) return true;
+  return showPlayerEngineSheet(context);
+}
+
 Future<bool> showPlayerEngineSheet(BuildContext context) async {
   if (!canChoosePlayerEngine) return true;
   final hive = getIt<HiveService>();
@@ -135,7 +154,7 @@ Future<bool> showPlayerEngineSheet(BuildContext context) async {
               InkWell(
                 onTap: () => setSheetState(() => dontAskAgain = !dontAskAgain),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 8, 18, 8),
+                  padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 18, 8),
                   child: Row(
                     children: [
                       Checkbox(

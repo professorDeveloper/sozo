@@ -237,7 +237,7 @@ class _NotificationTile extends StatelessWidget {
       key: ValueKey(item.id),
       direction: DismissDirection.endToStart,
       background: Container(
-        alignment: Alignment.centerRight,
+        alignment: AlignmentDirectional.centerEnd,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
           color: AppColors.error,
@@ -412,7 +412,7 @@ class _NotificationTile extends StatelessWidget {
             Container(
               width: 8,
               height: 8,
-              margin: const EdgeInsets.only(top: 6, right: 10),
+              margin: const EdgeInsetsDirectional.only(top: 6, end: 10),
               decoration: BoxDecoration(
                 color: AppColors.primary,
                 shape: BoxShape.circle,

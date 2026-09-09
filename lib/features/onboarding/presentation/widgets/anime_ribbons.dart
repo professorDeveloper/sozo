@@ -116,7 +116,7 @@ class _Ribbon extends StatelessWidget {
       // unbounded — inside the row's constraints it would overflow every frame.
       child: OverflowBox(
         maxWidth: double.infinity,
-        alignment: Alignment.centerLeft,
+        alignment: AlignmentDirectional.centerStart,
         child: AnimatedBuilder(
           animation: controller,
           builder: (context, child) {
@@ -130,7 +130,7 @@ class _Ribbon extends StatelessWidget {
               for (var pass = 0; pass < 2; pass++)
                 for (final cover in covers)
                   Padding(
-                    padding: const EdgeInsets.only(right: _gap),
+                    padding: const EdgeInsetsDirectional.only(end: _gap),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: Image.asset(

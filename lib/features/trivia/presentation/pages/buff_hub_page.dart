@@ -642,7 +642,7 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(13, 18, 16, 14),
+      padding: const EdgeInsetsDirectional.fromSTEB(13, 18, 16, 14),
       child: Material(
         color: Colors.transparent,
         child: InkWell(

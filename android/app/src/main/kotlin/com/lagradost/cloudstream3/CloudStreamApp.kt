@@ -59,8 +59,45 @@ class CloudStreamApp : Application() {
         /** Plugins may install one; nothing in this app reads it. */
         var exceptionHandler: ((Throwable) -> Unit)? = null
 
+        /**
+         * The resumed activity, or null while none is.
+         *
+         * Tracked here because [CommonActivity] hands it to plugins and this app
+         * has no Application subclass of its own to hang the callbacks off.
+         */
+        var currentActivity: Activity? = null
+            private set
+
+        private var lifecycleRegistered = false
+
         fun install(context: Context) {
             Companion.context = context.applicationContext
+            registerActivityTracking(context.applicationContext)
+        }
+
+        private fun registerActivityTracking(context: Context) {
+            if (lifecycleRegistered) return
+            val app = context as? Application ?: return
+            lifecycleRegistered = true
+            app.registerActivityLifecycleCallbacks(
+                object : Application.ActivityLifecycleCallbacks {
+                    override fun onActivityResumed(activity: Activity) {
+                        currentActivity = activity
+                    }
+
+                    override fun onActivityPaused(activity: Activity) {
+                        if (currentActivity === activity) currentActivity = null
+                    }
+
+                    override fun onActivityCreated(a: Activity, b: android.os.Bundle?) = Unit
+                    override fun onActivityStarted(a: Activity) = Unit
+                    override fun onActivityStopped(a: Activity) = Unit
+                    override fun onActivitySaveInstanceState(a: Activity, b: android.os.Bundle) = Unit
+                    override fun onActivityDestroyed(a: Activity) {
+                        if (currentActivity === a) currentActivity = null
+                    }
+                },
+            )
         }
 
         tailrec fun Context.getActivity(): Activity? = when (this) {

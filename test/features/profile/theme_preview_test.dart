@@ -2,90 +2,100 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/core/theme/app_accent.dart';
 import 'package:soplay/core/theme/app_palette.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/profile/presentation/widgets/theme_preview.dart';
 
-/// [ThemePreview] is laid out against a hand-computed 240 × 480 canvas — the
-/// column of fixed heights has to keep adding up to less than that. These pump
-/// it at every accent, both darkness levels, and both the large and thumbnail
-/// sizes, so a future tweak to one child's height cannot silently start
-/// overflowing.
+/// Layout guards for the Appearance page's two colour samples.
+///
+/// Two things about the setup are load-bearing:
+///
+/// **[ThemePreview] takes no palette.** It paints through `AppColors`, which
+/// reads [AppPalette.current] — deliberately, so the preview shows the exact
+/// globals the app's other call sites read rather than a parallel copy. These
+/// tests therefore swap the global, pump, and put it back.
+///
+/// **Text is wider here than in the app.** `flutter test` renders with the
+/// FlutterTest font, where every glyph is a full em square, so a label is
+/// roughly twice the width a real font gives it. That makes these a
+/// deliberately pessimistic width check: anything that fits here fits at any
+/// translation.
 void main() {
-  Future<void> pumpAt(WidgetTester tester, Widget child, Size size) async {
+  final original = AppPalette.current;
+
+  tearDown(() => AppPalette.current = original);
+
+  Future<void> pumpAt(WidgetTester tester, Widget child, double width) async {
     await tester.pumpWidget(
       MediaQuery(
         data: const MediaQueryData(),
         child: Directionality(
           textDirection: TextDirection.ltr,
-          child: Center(
-            child: SizedBox(width: size.width, height: size.height, child: child),
+          child: Theme(
+            data: AppTheme.dark,
+            // The samples show real Material controls — a real switch, a real
+            // ElevatedButton — so they need the ancestors those get in the app.
+            child: Material(
+              color: Colors.transparent,
+              child: Center(
+                child: SizedBox(width: width, child: child),
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  testWidgets('renders at the large size for every accent and darkness',
-      (tester) async {
-    for (final accent in AppAccent.presets) {
-      for (final darkness in AppDarkness.values) {
-        await pumpAt(
-          tester,
-          ThemePreview(
-            palette: AppPalette.resolve(accent: accent, darkness: darkness),
-          ),
-          const Size(240, 480),
-        );
-        expect(
-          tester.takeException(),
-          isNull,
-          reason: '${accent.id} / ${darkness.name} overflowed',
-        );
-      }
+  group('ThemePreview', () {
+    // Appearance hands it the page's content width, so these are a mid-size
+    // phone and a small one rather than an arbitrary canvas.
+    for (final width in [328.0, 288.0]) {
+      testWidgets('fits ${width.toInt()}px wide at every accent and darkness',
+          (tester) async {
+        for (final accent in AppAccent.presets) {
+          for (final darkness in AppDarkness.values) {
+            AppPalette.current =
+                AppPalette.resolve(accent: accent, darkness: darkness);
+            await pumpAt(tester, const ThemePreview(), width);
+            expect(
+              tester.takeException(),
+              isNull,
+              reason: '${accent.id} / ${darkness.name} overflowed at $width',
+            );
+          }
+        }
+      });
     }
+
+    testWidgets('a custom accent renders too', (tester) async {
+      AppPalette.current = AppPalette.resolve(
+        accent: AppAccent.custom(const Color(0xFFFFFF00)),
+        darkness: AppDarkness.black,
+      );
+      await pumpAt(tester, const ThemePreview(), 328);
+      expect(tester.takeException(), isNull);
+    });
   });
 
-  testWidgets('renders as a thumbnail without chrome', (tester) async {
-    // Roughly the width one darkness tile gives it on a small phone.
-    await pumpAt(
-      tester,
-      ThemePreview(
-        palette: AppPalette.resolve(
-          accent: AppAccent.fallback,
-          darkness: AppDarkness.black,
-        ),
-        showChrome: false,
-      ),
-      const Size(75, 150),
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('survives a very narrow box', (tester) async {
-    await pumpAt(
-      tester,
-      ThemePreview(
-        palette: AppPalette.resolve(
-          accent: AppAccent.fallback,
-          darkness: AppDarkness.dark,
-        ),
-        showChrome: false,
-      ),
-      const Size(40, 80),
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('a custom accent renders too', (tester) async {
-    await pumpAt(
-      tester,
-      ThemePreview(
-        palette: AppPalette.resolve(
-          accent: AppAccent.custom(const Color(0xFFFFFF00)),
-          darkness: AppDarkness.black,
-        ),
-      ),
-      const Size(240, 480),
-    );
-    expect(tester.takeException(), isNull);
+  group('DarknessSample', () {
+    // This one really is pinned to 240 by the accent sheet.
+    testWidgets('fits its 240px box at every accent', (tester) async {
+      for (final accent in AppAccent.presets) {
+        for (final darkness in AppDarkness.values) {
+          await pumpAt(
+            tester,
+            DarknessSample(
+              palette: AppPalette.resolve(accent: accent, darkness: darkness),
+            ),
+            240,
+          );
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: '${accent.id} / ${darkness.name} overflowed',
+          );
+        }
+      }
+    });
   });
 }

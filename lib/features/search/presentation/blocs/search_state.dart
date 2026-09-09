@@ -54,6 +54,8 @@ class SearchState extends Equatable {
     this.genresLoading = false,
     this.genresFailed = false,
     this.recent = const [],
+    this.weakResults = false,
+    this.suggestions = const [],
   });
 
   final SearchCriteria criteria;
@@ -75,6 +77,22 @@ class SearchState extends Equatable {
 
   final List<String> recent;
 
+  /// The source answered, but nothing it returned looks like the query.
+  ///
+  /// This is the dead end the search tab used to leave people in. One row
+  /// titled "Learn To Draw APK" for a search for "naruto" is not an error, is
+  /// not empty, and is not an answer — and because it is not empty, the "try
+  /// all sources" way out never appeared. Six other sources had the show.
+  final bool weakResults;
+
+  /// Titles that exist, for the query being typed.
+  ///
+  /// Metadata, not results: these come from AniList and TMDB, which know what
+  /// things are called, rather than from the sources, which know what they can
+  /// play. That is the point — someone who typed "narutoo" needs to be told the
+  /// word before any source can help them.
+  final List<String> suggestions;
+
   bool get hasMore => page < totalPages;
   bool get hasGenres => genres.isNotEmpty;
   bool get isBusy =>
@@ -93,6 +111,8 @@ class SearchState extends Equatable {
     bool? genresLoading,
     bool? genresFailed,
     List<String>? recent,
+    bool? weakResults,
+    List<String>? suggestions,
     bool clearError = false,
   }) =>
       SearchState(
@@ -110,6 +130,8 @@ class SearchState extends Equatable {
         genresLoading: genresLoading ?? this.genresLoading,
         genresFailed: genresFailed ?? this.genresFailed,
         recent: recent ?? this.recent,
+        weakResults: weakResults ?? this.weakResults,
+        suggestions: suggestions ?? this.suggestions,
       );
 
   @override
@@ -126,6 +148,8 @@ class SearchState extends Equatable {
         genresLoading,
         genresFailed,
         recent,
+        weakResults,
+        suggestions,
       ];
 }
 

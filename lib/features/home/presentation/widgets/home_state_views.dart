@@ -35,7 +35,7 @@ class HomeSkeleton extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Padding(
-                    padding: EdgeInsets.fromLTRB(17, 18, 16, 14),
+                    padding: EdgeInsetsDirectional.fromSTEB(17, 18, 16, 14),
                     child: HomeSkeletonBox(width: 80, height: 19, radius: 4),
                   ),
                   SizedBox(
@@ -61,7 +61,7 @@ class HomeSkeleton extends StatelessWidget {
           for (int i = 0; i < 3; i++) ...[
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),
+                padding: const EdgeInsetsDirectional.fromSTEB(17, 18, 20, 14),
                 child: Row(
                   children: [
                     HomeSkeletonBox(
@@ -138,6 +138,97 @@ class _SkeletonCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The catalogue failed, said inline above the rows that still work.
+///
+/// Same words and the same two buttons as [HomeErrorView] — including the
+/// Cloudflare branch, so the decision about when to offer a solve lives in one
+/// place — but as a band rather than a full screen. The full-screen view is
+/// still right when there is genuinely nothing else to show; this is for when
+/// Continue Watching and the downloads are sitting right underneath.
+class HomeErrorStrip extends StatelessWidget {
+  const HomeErrorStrip({super.key, this.message});
+
+  final String? message;
+
+  Future<void> _solveCloudflare(BuildContext context) async {
+    final bloc = context.read<HomeBloc>();
+    final provider = getIt<HiveService>().getCurrentProvider();
+    final ok = await requestCloudflareSolve(context, provider);
+    if (ok) bloc.add(HomeLoad());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showCloudflare = isCloudflareError(message);
+    final detail = message?.trim();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.wifi_off_rounded,
+                  color: AppColors.textSecondary, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'errors.network'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.read<HomeBloc>().add(HomeLoad()),
+                child: Text('general.retry'.tr()),
+              ),
+            ],
+          ),
+          // The real diagnostic, for the same reason the full view keeps it: a
+          // native extension failure is not the same thing as being offline,
+          // and the difference is only visible here.
+          if (!showCloudflare && (detail?.isNotEmpty ?? false))
+            Padding(
+              padding: const EdgeInsets.only(left: 28, top: 2),
+              child: SelectableText(
+                detail!,
+                maxLines: 2,
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 11,
+                  height: 1.3,
+                ),
+              ),
+            ),
+          if (showCloudflare)
+            Padding(
+              padding: const EdgeInsets.only(left: 28, top: 6),
+              child: OutlinedButton.icon(
+                onPressed: () => _solveCloudflare(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textPrimary,
+                  side: BorderSide(color: AppColors.border),
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.shield_outlined, size: 16),
+                label: Text('cloudflare.solve'.tr()),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -1,0 +1,79 @@
+name: CI
+
+# Runs on every push and pull request. There was no CI here at all before, so
+# `flutter analyze` and the test suite only ever ran on whichever machine
+# happened to run them — which means a PR from somebody else arrived with no
+# evidence at all that it built.
+
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['v*']      # a tag push is a release; release.yml owns that
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # `.env` is declared as a pubspec asset, so its absence fails the build
+      # before a single line is analysed. An empty file is enough here: every
+      # key in it is optional and the code degrades to the feature being off.
+      - name: Create an empty .env
+        run: touch .env
+
+      - run: flutter --version
+      - run: flutter pub get
+
+      # Advisory, not a gate. 357 of 640 files are currently unformatted, so
+      # turning this red would either block every PR or force a reformat commit
+      # that rewrites `git blame` across the whole repository. Left reporting
+      # only until somebody chooses to do that deliberately, in its own commit;
+      # then drop `|| true` and this comment.
+      - name: Formatting (advisory)
+        run: dart format --output=none --set-exit-if-changed lib/ tool/ || true
+
+      - name: Analyzer
+        run: flutter analyze --no-fatal-infos
+
+      # Runs before the tests on purpose: a missing translation key is the one
+      # failure that reaches users looking like a rendering bug rather than a
+      # crash, and it costs a second to catch.
+      - name: Translation keys
+        run: dart run tool/check_translations.dart
+
+      - name: Tests
+        run: flutter test --reporter expanded
+
+  # A real compile, because `flutter analyze` does not catch a broken Gradle
+  # file, a missing native symbol or a plugin that fails to build — and those
+  # are exactly what a dependency bump breaks.
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: touch .env
+      - run: flutter pub get
+      # Debug, not release: this proves the tree compiles. Signing a release
+      # needs secrets a fork's pull request cannot have, and gating CI on them
+      # would mean no outside contribution could ever go green.
+      - run: flutter build apk --debug

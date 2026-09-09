@@ -45,7 +45,7 @@ class _BackendOutageBannerState extends State<BackendOutageBanner> {
           color: Colors.transparent,
           child: Container(
             margin: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-            padding: const EdgeInsets.fromLTRB(12, 9, 6, 9),
+            padding: const EdgeInsetsDirectional.fromSTEB(12, 9, 6, 9),
             decoration: BoxDecoration(
               color: Colors.orange.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(12),

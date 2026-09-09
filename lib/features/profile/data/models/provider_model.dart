@@ -14,6 +14,7 @@ class ProviderModel extends ProviderEntity {
     super.browseOnly,
     super.browseOnlyReason,
     super.nsfw,
+    super.lang,
     super.extractor,
   });
 
@@ -42,6 +43,11 @@ class ProviderModel extends ProviderEntity {
       browseOnly: json['browseOnly'] == true,
       browseOnlyReason: (json['browseOnlyReason'] as String?)?.trim(),
       nsfw: json['nsfw'] == true,
+      // Every host already sends this — AniyomiHost.providersJson,
+      // MangaHost.providersJson and MangayomiBridge.listProviders all put a
+      // `lang` in — and until now it was parsed by nobody, so the picker had no
+      // idea any source had a language at all.
+      lang: (json['lang'] as String?)?.trim() ?? '',
       extractor: _parseExtractor(json['extractor']),
     );
   }
@@ -59,6 +65,7 @@ class ProviderModel extends ProviderEntity {
     'browseOnly': browseOnly,
     if (browseOnlyReason != null) 'browseOnlyReason': browseOnlyReason,
     'nsfw': nsfw,
+    if (lang.isNotEmpty) 'lang': lang,
     if (extractor != null)
       'extractor': {
         'name': extractor!.name,

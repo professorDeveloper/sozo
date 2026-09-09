@@ -1,5 +1,6 @@
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
+import 'package:soplay/features/search/domain/services/search_relevance.dart';
 
 /// How a provider is searched. Decides the dispatch path in [CrossSearchEngine].
 enum ProviderKind {
@@ -137,7 +138,17 @@ String normalizedTitleKey(String title) {
 /// Two hits merge when their [normalizedTitleKey] matches and their years are
 /// compatible — equal, or missing on at least one side, because extension hosts
 /// almost never populate a year.
-List<MergedSearchTitle> mergeSearchResults(List<ProviderSearchResult> legs) {
+///
+/// [query] decides the order. Without it the list was sorted by how many
+/// sources carried a title, which sounds like popularity and is not: two
+/// sources that both pad their results with the same unrelated film outranked
+/// the one source holding an exact match. Relevance leads, and the source count
+/// breaks ties among titles that answer the query equally well — which is where
+/// it was always a good signal.
+List<MergedSearchTitle> mergeSearchResults(
+  List<ProviderSearchResult> legs, {
+  String query = '',
+}) {
   final groups = <String, List<MergedSearchTitle>>{};
   final ordered = <MergedSearchTitle>[];
 
@@ -165,9 +176,29 @@ List<MergedSearchTitle> mergeSearchResults(List<ProviderSearchResult> legs) {
 
   // Ties keep arrival order: a rail that reorders under the user's finger is
   // how a tap lands on a different title than the one that was under it.
+  //
+  // A group is scored by its best hit, not its first. Sources title the same
+  // show differently — "Naruto Shippuden" on one, "Naruto: Shippuuden" on
+  // another — and the merged card should be ranked by whichever of those the
+  // query actually matched.
   final indexed = [
-    for (var i = 0; i < ordered.length; i++) (index: i, group: ordered[i]),
+    for (var i = 0; i < ordered.length; i++)
+      (
+        index: i,
+        group: ordered[i],
+        score: query.isEmpty
+            ? 0.0
+            : ordered[i].hits.fold<double>(
+                  0,
+                  (best, h) {
+                    final s = SearchRelevance.score(h.item.title, query);
+                    return s > best ? s : best;
+                  },
+                ),
+      ),
   ]..sort((a, b) {
+      final byScore = b.score.compareTo(a.score);
+      if (byScore != 0) return byScore;
       final byCount = b.group.sourceCount.compareTo(a.group.sourceCount);
       return byCount != 0 ? byCount : a.index.compareTo(b.index);
     });

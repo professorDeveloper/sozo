@@ -112,18 +112,23 @@ class _SampleSectionHead extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 9),
-        Text(
-          'home.continue_watching'.tr(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            height: 1.1,
+        // Expanded, not a bare Text followed by a Spacer: a Row hands its
+        // non-flex children unbounded width, so `maxLines`/`ellipsis` above
+        // never engage and a long translation overflows the header instead of
+        // truncating. Filling the gap here is also what the Spacer was doing.
+        Expanded(
+          child: Text(
+            'home.continue_watching'.tr(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              height: 1.1,
+            ),
           ),
         ),
-        const Spacer(),
         const Icon(
           Icons.chevron_right_rounded,
           color: AppColors.textHint,
@@ -163,23 +168,34 @@ class _SampleCard extends StatelessWidget {
           _SampleRow(
             icon: Icons.play_circle_outline_rounded,
             title: 'profile.section_player'.tr(),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'general.done'.tr(),
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
+            // Capped: the row's title is the flexible child, so an unbounded
+            // trailing is the one thing here that can push the row past its
+            // width. A long translation of this value label would otherwise
+            // overflow rather than truncate.
+            trailing: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 120),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      'general.done'.tr(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                ),
-                Icon(
-                  Icons.arrow_drop_down_rounded,
-                  color: AppColors.primary,
-                  size: 22,
-                ),
-              ],
+                  Icon(
+                    Icons.arrow_drop_down_rounded,
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -204,7 +220,7 @@ class _SampleRow extends StatelessWidget {
     return Padding(
       // The metrics from settings_tiles.dart, so the sample row and the real
       // rows under it sit on one grid.
-      padding: const EdgeInsets.fromLTRB(14, 11, 12, 11),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 11, 12, 11),
       child: Row(
         children: [
           Container(

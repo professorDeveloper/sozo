@@ -520,7 +520,7 @@ Future<void> _pickSource(BuildContext context, String title) async {
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
             child: Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: Text(
                 'anilist.search_in_source'.tr(),
                 style: const TextStyle(

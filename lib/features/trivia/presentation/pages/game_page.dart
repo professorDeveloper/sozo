@@ -243,7 +243,7 @@ class _GameViewState extends State<_GameView> {
             const _BottomScrim(),
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 12, 0),
+                padding: const EdgeInsetsDirectional.fromSTEB(10, 8, 12, 0),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [

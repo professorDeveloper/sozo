@@ -179,7 +179,7 @@ class JsRuntimeService {
       // cross-search legs can be in flight at once and their network waits
       // overlap instead of queueing — which is what made searching several
       // sources feel frozen.
-      final result = await _controller!.callAsyncJavaScript(
+      var result = await _controller!.callAsyncJavaScript(
         functionBody: r'''
             const __registry = (globalThis.__sozo || {}).providers || {};
             const __p = __registry[providerName];
@@ -199,6 +199,44 @@ class JsRuntimeService {
           'fnArgs': args,
         },
       ).timeout(kJsCallTimeout);
+
+      // Solve a Cloudflare challenge here rather than where it was met.
+      //
+      // The extractor's fetch runs inside a JavaScript handler of this same
+      // WebView, and that handler's reply shares a platform channel with the
+      // headless WebView a solve has to create — so solving down there wedged
+      // the two against each other and the call burned its full timeout on a
+      // challenge that had already passed. Out here the handler has already
+      // returned, the channel is free, and the retry carries the clearance.
+      //
+      // Once only: if the host challenges the replay too, that is a refusal to
+      // report, not a loop to spin in.
+      if (dartFetch.hasPendingCfChallenge) {
+        if (await dartFetch.solvePendingCfChallenge()) {
+          JsLog.info(tag, 'retrying $fn with a fresh clearance');
+          dartFetch.clearBlock();
+          result = await _controller!.callAsyncJavaScript(
+            functionBody: r'''
+                const __registry = (globalThis.__sozo || {}).providers || {};
+                const __p = __registry[providerName];
+                if (!__p) {
+                  throw new Error('Provider "' + providerName + '" is not loaded');
+                }
+                const __fn = __p[fnName];
+                if (typeof __fn !== 'function') {
+                  throw new Error('Provider.' + fnName + ' is not implemented');
+                }
+                const __r = await __fn.apply(__p, fnArgs);
+                return __r === undefined ? null : __r;
+              ''',
+            arguments: {
+              'providerName': extractor.name,
+              'fnName': fn,
+              'fnArgs': args,
+            },
+          ).timeout(kJsCallTimeout);
+        }
+      }
 
       if (result == null) {
         JsLog.err(tag, '$fn returned null result');

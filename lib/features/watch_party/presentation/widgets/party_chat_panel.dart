@@ -146,7 +146,7 @@ class _ChatRow extends StatelessWidget {
             : '—';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 6, 12, 6),
+      padding: const EdgeInsetsDirectional.fromSTEB(4, 6, 12, 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -216,7 +216,7 @@ class _Composer extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppColors.border, width: 0.6),
         ),
-        padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+        padding: const EdgeInsetsDirectional.fromSTEB(12, 4, 4, 4),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [

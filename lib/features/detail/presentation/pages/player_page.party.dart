@@ -59,11 +59,11 @@ extension _PlayerParty on _PlayerPageState {
     // Both timers run and self-guard by role, so host migration is handled
     // without tearing anything down.
     _partyHeartbeat = Timer.periodic(
-      const Duration(seconds: 3),
+      PartyRules.heartbeatPeriod,
       (_) => _onHeartbeatTick(),
     );
     _partyDrift = Timer.periodic(
-      const Duration(seconds: 2),
+      PartyRules.driftPeriod,
       (_) => _onDriftTick(),
     );
     // As host, announce what this player is showing so guests can resolve it on
@@ -94,8 +94,12 @@ extension _PlayerParty on _PlayerPageState {
     // Rebuild ONLY on visible transitions (join/leave or host migration) — never
     // on the frequent playback syncs, which also fire this notifier.
     final canControl = _canPartyControl;
-    if (_partyBindingActive != wasActive ||
-        canControl != _partyControlSnapshot) {
+    if (PartyRules.needsRepaint(
+      wasBound: wasActive,
+      isBound: _partyBindingActive,
+      hadControl: _partyControlSnapshot,
+      hasControl: canControl,
+    )) {
       _partyControlSnapshot = canControl;
       setState(() {});
     }
@@ -109,7 +113,7 @@ extension _PlayerParty on _PlayerPageState {
   /// each device resolves its own from this. For a serial it is the current
   /// episode; for a movie it is the retained args mediaRef.
   PartyContent _currentPartyContent() {
-    final eps = widget.args.episodes;
+    final eps = _episodes;
     final ep =
         (eps.isNotEmpty && _episodeIndex >= 0 && _episodeIndex < eps.length)
         ? eps[_episodeIndex]
@@ -159,32 +163,33 @@ extension _PlayerParty on _PlayerPageState {
     return Positioned.fill(child: PartyReactionsOverlay(service: _party));
   }
 
+  bool get _followsParty =>
+      PartyRules.followsRemote(inParty: _inParty, isHost: _isPartyHost);
+
   void _onPartySync(PartyPlayback pb) {
     _lastPartyPlayback = pb;
-    if (_inParty && !_isPartyHost) {
-      unawaited(_applyRemoteSync(pb));
-    }
+    if (_followsParty) unawaited(_applyRemoteSync(pb));
   }
 
   void _onPartyContent(PartyContent content) {
-    if (_inParty && !_isPartyHost) {
-      unawaited(_applyRemoteContent(content));
-    }
+    if (_followsParty) unawaited(_applyRemoteContent(content));
   }
 
   void _onHeartbeatTick() {
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
-    if (_inParty && _isPartyHost && !_isLive) {
+    if (PartyRules.sendsHeartbeat(
+      inParty: _inParty,
+      isHost: _isPartyHost,
+      isLive: _isLive,
+    )) {
       _party.sendHeartbeat(c.value.position.inMilliseconds / 1000.0);
     }
   }
 
   void _onDriftTick() {
     final pb = _lastPartyPlayback;
-    if (pb != null && _inParty && !_isPartyHost) {
-      unawaited(_applyRemoteSync(pb));
-    }
+    if (pb != null && _followsParty) unawaited(_applyRemoteSync(pb));
   }
 
   // ---------------------------------------------------------------------------
@@ -195,7 +200,11 @@ extension _PlayerParty on _PlayerPageState {
   /// is in a party but not allowed to control it. Never blocks while a remote
   /// sync is being applied.
   bool _partyBlockLocal() {
-    if (_inParty && !_canPartyControl && !_applyingRemote) {
+    if (PartyRules.blocksLocalControl(
+      inParty: _inParty,
+      canControl: _canPartyControl,
+      applyingRemote: _applyingRemote,
+    )) {
       _partyToast('watch_party.only_host_controls');
       return true;
     }
@@ -205,7 +214,11 @@ extension _PlayerParty on _PlayerPageState {
   /// Episode navigation changes *what* is being watched, so it is host-only —
   /// even for a guest that would otherwise be allowed to control playback.
   bool _partyBlockEpisodeNav() {
-    if (_inParty && !_isPartyHost && !_applyingRemote) {
+    if (PartyRules.blocksEpisodeNav(
+      inParty: _inParty,
+      isHost: _isPartyHost,
+      applyingRemote: _applyingRemote,
+    )) {
       _partyToast('watch_party.only_host_controls');
       return true;
     }
@@ -220,7 +233,13 @@ extension _PlayerParty on _PlayerPageState {
   /// Emits a `party:control` — no-op unless we are in a party, allowed to
   /// control it, and not mid-apply of a remote sync (the feedback-loop guard).
   void _partyEmit(String action, {double? positionSec, double? rate}) {
-    if (!_inParty || !_canPartyControl || _applyingRemote) return;
+    if (!PartyRules.emitsControl(
+      inParty: _inParty,
+      canControl: _canPartyControl,
+      applyingRemote: _applyingRemote,
+    )) {
+      return;
+    }
     _party.sendControl(action: action, positionSec: positionSec, rate: rate);
   }
 
@@ -267,21 +286,28 @@ extension _PlayerParty on _PlayerPageState {
     try {
       final expected = pb.expectedPositionAt(DateTime.now());
       final actual = c.value.position.inMilliseconds / 1000.0;
-      if ((actual - expected).abs() > 1.5) {
+      if (PartyRules.needsSeek(actual, expected)) {
         await c.seekTo(Duration(milliseconds: (expected * 1000).round()));
       }
-      if ((pb.rate - _playbackSpeed).abs() > 0.01) {
-        _playbackSpeed = pb.rate;
+      if (PartyRules.needsRateChange(_playbackSpeed, pb.rate)) {
+        // setState, not a bare assignment: the bottom bar prints _playbackSpeed
+        // as the Speed button's label. Without a rebuild the host could put the
+        // room on 2x and every guest's engine would follow while their button
+        // went on saying 1x — and the next tap would then offer to "change" to
+        // the speed already playing.
+        setState(() => _playbackSpeed = pb.rate);
         await c.setPlaybackSpeed(pb.rate);
       }
-      // Toggle ONLY on an actual state mismatch. The drift timer re-applies the
-      // last sync every 2s; calling play()/pause() unconditionally each tick
-      // thrashes the native player and shows up as micro-stutter / a jumpy
-      // play-pause feel.
-      if (pb.isPlaying && !c.value.isPlaying) {
-        await c.play();
-      } else if (!pb.isPlaying && c.value.isPlaying) {
-        await c.pause();
+      switch (PartyRules.transportFor(
+        remoteIsPlaying: pb.isPlaying,
+        localIsPlaying: c.value.isPlaying,
+      )) {
+        case PartyTransport.play:
+          await c.play();
+        case PartyTransport.pause:
+          await c.pause();
+        case PartyTransport.leave:
+          break;
       }
     } finally {
       _applyingRemote = false;
@@ -339,19 +365,35 @@ extension _PlayerParty on _PlayerPageState {
     switch (result) {
       case Success(:final value):
         final sources = value.videoSources;
-        final useSources = sources.isNotEmpty;
-        final url = useSources ? sources[0].videoUrl : value.videoUrl;
+        // A guest took `sources[0]`, so a party could be watching an embed
+        // page while the host watched the stream. Same ladder as everywhere.
+        _resetLadder();
+        final pickedIdx = _ladder(
+              sources,
+              hasDirective: value.extractor != null,
+            ).initialPick() ??
+            -1;
+        final useSources = pickedIdx >= 0;
+        final url = useSources ? sources[pickedIdx].videoUrl : value.videoUrl;
         setState(() {
           _stage = _LoadingStage.loading;
           _serverLangs = value.languagesAvailable;
           _currentLang = content.lang ?? value.activeLang ?? _currentLang;
           _videoSources = useSources ? List.of(sources) : const [];
-          _currentSourceIndex = useSources ? 0 : -1;
-          _currentQuality = useSources ? sources[0].quality : null;
-          _autoFallbackUsed = false;
+          _currentSourceIndex = pickedIdx;
+          _currentQuality = useSources ? sources[pickedIdx].quality : null;
+          // The ladder above was told a directive exists; _initializeWith
+          // reads THIS to decide whether to sniff. Leaving it stale meant the
+          // pick assumed a sniff that never ran, and an embed page went
+          // straight to the decoder.
+          _extractorConfig = value.extractor;
           _subtitles = value.subtitles;
           _activeSubtitleIndex = -1;
           _captionFile = null;
+          // The title changed under the guest; the old one's second track
+          // would otherwise keep rendering over the new video.
+          _secondarySubtitleIndex = -1;
+          _secondaryCaptionFile = null;
         });
         unawaited(_loadThumbnails(value.thumbnails));
         await _initializeWith(

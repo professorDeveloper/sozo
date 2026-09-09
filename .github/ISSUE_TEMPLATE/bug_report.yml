@@ -1,0 +1,66 @@
+name: 🐛 Xato haqida xabar
+description: Ilovada biror narsa noto'g'ri ishlayapti
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Manba/provider muammosi bo'lsa — **🔌 Manba ishlamayapti** shablonidan
+        foydalaning, u aniqroq savollar beradi.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: Nima bo'ldi?
+      description: Kutgan narsangiz va aslida bo'lgan narsa
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Qanday takrorlash mumkin?
+      placeholder: |
+        1. Bosh sahifani ochdim
+        2. "..." ni bosdim
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: media
+    attributes:
+      label: Skrinshot yoki video
+      description: Ixtiyoriy, lekin muammoni bir necha marta tez hal qiladi
+
+  - type: input
+    id: version
+    attributes:
+      label: Sozo versiyasi
+      description: "Profil sahifasining pastida yozilgan"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platforma
+      options: [Android, Android TV, iOS, Windows, Linux, macOS]
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Qurilma va OS versiyasi
+      placeholder: "Pixel 7, Android 15"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Pleyer dvigateli (agar pleyerga tegishli bo'lsa)
+      description: "Profil → Pleyer sozlamalari"
+      options: ["Bilmayman / tegishli emas", "Native (standart)", "media_kit"]

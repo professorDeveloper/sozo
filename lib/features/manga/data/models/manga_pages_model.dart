@@ -2,7 +2,11 @@ import '../../domain/entities/manga_page_entity.dart';
 import '../../domain/entities/manga_pages_entity.dart';
 
 class MangaPagesModel extends MangaPagesEntity {
-  const MangaPagesModel({required super.pages, required super.headers});
+  const MangaPagesModel({
+    required super.pages,
+    required super.headers,
+    super.html,
+  });
 
   factory MangaPagesModel.fromJson(Map<String, dynamic> json) {
     final pages = <MangaPageEntity>[];
@@ -27,6 +31,10 @@ class MangaPagesModel extends MangaPagesEntity {
         if (v != null) headers[k.toString()] = v.toString();
       });
     }
-    return MangaPagesModel(pages: pages, headers: headers);
+    return MangaPagesModel(
+      pages: pages,
+      headers: headers,
+      html: json['html'] as String?,
+    );
   }
 }

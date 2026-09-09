@@ -590,7 +590,7 @@ class _ActorTopBar extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: EdgeInsets.only(top: topPad + 6, left: 4, right: 8),
+          padding: EdgeInsetsDirectional.only(top: topPad + 6, start: 4, end: 8),
           child: SizedBox(
             height: kToolbarHeight - 12,
             child: Row(
@@ -599,7 +599,7 @@ class _ActorTopBar extends StatelessWidget {
                 // can come out pale, which left a bare white glyph with nothing
                 // to sit on. The disc keeps it readable whatever the palette.
                 Padding(
-                  padding: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsetsDirectional.only(start: 4),
                   child: Material(
                     color: Colors.black.withValues(alpha: 0.42 * (1 - solid)),
                     shape: const CircleBorder(),

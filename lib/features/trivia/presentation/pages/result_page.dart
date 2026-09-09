@@ -112,7 +112,7 @@ class _ResultPageState extends State<ResultPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: AlignmentDirectional.centerStart,
                     child: IconButton(
                       onPressed: () => context.pop(),
                       icon: const Icon(CupertinoIcons.xmark,

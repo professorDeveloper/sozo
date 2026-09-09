@@ -120,6 +120,12 @@ class _TabCustomizerSheetState extends State<_TabCustomizerSheet> {
             ],
           ),
         ),
+        // The bar itself, as it will look. A list of names says what the order
+        // is; it does not say whether six tabs still fit, whether two icons
+        // next to each other are tellable apart, or what the thing you are
+        // editing actually looks like — which is the only question anybody
+        // opens this sheet with.
+        _NavBarPreview(tabs: _draft),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -134,11 +140,18 @@ class _TabCustomizerSheetState extends State<_TabCustomizerSheet> {
                     Material(color: Colors.transparent, child: child),
                 children: [
                   for (var i = 0; i < _draft.length; i++)
-                    _PinnedTile(
+                    // Long-press anywhere on the row picks it up, as well as
+                    // the handle. The handle alone is a small target that has
+                    // to be found first, and on a list whose whole purpose is
+                    // reordering, the row IS the thing you want to grab.
+                    ReorderableDelayedDragStartListener(
                       key: ValueKey(_draft[i].name),
-                      def: kTabRegistry[_draft[i]]!,
                       index: i,
-                      onRemove: () => _unpin(_draft[i]),
+                      child: _PinnedTile(
+                        def: kTabRegistry[_draft[i]]!,
+                        index: i,
+                        onRemove: () => _unpin(_draft[i]),
+                      ),
                     ),
                 ],
               ),
@@ -178,9 +191,117 @@ class _TabCustomizerSheetState extends State<_TabCustomizerSheet> {
   );
 }
 
+/// A live drawing of the bottom bar the draft would produce.
+///
+/// Deliberately the real icons and the real labels at the real size, so the
+/// crowding at six tabs is visible here rather than discovered after saving.
+/// The first tab is drawn selected because a bar with nothing active does not
+/// look like this app's bar, and the accent is what makes it recognisable.
+class _NavBarPreview extends StatelessWidget {
+  const _NavBarPreview({required this.tabs});
+
+  final List<TabId> tabs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+        // Laid out by position rather than by a Row, so a tab that moves
+        // SLIDES to its new place. A Row rebuilt in a new order snaps, and at
+        // this size a snap is indistinguishable from the bar being replaced —
+        // which is the difference between following the change and losing
+        // track of what moved where.
+        child: SizedBox(
+          height: 46,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final slot = tabs.isEmpty ? 0.0 : constraints.maxWidth / tabs.length;
+              return Stack(
+                children: [
+                  for (var i = 0; i < tabs.length; i++)
+                    AnimatedPositioned(
+                      // Keyed on the tab, not the slot, so Flutter animates the
+                      // same widget to a new place instead of fading one out
+                      // and another in.
+                      key: ValueKey(tabs[i].name),
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      left: i * slot,
+                      top: 0,
+                      width: slot,
+                      child: _PreviewTab(
+                        def: kTabRegistry[tabs[i]]!,
+                        active: i == 0,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PreviewTab extends StatelessWidget {
+  const _PreviewTab({required this.def, required this.active});
+
+  final AppTabDef def;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? AppColors.primary : AppColors.textHint;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Eased, because the tab that becomes first changes colour at the
+          // same moment every tab is sliding — a hard colour swap in the middle
+          // of that motion reads as a flicker.
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              active ? def.activeIcon : def.icon,
+              key: ValueKey(active),
+              size: 21,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
+            style: TextStyle(
+              color: color,
+              fontSize: 9.5,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+            ),
+            child: Text(
+            def.labelKey.tr(),
+            maxLines: 1,
+            // Ellipsis rather than shrinking: a label that gets smaller as
+            // tabs are added hides the crowding this preview exists to show.
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PinnedTile extends StatelessWidget {
   const _PinnedTile({
-    super.key,
     required this.def,
     required this.index,
     required this.onRemove,
@@ -245,7 +366,7 @@ class _PinnedTile extends StatelessWidget {
           ReorderableDragStartListener(
             index: index,
             child: const Padding(
-              padding: EdgeInsets.only(left: 4),
+              padding: EdgeInsetsDirectional.only(start: 4),
               child: Icon(
                 Icons.drag_handle_rounded,
                 color: AppColors.textHint,

@@ -134,7 +134,7 @@ class _CommentComposeState extends State<CommentCompose> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.border, width: 0.6),
               ),
-              padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+              padding: const EdgeInsetsDirectional.fromSTEB(12, 4, 4, 4),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [

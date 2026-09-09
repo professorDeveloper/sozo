@@ -23,6 +23,7 @@ class DetailModel extends DetailEntity {
     required super.isFavorited,
     required super.screenshots,
     required super.related,
+    super.trailerYoutubeId,
   });
 
   factory DetailModel.fromJson(Map<String, dynamic> json) {
@@ -62,7 +63,24 @@ class DetailModel extends DetailEntity {
       isFavorited: _nullableBool(json['isFavorited']),
       screenshots: screenshotList,
       related: relatedList,
+      trailerYoutubeId: _trailerId(json['extra']),
     );
+  }
+
+  /// `extra.trailer.youtubeId`, defended at every step.
+  ///
+  /// `extra` is a free-form bag that differs per provider: most send nothing,
+  /// the TMDB-backed ones send a map, and a provider is free to send a string
+  /// or a list there tomorrow. A cast that assumes any of it would turn "this
+  /// source has no trailer" into a crash on the detail page.
+  static String? _trailerId(Object? extra) {
+    if (extra is! Map) return null;
+    final trailer = extra['trailer'];
+    if (trailer is! Map) return null;
+    final id = trailer['youtubeId'];
+    if (id is! String) return null;
+    final trimmed = id.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   static bool? _nullableBool(Object? value) {

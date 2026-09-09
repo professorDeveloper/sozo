@@ -259,7 +259,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
                 child: Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: Text(
                     'remote.pick_device'.tr(),
                     style: const TextStyle(

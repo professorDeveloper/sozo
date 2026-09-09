@@ -287,7 +287,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.border, width: 0.6),
         ),
-        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+        padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 6, 10),
         child: Row(
           children: [
             Expanded(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -97,10 +98,10 @@ class _LiveTvSectionState extends State<LiveTvSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
+          HomeSectionTapTarget(
             onTap: () => context.push('/live-tv'),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),
+              padding: const EdgeInsetsDirectional.fromSTEB(17, 18, 20, 14),
               child: Row(
                 children: [
                   const Icon(

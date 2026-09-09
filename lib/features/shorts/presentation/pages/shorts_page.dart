@@ -296,9 +296,9 @@ class _ShortsViewState extends State<_ShortsView>
                                       stops: const [0.0, 0.5, 1.0],
                                     ),
                                   ),
-                                  padding: EdgeInsets.only(
+                                  padding: EdgeInsetsDirectional.only(
                                     top: topPad + 12,
-                                    left: 16,
+                                    start: 16,
                                   ),
                                   alignment: Alignment.topLeft,
                                   child: Text(

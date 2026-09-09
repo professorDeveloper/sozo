@@ -85,6 +85,14 @@ class BridgeServer(
         fun p(k: String): String = q[k]?.firstOrNull().orEmpty()
         fun pi(k: String): Int = p(k).toIntOrNull() ?: 1
 
+        // The caller's source-language row, `languages=fr,es`. Absent is the
+        // no-preference default and collapses same-named sources exactly as
+        // this always did — the TV app can adopt the parameter whenever it
+        // grows a language picker of its own, and until then nothing changes
+        // for it.
+        fun langs(): List<String> =
+            p("languages").split(',').map { it.trim() }.filter { it.isNotEmpty() }
+
         val out: String? = when (sys) {
             "cloudstream" -> when (m) {
                 "listProviders" -> filterProviders(cs().providersJson())
@@ -102,8 +110,8 @@ class BridgeServer(
                 else -> null
             }
             "aniyomi" -> when (m) {
-                "listProviders" -> filterProviders(ani().providersJson())
-                "ensureLoaded" -> { aniRepo().ensureLoaded(); filterProviders(ani().providersJson()) }
+                "listProviders" -> filterProviders(ani().providersJson(langs()))
+                "ensureLoaded" -> { aniRepo().ensureLoaded(); filterProviders(ani().providersJson(langs())) }
                 "listRepos" -> aniRepo().listReposJson()
                 "addRepo" -> aniRepo().addRepo(p("url")) { _, _ -> }.toString()
                 "removeRepo" -> aniRepo().removeRepo(p("url"))
@@ -117,8 +125,8 @@ class BridgeServer(
                 else -> null
             }
             "manga" -> when (m) {
-                "listProviders" -> filterProviders(mn().providersJson())
-                "ensureLoaded" -> { mnRepo().ensureLoaded(); filterProviders(mn().providersJson()) }
+                "listProviders" -> filterProviders(mn().providersJson(langs()))
+                "ensureLoaded" -> { mnRepo().ensureLoaded(); filterProviders(mn().providersJson(langs())) }
                 "listRepos" -> mnRepo().listReposJson()
                 "addRepo" -> mnRepo().addRepo(p("url")) { _, _ -> }.toString()
                 "removeRepo" -> mnRepo().removeRepo(p("url"))

@@ -1,8 +1,24 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Casting. Discovery is mDNS over multicast, which the radio drops by
+         default to save power, and the receiver fetches the media from this
+         phone over the local network. Android 12+ additionally gates seeing
+         nearby devices behind its own permission; neverForLocation says what is
+         true, that this is about a television and not about where anyone is. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <!-- Voice search. The <queries> entry below is what makes it work on
+         API 30+: package visibility hides the speech recogniser otherwise, and
+         the failure is silent — the plugin simply reports no recogniser. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
@@ -22,6 +38,12 @@
          android.hardware.fingerprint feature. No TV has a fingerprint reader,
          so neutralise it explicitly. (USE_BIOMETRIC implies nothing.) -->
     <uses-feature android:name="android.hardware.fingerprint" android:required="false"/>
+
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
+    </queries>
 
     <application
         android:label="Sozo"
@@ -167,6 +189,14 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="video/*" />
+        </intent>
+        <!-- "Open in torrent app" on a search result. Same package-visibility
+             rule as the video handoff above: without this the magnet intent
+             resolves to nothing on Android 11+ even with LibreTorrent or Flud
+             installed, and the menu item would quietly do nothing. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="magnet" />
         </intent>
     </queries>
 </manifest>

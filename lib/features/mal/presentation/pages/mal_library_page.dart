@@ -301,7 +301,7 @@ class _EntryTile extends StatelessWidget {
               ),
               if (busy)
                 const Padding(
-                  padding: EdgeInsets.only(left: 8, top: 4),
+                  padding: EdgeInsetsDirectional.only(start: 8, top: 4),
                   child: SizedBox(
                     width: 16,
                     height: 16,

@@ -36,6 +36,18 @@ class ProviderEntity {
   final String? browseOnlyReason;
 
   final bool nsfw;
+
+  /// Source language, as the ecosystem reports it: an ISO code (`en`, `fr`,
+  /// `pt-BR`) or the literal `all` for a source that is not language-specific.
+  /// Empty when the ecosystem does not say — CloudStream's lazy metadata is the
+  /// current case.
+  ///
+  /// Carried on the entity rather than looked up on demand because it is the
+  /// only thing that tells a French user which of the 252 installed anime
+  /// sources are theirs. It used to be emitted by every host and then dropped
+  /// on the floor in `ProviderModel.fromJson`.
+  final String lang;
+
   final ExtractorRef? extractor;
 
   const ProviderEntity({
@@ -51,8 +63,15 @@ class ProviderEntity {
     this.browseOnly = false,
     this.browseOnlyReason,
     this.nsfw = false,
+    this.lang = '',
     this.extractor,
   });
+
+  /// Normalised for comparison: `pt-BR` and `pt-br` are the same language, and
+  /// a source tagged `all` belongs to every selection rather than to none.
+  String get langKey => lang.trim().toLowerCase();
+
+  bool get isAllLanguages => langKey == 'all';
 
   /// Whether this provider can serve content with the backend unreachable.
   ///

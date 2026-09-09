@@ -144,6 +144,32 @@ class HistorySyncService {
     await _state.delete(_tombstonesKey);
   }
 
+  /// Signing out takes the personal record off the screen with it.
+  ///
+  /// The rows are NOT lost: every one of them was pushed to the account before
+  /// this point, and the first sync after signing back in pulls them all
+  /// down — which is why they can be dropped here rather than kept.
+  ///
+  /// Keeping them was the old behaviour, and it was wrong in the way that
+  /// matters: somebody signs out and hands over the phone, and the other
+  /// person opens Continue Watching to a list of everything they watched. That
+  /// is not a stale screen, it is the account's data still being on display
+  /// after the account left.
+  ///
+  /// Deliberately `clearLocalOnly`: tombstoning would push a delete per row
+  /// into whichever account signs in next, and the rows are not deleted — they
+  /// are simply no longer on this device.
+  Future<void> forgetAfterSignOut() async {
+    final owner = _state.get(_ownerKey) as String?;
+    // Nobody ever signed in on this device, so nothing here belongs to an
+    // account and there is nothing to hand back. Someone who watched signed
+    // out keeps what they watched.
+    if (owner == null) return;
+    await _local.clearLocalOnly();
+    await clear();
+    await _state.delete(_ownerKey);
+  }
+
   /// Decides whether the rows already on this phone belong to [userId].
   ///
   /// Sign-out clears the cursor, which resets the push watermark to zero — so

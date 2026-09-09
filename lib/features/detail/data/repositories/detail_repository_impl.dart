@@ -99,8 +99,10 @@ class DetailRepositoryImpl implements DetailRepository {
   /// Maps an on-device host's `load()` payload to a playback result.
   ///
   /// The hosts set an `error` field when they produced a page but nothing
-  /// playable — a Live TV response type they don't map, a torrent-only entry, a
-  /// source whose apk failed to link. Without reading it the caller just sees an
+  /// playable — a Live TV response type they don't map, a torrent entry with
+  /// neither a magnet nor a .torrent url, a source whose apk failed to link.
+  /// (Torrent entries that *do* carry a link are playable now: the app embeds a
+  /// torrent server.) Without reading it the caller just sees an
   /// empty episode list and shows a generic "no episodes", which is
   /// indistinguishable from a title that genuinely has none.
   Result<PlaybackModel> _playbackFrom(

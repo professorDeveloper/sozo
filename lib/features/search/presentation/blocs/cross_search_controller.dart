@@ -273,7 +273,7 @@ class CrossSearchController extends ChangeNotifier {
     );
   }
 
-  void _remerge() => _merged = mergeSearchResults(results);
+  void _remerge() => _merged = mergeSearchResults(results, query: _query);
 
   void _store(String q) {
     // Never replay a run that contains a failure: retyping the query is how a

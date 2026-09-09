@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:soplay/features/anilist/data/anilist_constants.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
@@ -328,6 +329,59 @@ class AnilistApi {
         .whereType<Map>()
         .map((e) => AnilistMedia.fromJson(e.cast<String, dynamic>()))
         .toList(growable: false);
+  }
+
+  /// What AniList says is related to [mediaId], best-first.
+  ///
+  /// Its own small query rather than a field on the existing media fetch: this
+  /// is asked once when somebody opens the Relations tab, and adding it to
+  /// every detail load would pay for it on every title nobody looks at.
+  ///
+  /// Empty on any failure. A missing relations list costs a tab that says
+  /// nothing was found; a thrown one would take the detail page with it.
+  Future<List<AnilistRelation>> relations(int mediaId) async {
+    if (mediaId <= 0) return const [];
+    const gql = """
+      query (\$id: Int) {
+        Media(id: \$id) {
+          relations {
+            edges {
+              relationType(version: 2)
+              node {
+                id
+                type
+                format
+                seasonYear
+                title { romaji english }
+                coverImage { large }
+              }
+            }
+          }
+        }
+      }
+    """;
+    try {
+      final data = await _run(gql, variables: {'id': mediaId});
+      final media = data['Media'];
+      final relations = media is Map ? media['relations'] : null;
+      final edges = relations is Map ? relations['edges'] : null;
+      if (edges is! List) return const [];
+      final out = [
+        for (final e in edges.whereType<Map>())
+          AnilistRelation.fromEdge(e.cast<String, dynamic>()),
+      ].where((r) => r.id > 0 && r.title.isNotEmpty).toList();
+      out.sort((a, b) {
+        final byRank = a.rank.compareTo(b.rank);
+        if (byRank != 0) return byRank;
+        // Within a relation type, oldest first — that is the order they were
+        // made in, and for a sequence it is the order to watch them in.
+        return (a.year ?? 0).compareTo(b.year ?? 0);
+      });
+      return out;
+    } catch (e) {
+      debugPrint('[anilist] relations for $mediaId failed: $e');
+      return const [];
+    }
   }
 
   /// The MyAnimeList id for an AniList media, or null when there is none.

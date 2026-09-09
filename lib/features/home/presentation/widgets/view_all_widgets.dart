@@ -4,12 +4,14 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
+import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_state.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/home/presentation/widgets/home_ui_helpers.dart';
+import 'package:soplay/core/widgets/poster_hero.dart';
 
 class ViewAllAppBar extends StatelessWidget {
   const ViewAllAppBar({
@@ -39,7 +41,7 @@ class ViewAllAppBar extends StatelessWidget {
               )
             : null,
       ),
-      padding: EdgeInsets.fromLTRB(4, topPad + 4, 16, 0),
+      padding: EdgeInsetsDirectional.fromSTEB(4, topPad + 4, 16, 0),
       child: Row(
         children: [
           IconButton(
@@ -101,6 +103,15 @@ class ViewAllGrid extends StatelessWidget {
       return ViewAllEmptyView(topPadding: appBarH);
     }
 
+    // Decided once for the whole grid, not per card: the caption block is a
+    // fixed height so that posters in a row line up, and a card that dropped
+    // the row on its own would sit 13px taller than its neighbours.
+    //
+    // Anime sources mostly carry no year at all, and the row was reserved
+    // anyway — so every card in those grids ended with an empty strip and the
+    // rows read as though something had failed to load between them.
+    final showYear = state.items.any((m) => m.year != null);
+
     return CustomScrollView(
       controller: scroll,
       slivers: [
@@ -108,12 +119,25 @@ class ViewAllGrid extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(12, appBarH + 12, 12, 0),
           sliver: SliverGrid(
             delegate: SliverChildBuilderDelegate(
-              (_, index) => ViewAllMovieCard(movie: state.items[index]),
+              (context, index) => ItemAppear(
+                index: index,
+                columns: gridColumns(context),
+                child: ViewAllMovieCard(
+                  movie: state.items[index],
+                  showYear: showYear,
+                  // Position, not title: the same title can legitimately appear
+                  // twice in a paged grid, and two heroes sharing one tag on
+                  // screen is a hard assertion rather than a cosmetic bug.
+                  heroTag: 'viewall:$index',
+                ),
+              ),
               childCount: state.items.length,
             ),
             gridDelegate: responsiveGridDelegate(
               mobileCrossAxisCount: 3,
-              mainAxisSpacing: 14,
+              // 14 read as a gap between unrelated blocks rather than the
+              // seam between two rows of one grid.
+              mainAxisSpacing: 10,
               crossAxisSpacing: 8,
               childAspectRatio: 0.52,
             ),
@@ -143,18 +167,46 @@ class ViewAllGrid extends StatelessWidget {
 
 
 class ViewAllMovieCard extends StatelessWidget {
-  const ViewAllMovieCard({super.key, required this.movie});
+  const ViewAllMovieCard({
+    super.key,
+    required this.movie,
+    this.heroTag,
+    this.showYear = true,
+  });
 
   final MovieEntity movie;
+
+  /// Whether to reserve the year line. False when nothing in this grid has a
+  /// year, which is most anime catalogues.
+  final bool showYear;
+
+  /// Ties this poster to the one on the detail page, so it flies rather than
+  /// the page appearing from nothing. Null leaves the card as it was.
+  final String? heroTag;
 
   @override
   Widget build(BuildContext context) {
     final quality = primaryQuality(movie);
+    // The same value goes to the tile and to the shuttle: memCacheWidth is part
+    // of the image-cache key, so a shuttle that measured its own width would
+    // miss the cache this tile just filled and fly a blank frame.
+    final decodeWidth = isDesktopPlatform
+        ? null
+        : (MediaQuery.sizeOf(context).width / 3 *
+                  MediaQuery.devicePixelRatioOf(context))
+              .round();
 
     return HoverTap(
       onTap: () {
         if (movie.url.isNotEmpty) {
-          context.push('/detail', extra: DetailArgs(contentUrl: movie.url, preview: movie));
+          context.push(
+            '/detail',
+            extra: DetailArgs(
+              contentUrl: movie.url,
+              preview: movie,
+              heroTag: heroTag,
+            ),
+          );
         }
       },
       child: Column(
@@ -166,10 +218,16 @@ class ViewAllMovieCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  HomeNetworkImage(
+                  PosterHero(
+                    tag: heroTag,
                     url: movie.thumbnail,
-                    borderRadius: BorderRadius.zero,
-                    placeholderIcon: Icons.movie_outlined,
+                    memCacheWidth: decodeWidth,
+                    child: HomeNetworkImage(
+                      url: movie.thumbnail,
+                      borderRadius: BorderRadius.zero,
+                      placeholderIcon: Icons.movie_outlined,
+                      memCacheWidth: decodeWidth,
+                    ),
                   ),
                   const Positioned(
                     left: 0,
@@ -233,20 +291,21 @@ class ViewAllMovieCard extends StatelessWidget {
               ),
             ),
           ),
-          FixedTextLines(
-            fontSize: 10,
-            lineHeight: 1.3,
-            child: movie.year == null
-                ? null
-                : Text(
-                    movie.year.toString(),
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 10,
-                      height: 1.3,
+          if (showYear)
+            FixedTextLines(
+              fontSize: 10,
+              lineHeight: 1.3,
+              child: movie.year == null
+                  ? null
+                  : Text(
+                      movie.year.toString(),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 10,
+                        height: 1.3,
+                      ),
                     ),
-                  ),
-          ),
+            ),
         ],
       ),
     );
@@ -274,7 +333,7 @@ class ViewAllSkeleton extends StatelessWidget {
               ),
               gridDelegate: responsiveGridDelegate(
                 mobileCrossAxisCount: 3,
-                mainAxisSpacing: 14,
+                mainAxisSpacing: 10,
                 crossAxisSpacing: 8,
                 childAspectRatio: 0.52,
               ),
@@ -293,6 +352,12 @@ class _SkeletonGridCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Caption block reserves exactly what ViewAllMovieCard reserves, so the
     // poster does not resize when the real cards replace these.
+    //
+    // It also has to *look* like what replaces it. The title slot is two lines
+    // of 11px text and used to be drawn as one 10px bar floating at the top of
+    // a two-line box, with the second line left blank — so the skeleton read
+    // as a one-line card and the grid jumped when the real titles wrapped. And
+    // the year bar was 50px against a four-digit year that measures about 22.
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -308,18 +373,42 @@ class _SkeletonGridCard extends StatelessWidget {
           fontSize: 11,
           lineHeight: 1.25,
           lines: 2,
-          child: HomeSkeletonBox(width: double.infinity, height: 10, radius: 3),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SkeletonLine(width: double.infinity),
+              SizedBox(height: 4),
+              // Short, because a title that wraps rarely fills its second line.
+              _SkeletonLine(width: 46),
+            ],
+          ),
         ),
         FixedTextLines(
           fontSize: 10,
           lineHeight: 1.3,
-          child: HomeSkeletonBox(width: 50, height: 10, radius: 3),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: _SkeletonLine(width: 24),
+          ),
         ),
       ],
     );
   }
 }
 
+
+/// One line of caption, at the weight a line of small text actually reads as.
+/// A 10px bar against an 11px line looked like a heading; 8 sits where the
+/// x-height of the real text does.
+class _SkeletonLine extends StatelessWidget {
+  const _SkeletonLine({required this.width});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) =>
+      HomeSkeletonBox(width: width, height: 8, radius: 2);
+}
 
 class ViewAllErrorView extends StatelessWidget {
   const ViewAllErrorView({super.key, required this.message, required this.onRetry});

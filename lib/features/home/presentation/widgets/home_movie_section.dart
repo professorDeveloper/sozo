@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
+import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/widgets/poster_hero.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/home/domain/entities/view_all.dart';
@@ -35,7 +37,7 @@ class MovieSection extends StatelessWidget {
         children: [
           // The padding is INSIDE the InkWell: outside it, the tappable strip
           // was only as tall as the title text (~19dp).
-          InkWell(
+          HomeSectionTapTarget(
             onTap: () {
               if (onSeeAll != null) {
                 onSeeAll!();
@@ -47,7 +49,7 @@ class MovieSection extends StatelessWidget {
               );
             },
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),
+              padding: const EdgeInsetsDirectional.fromSTEB(17, 18, 20, 14),
               child: Row(
                 children: [
                   // The accent tick is on EVERY row now, not only the
@@ -108,7 +110,18 @@ class MovieSection extends StatelessWidget {
                 vertical: isDesktopPlatform ? 4 : 0,
               ),
               itemCount: movies.length > 16 ? 16 : movies.length,
-              itemBuilder: (_, index) => _MovieCard(movie: movies[index]),
+              itemBuilder: (_, index) => ItemAppear(
+                index: index,
+                // A rail scrolls sideways, so its cards come in from the edge
+                // they are travelling from, one after the other.
+                axis: Axis.horizontal,
+                child: _MovieCard(
+                  movie: movies[index],
+                  // Section slug + position: unique on screen even when two
+                  // rows carry the same title, and stable across a rebuild.
+                  heroTag: 'poster:$slug:$index',
+                ),
+              ),
             ),
           ),
         ],
@@ -118,9 +131,13 @@ class MovieSection extends StatelessWidget {
 }
 
 class _MovieCard extends StatefulWidget {
-  const _MovieCard({required this.movie});
+  const _MovieCard({required this.movie, this.heroTag});
 
   final MovieEntity movie;
+
+  /// Threaded, but currently inert: `PosterHero.flightEnabled` is false, so
+  /// nothing flies. Kept so the flight is one word away from coming back.
+  final String? heroTag;
 
   @override
   State<_MovieCard> createState() => _MovieCardState();
@@ -134,7 +151,10 @@ class _MovieCardState extends State<_MovieCard> {
     if (movie.url.isNotEmpty) {
       context.push(
         '/detail',
-        extra: DetailArgs(contentUrl: movie.url, preview: movie),
+        extra: DetailArgs(
+          contentUrl: movie.url,
+          preview: movie,
+        ),
       );
     }
   }
@@ -148,6 +168,13 @@ class _MovieCardState extends State<_MovieCard> {
     // Sozo-Desktop item sizing/styling on desktop; untouched on mobile.
     final width = desktop ? 152.0 : 118.0;
     final radius = desktop ? 12.0 : 10.0;
+
+    // Computed once here rather than inside the image, so the tile and the
+    // hero shuttle resolve byte-identical cache keys. Desktop keeps full
+    // resolution — HomeNetworkImage skips its own sizing there too.
+    final decodeWidth = desktop
+        ? null
+        : (width * MediaQuery.devicePixelRatioOf(context)).round();
 
     final cover = Expanded(
       child: AnimatedContainer(
@@ -169,10 +196,25 @@ class _MovieCardState extends State<_MovieCard> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              HomeNetworkImage(
+              // Only the IMAGE flies, not the card. Carrying the badges and
+              // the gradient along would mean interpolating a 9pt quality
+              // chip up to header size, which reads as a glitch rather than
+              // a transition.
+              PosterHero(
+                tag: widget.heroTag,
                 url: movie.thumbnail,
-                borderRadius: BorderRadius.zero,
-                placeholderIcon: Icons.movie_outlined,
+                fromRadius: radius,
+                // The SAME number goes to both, and that is the whole point:
+                // memCacheWidth becomes part of the image-cache key, so a
+                // shuttle that measured its own width would miss the cache
+                // this tile just filled and fly a blank frame.
+                memCacheWidth: decodeWidth,
+                child: HomeNetworkImage(
+                  url: movie.thumbnail,
+                  borderRadius: BorderRadius.zero,
+                  placeholderIcon: Icons.movie_outlined,
+                  memCacheWidth: decodeWidth,
+                ),
               ),
               const Positioned(
                 left: 0,
@@ -323,7 +365,7 @@ class CollectionLoadingRow extends StatelessWidget {
             padding: EdgeInsets.zero,
             itemCount: 6,
             itemBuilder: (_, i) => Padding(
-              padding: EdgeInsets.only(right: desktop ? 12 : 8),
+              padding: EdgeInsetsDirectional.only(end: desktop ? 12 : 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

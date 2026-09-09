@@ -17,10 +17,13 @@ import 'package:soplay/core/system/system_controls.dart';
 import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
-import 'package:soplay/features/download/data/download_service.dart';
-import 'package:soplay/features/download/domain/entities/download_item.dart';
+import 'package:soplay/features/download/domain/entities/download_request.dart';
+import 'package:soplay/features/download/domain/entities/download_status.dart';
+import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
+import 'package:soplay/features/manga/presentation/widgets/novel_text.dart';
 import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -39,16 +42,28 @@ class _ReaderPageState extends State<ReaderPage> {
   static Color get _accent => AppColors.primary;
 
   final _hive = getIt<HiveService>();
-  final _downloads = getIt<DownloadService>();
+  final _downloads = getIt<GetDownloadsUseCase>();
+  final _enqueue = getIt<EnqueueDownloadUseCase>();
 
   late int _chapterIndex;
   List<MangaPageEntity> _pages = const [];
+
+  /// A novel chapter's prose, when the source returned text instead of images.
+  /// See MangaPagesEntity.html — the two are different shapes, not two ways of
+  /// saying the same thing.
+  String? _html;
   Map<String, String> _headers = const {};
   bool _loading = true;
   bool _localChapter = false;
   String? _error;
 
   late String _mode;
+
+  /// Whether the reader pairs pages in landscape. See [_spread].
+  late bool _spreadPref;
+
+  /// The spread reader counts slots where the single-page one counts pages.
+  final PageController _spreadController = PageController();
   late bool _rtl;
   late String _bgPref;
   double _brightness = 0.5;
@@ -65,6 +80,11 @@ class _ReaderPageState extends State<ReaderPage> {
 
   PageController? _pageController;
   final ItemScrollController _itemScrollController = ItemScrollController();
+
+  /// The prose reader's own controller. The indexed one above belongs to the
+  /// comic readers, where a chapter is a list of pages; a novel is one
+  /// continuous body with no index to scroll to.
+  final ScrollController _novelScrollController = ScrollController();
   final ItemPositionsListener _itemPositionsListener =
       ItemPositionsListener.create();
   int _initialIndex = 0;
@@ -80,6 +100,7 @@ class _ReaderPageState extends State<ReaderPage> {
     _chapterIndex = widget.args.initialChapterIndex
         .clamp(0, widget.args.chapters.length - 1);
     _mode = _hive.getReaderMode(widget.args.contentUrl);
+    _spreadPref = _hive.readerSpread;
     _rtl = _hive.getReaderRtl(widget.args.contentUrl);
     _bgPref = _hive.getReaderBackground();
     _itemPositionsListener.itemPositions.addListener(_onItemPositions);
@@ -95,6 +116,8 @@ class _ReaderPageState extends State<ReaderPage> {
 
   @override
   void dispose() {
+    _spreadController.dispose();
+    _novelScrollController.dispose();
     _saveProgress();
     _saveDebounce?.cancel();
     _itemPositionsListener.itemPositions.removeListener(_onItemPositions);
@@ -123,12 +146,13 @@ class _ReaderPageState extends State<ReaderPage> {
       _loading = true;
       _error = null;
       _pages = const [];
+      _html = null;
     });
     _page.value = 0;
     final ch = widget.args.chapters[index];
     final ref = ch.mediaRef;
 
-    final localId = DownloadService.mangaChapterId(
+    final localId = DownloadRequest.mangaChapterId(
       contentUrl: widget.args.contentUrl,
       provider: widget.args.provider,
       chapterRef: ref,
@@ -168,6 +192,7 @@ class _ReaderPageState extends State<ReaderPage> {
         _initialIndex = start;
         setState(() {
           _pages = value.pages;
+          _html = value.isText ? value.html : null;
           _headers = value.headers;
           _loading = false;
         });
@@ -367,7 +392,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   Widget _pageArrow({required bool left}) {
     return Align(
-      alignment: left ? Alignment.centerLeft : Alignment.centerRight,
+      alignment: left ? AlignmentDirectional.centerStart : AlignmentDirectional.centerEnd,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Material(
@@ -432,6 +457,11 @@ class _ReaderPageState extends State<ReaderPage> {
         ),
       );
     }
+    // Prose, not pages. Checked before the empty branch because a novel
+    // legitimately has zero pages, and that used to be reported as "no pages
+    // found" — which is what made every novel source in the app look broken.
+    if (_html != null) return _novelReader(_html!);
+
     if (_pages.isEmpty) {
       return Center(
         child: Text('manga.no_pages'.tr(),
@@ -439,6 +469,39 @@ class _ReaderPageState extends State<ReaderPage> {
       );
     }
     return _mode == 'horizontal' ? _horizontalReader() : _verticalReader();
+  }
+
+  /// A chapter of prose.
+  ///
+  /// Always vertical: paging a novel by screenful is a choice comic readers
+  /// have because a page is a fixed unit, and prose has no such unit — a page
+  /// boundary would land mid-sentence and move every time the font size did.
+  ///
+  /// The reader's own background and text settings apply, so a novel and a
+  /// comic read as the same app rather than as one screen borrowing whatever
+  /// styling its source shipped.
+  Widget _novelReader(String html) {
+    final onWhite = _bgPref == 'white';
+    return GestureDetector(
+      onTapUp: _handleTapZone,
+      child: SingleChildScrollView(
+        controller: _novelScrollController,
+        // Comfortable measure on a phone and not edge-to-edge: text running
+        // into the bezel is the single most common thing that makes a reader
+        // tiring.
+        padding: EdgeInsets.fromLTRB(
+          20,
+          MediaQuery.paddingOf(context).top + 64,
+          20,
+          MediaQuery.paddingOf(context).bottom + 96,
+        ),
+        child: NovelText(
+          html: html,
+          color: onWhite ? const Color(0xFF16181C) : Colors.white,
+          fontSize: 17,
+        ),
+      ),
+    );
   }
 
   Widget _verticalReader() {
@@ -464,7 +527,36 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
+  /// Whether two pages are shown side by side.
+  ///
+  /// Only in landscape, and that is not a setting: a spread on a portrait phone
+  /// is two pages at half width each, which is smaller than one page and
+  /// harder to read. Offering it there would be offering a worse picture.
+  bool get _spread =>
+      _spreadPref &&
+      _mode == 'horizontal' &&
+      MediaQuery.orientationOf(context) == Orientation.landscape;
+
+  /// The pages in each slot of the spread reader.
+  ///
+  /// The first page is alone. A comic's first page is its cover, and pairing it
+  /// with page two puts every subsequent spread one page out of step with how
+  /// the book was drawn — which is the whole reason to show two at a time.
+  List<List<int>> get _spreadSlots {
+    final slots = <List<int>>[];
+    if (_pages.isEmpty) return slots;
+    slots.add([0]);
+    for (var i = 1; i < _pages.length; i += 2) {
+      slots.add([
+        i,
+        if (i + 1 < _pages.length) i + 1,
+      ]);
+    }
+    return slots;
+  }
+
   Widget _horizontalReader() {
+    if (_spread) return _spreadReader();
     return Stack(
       children: [
         PageView.builder(
@@ -483,6 +575,58 @@ class _ReaderPageState extends State<ReaderPage> {
               zoomable: true,
             ),
           ),
+        ),
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTapUp: _handleTapZone,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Two pages at once, the way the book was drawn.
+  ///
+  /// A double-page spread is a single illustration in a lot of comics, and
+  /// reading it one half at a time loses the picture. This is what every
+  /// dedicated reader does in landscape and what the app was missing.
+  Widget _spreadReader() {
+    final slots = _spreadSlots;
+    return Stack(
+      children: [
+        PageView.builder(
+          // Its own controller: the page-per-screen one counts pages and this
+          // counts slots, so sharing it would put the reader at slot 40 of 20.
+          controller: _spreadController,
+          reverse: _rtl,
+          itemCount: slots.length,
+          onPageChanged: (slot) {
+            // Reported as the first page of the slot, so progress, resume and
+            // the page counter all stay in pages — the unit everything else in
+            // this class already speaks.
+            _page.value = slots[slot].first;
+            _scheduleSave();
+          },
+          itemBuilder: (context, slot) {
+            final indices = _rtl ? slots[slot].reversed.toList() : slots[slot];
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (final i in indices)
+                  Flexible(
+                    child: _PageImage(
+                      key: ValueKey('s_${_chapterIndex}_$i'),
+                      page: _pages[i],
+                      headers: _headers,
+                      // Not zoomable in a spread: a pinch would zoom one half
+                      // out from under the other.
+                      zoomable: false,
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
         Positioned.fill(
           child: GestureDetector(
@@ -634,7 +778,7 @@ class _ReaderPageState extends State<ReaderPage> {
                 valueListenable: DesktopWindow.immersive,
                 builder: (_, imm, _) => imm
                     ? const Padding(
-                        padding: EdgeInsets.only(left: 4),
+                        padding: EdgeInsetsDirectional.only(start: 4),
                         child: WindowButtons(),
                       )
                     : const SizedBox.shrink(),
@@ -646,7 +790,7 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   Widget _downloadButton(EpisodeEntity ch) {
-    final id = DownloadService.mangaChapterId(
+    final id = DownloadRequest.mangaChapterId(
       contentUrl: widget.args.contentUrl,
       provider: widget.args.provider,
       chapterRef: ch.mediaRef,
@@ -654,7 +798,7 @@ class _ReaderPageState extends State<ReaderPage> {
     return ValueListenableBuilder<int>(
       valueListenable: _downloads.revision,
       builder: (context, _, _) {
-        final item = _downloads.get(id);
+        final item = _downloads.byId(id);
         final status = item?.status;
         if (status == DownloadStatus.downloading) {
           return SizedBox(
@@ -665,9 +809,7 @@ class _ReaderPageState extends State<ReaderPage> {
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
-                  value: item != null && item.totalBytes > 0
-                      ? item.progress
-                      : null,
+                  value: item?.progress,
                   strokeWidth: 2,
                   color: Colors.white,
                 ),
@@ -690,29 +832,24 @@ class _ReaderPageState extends State<ReaderPage> {
   Future<void> _downloadCurrentChapter() async {
     if (_pages.isEmpty) return;
     final ch = widget.args.chapters[_chapterIndex];
-    final item = DownloadItem(
-      id: DownloadService.mangaChapterId(
+    // The pages are already resolved on screen, so they travel with the
+    // request rather than being fetched again — a chapter's page urls are
+    // short-lived, and re-resolving one that is open is a round trip for an
+    // answer we are looking at.
+    await _enqueue(
+      DownloadRequest.mangaChapter(
         contentUrl: widget.args.contentUrl,
         provider: widget.args.provider,
+        title: widget.args.title,
+        thumbnailUrl: widget.args.thumbnail,
+        headers: _headers,
+        pageUrls: _pages.map((p) => p.imageUrl).toList(),
         chapterRef: ch.mediaRef,
+        chapterIndex: _chapterIndex,
+        episodeNumber: ch.episode,
+        episodeLabel: ch.label,
       ),
-      kind: 'manga',
-      contentUrl: widget.args.contentUrl,
-      provider: widget.args.provider,
-      title: widget.args.title,
-      thumbnail: widget.args.thumbnail,
-      videoUrl: '',
-      localPath: '',
-      headers: _headers,
-      pageUrls: _pages.map((p) => p.imageUrl).toList(),
-      chapterRef: ch.mediaRef,
-      chapterIndex: _chapterIndex,
-      isSerial: true,
-      episodeNumber: ch.episode,
-      episodeLabel: ch.label,
-      createdAt: DateTime.now().millisecondsSinceEpoch,
     );
-    await _downloads.startDownload(item);
     if (!mounted) return;
     _snack('manga.download_started'.tr());
   }
@@ -841,6 +978,42 @@ class _ReaderPageState extends State<ReaderPage> {
                   onChanged: (v) {
                     final wantRtl = v == 'rtl';
                     if (wantRtl != _rtl) _toggleRtl();
+                    setSheet(() {});
+                  },
+                ),
+                const SizedBox(height: 18),
+                Text('manga.spread'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 4),
+                // Said plainly rather than discovered: the switch does nothing
+                // in portrait, and a control that appears to do nothing is one
+                // people conclude is broken.
+                Text('manga.spread_desc'.tr(),
+                    style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                const SizedBox(height: 8),
+                _segmented(
+                  options: {
+                    'off': 'general.off'.tr(),
+                    'on': 'general.on'.tr(),
+                  },
+                  value: _spreadPref ? 'on' : 'off',
+                  onChanged: (v) {
+                    final want = v == 'on';
+                    if (want == _spreadPref) return;
+                    setState(() => _spreadPref = want);
+                    _hive.setReaderSpread(want);
+                    // Land on the page being read, not on the slot that
+                    // happens to share its index.
+                    final page = _page.value;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      if (want && _spreadController.hasClients) {
+                        final slot = page == 0 ? 0 : ((page - 1) ~/ 2) + 1;
+                        _spreadController.jumpToPage(slot);
+                      } else if (!want && _pageController?.hasClients == true) {
+                        _pageController!.jumpToPage(page);
+                      }
+                    });
                     setSheet(() {});
                   },
                 ),

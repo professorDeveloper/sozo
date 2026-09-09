@@ -36,7 +36,7 @@ extension _PlayerPip on _PlayerPageState {
       case 'next':
         if (_partyBlockEpisodeNav()) return;
         if (widget.args.isSerial &&
-            _episodeIndex + 1 < widget.args.episodes.length) {
+            _hasNextEpisode) {
           _loadEpisode(_episodeIndex + 1);
         }
     }
@@ -48,7 +48,7 @@ extension _PlayerPip on _PlayerPageState {
     final isPlaying = c.value.isPlaying;
     final hasPrev = widget.args.isSerial && _episodeIndex > 0;
     final hasNext =
-        widget.args.isSerial && _episodeIndex + 1 < widget.args.episodes.length;
+        _hasNextEpisode;
     if (isPlaying == _lastPipPlaying) {
       try {
         await _pipChannel.invokeMethod('updatePiPActions', {
@@ -110,25 +110,10 @@ extension _PlayerPip on _PlayerPageState {
     _plog('fullscreen ready in ${sw.elapsedMilliseconds}ms');
     if (!mounted) return;
 
-    // Ask which backend to use *before* anything is resolved or decoded, so the
-    // engine the user picks is the only one that ever runs. Opt-in
-    // (askEngineOnPlay defaults to false) and Android-only — every other
-    // platform is pinned to a single backend, so showPlayerEngineSheet
-    // short-circuits there.
-    //
-    // A party guest is exempt: the sheet would block the sync handshake behind
-    // a modal, and the guest is not the one driving playback anyway.
-    if (_hive.askEngineOnPlay && !_inParty) {
-      final proceed = await showPlayerEngineSheet(context);
-      if (!mounted) return;
-      // Dismissed without choosing — leave rather than start on an engine the
-      // user never confirmed.
-      if (!proceed) {
-        _exit();
-        return;
-      }
-    }
-
+    // The engine question is asked BEFORE this page is pushed — see
+    // confirmPlayerEngine. It used to be asked here, which put a modal over a
+    // player showing nothing: a black rectangle with a question on top, which
+    // reads as the video having failed rather than as a choice being offered.
     await _bootstrap();
   }
 

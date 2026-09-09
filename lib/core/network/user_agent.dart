@@ -50,11 +50,15 @@ Future<void> initSozoUserAgent() async {
     // A WebView that reports something implausible is worse than the fallback:
     // the whole point is that the string matches the engine behind it.
     if (ua.length >= 40 && ua.startsWith('Mozilla/')) {
-      // Android's default carries `; wv` to mark it as a WebView rather than
-      // Chrome. Dropping that token is the one edit worth making: it keeps the
-      // platform and engine version truthful — which is what the challenge
-      // checks — while not announcing an embedded browser to every WAF.
-      _resolved = ua.replaceAll('; wv)', ')').replaceAll(' wv)', ')');
+      // Verbatim, `; wv` and all.
+      //
+      // An earlier version stripped that token so the string would not announce
+      // an embedded browser. That was the same mistake in a smaller costume: the
+      // engine behind this really is an Android WebView, and a challenge that
+      // compares the header against the engine sees a UA claiming plain Chrome
+      // and a WebView answering. The whole point of reading the device's agent
+      // is that it is TRUE — editing it puts the lie back.
+      _resolved = ua;
     }
   } catch (_) {
     // Keep the fallback.

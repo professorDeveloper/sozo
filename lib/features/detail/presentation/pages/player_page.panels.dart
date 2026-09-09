@@ -2,6 +2,35 @@
 part of 'player_page.dart';
 
 extension _PlayerPanels on _PlayerPageState {
+  /// Opens the info-row picker over the player.
+  ///
+  /// The overlay is switched on as it opens: a checklist whose effect is
+  /// invisible is a checklist people tick at random. `onChanged` then re-renders
+  /// behind the sheet, so each tap shows its own result.
+  void _openInfoFieldsPicker() {
+    if (!_showPlayerInfo) setState(() => _showPlayerInfo = true);
+    PlayerInfoFieldsSheet.show(
+      context,
+      onChanged: (next) {
+        if (!mounted) return;
+        setState(() => _infoFields = next);
+      },
+    );
+  }
+
+  /// Opens the bar editor. The layout is re-read on return rather than pushed
+  /// back through a result, because the page saves on every edit and a viewer
+  /// who backs out has still made those edits.
+  Future<void> _openControlsLayoutPage() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => const PlayerControlsPage()),
+    );
+    if (!mounted) return;
+    setState(() {
+      _layout = PlayerControlsLayout.fromStored(_hive.getPlayerControlsLayout());
+    });
+  }
+
   String _langLabel(String lang) {
     switch (lang.toLowerCase()) {
       case _kSubLang:
@@ -85,11 +114,60 @@ extension _PlayerPanels on _PlayerPageState {
   }
 
   /// Positions in [_videoSources] the current server offers.
+  /// What applies right now, derived once and read by both the overlay and the
+  /// settings sheet. See [PlayerAffordances] for what the two copies of this
+  /// used to disagree about.
+  PlayerAffordances get _affordances => PlayerAffordances(
+        isSerial: widget.args.isSerial,
+        episodeCount: _episodes.length,
+        serverCount: _sourceServers.length,
+        serverSourceCount: _currentServerSources.length,
+        engineTrackCount: _engineVideoTracks.length,
+        langCount: _availableLangsForCurrentEpisode().length,
+        showDownloadAction: widget.args.showDownloadAction,
+        provider: widget.args.provider,
+        hasResolvedUrl: _videoUrl != null,
+      );
+
+  /// The qualities of the host currently playing.
+  ///
+  /// Empty while nothing has resolved, and that is the fix rather than the
+  /// gap. This used to fall back to EVERY source across every host on the
+  /// grounds that offering everything beat offering nothing. It did not: the
+  /// Quality panel renders each row with the server half of its label stripped,
+  /// so a cross-host list came out as "DoodStream", "Voe", "Voe MP4" — pressing
+  /// Quality showed servers. There is no quality to choose before there is a
+  /// stream, and no button is better than a mislabelled one.
+  ///
+  /// The remaining fallback is narrow and deliberate: a server that matches no
+  /// label at all is a bug elsewhere, and hiding every quality would be a
+  /// worse failure than listing them.
+  /// The renditions inside the stream that is playing, when the engine can
+  /// enumerate them.
+  ///
+  /// This is what "quality" means in every other player: switching between
+  /// renditions of ONE stream, which mpv does without a reload. The provider's
+  /// mirror list is a different thing — separate URLs on separate hosts, each
+  /// switch a teardown and a fresh start — and it is what the panel falls back
+  /// to when the engine has nothing to offer, which is always on the platform
+  /// player.
+  List<PlayerVideoTrack> get _engineVideoTracks {
+    final c = _controller;
+    if (c == null || !c.supportsVideoTracks) return const [];
+    return c.videoTracks;
+  }
+
+  Future<void> _switchVideoTrack(PlayerVideoTrack track) async {
+    setState(() => _panel = _SidePanel.none);
+    await _controller?.setVideoTrack(track.id);
+    if (mounted) setState(() {});
+  }
+
   List<int> get _currentServerSources {
+    final server = _currentServer;
+    if (server == null) return const [];
     final labels = _sourceLabels;
-    final indices = VideoOptionGroups.indicesFor(labels, _currentServer ?? '');
-    // Until the first source resolves there is no current server; offering
-    // everything beats offering nothing.
+    final indices = VideoOptionGroups.indicesFor(labels, server);
     return indices.isEmpty
         ? [for (var i = 0; i < labels.length; i++) i]
         : indices;
@@ -173,14 +251,21 @@ extension _PlayerPanels on _PlayerPageState {
         _currentQuality == null ? -1 : labels.indexOf(_currentQuality!);
     final target = VideoOptionGroups.switchTo(labels, current, server);
     if (target < 0 || target >= _videoSources.length) return;
-    await _switchQuality(_videoSources[target]);
+
+    // Recorded before the switch, because _switchQuality tears the old
+    // controller down and by the time the overlay builds there is nothing
+    // left to ask where we came from.
+    _serverSwitch = ServerSwitch(from: _currentServer, to: server);
+    try {
+      await _switchQuality(_videoSources[target]);
+    } finally {
+      if (mounted) setState(() => _serverSwitch = null);
+    }
   }
 
   void _openSettingsSheet() {
-    final hasServers = _sourceServers.length > 1;
-    final hasQualities = _currentServerSources.length > 1;
-    final langs = _availableLangsForCurrentEpisode();
-    final hasLangs = langs.length > 1;
+    final a = _affordances;
+    final hasLangs = a.hasLangs;
     showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF111111),
@@ -215,16 +300,48 @@ extension _PlayerPanels on _PlayerPageState {
                 ),
               ),
               const Divider(color: Colors.white12, height: 1),
-              _SettingsTile(
-                icon: Icons.speed_rounded,
-                label: 'player.speed_short'.tr(),
-                value:
-                    '${_playbackSpeed.toStringAsFixed(_playbackSpeed == _playbackSpeed.roundToDouble() ? 0 : 2)}x',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _openSpeedSheet();
-                },
-              ),
+              // Switching provider without losing your place.
+              //
+              // The app carries the same title on several ecosystems at once,
+              // and until now the only way to leave a struggling source was to
+              // back out and start the episode again somewhere else. Offered
+              // here rather than only on the error screen, because a source
+              // that is buffering badly has not failed yet — that is exactly
+              // when someone wants out, and exactly when they have a position
+              // worth keeping.
+              //
+              // Not for live: a channel is one stream, and there is no other
+              // provider carrying the same minute of it.
+              if (!_isLive)
+                _SettingsTile(
+                  icon: Icons.swap_horiz_rounded,
+                  label: 'player.change_source'.tr(),
+                  value: widget.args.provider,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _openAlternateSources(keepPosition: true);
+                  },
+                ),
+              // Speed, server, quality and subtitles used to sit here as well
+              // as on the bar, calling the very same functions. A settings list
+              // is where things go when they have nowhere else; those all have
+              // a button one tap away, so the copies were padding a list that
+              // was already nineteen rows long. Removed, not moved.
+              //
+              // Download is the exception and stays: the bar button for it is
+              // in the PHONE branch only, so on desktop this sheet is the only
+              // way to start one. Removing it took the feature off Windows,
+              // macOS and Linux entirely.
+              if (isDesktopPlatform && a.canDownload)
+                _SettingsTile(
+                  icon: Icons.download_rounded,
+                  label: 'movie.download'.tr(),
+                  value: '',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _startDownload();
+                  },
+                ),
               _SettingsTile(
                 icon: Icons.aspect_ratio_rounded,
                 label: 'player.aspect'.tr(),
@@ -234,26 +351,134 @@ extension _PlayerPanels on _PlayerPageState {
                   _openFitSheet();
                 },
               ),
-              if (hasServers)
+              // Absent on the platform player, which has no runtime picture
+              // control at all. Offering a menu that silently does nothing
+              // teaches people the app is broken rather than that the feature
+              // is unavailable here.
+              if (_controller?.supportsColorProfile ?? false)
                 _SettingsTile(
-                  icon: Icons.dns_outlined,
-                  label: 'player.server'.tr(),
-                  value: _currentServer ?? '—',
+                  icon: Icons.tune_rounded,
+                  label: 'player.color_profile'.tr(),
+                  value: _colorProfile.labelKey.tr(),
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _openServerSheet();
+                    _openColorSheet();
                   },
                 ),
-              if (hasQualities)
+              // Only on libmpv, which is the one backend that can read a frame
+              // back. The platform player and the DRM one keep their pixels in
+              // a texture the Dart side never sees, so the row is absent there
+              // rather than present and producing nothing.
+              //
+              // Live has no frame worth sharing and no title to attach it to.
+              if (!_isLive && (_controller?.supportsShaders ?? false))
                 _SettingsTile(
-                  icon: Icons.high_quality_rounded,
-                  label: 'player.quality'.tr(),
-                  value: _currentQuality == null
-                      ? '—'
-                      : _qualityLabel(_currentQuality!),
+                  icon: Icons.photo_camera_outlined,
+                  label: 'player.share_frame'.tr(),
+                  value: '',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _openPanel(_SidePanel.quality);
+                    _shareCurrentFrame();
+                  },
+                ),
+              // Sharing and keeping are different intentions, and routing
+              // "keep" through the share sheet made it a three-tap detour via
+              // whichever app the system decided could save a file. The frame
+              // people wanted was also the one the system screenshot key could
+              // not give them: that one carries the controls, the seek bar and
+              // the status bar burnt into it, at the screen's resolution
+              // rather than the video's.
+              if (!_isLive && (_controller?.supportsShaders ?? false))
+                _SettingsTile(
+                  icon: Icons.save_alt_rounded,
+                  label: 'player.save_frame'.tr(),
+                  value: '',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _saveCurrentFrame();
+                  },
+                ),
+              // Always listed, disabled where it cannot run.
+              //
+              // It used to disappear entirely on the platform player, which is
+              // the default on most devices — so Anime4K, sharpen, deblur and
+              // denoise were invisible to the people most likely to want them,
+              // with nothing on screen to say the feature existed or why it was
+              // absent. A row that explains itself beats a row that is not
+              // there.
+              if (_controller?.supportsShaders ?? false)
+                _SettingsTile(
+                  icon: Icons.auto_awesome_rounded,
+                  label: 'player.shaders'.tr(),
+                  value: _shaderPreset.isOff
+                      ? 'general.off'.tr()
+                      : _shaderPreset.labelKey.tr(),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _openShaderSheet();
+                  },
+                )
+              else
+                _SettingsTile(
+                  icon: Icons.auto_awesome_rounded,
+                  label: 'player.shaders'.tr(),
+                  value: 'player.needs_media_kit'.tr(),
+                  onTap: null,
+                ),
+              // Shown here, and not only in Settings, so a mode that suppresses
+              // history cannot sit on unnoticed for weeks: the sheet is the one
+              // surface a viewer opens mid-episode, and this is where they will
+              // wonder why nothing is in Continue Watching.
+              if (_hive.isIncognito)
+                _SettingsTile(
+                  icon: Icons.visibility_off_outlined,
+                  label: 'profile.incognito'.tr(),
+                  value: 'general.on'.tr(),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _hive.setIncognito(false);
+                    if (!mounted) return;
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('profile.incognito_off'.tr()),
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              // Hidden rather than disabled when the stream cannot be cast — a
+              // torrent handle or a downloaded file has no address a device on
+              // the network could fetch, and a greyed-out row invites a tap
+              // that can only ever explain itself.
+              if (_canCast)
+                _SettingsTile(
+                  icon: _cast.isCasting
+                      ? Icons.cast_connected_rounded
+                      : Icons.cast_rounded,
+                  label: 'player.cast'.tr(),
+                  value: _cast.device?.name ?? '—',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    if (_cast.isCasting) {
+                      _stopCasting();
+                    } else {
+                      _openCastSheet();
+                    }
+                  },
+                ),
+              // Not offered for live TV: a broadcast has no end to stop at, and
+              // a countdown that pauses a channel is just a mute button with
+              // extra steps.
+              if (!_isLive)
+                _SettingsTile(
+                  icon: Icons.bedtime_outlined,
+                  label: 'player.sleep_timer'.tr(),
+                  value: _sleepValueLabel,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _openSleepSheet();
                   },
                 ),
               if (hasLangs)
@@ -266,19 +491,6 @@ extension _PlayerPanels on _PlayerPageState {
                     _openLangSheet();
                   },
                 ),
-              _SettingsTile(
-                icon: Icons.subtitles_outlined,
-                label: 'player.subtitles'.tr(),
-                value: _subtitles.isEmpty
-                    ? 'general.search'.tr()
-                    : _activeSubtitleIndex >= 0
-                    ? _subtitles[_activeSubtitleIndex].label
-                    : 'player.off'.tr(),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _openSubtitleSheet();
-                },
-              ),
               if (_subtitles.isNotEmpty)
                 _SettingsTile(
                   icon: Icons.text_fields_rounded,
@@ -331,17 +543,37 @@ extension _PlayerPanels on _PlayerPageState {
                     _handOffToExternalPlayer();
                   },
                 ),
-              if (widget.args.showDownloadAction &&
-                  widget.args.provider != 'uzmovi')
-                _SettingsTile(
-                  icon: Icons.download_rounded,
-                  label: 'movie.download'.tr(),
-                  value: '',
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _startDownload();
-                  },
-                ),
+              // Was `showDownloadAction && provider != 'uzmovi'` — the url
+              // Beside the diagnostics log, which answers the same question
+              // for whoever wrote the player. This one answers it for whoever
+              // is watching — and is small enough to screenshot into a report.
+              _SettingsTile(
+                icon: Icons.info_outline_rounded,
+                label: 'player.info_title'.tr(),
+                value: _showPlayerInfo ? 'player.on'.tr() : 'player.off'.tr(),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  setState(() => _showPlayerInfo = !_showPlayerInfo);
+                },
+              ),
+              _SettingsTile(
+                icon: Icons.tune_rounded,
+                label: 'player.info_fields_title'.tr(),
+                value: '',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _openInfoFieldsPicker();
+                },
+              ),
+              _SettingsTile(
+                icon: Icons.dashboard_customize_outlined,
+                label: 'player.layout_title'.tr(),
+                value: '',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _openControlsLayoutPage();
+                },
+              ),
               _SettingsTile(
                 icon: Icons.bug_report_outlined,
                 label: 'player.diagnostics_logs'.tr(),
@@ -603,6 +835,311 @@ extension _PlayerPanels on _PlayerPageState {
     );
   }
 
+  /// The picture menu.
+  ///
+  /// Applied on tap rather than behind an Apply button: the whole judgement is
+  /// "does this look better", and that cannot be made from a name. Every entry
+  /// is reversible in one tap, and Natural is the untouched picture rather than
+  /// an approximation of it, so there is no way to get stuck somewhere worse
+  /// than where you started.
+  void _openColorSheet() {
+    showAdaptiveModal<void>(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          child: StatefulBuilder(
+            builder: (context, setSheetState) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.tune_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'player.color_profile'.tr(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(color: Colors.white12, height: 1),
+                for (final profile in ColorProfile.all)
+                  _OptionTile(
+                    label: profile.labelKey.tr(),
+                    selected: profile.id == _colorProfile.id,
+                    // The sheet stays open. Comparing two looks means switching
+                    // back and forth, and a menu that closes on every tap makes
+                    // that four gestures instead of one.
+                    onTap: () {
+                      _setColorProfile(profile);
+                      setSheetState(() {});
+                    },
+                  ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _setColorProfile(ColorProfile profile) async {
+    setState(() => _colorProfile = profile);
+    await _hive.setColorProfile(profile.id);
+    await _controller?.setColorProfile(profile);
+  }
+
+  /// The Anime4K menu.
+  ///
+  /// The tier sits under the presets rather than in Settings because it is
+  /// part of the same judgement — "is this better, and does it still run
+  /// smoothly" — and that can only be made while something is playing.
+  void _openShaderSheet() {
+    showAdaptiveModal<void>(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          child: StatefulBuilder(
+            builder: (context, setSheetState) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'player.shaders'.tr(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: Text(
+                    'player.shaders_note'.tr(),
+                    style: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 11.5,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+                const Divider(color: Colors.white12, height: 1),
+                for (final preset in ShaderPreset.all)
+                  _OptionTile(
+                    label: preset.labelKey.tr(),
+                    subtitle: preset.descriptionKey.tr(),
+                    selected: preset.id == _shaderPreset.id,
+                    onTap: () {
+                      _setShaderPreset(preset);
+                      setSheetState(() {});
+                    },
+                  ),
+                // Hidden while off, because a GPU budget for a chain that is
+                // not running is a setting with no effect to observe.
+                if (!_shaderPreset.isOff) ...[
+                  const Divider(color: Colors.white12, height: 1),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                    child: Text(
+                      'player.shader_tier'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                  for (final tier in ShaderTier.values)
+                    _OptionTile(
+                      label: tier.labelKey.tr(),
+                      subtitle: tier.descriptionKey.tr(),
+                      selected: tier.id == _shaderTier.id,
+                      onTap: () {
+                        _setShaderTier(tier);
+                        setSheetState(() {});
+                      },
+                    ),
+                ],
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _setShaderPreset(ShaderPreset preset) async {
+    setState(() => _shaderPreset = preset);
+    await _hive.setShaderPreset(preset.id);
+    final controller = _controller;
+    if (controller != null) await _applyShaders(controller);
+  }
+
+  Future<void> _setShaderTier(ShaderTier tier) async {
+    setState(() => _shaderTier = tier);
+    await _hive.setShaderTier(tier.id);
+    final controller = _controller;
+    if (controller != null) await _applyShaders(controller);
+  }
+
+  /// Shares the frame on screen.
+  ///
+  /// Paused first, and deliberately: a share sheet takes a second to appear and
+  /// the video would otherwise be somewhere else by the time it does, so the
+  /// picture people send would not be the picture they were looking at.
+  ///
+  /// The position is not restored afterwards — nothing moved, it was only
+  /// paused, and resuming for somebody who wanted the video stopped to look at
+  /// a frame would be the app arguing with them.
+  Future<void> _shareCurrentFrame() async {
+    final controller = _controller;
+    if (controller == null) return;
+    await controller.pause();
+
+    final bytes = await controller.grabFrame();
+    if (!mounted) return;
+    if (bytes == null || bytes.isEmpty) {
+      _PlayerSubtitles(this)._toast('player.share_frame_failed'.tr());
+      return;
+    }
+
+    try {
+      // Written to a temp file rather than shared as bytes: several targets
+      // accept only a file, and the ones that accept bytes accept a file too.
+      final dir = await getTemporaryDirectory();
+      final safeTitle = widget.args.title
+          .replaceAll(RegExp(r'[^A-Za-z0-9 _-]'), '')
+          .trim();
+      final file = File(
+        '${dir.path}/${safeTitle.isEmpty ? 'sozo' : safeTitle}'
+        '-${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await file.writeAsBytes(bytes, flush: true);
+      await Share.shareXFiles([XFile(file.path)], text: widget.args.title);
+    } catch (e) {
+      _plog('share frame failed: $e', level: LogLevel.warn);
+      if (mounted) _PlayerSubtitles(this)._toast('player.share_frame_failed'.tr());
+    }
+  }
+
+  /// Saves the frame on screen to the device gallery.
+  ///
+  /// Paused first for the same reason sharing is: the write and the permission
+  /// prompt both take a moment, and the frame that lands in the gallery has to
+  /// be the frame that was being looked at.
+  ///
+  /// A file is written and handed to `gal` rather than the bytes being passed
+  /// directly, because the file is what carries a NAME. A gallery full of
+  /// `image_1725186000.jpg` is a gallery nobody can search; `Sozo - <title> -
+  /// 00-42-17.jpg` says which film, and where in it, months later.
+  Future<void> _saveCurrentFrame() async {
+    final controller = _controller;
+    if (controller == null) return;
+    await controller.pause();
+
+    final bytes = await controller.grabFrame();
+    if (!mounted) return;
+    if (bytes == null || bytes.isEmpty) {
+      _PlayerSubtitles(this)._toast('player.save_frame_failed'.tr());
+      return;
+    }
+
+    try {
+      // Android 10+ and iOS both want the app to ask before writing to the
+      // shared photo library. `gal` asks on the platforms that require it and
+      // returns true where no prompt exists, so there is nothing to branch on.
+      if (!await Gal.hasAccess(toAlbum: true)) {
+        if (!await Gal.requestAccess(toAlbum: true)) {
+          if (mounted) {
+            _PlayerSubtitles(this)._toast('player.save_frame_denied'.tr());
+          }
+          return;
+        }
+      }
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/${_frameFileName()}');
+      await file.writeAsBytes(bytes, flush: true);
+
+      // Into an album of its own, so screenshots taken over months are one
+      // scroll rather than scattered through the camera roll by date.
+      await Gal.putImage(file.path, album: 'Sozo');
+
+      // The temp copy has served its purpose the moment the gallery has one.
+      unawaited(file.delete().catchError((_) => file));
+
+      if (mounted) _PlayerSubtitles(this)._toast('player.save_frame_done'.tr());
+    } on GalException catch (e) {
+      _plog('save frame failed: ${e.type}', level: LogLevel.warn);
+      if (mounted) {
+        _PlayerSubtitles(this)._toast(
+          e.type == GalExceptionType.accessDenied
+              ? 'player.save_frame_denied'.tr()
+              : 'player.save_frame_failed'.tr(),
+        );
+      }
+    } catch (e) {
+      _plog('save frame failed: $e', level: LogLevel.warn);
+      if (mounted) {
+        _PlayerSubtitles(this)._toast('player.save_frame_failed'.tr());
+      }
+    }
+  }
+
+  /// `Sozo - <title> - <hh-mm-ss>.jpg`, with everything a filesystem might
+  /// object to removed. The timestamp is the position in the video rather than
+  /// the wall clock: it is the half of the name that is actually useful when
+  /// the file turns up again later.
+  String _frameFileName() {
+    final safeTitle = widget.args.title
+        .replaceAll(RegExp(r'[^A-Za-z0-9 _-]'), '')
+        .trim();
+    final pos = _controller?.value.position ?? Duration.zero;
+    final stamp = pos
+        .toString()
+        .split('.')
+        .first
+        .padLeft(8, '0')
+        .replaceAll(':', '-');
+    return 'Sozo - ${safeTitle.isEmpty ? 'frame' : safeTitle} - $stamp.jpg';
+  }
+
   Widget _buildSidePanel() {
     final isQuality = _panel == _SidePanel.quality;
     final sources = _currentServerSources;
@@ -613,8 +1150,28 @@ extension _PlayerPanels on _PlayerPageState {
     // and TV keep the drawer: there the height is the usable dimension.
     final asSheet = !isTvPlatform && !isDesktopPlatform && _isPortrait;
 
+    final tracks = _engineVideoTracks;
     final list = isQuality
-        ? ListView.separated(
+        ? (tracks.isNotEmpty
+            // Renditions of the stream that is playing. Preferred over the
+            // mirror list because switching between them is instant and keeps
+            // the position, where switching mirror is a reload.
+            ? ListView.separated(
+                controller: _tvPanelScroll,
+                shrinkWrap: asSheet,
+                padding: EdgeInsets.zero,
+                itemCount: tracks.length,
+                separatorBuilder: (_, _) => Divider(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  height: 1,
+                ),
+                itemBuilder: (_, i) => _VideoTrackRow(
+                  track: tracks[i],
+                  isActive: tracks[i].id == (_controller?.activeVideoTrackId),
+                  onTap: () => _switchVideoTrack(tracks[i]),
+                ),
+              )
+            : ListView.separated(
             controller: _tvPanelScroll,
             shrinkWrap: asSheet,
             padding: EdgeInsets.zero,
@@ -631,20 +1188,20 @@ extension _PlayerPanels on _PlayerPageState {
                 onTap: () => _switchQuality(src),
               );
             },
-          )
+          ))
         : ListView.separated(
             // Non-null only on TV (see _openPanel), where it opens
             // the list near the episode being watched.
             controller: _tvPanelScroll,
             shrinkWrap: asSheet,
             padding: EdgeInsets.zero,
-            itemCount: widget.args.episodes.length,
+            itemCount: _episodes.length,
             separatorBuilder: (_, _) => Divider(
               color: Colors.white.withValues(alpha: 0.06),
               height: 1,
             ),
             itemBuilder: (_, i) => _EpisodeRow(
-              episode: widget.args.episodes[i],
+              episode: _episodes[i],
               isActive: i == _episodeIndex,
               onTap: () => _partyEpisodeNav(i),
             ),
@@ -664,7 +1221,7 @@ extension _PlayerPanels on _PlayerPageState {
             ),
           ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 8, 8),
           child: Row(
             children: [
               Text(
@@ -755,13 +1312,12 @@ class _ServerTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Icon(
-              selected
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.radio_button_unchecked_rounded,
-              color: selected ? AppColors.primary : Colors.white54,
-              size: 20,
-            ),
+            // A coloured mark instead of a radio dot. Six rows reading
+            // "Server 1" … "Server 6" are indistinguishable at a glance, and
+            // the one that works is found by trial — so what is worth
+            // remembering is which one it WAS, and a name differing by one
+            // digit is not something anybody remembers.
+            ServerBadge(name: label, selected: selected),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -794,6 +1350,10 @@ class _ServerTile extends StatelessWidget {
                 ],
               ),
             ),
+            // The tick sits at the trailing edge now: a radio dot beside a
+            // coloured square read as two competing selection indicators.
+            if (selected)
+              const Icon(Icons.check_rounded, color: Colors.white, size: 20),
           ],
         ),
       ),

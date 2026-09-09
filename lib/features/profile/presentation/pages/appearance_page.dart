@@ -325,7 +325,7 @@ class _CustomAccentRow extends StatelessWidget {
               ),
               if (active)
                 Padding(
-                  padding: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsetsDirectional.only(end: 6),
                   child: Icon(
                     Icons.check_rounded,
                     size: 18,
@@ -1097,7 +1097,7 @@ class _GradientSlider extends StatelessWidget {
               child: SizedBox(
                 height: _thumbRadius * 2 + 8,
                 child: Stack(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(

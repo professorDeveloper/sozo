@@ -17,7 +17,7 @@ class AppTabBar extends StatefulWidget implements PreferredSizeWidget {
     this.isScrollable = true,
     this.showDivider = true,
     this.background,
-    this.padding = const EdgeInsets.only(left: 8),
+    this.padding = const EdgeInsetsDirectional.only(start: 8),
   });
 
   final List<String> labels;
@@ -30,20 +30,29 @@ class AppTabBar extends StatefulWidget implements PreferredSizeWidget {
   /// constructor because the palette is a runtime value now, and a default
   /// parameter has to be a compile-time constant.
   final Color? background;
-  final EdgeInsets padding;
+  /// Geometry rather than [EdgeInsets] so a caller — and the default below —
+  /// can express a leading inset that mirrors in Arabic instead of clinging to
+  /// the left edge.
+  final EdgeInsetsGeometry padding;
 
-  static const double _dividerHeight = 0.5;
+  /// Public because a pinned sliver header and two skeleton placeholders all
+  /// have to agree with this strip to the pixel, and each of them previously
+  /// carried its own copy of the arithmetic — one of them wrong.
+  static const double dividerHeight = 0.5;
 
   /// TabBar.preferredSize is `_kTabHeight (46) + indicatorWeight`, not
   /// kTextTabBarHeight (48) — using the latter compresses the indicator strip
   /// by 0.5px and shifts every sliver below a pinned header. Keep in sync with
-  /// the [_indicatorWeight] passed to the TabBar below.
-  static const double _indicatorWeight = 2.5;
-  static const double _stripHeight = 46.0 + _indicatorWeight;
+  /// the [indicatorWeight] passed to the TabBar below.
+  static const double indicatorWeight = 2.5;
+
+  /// `TabBar.preferredSize` is `_kTabHeight (46) + indicatorWeight`, NOT
+  /// `kTextTabBarHeight (48)`.
+  static const double stripHeight = 46.0 + indicatorWeight;
 
   @override
   Size get preferredSize => Size.fromHeight(
-    _stripHeight + padding.vertical + (showDivider ? _dividerHeight : 0),
+    stripHeight + padding.vertical + (showDivider ? dividerHeight : 0),
   );
 
   @override
@@ -118,7 +127,7 @@ class _AppTabBarState extends State<AppTabBar>
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            height: AppTabBar._stripHeight + widget.padding.vertical,
+            height: AppTabBar.stripHeight + widget.padding.vertical,
             child: Padding(
               padding: widget.padding,
               child: TabBar(
@@ -129,7 +138,7 @@ class _AppTabBarState extends State<AppTabBar>
                     ? TabAlignment.start
                     : TabAlignment.fill,
                 indicatorColor: AppColors.primary,
-                indicatorWeight: AppTabBar._indicatorWeight,
+                indicatorWeight: AppTabBar.indicatorWeight,
                 indicatorSize: TabBarIndicatorSize.label,
                 labelColor: AppColors.textPrimary,
                 unselectedLabelColor: AppColors.textHint,
@@ -153,7 +162,7 @@ class _AppTabBarState extends State<AppTabBar>
           ),
           if (widget.showDivider)
             Container(
-              height: AppTabBar._dividerHeight,
+              height: AppTabBar.dividerHeight,
               color: AppColors.divider.withValues(alpha: 0.55),
             ),
         ],
