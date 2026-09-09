@@ -79,7 +79,7 @@ class MalService extends ChangeNotifier {
         notifyListeners();
         return false;
       }
-      return launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      return await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } on DioException catch (e) {
       _lastError = e.response?.statusCode == 503
           ? 'MyAnimeList is not configured on the server yet'
