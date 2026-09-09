@@ -567,32 +567,13 @@ extension _PlayerMedia on _PlayerPageState {
     final base = Uri.tryParse(masterUrl);
     if (base == null) return;
 
-    final variants = <({int height, String url})>[];
-    final lines = body.split(RegExp(r'\r?\n'));
-    for (var i = 0; i < lines.length - 1; i++) {
-      final tag = lines[i].trim();
-      if (!tag.startsWith('#EXT-X-STREAM-INF')) continue;
-      final uri = lines[i + 1].trim();
-      if (uri.isEmpty || uri.startsWith('#')) continue;
-      // The label comes from the variant's own name when it has one, and only
-      // falls back to RESOLUTION. They disagree more often than not: a 2.40:1
-      // film encoded at 1080p carries RESOLUTION=1920x800, so naming the row
-      // after the pixel height offers the viewer `800p` for the stream every
-      // other player calls 1080p. The `index-s1080p-v1-a1` token in the URI is
-      // the name the packager gave it.
-      final named = RegExp(r'[-_/]s(\d{3,4})p\b').firstMatch(uri);
-      final res = RegExp(r'RESOLUTION=\d+x(\d+)').firstMatch(tag);
-      final height =
-          int.tryParse(named?.group(1) ?? res?.group(1) ?? '') ?? 0;
-      if (height <= 0) continue;
-      variants.add((height: height, url: base.resolve(uri).toString()));
-    }
+    // Shared with the downloader, which needs the same ranking to stop saving
+    // the lowest rendition of a stream the player is showing at 1080p.
+    final variants = parseHlsVariants(body, base);
     if (variants.isEmpty) return;
 
-    // Best first, and one entry per height: a master often carries the same
-    // resolution twice at different bitrates, which would show the sheet two
-    // rows both labelled `1080p`.
-    variants.sort((a, b) => b.height.compareTo(a.height));
+    // One entry per height: a master often carries the same resolution twice at
+    // different bitrates, which would show the sheet two rows both `1080p`.
     final seen = <int>{};
 
     final auto = _videoSources.isNotEmpty ? _videoSources.first : null;
