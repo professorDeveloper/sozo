@@ -68,13 +68,37 @@ void main() {
       expect(ladder.next(), 1);
     });
 
-    test('with neither, the backend order stands', () {
-      // The list arrives ranked. Absent a reason, do not reorder it.
+    test('with neither, the highest resolution leads', () {
+      // This used to assert that the backend order stands, on the premise that
+      // the list arrives ranked. It does from most providers — but asilmedia
+      // and animefenix mark no default and emit sources in page order, which on
+      // asilmedia puts a 360p ahead of a 720p. Films from those played, and
+      // downloaded, at the lower one with the higher sitting in the same list.
       final ladder = SourceLadder(
         sources: [src('720p'), src('1080p'), src('480p')],
         hasDirective: false,
       );
+      expect(ladder.ordered(), [1, 0, 2]);
+    });
+
+    test('labels with no resolution keep the backend order', () {
+      // vidapi's entries are mirrors, not qualities — "Server 1", "Server 2".
+      // Nothing in the label ranks them, so the order the backend chose is the
+      // only information there is, and inventing a preference would be noise.
+      final ladder = SourceLadder(
+        sources: [src('Server 1'), src('Server 2'), src('Server 3')],
+        hasDirective: false,
+      );
       expect(ladder.ordered(), [0, 1, 2]);
+    });
+
+    test('a provider default still outranks a higher resolution', () {
+      // The default is somebody's decision; the resolution guess is mine.
+      final ladder = SourceLadder(
+        sources: [src('1080p'), src('480p', isDefault: true)],
+        hasDirective: false,
+      );
+      expect(ladder.next(), 1);
     });
 
     test('a remembered label that matches nothing is ignored, not fatal', () {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/player/source_ladder.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -888,18 +889,28 @@ class _DetailViewState extends State<_DetailView>
 
   /// The stream a movie should use: the provider's own pick, else the default
   /// accessible source, else any accessible one, else whatever exists.
+  /// Which mirror this page plays and downloads.
+  ///
+  /// Was a hand-rolled walk — default first, then anything reachable, then
+  /// `sources[0]` — which is the fifth place in this app that answered the same
+  /// question its own way, and the one place that never looked at resolution.
+  /// On a provider that marks no default and lists sources in page order, that
+  /// is how a film with a 720p in the list downloaded as 360p.
+  ///
+  /// [SourceLadder] is that decision, already written and already tested.
   String? _pickMovieUrl(PlaybackEntity playback) {
     final direct = playback.playerSrc;
     if (direct != null && direct.isNotEmpty) return direct;
 
     final sources = playback.videoSources;
-    for (final s in sources) {
-      if (s.isDefault && s.accessible) return s.videoUrl;
-    }
-    for (final s in sources) {
-      if (s.accessible) return s.videoUrl;
-    }
-    return sources.isNotEmpty ? sources.first.videoUrl : null;
+    if (sources.isEmpty) return null;
+    final pick = SourceLadder(
+      sources: sources,
+      // No resolve directive is in hand here, so an embed page cannot be
+      // sniffed — `isPlayable` drops iframes for exactly that reason.
+      hasDirective: false,
+    ).initialPick();
+    return pick == null ? null : sources[pick].videoUrl;
   }
 
   Future<void> _playMovieDirect(PlaybackEntity playback) async {

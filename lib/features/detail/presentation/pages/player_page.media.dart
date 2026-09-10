@@ -671,6 +671,11 @@ extension _PlayerMedia on _PlayerPageState {
       }
     }
 
+    // Before playback, not after: the sheet is built from `_videoSources`, and
+    // a viewer who opens it during the first ten seconds should already find
+    // the renditions there.
+    await _maybeExpandQualities(effUrl, effHeaders, effType);
+
     await _initializeResolved(
       url: effUrl,
       headers: effHeaders,
@@ -678,6 +683,109 @@ extension _PlayerMedia on _PlayerPageState {
       resumeAt: resumeAt,
       party: party,
     );
+  }
+
+  /// Gives the current server real quality rows, parsed out of its own master
+  /// playlist.
+  ///
+  /// [_expandMasterPlaylist] already did this, but from one place only: inside
+  /// [_applyRewrite], for a provider carrying a rewrite rule that verifies, and
+  /// only when the whole source list was a single entry. Most providers have no
+  /// such rule. vidapi returns three HLS masters and labels them `Server 1..3`,
+  /// so the sheet listed three servers, the renditions inside each were never
+  /// surfaced, and nothing but the connection speed decided between 480p and
+  /// 1080p. That is the "no manual quality control" report.
+  ///
+  /// The current entry is left exactly as it is and the renditions are inserted
+  /// after it — it keeps its url, its headers and its proxy settings, so it
+  /// still resolves the way it did, and it goes on being the adaptive choice.
+  /// Only the server being played is fetched; the others are expanded if and
+  /// when they are switched to.
+  ///
+  /// Costs one GET, skipped whenever there is already something to choose
+  /// from. Failure is silent: this widens a menu, it does not gate playback.
+  Future<void> _maybeExpandQualities(
+    String url,
+    Map<String, String> headers,
+    String? type,
+  ) async {
+    final idx = _currentSourceIndex;
+    if (idx < 0 || idx >= _videoSources.length) return;
+    final parent = _videoSources[idx];
+
+    // A label that already states a resolution came from the provider, and the
+    // provider knows its own catalogue better than a parsed manifest does.
+    if (VideoOptionGroups.resolutionOf(parent.quality) != null) return;
+    if (url.isEmpty || !_expandedMasters.add(url)) return;
+
+    final kind = type?.toLowerCase();
+    final looksHls =
+        kind == 'hls' || kind == 'm3u8' || url.toLowerCase().contains('.m3u8');
+    if (!looksHls) return;
+
+    final base = Uri.tryParse(url);
+    if (base == null) return;
+
+    String body;
+    try {
+      final res = await getIt<Dio>().get<String>(
+        url,
+        options: Options(
+          headers: headers,
+          responseType: ResponseType.plain,
+          validateStatus: (_) => true,
+          receiveTimeout: const Duration(seconds: 8),
+          extra: const {'skipAuthInterceptor': true},
+        ),
+      );
+      if (res.statusCode != 200) return;
+      body = res.data ?? '';
+    } catch (_) {
+      // A master that will not load is the player's problem to report, not
+      // this one's — it is about to request the same url.
+      return;
+    }
+    if (!body.trimLeft().startsWith('#EXTM3U')) return;
+
+    // Shared with the downloader, so the file saved matches the rendition the
+    // sheet offered.
+    final variants = parseHlsVariants(body, base);
+
+    // One row per height: a master often carries the same resolution twice at
+    // different bitrates, which would list `1080p` twice.
+    final seen = <int>{};
+    final rows = <VideoSourceEntity>[
+      for (final v in variants)
+        if (v.height > 0 && seen.add(v.height))
+          VideoSourceEntity(
+            quality: '${parent.quality} · ${v.height}p',
+            videoUrl: v.url,
+            isDefault: false,
+            accessible: parent.accessible,
+            height: v.height,
+            type: parent.type ?? 'hls',
+            headers: parent.headers.isNotEmpty ? parent.headers : headers,
+            useLocalProxy: parent.useLocalProxy,
+            localProxy: parent.localProxy,
+            requestTransform: parent.requestTransform,
+            drm: parent.drm,
+          ),
+    ];
+    // One rendition beside the adaptive entry is not a choice, and a quality
+    // control that opens onto a single row reads as broken — the same rule the
+    // engine track list follows.
+    if (rows.length < 2) return;
+
+    _plog('master playlist -> ${rows.length} qualities for '
+        '"${parent.quality}" (${rows.map((e) => e.height).join(", ")})');
+    if (!mounted) return;
+    setState(() {
+      _videoSources = [
+        ..._videoSources.take(idx + 1),
+        ...rows,
+        ..._videoSources.skip(idx + 1),
+      ];
+    });
   }
 
   Future<void> _initializeResolved({

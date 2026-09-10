@@ -221,6 +221,10 @@ class _PlayerPageState extends State<PlayerPage>
   ExtractorConfigEntity? _extractorConfig;
   int _currentSourceIndex = -1;
 
+  /// Master playlists already read for their renditions, so switching back to a
+  /// server does not refetch its manifest.
+  final Set<String> _expandedMasters = <String>{};
+
   /// Mirrors already attempted for what is on screen, by url.
   ///
   /// This was a single `_autoFallbackUsed` bool, which is why a five-mirror
