@@ -39,6 +39,22 @@ abstract final class AppLanguage {
 
   static String labelOf(String code) => names[code] ?? code;
 
+  static const flags = <String, String>{
+    'en': '🇬🇧',
+    'uz': '🇺🇿',
+    'ru': '🇷🇺',
+    'ar': '🇸🇦',
+    'de': '🇩🇪',
+    'nl': '🇳🇱',
+    'es': '🇪🇸',
+    'pt': '🇵🇹',
+    'fr': '🇫🇷',
+    'tr': '🇹🇷',
+    'id': '🇮🇩',
+  };
+
+  static String flagOf(String code) => flags[code] ?? '🌐';
+
   /// Switches the interface, and everything downstream of it.
   static Future<void> set(BuildContext context, String code) async {
     if (code != context.locale.languageCode) {

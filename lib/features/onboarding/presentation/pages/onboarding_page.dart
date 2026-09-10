@@ -130,36 +130,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     ),
                     child: Column(
                       children: [
-                        Padding(
-                          // Sits clear of the status bar rather than tucked against
-                          // it — over artwork the two collide and both stop reading.
-                          padding: const EdgeInsetsDirectional.fromSTEB(
-                            20,
-                            18,
-                            16,
-                            0,
-                          ),
-                          child: Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              Text(
-                                'app_name'.tr().toUpperCase(),
-                                style: TextStyle(
-                                  color: AppColors.primary,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 3,
-                                ),
-                              ),
-                              const LanguageChip(),
-                              const SizedBox(width: 8),
-                              _SkipChip(onTap: () => _leave('/main')),
-                            ],
-                          ),
-                        ),
+                        OnboardingHeader(onSkip: () => _leave('/main')),
                         Expanded(
                           child: PageView.builder(
                             controller: _pageController,
@@ -220,7 +191,42 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 }
 
-/// Skip, made to look like a control rather than a stray word on a poster.
+class OnboardingHeader extends StatelessWidget {
+  const OnboardingHeader({super.key, required this.onSkip});
+
+  final VoidCallback onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    return MediaQuery(
+      // This single-line brand bar must stay stable; the page copy and buttons
+      // below still use the user's full text scale.
+      data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+      child: Padding(
+        // Keeps both controls on their own edges, clear of the status bar.
+        padding: const EdgeInsetsDirectional.fromSTEB(20, 12, 12, 0),
+        child: Row(
+          children: [
+            Text(
+              'SOZO',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+                height: 1,
+              ),
+            ),
+            const Spacer(),
+            _SkipChip(onTap: onSkip),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A quiet secondary action anchored to the top-right of the intro.
 class _SkipChip extends StatelessWidget {
   const _SkipChip({required this.onTap});
 
@@ -228,35 +234,24 @@ class _SkipChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black.withValues(alpha: 0.45),
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 48),
-          padding: const EdgeInsetsDirectional.fromSTEB(14, 12, 10, 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'onboarding.skip'.tr(),
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 2),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: AppColors.textPrimary,
-              ),
-            ],
+    return TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.textPrimary,
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 4, 8),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'onboarding.skip'.tr(),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
-        ),
+          const SizedBox(width: 2),
+          const Icon(Icons.chevron_right_rounded, size: 18),
+        ],
       ),
     );
   }

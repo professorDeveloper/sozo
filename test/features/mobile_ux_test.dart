@@ -19,6 +19,7 @@ import 'package:soplay/features/download/presentation/widgets/download_choice_sh
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/widgets/provider_quick_switch.dart';
 import 'package:soplay/features/main/presentation/pages/main_page.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:soplay/features/search/domain/entities/cross_search_scope.dart';
 import 'package:soplay/features/search/presentation/widgets/search_header.dart';
 import 'package:soplay/features/search/presentation/widgets/source_scope_bar.dart';
@@ -58,6 +59,8 @@ class _ManifestAdapter implements HttpClientAdapter {
   @override
   void close({bool force = false}) {}
 }
+
+void _noop() {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -218,9 +221,32 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.drag(find.byType(ListView), const Offset(0, -120));
+    await tester.pumpAndSettle();
+    expect(find.text('🇮🇩'), findsOneWidget);
     await tester.tap(find.text('Bahasa Indonesia'));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'intro header keeps logo left and skip right without language chip',
+    (tester) async {
+      await pump(
+        tester,
+        Scaffold(body: OnboardingHeader(onSkip: _noop)),
+        width: 320,
+        height: 480,
+        scale: 2,
+        language: 'de',
+      );
+      final logo = tester.getRect(find.text('SOZO'));
+      final skip = tester.getRect(find.text('Überspringen'));
+      expect(logo.left, lessThan(32));
+      expect(skip.right, greaterThan(280));
+      expect(find.byIcon(Icons.language_rounded), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'download confirms the chosen source headers and declared resolution',

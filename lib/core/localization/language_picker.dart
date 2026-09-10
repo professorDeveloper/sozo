@@ -4,63 +4,6 @@ import 'package:soplay/core/localization/app_language.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
-/// The language control on the sign-in screen.
-///
-/// ## Why it is here and not on a screen of its own
-///
-/// The app already picks the right language by itself: with no saved choice,
-/// `easy_localization` resolves the device locale, so a German phone opens in
-/// German the moment `de.json` exists. A dedicated first-run language screen
-/// would therefore charge every user a step to serve the minority whose phone
-/// is set to something they do not want to read.
-///
-/// A chip costs nobody a step, and the slides re-render in the chosen language
-/// straight away — which a picker placed *after* the introduction cannot do,
-/// because by then the introduction has already been read in the wrong one.
-class LanguageChip extends StatelessWidget {
-  const LanguageChip({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final code = context.locale.languageCode;
-    return Material(
-      color: Colors.black.withValues(alpha: 0.45),
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        onTap: () => showLanguageSheet(context),
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 48),
-          padding: const EdgeInsetsDirectional.fromSTEB(12, 12, 12, 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.language_rounded,
-                size: 18,
-                color: AppColors.textPrimary,
-              ),
-              const SizedBox(width: 6),
-              // The code, not the native name: "Bahasa Indonesia" is four times
-              // the width of "EN" and the chip sits next to Skip in a row that
-              // has no room to grow.
-              Text(
-                code.toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// First-run choice, after the introduction and before entering the app/auth.
 Future<bool> confirmIntroLanguage(BuildContext context) async {
   final code = await Navigator.of(
@@ -84,43 +27,95 @@ class _IntroLanguagePageState extends State<IntroLanguagePage> {
   @override
   Widget build(BuildContext context) {
     final selected = _selected ?? context.locale.languageCode;
-    return Scaffold(
-      appBar: AppBar(title: Text('profile.language'.tr())),
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Text(
-                      'ux.interface_language_note'.tr(),
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 16,
+    return PopScope(
+      canPop: true,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(8, 8, 20, 0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).backButtonTooltip,
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'SOZO',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2.2,
                       ),
                     ),
-                  ),
-                  for (final locale in context.supportedLocales)
-                    _LanguageRow(
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  itemCount: context.supportedLocales.length + 1,
+                  separatorBuilder: (_, _) => const SizedBox(height: 4),
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return Padding(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          8,
+                          8,
+                          8,
+                          16,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'profile.language'.tr(),
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'ux.interface_language_note'.tr(),
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 14,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    final locale = context.supportedLocales[index - 1];
+                    return _LanguageRow(
                       code: locale.languageCode,
                       selected: selected == locale.languageCode,
                       onTap: () =>
                           setState(() => _selected = locale.languageCode),
-                    ),
-                ],
+                    );
+                  },
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilledButton(
-                onPressed: () => Navigator.pop(context, selected),
-                child: Text('ux.continue'.tr()),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context, selected),
+                  child: Text('ux.continue'.tr()),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -197,6 +192,16 @@ class _LanguageRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
+      minTileHeight: 56,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      tileColor: selected
+          ? AppColors.primary.withValues(alpha: 0.10)
+          : Colors.transparent,
+      leading: Text(
+        AppLanguage.flagOf(code),
+        semanticsLabel: AppLanguage.labelOf(code),
+        style: const TextStyle(fontSize: 26),
+      ),
       title: Text(
         AppLanguage.labelOf(code),
         style: TextStyle(
