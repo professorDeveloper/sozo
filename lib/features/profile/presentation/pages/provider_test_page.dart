@@ -293,6 +293,10 @@ class _StepRow extends StatelessWidget {
             width: 86,
             child: Text(
               _labels[step.stage]!.tr(),
+              // The column is fixed so the stage names line up; without this a
+              // longer translation wraps and the row grows by a line.
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ),

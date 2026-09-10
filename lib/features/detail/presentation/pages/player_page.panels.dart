@@ -175,7 +175,17 @@ extension _PlayerPanels on _PlayerPageState {
 
   String _qualityLabel(String label) {
     final quality = VideoOptionGroups.qualityOf(label);
-    return quality.isEmpty ? label : quality;
+    if (quality.isNotEmpty) return quality;
+    // Sitting in a quality list with nothing resolution-shaped in the label
+    // means this is the server's own stream — the adaptive entry the parsed
+    // renditions were hung off. Painting it "Server 1" among 1080p and 720p
+    // read as a stray server row.
+    return _hasParsedSiblings(label) ? 'player.auto'.tr() : label;
+  }
+
+  bool _hasParsedSiblings(String label) {
+    final server = VideoOptionGroups.serverOf(label);
+    return VideoOptionGroups.qualitiesFor(_sourceLabels, server).isNotEmpty;
   }
 
   /// [_QualityRow] paints the label verbatim, and every label in a one-server

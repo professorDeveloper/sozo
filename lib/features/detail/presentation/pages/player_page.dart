@@ -1,5 +1,7 @@
+import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:soplay/core/player/hls_variants.dart';
 import 'package:soplay/core/analytics/analytics.dart';
 import 'package:soplay/core/player/color_profile.dart';
 import 'package:soplay/core/player/shader_presets.dart';
@@ -195,6 +197,7 @@ class _PlayerPageState extends State<PlayerPage>
   Map<String, String> _headers = const {};
   bool _isNetworkVideo = false;
   bool _isHls = false;
+
   /// True while the current media is a live broadcast.
   ///
   /// Seeded from what the caller SAID it is rather than guessed alone: Live TV
@@ -220,6 +223,10 @@ class _PlayerPageState extends State<PlayerPage>
   ExtractorConfigEntity? _extractorConfig;
   int _currentSourceIndex = -1;
 
+  /// Master playlists already read for their renditions, so switching back to a
+  /// server does not refetch its manifest.
+  final Set<String> _expandedMasters = <String>{};
+
   /// Mirrors already attempted for what is on screen, by url.
   ///
   /// This was a single `_autoFallbackUsed` bool, which is why a five-mirror
@@ -232,6 +239,7 @@ class _PlayerPageState extends State<PlayerPage>
   /// Set when a mirror failed to DECODE, so sibling mirrors in the same codec
   /// sink to the back of the ladder. Cleared wherever the ladder resets.
   String? _decoderAvoidCodec;
+
   /// Pinch zoom over the video, 1.0 = untouched.
   ///
   /// Separate from [_PlayerFit], which snaps to three presets. Fit answers
@@ -256,8 +264,9 @@ class _PlayerPageState extends State<PlayerPage>
   /// Which rows the info overlay may show. Read once at open and updated when
   /// the picker changes it, rather than re-read on every frame — the overlay
   /// rebuilds on every position tick and a Hive read there is pure waste.
-  Set<String> _infoFields =
-      PlayerInfoFields.fromStored(getIt<HiveService>().getPlayerInfoFields());
+  Set<String> _infoFields = PlayerInfoFields.fromStored(
+    getIt<HiveService>().getPlayerInfoFields(),
+  );
 
   /// The viewer's bar arrangement. Read once at open: it can only change from
   /// the editor, and returning from that re-reads it.
@@ -429,7 +438,6 @@ class _PlayerPageState extends State<PlayerPage>
   /// player instance can cover several episodes — a plain bool would report the
   /// first episode and nothing after it.
 
-
   bool _wasPlaying = false;
   bool _wasBuffering = false;
   bool _wasInitialized = false;
@@ -464,7 +472,9 @@ class _PlayerPageState extends State<PlayerPage>
   // nearest enclosing scope. If that were the route's scope instead of this
   // node, it would no longer be in the key-event chain and the remote would go
   // dead until the next tap.
-  final FocusScopeNode _tvRootFocus = FocusScopeNode(debugLabel: 'tvPlayerRoot');
+  final FocusScopeNode _tvRootFocus = FocusScopeNode(
+    debugLabel: 'tvPlayerRoot',
+  );
 
   /// Focus scope for the TV side panel (quality / episodes).
   ///
@@ -475,8 +485,9 @@ class _PlayerPageState extends State<PlayerPage>
   /// which is what "quality doesn't work on TV" actually was. Giving the panel
   /// its own scope lets [_openPanel] hand focus over and [_closePanel] hand it
   /// back deterministically.
-  final FocusScopeNode _tvPanelFocus =
-      FocusScopeNode(debugLabel: 'tvPlayerPanel');
+  final FocusScopeNode _tvPanelFocus = FocusScopeNode(
+    debugLabel: 'tvPlayerPanel',
+  );
   final FocusNode _tvPlayFocus = FocusNode(debugLabel: 'tvPlayerPlay');
   final FocusNode _tvSeekFocus = FocusNode(debugLabel: 'tvPlayerSeek');
 
@@ -524,8 +535,12 @@ class _PlayerPageState extends State<PlayerPage>
     // the next subbed had a single setting fighting them on every episode; the
     // show they are actually opening now decides, and the global value is only
     // the default for a title nothing is remembered about.
-    _currentLang = widget.args.initialLang ??
-        _titlePrefs.langFor(widget.args.provider, widget.args.contentUrl ?? '') ??
+    _currentLang =
+        widget.args.initialLang ??
+        _titlePrefs.langFor(
+          widget.args.provider,
+          widget.args.contentUrl ?? '',
+        ) ??
         _hive.getPreferredMediaLang();
     _restoreSubtitleSync();
     _controlsAnimation = AnimationController(
@@ -679,93 +694,102 @@ class _PlayerPageState extends State<PlayerPage>
         value: SystemUiOverlayStyle.light,
         child: _wrapPlayerShortcuts(
           Scaffold(
-          backgroundColor: Colors.black,
-          body: LayoutBuilder(
-            builder: (context, constraints) => _wrapHover(GestureDetector(
-              // ANCESTOR of the whole Stack, deliberately, and it has to stay
-              // that way.
-              //
-              // It was briefly moved to a Positioned.fill sibling below the
-              // controls, to stop its long-press recogniser competing with the
-              // seek bar's drag. That broke two things and fixed nothing worth
-              // the trade. Measured, not guessed:
-              //
-              //  * The controls scrim is a full-screen DecoratedBox, and a
-              //    RenderDecoratedBox DOES take the hit — a hit-test at the
-              //    centre of the screen stops there and never reaches a sibling
-              //    below it. So every gesture died the moment the controls
-              //    became visible, which is exactly how it was reported.
-              //  * The error card, the missing-plugin view and the loading
-              //    overlay all live in the Stack's first child, so an opaque
-              //    sibling above them swallowed Try again, Alternate sources
-              //    and View logs.
-              //  * And the conflict it was meant to fix does not cancel the
-              //    drag at all: holding the thumb past the long-press timeout
-              //    still delivers onChangeEnd. It only fires a spurious 2x
-              //    speed boost, which _absorbAncestorGestures now stops at the
-              //    seek bar itself.
-              //
-              // As an ancestor these recognisers are in the hit-test path for
-              // every touch, whatever is drawn on top.
-              behavior: HitTestBehavior.opaque,
-              onTap: _locked ? null : _toggleControls,
-              onDoubleTapDown: _locked || isDesktopPlatform
-                  ? null
-                  : (d) => _onDoubleTapDown(d, constraints),
-              onDoubleTap: _locked
-                  ? null
-                  : isDesktopPlatform
+            backgroundColor: Colors.black,
+            body: LayoutBuilder(
+              builder: (context, constraints) => _wrapHover(
+                GestureDetector(
+                  // ANCESTOR of the whole Stack, deliberately, and it has to stay
+                  // that way.
+                  //
+                  // It was briefly moved to a Positioned.fill sibling below the
+                  // controls, to stop its long-press recogniser competing with the
+                  // seek bar's drag. That broke two things and fixed nothing worth
+                  // the trade. Measured, not guessed:
+                  //
+                  //  * The controls scrim is a full-screen DecoratedBox, and a
+                  //    RenderDecoratedBox DOES take the hit — a hit-test at the
+                  //    centre of the screen stops there and never reaches a sibling
+                  //    below it. So every gesture died the moment the controls
+                  //    became visible, which is exactly how it was reported.
+                  //  * The error card, the missing-plugin view and the loading
+                  //    overlay all live in the Stack's first child, so an opaque
+                  //    sibling above them swallowed Try again, Alternate sources
+                  //    and View logs.
+                  //  * And the conflict it was meant to fix does not cancel the
+                  //    drag at all: holding the thumb past the long-press timeout
+                  //    still delivers onChangeEnd. It only fires a spurious 2x
+                  //    speed boost, which _absorbAncestorGestures now stops at the
+                  //    seek bar itself.
+                  //
+                  // As an ancestor these recognisers are in the hit-test path for
+                  // every touch, whatever is drawn on top.
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _locked ? null : _toggleControls,
+                  onDoubleTapDown: _locked || isDesktopPlatform
+                      ? null
+                      : (d) => _onDoubleTapDown(d, constraints),
+                  onDoubleTap: _locked
+                      ? null
+                      : isDesktopPlatform
                       ? _toggleFullscreen
                       : () {},
-              // Scale, not pan: Flutter asserts if both are registered, since
-              // scale is a superset. One finger is routed straight back into
-              // the old pan handlers — see _onScaleUpdate — so brightness,
-              // volume and swipe-seek behave exactly as before, and two
-              // fingers pinch-zoom the picture.
-              onScaleStart:
-                  _locked ? null : (d) => _onScaleStart(d, constraints),
-              onScaleUpdate:
-                  _locked ? null : (d) => _onScaleUpdate(d, constraints),
-              onScaleEnd: _locked ? null : _onScaleEnd,
-              onLongPressStart: _locked ? null : _onLongPressStart,
-              onLongPressEnd: _locked ? null : _onLongPressEnd,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _buildVideoLayer(),
-                  _buildSubtitleOverlay(),
-                  if (!_locked) _buildSeekRipple(),
-                  if (_locked) _buildLockOverlay() else _buildControlsOverlay(),
-                  if (!_locked) _buildScrubOverlay(),
-                  if (!_locked) _buildSpeedBoostBadge(),
-                  if (!_locked) _buildSwipeIndicator(),
-                  // Renders nothing unless the URL is a local torrent stream,
-                  // so it is safe to hand it every playback unconditionally.
-                  // It keeps showing while the controls are hidden if the
-                  // pre-buffer is still filling — that is precisely when the
-                  // picture is frozen and the user needs to know why.
-                  TorrentStatsOverlay(
-                    videoUrl: _videoUrl,
-                    visible: _controlsVisible && !_locked,
+                  // Scale, not pan: Flutter asserts if both are registered, since
+                  // scale is a superset. One finger is routed straight back into
+                  // the old pan handlers — see _onScaleUpdate — so brightness,
+                  // volume and swipe-seek behave exactly as before, and two
+                  // fingers pinch-zoom the picture.
+                  onScaleStart: _locked
+                      ? null
+                      : (d) => _onScaleStart(d, constraints),
+                  onScaleUpdate: _locked
+                      ? null
+                      : (d) => _onScaleUpdate(d, constraints),
+                  onScaleEnd: _locked ? null : _onScaleEnd,
+                  onLongPressStart: _locked ? null : _onLongPressStart,
+                  onLongPressEnd: _locked ? null : _onLongPressEnd,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildVideoLayer(),
+                      _buildSubtitleOverlay(),
+                      if (!_locked) _buildSeekRipple(),
+                      if (_locked)
+                        _buildLockOverlay()
+                      else
+                        _buildControlsOverlay(),
+                      if (!_locked) _buildScrubOverlay(),
+                      if (!_locked) _buildSpeedBoostBadge(),
+                      if (!_locked) _buildSwipeIndicator(),
+                      // Renders nothing unless the URL is a local torrent stream,
+                      // so it is safe to hand it every playback unconditionally.
+                      // It keeps showing while the controls are hidden if the
+                      // pre-buffer is still filling — that is precisely when the
+                      // picture is frozen and the user needs to know why.
+                      TorrentStatsOverlay(
+                        videoUrl: _videoUrl,
+                        visible: _controlsVisible && !_locked,
+                      ),
+                      // Above the controls layer so it is reachable while they are
+                      // hidden — the offer is at its most useful to a viewer who has
+                      // not touched the screen. Renders nothing when no interval is
+                      // active, so it costs nothing on non-anime playback.
+                      if (!_locked) _buildPlayerInfoOverlay(),
+                      if (!_locked) _buildSkipButton(),
+                      if (!_locked && _panel != _SidePanel.none)
+                        _buildSidePanel(),
+                      if (!_locked && _inParty) _buildPartyReactionsLayer(),
+                      // Last, so it covers everything: while a television is
+                      // playing this episode the phone is a remote, and leaving the
+                      // local controls reachable underneath would let someone
+                      // scrub a surface nobody is watching.
+                      _buildCastOverlay(),
+                    ],
                   ),
-                  // Above the controls layer so it is reachable while they are
-                  // hidden — the offer is at its most useful to a viewer who has
-                  // not touched the screen. Renders nothing when no interval is
-                  // active, so it costs nothing on non-anime playback.
-                  if (!_locked) _buildPlayerInfoOverlay(),
-                  if (!_locked) _buildSkipButton(),
-                  if (!_locked && _panel != _SidePanel.none) _buildSidePanel(),
-                  if (!_locked && _inParty) _buildPartyReactionsLayer(),
-                  // Last, so it covers everything: while a television is
-                  // playing this episode the phone is a remote, and leaving the
-                  // local controls reachable underneath would let someone
-                  // scrub a surface nobody is watching.
-                  _buildCastOverlay(),
-                ],
+                ),
               ),
-            )),
+            ),
           ),
-        )),
+        ),
       ),
     );
   }
@@ -811,7 +835,8 @@ class _PlayerPageState extends State<PlayerPage>
     final k = event.logicalKey;
     // Block playback-control keys (play/pause + seek) when not allowed to
     // control the party; consume the event so no local action happens.
-    final isPartyControlKey = k == LogicalKeyboardKey.space ||
+    final isPartyControlKey =
+        k == LogicalKeyboardKey.space ||
         k == LogicalKeyboardKey.mediaPlayPause ||
         k == LogicalKeyboardKey.arrowLeft ||
         k == LogicalKeyboardKey.arrowRight;

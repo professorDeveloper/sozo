@@ -3,10 +3,20 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Guards the four translation files against the two failures that reach users
-/// as visible breakage rather than as a missing word.
+/// Guards the translation files against the two failures that reach users as
+/// visible breakage rather than as a missing word.
 void main() {
-  const locales = ['en', 'ru', 'uz', 'ar'];
+  // Read from disk rather than listed here. A hard-coded list silently stops
+  // covering the locale it was not updated for, and the whole point of this
+  // file is to catch what nobody remembered to check.
+  final locales = Directory('assets/translations')
+      .listSync()
+      .whereType<File>()
+      .map((f) => f.uri.pathSegments.last)
+      .where((n) => n.endsWith('.json'))
+      .map((n) => n.substring(0, n.length - 5))
+      .toList()
+    ..sort();
 
   Map<String, dynamic> load(String locale) => jsonDecode(
         File('assets/translations/$locale.json').readAsStringSync(),

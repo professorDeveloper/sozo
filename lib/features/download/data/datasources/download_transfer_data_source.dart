@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:soplay/core/player/hls_variants.dart';
 import 'package:soplay/features/download/domain/download_layout.dart';
 import 'package:soplay/features/download/domain/entities/download_failure.dart';
 import 'package:soplay/features/download/domain/entities/download_kind.dart';
@@ -509,7 +510,25 @@ class DownloadTransferDataSource {
     }
   }
 
+  /// The rendition to save out of a master playlist: the best one.
+  ///
+  /// This used to return whichever variant was listed first. Packagers commonly
+  /// order a master lowest-bitrate-first — a client is supposed to start
+  /// conservatively and adapt upward — so "first" meant the file on disk was
+  /// the 480p rendition of a stream the player had been showing at 1080p. The
+  /// download completed, sat in the list, and looked blurry, with nothing on
+  /// screen to suggest a quality had been chosen at all.
+  ///
+  /// Nobody downloads a film in order to watch the smallest copy of it, so the
+  /// best rendition is the answer rather than a setting.
   String? _pickVariant(String playlist, String base) {
+    final uri = Uri.tryParse(base);
+    if (uri == null) return null;
+    final variants = parseHlsVariants(playlist, uri);
+    if (variants.isNotEmpty) return variants.first.url;
+
+    // A master whose variants state neither a name nor a RESOLUTION: keep the
+    // old behaviour rather than refusing to download it at all.
     final lines = playlist.split('\n');
     for (var i = 0; i < lines.length; i++) {
       if (!lines[i].startsWith('#EXT-X-STREAM-INF')) continue;

@@ -110,13 +110,15 @@ class SettingsLabel extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 7),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textHint,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textHint,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
             ),
           ),
           if (featureIds.isNotEmpty) SettingsNewDot(ids: featureIds),
@@ -241,7 +243,11 @@ class SettingsLeadingChip extends StatelessWidget {
 /// Remote logo in the leading slot; the plain icon chip stands in while it
 /// loads and if it fails, so the row never has a hole where its mark should be.
 class SettingsTileLogo extends StatelessWidget {
-  const SettingsTileLogo({super.key, required this.url, required this.fallback});
+  const SettingsTileLogo({
+    super.key,
+    required this.url,
+    required this.fallback,
+  });
 
   final String url;
   final IconData fallback;

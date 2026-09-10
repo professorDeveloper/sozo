@@ -16,41 +16,43 @@ import 'package:soplay/features/download/domain/entities/download_status.dart';
 /// shapes and [toJson] only ever writes the new one.
 abstract final class DownloadItemModel {
   static Map<String, dynamic> toJson(DownloadItem item) => {
-        'v': 2,
-        'id': item.id,
-        'contentUrl': item.contentUrl,
-        'provider': item.provider,
-        'title': item.title,
-        'sourceUrl': item.sourceUrl,
-        'kind': item.kind.id,
-        'relativePath': item.relativePath,
-        'thumbnailUrl': item.thumbnailUrl,
-        'thumbnailRelativePath': item.thumbnailRelativePath,
-        'headers': item.headers,
-        'status': item.status.id,
-        'unit': item.unit.id,
-        'completedUnits': item.completedUnits,
-        'totalUnits': item.totalUnits,
-        'sizeBytes': item.sizeBytes,
-        'createdAt': item.createdAt,
-        'updatedAt': item.updatedAt,
-        'isSerial': item.isSerial,
-        'episodeNumber': item.episodeNumber,
-        'episodeLabel': item.episodeLabel,
-        'pageUrls': item.pageUrls,
-        'chapterRef': item.chapterRef,
-        'chapterIndex': item.chapterIndex,
-        'failure': item.failure?.id,
-        'failureDetail': item.failureDetail,
-        'attempts': item.attempts,
-      };
+    'v': 2,
+    'id': item.id,
+    'contentUrl': item.contentUrl,
+    'provider': item.provider,
+    'title': item.title,
+    'sourceUrl': item.sourceUrl,
+    'kind': item.kind.id,
+    'videoHeight': item.videoHeight,
+    'relativePath': item.relativePath,
+    'thumbnailUrl': item.thumbnailUrl,
+    'thumbnailRelativePath': item.thumbnailRelativePath,
+    'headers': item.headers,
+    'status': item.status.id,
+    'unit': item.unit.id,
+    'completedUnits': item.completedUnits,
+    'totalUnits': item.totalUnits,
+    'sizeBytes': item.sizeBytes,
+    'createdAt': item.createdAt,
+    'updatedAt': item.updatedAt,
+    'isSerial': item.isSerial,
+    'episodeNumber': item.episodeNumber,
+    'episodeLabel': item.episodeLabel,
+    'pageUrls': item.pageUrls,
+    'chapterRef': item.chapterRef,
+    'chapterIndex': item.chapterIndex,
+    'failure': item.failure?.id,
+    'failureDetail': item.failureDetail,
+    'attempts': item.attempts,
+  };
 
   static DownloadItem fromJson(Map<String, dynamic> json) {
     final id = _string(json['id']);
     final legacy = json['v'] == null;
 
-    final sourceUrl =
-        _string(json['sourceUrl']).ifEmpty(() => _string(json['videoUrl']));
+    final sourceUrl = _string(
+      json['sourceUrl'],
+    ).ifEmpty(() => _string(json['videoUrl']));
 
     final kind = legacy
         ? DownloadKind.fromLegacy(_stringOrNull(json['kind']), sourceUrl)
@@ -60,7 +62,8 @@ abstract final class DownloadItemModel {
     // the part that does not depend on the device; anything unrecognisable
     // falls back to the deterministic layout, and the integrity sweep repairs
     // the extension by looking in the folder.
-    final relativePath = DownloadLayout.relativeFromLegacy(
+    final relativePath =
+        DownloadLayout.relativeFromLegacy(
           _stringOrNull(json['relativePath']) ??
               _stringOrNull(json['localPath']),
         ) ??
@@ -103,8 +106,10 @@ abstract final class DownloadItemModel {
       title: _string(json['title']),
       sourceUrl: sourceUrl,
       kind: kind,
+      videoHeight: _intOrNull(json['videoHeight']),
       relativePath: relativePath,
-      thumbnailUrl: _stringOrNull(json['thumbnailUrl']) ??
+      thumbnailUrl:
+          _stringOrNull(json['thumbnailUrl']) ??
           _stringOrNull(json['thumbnail']),
       thumbnailRelativePath: thumbnailRelative,
       headers: _headers(json['headers']),
@@ -117,14 +122,17 @@ abstract final class DownloadItemModel {
           ? (legacyMultiPartDone ? 0 : legacyTotal)
           : _int(json['totalUnits']),
       sizeBytes: legacy
-          ? (unit == DownloadUnit.bytes || legacyMultiPartDone ? legacyTotal : 0)
+          ? (unit == DownloadUnit.bytes || legacyMultiPartDone
+                ? legacyTotal
+                : 0)
           : _int(json['sizeBytes']),
       createdAt: _int(json['createdAt']),
       updatedAt: _int(json['updatedAt']),
       isSerial: json['isSerial'] == true,
       episodeNumber: _intOrNull(json['episodeNumber']),
       episodeLabel: _stringOrNull(json['episodeLabel']),
-      pageUrls: (json['pageUrls'] as List?)
+      pageUrls:
+          (json['pageUrls'] as List?)
               ?.map((e) => e.toString())
               .where((e) => e.isNotEmpty)
               .toList() ??
@@ -155,18 +163,18 @@ abstract final class DownloadItemModel {
   }
 
   static int _int(Object? raw) => switch (raw) {
-        int value => value,
-        num value => value.toInt(),
-        String value => int.tryParse(value) ?? 0,
-        _ => 0,
-      };
+    int value => value,
+    num value => value.toInt(),
+    String value => int.tryParse(value) ?? 0,
+    _ => 0,
+  };
 
   static int? _intOrNull(Object? raw) => switch (raw) {
-        int value => value,
-        num value => value.toInt(),
-        String value => int.tryParse(value),
-        _ => null,
-      };
+    int value => value,
+    num value => value.toInt(),
+    String value => int.tryParse(value),
+    _ => null,
+  };
 }
 
 extension on String {

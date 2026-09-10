@@ -9,7 +9,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
 
 typedef NotificationTapHandler = void Function(Map<String, dynamic> data);
@@ -49,6 +51,7 @@ class NotificationService {
 
   bool _initialized = false;
   String? _registeredToken;
+  String? _registeredLanguage;
   StreamSubscription<RemoteMessage>? _foregroundSub;
   StreamSubscription<RemoteMessage>? _openedSub;
   StreamSubscription<String>? _tokenRefreshSub;
@@ -240,6 +243,7 @@ class NotificationService {
     // Re-register as an anonymous device so the row's lastSeen keeps moving
     // and a later sign-in claims the same token.
     _registeredToken = null;
+    _registeredLanguage = null;
     await _registerToken(token);
   }
 
@@ -252,15 +256,38 @@ class NotificationService {
     _tokenRefreshSub = null;
   }
 
+  /// Re-sends the registration after the UI language changed.
+  ///
+  /// Safe to call when nothing is registered yet — the token is only known once
+  /// Firebase has handed one over, and until then the next launch does the work.
+  Future<void> refreshRegistration() async {
+    final token = _registeredToken;
+    if (token == null || token.isEmpty) return;
+    await _registerToken(token);
+  }
+
+  /// Registers the device, and carries the UI language up with it.
+  ///
+  /// Push copy is the one text the client cannot translate — the OS draws the
+  /// notification from what the server sent, and by then the app may not be
+  /// running. So the server has to know the language, and this call is where it
+  /// learns it: it happens on every launch, which means an account that never
+  /// touches its profile still ends up on the right language.
+  ///
+  /// The guard keys on the language as well as the token, so switching language
+  /// re-registers instead of being swallowed as a duplicate.
   Future<void> _registerToken(String token) async {
-    if (_registeredToken == token) return;
+    final language = getIt<HiveService>().getLanguage();
+    if (_registeredToken == token && _registeredLanguage == language) return;
     final platform = Platform.isIOS ? 'ios' : 'android';
     final result = await repository.registerFcmToken(
       token: token,
       platform: platform,
+      language: language,
     );
     if (result is Success) {
       _registeredToken = token;
+      _registeredLanguage = language;
     } else if (kDebugMode) {
       debugPrint('[FCM] register failed');
     }

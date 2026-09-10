@@ -35,7 +35,6 @@ import '../../../../core/navigation/nav_controller.dart';
 /// scope with it and the nav capsule threw on its next rebuild.
 const String _showcaseScope = 'main-nav';
 
-
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
 
@@ -68,7 +67,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   bool _tvContentFocused = false;
 
   FocusScopeNode _tvScopeFor(TabId id) => _tvTabScopes.putIfAbsent(
-      id, () => FocusScopeNode(debugLabel: 'tvTab.${id.name}'));
+    id,
+    () => FocusScopeNode(debugLabel: 'tvTab.${id.name}'),
+  );
 
   int get _shortsIndex => _visibleTabs.indexOf(TabId.shorts); // -1 if hidden
   int get _homeIndex {
@@ -87,8 +88,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     // TV runs a fixed tab set — the customizer is drag-driven and hidden there,
     // and the persisted mobile order is left completely untouched (never read,
     // never written) so a user's phone bar survives round-tripping.
-    _visibleTabs =
-        isTvPlatform ? List.of(kTvTabs) : sanitizeTabOrder(_hiveService.tabOrder);
+    _visibleTabs = isTvPlatform
+        ? List.of(kTvTabs)
+        : sanitizeTabOrder(_hiveService.tabOrder);
     NavPrefs.tabOrder.value = _hiveService.tabOrder;
     NavPrefs.tabOrder.addListener(_onTabSetChange);
     _navController.tabIndexResolver = (id) => _visibleTabs.indexOf(id);
@@ -217,7 +219,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           _shortsShowcaseStarted = false;
           return;
         }
-        ShowcaseView.getNamed(_showcaseScope).startShowCase([_shortsRefreshShowcaseKey]);
+        ShowcaseView.getNamed(
+          _showcaseScope,
+        ).startShowCase([_shortsRefreshShowcaseKey]);
       });
     });
   }
@@ -317,10 +321,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           key: ValueKey(defs[i].id),
           // No-op off TV: returns the page widget unchanged.
           child: _tvWrapTab(
-            defs[i].builder(TabBuildContext(
-              isActive: _index == i,
-              shortsRefreshTick: _shortsRefreshTick,
-            )),
+            defs[i].builder(
+              TabBuildContext(
+                isActive: _index == i,
+                shortsRefreshTick: _shortsRefreshTick,
+              ),
+            ),
             defs[i].id,
             _index == i,
           ),
@@ -330,6 +336,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     // Hide the floating bottom nav while a keyboard is open (e.g. searching),
     // otherwise it rides up and floats over the keyboard.
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final readableNav = MediaQuery.textScalerOf(context).scale(12) > 15.6;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -382,7 +389,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                 )
               : Scaffold(
                   backgroundColor: AppColors.background,
-                  extendBody: true,
+                  extendBody: !readableNav,
+                  bottomNavigationBar: readableNav && !keyboardOpen
+                      ? ReadableNavigationBar(
+                          index: _index,
+                          items: defs,
+                          onTap: _handleTabTap,
+                        )
+                      : null,
                   body: Stack(
                     children: [
                       // The tab body is OUTSIDE the nav-style listener so switching
@@ -391,83 +405,86 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                       Positioned.fill(
                         child: IndexedStack(index: _index, children: tabs),
                       ),
-                      if (!keyboardOpen)
+                      if (!keyboardOpen && !readableNav)
                         Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: ValueListenableBuilder<String>(
-                          valueListenable: NavPrefs.navStyle,
-                          builder: (context, style, _) {
-                            // Classic: the original full-width frosted bar (keeps
-                            // the per-tab Showcase + real double-tap-to-refresh).
-                            if (style == NavPrefs.classic) {
-                              return _SoplayClassicBar(
-                                index: _index,
-                                items: defs,
-                                shortsShowcaseKey: _shortsRefreshShowcaseKey,
-                                // _handleTabTap, not _onTabTap: it adds
-                                // reselect-to-refresh and no-ops on every other
-                                // tab. The coach-mark shown to classic users
-                                // described a gesture only the capsule had, so
-                                // following its instructions did nothing.
-                                // Double-tap stays as the additional shortcut.
-                                onTap: _handleTabTap,
-                                onShortsDoubleTap: _refreshShorts,
-                              );
-                            }
-                            // Glass / Solid: a floating capsule inset 16 each side.
-                            final nativeIosBar = PlatformInfo.isIOS &&
-                                PlatformInfo.isIOS26OrHigher();
-                            return Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                16,
-                                0,
-                                16,
-                                // The native bar reserves the home-indicator
-                                // inset itself: the package sizes it from
-                                // `UITabBar.sizeThatFits`, and a UITabBar folds
-                                // the bottom safe area into that height. Adding
-                                // the inset again here counted it twice and
-                                // floated the bar a safe area's worth too high,
-                                // leaving a gap under it. The Flutter capsule
-                                // has no such notion and still needs it.
-                                nativeIosBar
-                                    ? 12
-                                    : MediaQuery.paddingOf(context).bottom + 12,
-                              ),
-                              // A fixed 16dp inset is a capsule on a phone and a
-                              // full-width band on a foldable or a tablet, where
-                              // it stops reading as a floating control at all.
-                              // Nothing changes below 480dp.
-                              child: Center(
-                                child: ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 480),
-                                  // iOS 26+ gets the system's own tab bar;
-                                  // everywhere else keeps the shader capsule.
-                                  // `classic` is handled above and is an
-                                  // explicit user choice on every platform.
-                                  child: nativeIosBar
-                                      ? _SoplayNativeGlassBar(
-                                          index: _index,
-                                          items: defs,
-                                          onTabSelected: _handleTabTap,
-                                        )
-                                      : _SoplayGlassCapsule(
-                                          index: _index,
-                                          items: defs,
-                                          glass: style == NavPrefs.glass,
-                                          shortsShowcaseKey:
-                                              _shortsRefreshShowcaseKey,
-                                          onTabSelected: _handleTabTap,
-                                        ),
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: ValueListenableBuilder<String>(
+                            valueListenable: NavPrefs.navStyle,
+                            builder: (context, style, _) {
+                              // Classic: the original full-width frosted bar (keeps
+                              // the per-tab Showcase + real double-tap-to-refresh).
+                              if (style == NavPrefs.classic) {
+                                return _SoplayClassicBar(
+                                  index: _index,
+                                  items: defs,
+                                  shortsShowcaseKey: _shortsRefreshShowcaseKey,
+                                  // _handleTabTap, not _onTabTap: it adds
+                                  // reselect-to-refresh and no-ops on every other
+                                  // tab. The coach-mark shown to classic users
+                                  // described a gesture only the capsule had, so
+                                  // following its instructions did nothing.
+                                  // Double-tap stays as the additional shortcut.
+                                  onTap: _handleTabTap,
+                                  onShortsDoubleTap: _refreshShorts,
+                                );
+                              }
+                              // Glass / Solid: a floating capsule inset 16 each side.
+                              final nativeIosBar =
+                                  PlatformInfo.isIOS &&
+                                  PlatformInfo.isIOS26OrHigher();
+                              return Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  // The native bar reserves the home-indicator
+                                  // inset itself: the package sizes it from
+                                  // `UITabBar.sizeThatFits`, and a UITabBar folds
+                                  // the bottom safe area into that height. Adding
+                                  // the inset again here counted it twice and
+                                  // floated the bar a safe area's worth too high,
+                                  // leaving a gap under it. The Flutter capsule
+                                  // has no such notion and still needs it.
+                                  nativeIosBar
+                                      ? 12
+                                      : MediaQuery.paddingOf(context).bottom +
+                                            12,
                                 ),
-                              ),
-                            );
-                          },
+                                // A fixed 16dp inset is a capsule on a phone and a
+                                // full-width band on a foldable or a tablet, where
+                                // it stops reading as a floating control at all.
+                                // Nothing changes below 480dp.
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 480,
+                                    ),
+                                    // iOS 26+ gets the system's own tab bar;
+                                    // everywhere else keeps the shader capsule.
+                                    // `classic` is handled above and is an
+                                    // explicit user choice on every platform.
+                                    child: nativeIosBar
+                                        ? _SoplayNativeGlassBar(
+                                            index: _index,
+                                            items: defs,
+                                            onTabSelected: _handleTabTap,
+                                          )
+                                        : _SoplayGlassCapsule(
+                                            index: _index,
+                                            items: defs,
+                                            glass: style == NavPrefs.glass,
+                                            shortsShowcaseKey:
+                                                _shortsRefreshShowcaseKey,
+                                            onTabSelected: _handleTabTap,
+                                          ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -593,11 +610,16 @@ class _SoplayGlassCapsule extends StatelessWidget {
       verticalPadding: 0,
       barHeight: _barHeight,
       barBorderRadius: _barHeight / 2, // full capsule
-      magnification: glass ? 1.12 : 1.0, // subtle iOS-26 lens on the selected tab
+      magnification: glass
+          ? 1.12
+          : 1.0, // subtle iOS-26 lens on the selected tab
       indicatorPinchStrength: glass ? 0.3 : 0.0,
       // The selected pill used to expand 4dp past the top and bottom of the
       // 62dp capsule on every tap, clipping against the rim.
-      indicatorExpansion: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      indicatorExpansion: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 2,
+      ),
       // Selected-tab pill: a soft, restrained light pill on the dark body —
       // unless Appearance → "Colour the tab bar" is on, in which case the whole
       // selected state moves onto the accent. Off by default: the white pill is
@@ -622,21 +644,22 @@ class _SoplayGlassCapsule extends StatelessWidget {
       settings: glass ? _glassSettings : _solidSettings,
       // primaryLight, not primary: a selected icon is a small glyph on a dark
       // bar, and the lighter variant is the one that reads at that size.
-      selectedIconColor:
-          AppColors.isNavTinted ? AppColors.primaryLight : Colors.white,
+      selectedIconColor: AppColors.isNavTinted
+          ? AppColors.primaryLight
+          : Colors.white,
       // #7A7A7A on the capsule body measured 4.14:1 — under the 4.5:1 WCAG AA
       // floor that a 10.5px label has to clear. #949494 is 5.7:1.
       unselectedIconColor: const Color(0xFF949494),
-      selectedLabelColor:
-          AppColors.isNavTinted ? AppColors.primaryLight : Colors.white,
+      selectedLabelColor: AppColors.isNavTinted
+          ? AppColors.primaryLight
+          : Colors.white,
       unselectedLabelColor: const Color(0xFF949494),
       // Clamped, not raw. The packaged bar shrinks the WHOLE tab — icon
       // included — to fit its label, and each tab scales independently, so at a
       // large system text scale the icons ended up different sizes across the
       // bar. Capping the scale at 1.2 keeps the row even; the label stays
       // readable because it is a one-word tab name, not body copy.
-      labelFontSize:
-          MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.2).scale(10.5),
+      labelFontSize: MediaQuery.textScalerOf(context).scale(12),
     );
 
     // The package drop shadow is light-mode only, so paint our own soft capsule
@@ -772,23 +795,20 @@ class _SoplayNativeGlassBar extends StatelessWidget {
   /// contract, and a redesign that swaps an icon must not silently blank the
   /// iOS bar.
   static ({String icon, String selected}) _sfSymbol(TabId id) => switch (id) {
-        TabId.home => (icon: 'house', selected: 'house.fill'),
-        TabId.search => (icon: 'magnifyingglass', selected: 'magnifyingglass'),
-        TabId.shorts => (
-            icon: 'play.rectangle',
-            selected: 'play.rectangle.fill'
-          ),
-        TabId.myList => (icon: 'bookmark', selected: 'bookmark.fill'),
-        TabId.profile => (icon: 'person', selected: 'person.fill'),
-        TabId.downloads => (
-            icon: 'arrow.down.circle',
-            selected: 'arrow.down.circle.fill'
-          ),
-        TabId.history => (icon: 'clock', selected: 'clock.fill'),
-        TabId.following => (icon: 'heart', selected: 'heart.fill'),
-        TabId.buff => (icon: 'sparkles', selected: 'sparkles'),
-        TabId.liveTv => (icon: 'tv', selected: 'tv.fill'),
-      };
+    TabId.home => (icon: 'house', selected: 'house.fill'),
+    TabId.search => (icon: 'magnifyingglass', selected: 'magnifyingglass'),
+    TabId.shorts => (icon: 'play.rectangle', selected: 'play.rectangle.fill'),
+    TabId.myList => (icon: 'bookmark', selected: 'bookmark.fill'),
+    TabId.profile => (icon: 'person', selected: 'person.fill'),
+    TabId.downloads => (
+      icon: 'arrow.down.circle',
+      selected: 'arrow.down.circle.fill',
+    ),
+    TabId.history => (icon: 'clock', selected: 'clock.fill'),
+    TabId.following => (icon: 'heart', selected: 'heart.fill'),
+    TabId.buff => (icon: 'sparkles', selected: 'sparkles'),
+    TabId.liveTv => (icon: 'tv', selected: 'tv.fill'),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -832,12 +852,14 @@ class _SoplayNativeGlassBar extends StatelessWidget {
       // alerts). This states it again at the one call site whose *rendering*
       // depends on it, so the bar cannot silently go white again if the app
       // ever stops forcing the trait collection.
-      data: MediaQuery.of(context)
-          .copyWith(platformBrightness: Brightness.dark),
+      data: MediaQuery.of(
+        context,
+      ).copyWith(platformBrightness: Brightness.dark),
       child: AnimatedBuilder(
         animation: covering,
         builder: (context, _) => IOS26NativeTabBar(
-          hidden: covering.status == AnimationStatus.forward ||
+          hidden:
+              covering.status == AnimationStatus.forward ||
               covering.status == AnimationStatus.completed,
           destinations: [
             for (final item in items)
@@ -906,8 +928,9 @@ class _CapsuleTabLayer extends StatelessWidget {
               label: items[i].labelKey.tr(),
               selected: i == index,
               onTap: () => onTabSelected(i),
-              showcaseKey:
-                  items[i].id == TabId.shorts ? shortsShowcaseKey : null,
+              showcaseKey: items[i].id == TabId.shorts
+                  ? shortsShowcaseKey
+                  : null,
             ),
           ),
       ],
@@ -1065,8 +1088,9 @@ class _ClassicNavButtonState extends State<_ClassicNavButton> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedColor =
-        AppColors.isNavTinted ? AppColors.primaryLight : Colors.white;
+    final selectedColor = AppColors.isNavTinted
+        ? AppColors.primaryLight
+        : Colors.white;
     // Same AA floor as the capsule's labels — see the note there.
     final color = widget.selected ? selectedColor : const Color(0xFF949494);
 
@@ -1102,7 +1126,9 @@ class _ClassicNavButtonState extends State<_ClassicNavButton> {
                       widget.selected
                           ? widget.item.activeIcon
                           : widget.item.icon,
-                      key: ValueKey('${widget.item.labelKey}-${widget.selected}'),
+                      key: ValueKey(
+                        '${widget.item.labelKey}-${widget.selected}',
+                      ),
                       size: 24,
                       color: color,
                       shadows: widget.selected
@@ -1121,9 +1147,10 @@ class _ClassicNavButtonState extends State<_ClassicNavButton> {
                   duration: const Duration(milliseconds: 160),
                   style: TextStyle(
                     color: color,
-                    fontSize: 10.5,
-                    fontWeight:
-                        widget.selected ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 12,
+                    fontWeight: widget.selected
+                        ? FontWeight.w700
+                        : FontWeight.w500,
                     height: 1,
                   ),
                   child: Text(
@@ -1161,8 +1188,11 @@ class _ClassicNavButtonState extends State<_ClassicNavButton> {
 /// Sozo-Desktop style floating bottom-center rounded pill navigation.
 /// Desktop only — mobile uses [_SoplayGlassCapsule]. Reuses the same 5 tabs.
 class _SoplayFloatingNav extends StatelessWidget {
-  const _SoplayFloatingNav(
-      {required this.index, required this.onTap, required this.items});
+  const _SoplayFloatingNav({
+    required this.index,
+    required this.onTap,
+    required this.items,
+  });
 
   final int index;
   final ValueChanged<int> onTap;
@@ -1332,9 +1362,7 @@ class _TvNavRailState extends State<_TvNavRail> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        width: _expanded
-            ? _TvNavRail.expandedWidth
-            : _TvNavRail.collapsedWidth,
+        width: _expanded ? _TvNavRail.expandedWidth : _TvNavRail.collapsedWidth,
         decoration: BoxDecoration(
           color: AppColors.navBackground,
           border: Border(
@@ -1464,8 +1492,9 @@ class _TvRailButtonState extends State<_TvRailButton> {
                         style: TextStyle(
                           color: color,
                           fontSize: 14,
-                          fontWeight:
-                              widget.selected ? FontWeight.w800 : FontWeight.w600,
+                          fontWeight: widget.selected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
                         ),
                       ),
                     ),
@@ -1602,4 +1631,70 @@ class _ShortsRefreshShowcaseCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Large type gets real layout space, rather than scaling labels back down.
+class ReadableNavigationBar extends StatelessWidget {
+  const ReadableNavigationBar({
+    super.key,
+    required this.index,
+    required this.items,
+    required this.onTap,
+  });
+  final int index;
+  final List<AppTabDef> items;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: AppColors.navBackground,
+    child: SafeArea(
+      top: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth >= 480 ? 3 : 2;
+          return Wrap(
+            children: [
+              for (var i = 0; i < items.length; i++)
+                SizedBox(
+                  width: constraints.maxWidth / columns,
+                  child: Semantics(
+                    selected: i == index,
+                    button: true,
+                    child: InkWell(
+                      onTap: () => onTap(i),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              i == index ? items[i].activeIcon : items[i].icon,
+                              color: i == index
+                                  ? AppColors.primaryLight
+                                  : AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                items[i].labelKey.tr(),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: i == index
+                                      ? AppColors.textPrimary
+                                      : AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    ),
+  );
 }

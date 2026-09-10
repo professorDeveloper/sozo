@@ -232,7 +232,8 @@ class _DownloadRow extends StatelessWidget {
       // `missing` is tappable on purpose: the tap re-downloads. A row that
       // says the file is gone and then does nothing when pressed is the state
       // this whole screen was rebuilt to remove.
-      onTap: item.status == DownloadStatus.completed ||
+      onTap:
+          item.status == DownloadStatus.completed ||
               item.status == DownloadStatus.missing
           ? onOpen
           : null,
@@ -300,7 +301,21 @@ class _DownloadRow extends StatelessWidget {
         : 'EP $number · $label';
   }
 
-  Widget _statusLine() {
+  Widget _statusLine() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (!item.isManga)
+        Text(
+          item.videoHeight == null
+              ? 'ux.quality_unknown'.tr()
+              : '${item.videoHeight}p',
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        ),
+      _transferStatus(),
+    ],
+  );
+
+  Widget _transferStatus() {
     switch (item.status) {
       case DownloadStatus.downloading:
       case DownloadStatus.pending:
@@ -322,7 +337,10 @@ class _DownloadRow extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               downloadProgressLabel(item),
-              style: const TextStyle(color: AppColors.textHint, fontSize: 10),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
             ),
           ],
         );
@@ -582,7 +600,9 @@ class _CircleAction extends StatelessWidget {
       ),
       child: Icon(icon, size: 18, color: color),
     );
-    if (onTap == null) return SizedBox(width: 44, height: 44, child: Center(child: disc));
+    if (onTap == null) {
+      return SizedBox(width: 44, height: 44, child: Center(child: disc));
+    }
     return Semantics(
       button: true,
       label: semanticLabel,

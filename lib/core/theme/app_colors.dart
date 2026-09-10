@@ -73,13 +73,14 @@ class AppColors {
   /// flash rather than a colour choice.
   static const Color splashBackground = Color(0xFF000000);
 
-  static const Color textPrimary   = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFFFFFFFF);
   static const Color textSecondary = Color(0xFFAAAAAA);
-  static const Color textHint      = Color(0xFF666666);
+  // Still secondary, but readable on the darkest AND lightest dark surfaces.
+  static const Color textHint = Color(0xFFA0A0A0);
 
   /// Deliberately NOT the accent. Kept at the original red so a destructive
   /// action still reads as destructive under a green or blue accent.
-  static const Color error         = Color(0xFFE50914);
+  static const Color error = Color(0xFFE50914);
 
   /// The lifted partner to [error], for a rim or a label that has to sit on an
   /// error fill without collapsing into it.
@@ -88,16 +89,16 @@ class AppColors {
   /// setting, the "wrong answer" and "failed" states borrowed `primaryLight`
   /// because it happened to be red; pointing them here keeps them pixel-identical
   /// on the default theme while stopping them following a green accent.
-  static const Color errorLight    = Color(0xFFFF4B55);
-  static const Color success       = Color(0xFF46D369);
-  static const Color rating        = Color(0xFFFFD700);
+  static const Color errorLight = Color(0xFFFF4B55);
+  static const Color success = Color(0xFF46D369);
+  static const Color rating = Color(0xFFFFD700);
 
   // Podium medals. Gold points at the existing rating gold on purpose.
-  static const Color medalGold     = rating;
-  static const Color medalSilver   = Color(0xFFC0C0C0);
-  static const Color medalBronze   = Color(0xFFCD7F32);
+  static const Color medalGold = rating;
+  static const Color medalSilver = Color(0xFFC0C0C0);
+  static const Color medalBronze = Color(0xFFCD7F32);
 
-  static const Color overlay       = Color(0x99000000);
+  static const Color overlay = Color(0x99000000);
   static const Color gradientTransparent = Color(0x00000000);
   static const Color gradientBlack = Color(0xFF000000);
 }

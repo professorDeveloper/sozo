@@ -84,10 +84,14 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
           const SizedBox(height: 18),
           if (item != null &&
               (item.positionMs > 0 || item.episodeNumber != null))
-            _ContinueWatchingCard(item: item, onTap: widget.onPrimaryAction)
-          else
-            Row(
-              children: [
+            _ContinueWatchingCard(item: item, onTap: widget.onPrimaryAction),
+          if (item != null &&
+              (item.positionMs > 0 || item.episodeNumber != null))
+            const SizedBox(height: 12),
+          Row(
+            children: [
+              if (item == null ||
+                  (item.positionMs <= 0 && item.episodeNumber == null))
                 Expanded(
                   child: _PlayButton(
                     key: widget.playButtonKey,
@@ -99,24 +103,24 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
                     reader: widget.detail.provider.opensReader,
                   ),
                 ),
-                // Offline used to be reachable only from inside the player:
-                // open the title, wait for a source to resolve, start playing,
-                // then find it in a menu. Four steps and a started stream to
-                // save something for the train.
-                if (widget.onDownload != null) ...[
-                  const SizedBox(width: 10),
-                  _SquareAction(
-                    icon: Icons.download_rounded,
-                    tooltip: 'detail.download_action'.tr(),
-                    onTap: widget.onDownload!,
-                  ),
-                ],
-                // Appears on its own once a trailer has been found, and takes
-                // no space at all when there is none — so a title without one
-                // never shows a button that cannot do anything.
-                TrailerAction(detail: widget.detail),
+              // Offline used to be reachable only from inside the player:
+              // open the title, wait for a source to resolve, start playing,
+              // then find it in a menu. Four steps and a started stream to
+              // save something for the train.
+              if (widget.onDownload != null) ...[
+                const SizedBox(width: 10),
+                _SquareAction(
+                  icon: Icons.download_rounded,
+                  tooltip: 'detail.download_action'.tr(),
+                  onTap: widget.onDownload!,
+                ),
               ],
-            ),
+              // Appears on its own once a trailer has been found, and takes
+              // no space at all when there is none — so a title without one
+              // never shows a button that cannot do anything.
+              TrailerAction(detail: widget.detail),
+            ],
+          ),
         ],
       ),
     );
@@ -538,7 +542,9 @@ class _PlayButton extends StatelessWidget {
           backgroundColor: Colors.white,
           foregroundColor: Colors.black,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kButtonRadius)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(kButtonRadius),
+          ),
         ),
         icon: Icon(
           reader ? Icons.menu_book_rounded : Icons.play_arrow_rounded,

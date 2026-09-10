@@ -1,4 +1,5 @@
 import 'package:soplay/features/detail/data/title_prefs_store.dart';
+import 'package:soplay/features/detail/domain/video_option_groups.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 
 /// Which mirror to play, and which one to try after that.
@@ -74,8 +75,19 @@ class SourceLadder {
   ///   1. the remembered quality label — an explicit past choice outranks
   ///      everything below it;
   ///   2. the source's own default;
-  ///   3. the order the backend returned, which is already ranked.
-  /// A codec being avoided sinks below all three without leaving the list.
+  ///   3. the higher resolution;
+  ///   4. the order the backend returned.
+  /// A codec being avoided sinks below all four without leaving the list.
+  ///
+  /// Rule 3 used not to exist, on the assumption recorded here that the backend
+  /// order is already ranked. It is for most providers — anilibria lists 1080p
+  /// first, animedia marks its highest as the default — but asilmedia and
+  /// animefenix mark no default at all and emit sources in page order, which on
+  /// asilmedia is a 360p ahead of a 720p. So a film opened from those played,
+  /// and downloaded, at 360p with a 720p sitting in the same list.
+  ///
+  /// Only a tiebreak: an explicit past choice and a provider's own default both
+  /// still win, because both are somebody's decision and this is a guess.
   List<int> ordered() {
     final candidates = <int>[];
     for (var i = 0; i < sources.length; i++) {
@@ -94,10 +106,17 @@ class SourceLadder {
       return 2;
     }
 
-    // Stable: equal ranks keep the backend's order, which is the third rule.
+    // Zero where the label carries no resolution — "Server 1", "Auto", a host
+    // name. Those compare equal to each other and keep the backend's order,
+    // which is the only thing known about them.
+    int height(int i) => VideoOptionGroups.resolutionOf(sources[i].quality) ?? 0;
+
     candidates.sort((a, b) {
       final byRank = rank(a).compareTo(rank(b));
-      return byRank != 0 ? byRank : a.compareTo(b);
+      if (byRank != 0) return byRank;
+      final byHeight = height(b).compareTo(height(a));
+      // Stable at the end: equal rank and equal resolution keep backend order.
+      return byHeight != 0 ? byHeight : a.compareTo(b);
     });
     return candidates;
   }

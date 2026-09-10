@@ -1211,14 +1211,14 @@ class _BrowseOnlyBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withValues(alpha: 0.45), width: 0.8),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.visibility_outlined, size: 9, color: color),
-          SizedBox(width: 3),
+          const Icon(Icons.visibility_outlined, size: 9, color: color),
+          const SizedBox(width: 3),
           Text(
-            'FAQAT KO\'RISH',
-            style: TextStyle(
+            'profile.view_only'.tr(),
+            style: const TextStyle(
               color: color,
               fontSize: 9,
               fontWeight: FontWeight.w700,

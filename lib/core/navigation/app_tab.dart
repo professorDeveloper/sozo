@@ -53,7 +53,7 @@ Widget _shortsBuilder(TabBuildContext c) =>
     ShortsPage(active: c.isActive, refreshTick: c.shortsRefreshTick);
 Widget _myListBuilder(TabBuildContext _) => const MyListPage();
 Widget _profileBuilder(TabBuildContext _) => const ProfilePage();
-Widget _downloadsBuilder(TabBuildContext _) => const DownloadsPage();
+Widget _downloadsBuilder(TabBuildContext _) => const DownloadsPage(isTab: true);
 Widget _historyBuilder(TabBuildContext _) => const HistoryPage();
 Widget _followingBuilder(TabBuildContext _) => const FollowingPage();
 Widget _buffBuilder(TabBuildContext _) => const BuffHubPage();

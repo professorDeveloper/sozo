@@ -206,7 +206,7 @@ class DetailRepositoryImpl implements DetailRepository {
         final map = await CloudStreamChannel.loadLinks(provider.substring(3), ref);
         final sources = map['videoSources'];
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
-          return _postProcess(MediaResolveModel.fromJson(map));
+          return await _postProcess(MediaResolveModel.fromJson(map));
         }
         return Failure(Exception('CloudStream: stream not found'));
       } catch (e) {
@@ -219,7 +219,7 @@ class DetailRepositoryImpl implements DetailRepository {
         final map = await AniyomiChannel.loadLinks(provider.substring(3), ref);
         final sources = map['videoSources'];
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
-          return _postProcess(MediaResolveModel.fromJson(map));
+          return await _postProcess(MediaResolveModel.fromJson(map));
         }
         return Failure(Exception('Aniyomi: stream not found'));
       } catch (e) {
@@ -232,7 +232,7 @@ class DetailRepositoryImpl implements DetailRepository {
         final map = await mangayomi.loadLinks(provider.substring(3), ref);
         final sources = map['videoSources'];
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
-          return _postProcess(MediaResolveModel.fromJson(map));
+          return await _postProcess(MediaResolveModel.fromJson(map));
         }
         return Failure(Exception('Mangayomi: stream not found'));
       } catch (e) {
@@ -249,7 +249,7 @@ class DetailRepositoryImpl implements DetailRepository {
           lang: lang,
         );
         if (map != null) {
-          return _postProcess(MediaResolveModel.fromJson(map));
+          return await _postProcess(MediaResolveModel.fromJson(map));
         }
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] JS path failed: $e');
@@ -258,7 +258,7 @@ class DetailRepositoryImpl implements DetailRepository {
     }
 
     try {
-      return _postProcess(
+      return await _postProcess(
         await dataSource.resolveMedia(
           ref: ref,
           provider: provider,
@@ -313,6 +313,16 @@ class DetailRepositoryImpl implements DetailRepository {
     return Failure(Exception('Sahifalar faqat manga manbalari uchun'));
   }
 
+  /// The single place a resolved media object is finished before it leaves the
+  /// repository.
+  ///
+  /// Trivial today. It is a hook, and the reason every caller `await`s it
+  /// rather than returning the future is that all five call sites sit inside a
+  /// `try` whose `catch` is what turns a provider failure into a `Failure` the
+  /// player can draw a "Try again" screen for. A future returned unawaited
+  /// escapes that catch, so the first time this does real work its errors would
+  /// surface as an unhandled async throw instead — far from here, and with no
+  /// error screen.
   Future<Result<MediaResolveEntity>> _postProcess(
     MediaResolveEntity media,
   ) async {

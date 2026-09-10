@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -37,8 +38,9 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
       if (!mounted || !_busy) return;
       setState(() {
         _status = p.total > 0
-            ? 'Installing ${p.current} / ${p.total} extensions…'
-            : 'Installing extensions…';
+            ? 'ext.installing_extensions_progress'
+                .tr(args: ['${p.current}', '${p.total}'])
+            : 'ext.installing_extensions'.tr();
         _statusError = false;
       });
     });
@@ -76,7 +78,7 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
     setState(() {
       _busy = true;
       _statusError = false;
-      _status = 'Installing extensions… this can take a moment for large repos.';
+      _status = 'ext.installing_long'.tr();
     });
     try {
       final res = await AniyomiChannel.addRepo(input);
@@ -92,14 +94,15 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
       setState(() {
         _statusError = count == 0;
         _status = count == 0
-            ? 'No extensions found at that URL.'
-            : 'Added $count source(s) · $providers provider(s).';
+            ? 'ext.none_found'.tr()
+            : 'ext.added_sources_providers'
+                .tr(args: ['$count', '$providers']);
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _statusError = true;
-        _status = 'Error: $e';
+        _status = 'ext.error'.tr(args: ['$e']);
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -115,7 +118,7 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
     setState(() {
       _busy = true;
       _statusError = false;
-      _status = 'Checking for extension updates…';
+      _status = 'ext.checking_extension_updates'.tr();
     });
     try {
       final res = await AniyomiChannel.checkUpdates();
@@ -125,14 +128,14 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
       setState(() {
         _statusError = false;
         _status = count == 0
-            ? 'All extensions are up to date.'
-            : 'Updated $count extension(s).';
+            ? 'ext.all_up_to_date'.tr()
+            : 'ext.updated_count'.tr(args: ['$count']);
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _statusError = true;
-        _status = 'Update check failed: $e';
+        _status = 'ext.update_check_failed'.tr(args: ['$e']);
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -147,7 +150,7 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
     if (!mounted) return;
     setState(() {
       _statusError = false;
-      _status = 'Source removed.';
+      _status = 'ext.source_removed'.tr();
     });
   }
 
@@ -155,9 +158,9 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
   Widget build(BuildContext context) {
     if (!AniyomiChannel.isSupported) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Aniyomi Sources')),
-        body: const Center(
-          child: Text('This feature is only available on Android'),
+        appBar: AppBar(title: Text('ext.aniyomi_title'.tr())),
+        body: Center(
+          child: Text('ext.android_only'.tr()),
         ),
       );
     }
@@ -168,10 +171,10 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
-        title: const Text('Aniyomi Sources'),
+        title: Text('ext.aniyomi_title'.tr()),
         actions: [
           IconButton(
-            tooltip: 'Check for extension updates',
+            tooltip: 'ext.check_extension_updates'.tr(),
             icon: const Icon(Icons.system_update_alt_rounded),
             onPressed: (_busy || _repos.isEmpty) ? null : _checkUpdates,
           ),
@@ -199,7 +202,7 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
           const SizedBox(height: 24),
           Row(
             children: [
-              Text('INSTALLED SOURCES',
+              Text('ext.installed_sources'.tr(),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: AppColors.textHint, letterSpacing: 1)),
               const Spacer(),
@@ -236,11 +239,10 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
         children: [
           _logoBox(44, radius: 11),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Add Aniyomi extension repositories to install extra anime '
-              'providers. They run on your device (Android only).',
-              style: TextStyle(
+              'ext.aniyomi_desc'.tr(),
+              style: const TextStyle(
                   color: AppColors.textHint, fontSize: 12.5, height: 1.35),
             ),
           ),
@@ -263,7 +265,7 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
               style: const TextStyle(color: Colors.white),
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
-                labelText: 'Repo URL',
+                labelText: 'ext.repo_url'.tr(),
                 labelStyle: const TextStyle(color: AppColors.textHint),
                 floatingLabelStyle: const TextStyle(color: _accent),
                 hintText: 'https://…/index.min.json',
@@ -283,7 +285,7 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
                     ? null
                     : IconButton(
                         icon: const Icon(Icons.clear, color: AppColors.textHint),
-                        tooltip: 'Clear',
+                        tooltip: 'general.clear'.tr(),
                         onPressed: _busy
                             ? null
                             : () => setState(() => _controller.clear()),
@@ -307,7 +309,7 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.add),
-                label: Text(_busy ? 'Installing…' : 'Add source'),
+                label: Text(_busy ? 'ext.installing'.tr() : 'ext.add_source'.tr()),
               ),
             ),
           ],
@@ -350,11 +352,13 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Column(
+        child: Column(
           children: [
-            Icon(Icons.cloud_off_outlined, color: AppColors.textHint, size: 32),
-            SizedBox(height: 8),
-            Text('No sources yet', style: TextStyle(color: AppColors.textHint)),
+            const Icon(Icons.cloud_off_outlined,
+                color: AppColors.textHint, size: 32),
+            const SizedBox(height: 8),
+            Text('ext.no_sources_yet'.tr(),
+                style: const TextStyle(color: AppColors.textHint)),
           ],
         ),
       );

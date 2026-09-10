@@ -315,9 +315,11 @@ class HomeErrorView extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 24),
-            SizedBox(
-              width: 156,
-              height: 44,
+            ConstrainedBox(
+              // Minimum, not fixed: "Retry" is five characters in English
+              // and fourteen in Portuguese, and a hard width clips the
+              // longer ones silently in a release build.
+              constraints: const BoxConstraints(minWidth: 156, minHeight: 44),
               child: ElevatedButton(
                 onPressed: () => context.read<HomeBloc>().add(HomeLoad()),
                 child: Text('general.retry'.tr()),
@@ -398,9 +400,11 @@ class HomeEmptyView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            SizedBox(
-              width: 156,
-              height: 44,
+            ConstrainedBox(
+              // Minimum, not fixed: "Retry" is five characters in English
+              // and fourteen in Portuguese, and a hard width clips the
+              // longer ones silently in a release build.
+              constraints: const BoxConstraints(minWidth: 156, minHeight: 44),
               child: ElevatedButton(
                 onPressed: onRefresh,
                 child: Text('general.retry'.tr()),

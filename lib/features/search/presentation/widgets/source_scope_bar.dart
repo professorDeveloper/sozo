@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/search/domain/entities/cross_search_scope.dart';
+import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
 
 /// The scope control for all-source search: a scrolling rail of source chips
 /// with "All sources" pinned at the front.
@@ -43,54 +44,69 @@ class SourceScopeBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final byId = {for (final p in providers) p.id: p};
-    final ids = [for (final id in order) if (byId.containsKey(id)) id];
+    // Only explicit selections belong in the rail. The full catalogue lives
+    // behind a permanently visible picker, even with thousands of sources.
+    final ids = [
+      for (final id in order)
+        if (byId.containsKey(id) && !scope.isAll && scope.includes(id)) id,
+    ];
 
-    return SizedBox(
-      height: 40,
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(width: 16),
-          // Outside the scroll view, not merely first in it: "widen back to
-          // everything" has to stay one tap away after the user has scrolled
-          // the rail, which is exactly when a narrowed search looks broken.
-          _Chip(
-            label: loading
-                ? 'search.loading_sources'.tr()
-                : 'search.all_sources_n'.tr(args: ['${providers.length}']),
-            selected: scope.isAll,
-            icon: Icons.travel_explore,
-            onTap: loading ? null : onSelectAll,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              // Outside the scroll view, not merely first in it: "widen back to
+              // everything" has to stay one tap away after the user has scrolled
+              // the rail, which is exactly when a narrowed search looks broken.
+              _Chip(
+                label: loading
+                    ? 'search.loading_sources'.tr()
+                    : providers.length > CrossSearchEngine.maxLegs
+                    ? 'ux.quick_search'.tr(
+                        args: ['${CrossSearchEngine.maxLegs}'],
+                      )
+                    : 'search.all_sources_n'.tr(args: ['${providers.length}']),
+                selected: scope.isAll,
+                icon: Icons.travel_explore,
+                onTap: loading ? null : onSelectAll,
+              ),
+              _Chip(
+                label: 'search.search_sources'.tr(),
+                selected: false,
+                icon: Icons.tune,
+                onTap: loading ? null : onOpenPicker,
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsetsDirectional.only(end: 16),
-              itemCount: ids.length + 1,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (_, i) {
-                if (i == ids.length) {
+          if (ids.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 48 + (MediaQuery.textScalerOf(context).scale(13) - 13),
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsetsDirectional.only(end: 16),
+                itemCount: ids.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (_, i) {
+                  final p = byId[ids[i]]!;
+                  // In "all" mode no individual chip reads as picked, so a tap on
+                  // one narrows to it instead of subtracting it from everything.
+                  final on = !scope.isAll && scope.includes(p.id);
                   return _Chip(
-                    label: 'search.more_sources'.tr(),
-                    selected: false,
-                    icon: Icons.tune,
-                    onTap: loading ? null : onOpenPicker,
+                    label: p.name,
+                    selected: on,
+                    icon: on ? Icons.check : null,
+                    onTap: () => onToggle(p.id),
                   );
-                }
-                final p = byId[ids[i]]!;
-                // In "all" mode no individual chip reads as picked, so a tap on
-                // one narrows to it instead of subtracting it from everything.
-                final on = !scope.isAll && scope.includes(p.id);
-                return _Chip(
-                  label: p.name,
-                  selected: on,
-                  icon: on ? Icons.check : null,
-                  onTap: () => onToggle(p.id),
-                );
-              },
+                },
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -113,35 +129,40 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fg = selected ? Colors.white : AppColors.textSecondary;
-    return Material(
-      color: selected ? AppColors.primary : AppColors.surface,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? AppColors.primary : AppColors.surface,
         borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 15, color: fg),
-                const SizedBox(width: 6),
-              ],
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 160),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 15, color: fg),
+                  const SizedBox(width: 6),
+                ],
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 160),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

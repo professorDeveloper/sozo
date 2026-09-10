@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/stats/presentation/watch_stats_page.dart';
+import 'package:soplay/features/profile/presentation/widgets/provider_quick_switch.dart';
 import 'package:soplay/features/profile/presentation/widgets/home_rail_customizer_sheet.dart';
 import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
 import 'package:soplay/core/bridge/bridge_control.dart';

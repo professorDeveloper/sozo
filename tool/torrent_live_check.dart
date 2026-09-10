@@ -1,3 +1,9 @@
+// ignore_for_file: avoid_print
+//
+// Its whole output IS print: this is a terminal program, and routing the
+// results through the app logger would send them somewhere no terminal can
+// see them.
+
 // Live smoke check for the torrent indexers.
 //
 // Unit tests cover the parsers with fixed input; this one talks to the real

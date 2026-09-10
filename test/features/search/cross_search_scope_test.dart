@@ -3,13 +3,13 @@ import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/search/domain/entities/cross_search_scope.dart';
 
 ProviderEntity _p(String id) => ProviderEntity(
-      id: id,
-      name: id,
-      image: '',
-      url: '',
-      description: '',
-      domains: const [],
-    );
+  id: id,
+  name: id,
+  image: '',
+  url: '',
+  description: '',
+  domains: const [],
+);
 
 void main() {
   final providers = [_p('a'), _p('b'), _p('c')];
@@ -41,13 +41,15 @@ void main() {
       expect(CrossSearchScope.only({'gone'}).pruned(providers).isAll, isTrue);
     });
 
-    test('a stored set naming every source is all, so later installs count',
-        () {
-      final stored = CrossSearchScope.fromStored(const ['a', 'b', 'c']);
-      final scope = stored.pruned(providers);
-      expect(scope.isAll, isTrue);
-      expect(scope.resolve([...providers, _p('d')]).length, 4);
-    });
+    test(
+      'an explicit set stays explicit rather than becoming capped quick search',
+      () {
+        final stored = CrossSearchScope.fromStored(const ['a', 'b', 'c']);
+        final scope = stored.pruned(providers);
+        expect(scope.isAll, isFalse);
+        expect(scope.resolve([...providers, _p('d')]).length, 3);
+      },
+    );
   });
 
   group('toggling from all', () {
@@ -61,7 +63,9 @@ void main() {
     final scope = CrossSearchScope.only({'a', 'c'});
     expect(CrossSearchScope.fromStored(scope.toStored()), scope);
     expect(
-      CrossSearchScope.fromStored(const CrossSearchScope.all().toStored()).isAll,
+      CrossSearchScope.fromStored(
+        const CrossSearchScope.all().toStored(),
+      ).isAll,
       isTrue,
     );
   });

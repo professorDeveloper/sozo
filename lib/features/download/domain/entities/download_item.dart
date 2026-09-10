@@ -20,6 +20,7 @@ class DownloadItem {
     required this.relativePath,
     required this.createdAt,
     this.kind = DownloadKind.video,
+    this.videoHeight,
     this.thumbnailUrl,
     this.thumbnailRelativePath,
     this.headers = const {},
@@ -55,6 +56,9 @@ class DownloadItem {
   final String sourceUrl;
 
   final DownloadKind kind;
+
+  /// Declared rendition height; null means unknown, including legacy rows.
+  final int? videoHeight;
 
   /// The artefact, relative to the app's documents directory:
   /// `downloads/<id>/index.m3u8`, `downloads/<id>/video.mkv`, or for a manga
@@ -171,41 +175,40 @@ class DownloadItem {
     String? failureDetail,
     int? attempts,
     int? updatedAt,
-  }) =>
-      DownloadItem(
-        id: id,
-        contentUrl: contentUrl,
-        provider: provider,
-        title: title,
-        sourceUrl: sourceUrl,
-        kind: kind ?? this.kind,
-        relativePath: relativePath ?? this.relativePath,
-        thumbnailUrl: thumbnailUrl,
-        thumbnailRelativePath:
-            thumbnailRelativePath ?? this.thumbnailRelativePath,
-        headers: headers ?? this.headers,
-        status: status ?? this.status,
-        unit: unit ?? this.unit,
-        completedUnits: completedUnits ?? this.completedUnits,
-        totalUnits: totalUnits ?? this.totalUnits,
-        sizeBytes: sizeBytes ?? this.sizeBytes,
-        createdAt: createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-        isSerial: isSerial,
-        episodeNumber: episodeNumber,
-        episodeLabel: episodeLabel,
-        pageUrls: pageUrls ?? this.pageUrls,
-        chapterRef: chapterRef,
-        chapterIndex: chapterIndex,
-        // `null` is a real value here — clearing the failure is what a retry
-        // does — so an unset sentinel is the only way to tell "leave it" from
-        // "remove it".
-        failure: identical(failure, _unset)
-            ? this.failure
-            : failure as DownloadFailureKind?,
-        failureDetail: failureDetail ?? this.failureDetail,
-        attempts: attempts ?? this.attempts,
-      );
+  }) => DownloadItem(
+    id: id,
+    contentUrl: contentUrl,
+    provider: provider,
+    title: title,
+    sourceUrl: sourceUrl,
+    kind: kind ?? this.kind,
+    videoHeight: videoHeight,
+    relativePath: relativePath ?? this.relativePath,
+    thumbnailUrl: thumbnailUrl,
+    thumbnailRelativePath: thumbnailRelativePath ?? this.thumbnailRelativePath,
+    headers: headers ?? this.headers,
+    status: status ?? this.status,
+    unit: unit ?? this.unit,
+    completedUnits: completedUnits ?? this.completedUnits,
+    totalUnits: totalUnits ?? this.totalUnits,
+    sizeBytes: sizeBytes ?? this.sizeBytes,
+    createdAt: createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    isSerial: isSerial,
+    episodeNumber: episodeNumber,
+    episodeLabel: episodeLabel,
+    pageUrls: pageUrls ?? this.pageUrls,
+    chapterRef: chapterRef,
+    chapterIndex: chapterIndex,
+    // `null` is a real value here — clearing the failure is what a retry
+    // does — so an unset sentinel is the only way to tell "leave it" from
+    // "remove it".
+    failure: identical(failure, _unset)
+        ? this.failure
+        : failure as DownloadFailureKind?,
+    failureDetail: failureDetail ?? this.failureDetail,
+    attempts: attempts ?? this.attempts,
+  );
 
   static const Object _unset = Object();
 }

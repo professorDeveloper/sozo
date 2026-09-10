@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -155,7 +156,7 @@ class _RepoFileSheetState extends State<_RepoFileSheet> {
     setState(() {
       _busy = true;
       _error = false;
-      _result = 'Installing…';
+      _result = 'ext.installing'.tr();
     });
     try {
       var count = 0;
@@ -165,9 +166,7 @@ class _RepoFileSheetState extends State<_RepoFileSheet> {
         // only the url form is supported here.
         final url = _url;
         if (url == null || url.isEmpty) {
-          throw Exception(
-              'Mangayomi repos install from a URL — open the index link '
-              'instead of a downloaded copy.');
+          throw Exception('ext.mangayomi_url_only'.tr());
         }
         final res = await getIt<MangayomiRepoStore>().addRepo(url);
         count = res['added'] ?? 0;
@@ -190,15 +189,14 @@ class _RepoFileSheetState extends State<_RepoFileSheet> {
       setState(() {
         _error = count == 0;
         _result = count == 0
-            ? 'No extensions found in this file. It may be for a different app, '
-                'or the wrong type was selected.'
-            : 'Installed $count source(s).';
+            ? 'ext.import_none_found'.tr()
+            : 'ext.installed_from_file'.tr(args: ['$count']);
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = true;
-        _result = 'Error: $e';
+        _result = 'ext.error'.tr(args: ['$e']);
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -248,9 +246,9 @@ class _RepoFileSheetState extends State<_RepoFileSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Install extension repo?',
-                        style: TextStyle(
+                      Text(
+                        'ext.import_title'.tr(),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -271,38 +269,35 @@ class _RepoFileSheetState extends State<_RepoFileSheet> {
             ),
             const SizedBox(height: 16),
             if (_ambiguous && _apkHostsAvailable)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'Anime and manga repos use the same file format, so pick which '
-                  'library this one belongs to.',
-                  style: TextStyle(
+                  'ext.import_pick_library'.tr(),
+                  style: const TextStyle(
                       color: AppColors.textHint, fontSize: 12, height: 1.35),
                 ),
               ),
             if (!_apkHostsAvailable)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'On this platform only Mangayomi (JavaScript) extensions can '
-                  'be installed — CloudStream, Aniyomi and Mihon repos ship '
-                  'Android app packages.',
-                  style: TextStyle(
+                  'ext.import_js_only'.tr(),
+                  style: const TextStyle(
                       color: AppColors.textHint, fontSize: 12, height: 1.35),
                 ),
               ),
             SegmentedButton<_Target>(
               segments: [
-                if (_apkHostsAvailable) ...const [
+                if (_apkHostsAvailable) ...[
                   ButtonSegment(
                     value: _Target.manga,
-                    label: Text('Manga'),
-                    icon: Icon(Icons.menu_book_outlined, size: 16),
+                    label: Text('ext.type_manga'.tr()),
+                    icon: const Icon(Icons.menu_book_outlined, size: 16),
                   ),
                   ButtonSegment(
                     value: _Target.aniyomi,
-                    label: Text('Anime'),
-                    icon: Icon(Icons.play_circle_outline, size: 16),
+                    label: Text('ext.type_anime'.tr()),
+                    icon: const Icon(Icons.play_circle_outline, size: 16),
                   ),
                 ],
                 const ButtonSegment(
@@ -356,18 +351,18 @@ class _RepoFileSheetState extends State<_RepoFileSheet> {
                     : Icon(done ? Icons.check : Icons.download_rounded),
                 label: Text(
                   _busy
-                      ? 'Installing…'
+                      ? 'ext.installing'.tr()
                       : done
-                          ? 'Done'
-                          : 'Install',
+                          ? 'general.done'.tr()
+                          : 'general.install'.tr(),
                 ),
               ),
             ),
             if (!done)
               TextButton(
                 onPressed: _busy ? null : () => Navigator.of(context).pop(),
-                child: const Text('Cancel',
-                    style: TextStyle(color: AppColors.textHint)),
+                child: Text('general.cancel'.tr(),
+                    style: const TextStyle(color: AppColors.textHint)),
               ),
           ],
         ),

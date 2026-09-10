@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/bridge/bridge_control.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
@@ -13,6 +12,7 @@ import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
 import 'package:soplay/features/extensions/presentation/pages/source_catalog_page.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_sources_page.dart';
+import 'package:soplay/features/profile/presentation/widgets/provider_quick_switch.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
@@ -77,7 +77,7 @@ class SourcesPage extends StatelessWidget {
               'https://raw.githubusercontent.com/kodjodevf/mangayomi/main/assets/app_icons/icon-red.png',
           fallback: Icons.javascript_outlined,
         ),
-        title: 'Mangayomi Sources',
+        title: 'profile.mangayomi_sources'.tr(),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const MangayomiSourcesPage()),
         ),
@@ -130,7 +130,11 @@ class ProviderTile extends StatelessWidget {
               ? ProviderMark(url: current.image)
               : null,
           value: total > 0 ? '$name · $total' : name,
-          onTap: () => context.push('/providers'),
+          // Shows the current source, so it changes the current source —
+          // the same sheet the home chip and the profile hub open. The full
+          // providers page is still one row down inside it, where managing
+          // rather than picking belongs.
+          onTap: () => openProviderQuickSwitch(context),
         );
       },
     );

@@ -354,11 +354,8 @@ class AuthPrimaryButton extends StatelessWidget {
   final bool loading;
 
   @override
-  Widget build(BuildContext context) => AppPrimaryButton(
-    label: label,
-    onPressed: onPressed,
-    loading: loading,
-  );
+  Widget build(BuildContext context) =>
+      AppPrimaryButton(label: label, onPressed: onPressed, loading: loading);
 }
 
 class AuthDivider extends StatelessWidget {
@@ -396,8 +393,8 @@ class GoogleAuthButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 52),
       child: ElevatedButton.icon(
         onPressed: loading ? null : onPressed,
         style: ElevatedButton.styleFrom(

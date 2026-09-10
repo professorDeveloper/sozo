@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -25,7 +26,9 @@ class ForceUpdatePage extends StatelessWidget {
     final accent = Platform.isIOS ? _iosAccent : _androidAccent;
     final hasAction = Platform.isAndroid ||
         (check.storeUrl != null && check.storeUrl!.isNotEmpty);
-    final actionLabel = Platform.isIOS ? 'Open in App Store' : 'Update';
+    final actionLabel = Platform.isIOS
+        ? 'update.open_store'.tr()
+        : 'update.now'.tr();
 
     return PopScope(
       canPop: false,
@@ -51,10 +54,10 @@ class ForceUpdatePage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Update required',
+                Text(
+                  'update.required_title'.tr(),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
@@ -62,7 +65,7 @@ class ForceUpdatePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Please install the new version (v${check.version}) to continue using the app.',
+                  'update.required_body'.tr(args: ['${check.version}']),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.textSecondary,
@@ -109,9 +112,9 @@ class ForceUpdatePage extends StatelessWidget {
                 const SizedBox(height: 12),
                 TextButton(
                   onPressed: () => SystemNavigator.pop(),
-                  child: const Text(
-                    'Exit app',
-                    style: TextStyle(color: AppColors.textHint),
+                  child: Text(
+                    'update.exit_app'.tr(),
+                    style: const TextStyle(color: AppColors.textHint),
                   ),
                 ),
               ],

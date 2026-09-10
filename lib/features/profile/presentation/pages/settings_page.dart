@@ -2,7 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/localization/app_language.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
@@ -16,20 +16,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  /// Native names on purpose: a person looking for their own language finds it
-  /// fastest written the way they write it.
-  static const _languageNames = <String, String>{
-    'en': 'English',
-    'uz': "O'zbekcha",
-    'ru': 'Русский',
-    'ar': 'العربية',
-  };
-
-  Future<void> _setLanguage(String code) async {
-    if (code == context.locale.languageCode) return;
-    await context.setLocale(Locale(code));
-    await getIt<HiveService>().saveLanguage(code);
-  }
+  Future<void> _setLanguage(String code) => AppLanguage.set(context, code);
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +36,7 @@ class _SettingsPageState extends State<SettingsPage> {
               options: [
                 for (final l in context.supportedLocales) l.languageCode,
               ],
-              labelOf: (code) => _languageNames[code] ?? code,
+              labelOf: AppLanguage.labelOf,
               onChanged: _setLanguage,
             ),
             const SettingsDivider(),

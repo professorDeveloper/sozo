@@ -140,9 +140,29 @@ void main() async {
       // and its seek bar, which are physical geometry rather than reading
       // order and read the same in every language.
       Locale('ar'),
+      // Latin-script tier. Nothing here needs a bundled font or a mirrored
+      // layout: the app ships no custom font, so the system one covers them,
+      // and every one of them reads left to right like English does.
+      Locale('de'),
+      Locale('nl'),
+      Locale('es'),
+      // `pt`, not `pt-BR`, though the copy is written in Brazilian Portuguese.
+      // A region tag would have been the only two-part code in the set — a
+      // special case in the file names, in the check script, and in
+      // `kSubtitleTranslateLanguages`, which lists plain `pt` and would have
+      // silently dropped a `pt-BR` reader back to the default target language.
+      Locale('pt'),
+      Locale('fr'),
+      Locale('tr'),
+      Locale('id'),
     ],
     path: 'assets/translations',
     fallbackLocale: const Locale('en'),
+    // Without this a key missing from one locale renders as the key itself —
+    // the user reads `profile.language_desc` where a sentence belongs. CI gates
+    // on the key check, so this should never fire; it is here because the day
+    // it does, English is a far better answer than raw dot-notation.
+    useFallbackTranslations: true,
     child: const MyApp(),
   );
   if (usesFlutterGlass) {
