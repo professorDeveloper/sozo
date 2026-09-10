@@ -403,12 +403,12 @@
     "sign_in": "Inloggen",
     "sign_out": "Uitloggen",
     "sign_out_confirm": "Weet je zeker dat je wilt uitloggen?",
-    "section_providers": "BRONNEN",
+    "section_providers": "Bronnen",
     "section_content": "INHOUD",
     "sources_row": "Extensiebronnen",
     "sources_row_subtitle": "CloudStream, Aniyomi, Mangayomi",
     "provider": "Bron",
-    "choose_provider": "Bron kiezen",
+    "choose_provider": "Bron wijzigen",
     "search_providers_hint": "Bronnen zoeken…",
     "count_of_total_shown": "{} van {} getoond",
     "no_providers_in_category": "Geen bronnen in deze categorie",
@@ -1782,5 +1782,23 @@
     "type_manga": "Manga",
     "type_anime": "Anime",
     "type_novel": "Novel"
+  },
+  "ux": {
+    "quick_search": "Snel zoeken ({})",
+    "quick_search_note": "Snel zoeken doorzoekt {} van {} bronnen. Kies bronnen om gericht te zoeken.",
+    "torrents": "Torrents",
+    "filters": "Filters",
+    "change_source": "Bron wijzigen",
+    "manage_sources": "Bronnen beheren",
+    "no_source_match": "Geen bronnen komen overeen met je zoekopdracht.",
+    "download_options": "Downloadopties",
+    "download_options_note": "Kies een beschikbare bron en kwaliteit. De audio hangt af van de gekozen bron.",
+    "source_number": "Bron {}",
+    "checking_quality": "Beschikbare kwaliteit controleren…",
+    "quality_unavailable": "De kwaliteit kon niet worden gecontroleerd. Probeer opnieuw of download de oorspronkelijke stream zonder kwaliteitsgarantie.",
+    "quality_unknown": "Kwaliteit onbekend",
+    "size_unknown": "De bron geeft geen bestandsgrootte op",
+    "interface_language_note": "Alleen de app-interface verandert. Filmtitels, beschrijvingen en andere broninhoud blijven in de oorspronkelijke taal.",
+    "continue": "Doorgaan"
   }
 }

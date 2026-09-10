@@ -35,6 +35,26 @@ class _TvShowcaseState extends State<TvShowcase> with TickerProviderStateMixin {
   )..forward();
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    if (reduced) {
+      _loop.stop();
+    } else if (!_loop.isAnimating) {
+      _loop.repeat();
+    }
+    if (reduced) {
+      _strips.stop();
+    } else if (!_strips.isAnimating) {
+      _strips.repeat();
+    }
+    if (reduced) {
+      _entrance.stop();
+      _entrance.value = 1;
+    }
+  }
+
+  @override
   void dispose() {
     _loop.dispose();
     _strips.dispose();

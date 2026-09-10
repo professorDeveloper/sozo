@@ -53,11 +53,11 @@ class DownloadRepositoryImpl implements DownloadRepository {
     required DownloadNativeDataSource native,
     required DownloadTransferDataSource transfer,
     required HiveService hive,
-  })  : _local = local,
-        _storage = storage,
-        _native = native,
-        _transfer = transfer,
-        _hive = hive;
+  }) : _local = local,
+       _storage = storage,
+       _native = native,
+       _transfer = transfer,
+       _hive = hive;
 
   final DownloadLocalDataSource _local;
   final DownloadStorage _storage;
@@ -122,8 +122,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
     // or walking back into Wi-Fi left downloads sitting there until something
     // else happened to pump the queue — which for most people is never.
     _hive.downloadWifiOnlyChanged.addListener(_pump);
-    _connectivity =
-        Connectivity().onConnectivityChanged.listen((_) => _pump());
+    _connectivity = Connectivity().onConnectivityChanged.listen((_) => _pump());
 
     if (_useNative) {
       _nativePoll = Timer.periodic(
@@ -179,7 +178,8 @@ class DownloadRepositoryImpl implements DownloadRepository {
 
     final existing = _local.get(request.id);
     if (existing != null &&
-        (existing.status.isActive || existing.status == DownloadStatus.completed) &&
+        (existing.status.isActive ||
+            existing.status == DownloadStatus.completed) &&
         !_isStale(existing)) {
       return EnqueueOutcome.alreadyPresent;
     }
@@ -187,8 +187,8 @@ class DownloadRepositoryImpl implements DownloadRepository {
       return EnqueueOutcome.alreadyPresent;
     }
 
-    final kind = request.kind ??
-        DownloadKind.fromLegacy('video', request.sourceUrl);
+    final kind =
+        request.kind ?? DownloadKind.fromLegacy('video', request.sourceUrl);
 
     if (kind != DownloadKind.manga && request.sourceUrl.trim().isEmpty) {
       return EnqueueOutcome.notDownloadable;
@@ -204,6 +204,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
       contentUrl: request.contentUrl,
       provider: request.provider,
       title: request.title,
+      videoHeight: request.videoHeight,
       sourceUrl: request.sourceUrl,
       kind: kind,
       relativePath: DownloadLayout.artefactFor(
@@ -215,8 +216,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
       headers: request.headers,
       status: DownloadStatus.pending,
       unit: DownloadUnit.forKind(kind),
-      createdAt: existing?.createdAt ??
-          DateTime.now().millisecondsSinceEpoch,
+      createdAt: existing?.createdAt ?? DateTime.now().millisecondsSinceEpoch,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
       isSerial: request.isSerial,
       episodeNumber: request.episodeNumber,
@@ -238,8 +238,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
   /// A `completed` row whose file is gone is not a reason to refuse a new
   /// download of the same thing — it is the reason for one.
   bool _isStale(DownloadItem item) =>
-      item.status == DownloadStatus.completed &&
-      absolutePathOf(item) == null;
+      item.status == DownloadStatus.completed && absolutePathOf(item) == null;
 
   // --- controls ------------------------------------------------------------
 
@@ -274,16 +273,23 @@ class DownloadRepositoryImpl implements DownloadRepository {
     await _requeue(item, resetAttempts: true);
   }
 
-  Future<void> _requeue(DownloadItem item, {required bool resetAttempts}) async {
+  Future<void> _requeue(
+    DownloadItem item, {
+    required bool resetAttempts,
+  }) async {
     if (_running.contains(item.id) || _queue.contains(item.id)) return;
     // Whatever the viewer asked for a moment ago, they are asking for this now.
     _pendingIntent.remove(item.id);
-    await _local.put(_stamp(item.copyWith(
-      status: DownloadStatus.pending,
-      failure: null,
-      failureDetail: '',
-      attempts: resetAttempts ? 0 : item.attempts,
-    )));
+    await _local.put(
+      _stamp(
+        item.copyWith(
+          status: DownloadStatus.pending,
+          failure: null,
+          failureDetail: '',
+          attempts: resetAttempts ? 0 : item.attempts,
+        ),
+      ),
+    );
     _queue.add(item.id);
     _pump();
   }
@@ -299,13 +305,17 @@ class DownloadRepositoryImpl implements DownloadRepository {
     final item = _local.get(id);
     if (item == null) return;
     await _storage.deleteItem(id);
-    await _local.put(_stamp(item.copyWith(
-      status: DownloadStatus.failed,
-      failure: DownloadFailureKind.unknown,
-      failureDetail: 'cancelled',
-      completedUnits: 0,
-      sizeBytes: 0,
-    )));
+    await _local.put(
+      _stamp(
+        item.copyWith(
+          status: DownloadStatus.failed,
+          failure: DownloadFailureKind.unknown,
+          failureDetail: 'cancelled',
+          completedUnits: 0,
+          sizeBytes: 0,
+        ),
+      ),
+    );
   }
 
   @override
@@ -548,11 +558,15 @@ class DownloadRepositoryImpl implements DownloadRepository {
       return;
     }
 
-    await _local.put(_stamp(verified.copyWith(
-      status: DownloadStatus.completed,
-      failure: null,
-      failureDetail: '',
-    )));
+    await _local.put(
+      _stamp(
+        verified.copyWith(
+          status: DownloadStatus.completed,
+          failure: null,
+          failureDetail: '',
+        ),
+      ),
+    );
   }
 
   Future<void> _fail(
@@ -560,12 +574,14 @@ class DownloadRepositoryImpl implements DownloadRepository {
     DownloadFailureKind kind,
     String detail,
   ) async {
-    final failed = _stamp(item.copyWith(
-      status: DownloadStatus.failed,
-      failure: kind,
-      failureDetail: detail,
-      attempts: item.attempts + 1,
-    ));
+    final failed = _stamp(
+      item.copyWith(
+        status: DownloadStatus.failed,
+        failure: kind,
+        failureDetail: detail,
+        attempts: item.attempts + 1,
+      ),
+    );
     await _local.put(failed);
     debugPrint('[downloads] ${item.id} failed: ${kind.id} — $detail');
 
@@ -699,7 +715,8 @@ class DownloadRepositoryImpl implements DownloadRepository {
   Future<DownloadItem?> _verify(DownloadItem item) async {
     // A transfer in flight owns its own row; checking it mid-write would
     // report a file that is deliberately incomplete.
-    if (_running.contains(item.id) || item.status == DownloadStatus.downloading) {
+    if (_running.contains(item.id) ||
+        item.status == DownloadStatus.downloading) {
       return null;
     }
 
@@ -750,8 +767,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
     }
 
     final thumb = next.thumbnailRelativePath;
-    if (thumb != null &&
-        !File(_storage.absoluteOf(thumb)).existsSync()) {
+    if (thumb != null && !File(_storage.absoluteOf(thumb)).existsSync()) {
       next = next.copyWith(thumbnailRelativePath: '');
       changed = true;
     }
@@ -770,8 +786,10 @@ class DownloadRepositoryImpl implements DownloadRepository {
   Future<bool> _isWhole(DownloadItem item) async {
     if (!item.kind.isMultiPart) return true;
 
-    final manifest = File('${_storage.dirOf(item.id)}/'
-        '${DownloadLayout.manifestName}');
+    final manifest = File(
+      '${_storage.dirOf(item.id)}/'
+      '${DownloadLayout.manifestName}',
+    );
     if (!await manifest.exists()) return true;
 
     try {
@@ -782,8 +800,9 @@ class DownloadRepositoryImpl implements DownloadRepository {
 
       final prefix = item.kind == DownloadKind.hls ? 'seg_' : 'p_';
       var found = 0;
-      await for (final entity
-          in Directory(_storage.dirOf(item.id)).list(followLinks: false)) {
+      await for (final entity in Directory(
+        _storage.dirOf(item.id),
+      ).list(followLinks: false)) {
         if (entity is! File) continue;
         final name = entity.uri.pathSegments.last;
         if (!name.startsWith(prefix)) continue;
@@ -892,7 +911,8 @@ class DownloadRepositoryImpl implements DownloadRepository {
     // destination out of space leaves two partial libraries and no way to tell
     // which is which.
     final needed = await _storage.totalSize();
-    if (location.freeBytes > 0 && location.freeBytes < needed + _headroomBytes) {
+    if (location.freeBytes > 0 &&
+        location.freeBytes < needed + _headroomBytes) {
       return MoveLocationOutcome.noSpace;
     }
 

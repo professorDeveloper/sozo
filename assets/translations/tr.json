@@ -403,12 +403,12 @@
     "sign_in": "Giriş yap",
     "sign_out": "Çıkış yap",
     "sign_out_confirm": "Çıkmak istediğine emin misin?",
-    "section_providers": "KAYNAKLAR",
+    "section_providers": "Kaynaklar",
     "section_content": "İÇERİK",
     "sources_row": "Eklenti kaynakları",
     "sources_row_subtitle": "CloudStream, Aniyomi, Mangayomi",
     "provider": "Kaynak",
-    "choose_provider": "Kaynak seç",
+    "choose_provider": "Kaynağı değiştir",
     "search_providers_hint": "Kaynaklarda ara…",
     "count_of_total_shown": "{} / {} gösteriliyor",
     "no_providers_in_category": "Bu kategoride kaynak yok",
@@ -1782,5 +1782,23 @@
     "type_manga": "Manga",
     "type_anime": "Anime",
     "type_novel": "Roman"
+  },
+  "ux": {
+    "quick_search": "Hızlı arama ({})",
+    "quick_search_note": "Hızlı arama {} kaynağı tarar; toplam {} kaynak vardır. Belirli bir arama için kaynakları seçin.",
+    "torrents": "Torrentler",
+    "filters": "Filtreler",
+    "change_source": "Kaynağı değiştir",
+    "manage_sources": "Kaynakları yönet",
+    "no_source_match": "Aramanızla eşleşen kaynak yok.",
+    "download_options": "İndirme seçenekleri",
+    "download_options_note": "Mevcut bir kaynak ve kalite seçin. Ses, seçilen kaynağa bağlıdır.",
+    "source_number": "Kaynak {}",
+    "checking_quality": "Mevcut kalite kontrol ediliyor…",
+    "quality_unavailable": "Kalite kontrol edilemedi. Yeniden deneyin veya orijinal yayını kalite garantisi olmadan indirin.",
+    "quality_unknown": "Kalite bilinmiyor",
+    "size_unknown": "Kaynak dosya boyutunu belirtmedi",
+    "interface_language_note": "Yalnızca uygulama arayüzü değişir. Film adları, açıklamalar ve diğer kaynak içerikleri orijinal dilinde kalır.",
+    "continue": "Devam et"
   }
 }

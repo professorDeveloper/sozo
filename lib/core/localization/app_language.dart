@@ -41,8 +41,9 @@ abstract final class AppLanguage {
 
   /// Switches the interface, and everything downstream of it.
   static Future<void> set(BuildContext context, String code) async {
-    if (code == context.locale.languageCode) return;
-    await context.setLocale(Locale(code));
+    if (code != context.locale.languageCode) {
+      await context.setLocale(Locale(code));
+    }
     await getIt<HiveService>().saveLanguage(code);
     // Push copy is written server-side, so the server has to be told. Fire and
     // forget: a language change must not wait on the network, and the next

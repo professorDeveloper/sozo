@@ -17,6 +17,7 @@ class DownloadRequest {
     required this.title,
     required this.sourceUrl,
     this.kind,
+    this.videoHeight,
     this.thumbnailUrl,
     this.headers = const {},
     this.isSerial = false,
@@ -39,24 +40,25 @@ class DownloadRequest {
     required String title,
     required String sourceUrl,
     String? thumbnailUrl,
+    int? videoHeight,
     Map<String, String> headers = const {},
     bool isSerial = false,
     int? episodeNumber,
     String? episodeLabel,
-  }) =>
-      DownloadRequest(
-        id: videoId(contentUrl: contentUrl, episodeNumber: episodeNumber),
-        contentUrl: contentUrl,
-        provider: provider,
-        title: title,
-        sourceUrl: sourceUrl,
-        kind: DownloadKind.fromLegacy('video', sourceUrl),
-        thumbnailUrl: thumbnailUrl,
-        headers: headers,
-        isSerial: isSerial,
-        episodeNumber: episodeNumber,
-        episodeLabel: episodeLabel,
-      );
+  }) => DownloadRequest(
+    id: videoId(contentUrl: contentUrl, episodeNumber: episodeNumber),
+    contentUrl: contentUrl,
+    provider: provider,
+    title: title,
+    sourceUrl: sourceUrl,
+    kind: DownloadKind.fromLegacy('video', sourceUrl),
+    videoHeight: videoHeight,
+    thumbnailUrl: thumbnailUrl,
+    headers: headers,
+    isSerial: isSerial,
+    episodeNumber: episodeNumber,
+    episodeLabel: episodeLabel,
+  );
 
   /// One manga / manhwa / novel chapter.
   factory DownloadRequest.mangaChapter({
@@ -70,33 +72,33 @@ class DownloadRequest {
     int? chapterIndex,
     int? episodeNumber,
     String? episodeLabel,
-  }) =>
-      DownloadRequest(
-        id: mangaChapterId(
-          contentUrl: contentUrl,
-          provider: provider,
-          chapterRef: chapterRef,
-        ),
-        contentUrl: contentUrl,
-        provider: provider,
-        title: title,
-        sourceUrl: '',
-        kind: DownloadKind.manga,
-        thumbnailUrl: thumbnailUrl,
-        headers: headers,
-        isSerial: true,
-        episodeNumber: episodeNumber,
-        episodeLabel: episodeLabel,
-        pageUrls: pageUrls,
-        chapterRef: chapterRef,
-        chapterIndex: chapterIndex,
-      );
+  }) => DownloadRequest(
+    id: mangaChapterId(
+      contentUrl: contentUrl,
+      provider: provider,
+      chapterRef: chapterRef,
+    ),
+    contentUrl: contentUrl,
+    provider: provider,
+    title: title,
+    sourceUrl: '',
+    kind: DownloadKind.manga,
+    thumbnailUrl: thumbnailUrl,
+    headers: headers,
+    isSerial: true,
+    episodeNumber: episodeNumber,
+    episodeLabel: episodeLabel,
+    pageUrls: pageUrls,
+    chapterRef: chapterRef,
+    chapterIndex: chapterIndex,
+  );
 
   final String id;
   final String contentUrl;
   final String provider;
   final String title;
   final String sourceUrl;
+  final int? videoHeight;
 
   /// Null lets the repository decide from [sourceUrl]. Passed explicitly only
   /// where the caller genuinely knows better.
@@ -127,10 +129,7 @@ class DownloadRequest {
   ///
   /// Byte-identical to what the old `DownloadService.videoId` produced, so an
   /// install upgrading keeps every download it already had.
-  static String videoId({
-    required String contentUrl,
-    int? episodeNumber,
-  }) =>
+  static String videoId({required String contentUrl, int? episodeNumber}) =>
       _fnv(
         episodeNumber == null ? contentUrl : '${contentUrl}_ep$episodeNumber',
       );
@@ -139,6 +138,5 @@ class DownloadRequest {
     required String contentUrl,
     required String provider,
     required String chapterRef,
-  }) =>
-      _fnv('manga|$contentUrl|$provider|$chapterRef');
+  }) => _fnv('manga|$contentUrl|$provider|$chapterRef');
 }

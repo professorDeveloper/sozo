@@ -1,3 +1,4 @@
+import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -144,10 +145,7 @@ class _DetailScaffold extends StatelessWidget {
                 DetailInitial() || DetailLoading() => Stack(
                   children: [
                     if (preview != null)
-                      DetailPreviewSkeleton(
-                        preview: preview,
-                        heroTag: heroTag,
-                      )
+                      DetailPreviewSkeleton(preview: preview, heroTag: heroTag)
                     else
                       const DetailSkeleton(),
                     _BackOnlyBar(onBack: () => _goBack(context)),
@@ -167,18 +165,17 @@ class _DetailScaffold extends StatelessWidget {
                 // showListAction. It also removes a latent lock-up — a silent
                 // DetailLoaded refresh that skips DetailLoading would strand
                 // the page on the skeleton for good.
-                DetailLoaded(:final detail) =>
-                  Builder(
-                    builder: (context) {
-                      return _DetailView(
-                        detail: detail,
-                        provider: provider,
-                        autoPlay: autoPlay,
-                        resumeEpisodeIndex: resumeEpisodeIndex,
-                        heroTag: heroTag,
-                      );
-                    },
-                  ),
+                DetailLoaded(:final detail) => Builder(
+                  builder: (context) {
+                    return _DetailView(
+                      detail: detail,
+                      provider: provider,
+                      autoPlay: autoPlay,
+                      resumeEpisodeIndex: resumeEpisodeIndex,
+                      heroTag: heroTag,
+                    );
+                  },
+                ),
                 DetailError(:final message) => _ErrorView(
                   message: message,
                   onRetry: () => context.read<DetailBloc>().add(
@@ -547,15 +544,16 @@ class _DetailViewState extends State<_DetailView>
     // blocked the very re-download that would have repaired it.
     var url = _pickMovieUrl(playback);
     var headers = playback.headers;
+    var sources = playback.videoSources;
+    var type = playback.type;
 
     // An embed page rather than a stream: the same resolve the player does on
     // open. Downloading the page would produce an unplayable HTML file.
     final ref = playback.episodes.isNotEmpty
         ? playback.episodes.first.mediaRef
         : '';
-    final needsResolve = playback.type == 'webview-extract' ||
-        url == null ||
-        url.isEmpty;
+    final needsResolve =
+        playback.type == 'webview-extract' || url == null || url.isEmpty;
     if (needsResolve && ref.isNotEmpty) {
       final result = await getIt<ResolveMediaUseCase>()(
         ref: ref,
@@ -577,6 +575,8 @@ class _DetailViewState extends State<_DetailView>
         }
         url = result.value.videoUrl;
         headers = result.value.headers;
+        sources = result.value.videoSources;
+        type = result.value.type;
       }
     }
 
@@ -585,14 +585,24 @@ class _DetailViewState extends State<_DetailView>
       return;
     }
 
+    final selection = await chooseDownload(
+      context,
+      url: url,
+      headers: headers,
+      type: type,
+      sources: sources,
+    );
+    if (!mounted || selection == null) return;
+
     final outcome = await getIt<EnqueueDownloadUseCase>()(
       DownloadRequest.video(
         contentUrl: widget.detail.contentUrl,
         provider: playback.provider,
         title: widget.detail.title,
-        sourceUrl: url,
+        sourceUrl: selection.url,
+        videoHeight: selection.height,
         thumbnailUrl: widget.detail.thumbnail,
-        headers: headers,
+        headers: selection.headers,
       ),
     );
     if (!mounted) return;
@@ -1119,36 +1129,35 @@ class _DetailViewState extends State<_DetailView>
                   // header handed to it as `child`.
                   background: ValueListenableBuilder<bool>(
                     valueListenable: _heroActive,
-                    builder: (_, heroActive, _) =>
-                        ValueListenableBuilder<double>(
-                    valueListenable: _collapse,
-                    child: DetailHeroBackground(
-                      thumbnail: detail.thumbnail,
-                      title: detail.title,
-                      heroTag: heroActive ? widget.heroTag : null,
-                      trailerQuery: detail.trailerQuery,
-                      // The same threshold the hero uses: once the header is
-                      // mostly scrolled away there is nothing to preview, and
-                      // a video decoding under a page nobody can see is
-                      // battery spent on nothing.
-                      trailerActive: heroActive,
-                    ),
-                    builder: (_, c, child) => Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        child!,
-                        // IgnorePointer so the scrim never eats a tap meant
-                        // for the artwork underneath it.
-                        IgnorePointer(
-                          child: ColoredBox(
-                            color: AppColors.background.withValues(
-                              alpha: c.clamp(0.0, 1.0),
+                    builder: (_, heroActive, _) => ValueListenableBuilder<double>(
+                      valueListenable: _collapse,
+                      child: DetailHeroBackground(
+                        thumbnail: detail.thumbnail,
+                        title: detail.title,
+                        heroTag: heroActive ? widget.heroTag : null,
+                        trailerQuery: detail.trailerQuery,
+                        // The same threshold the hero uses: once the header is
+                        // mostly scrolled away there is nothing to preview, and
+                        // a video decoding under a page nobody can see is
+                        // battery spent on nothing.
+                        trailerActive: heroActive,
+                      ),
+                      builder: (_, c, child) => Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          child!,
+                          // IgnorePointer so the scrim never eats a tap meant
+                          // for the artwork underneath it.
+                          IgnorePointer(
+                            child: ColoredBox(
+                              color: AppColors.background.withValues(
+                                alpha: c.clamp(0.0, 1.0),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
                   ),
                 ),
               ),
@@ -1598,8 +1607,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   final AppTabBar tabBar;
   final GlobalKey stripKey;
 
-  static const double _height =
-      AppTabBar.stripHeight + AppTabBar.dividerHeight;
+  static const double _height = AppTabBar.stripHeight + AppTabBar.dividerHeight;
 
   @override
   Widget build(

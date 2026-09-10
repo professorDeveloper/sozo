@@ -403,12 +403,12 @@
     "sign_in": "Entrar",
     "sign_out": "Sair",
     "sign_out_confirm": "Tem certeza de que quer sair?",
-    "section_providers": "FONTES",
+    "section_providers": "Fontes",
     "section_content": "CONTEÚDO",
     "sources_row": "Fontes de extensão",
     "sources_row_subtitle": "CloudStream, Aniyomi, Mangayomi",
     "provider": "Fonte",
-    "choose_provider": "Escolher fonte",
+    "choose_provider": "Trocar fonte",
     "search_providers_hint": "Buscar fontes…",
     "count_of_total_shown": "{} de {} exibidas",
     "no_providers_in_category": "Nenhuma fonte nesta categoria",
@@ -1782,5 +1782,23 @@
     "type_manga": "Mangá",
     "type_anime": "Anime",
     "type_novel": "Novela"
+  },
+  "ux": {
+    "quick_search": "Busca rápida ({})",
+    "quick_search_note": "A busca rápida pesquisa {} de {} fontes. Escolha fontes para uma busca específica.",
+    "torrents": "Torrents",
+    "filters": "Filtros",
+    "change_source": "Trocar fonte",
+    "manage_sources": "Gerenciar fontes",
+    "no_source_match": "Nenhuma fonte corresponde à busca.",
+    "download_options": "Opções de download",
+    "download_options_note": "Escolha uma fonte e uma qualidade disponíveis. O áudio depende da fonte escolhida.",
+    "source_number": "Fonte {}",
+    "checking_quality": "Verificando a qualidade disponível…",
+    "quality_unavailable": "Não foi possível verificar a qualidade. Tente novamente ou baixe a transmissão original sem garantia de qualidade.",
+    "quality_unknown": "Qualidade desconhecida",
+    "size_unknown": "A fonte não informou o tamanho",
+    "interface_language_note": "Apenas a interface do aplicativo muda. Títulos de filmes, descrições e outros conteúdos das fontes permanecem no idioma original.",
+    "continue": "Continuar"
   }
 }

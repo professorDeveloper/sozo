@@ -49,93 +49,62 @@ class SearchStickyHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compactProgress = Curves.easeOutCubic.transform(
-      progress.clamp(0.0, 1.0),
-    );
-    final topSpacing = lerpDouble(topPad + 18, topPad + 10, compactProgress)!;
-    final titleHeight = lerpDouble(28, 0, compactProgress)!;
-    final titleGap = lerpDouble(14, 8, compactProgress)!;
-    final bottomGap = lerpDouble(16, 10, compactProgress)!;
     final blurred = progress > 0.01;
     final backgroundColor = blurred
-        ? AppColors.background.withValues(alpha: 0.82)
+        ? AppColors.background.withValues(alpha: 0.95)
         : AppColors.background;
-
-    final inner = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(height: topSpacing),
-        ClipRect(
-          child: SizedBox(
-            height: titleHeight,
-            child: Opacity(
-              opacity: 1 - compactProgress,
-              child: Transform.translate(
-                offset: Offset(0, -10 * compactProgress),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'search.title'.tr(),
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
-                    ),
-                  ),
+    final inner = Padding(
+      padding: EdgeInsets.fromLTRB(16, topPad + 12, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'search.title'.tr(),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 12),
+          _SearchField(
+            controller: controller,
+            focus: focus,
+            onChanged: onQueryChanged,
+            onSubmitted: onSubmitted,
+            onClear: onClear,
+            voiceButton: voiceButton,
+          ),
+          const SizedBox(height: 8),
+          // Actions never steal width from the query or appear mid-keystroke.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _SearchAction(
+                  icon: Icons.travel_explore_rounded,
+                  label: 'search.all_source_search'.tr(),
+                  onTap: onMultiSearchTap,
                 ),
-              ),
+                if (onTorrentTap != null) ...[
+                  const SizedBox(width: 8),
+                  _SearchAction(
+                    icon: Icons.hub_rounded,
+                    label: 'ux.torrents'.tr(),
+                    onTap: onTorrentTap!,
+                  ),
+                ],
+                if (showFilter) ...[
+                  const SizedBox(width: 8),
+                  _SearchAction(
+                    icon: Icons.tune_rounded,
+                    label: 'ux.filters'.tr(),
+                    onTap: onFilterTap,
+                    selected: hasActiveFilter,
+                  ),
+                ],
+              ],
             ),
           ),
-        ),
-        SizedBox(height: titleGap),
-        Padding(
-          padding: EdgeInsets.fromLTRB(16, 0, 16, bottomGap),
-          child: Row(
-            children: [
-              Expanded(
-                child: _SearchField(
-                  controller: controller,
-                  focus: focus,
-                  onChanged: onQueryChanged,
-                  onSubmitted: onSubmitted,
-                  onClear: onClear,
-                  voiceButton: voiceButton,
-                ),
-              ),
-              // Only once something is typed. The action needs a query to
-              // carry, so showing it on an empty field would offer a button
-              // that cannot do anything — and it would cost the search field a
-              // permanent 40dp on a phone that has none to spare.
-              if (onTorrentTap != null)
-                ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: controller,
-                  builder: (context, value, _) => value.text.trim().isEmpty
-                      ? const SizedBox.shrink()
-                      : Padding(
-                          padding: const EdgeInsetsDirectional.only(start: 10),
-                          child: _HeaderIconButton(
-                            icon: Icons.hub_rounded,
-                            onTap: onTorrentTap!,
-                            tooltip: 'search.try_torrents'.tr(),
-                          ),
-                        ),
-                ),
-              const SizedBox(width: 10),
-              _HeaderIconButton(
-                icon: Icons.travel_explore_rounded,
-                onTap: onMultiSearchTap,
-                tooltip: 'search.all_source_search'.tr(),
-              ),
-              if (showFilter) ...[
-                const SizedBox(width: 10),
-                _FilterButton(active: hasActiveFilter, onTap: onFilterTap),
-              ],
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
 
     final surface = Container(
@@ -227,7 +196,11 @@ class _SearchField extends StatelessWidget {
                 child: icon,
               );
             }
-            return GestureDetector(onTap: onClear, child: icon);
+            return IconButton(
+              tooltip: 'general.clear'.tr(),
+              onPressed: onClear,
+              icon: icon,
+            );
           },
         ),
         border: InputBorder.none,
@@ -252,7 +225,9 @@ class _SearchField extends StatelessWidget {
           return AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             curve: Curves.easeOut,
-            height: 46,
+            constraints: BoxConstraints(
+              minHeight: 52 + (MediaQuery.textScalerOf(context).scale(15) - 15),
+            ),
             // Focus reads as lit, not as outlined. A saturated red rectangle
             // around a text field is louder than anything else on the screen
             // and fights the dark surface it sits on; the brand colour carries
@@ -283,90 +258,35 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-class _HeaderIconButton extends StatelessWidget {
-  const _HeaderIconButton({
+class _SearchAction extends StatelessWidget {
+  const _SearchAction({
     required this.icon,
+    required this.label,
     required this.onTap,
-    this.tooltip,
+    this.selected = false,
   });
-
   final IconData icon;
+  final String label;
   final VoidCallback onTap;
-  final String? tooltip;
+  final bool selected;
 
   @override
-  Widget build(BuildContext context) {
-    final content = Container(
-      height: 46,
-      width: 46,
-      decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    child: TextButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 20),
+      label: Text(label),
+      style: TextButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        foregroundColor: selected
+            ? AppColors.primaryLight
+            : AppColors.textSecondary,
+        backgroundColor: selected
+            ? AppColors.primary.withValues(alpha: 0.14)
+            : AppColors.surface,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
       ),
-      child: Icon(icon, size: 20, color: AppColors.textSecondary),
-    );
-    // Android TV: the search header's action buttons were unreachable by the
-    // D-pad. Off TV this is the GestureDetector that was always here.
-    final button = isTvPlatform
-        ? TvFocusable(onPressed: onTap, borderRadius: 14, child: content)
-        : GestureDetector(onTap: onTap, child: content);
-    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
-  }
-}
-
-class _FilterButton extends StatelessWidget {
-  const _FilterButton({required this.onTap, required this.active});
-
-  final VoidCallback onTap;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Container(
-      height: 46,
-      width: 46,
-      decoration: BoxDecoration(
-        color: active
-            ? AppColors.primary.withValues(alpha: 0.18)
-            : AppColors.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: active
-              ? AppColors.primary.withValues(alpha: 0.5)
-              : Colors.white.withValues(alpha: 0.08),
-        ),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Icon(
-            Icons.tune_rounded,
-            size: 20,
-            color: active ? AppColors.primary : AppColors.textSecondary,
-          ),
-          if (active)
-            Positioned(
-              top: 9,
-              right: 9,
-              child: Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-
-    // Android TV: without this, the filter sheet could not be opened at all.
-    if (isTvPlatform) {
-      return TvFocusable(onPressed: onTap, borderRadius: 14, child: content);
-    }
-
-    return GestureDetector(onTap: onTap, child: content);
-  }
+    ),
+  );
 }

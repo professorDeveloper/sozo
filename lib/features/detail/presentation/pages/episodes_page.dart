@@ -1,3 +1,4 @@
+import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'dart:async';
 import 'dart:ui';
 
@@ -702,7 +703,8 @@ class _EpisodesPageState extends State<EpisodesPage> {
     );
     if (!mounted) return false;
 
-    if (result is! Success<MediaResolveEntity> || result.value.videoUrl.isEmpty) {
+    if (result is! Success<MediaResolveEntity> ||
+        result.value.videoUrl.isEmpty) {
       if (!quiet) _toast('detail.download_resolve_failed'.tr());
       return false;
     }
@@ -721,14 +723,25 @@ class _EpisodesPageState extends State<EpisodesPage> {
       if (!quiet) _toast('detail.download_needs_playback'.tr());
       return false;
     }
+    final selection = quiet
+        ? DownloadSelection(url: media.videoUrl, headers: media.headers)
+        : await chooseDownload(
+            context,
+            url: media.videoUrl,
+            headers: media.headers,
+            type: media.type,
+            sources: media.videoSources,
+          );
+    if (!mounted || selection == null) return false;
     final outcome = await _enqueue(
       DownloadRequest.video(
         contentUrl: widget.args.contentUrl,
         provider: widget.args.provider,
         title: widget.args.title,
-        sourceUrl: media.videoUrl,
+        sourceUrl: selection.url,
+        videoHeight: selection.height,
         thumbnailUrl: widget.args.thumbnail,
-        headers: media.headers,
+        headers: selection.headers,
         isSerial: true,
         episodeNumber: ep.episode,
         episodeLabel: ep.label,
@@ -811,9 +824,11 @@ class _EpisodesPageState extends State<EpisodesPage> {
       }
     }
     if (!mounted) return;
-    _toast(queued == 0
-        ? 'detail.download_none_queued'.tr()
-        : 'detail.download_queued_n'.tr(args: ['$queued']));
+    _toast(
+      queued == 0
+          ? 'detail.download_none_queued'.tr()
+          : 'detail.download_queued_n'.tr(args: ['$queued']),
+    );
   }
 
   /// Batches past this size ask first. Thirty episodes is several gigabytes and
@@ -838,35 +853,37 @@ class _EpisodesPageState extends State<EpisodesPage> {
   }
 
   Future<bool?> _confirmLargeBatch(List<int> indices) => showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: Text(
-            'detail.download_batch_title'.tr(),
-            style: TextStyle(color: AppColors.textPrimary, fontSize: 17),
-          ),
-          content: Text(
-            'detail.download_batch_body'.tr(namedArgs: {
-              'range': _selectionRange(indices),
-              'count': '${indices.length}',
-            }),
-            style: TextStyle(color: AppColors.textSecondary, height: 1.4),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(
-                'general.cancel'.tr(),
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text('detail.download_action'.tr()),
-            ),
-          ],
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text(
+        'detail.download_batch_title'.tr(),
+        style: TextStyle(color: AppColors.textPrimary, fontSize: 17),
+      ),
+      content: Text(
+        'detail.download_batch_body'.tr(
+          namedArgs: {
+            'range': _selectionRange(indices),
+            'count': '${indices.length}',
+          },
         ),
-      );
+        style: TextStyle(color: AppColors.textSecondary, height: 1.4),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: Text(
+            'general.cancel'.tr(),
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text('detail.download_action'.tr()),
+        ),
+      ],
+    ),
+  );
 
   /// [_downloadChapter] with its own error reporting suppressed, for batches.
   Future<bool> _downloadChapterQuietly(int index) async {
@@ -1006,13 +1023,19 @@ class _EpisodesPageState extends State<EpisodesPage> {
                               number: jumpNumber,
                               block: jumpBlock,
                               busy: _jumping,
-                              onTap: () => _jumpToEpisode(jumpNumber, jumpBlock),
+                              onTap: () =>
+                                  _jumpToEpisode(jumpNumber, jumpBlock),
                             ),
                           )
                         else if (_query.isNotEmpty && visible.isEmpty)
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                24,
+                                16,
+                                24,
+                              ),
                               child: Text(
                                 _jumpMiss != null && _jumpMiss == jumpNumber
                                     ? 'episodes.jump_missing'.tr(
@@ -1052,7 +1075,9 @@ class _EpisodesPageState extends State<EpisodesPage> {
                               headers: widget.args.headers,
                               isManga: _isManga,
                               flash: i == _flashIndex,
-                              progress: isCurrent ? _historyItem!.progress : null,
+                              progress: isCurrent
+                                  ? _historyItem!.progress
+                                  : null,
                               // In selection mode a tap picks rather than plays;
                               // opening the player from under a half-made
                               // selection is the classic multi-select mistake.
@@ -1242,7 +1267,11 @@ class _BlockStripState extends State<_BlockStrip> {
       child: ListView.separated(
         controller: _strip,
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsetsDirectional.only(start: 16, end: 16, bottom: 6),
+        padding: const EdgeInsetsDirectional.only(
+          start: 16,
+          end: 16,
+          bottom: 6,
+        ),
         itemCount: widget.blocks.length,
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
@@ -1280,7 +1309,9 @@ class _BlockChip extends StatelessWidget {
       button: true,
       selected: active,
       child: Material(
-        color: active ? AppColors.primary : Colors.white.withValues(alpha: 0.06),
+        color: active
+            ? AppColors.primary
+            : Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(11),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -1313,7 +1344,10 @@ class _BlockChip extends StatelessWidget {
 /// exact match: someone reaching for 1043 types "104" and wants to see the
 /// neighbourhood, not one row.
 class _EpisodeFilterField extends StatelessWidget {
-  const _EpisodeFilterField({required this.controller, required this.onChanged});
+  const _EpisodeFilterField({
+    required this.controller,
+    required this.onChanged,
+  });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
@@ -1502,7 +1536,10 @@ class _EpisodesAppBar extends StatelessWidget {
     return progress > 0.02
         ? ClipRect(
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 18 * progress, sigmaY: 18 * progress),
+              filter: ImageFilter.blur(
+                sigmaX: 18 * progress,
+                sigmaY: 18 * progress,
+              ),
               child: content,
             ),
           )
@@ -1510,64 +1547,62 @@ class _EpisodesAppBar extends StatelessWidget {
   }
 
   Widget _selectionRow(BuildContext context) => Row(
-        children: [
-          IconButton(
-            onPressed: onCancelSelection,
-            icon: const Icon(Icons.close_rounded, size: 22, color: Colors.white),
+    children: [
+      IconButton(
+        onPressed: onCancelSelection,
+        icon: const Icon(Icons.close_rounded, size: 22, color: Colors.white),
+      ),
+      const SizedBox(width: 2),
+      Expanded(
+        child: Text(
+          'detail.selected_n'.tr(args: ['$selectedCount']),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            height: 1.1,
           ),
-          const SizedBox(width: 2),
-          Expanded(
-            child: Text(
-              'detail.selected_n'.tr(args: ['$selectedCount']),
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                height: 1.1,
-              ),
-            ),
+        ),
+      ),
+      TextButton(
+        onPressed: onSelectAll,
+        child: Text(
+          allSelected ? 'detail.select_none'.tr() : 'detail.select_all'.tr(),
+          style: TextStyle(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w600,
           ),
-          TextButton(
-            onPressed: onSelectAll,
-            child: Text(
-              allSelected
-                  ? 'detail.select_none'.tr()
-                  : 'detail.select_all'.tr(),
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      );
+        ),
+      ),
+    ],
+  );
 
   Widget _titleRow(BuildContext context) => Row(
-        children: [
-          IconButton(
-            onPressed: onBack,
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 20,
-              color: Colors.white,
-            ),
+    children: [
+      IconButton(
+        onPressed: onBack,
+        icon: const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          size: 20,
+          color: Colors.white,
+        ),
+      ),
+      const SizedBox(width: 2),
+      Expanded(
+        child: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            height: 1.1,
           ),
-          const SizedBox(width: 2),
-          Expanded(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                height: 1.1,
-              ),
-            ),
-          ),
-        ],
-      );
+        ),
+      ),
+    ],
+  );
 }
 
 class _SortToggle extends StatelessWidget {
@@ -1649,14 +1684,12 @@ class _CountHeader extends StatelessWidget {
     final to = rangeTo;
     final showOf = total > 0 && total > loaded;
     final label = from != null && to != null
-        ? 'episodes.range_of'.tr(namedArgs: {
-            'from': '$from',
-            'to': '$to',
-            'total': '$total',
-          })
+        ? 'episodes.range_of'.tr(
+            namedArgs: {'from': '$from', 'to': '$to', 'total': '$total'},
+          )
         : showOf
-            ? 'detail.episodes_count_of'.tr(args: ['$loaded', '$total'])
-            : 'detail.episodes_count'.tr(args: ['$total']);
+        ? 'detail.episodes_count_of'.tr(args: ['$loaded', '$total'])
+        : 'detail.episodes_count'.tr(args: ['$total']);
     return Text(
       label,
       style: const TextStyle(
@@ -1827,8 +1860,8 @@ class _EpisodeRow extends StatelessWidget {
         color: selected
             ? AppColors.primary.withValues(alpha: 0.10)
             : flash
-                ? AppColors.primary.withValues(alpha: 0.18)
-                : Colors.transparent,
+            ? AppColors.primary.withValues(alpha: 0.18)
+            : Colors.transparent,
         padding: EdgeInsets.symmetric(
           horizontal: 16,
           vertical: showImage ? 8 : 14,
@@ -1860,7 +1893,9 @@ class _EpisodeRow extends StatelessWidget {
                       _episodeNumberLabel(episode.episode),
                       maxLines: 1,
                       style: TextStyle(
-                        color: progress != null ? AppColors.primary : AppColors.textHint,
+                        color: progress != null
+                            ? AppColors.primary
+                            : AppColors.textHint,
                         fontSize: episode.episode >= 1000 ? 16 : 22,
                         fontWeight: FontWeight.w900,
                         fontFeatures: const [FontFeature.tabularFigures()],
@@ -1887,8 +1922,9 @@ class _EpisodeRow extends StatelessWidget {
                                 ? AppColors.textPrimary
                                 : AppColors.textSecondary,
                             fontSize: showImage ? 13 : 14,
-                            fontWeight:
-                                showImage ? FontWeight.w600 : FontWeight.w500,
+                            fontWeight: showImage
+                                ? FontWeight.w600
+                                : FontWeight.w500,
                             height: 1.25,
                           ),
                         ),
@@ -2014,9 +2050,7 @@ class _BatchDownloadBar extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPad + 12),
       decoration: BoxDecoration(
         color: AppColors.navBackground,
-        border: Border(
-          top: BorderSide(color: AppColors.divider, width: 0.5),
-        ),
+        border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),
       ),
       child: SizedBox(
         height: 46,
@@ -2076,9 +2110,9 @@ class _DownloadControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<int>(
-        valueListenable: downloads.revision,
-        builder: (context, _, _) => _control(downloads.byId(id)),
-      );
+    valueListenable: downloads.revision,
+    builder: (context, _, _) => _control(downloads.byId(id)),
+  );
 
   /// A fixed 48dp slot whatever the state. The states swap under a scrolling
   /// list, and a control that changes width takes the play button next to it
@@ -2146,8 +2180,7 @@ class _DownloadControl extends StatelessWidget {
         size: 18,
       ),
     );
-    final label =
-        failed ? 'general.retry'.tr() : 'detail.download_action'.tr();
+    final label = failed ? 'general.retry'.tr() : 'detail.download_action'.tr();
 
     // Android TV: the episode row itself is an InkWell (focusable for free),
     // but this download control sat on a bare GestureDetector, so a remote
@@ -2196,24 +2229,24 @@ class _DownloadedTick extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<int>(
-        valueListenable: downloads.revision,
-        builder: (context, _, _) {
-          if (downloads.byId(id)?.status != DownloadStatus.completed) {
-            return const SizedBox.shrink();
-          }
-          return Semantics(
-            label: 'downloads.downloaded'.tr(),
-            child: const Padding(
-              padding: EdgeInsetsDirectional.only(end: 10),
-              child: Icon(
-                Icons.download_done_rounded,
-                color: AppColors.success,
-                size: 18,
-              ),
-            ),
-          );
-        },
+    valueListenable: downloads.revision,
+    builder: (context, _, _) {
+      if (downloads.byId(id)?.status != DownloadStatus.completed) {
+        return const SizedBox.shrink();
+      }
+      return Semantics(
+        label: 'downloads.downloaded'.tr(),
+        child: const Padding(
+          padding: EdgeInsetsDirectional.only(end: 10),
+          child: Icon(
+            Icons.download_done_rounded,
+            color: AppColors.success,
+            size: 18,
+          ),
+        ),
       );
+    },
+  );
 }
 
 class _EpisodeThumb extends StatelessWidget {
@@ -2270,8 +2303,7 @@ class _EpisodeThumb extends StatelessWidget {
               left: 4,
               bottom: 3,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(4),

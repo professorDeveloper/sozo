@@ -112,7 +112,9 @@ class _SearchViewState extends State<_SearchView> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => SearchFilterSheet(
-        initialSelection: SearchFilterSelection(genre: bloc.state.criteria.genre),
+        initialSelection: SearchFilterSelection(
+          genre: bloc.state.criteria.genre,
+        ),
         genres: bloc.state.genres,
         // Always dispatch: a genre picked or cleared while text is in the box
         // used to change nothing but the button's active dot.
@@ -125,66 +127,81 @@ class _SearchViewState extends State<_SearchView> {
   Widget build(BuildContext context) {
     final topPad = MediaQuery.paddingOf(context).top;
     final bottomPad = MediaQuery.paddingOf(context).bottom;
-    final headerHeight = topPad + 128.0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: BlocConsumer<SearchBloc, SearchState>(
         listener: (context, state) => _maybeAutoFill(state),
-        builder: (context, state) => Stack(
-          children: [
-            SearchContentView(
-              state: state,
-              scrollController: _scrollController,
-              topPad: headerHeight,
-              bottomPad: bottomPad,
-              onRetry: () => context.read<SearchBloc>().add(const SearchRetry()),
-              onSuggestion: _runQuery,
-              onGenre: (genre) =>
-                  context.read<SearchBloc>().add(SearchGenreSelected(genre)),
-              onRemoveRecent: (query) =>
-                  context.read<SearchBloc>().add(SearchRecentRemoved(query)),
-              onClearRecents: () =>
-                  context.read<SearchBloc>().add(const SearchRecentsCleared()),
-              onTryAllSources: () => _openCrossSearch(state.criteria.text),
-              onSearchTorrents: _torrentsAvailable
-                  ? () => _openTorrents(state.criteria.text)
-                  : null,
-            ),
-            ValueListenableBuilder<double>(
-              valueListenable: _blurProgress,
-              builder: (context, progress, _) => SearchStickyHeader(
-                progress: progress,
-                topPad: topPad,
-                controller: _controller,
-                focus: _focus,
-                hasActiveFilter: state.criteria.genre.isNotEmpty,
-                showFilter: state.hasGenres,
-                onFilterTap: _openFilter,
-                onTorrentTap: _torrentsAvailable
-                    ? () => _openTorrents(_controller.text)
-                    : null,
-                onMultiSearchTap: _openCrossSearch,
-                onQueryChanged: (q) =>
-                    context.read<SearchBloc>().add(SearchQueryChanged(q)),
-                onSubmitted: (q) =>
-                    context.read<SearchBloc>().add(SearchSubmitted(q)),
-                onClear: _clearSearch,
-                voiceButton: VoiceSearchButton(
-                  // Partial results land in the field as they are heard; only
-                  // the final transcript runs a search, so a half-heard title
-                  // never fires a query of its own.
-                  onText: (t) {
-                    _controller.text = t;
-                    _controller.selection =
-                        TextSelection.collapsed(offset: t.length);
-                    context.read<SearchBloc>().add(SearchQueryChanged(t));
-                  },
-                  onSubmit: _runQuery,
+        builder: (context, state) => LayoutBuilder(
+          builder: (context, constraints) => Column(
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * 0.6,
+                ),
+                child: SingleChildScrollView(
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _blurProgress,
+                    builder: (context, progress, _) => SearchStickyHeader(
+                      progress: progress,
+                      topPad: topPad,
+                      controller: _controller,
+                      focus: _focus,
+                      hasActiveFilter: state.criteria.genre.isNotEmpty,
+                      showFilter: state.hasGenres,
+                      onFilterTap: _openFilter,
+                      onTorrentTap: _torrentsAvailable
+                          ? () => _openTorrents(_controller.text)
+                          : null,
+                      onMultiSearchTap: _openCrossSearch,
+                      onQueryChanged: (q) =>
+                          context.read<SearchBloc>().add(SearchQueryChanged(q)),
+                      onSubmitted: (q) =>
+                          context.read<SearchBloc>().add(SearchSubmitted(q)),
+                      onClear: _clearSearch,
+                      voiceButton: VoiceSearchButton(
+                        // Partial results land in the field as they are heard; only
+                        // the final transcript runs a search, so a half-heard title
+                        // never fires a query of its own.
+                        onText: (t) {
+                          _controller.text = t;
+                          _controller.selection = TextSelection.collapsed(
+                            offset: t.length,
+                          );
+                          context.read<SearchBloc>().add(SearchQueryChanged(t));
+                        },
+                        onSubmit: _runQuery,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: SearchContentView(
+                  state: state,
+                  scrollController: _scrollController,
+                  topPad: 0,
+                  bottomPad: bottomPad,
+                  onRetry: () =>
+                      context.read<SearchBloc>().add(const SearchRetry()),
+                  onSuggestion: _runQuery,
+                  onGenre: (genre) => context.read<SearchBloc>().add(
+                    SearchGenreSelected(genre),
+                  ),
+                  onRemoveRecent: (query) => context.read<SearchBloc>().add(
+                    SearchRecentRemoved(query),
+                  ),
+                  onClearRecents: () => context.read<SearchBloc>().add(
+                    const SearchRecentsCleared(),
+                  ),
+                  onTryAllSources: () => _openCrossSearch(state.criteria.text),
+                  onSearchTorrents: _torrentsAvailable
+                      ? () => _openTorrents(state.criteria.text)
+                      : null,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

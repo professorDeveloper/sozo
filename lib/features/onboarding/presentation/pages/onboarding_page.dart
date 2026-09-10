@@ -38,6 +38,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final _pageController = PageController();
   int _page = 0;
   bool _googlePending = false;
+  bool _languageConfirmed = false;
+  bool _leaving = false;
 
   @override
   void dispose() {
@@ -48,12 +50,28 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// Marked on the way out rather than on entry: a first launch killed halfway
   /// through should still get the introduction next time.
   Future<void> _leave(String route) async {
+    if (_leaving) return;
+    _leaving = true;
+    if (!_languageConfirmed) {
+      _languageConfirmed = await confirmIntroLanguage(context);
+      if (!mounted || !_languageConfirmed) {
+        _leaving = false;
+        return;
+      }
+    }
     await getIt<HiveService>().markOnboardingSeen();
     if (!mounted) return;
     context.go(route);
   }
 
-  void _continueWithGoogle() {
+  Future<void> _continueWithGoogle() async {
+    if (_leaving || _googlePending) return;
+    _leaving = true;
+    if (!_languageConfirmed) {
+      _languageConfirmed = await confirmIntroLanguage(context);
+    }
+    _leaving = false;
+    if (!mounted || !_languageConfirmed) return;
     setState(() => _googlePending = true);
     context.read<AuthBloc>().add(const AuthGoogleRequested());
   }
@@ -101,74 +119,98 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
             ),
             SafeArea(
-              child: Column(
-                children: [
-                  Padding(
-                    // Sits clear of the status bar rather than tucked against
-                    // it — over artwork the two collide and both stop reading.
-                    padding: const EdgeInsetsDirectional.fromSTEB(20, 18, 16, 0),
-                    child: Row(
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  child: SizedBox(
+                    height: constraints.maxHeight.clamp(
+                      540 +
+                          (MediaQuery.textScalerOf(context).scale(14) - 14) *
+                              32,
+                      double.infinity,
+                    ),
+                    child: Column(
                       children: [
-                        Text(
-                          'app_name'.tr().toUpperCase(),
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 3,
+                        Padding(
+                          // Sits clear of the status bar rather than tucked against
+                          // it — over artwork the two collide and both stop reading.
+                          padding: const EdgeInsetsDirectional.fromSTEB(
+                            20,
+                            18,
+                            16,
+                            0,
+                          ),
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              Text(
+                                'app_name'.tr().toUpperCase(),
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 3,
+                                ),
+                              ),
+                              const LanguageChip(),
+                              const SizedBox(width: 8),
+                              _SkipChip(onTap: () => _leave('/main')),
+                            ],
                           ),
                         ),
-                        const Spacer(),
-                        const LanguageChip(),
-                        const SizedBox(width: 8),
-                        _SkipChip(onTap: () => _leave('/main')),
+                        Expanded(
+                          child: PageView.builder(
+                            controller: _pageController,
+                            itemCount: _slides,
+                            onPageChanged: (i) => setState(() => _page = i),
+                            itemBuilder: (context, i) =>
+                                _Slide(index: i, controller: _pageController),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _Dots(count: _slides, active: _page),
+                        const SizedBox(height: 26),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                          child: BlocBuilder<AuthBloc, AuthState>(
+                            builder: (context, state) {
+                              final loading = state is AuthLoading;
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (GoogleAuthService.isSupported) ...[
+                                    GoogleAuthButton(
+                                      loading: loading && _googlePending,
+                                      onPressed: loading
+                                          ? null
+                                          : _continueWithGoogle,
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ],
+                                  FilledButton(
+                                    onPressed: loading
+                                        ? null
+                                        : () => _leave('/register'),
+                                    child: Text(
+                                      'onboarding.continue_with_email'.tr(),
+                                    ),
+                                  ),
+                                  AuthSwitchPrompt(
+                                    text: 'auth.already_have_account'.tr(),
+                                    action: 'auth.sign_in'.tr(),
+                                    onTap: () => _leave('/login'),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  Expanded(
-                    child: PageView.builder(
-                      controller: _pageController,
-                      itemCount: _slides,
-                      onPageChanged: (i) => setState(() => _page = i),
-                      itemBuilder: (context, i) =>
-                          _Slide(index: i, controller: _pageController),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _Dots(count: _slides, active: _page),
-                  const SizedBox(height: 26),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                    child: BlocBuilder<AuthBloc, AuthState>(
-                      builder: (context, state) {
-                        final loading = state is AuthLoading;
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (GoogleAuthService.isSupported) ...[
-                              GoogleAuthButton(
-                                loading: loading && _googlePending,
-                                onPressed: loading ? null : _continueWithGoogle,
-                              ),
-                              const SizedBox(height: 10),
-                            ],
-                            AuthPrimaryButton(
-                              label: 'onboarding.continue_with_email'.tr(),
-                              onPressed: loading
-                                  ? null
-                                  : () => _leave('/register'),
-                            ),
-                            AuthSwitchPrompt(
-                              text: 'auth.already_have_account'.tr(),
-                              action: 'auth.sign_in'.tr(),
-                              onTap: () => _leave('/login'),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ],
@@ -192,8 +234,9 @@ class _SkipChip extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsetsDirectional.fromSTEB(14, 12, 10, 12),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

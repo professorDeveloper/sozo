@@ -16,7 +16,9 @@ class CrossSearchScope {
   /// Narrows to [ids]; an empty selection is not a scope, it is [all].
   factory CrossSearchScope.only(Iterable<String> ids) {
     final set = ids.toSet();
-    return set.isEmpty ? const CrossSearchScope.all() : CrossSearchScope._only(set);
+    return set.isEmpty
+        ? const CrossSearchScope.all()
+        : CrossSearchScope._only(set);
   }
 
   /// Null means "everything usable", which is the default.
@@ -34,22 +36,21 @@ class CrossSearchScope {
 
   bool includes(String id) => ids == null || ids!.contains(id);
 
-  List<ProviderEntity> resolve(List<ProviderEntity> providers) =>
-      ids == null ? providers : providers.where((p) => ids!.contains(p.id)).toList();
+  List<ProviderEntity> resolve(List<ProviderEntity> providers) => ids == null
+      ? providers
+      : providers.where((p) => ids!.contains(p.id)).toList();
 
-  int selectedCount(List<ProviderEntity> providers) => resolve(providers).length;
+  int selectedCount(List<ProviderEntity> providers) =>
+      resolve(providers).length;
 
   /// Drops ids that are no longer installed. Narrowing to nothing widens back
-  /// to [all] rather than leaving a search with no legs at all, and a narrowing
-  /// that names every installed source collapses to [all] too — the old picker
-  /// persisted exactly that list when a user ticked everything, and read back
-  /// literally it would pin them to the list as it stood that day.
+  /// to [all] rather than leaving a search with no legs at all. An explicit set
+  /// stays explicit even if it names every installed source: changing it into
+  /// quick search on the next launch would silently apply the 60-source cap.
   CrossSearchScope pruned(List<ProviderEntity> providers) {
     if (ids == null) return this;
-    final kept = ids!.where((id) => providers.any((p) => p.id == id)).toSet();
-    if (providers.isNotEmpty && kept.length == providers.length) {
-      return const CrossSearchScope.all();
-    }
+    final installed = providers.map((p) => p.id).toSet();
+    final kept = ids!.where(installed.contains).toSet();
     return CrossSearchScope.only(kept);
   }
 
@@ -69,7 +70,8 @@ class CrossSearchScope {
   bool operator ==(Object other) =>
       other is CrossSearchScope &&
       (ids == null) == (other.ids == null) &&
-      (ids == null || (ids!.length == other.ids!.length && ids!.containsAll(other.ids!)));
+      (ids == null ||
+          (ids!.length == other.ids!.length && ids!.containsAll(other.ids!)));
 
   @override
   int get hashCode => ids == null ? 0 : Object.hashAllUnordered(ids!);

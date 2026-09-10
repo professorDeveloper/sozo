@@ -165,6 +165,12 @@ class _HubOverview extends StatelessWidget {
               ),
               const SettingsDivider(),
               SettingsNavTile(
+                icon: Icons.download_rounded,
+                title: 'profile.downloads'.tr(),
+                onTap: () => context.push('/downloads'),
+              ),
+              const SettingsDivider(),
+              SettingsNavTile(
                 icon: Icons.timeline_rounded,
                 title: 'profile.activity'.tr(),
                 subtitle: 'profile.activity_subtitle'.tr(),

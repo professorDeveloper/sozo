@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/search/domain/entities/cross_search_scope.dart';
 
@@ -44,7 +45,7 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
   };
   String _query = '';
 
-  bool get _isAll => _selected.isEmpty || _selected.length == widget.providers.length;
+  bool get _isAll => _selected.isEmpty;
 
   CrossSearchScope get _result =>
       _isAll ? const CrossSearchScope.all() : CrossSearchScope.only(_selected);
@@ -55,8 +56,11 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return widget.providers;
     return widget.providers
-        .where((p) =>
-            p.name.toLowerCase().contains(q) || p.id.toLowerCase().contains(q))
+        .where(
+          (p) =>
+              p.name.toLowerCase().contains(q) ||
+              p.id.toLowerCase().contains(q),
+        )
         .toList();
   }
 
@@ -72,7 +76,9 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     final items = _filtered;
-    final effective = _isAll ? widget.providers.length : _selected.length;
+    final effective = _isAll
+        ? widget.providers.length.clamp(0, CrossSearchEngine.maxLegs)
+        : _selected.length;
     final overCap = effective > _softCap;
 
     return Padding(
@@ -106,26 +112,39 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('search.search_sources'.tr(),
-                              style: const TextStyle(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800)),
                           Text(
-                              _isAll
-                                  ? 'search.all_sources_n'
-                                      .tr(args: ['${widget.providers.length}'])
-                                  : 'search.selected_n_of_m'.tr(args: [
+                            'search.search_sources'.tr(),
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            _isAll
+                                ? (widget.providers.length >
+                                              CrossSearchEngine.maxLegs
+                                          ? 'ux.quick_search'
+                                          : 'search.all_sources_n')
+                                      .tr(args: ['$effective'])
+                                : 'search.selected_n_of_m'.tr(
+                                    args: [
                                       '${_selected.length}',
                                       '${widget.providers.length}',
-                                    ]),
-                              style: const TextStyle(
-                                  color: AppColors.textHint, fontSize: 12)),
+                                    ],
+                                  ),
+                            style: const TextStyle(
+                              color: AppColors.textHint,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     TextButton(
-                      onPressed: _isAll ? null : () => setState(_selected.clear),
+                      onPressed: _isAll
+                          ? null
+                          : () => setState(_selected.clear),
                       child: Text('search.select_all_sources'.tr()),
                     ),
                   ],
@@ -140,8 +159,11 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                     isDense: true,
                     hintText: 'search.filter_providers'.tr(),
                     hintStyle: const TextStyle(color: AppColors.textHint),
-                    prefixIcon: const Icon(Icons.search,
-                        color: AppColors.textHint, size: 20),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: AppColors.textHint,
+                      size: 20,
+                    ),
                     filled: true,
                     fillColor: AppColors.surface,
                     border: OutlineInputBorder(
@@ -155,16 +177,28 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                 Container(
                   width: double.infinity,
                   margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.orange.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'search.many_sources_warning'.tr(args: ['$effective']),
+                    _isAll &&
+                            widget.providers.length > CrossSearchEngine.maxLegs
+                        ? 'ux.quick_search_note'.tr(
+                            args: ['$effective', '${widget.providers.length}'],
+                          )
+                        : 'search.many_sources_warning'.tr(
+                            args: ['$effective'],
+                          ),
                     style: const TextStyle(
-                        color: Colors.orange, fontSize: 11.5, height: 1.3),
+                      color: Colors.orange,
+                      fontSize: 11.5,
+                      height: 1.3,
+                    ),
                   ),
                 ),
               Expanded(
@@ -198,24 +232,33 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                       title: Row(
                         children: [
                           Expanded(
-                            child: Text(p.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 14)),
+                            child: Text(
+                              p.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.surfaceVariant,
                               borderRadius: BorderRadius.circular(5),
                             ),
-                            child: Text(_tag(p),
-                                style: const TextStyle(
-                                    color: AppColors.textHint,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700)),
+                            child: Text(
+                              _tag(p),
+                              style: const TextStyle(
+                                color: AppColors.textHint,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -232,11 +275,16 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                     width: double.infinity,
                     child: FilledButton(
                       style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.primary),
+                        backgroundColor: AppColors.primary,
+                      ),
                       onPressed: () => Navigator.of(context).pop(_result),
-                      child: Text(_isAll
-                          ? 'search.apply_all'.tr()
-                          : 'search.apply_n'.tr(args: ['${_selected.length}'])),
+                      child: Text(
+                        _isAll
+                            ? 'search.apply_all'.tr()
+                            : 'search.apply_n'.tr(
+                                args: ['${_selected.length}'],
+                              ),
+                      ),
                     ),
                   ),
                 ),

@@ -403,12 +403,12 @@
     "sign_in": "Masuk",
     "sign_out": "Keluar",
     "sign_out_confirm": "Yakin ingin keluar?",
-    "section_providers": "SUMBER",
+    "section_providers": "Sumber",
     "section_content": "KONTEN",
     "sources_row": "Sumber ekstensi",
     "sources_row_subtitle": "CloudStream, Aniyomi, Mangayomi",
     "provider": "Sumber",
-    "choose_provider": "Pilih sumber",
+    "choose_provider": "Ganti sumber",
     "search_providers_hint": "Cari sumber…",
     "count_of_total_shown": "{} dari {} ditampilkan",
     "no_providers_in_category": "Tidak ada sumber di kategori ini",
@@ -1782,5 +1782,23 @@
     "type_manga": "Manga",
     "type_anime": "Anime",
     "type_novel": "Novel"
+  },
+  "ux": {
+    "quick_search": "Pencarian cepat ({})",
+    "quick_search_note": "Pencarian cepat mencakup {} dari {} sumber. Pilih sumber untuk pencarian tertentu.",
+    "torrents": "Torrent",
+    "filters": "Filter",
+    "change_source": "Ganti sumber",
+    "manage_sources": "Kelola sumber",
+    "no_source_match": "Tidak ada sumber yang cocok dengan pencarian.",
+    "download_options": "Opsi unduhan",
+    "download_options_note": "Pilih sumber dan kualitas yang tersedia. Audio mengikuti sumber yang dipilih.",
+    "source_number": "Sumber {}",
+    "checking_quality": "Memeriksa kualitas yang tersedia…",
+    "quality_unavailable": "Kualitas tidak dapat diperiksa. Coba lagi atau unduh streaming asli tanpa jaminan kualitas.",
+    "quality_unknown": "Kualitas tidak diketahui",
+    "size_unknown": "Sumber tidak memberikan ukuran berkas",
+    "interface_language_note": "Hanya antarmuka aplikasi yang berubah. Judul film, deskripsi, dan konten sumber lainnya tetap dalam bahasa aslinya.",
+    "continue": "Lanjutkan"
   }
 }

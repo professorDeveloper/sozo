@@ -119,10 +119,7 @@ extension _PlayerHistory on _PlayerPageState {
     if (elapsed <= 0) return;
     if (_hive.isIncognito) return;
     unawaited(
-      _watchStats.record(
-        seconds: elapsed,
-        provider: widget.args.provider,
-      ),
+      _watchStats.record(seconds: elapsed, provider: widget.args.provider),
     );
   }
 
@@ -191,18 +188,18 @@ extension _PlayerHistory on _PlayerPageState {
     for (final tracker in <Future<int?> Function()>[
       if (anilist.isConnected)
         () => anilist.reportEpisode(
-              provider: widget.args.provider,
-              contentUrl: contentUrl,
-              title: widget.args.title,
-              episodeNumber: episodeNumber,
-            ),
+          provider: widget.args.provider,
+          contentUrl: contentUrl,
+          title: widget.args.title,
+          episodeNumber: episodeNumber,
+        ),
       if (mal.isConnected)
         () => mal.reportEpisode(
-              provider: widget.args.provider,
-              contentUrl: contentUrl,
-              title: widget.args.title,
-              episodeNumber: episodeNumber,
-            ),
+          provider: widget.args.provider,
+          contentUrl: contentUrl,
+          title: widget.args.title,
+          episodeNumber: episodeNumber,
+        ),
     ]) {
       unawaited(tracker().catchError((Object _) => null));
     }
@@ -274,10 +271,7 @@ extension _PlayerHistory on _PlayerPageState {
                   widget.args.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 12.5,
-                  ),
+                  style: const TextStyle(color: Colors.white54, fontSize: 12.5),
                 ),
               ),
               const Divider(color: Colors.white12, height: 1),
@@ -290,8 +284,8 @@ extension _PlayerHistory on _PlayerPageState {
                   value: offer.isCurrent
                       ? 'detail.download_playing_now'.tr()
                       : offer.needsSniff && offer.detail.isEmpty
-                          ? 'detail.download_will_resolve'.tr()
-                          : offer.detail,
+                      ? 'detail.download_will_resolve'.tr()
+                      : offer.detail,
                   onTap: () => Navigator.of(sheetContext).pop(offer),
                 ),
               const SizedBox(height: 8),
@@ -377,7 +371,24 @@ extension _PlayerHistory on _PlayerPageState {
     if (picked == null || picked.url.isEmpty) return;
     final choice = await _resolveChoice(picked);
     if (!mounted || choice == null || choice.url.isEmpty) return;
-    final url = choice.url;
+    final declared = _videoSources
+        .where((s) => s.videoUrl == picked.url)
+        .firstOrNull;
+    final selection = await chooseDownload(
+      context,
+      url: choice.url,
+      headers: choice.headers,
+      type: choice.isCurrent
+          ? _mediaType
+          : (declared?.type == 'iframe' ? null : declared?.type),
+      height:
+          declared?.height ??
+          VideoOptionGroups.resolutionOf(
+            choice.isCurrent ? (_currentQuality ?? '') : picked.detail,
+          ),
+    );
+    if (!mounted || selection == null) return;
+    final url = selection.url;
 
     EpisodeEntity? ep;
     if (widget.args.isSerial &&
@@ -400,7 +411,8 @@ extension _PlayerHistory on _PlayerPageState {
         thumbnailUrl: widget.args.thumbnail,
         // The picked mirror's own headers. Sending the playing stream's here
         // would 403 on every host but the one already on screen.
-        headers: choice.headers,
+        headers: selection.headers,
+        videoHeight: selection.height,
         isSerial: widget.args.isSerial,
         episodeNumber: widget.args.isSerial && ep != null ? ep.episode : null,
         episodeLabel: ep?.label,
@@ -415,5 +427,4 @@ extension _PlayerHistory on _PlayerPageState {
       ),
     );
   }
-
 }

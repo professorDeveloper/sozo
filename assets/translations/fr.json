@@ -403,12 +403,12 @@
     "sign_in": "Se connecter",
     "sign_out": "Se déconnecter",
     "sign_out_confirm": "Veux-tu vraiment te déconnecter ?",
-    "section_providers": "SOURCES",
+    "section_providers": "Sources",
     "section_content": "CONTENU",
     "sources_row": "Sources d’extension",
     "sources_row_subtitle": "CloudStream, Aniyomi, Mangayomi",
     "provider": "Source",
-    "choose_provider": "Choisir une source",
+    "choose_provider": "Changer de source",
     "search_providers_hint": "Rechercher des sources…",
     "count_of_total_shown": "{} sur {} affichées",
     "no_providers_in_category": "Aucune source dans cette catégorie",
@@ -1782,5 +1782,23 @@
     "type_manga": "Manga",
     "type_anime": "Anime",
     "type_novel": "Roman"
+  },
+  "ux": {
+    "quick_search": "Recherche rapide ({})",
+    "quick_search_note": "La recherche rapide couvre {} sources sur {}. Choisissez des sources pour une recherche ciblée.",
+    "torrents": "Torrents",
+    "filters": "Filtres",
+    "change_source": "Changer de source",
+    "manage_sources": "Gérer les sources",
+    "no_source_match": "Aucune source ne correspond à votre recherche.",
+    "download_options": "Options de téléchargement",
+    "download_options_note": "Choisissez une source et une qualité disponibles. L’audio dépend de la source choisie.",
+    "source_number": "Source {}",
+    "checking_quality": "Vérification de la qualité disponible…",
+    "quality_unavailable": "Impossible de vérifier la qualité. Réessayez ou téléchargez le flux d’origine sans garantie de qualité.",
+    "quality_unknown": "Qualité inconnue",
+    "size_unknown": "La source ne précise pas la taille",
+    "interface_language_note": "Seule l’interface de l’application change. Les titres, descriptions et autres contenus des sources restent dans leur langue d’origine.",
+    "continue": "Continuer"
   }
 }

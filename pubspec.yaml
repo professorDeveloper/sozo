@@ -162,6 +162,7 @@ dependencies:
   web_socket_channel: ^3.0.1
 
 dev_dependencies:
+  shared_preferences: 2.5.5
   flutter_test:
     sdk: flutter
   integration_test:

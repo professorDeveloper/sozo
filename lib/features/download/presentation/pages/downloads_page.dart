@@ -35,7 +35,9 @@ import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart
 /// answer — which is the difference between "File not found" as a dead end and
 /// a row that offers to fetch the file back.
 class DownloadsPage extends StatelessWidget {
-  const DownloadsPage({super.key});
+  const DownloadsPage({super.key, this.isTab = false});
+
+  final bool isTab;
 
   @override
   Widget build(BuildContext context) {
@@ -49,13 +51,15 @@ class DownloadsPage extends StatelessWidget {
         location: getIt<DownloadLocationUseCase>(),
         hive: getIt<HiveService>(),
       )..add(const DownloadsStarted()),
-      child: const _DownloadsView(),
+      child: _DownloadsView(isTab: isTab),
     );
   }
 }
 
 class _DownloadsView extends StatelessWidget {
-  const _DownloadsView();
+  const _DownloadsView({required this.isTab});
+
+  final bool isTab;
 
   @override
   Widget build(BuildContext context) {
@@ -94,12 +98,14 @@ class _DownloadsView extends StatelessWidget {
                 titleSpacing: 16,
                 title: Row(
                   children: [
-                    _CircleBackButton(
-                      onTap: () => context.canPop()
-                          ? context.pop()
-                          : context.go('/main'),
-                    ),
-                    const SizedBox(width: 12),
+                    if (!isTab) ...[
+                      _CircleBackButton(
+                        onTap: () => context.canPop()
+                            ? context.pop()
+                            : context.go('/main'),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
                     Expanded(
                       child: Text(
                         'navigation.downloads'.tr(),
@@ -117,8 +123,7 @@ class _DownloadsView extends StatelessWidget {
                         onRetryAll: () =>
                             bloc.add(const DownloadsRetryAllRequested()),
                         onClearAll: () => _confirmClear(context, bloc),
-                        onSort: (sort) =>
-                            bloc.add(DownloadsSortChanged(sort)),
+                        onSort: (sort) => bloc.add(DownloadsSortChanged(sort)),
                         sort: state.sort,
                       ),
                   ],
@@ -153,8 +158,7 @@ class _DownloadsView extends StatelessWidget {
                         ? 'downloads.waiting_for_wifi'.tr()
                         : 'downloads.wifi_only_desc'.tr(),
                     value: state.wifiOnly,
-                    onChanged: (v) =>
-                        bloc.add(DownloadsWifiOnlyToggled(v)),
+                    onChanged: (v) => bloc.add(DownloadsWifiOnlyToggled(v)),
                   ),
                 ),
               ),
@@ -174,18 +178,16 @@ class _DownloadsView extends StatelessWidget {
                     // "No downloads yet" is wrong when there are twelve of
                     // them and the filter is hiding all twelve.
                     filtered: state.total > 0,
-                    onClearFilter: () => bloc
-                        .add(const DownloadsFilterChanged(DownloadsFilter.all)),
+                    onClearFilter: () => bloc.add(
+                      const DownloadsFilterChanged(DownloadsFilter.all),
+                    ),
                   ),
                 )
               else
                 SliverList.separated(
                   itemCount: state.groups.length,
-                  separatorBuilder: (_, _) => Divider(
-                    color: AppColors.divider,
-                    height: 1,
-                    indent: 82,
-                  ),
+                  separatorBuilder: (_, _) =>
+                      Divider(color: AppColors.divider, height: 1, indent: 82),
                   itemBuilder: (_, i) {
                     final group = state.groups[i];
                     return DownloadGroupTile(
@@ -414,14 +416,11 @@ class _OverflowMenu extends StatelessWidget {
           CheckedPopupMenuItem<Object>(
             value: option,
             checked: option == sort,
-            child: Text(
-              switch (option) {
-                DownloadsSort.newest => 'downloads.sort_newest'.tr(),
-                DownloadsSort.title => 'downloads.sort_title'.tr(),
-                DownloadsSort.size => 'downloads.sort_size'.tr(),
-              },
-              style: const TextStyle(color: AppColors.textPrimary),
-            ),
+            child: Text(switch (option) {
+              DownloadsSort.newest => 'downloads.sort_newest'.tr(),
+              DownloadsSort.title => 'downloads.sort_title'.tr(),
+              DownloadsSort.size => 'downloads.sort_size'.tr(),
+            }, style: const TextStyle(color: AppColors.textPrimary)),
           ),
         const PopupMenuDivider(),
         PopupMenuItem<Object>(

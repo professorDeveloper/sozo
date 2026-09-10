@@ -29,8 +29,9 @@ class LanguageChip extends StatelessWidget {
       child: InkWell(
         onTap: () => showLanguageSheet(context),
         borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 8),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsetsDirectional.fromSTEB(12, 12, 12, 12),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -54,6 +55,72 @@ class LanguageChip extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// First-run choice, after the introduction and before entering the app/auth.
+Future<bool> confirmIntroLanguage(BuildContext context) async {
+  final code = await Navigator.of(
+    context,
+  ).push<String>(MaterialPageRoute(builder: (_) => const IntroLanguagePage()));
+  if (code == null || !context.mounted) return false;
+  await AppLanguage.set(context, code);
+  return true;
+}
+
+class IntroLanguagePage extends StatefulWidget {
+  const IntroLanguagePage({super.key});
+
+  @override
+  State<IntroLanguagePage> createState() => _IntroLanguagePageState();
+}
+
+class _IntroLanguagePageState extends State<IntroLanguagePage> {
+  String? _selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = _selected ?? context.locale.languageCode;
+    return Scaffold(
+      appBar: AppBar(title: Text('profile.language'.tr())),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      'ux.interface_language_note'.tr(),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  for (final locale in context.supportedLocales)
+                    _LanguageRow(
+                      code: locale.languageCode,
+                      selected: selected == locale.languageCode,
+                      onTap: () =>
+                          setState(() => _selected = locale.languageCode),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: FilledButton(
+                onPressed: () => Navigator.pop(context, selected),
+                child: Text('ux.continue'.tr()),
+              ),
+            ),
+          ],
         ),
       ),
     );

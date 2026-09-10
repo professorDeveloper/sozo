@@ -24,7 +24,11 @@ import 'package:soplay/features/search/presentation/widgets/search_set_sheet.dar
 import 'package:soplay/features/search/presentation/widgets/source_scope_bar.dart';
 
 class CrossSearchPage extends StatefulWidget {
-  const CrossSearchPage({super.key, this.initialQuery, this.initialProviderIds});
+  const CrossSearchPage({
+    super.key,
+    this.initialQuery,
+    this.initialProviderIds,
+  });
 
   final String? initialQuery;
 
@@ -96,8 +100,10 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
   /// before the providers had loaded left it permanently empty.
   void _syncProviders(ProviderState state) {
     final next = _providersOf(state);
-    final sameList = next.length == _providers.length &&
-        next.every((p) => _providers.any((e) => e.id == p.id));
+    final previousIds = _providers.map((p) => p.id).toSet();
+    final sameList =
+        next.length == _providers.length &&
+        next.every((p) => previousIds.contains(p.id));
     final offline = state is ProviderLoaded && state.offline;
     final loading = state is! ProviderLoaded && state is! ProviderError;
     if (sameList && offline == _offline && loading == _loadingProviders) return;
@@ -119,17 +125,22 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
   /// source and was told "Found in 0 of 1" — which reads as an empty internet
   /// rather than as a scope of one.
   CrossSearchScope _initialScope(List<ProviderEntity> providers) {
-    final requested = widget.initialProviderIds
-        ?.where((id) => providers.any((p) => p.id == id));
+    final requested = widget.initialProviderIds?.where(
+      (id) => providers.any((p) => p.id == id),
+    );
     if (requested != null && requested.isNotEmpty) {
       return CrossSearchScope.only(requested);
     }
-    final stored =
-        CrossSearchScope.fromStored(getIt<HiveService>().getCrossSearchProviders());
+    final stored = CrossSearchScope.fromStored(
+      getIt<HiveService>().getCrossSearchProviders(),
+    );
     return providers.isEmpty ? stored : stored.pruned(providers);
   }
 
-  List<String> _orderedIds(List<ProviderEntity> providers, CrossSearchScope scope) {
+  List<String> _orderedIds(
+    List<ProviderEntity> providers,
+    CrossSearchScope scope,
+  ) {
     final selected = <String>[];
     final rest = <String>[];
     for (final p in providers) {
@@ -146,9 +157,15 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
   /// hand is theirs, and is never trimmed.
   bool get _capped => _scope.isAll && _scopedCount > _refs().length;
 
-  List<ProviderRef> _refs() => getIt<CrossSearchEngine>().planLegs(
-        _scope.resolve(_providers).map(ProviderRef.fromEntity).toList(),
-      );
+  List<ProviderRef> _refs() {
+    final selected = _scope
+        .resolve(_providers)
+        .map(ProviderRef.fromEntity)
+        .toList();
+    return _scope.isAll
+        ? getIt<CrossSearchEngine>().planLegs(selected)
+        : selected;
+  }
 
   void _applyScope(CrossSearchScope scope, {bool reorder = false}) {
     if (scope == _scope) return;
@@ -212,16 +229,24 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
                   final hit = title.hits[i];
                   return ListTile(
                     dense: true,
-                    leading: Icon(Icons.play_circle_outline,
-                        color: AppColors.primary, size: 20),
-                    title: Text(hit.provider.name,
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 14)),
-                    subtitle: Text(hit.item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            color: AppColors.textHint, fontSize: 12)),
+                    leading: Icon(
+                      Icons.play_circle_outline,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                    title: Text(
+                      hit.provider.name,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                    subtitle: Text(
+                      hit.item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textHint,
+                        fontSize: 12,
+                      ),
+                    ),
                     onTap: () {
                       Navigator.of(context).pop();
                       _push(hit);
@@ -268,9 +293,10 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
           surfaceTintColor: Colors.transparent,
           scrolledUnderElevation: 0,
           elevation: 0,
-          title: Text('search.all_source_search'.tr(),
-              style:
-                  const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          title: Text(
+            'search.all_source_search'.tr(),
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          ),
           actions: [
             IconButton(
               tooltip: _grouped
@@ -284,29 +310,58 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
             ),
           ],
         ),
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _searchField(),
-            SourceScopeBar(
-              providers: _providers,
-              order: _railOrder,
-              scope: _scope,
-              loading: _loadingProviders && _providers.isEmpty,
-              onToggle: (id) => _applyScope(_scope.toggle(id)),
-              onSelectAll: () =>
-                  _applyScope(const CrossSearchScope.all(), reorder: true),
-              onOpenPicker: _openSetSheet,
-            ),
-            const SizedBox(height: 10),
-            const Divider(height: 1, color: Colors.white10),
-            Expanded(
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (_, _) => _body(),
+        body: LayoutBuilder(
+          builder: (context, constraints) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * 0.6,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _searchField(),
+                      SourceScopeBar(
+                        providers: _providers,
+                        order: _railOrder,
+                        scope: _scope,
+                        loading: _loadingProviders && _providers.isEmpty,
+                        onToggle: (id) => _applyScope(_scope.toggle(id)),
+                        onSelectAll: () => _applyScope(
+                          const CrossSearchScope.all(),
+                          reorder: true,
+                        ),
+                        onOpenPicker: _openSetSheet,
+                      ),
+                      if (_capped)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                          child: Text(
+                            'ux.quick_search_note'.tr(
+                              args: ['${_refs().length}', '$_scopedCount'],
+                            ),
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 10),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+              const Divider(height: 1, color: Colors.white10),
+              Expanded(
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (_, _) => _body(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -329,8 +384,11 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
           isDense: true,
           hintText: 'search.cross_hint'.tr(),
           hintStyle: const TextStyle(color: AppColors.textHint),
-          prefixIcon:
-              const Icon(Icons.search, color: AppColors.textHint, size: 20),
+          prefixIcon: const Icon(
+            Icons.search,
+            color: AppColors.textHint,
+            size: 20,
+          ),
           // Driven by the controller: nothing else subscribes to it, so the
           // clear button used to appear only on an unrelated rebuild.
           suffixIcon: ValueListenableBuilder<TextEditingValue>(
@@ -376,8 +434,9 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
     if (_controller.query.isEmpty) {
       return _centered(
         icon: Icons.travel_explore,
-        text: 'search.type_to_search_n'
-            .tr(args: ['${_controller.expectedLegs}']),
+        text: 'search.type_to_search_n'.tr(
+          args: ['${_controller.expectedLegs}'],
+        ),
       );
     }
     if (_controller.awaitingLongerQuery) {
@@ -413,8 +472,9 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: OutlinedButton(
-                  onPressed:
-                      _controller.loadingMore ? null : _controller.loadMore,
+                  onPressed: _controller.loadingMore
+                      ? null
+                      : _controller.loadMore,
                   child: _controller.loadingMore
                       ? const SizedBox(
                           width: 16,
@@ -436,22 +496,19 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       sliver: SliverGrid(
-        delegate: SliverChildBuilderDelegate(
-          (_, i) {
-            final title = merged[i];
-            return SearchResultCard(
-              key: ValueKey('${title.key}|${title.year ?? ''}'),
-              movie: title.primary,
-              provider: _providerIdOf(title.hits.first),
-              sourceLabel: title.sourceCount > 1
-                  ? 'search.sources_n'.tr(args: ['${title.sourceCount}'])
-                  : title.primaryProvider.name,
-              sourceCount: title.sourceCount,
-              onTap: () => _openDetail(title),
-            );
-          },
-          childCount: merged.length,
-        ),
+        delegate: SliverChildBuilderDelegate((_, i) {
+          final title = merged[i];
+          return SearchResultCard(
+            key: ValueKey('${title.key}|${title.year ?? ''}'),
+            movie: title.primary,
+            provider: _providerIdOf(title.hits.first),
+            sourceLabel: title.sourceCount > 1
+                ? 'search.sources_n'.tr(args: ['${title.sourceCount}'])
+                : title.primaryProvider.name,
+            sourceCount: title.sourceCount,
+            onTap: () => _openDetail(title),
+          );
+        }, childCount: merged.length),
         gridDelegate: searchGridDelegate(context),
       ),
     );
@@ -466,12 +523,13 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
     final c = _controller;
     final headline = c.searching
         ? (c.pendingSources.isEmpty
-            ? 'search.searching'.tr()
-            : 'search.waiting_for'.tr(args: [c.pendingSources.take(2).join(', ')]))
-        : 'search.found_in'.tr(args: [
-            '${c.sourcesWithResults}',
-            '${c.expectedLegs}',
-          ]);
+              ? 'search.searching'.tr()
+              : 'search.waiting_for'.tr(
+                  args: [c.pendingSources.take(2).join(', ')],
+                ))
+        : 'search.found_in'.tr(
+            args: ['${c.sourcesWithResults}', '${c.expectedLegs}'],
+          );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -494,7 +552,9 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 12.5),
+                    color: AppColors.textSecondary,
+                    fontSize: 12.5,
+                  ),
                 ),
               ),
               if (c.failedLegs.isNotEmpty && !c.searching)
@@ -517,11 +577,13 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                'search.capped_note'.tr(
+                'ux.quick_search_note'.tr(
                   args: ['${c.expectedLegs}', '$_scopedCount'],
                 ),
                 style: const TextStyle(
-                    color: AppColors.textHint, fontSize: 11.5),
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
               ),
             ),
         ],
@@ -532,20 +594,30 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
   Widget _statusPills(CrossSearchController c) {
     final pills = <Widget>[
       if (c.runningSources > 0)
-        _pill('search.status_searching_n'.tr(args: ['${c.runningSources}']),
-            AppColors.textSecondary),
+        _pill(
+          'search.status_searching_n'.tr(args: ['${c.runningSources}']),
+          AppColors.textSecondary,
+        ),
       if (c.sourcesWithResults > 0)
-        _pill('search.status_with_results_n'.tr(args: ['${c.sourcesWithResults}']),
-            AppColors.success),
+        _pill(
+          'search.status_with_results_n'.tr(args: ['${c.sourcesWithResults}']),
+          AppColors.success,
+        ),
       if (c.emptySources > 0)
-        _pill('search.status_no_match_n'.tr(args: ['${c.emptySources}']),
-            AppColors.textHint),
+        _pill(
+          'search.status_no_match_n'.tr(args: ['${c.emptySources}']),
+          AppColors.textHint,
+        ),
       if (c.timedOutSources > 0)
-        _pill('search.status_timed_out_n'.tr(args: ['${c.timedOutSources}']),
-            Colors.orange),
+        _pill(
+          'search.status_timed_out_n'.tr(args: ['${c.timedOutSources}']),
+          Colors.orange,
+        ),
       if (c.erroredSources > 0)
-        _pill('search.status_failed_n'.tr(args: ['${c.erroredSources}']),
-            AppColors.error),
+        _pill(
+          'search.status_failed_n'.tr(args: ['${c.erroredSources}']),
+          AppColors.error,
+        ),
     ];
     if (pills.isEmpty) return const SizedBox.shrink();
     return Padding(
@@ -555,15 +627,16 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
   }
 
   Widget _pill(String text, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(text,
-            style: TextStyle(
-                color: color, fontSize: 11, fontWeight: FontWeight.w600)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+    ),
+  );
 
   /// Torrent streaming is Android-only — the engine is a native Android
   /// library. Hidden elsewhere rather than shown and failing.
@@ -579,8 +652,9 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
           ? 'search.all_sources_failed_one'.tr()
           : 'search.all_sources_failed'.tr(args: ['$broken']);
     } else if (broken > 0) {
-      text = 'search.no_results_with_failures'
-          .tr(args: ['${c.emptySources}', '$broken']);
+      text = 'search.no_results_with_failures'.tr(
+        args: ['${c.emptySources}', '$broken'],
+      );
     } else {
       text = 'search.no_results_any'.tr();
     }
@@ -636,9 +710,10 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700),
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               Container(
@@ -647,11 +722,14 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
                   color: AppColors.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text('${r.items.length}',
-                    style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700)),
+                child: Text(
+                  '${r.items.length}',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),
@@ -713,85 +791,94 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
     List<String> pending,
   ) {
     return [
-          for (final leg in legs)
-            ListTile(
-              dense: true,
-              contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
-              title: Text(leg.provider.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 13)),
-              subtitle: Text(
-                _statusLabel(leg),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: _statusColor(leg), fontSize: 11.5),
-              ),
-              trailing: leg.status == ProviderSearchStatus.ok ||
-                      leg.status == ProviderSearchStatus.empty
-                  ? null
-                  : _controller.isRetrying(leg.provider.id)
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : TextButton(
-                          onPressed: () =>
-                              _controller.retryProvider(leg.provider.id),
-                          child: Text('general.retry'.tr()),
-                        ),
+      for (final leg in legs)
+        ListTile(
+          dense: true,
+          contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
+          title: Text(
+            leg.provider.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+          subtitle: Text(
+            _statusLabel(leg),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: _statusColor(leg), fontSize: 11.5),
+          ),
+          trailing:
+              leg.status == ProviderSearchStatus.ok ||
+                  leg.status == ProviderSearchStatus.empty
+              ? null
+              : _controller.isRetrying(leg.provider.id)
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : TextButton(
+                  onPressed: () => _controller.retryProvider(leg.provider.id),
+                  child: Text('general.retry'.tr()),
+                ),
+        ),
+      // Legs that have not answered are listed too: an absent row is what
+      // made a still-running source look like a source with no results.
+      for (final name in pending)
+        ListTile(
+          dense: true,
+          contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
+          title: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+          subtitle: Text(
+            'search.status_searching'.tr(),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11.5,
             ),
-          // Legs that have not answered are listed too: an absent row is what
-          // made a still-running source look like a source with no results.
-          for (final name in pending)
-            ListTile(
-              dense: true,
-              contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
-              title: Text(name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 13)),
-              subtitle: Text('search.status_searching'.tr(),
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 11.5)),
-              trailing: const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
+          ),
+          trailing: const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
     ];
   }
 
   String _statusLabel(ProviderSearchResult leg) => switch (leg.status) {
-        ProviderSearchStatus.ok =>
-          'search.results_n'.tr(args: ['${leg.items.length}']),
-        ProviderSearchStatus.empty => 'search.no_results'.tr(),
-        ProviderSearchStatus.timeout => 'errors.timeout'.tr(),
-        ProviderSearchStatus.error => leg.message.isEmpty
-            ? 'search.source_failed'.tr()
-            : leg.message,
-      };
+    ProviderSearchStatus.ok => 'search.results_n'.tr(
+      args: ['${leg.items.length}'],
+    ),
+    ProviderSearchStatus.empty => 'search.no_results'.tr(),
+    ProviderSearchStatus.timeout => 'errors.timeout'.tr(),
+    ProviderSearchStatus.error =>
+      leg.message.isEmpty ? 'search.source_failed'.tr() : leg.message,
+  };
 
   Color _statusColor(ProviderSearchResult leg) => switch (leg.status) {
-        ProviderSearchStatus.ok => AppColors.success,
-        ProviderSearchStatus.empty => AppColors.textHint,
-        ProviderSearchStatus.timeout => Colors.orange,
-        ProviderSearchStatus.error => AppColors.error,
-      };
+    ProviderSearchStatus.ok => AppColors.success,
+    ProviderSearchStatus.empty => AppColors.textHint,
+    ProviderSearchStatus.timeout => Colors.orange,
+    ProviderSearchStatus.error => AppColors.error,
+  };
 
   Widget _note(String text) => Container(
-        margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.orange.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(text,
-            style: const TextStyle(
-                color: Colors.orange, fontSize: 11.5, height: 1.3)),
-      );
+    margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.orange.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(
+      text,
+      style: const TextStyle(color: Colors.orange, fontSize: 11.5, height: 1.3),
+    ),
+  );
 
   Widget _centered({
     required IconData icon,
@@ -804,16 +891,19 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
       children: [
         Icon(icon, color: AppColors.textHint.withValues(alpha: 0.5), size: 56),
         const SizedBox(height: 14),
-        Text(text,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textHint, fontSize: 14)),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppColors.textHint, fontSize: 14),
+        ),
         if (action != null) ...[const SizedBox(height: 16), action],
       ],
     );
     if (!padded) {
       return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 60),
-          child: Center(child: content));
+        padding: const EdgeInsets.symmetric(vertical: 60),
+        child: Center(child: content),
+      );
     }
     return Center(
       child: Padding(padding: const EdgeInsets.all(32), child: content),

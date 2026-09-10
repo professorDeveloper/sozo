@@ -55,6 +55,10 @@ class _HomeBannerState extends State<HomeBanner> {
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || widget.slides.length < 2) return;
+      if (MediaQuery.disableAnimationsOf(context) ||
+          !TickerMode.valuesOf(context).enabled) {
+        return;
+      }
       if (!_ctrl.hasClients) return;
       // Auto-advancing on top of a drag or a fling yanked the slide out from
       // under the finger; skip this tick and take the next one instead.
@@ -169,9 +173,9 @@ class _SlideContent extends StatelessWidget {
     return switch (slide) {
       MovieHeroSlide(:final movie) => _MovieSlide(movie: movie),
       BannerHeroSlide(:final banner) => _BannerSlide(
-          banner: banner,
-          onTap: () => onBannerTap(banner),
-        ),
+        banner: banner,
+        onTap: () => onBannerTap(banner),
+      ),
     };
   }
 }
@@ -253,8 +257,9 @@ class _BannerSlide extends StatelessWidget {
           fit: BoxFit.cover,
           placeholder: (_, _) =>
               const HomeImagePlaceholder(icon: Icons.image_outlined),
-          errorWidget: (_, _, _) =>
-              const HomeImagePlaceholder(icon: Icons.image_not_supported_outlined),
+          errorWidget: (_, _, _) => const HomeImagePlaceholder(
+            icon: Icons.image_not_supported_outlined,
+          ),
         ),
         const _SlideOverlays(),
         Positioned(
@@ -641,8 +646,10 @@ class _DesktopSlideState extends State<_DesktopSlide>
       vsync: this,
       duration: const Duration(seconds: 14),
     );
-    _zoom = Tween<double>(begin: 1.05, end: 1.16)
-        .animate(CurvedAnimation(parent: _kb, curve: Curves.easeOut));
+    _zoom = Tween<double>(
+      begin: 1.05,
+      end: 1.16,
+    ).animate(CurvedAnimation(parent: _kb, curve: Curves.easeOut));
     _kb.forward();
     Future.delayed(const Duration(milliseconds: 250), () {
       if (mounted) _in.forward();
@@ -769,8 +776,7 @@ class _DesktopSlideState extends State<_DesktopSlide>
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children:
-                    meta.take(4).map((m) => _MetaChip(label: m)).toList(),
+                children: meta.take(4).map((m) => _MetaChip(label: m)).toList(),
               ),
             const SizedBox(height: 12),
             Text(
@@ -784,7 +790,11 @@ class _DesktopSlideState extends State<_DesktopSlide>
                 height: 1.12,
                 letterSpacing: -0.5,
                 shadows: [
-                  Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 6,
+                    offset: Offset(1, 1),
+                  ),
                 ],
               ),
             ),
@@ -837,7 +847,11 @@ class _DesktopSlideState extends State<_DesktopSlide>
                 height: 1.12,
                 letterSpacing: -0.5,
                 shadows: [
-                  Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 6,
+                    offset: Offset(1, 1),
+                  ),
                 ],
               ),
             ),
