@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'package:soplay/core/di/injection.dart';
@@ -97,7 +98,7 @@ class _RecommendedReposSectionState extends State<RecommendedReposSection> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     child: Text(
-                      _hidden ? 'Show' : 'Hide',
+                      _hidden ? 'general.show'.tr() : 'general.hide'.tr(),
                       style: const TextStyle(
                         color: AppColors.textHint,
                         fontSize: 11.5,
@@ -271,14 +272,14 @@ class _InstalledChip extends StatelessWidget {
           color: Colors.green.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(20),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle, size: 14, color: Colors.green),
-            SizedBox(width: 4),
+            const Icon(Icons.check_circle, size: 14, color: Colors.green),
+            const SizedBox(width: 4),
             Text(
-              'Installed',
-              style: TextStyle(
+              'general.installed'.tr(),
+              style: const TextStyle(
                 color: Colors.green,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,

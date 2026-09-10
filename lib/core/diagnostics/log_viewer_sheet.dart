@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -57,7 +58,10 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
     await Clipboard.setData(ClipboardData(text: _log.formatForShare()));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Logs copied'), duration: Duration(seconds: 1)),
+      SnackBar(
+        content: Text('player.logs_copied'.tr()),
+        duration: const Duration(seconds: 1),
+      ),
     );
   }
 
@@ -98,19 +102,19 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
                   ),
                   const Spacer(),
                   IconButton(
-                    tooltip: 'Copy',
+                    tooltip: 'general.copy'.tr(),
                     icon: const Icon(Icons.copy_rounded,
                         color: Colors.white70, size: 20),
                     onPressed: lines.isEmpty ? null : _copy,
                   ),
                   IconButton(
-                    tooltip: 'Share',
+                    tooltip: 'general.share'.tr(),
                     icon: const Icon(Icons.ios_share_rounded,
                         color: Colors.white70, size: 20),
                     onPressed: lines.isEmpty ? null : _share,
                   ),
                   IconButton(
-                    tooltip: 'Clear',
+                    tooltip: 'general.clear'.tr(),
                     icon: const Icon(Icons.delete_outline_rounded,
                         color: Colors.white70, size: 20),
                     onPressed: lines.isEmpty ? null : _log.clear,
@@ -121,10 +125,10 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
             const Divider(color: Colors.white12, height: 1),
             Flexible(
               child: lines.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 48),
-                      child: Text('No logs yet',
-                          style: TextStyle(color: Colors.white38)),
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 48),
+                      child: Text('player.logs_empty'.tr(),
+                          style: const TextStyle(color: Colors.white38)),
                     )
                   : Scrollbar(
                       controller: _scroll,

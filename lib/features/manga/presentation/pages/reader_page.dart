@@ -418,7 +418,7 @@ class _ReaderPageState extends State<ReaderPage> {
         shape: const CircleBorder(),
         clipBehavior: Clip.antiAlias,
         child: IconButton(
-          tooltip: 'Close',
+          tooltip: 'general.close'.tr(),
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => context.pop(),
         ),

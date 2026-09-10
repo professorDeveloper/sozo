@@ -214,10 +214,10 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
                               ),
                             ),
                             const SizedBox(height: 22),
-                            const Text(
-                              'Verification code',
+                            Text(
+                              'auth.verification_code'.tr(),
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: AppColors.textPrimary,
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,

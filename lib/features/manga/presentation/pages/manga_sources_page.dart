@@ -435,7 +435,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
                     ? null
                     : IconButton(
                         icon: const Icon(Icons.clear, color: AppColors.textHint),
-                        tooltip: 'Clear',
+                        tooltip: 'general.clear'.tr(),
                         onPressed: _busy
                             ? null
                             : () => setState(() => _controller.clear()),

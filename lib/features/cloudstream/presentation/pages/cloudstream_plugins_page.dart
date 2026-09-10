@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -98,7 +99,9 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            installed ? 'Could not remove plugin' : 'Could not install plugin',
+            installed
+                ? 'ext.could_not_remove_plugin'.tr()
+                : 'ext.could_not_install_plugin'.tr(),
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -187,7 +190,9 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
             ),
             if (!_loading && _error == null)
               Text(
-                '${_plugins.length} plugins · $_installedCount installed',
+                'ext.plugins_summary'.tr(
+                  args: ['${_plugins.length}', '$_installedCount'],
+                ),
                 style: const TextStyle(fontSize: 11, color: AppColors.textHint),
               ),
           ],
@@ -202,7 +207,7 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Install all'),
+                  : Text('ext.install_all'.tr()),
             ),
         ],
       ),
@@ -225,22 +230,22 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
                   color: AppColors.textHint, size: 36),
               const SizedBox(height: 10),
               Text(
-                'Could not load this repo.\n$_error',
+                '${'ext.repo_load_failed'.tr()}\n$_error',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.textHint),
               ),
               const SizedBox(height: 14),
-              FilledButton(onPressed: _load, child: const Text('Retry')),
+              FilledButton(onPressed: _load, child: Text('general.retry'.tr())),
             ],
           ),
         ),
       );
     }
     if (_plugins.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'No plugins found in this repo',
-          style: TextStyle(color: AppColors.textHint),
+          'ext.no_plugins'.tr(),
+          style: const TextStyle(color: AppColors.textHint),
         ),
       );
     }
@@ -254,7 +259,7 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
             onChanged: (v) => setState(() => _query = v),
             decoration: InputDecoration(
               isDense: true,
-              hintText: 'Search plugins…',
+              hintText: 'ext.search_plugins'.tr(),
               hintStyle: const TextStyle(color: AppColors.textHint),
               prefixIcon: const Icon(Icons.search,
                   color: AppColors.textHint, size: 20),
@@ -270,9 +275,9 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
         if (_installingAll) _installBanner(),
         Expanded(
           child: items.isEmpty
-              ? const Center(
-                  child: Text('No matches',
-                      style: TextStyle(color: AppColors.textHint)),
+              ? Center(
+                  child: Text('ext.no_matches'.tr(),
+                      style: const TextStyle(color: AppColors.textHint)),
                 )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -307,8 +312,10 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Installing $done / $total'
-                  '${_currentInstalling != null ? ' · $_currentInstalling' : ''}',
+                  'ext.installing_progress'.tr(args: ['$done', '$total']) +
+                      (_currentInstalling != null
+                          ? ' · $_currentInstalling'
+                          : ''),
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.ellipsis,
@@ -382,7 +389,7 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
                   )
                 : IconButton(
                     onPressed: () => _toggle(p),
-                    tooltip: installed ? 'Remove' : 'Install',
+                    tooltip: installed ? 'general.remove'.tr() : 'general.install'.tr(),
                     icon: Icon(
                       installed
                           ? Icons.check_circle
