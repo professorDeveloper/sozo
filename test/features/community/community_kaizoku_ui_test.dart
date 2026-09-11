@@ -78,15 +78,15 @@ void main() {
       final members = [
         const PartyMember(
           userId: 'user_host',
-          author: CommentAuthor(id: 'user_host', name: 'Luffy', avatar: ''),
+          username: 'Luffy',
+          role: 'host',
           online: true,
-          isHost: true,
         ),
         const PartyMember(
           userId: 'user_guest',
-          author: CommentAuthor(id: 'user_guest', name: 'Zoro', avatar: ''),
+          username: 'Zoro',
+          role: 'member',
           online: true,
-          isHost: false,
         ),
       ];
 

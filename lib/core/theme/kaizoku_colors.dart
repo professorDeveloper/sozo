@@ -117,6 +117,29 @@ class KaizokuColors {
   /// Brand accent color alias (crimson).
   static const Color accent = crimson;
 
+  // ── Design Spec Name Aliases ───────────────────────────────────────────────
+
+  /// Neon crimson primary accent (#FF2A55).
+  static const Color neonCrimson = crimson;
+
+  /// Cyber obsidian dark surface (#12151F).
+  static const Color cyberObsidian = surface;
+
+  /// Solar amber badge and star accent (#FFB800).
+  static const Color solarAmber = amber;
+
+  /// Electric cyan accent for toggles and links (#00F5D4).
+  static const Color electricCyan = cyan;
+
+  /// Standard card outline border (#1E2333).
+  static const Color cardBorder = borderSubtle;
+
+  /// Elevated light surface variant (#1A1E2C).
+  static const Color surfaceLight = surfaceElevated;
+
+  /// Translucent glass border highlight.
+  static const Color borderGlass = Color(0x2E1E2333);
+
   /// Podium medal colors.
   static const Color medalGold = amber;
   static const Color medalSilver = Color(0xFFC0C0C0);

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/bridge/bridge_control.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/discord/discord_brand.dart';
+import 'package:soplay/core/discord/discord_presence_service.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';

@@ -34,7 +34,7 @@ void main() {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 KaizokuButton(
-                  text: 'Play S1:E3',
+                  label: 'Play S1:E3',
                   icon: Icons.play_arrow_rounded,
                   variant: KaizokuButtonVariant.primary,
                   onPressed: () {
@@ -118,13 +118,13 @@ void main() {
             ? Row(
                 children: [
                   KaizokuButton(
-                    text: 'Watch Now',
+                    label: 'Watch Now',
                     icon: Icons.play_arrow_rounded,
                     onPressed: () {},
                   ),
                   const SizedBox(width: 12),
                   KaizokuButton(
-                    text: 'Add to List',
+                    label: 'Add to List',
                     variant: KaizokuButtonVariant.secondary,
                     icon: Icons.add_rounded,
                     onPressed: () {},
@@ -134,13 +134,13 @@ void main() {
             : Column(
                 children: [
                   KaizokuButton(
-                    text: 'Watch Now',
+                    label: 'Watch Now',
                     icon: Icons.play_arrow_rounded,
                     onPressed: () {},
                   ),
                   const SizedBox(height: 8),
                   KaizokuButton(
-                    text: 'Add to List',
+                    label: 'Add to List',
                     variant: KaizokuButtonVariant.secondary,
                     icon: Icons.add_rounded,
                     onPressed: () {},

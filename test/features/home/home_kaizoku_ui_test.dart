@@ -127,7 +127,7 @@ void main() {
             ratio: KaizokuCardRatio.backdrop,
             progress: 0.72,
             badgeText: 'RESUME',
-            badgeVariant: KaizokuBadgeVariant.crimson,
+            badgeVariant: KaizokuBadgeVariant.primary,
           ),
           size: const Size(400, 800),
         ),

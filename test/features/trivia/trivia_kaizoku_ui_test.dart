@@ -137,6 +137,7 @@ void main() {
           bestScore: 980,
           bestFandom: 95.0,
           rank: 1,
+          updatedAt: '2026-09-11',
         ),
         const TopFanEntity(
           userId: 'u2',
@@ -145,6 +146,7 @@ void main() {
           bestScore: 850,
           bestFandom: 88.0,
           rank: 2,
+          updatedAt: '2026-09-11',
         ),
       ];
 

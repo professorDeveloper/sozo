@@ -82,6 +82,7 @@ void main() {
       const usage = StorageUsage(
         usedBytes: 1024 * 1024 * 500, // 500 MB
         freeBytes: 1024 * 1024 * 2000, // 2 GB
+        itemCount: 5,
         orphanBytes: 1024 * 1024 * 50, // 50 MB
       );
 
@@ -112,16 +113,20 @@ void main() {
 
     testWidgets('DownloadLocationTile displays multiple volumes and opens picker', (tester) async {
       const loc1 = DownloadLocation(
+        id: 'loc_internal',
         path: '/storage/emulated/0/Download',
         label: 'Internal Storage',
         isRemovable: false,
         freeBytes: 1024 * 1024 * 1000,
+        totalBytes: 1024 * 1024 * 32000,
       );
       const loc2 = DownloadLocation(
+        id: 'loc_sd',
         path: '/storage/1234-5678/Android/data',
         label: 'SD Card',
         isRemovable: true,
         freeBytes: 1024 * 1024 * 8000,
+        totalBytes: 1024 * 1024 * 64000,
       );
 
       await tester.pumpWidget(

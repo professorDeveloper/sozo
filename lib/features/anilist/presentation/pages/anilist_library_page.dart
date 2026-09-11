@@ -380,6 +380,7 @@ class AnilistEntryCard extends StatelessWidget {
           ),
         ),
       ),
+      ),
     );
   }
 }
