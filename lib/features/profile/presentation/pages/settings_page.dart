@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/localization/app_language.dart';
+import 'package:soplay/core/localization/language_picker.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
@@ -16,7 +17,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  Future<void> _setLanguage(String code) => AppLanguage.set(context, code);
 
   @override
   Widget build(BuildContext context) {
@@ -28,16 +28,15 @@ class _SettingsPageState extends State<SettingsPage> {
             featureIds: const ['home_rails', 'change_source']),
         SettingsCard(
           children: [
-            SettingsDropdownTile<String>(
+            // The page, not a dropdown. Eleven languages in a menu that opens
+            // over the row is a list nobody can read in their own script — and
+            // the page that does it properly already existed for first run.
+            SettingsNavTile(
               icon: Icons.translate_rounded,
               title: 'profile.language'.tr(),
               subtitle: 'profile.language_desc'.tr(),
-              value: context.locale.languageCode,
-              options: [
-                for (final l in context.supportedLocales) l.languageCode,
-              ],
-              labelOf: AppLanguage.labelOf,
-              onChanged: _setLanguage,
+              value: AppLanguage.labelOf(context.locale.languageCode),
+              onTap: () => openLanguagePage(context),
             ),
             const SettingsDivider(),
             SettingsNavTile(
