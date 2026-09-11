@@ -209,7 +209,7 @@ void main() {
   ) async {
     await pump(
       tester,
-      const IntroLanguagePage(),
+      const LanguagePage(),
       width: 320,
       height: 480,
       scale: 2,
