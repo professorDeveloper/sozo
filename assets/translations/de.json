@@ -406,7 +406,7 @@
     "section_providers": "Quellen",
     "section_content": "INHALTE",
     "sources_row": "Erweiterungsquellen",
-    "sources_row_subtitle": "CloudStream, Aniyomi, Mangayomi",
+    "sources_row_subtitle": "Alle Quellen durchsehen und weitere installieren",
     "provider": "Quelle",
     "choose_provider": "Quelle wechseln",
     "search_providers_hint": "Quellen durchsuchen …",
@@ -1808,6 +1808,9 @@
     "quality_unknown": "Qualität unbekannt",
     "size_unknown": "Die Quelle gibt keine Dateigröße an",
     "interface_language_note": "Nur die App-Oberfläche ändert sich. Filmtitel, Beschreibungen und andere Quelleninhalte bleiben in ihrer Originalsprache.",
-    "continue": "Weiter"
+    "continue": "Weiter",
+    "use_source": "Diese Quelle verwenden",
+    "in_use": "In Verwendung",
+    "now_using": "{} wird verwendet"
   }
 }

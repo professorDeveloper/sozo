@@ -270,7 +270,10 @@ class _SourcesHubTile extends StatelessWidget {
             final current = loaded?.currentProvider;
             return SettingsNavTile(
               icon: Icons.swap_horiz_rounded,
-              title: 'profile.provider'.tr(),
+              // "Source" and "Extension sources" differed by one word and led
+              // to two unrelated places — a sheet and a full screen. The names
+              // say which is which now.
+              title: 'profile.choose_provider'.tr(),
               valueLeading: current != null && current.image.isNotEmpty
                   ? ProviderMark(url: current.image)
                   : null,
@@ -284,7 +287,7 @@ class _SourcesHubTile extends StatelessWidget {
         const SettingsDivider(),
         SettingsNavTile(
           icon: Icons.extension_outlined,
-          title: 'profile.sources_row'.tr(),
+          title: 'profile.all_providers'.tr(),
           subtitle: 'profile.sources_row_subtitle'.tr(),
           onTap: () => context.push('/sources'),
         ),

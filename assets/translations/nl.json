@@ -406,7 +406,7 @@
     "section_providers": "Bronnen",
     "section_content": "INHOUD",
     "sources_row": "Extensiebronnen",
-    "sources_row_subtitle": "CloudStream, Aniyomi, Mangayomi",
+    "sources_row_subtitle": "Alle bronnen bekijken en meer installeren",
     "provider": "Bron",
     "choose_provider": "Bron wijzigen",
     "search_providers_hint": "Bronnen zoeken…",
@@ -1808,6 +1808,9 @@
     "quality_unknown": "Kwaliteit onbekend",
     "size_unknown": "De bron geeft geen bestandsgrootte op",
     "interface_language_note": "Alleen de app-interface verandert. Filmtitels, beschrijvingen en andere broninhoud blijven in de oorspronkelijke taal.",
-    "continue": "Doorgaan"
+    "continue": "Doorgaan",
+    "use_source": "Deze bron gebruiken",
+    "in_use": "In gebruik",
+    "now_using": "{} wordt gebruikt"
   }
 }

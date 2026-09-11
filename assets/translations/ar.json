@@ -406,7 +406,7 @@
     "section_providers": "المصادر",
     "section_content": "المحتوى",
     "sources_row": "مصادر الإضافات",
-    "sources_row_subtitle": "CloudStream وAniyomi وMangayomi",
+    "sources_row_subtitle": "تصفح كل المصادر وتثبيت المزيد",
     "provider": "المصدر",
     "choose_provider": "تغيير المصدر",
     "search_providers_hint": "ابحث عن مزوّدين…",
@@ -1812,6 +1812,9 @@
     "quality_unknown": "الجودة غير معروفة",
     "size_unknown": "لم يحدد المصدر حجم الملف",
     "interface_language_note": "تتغير واجهة التطبيق فقط. تبقى عناوين الأفلام والأوصاف ومحتويات المصادر الأخرى بلغتها الأصلية.",
-    "continue": "متابعة"
+    "continue": "متابعة",
+    "use_source": "استخدام هذا المصدر",
+    "in_use": "قيد الاستخدام",
+    "now_using": "يتم استخدام {}"
   }
 }
