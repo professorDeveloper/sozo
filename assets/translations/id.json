@@ -951,7 +951,16 @@
     "up_to_date": "Semua ekstensi sudah versi terbaru.",
     "updated_n": "{} ekstensi diperbarui.",
     "spread": "Dua halaman",
-    "spread_desc": "Berdampingan dalam mode lanskap, seperti bukunya digambar"
+    "spread_desc": "Berdampingan dalam mode lanskap, seperti bukunya digambar",
+    "text_size": "Ukuran teks",
+    "line_height": "Jarak baris",
+    "typeface": "Jenis huruf",
+    "typeface_default": "Bawaan",
+    "typeface_serif": "Serif",
+    "typeface_mono": "Mono",
+    "alignment": "Perataan",
+    "align_left": "Rata kiri",
+    "align_justify": "Rata kanan-kiri"
   },
   "cloudflare": {
     "title": "Verifikasi bahwa kamu manusia",

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
+import 'package:soplay/core/network/private_address.dart';
 import 'package:soplay/core/network/user_agent.dart';
 
 import '../network/cf_bypass_service.dart';
@@ -32,6 +33,75 @@ class DartFetch {
 
   void clearBlock() => _lastBlock = null;
 
+  /// Every refusal and challenge, numbered, for callers that run concurrently.
+  ///
+  /// [_lastBlock] and a single pending host are one slot shared by every call
+  /// in flight: cross-search runs several providers at once through this one
+  /// fetch, so one call's `clearBlock()` wiped the refusal another had just
+  /// met, and two challenged hosts overwrote each other so only one was ever
+  /// solved. The JavaScript side cannot say which call a fetch belongs to, so
+  /// a caller takes a [mark] when it starts and reads only what was recorded
+  /// after it — preferring hosts it knows are its own (see [blockSince]).
+  int _seq = 0;
+  final List<_FetchEvent> _events = [];
+  static const int _maxEvents = 64;
+
+  /// Solves already running, so concurrent calls challenged by the same host
+  /// share one WebView instead of each opening their own.
+  final Map<String, Future<bool>> _solving = {};
+
+  /// A position in the event log; see [blockSince] and [cfHostsSince].
+  int mark() => _seq;
+
+  void _record(String? host, String message, {bool cf = false}) {
+    _lastBlock = message;
+    _events.add(_FetchEvent(++_seq, host, message, cf));
+    if (_events.length > _maxEvents) _events.removeAt(0);
+  }
+
+  /// The refusal to blame for a call that started at [mark], or null.
+  ///
+  /// With [preferHosts] (the provider's own domains), a refusal from one of
+  /// them wins over one from a host some other call in flight was using.
+  String? blockSince(int mark, {Iterable<String> preferHosts = const []}) {
+    final since = _events.where((e) => e.seq > mark).toList();
+    if (since.isEmpty) return null;
+    final prefer = preferHosts
+        .map((h) => h.toLowerCase().replaceFirst(RegExp(r'^www\.'), ''))
+        .where((h) => h.isNotEmpty)
+        .toList();
+    if (prefer.isNotEmpty) {
+      for (final e in since.reversed) {
+        final host = (e.host ?? '').toLowerCase();
+        if (prefer.any((d) => host == d || host.endsWith('.$d'))) {
+          return e.message;
+        }
+      }
+    }
+    return since.last.message;
+  }
+
+  /// Hosts that answered with a Cloudflare challenge after [mark] and are
+  /// still unsolved.
+  Set<String> cfHostsSince(int mark) => {
+        for (final e in _events)
+          if (e.seq > mark && e.cf && e.host != null && _pendingCf.contains(e.host))
+            e.host!,
+      };
+
+  /// Solves each of [hosts] once — joining a solve already in progress for
+  /// the same host. True when at least one clearance was obtained.
+  Future<bool> solveCfHosts(Iterable<String> hosts) async {
+    var any = false;
+    for (final host in hosts.toSet()) {
+      final running = _solving[host] ??= _solveHost(host).whenComplete(() {
+        _solving.remove(host);
+      });
+      if (await running) any = true;
+    }
+    return any;
+  }
+
   /// Host whose Cloudflare challenge still needs solving, if any.
   ///
   /// The solve deliberately does NOT happen inside [_send]. An extractor's
@@ -47,9 +117,9 @@ class DartFetch {
   /// So [_send] only records the host here and lets the challenged response go
   /// back to JS. Whoever drives the call solves afterwards, outside the handler,
   /// and runs it again.
-  String? _pendingCfHost;
+  final Set<String> _pendingCf = <String>{};
 
-  bool get hasPendingCfChallenge => _pendingCfHost != null;
+  bool get hasPendingCfChallenge => _pendingCf.isNotEmpty;
 
   /// The host of that challenge, for the *manual* solve.
   ///
@@ -58,7 +128,7 @@ class DartFetch {
   /// mentions — TeamX is configured as `olympustaff.com` and reads from it, but
   /// plenty of sources are not so tidy. The host that actually came back
   /// challenged is the one to send a WebView to.
-  String? get pendingCfHost => _pendingCfHost;
+  String? get pendingCfHost => _pendingCf.isEmpty ? null : _pendingCf.last;
 
   /// Take on a clearance earned outside this class, and report whether there
   /// was one to take.
@@ -79,18 +149,25 @@ class DartFetch {
     _savedCookies[host] = cookieHeader;
     // The recorded challenge is answered; leaving it would send the next
     // automatic solve after a host that is already cleared.
-    if (_pendingCfHost == host) _pendingCfHost = null;
+    _pendingCf.remove(host);
     _lastBlock = null;
-    unawaited(_pushCookiesToBackend(host, cookieHeader, const {}));
+    unawaited(_pushCookiesToBackend(host, cookieHeader));
     return true;
   }
 
-  /// Solve the recorded challenge. Returns whether a clearance was obtained.
+  /// Solve the most recently recorded challenge. Returns whether a clearance
+  /// was obtained. Kept for callers that run one call at a time; concurrent
+  /// ones use [cfHostsSince] and [solveCfHosts].
   Future<bool> solvePendingCfChallenge() async {
-    final host = _pendingCfHost;
-    _pendingCfHost = null;
+    final host = pendingCfHost;
+    if (host == null) return false;
+    return solveCfHosts([host]);
+  }
+
+  Future<bool> _solveHost(String host) async {
+    _pendingCf.remove(host);
     final cf = _cfService;
-    if (host == null || cf == null) return false;
+    if (cf == null) return false;
     JsLog.req('fetch', 'CF challenge on $host — solving …');
     final cookieHeader = await cf.solve(
       host: host,
@@ -99,7 +176,7 @@ class DartFetch {
     );
     if (cookieHeader == null) return false;
     _savedCookies[host] = cookieHeader;
-    unawaited(_pushCookiesToBackend(host, cookieHeader, const {}));
+    unawaited(_pushCookiesToBackend(host, cookieHeader));
     return true;
   }
 
@@ -141,6 +218,14 @@ class DartFetch {
     JsLog.req('fetch', '${req.method} ${_shortUrl(req.url)}');
 
     final host = _hostOf(req.url);
+    final target = Uri.tryParse(req.url);
+    if (target == null ||
+        PrivateAddress.isObviouslyPrivate(target) ||
+        await PrivateAddress.resolvesPrivate(target.host)) {
+      JsLog.err('fetch', 'refused private address ${_shortUrl(req.url)}');
+      _record(host, '${host ?? 'address'} is on the local network and was not fetched');
+      return const {'status': 0, 'data': null, 'headers': {}};
+    }
     final extraHeaders = Map<String, String>.from(req.headers);
     if (host != null) {
       final cached = _savedCookies[host];
@@ -179,16 +264,17 @@ class DartFetch {
           host != null &&
           cf != null &&
           _looksLikeCfChallenge(status, headers, response.data)) {
-        // Record, do not solve — see [_pendingCfHost]. The cookie just sent is
+        // Record, do not solve — see [_pendingCf]. The cookie just sent is
         // the one that got challenged, so it is dead either way.
         _savedCookies.remove(host);
-        _pendingCfHost = host;
+        _pendingCf.remove(host);
+        _pendingCf.add(host);
       }
 
       if (_looksLikeCfChallenge(status, headers, response.data)) {
-        _lastBlock = '${host ?? 'server'} is behind a Cloudflare challenge';
+        _record(host, '${host ?? 'server'} is behind a Cloudflare challenge', cf: true);
       } else if (status >= 400) {
-        _lastBlock = '${host ?? 'server'} refused the request ($status)';
+        _record(host, '${host ?? 'server'} refused the request ($status)');
       }
 
       JsLog.res(
@@ -204,7 +290,7 @@ class DartFetch {
       };
     } catch (e) {
       JsLog.err('fetch', '${req.method} ${_shortUrl(req.url)} — $e');
-      _lastBlock = '${host ?? 'network'}: ${_shortError(e)}';
+      _record(host, '${host ?? 'network'}: ${_shortError(e)}');
       return const {'status': 0, 'data': null, 'headers': {}};
     }
   }
@@ -249,11 +335,14 @@ class DartFetch {
         body.contains('Just a moment...');
   }
 
-  Future<void> _pushCookiesToBackend(
-    String host,
-    String cookies,
-    Map<String, String> reqHeaders,
-  ) async {
+  /// Shares a clearance with the backend so its own scrapers can use it.
+  ///
+  /// `cf_clearance` is only honoured together with the User-Agent that earned
+  /// it, and every clearance here is earned under the app's own agent
+  /// ([kSozoUserAgent] — the solve and the replay both send it). This used to
+  /// pass an empty header map, so the backend was told the agent was '' and
+  /// replayed the cookie under its own, which Cloudflare rejects.
+  Future<void> _pushCookiesToBackend(String host, String cookies) async {
     final dio = _backendDio;
     if (dio == null) return;
     try {
@@ -262,7 +351,7 @@ class DartFetch {
         data: {
           'host': host,
           'cookies': cookies,
-          'userAgent': reqHeaders['User-Agent'] ?? reqHeaders['user-agent'] ?? '',
+          'userAgent': kSozoUserAgent,
         },
         options: Options(extra: const {'skipCfBypassInterceptor': true}),
       );
@@ -329,13 +418,13 @@ class _Request {
     required this.headers,
     this.body,
   });
+}
 
-  /// The same request with one header set. Used to replay a Cloudflare-blocked
-  /// call under the agent that solved the challenge.
-  _Request copyWithHeader(String name, String value) => _Request(
-    method: method,
-    url: url,
-    headers: {...headers, name: value},
-    body: body,
-  );
+class _FetchEvent {
+  const _FetchEvent(this.seq, this.host, this.message, this.cf);
+
+  final int seq;
+  final String? host;
+  final String message;
+  final bool cf;
 }

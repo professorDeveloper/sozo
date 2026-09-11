@@ -62,7 +62,7 @@ import 'package:soplay/features/profile/presentation/pages/backup_page.dart';
 import 'package:soplay/features/profile/presentation/pages/library_page.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_connections_page.dart';
 import 'package:soplay/features/profile/presentation/pages/settings_page.dart';
-import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
+import 'package:soplay/features/sources/presentation/pages/sources_hub_page.dart';
 import 'package:soplay/features/live_tv/presentation/pages/live_tv_page.dart';
 import 'package:soplay/features/remote/presentation/pages/tv_remote_page.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
@@ -336,7 +336,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/sources',
-        builder: (context, state) => const SourcesPage(),
+        builder: (context, state) => const SourcesHubPage(),
       ),
       GoRoute(
         path: '/profile/connections',

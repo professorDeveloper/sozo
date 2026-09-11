@@ -5,11 +5,12 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/network/external_dio.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/detail/domain/playback/wakelock_holds.dart';
 import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
 import 'package:soplay/features/download/data/datasources/download_local_data_source.dart';
 import 'package:soplay/features/download/data/datasources/download_native_data_source.dart';
@@ -485,6 +486,11 @@ class DownloadRepositoryImpl implements DownloadRepository {
     await _acquireWakelock();
 
     var latest = item;
+    // The transfer reports every received chunk — dozens a second on a fast
+    // link — and each report used to be a JSON encode of the whole row and a
+    // Hive write. Twice a second is as often as anyone can read a percentage;
+    // the final figures are written by _complete / _fail regardless.
+    final sincePersist = Stopwatch()..start();
     try {
       final dir = await _storage.ensureDir(item.id);
       final result = await _transfer.run(
@@ -502,6 +508,9 @@ class DownloadRepositoryImpl implements DownloadRepository {
             sizeBytes: p.sizeBytes,
             updatedAt: DateTime.now().millisecondsSinceEpoch,
           );
+          final done = p.totalUnits > 0 && p.completedUnits >= p.totalUnits;
+          if (!done && sincePersist.elapsedMilliseconds < 500) return;
+          sincePersist.reset();
           unawaited(_local.put(latest, notify: true));
         },
       );
@@ -1042,10 +1051,15 @@ class DownloadRepositoryImpl implements DownloadRepository {
     final absolute = _storage.absoluteOf(relative);
     try {
       await _storage.ensureDir(item.id);
-      final response = await Dio().get<List<int>>(
+      // The video's headers — a Referer, often a cookie or a token — belong to
+      // the video's host. A poster usually sits on a different CDN, and handing
+      // it the stream's credentials is a leak with nothing gained.
+      final sameHost = Uri.tryParse(url)?.host.toLowerCase() ==
+          Uri.tryParse(item.sourceUrl)?.host.toLowerCase();
+      final response = await ExternalDio.instance.get<List<int>>(
         url,
         options: Options(
-          headers: item.headers,
+          headers: sameHost && item.headers.isNotEmpty ? item.headers : null,
           responseType: ResponseType.bytes,
           validateStatus: (s) => s != null && s < 400,
         ),
@@ -1070,22 +1084,21 @@ class DownloadRepositoryImpl implements DownloadRepository {
   DownloadItem _stamp(DownloadItem item) =>
       item.copyWith(updatedAt: DateTime.now().millisecondsSinceEpoch);
 
+  /// Counts transfers, and holds ONE shared wakelock for all of them.
+  ///
+  /// It used to switch WakelockPlus off when the last transfer ended, which
+  /// also switched off the player's — the screen then slept under a video
+  /// because a download finished. See [WakelockHolds].
   Future<void> _acquireWakelock() async {
     _wakelocks++;
-    if (_wakelocks == 1) {
-      try {
-        await WakelockPlus.enable();
-      } catch (_) {}
-    }
+    if (_wakelocks == 1) await WakelockHolds.acquire(this);
   }
 
   Future<void> _releaseWakelock() async {
     _wakelocks--;
     if (_wakelocks <= 0) {
       _wakelocks = 0;
-      try {
-        await WakelockPlus.disable();
-      } catch (_) {}
+      await WakelockHolds.release(this);
     }
   }
 }

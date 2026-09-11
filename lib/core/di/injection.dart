@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
 import 'package:soplay/core/js/dart_fetch.dart';
@@ -67,6 +68,7 @@ import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/app_lock/data/datasources/app_lock_local_data_source.dart';
 import 'package:soplay/features/app_lock/data/repositories/app_lock_repository_impl.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
+import 'package:soplay/features/app_lock/presentation/app_lock_gate.dart';
 import 'package:soplay/features/app_updater/data/datasources/app_updater_data_source.dart';
 import 'package:soplay/features/app_updater/data/repositories/app_updater_repository_impl.dart';
 import 'package:soplay/features/app_updater/domain/repositories/app_updater_repository.dart';
@@ -88,6 +90,7 @@ import 'package:soplay/features/extensions/data/catalog_repository.dart';
 import 'package:soplay/features/extensions/data/extension_repo_repository.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
+import 'package:soplay/features/sources/data/source_browse_repository.dart';
 import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/reports/data/datasources/reports_data_source.dart';
 import 'package:soplay/features/reports/data/repositories/reports_repository_impl.dart';
@@ -248,7 +251,10 @@ Future<void> configureDependencies() async {
 
   final dio = DioClient.instance;
   dio.interceptors.add(ProviderInterceptor(hiveService: getIt<HiveService>()));
-  dio.interceptors.add(LoggingInterceptor());
+  // Debug builds only. `debugPrint` is not stripped from release builds, and
+  // this logs every request with its query string — search terms, content
+  // urls — into logcat, where other tooling on the device can read it.
+  if (kDebugMode) dio.interceptors.add(LoggingInterceptor());
   dio.interceptors.add(NoInternetInterceptor());
   dio.interceptors.add(
     AuthInterceptor(
@@ -435,6 +441,15 @@ Future<void> configureDependencies() async {
     () => MangayomiBridge(
       runtime: getIt<MangayomiRuntime>(),
       store: getIt<MangayomiRepoStore>(),
+    ),
+  );
+
+  // Browsing a source without becoming it: both kinds of catalogue answer
+  // through one repository, so the hub renders them with one widget.
+  getIt.registerLazySingleton<SourceBrowseRepository>(
+    () => SourceBrowseRepository(
+      dio: getIt<Dio>(),
+      bridge: getIt<MangayomiBridge>(),
     ),
   );
   getIt.registerLazySingleton<ExtractorRunner>(
@@ -802,7 +817,13 @@ Future<void> configureDependencies() async {
     AppLockLocalDataSource(hiveService: getIt<HiveService>()),
   );
   getIt.registerSingleton<AppLockRepository>(
-    AppLockRepositoryImpl(getIt<AppLockLocalDataSource>()),
+    AppLockRepositoryImpl(
+      getIt<AppLockLocalDataSource>(),
+      wipeProtected: () => getIt<PrivateListService>().clearAll(),
+    ),
+  );
+  getIt.registerSingleton<AppLockGate>(
+    AppLockGate(getIt<AppLockRepository>()),
   );
 
   getIt.registerLazySingleton<NavController>(() => NavController());

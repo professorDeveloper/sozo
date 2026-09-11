@@ -226,10 +226,97 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// Below this the filter is chrome over a list that already fits.
   static const int _filterThreshold = 8;
 
+  /// How far the sheet can be pulled.
+  ///
+  /// It opened at one fixed height and stayed there, which is fine for the four
+  /// readers somebody has and wrong for the twenty-odd video sources — the list
+  /// scrolled inside a window showing seven of them. Pulling it up is the
+  /// gesture people already try on a sheet this shape.
+  static const double _minSize = 0.40;
+  static const double _maxSize = 0.96;
+
+  final DraggableScrollableController _sheet = DraggableScrollableController();
+  bool _keyboardUp = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The filter field is at the top of the list, so a half-height sheet with
+    // the keyboard up leaves almost nothing of the results visible. Going to
+    // full height on focus is what the fixed layout did too.
+    final up = MediaQuery.viewInsetsOf(context).bottom > 0;
+    if (up == _keyboardUp) return;
+    _keyboardUp = up;
+    if (up && _sheet.isAttached) {
+      _sheet.animateTo(
+        _maxSize,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   @override
   void dispose() {
     _filter.dispose();
+    _sheet.dispose();
     super.dispose();
+  }
+
+  /// Resting height, as a fraction of the screen.
+  ///
+  /// Computed rather than written as a constant so the sheet still opens at
+  /// exactly the height it always has. The drag is a new capability, not a new
+  /// layout.
+  double _restingSize(BuildContext context) {
+    final screen = MediaQuery.sizeOf(context).height;
+    final top = MediaQuery.paddingOf(context).top;
+    if (screen <= 0) return _maxSize;
+    return (((screen - top - 24) * 0.78) / screen).clamp(_minSize, _maxSize);
+  }
+
+  /// The bar at the top, and the only part of the sheet that is not a list.
+  ///
+  /// A DraggableScrollableSheet resizes from its scrollable, so without this
+  /// the handle would be decoration that does not do the thing it depicts.
+  Widget _grabber(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragUpdate: (d) {
+        if (!_sheet.isAttached) return;
+        final screen = MediaQuery.sizeOf(context).height;
+        if (screen <= 0) return;
+        _sheet.jumpTo(
+          (_sheet.size - d.delta.dy / screen).clamp(_minSize, _maxSize),
+        );
+      },
+      onVerticalDragEnd: (_) {
+        if (!_sheet.isAttached) return;
+        final resting = _restingSize(context);
+        final size = _sheet.size;
+        final target = (resting - size).abs() <= (_maxSize - size).abs()
+            ? resting
+            : _maxSize;
+        _sheet.animateTo(
+          target,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.only(top: 10, bottom: 2),
+        alignment: Alignment.center,
+        child: Container(
+          width: 36,
+          height: 4,
+          decoration: BoxDecoration(
+            color: AppColors.textSecondary.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ),
+    );
   }
 
   /// The sources that are not already in the favourites block above.
@@ -259,123 +346,147 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   @override
   Widget build(BuildContext context) {
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
-    final available =
-        (MediaQuery.sizeOf(context).height -
-                keyboard -
-                MediaQuery.paddingOf(context).top -
-                24)
-            .clamp(0.0, double.infinity);
-    final favorites = _shownFavorites;
-    final items = [...favorites, ..._rest];
-    return Padding(
-      padding: EdgeInsets.only(bottom: keyboard),
-      child: SafeArea(
-        top: false,
+
+    // TV and desktop never get a sheet: showAdaptiveModal hands those a sized
+    // Dialog wrapped in a SingleChildScrollView, so there is nothing to drag
+    // and no bounded height to drag it against.
+    if (isTvPlatform || isDesktopPlatform) {
+      final available =
+          (MediaQuery.sizeOf(context).height -
+                  keyboard -
+                  MediaQuery.paddingOf(context).top -
+                  24)
+              .clamp(0.0, double.infinity);
+      return Padding(
+        padding: EdgeInsets.only(bottom: keyboard),
         child: SizedBox(
           height: available * (keyboard > 0 ? 1 : 0.78),
-          child: Column(
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  itemCount: items.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index > 0) {
-                      final p = items[index - 1];
-                      return _favoriteProviderTile(
-                        context,
-                        p,
-                        widget.currentProviderId,
-                        favorite: index <= favorites.length,
-                      );
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'ux.change_source'.tr(),
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final m in ContentMode.values)
-                                _ModeChip(
-                                  label: m.labelKey.tr(),
-                                  active: m == widget.mode,
-                                  onTap: m == widget.mode
-                                      ? null
-                                      : () => Navigator.of(
-                                          context,
-                                        ).pop('$_kModePrefix${m.id}'),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          if (widget.all.length >= _filterThreshold)
-                            TextField(
-                              controller: _filter,
-                              onChanged: (v) => setState(() => _query = v),
-                              decoration: InputDecoration(
-                                hintText: 'profile.search_providers_hint'.tr(),
-                                prefixIcon: const Icon(Icons.search),
-                                suffixIcon: _query.isEmpty
-                                    ? null
-                                    : IconButton(
-                                        tooltip: 'general.clear'.tr(),
-                                        onPressed: () {
-                                          _filter.clear();
-                                          setState(() => _query = '');
-                                        },
-                                        icon: const Icon(Icons.close),
-                                      ),
-                              ),
-                            ),
-                          if (items.isEmpty) ...[
-                            const SizedBox(height: 24),
-                            Text(
-                              (_query.isEmpty
-                                      ? 'profile.no_providers_in_category'
-                                      : 'ux.no_source_match')
-                                  .tr(),
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            if (_query.isNotEmpty)
-                              TextButton(
-                                onPressed: () {
-                                  _filter.clear();
-                                  setState(() => _query = '');
-                                },
-                                child: Text('general.clear'.tr()),
-                              ),
-                          ],
-                        ],
+          child: _body(context, null),
+        ),
+      );
+    }
+
+    final resting = _restingSize(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboard),
+      child: DraggableScrollableSheet(
+        controller: _sheet,
+        expand: false,
+        snap: true,
+        initialChildSize: resting,
+        minChildSize: _minSize,
+        maxChildSize: _maxSize,
+        // Resting and full. Without a snap list the sheet stops wherever the
+        // finger left it, which is how a sheet ends up permanently at 63%.
+        snapSizes: [resting],
+        builder: (_, controller) =>
+            SafeArea(top: false, child: _body(context, controller)),
+      ),
+    );
+  }
+
+  Widget _body(BuildContext context, ScrollController? controller) {
+    final favorites = _shownFavorites;
+    final items = [...favorites, ..._rest];
+    return Column(
+      children: [
+        if (controller != null) _grabber(context),
+        Expanded(
+          child: ListView.builder(
+            controller: controller,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            itemCount: items.length + 1,
+            itemBuilder: (context, index) {
+              if (index > 0) {
+                final p = items[index - 1];
+                return _favoriteProviderTile(
+                  context,
+                  p,
+                  widget.currentProviderId,
+                  favorite: index <= favorites.length,
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'ux.change_source'.tr(),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final m in ContentMode.values)
+                          _ModeChip(
+                            label: m.labelKey.tr(),
+                            active: m == widget.mode,
+                            onTap: m == widget.mode
+                                ? null
+                                : () => Navigator.of(
+                                    context,
+                                  ).pop('$_kModePrefix${m.id}'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (widget.all.length >= _filterThreshold)
+                      TextField(
+                        controller: _filter,
+                        onChanged: (v) => setState(() => _query = v),
+                        decoration: InputDecoration(
+                          hintText: 'profile.search_providers_hint'.tr(),
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _query.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'general.clear'.tr(),
+                                  onPressed: () {
+                                    _filter.clear();
+                                    setState(() => _query = '');
+                                  },
+                                  icon: const Icon(Icons.close),
+                                ),
+                        ),
+                      ),
+                    if (items.isEmpty) ...[
+                      const SizedBox(height: 24),
+                      Text(
+                        (_query.isEmpty
+                                ? 'profile.no_providers_in_category'
+                                : 'ux.no_source_match')
+                            .tr(),
+                        style: const TextStyle(color: AppColors.textSecondary),
+                      ),
+                      if (_query.isNotEmpty)
+                        TextButton(
+                          onPressed: () {
+                            _filter.clear();
+                            setState(() => _query = '');
+                          },
+                          child: Text('general.clear'.tr()),
+                        ),
+                    ],
+                  ],
                 ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.tune_rounded),
-                title: Text('ux.manage_sources'.tr()),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.of(context).pop(_kAllProvidersAction),
-              ),
-            ],
+              );
+            },
           ),
         ),
-      ),
+        const Divider(height: 1),
+        ListTile(
+          leading: const Icon(Icons.tune_rounded),
+          title: Text('ux.manage_sources'.tr()),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => Navigator.of(context).pop(_kAllProvidersAction),
+        ),
+      ],
     );
   }
 }

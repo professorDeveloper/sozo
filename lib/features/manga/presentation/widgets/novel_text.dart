@@ -24,12 +24,33 @@ class NovelText extends StatelessWidget {
     required this.color,
     required this.fontSize,
     this.fontFamily,
+    this.lineHeight = 1.62,
+    this.justify = true,
+    this.paragraphSpacing = 14,
   });
 
   final String html;
   final Color color;
   final double fontSize;
   final String? fontFamily;
+
+  /// Leading, as a multiple of the font size.
+  ///
+  /// Tunable rather than fixed because it is the setting that decides whether a
+  /// wall of text is readable, and the right value depends on the script: the
+  /// 1.62 that suits Latin prose is cramped for Cyrillic and loose for CJK.
+  final double lineHeight;
+
+  /// Justified prose, or ragged-right.
+  ///
+  /// Justification was the only option and it is the wrong default for a narrow
+  /// column: Flutter does not hyphenate, so a phone-width paragraph stretches
+  /// its spaces to fit and opens rivers of white down the page. Offered rather
+  /// than simply changed, because on a tablet it reads well.
+  final bool justify;
+
+  /// Gap after each paragraph.
+  final double paragraphSpacing;
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +71,7 @@ class NovelText extends StatelessWidget {
         );
       case NovelBlockKind.heading:
         return Padding(
-          padding: const EdgeInsets.only(bottom: 14, top: 6),
+          padding: EdgeInsets.only(bottom: paragraphSpacing, top: 6),
           child: Text(
             block.text,
             textAlign: TextAlign.center,
@@ -65,12 +86,13 @@ class NovelText extends StatelessWidget {
         );
       case NovelBlockKind.paragraph:
         return Padding(
-          padding: const EdgeInsets.only(bottom: 14),
+          padding: EdgeInsets.only(bottom: paragraphSpacing),
+          // Selectable because somebody reading a translation looks words up.
           child: SelectableText.rich(
-            TextSpan(children: block.spans(color, fontFamily, fontSize)),
-            // Justified, which is what a page of prose wants. Selectable
-            // because somebody reading a translation looks words up.
-            textAlign: TextAlign.justify,
+            TextSpan(
+              children: block.spans(color, fontFamily, fontSize, lineHeight),
+            ),
+            textAlign: justify ? TextAlign.justify : TextAlign.start,
           ),
         );
     }
@@ -89,14 +111,19 @@ class NovelBlock {
   final String text;
   final List<NovelRun> runs;
 
-  List<InlineSpan> spans(Color color, String? family, double size) {
+  List<InlineSpan> spans(
+    Color color,
+    String? family,
+    double size, [
+    double height = 1.62,
+  ]) {
     final base = TextStyle(
       color: color,
       fontFamily: family,
       fontSize: size,
       // Generous leading: this is a wall of text on a phone, and the spacing
       // is what makes it readable rather than the size.
-      height: 1.62,
+      height: height,
     );
     if (runs.isEmpty) return [TextSpan(text: text, style: base)];
     return [

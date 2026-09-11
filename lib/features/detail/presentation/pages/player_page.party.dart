@@ -394,12 +394,13 @@ extension _PlayerParty on _PlayerPageState {
           // would otherwise keep rendering over the new video.
           _secondarySubtitleIndex = -1;
           _secondaryCaptionFile = null;
+          _resolvedType = value.type;
         });
         unawaited(_loadThumbnails(value.thumbnails));
         await _initializeWith(
           url: url,
           headers: value.headers,
-          type: value.type,
+          type: useSources ? _typeOf(sources[pickedIdx]) : value.type,
           party: _lastPartyPlayback,
         );
         final subs = value.subtitles;

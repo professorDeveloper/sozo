@@ -83,7 +83,9 @@ object ExtensionIndex {
      * obviously-stub index, the `.pb` sibling is tried, and vice versa. Repos
      * migrate between the two without changing the URL users have bookmarked.
      */
-    fun fetch(url: String): JSONArray {
+    fun fetch(url: String): JSONArray = withFingerprint(fetchIndex(url), url)
+
+    private fun fetchIndex(url: String): JSONArray {
         val primary = runCatching { fetchOne(url) }.getOrElse {
             Log.e(TAG, "primary index failed: ${it.message}")
             null
@@ -124,6 +126,35 @@ object ExtensionIndex {
                 clean.removeSuffix("index.json") + "index.pb"
             else -> null
         }
+    }
+
+    /**
+     * Stamps the repo's signing-key fingerprint onto every package as
+     * `fingerprint`, so the hosts can check each downloaded apk against it
+     * ([ApkSignature]).
+     *
+     * The protobuf form carries the fingerprint itself (field 3). The JSON form
+     * does not; Mihon-style repos publish it next to the index in `repo.json`
+     * (`meta.signingKeyFingerprint`), which is fetched best-effort — a repo
+     * without one installs exactly as it did before.
+     */
+    private fun withFingerprint(packages: JSONArray, url: String): JSONArray {
+        if (packages.length() == 0) return packages
+        val first = packages.optJSONObject(0)
+        if (first != null && first.optString("fingerprint").isNotEmpty()) return packages
+        val repoJson = url.substringBefore('?').substringBeforeLast('/') + "/repo.json"
+        val fingerprint = runCatching {
+            val bytes = httpGetBytes(repoJson) ?: return packages
+            JSONObject(String(bytes, Charsets.UTF_8))
+                .optJSONObject("meta")
+                ?.optString("signingKeyFingerprint")
+                .orEmpty()
+        }.getOrDefault("")
+        if (ApkSignature.normalize(fingerprint) == null) return packages
+        for (i in 0 until packages.length()) {
+            packages.optJSONObject(i)?.put("fingerprint", fingerprint)
+        }
+        return packages
     }
 
     private fun fetchOne(url: String): JSONArray {
@@ -204,10 +235,13 @@ object ExtensionIndex {
 
     private fun parseProtobuf(bytes: ByteArray): JSONArray {
         val out = JSONArray()
+        var fingerprint = ""
         val reader = PbReader(bytes)
         while (reader.hasMore()) {
             val (field, wire) = reader.readTag() ?: break
-            if (field == 101 && wire == 2) {
+            if (field == 3 && wire == 2) {
+                fingerprint = reader.readString()
+            } else if (field == 101 && wire == 2) {
                 val listBytes = reader.readBytes()
                 val listReader = PbReader(listBytes)
                 while (listReader.hasMore()) {
@@ -223,6 +257,9 @@ object ExtensionIndex {
             }
         }
         Log.i(TAG, "protobuf index: ${out.length()} packages")
+        if (fingerprint.isNotEmpty()) {
+            for (i in 0 until out.length()) out.optJSONObject(i)?.put("fingerprint", fingerprint)
+        }
         return out
     }
 

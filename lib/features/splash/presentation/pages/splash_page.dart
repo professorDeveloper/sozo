@@ -23,8 +23,11 @@ class _SplashPageState extends State<SplashPage> {
     final lock = getIt<AppLockRepository>();
     await lock.ensureConsistent();
     if (!mounted) return;
+    // The PIN itself is asked for by the lock overlay, which has covered the
+    // app since the first frame (see AppLockGate) — so a deep link that lands
+    // before this runs is behind it too.
     if (lock.isEnabled) {
-      context.go('/pin-verify?redirect=/main');
+      context.go('/main');
       return;
     }
     // Once, on a device nobody has signed in on. A PIN means the device has

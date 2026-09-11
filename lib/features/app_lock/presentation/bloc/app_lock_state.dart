@@ -20,6 +20,9 @@ class AppLockState extends Equatable {
     required this.errorTick,
     required this.errorMessage,
     required this.isProcessing,
+    this.errorArgs = const [],
+    this.retryAt,
+    this.pinUnavailable = false,
   });
 
   factory AppLockState.initial() => const AppLockState(
@@ -44,6 +47,19 @@ class AppLockState extends Equatable {
   final String? errorMessage;
   final bool isProcessing;
 
+  /// Arguments for [errorMessage]'s translation.
+  final List<String> errorArgs;
+
+  /// While set and in the future, too many wrong PINs were entered and the
+  /// keypad is ignored until then.
+  final DateTime? retryAt;
+
+  /// The stored PIN cannot be read, so no entry can succeed; the screen
+  /// offers the reset path instead.
+  final bool pinUnavailable;
+
+  bool get isLockedOut => retryAt != null && retryAt!.isAfter(DateTime.now());
+
   AppLockState copyWith({
     AppLockStage? stage,
     int? pinLength,
@@ -55,6 +71,10 @@ class AppLockState extends Equatable {
     String? errorMessage,
     bool clearError = false,
     bool? isProcessing,
+    List<String>? errorArgs,
+    DateTime? retryAt,
+    bool clearRetryAt = false,
+    bool? pinUnavailable,
   }) {
     return AppLockState(
       stage: stage ?? this.stage,
@@ -66,6 +86,9 @@ class AppLockState extends Equatable {
       errorTick: errorTick ?? this.errorTick,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       isProcessing: isProcessing ?? this.isProcessing,
+      errorArgs: clearError ? const [] : (errorArgs ?? this.errorArgs),
+      retryAt: clearRetryAt ? null : (retryAt ?? this.retryAt),
+      pinUnavailable: pinUnavailable ?? this.pinUnavailable,
     );
   }
 
@@ -80,5 +103,8 @@ class AppLockState extends Equatable {
         errorTick,
         errorMessage,
         isProcessing,
+        errorArgs,
+        retryAt,
+        pinUnavailable,
       ];
 }

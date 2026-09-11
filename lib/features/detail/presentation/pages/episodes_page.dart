@@ -12,6 +12,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/domain/episode_blocks.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/player/source_ladder.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
@@ -179,6 +180,45 @@ class _EpisodesPageState extends State<EpisodesPage> {
     _historyService.revision.addListener(_refreshHistory);
     _refreshHistory();
     _maybeAutoFill();
+    if (widget.args.resumeFromHistory) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_resumeFromHistory());
+      });
+    }
+  }
+
+  /// Plays the episode history points at — what Continue Watching asked for.
+  ///
+  /// The episode can sit past the first page on a long run, so a miss in the
+  /// loaded window jumps to the block holding its number first. Anything that
+  /// cannot be found simply leaves the list on screen, which is where the
+  /// viewer would have been anyway.
+  Future<void> _resumeFromHistory() async {
+    final item = _historyItem;
+    if (item == null) return;
+    var index = _indexOfHistoryEpisode();
+    if (index < 0) {
+      final number = item.episodeNumber;
+      if (number == null) return;
+      final block = blockContaining(
+        number,
+        total: _total,
+        size: _size,
+        descending: _sort == 'desc',
+        firstNumber: _firstNumber,
+      );
+      if (block == null || !await _jumpToBlock(block) || !mounted) return;
+      index = _indexOfHistoryEpisode();
+      if (index < 0) return;
+    }
+    await _playFrom(index);
+  }
+
+  int _indexOfHistoryEpisode() {
+    for (var i = 0; i < _episodes.length; i++) {
+      if (_isHistoryEpisode(i)) return i;
+    }
+    return -1;
   }
 
   void _maybeAutoFill() {
@@ -724,7 +764,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
       return false;
     }
     final selection = quiet
-        ? DownloadSelection(url: media.videoUrl, headers: media.headers)
+        ? _quietSelection(media)
         : await chooseDownload(
             context,
             url: media.videoUrl,
@@ -885,6 +925,38 @@ class _EpisodesPageState extends State<EpisodesPage> {
     ),
   );
 
+  /// Where the row at window [index] sits in the whole run, oldest first.
+  ///
+  /// The offline reader orders chapters by what is stored here, and storing the
+  /// window position meant chapter 1 of the block starting at 301 sorted next
+  /// to chapter 1 of the first block — and, in a list sorted newest-first, the
+  /// last chapter sorted first.
+  int _runPositionOf(int index) {
+    final absolute = _indexOffset + index;
+    return _sort == 'desc' && _total > 0 ? _total - 1 - absolute : absolute;
+  }
+
+  /// The mirror a batch downloads when nobody is asked.
+  ///
+  /// `media.videoUrl` is whatever the provider listed first — on a source that
+  /// marks no default, often its lowest quality — while the sheet a single
+  /// download opens, and the player, both pick through [SourceLadder].
+  DownloadSelection _quietSelection(MediaResolveEntity media) {
+    final sources = media.videoSources;
+    final pick = sources.isEmpty
+        ? null
+        : SourceLadder(sources: sources, hasDirective: false).initialPick();
+    if (pick == null) {
+      return DownloadSelection(url: media.videoUrl, headers: media.headers);
+    }
+    final source = sources[pick];
+    return DownloadSelection(
+      url: source.videoUrl,
+      headers: source.headers.isNotEmpty ? source.headers : media.headers,
+      height: source.height,
+    );
+  }
+
   /// [_downloadChapter] with its own error reporting suppressed, for batches.
   Future<bool> _downloadChapterQuietly(int index) async {
     final before = _downloads.byId(_downloadIdFor(index));
@@ -928,7 +1000,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
         headers: pages.headers,
         pageUrls: pages.pages.map((p) => p.imageUrl).toList(),
         chapterRef: ch.mediaRef,
-        chapterIndex: index,
+        chapterIndex: _runPositionOf(index),
         episodeNumber: ch.episode,
         episodeLabel: ch.label,
       ),
@@ -2091,12 +2163,10 @@ class _BatchDownloadBar extends StatelessWidget {
 /// on screen, whether or not anything about it had changed. On a TV box that is
 /// the frame budget spent on rows that did not move.
 ///
-/// Listening here narrows the rebuild to this widget. What it does NOT remove
-/// is the per-row `downloads.byId(id)` — that is still a box read, a
-/// `jsonDecode` and a `DownloadItem.fromJson` per row per tick, because every
-/// row mounts one of these. Making that cheaper means the service handing out
-/// a decoded snapshot rather than re-parsing per caller, which is a change to
-/// the download layer, not to this widget.
+/// Listening here narrows the rebuild to this widget. The per-row
+/// `downloads.byId(id)` is cheap now: the local data source keeps each row
+/// decoded until it is rewritten, so a tick reads a map rather than parsing
+/// JSON once per row.
 class _DownloadControl extends StatelessWidget {
   const _DownloadControl({
     required this.id,

@@ -198,7 +198,6 @@ extension _PlayerAlternateSources on _PlayerPageState {
       provider: widget.args.provider,
       category: _hive.providerCategory(widget.args.provider),
       episodeNumber: _currentEpisodeNumber,
-      headers: widget.args.headers,
       resumeAt: resumeAt,
     );
     if (args == null || !mounted) return;

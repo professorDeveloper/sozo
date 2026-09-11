@@ -951,7 +951,16 @@
     "up_to_date": "Barcha kengaytmalar eng so‘nggi holatda.",
     "updated_n": "{} ta kengaytma yangilandi.",
     "spread": "Ikki sahifa",
-    "spread_desc": "Gorizontal holatda yonma-yon, kitobdagidek"
+    "spread_desc": "Gorizontal holatda yonma-yon, kitobdagidek",
+    "text_size": "Matn kattaligi",
+    "line_height": "Qator oralig‘i",
+    "typeface": "Shrift",
+    "typeface_default": "Standart",
+    "typeface_serif": "Serif",
+    "typeface_mono": "Mono",
+    "alignment": "Tekislash",
+    "align_left": "Chapdan",
+    "align_justify": "Ikki chetga"
   },
   "cloudflare": {
     "title": "Siz odam ekanligingizni tasdiqlang",

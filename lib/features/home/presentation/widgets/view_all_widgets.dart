@@ -172,9 +172,18 @@ class ViewAllMovieCard extends StatelessWidget {
     required this.movie,
     this.heroTag,
     this.showYear = true,
+    this.provider,
   });
 
   final MovieEntity movie;
+
+  /// The source this card came from, when it is not the app's current one.
+  ///
+  /// A grid of the active provider's own catalogue leaves this null and
+  /// `/detail` resolves against the ambient source, as it always has. A screen
+  /// showing somebody ELSE's catalogue — the sources hub — has to say so, or
+  /// the detail page looks the title up in the wrong source.
+  final String? provider;
 
   /// Whether to reserve the year line. False when nothing in this grid has a
   /// year, which is most anime catalogues.
@@ -205,6 +214,7 @@ class ViewAllMovieCard extends StatelessWidget {
               contentUrl: movie.url,
               preview: movie,
               heroTag: heroTag,
+              provider: provider,
             ),
           );
         }

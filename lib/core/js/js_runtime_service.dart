@@ -172,9 +172,12 @@ class JsRuntimeService {
       // provider's results under another's name.
       await _ensureExtractor(extractor.name, extractor.version)
           .timeout(kJsCallTimeout);
-      // Any request this call refuses is recorded on DartFetch; clearing it
-      // first means whatever is left afterwards belongs to THIS call.
-      dartFetch.clearBlock();
+      // Refusals and challenges are numbered on DartFetch; everything after
+      // this mark happened while THIS call was running. Other calls may be in
+      // flight too, which is why the provider's own domains are preferred
+      // when blaming one below.
+      final mark = dartFetch.mark();
+      final ownHosts = entity.domains;
       // Unlocked on purpose. The provider is looked up by name, so several
       // cross-search legs can be in flight at once and their network waits
       // overlap instead of queueing — which is what made searching several
@@ -211,10 +214,10 @@ class JsRuntimeService {
       //
       // Once only: if the host challenges the replay too, that is a refusal to
       // report, not a loop to spin in.
-      if (dartFetch.hasPendingCfChallenge) {
-        if (await dartFetch.solvePendingCfChallenge()) {
+      final challenged = dartFetch.cfHostsSince(mark);
+      if (challenged.isNotEmpty) {
+        if (await dartFetch.solveCfHosts(challenged)) {
           JsLog.info(tag, 'retrying $fn with a fresh clearance');
-          dartFetch.clearBlock();
           result = await _controller!.callAsyncJavaScript(
             functionBody: r'''
                 const __registry = (globalThis.__sozo || {}).providers || {};
@@ -248,11 +251,10 @@ class JsRuntimeService {
         // challenge surfaces as a JSON parse error deep in provider code. When
         // the network layer refused something during this call, that refusal is
         // the cause and the only half a user can act on.
-        final blocked = dartFetch.takeBlock();
+        final blocked = dartFetch.blockSince(mark, preferHosts: ownHosts);
         JsLog.err(tag, '$fn threw: $error${blocked == null ? '' : ' ($blocked)'}');
         throw Exception(blocked ?? error);
       }
-      dartFetch.clearBlock();
       final map = _coerceMap(result.value);
       JsLog.res(
         tag,

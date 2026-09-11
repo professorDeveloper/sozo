@@ -19,61 +19,16 @@ extension _PlayerSubtitles on _PlayerPageState {
       return false;
     }
     final sub = _subtitles[index];
-
-    // AI tracks carry their cues in memory, not at a url. Restore them directly.
-    if (sub.file.startsWith('ai:')) {
-      final cues = _aiCaptions[sub.file];
-      if (cues == null || cues.isEmpty) return false;
-      setState(() {
-        _activeSubtitleIndex = index;
-        _captionFile = cues;
-      });
-      return true;
+    // The download, the charset handling and every failure toast live in
+    // [_fetchCaptions]; this used to carry a second, line-for-line copy of it.
+    final cues = await _fetchCaptions(sub, declaredFormat: declaredFormat);
+    if (!mounted || cues == null) return false;
+    if (!sub.file.startsWith('ai:')) {
+      _plog('subtitle loaded: ${cues.length} cues from ${sub.label}');
     }
-
-    SubtitleParseResult result;
-    try {
-      // ResponseType.bytes: Dio's string transformer always runs
-      // utf8.decode(..., allowMalformed: true) and ignores the declared
-      // charset, which destroys every cp1251/latin1 subtitle.
-      final response = await Dio().get<List<int>>(
-        sub.file,
-        options: Options(
-          responseType: ResponseType.bytes,
-          headers: sub.headers.isEmpty ? null : sub.headers,
-          validateStatus: (s) => s != null && s < 500,
-        ),
-      );
-      if (!mounted) return false;
-      final status = response.statusCode ?? 0;
-      if (status < 200 || status >= 300) {
-        _plog('subtitle http $status for ${sub.file}', level: LogLevel.warn);
-        _toast('player.subtitle_failed_download'.tr());
-        return false;
-      }
-      result = parseSubtitleBytes(
-        response.data ?? const <int>[],
-        url: sub.file,
-        declaredFormat: declaredFormat,
-      );
-    } catch (e) {
-      _plog('subtitle load error: $e', level: LogLevel.warn);
-      if (!mounted) return false;
-      _toast('player.subtitle_failed_download'.tr());
-      return false;
-    }
-
-    if (!mounted) return false;
-    if (!result.isSuccess) {
-      _plog('subtitle parse failed: ${result.failure}', level: LogLevel.warn);
-      _toast(_subtitleFailureMessage(result.failure));
-      return false;
-    }
-
-    _plog('subtitle loaded: ${result.captions.length} cues from ${sub.label}');
     setState(() {
       _activeSubtitleIndex = index;
-      _captionFile = result.captions;
+      _captionFile = cues;
     });
     return true;
   }
@@ -98,7 +53,7 @@ extension _PlayerSubtitles on _PlayerPageState {
       // ResponseType.bytes: Dio's string transformer always runs
       // utf8.decode(..., allowMalformed: true) and ignores the declared
       // charset, which destroys every cp1251/latin1 subtitle.
-      final response = await Dio().get<List<int>>(
+      final response = await ExternalDio.instance.get<List<int>>(
         sub.file,
         options: Options(
           responseType: ResponseType.bytes,
@@ -945,7 +900,7 @@ extension _PlayerSubtitles on _PlayerPageState {
     _toast('player.translating_subtitle'.tr());
     List<Caption> source;
     try {
-      final response = await Dio().get<List<int>>(
+      final response = await ExternalDio.instance.get<List<int>>(
         sub.url,
         options: Options(
           responseType: ResponseType.bytes,

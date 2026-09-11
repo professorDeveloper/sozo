@@ -49,3 +49,13 @@ class AppLockToggleBiometric extends AppLockEvent {
 class AppLockDisableRequested extends AppLockEvent {
   const AppLockDisableRequested();
 }
+
+/// Fired by the bloc itself when a lockout's wait is over.
+class AppLockLockoutEnded extends AppLockEvent {
+  const AppLockLockoutEnded();
+}
+
+/// "Forgot PIN": wipe the private list and switch the lock off.
+class AppLockResetRequested extends AppLockEvent {
+  const AppLockResetRequested();
+}

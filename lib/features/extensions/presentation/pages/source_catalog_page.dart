@@ -96,9 +96,17 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
 
   CatalogRepository get _repo => getIt<CatalogRepository>();
 
+  /// Bumped by every fresh [_load]. A filter change, a keystroke and the
+  /// language chips all start one, and without a ticket the slowest answer
+  /// won: typing "anim" and then "anime" could leave the list showing "anim",
+  /// and a page fetched for the old filter could be appended to the new one.
+  int _generation = 0;
+
   Future<void> _load() async {
+    final generation = ++_generation;
     setState(() {
       _loading = true;
+      _loadingMore = false;
       _error = null;
       _page = 1;
     });
@@ -112,7 +120,7 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
         ),
         _repo.languages(itemType: _itemType),
       ]);
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       final page = results[0] as CatalogPage;
       setState(() {
         _items
@@ -123,7 +131,7 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       // No compiled-in fallback on purpose: the catalog IS the backend's
       // answer, and a stale snapshot of somebody else's repos presented as
       // current is worse than saying the server could not be reached.
@@ -135,6 +143,8 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
   }
 
   Future<void> _loadMore() async {
+    if (_loadingMore || _loading) return;
+    final generation = _generation;
     setState(() => _loadingMore = true);
     try {
       final next = await _repo.sources(
@@ -143,7 +153,9 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
         query: _query,
         page: _page + 1,
       );
-      if (!mounted) return;
+      // A page of the previous filter's results must not land under the new
+      // filter's first page.
+      if (!mounted || generation != _generation) return;
       setState(() {
         _page = next.page;
         _hasMore = next.hasMore;
@@ -151,7 +163,7 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
         _loadingMore = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       // A failed page is not a failed screen — what already loaded stays.
       setState(() => _loadingMore = false);
     }

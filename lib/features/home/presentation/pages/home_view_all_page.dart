@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_bloc.dart';
@@ -7,12 +8,19 @@ import 'package:soplay/features/home/presentation/bloc/view_all/view_all_event.d
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_state.dart';
 import 'package:soplay/features/home/presentation/widgets/view_all_widgets.dart';
 
-class HomeViewAllPage extends StatefulWidget {
+/// A paged grid for one catalogue section.
+///
+/// Each page gets its own [ViewAllBloc]. It used to read one shared from the
+/// app root, so opening a second "View all" on top of the first (a genre from
+/// inside a category, say) re-pointed that single bloc at the new section —
+/// and going back showed the second section's items under the first one's
+/// title, with "load more" paging the wrong list.
+class HomeViewAllPage extends StatelessWidget {
   const HomeViewAllPage({
     super.key,
-      required this.keyCat,
-      required this.title,
-      this.slug = '',
+    required this.keyCat,
+    required this.title,
+    this.slug = '',
   });
 
   final String keyCat;
@@ -20,10 +28,31 @@ class HomeViewAllPage extends StatefulWidget {
   final String title;
 
   @override
-  State<HomeViewAllPage> createState() => _HomeViewAllPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider<ViewAllBloc>(
+      create: (_) => getIt<ViewAllBloc>()
+        ..add(ViewAllLoad(key: keyCat, slug: slug)),
+      child: _HomeViewAllView(keyCat: keyCat, slug: slug, title: title),
+    );
+  }
 }
 
-class _HomeViewAllPageState extends State<HomeViewAllPage> {
+class _HomeViewAllView extends StatefulWidget {
+  const _HomeViewAllView({
+    required this.keyCat,
+    required this.title,
+    this.slug = '',
+  });
+
+  final String keyCat;
+  final String? slug;
+  final String title;
+
+  @override
+  State<_HomeViewAllView> createState() => _HomeViewAllViewState();
+}
+
+class _HomeViewAllViewState extends State<_HomeViewAllView> {
   late final ScrollController _scroll;
   final _blurProgress = ValueNotifier<double>(0);
 
@@ -31,9 +60,6 @@ class _HomeViewAllPageState extends State<HomeViewAllPage> {
   void initState() {
     super.initState();
     _scroll = ScrollController()..addListener(_onScroll);
-    context.read<ViewAllBloc>().add(
-      ViewAllLoad(key: widget.keyCat, slug: widget.slug),
-    );
   }
 
   void _onScroll() {

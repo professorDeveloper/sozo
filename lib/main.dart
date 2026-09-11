@@ -36,6 +36,8 @@ import 'package:soplay/features/download/domain/repositories/download_repository
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 
 import 'package:soplay/core/network/user_agent.dart';
+import 'package:soplay/core/storage/secure_boxes.dart';
+import 'package:soplay/features/app_lock/presentation/app_lock_gate.dart';
 import 'app.dart';
 
 
@@ -84,6 +86,9 @@ void main() async {
   PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   await _initFirebaseSafely();
   await configureDependencies();
+  // Before anything can navigate — the deep-link and push handlers below, and
+  // the first frame — so every way in lands under the lock.
+  getIt<AppLockGate>().start();
   if (!Platform.isAndroid) {
     ExtensionBridge.setUrl(getIt<HiveService>().getBridgeUrl());
   }
@@ -206,9 +211,11 @@ Future<void> _initHive() async {
   } else {
     await Hive.initFlutter();
   }
+  // The two boxes holding secrets — the session and tracker tokens, and the
+  // PIN-hidden private list — open encrypted; see SecureBoxes.
+  final cipher = await SecureBoxes.cipher();
   await Future.wait([
-
-    Hive.openBox(AppConstants.authBox),
+    SecureBoxes.open(AppConstants.authBox, cipher),
     Hive.openBox(AppConstants.settingsBox),
     Hive.openBox(AppConstants.historyBox),
     Hive.openBox(AppConstants.downloadBox),
@@ -216,7 +223,7 @@ Future<void> _initHive() async {
     Hive.openBox(AppConstants.streakBox),
     Hive.openBox(AppConstants.favoritesBox),
     Hive.openBox(AppConstants.userListsBox),
-    Hive.openBox(AppConstants.privateFavoritesBox),
+    SecureBoxes.open(AppConstants.privateFavoritesBox, cipher),
   ]);
 }
 

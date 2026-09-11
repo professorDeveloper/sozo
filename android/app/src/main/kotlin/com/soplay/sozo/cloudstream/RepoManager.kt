@@ -150,8 +150,20 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
         try { JSONObject(prefs.getString("names", "{}") ?: "{}") } catch (_: Throwable) { JSONObject() }
     private fun saveNames(o: JSONObject) { prefs.edit().putString("names", o.toString()).apply() }
 
+    /**
+     * The on-disk name for a plugin. `internalName` comes from the repo's
+     * `plugins.json`, so it is remote input: a value like `../../shared_prefs/x`
+     * would otherwise write the download outside `cs3/`. Real plugin names are
+     * plain identifiers and come through unchanged, so existing caches still hit.
+     */
+    private fun safeFileStem(internalName: String): String =
+        internalName.replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .trimStart('.')
+            .ifEmpty { "plugin" }
+
     private fun downloadCs3(internalName: String, version: Int, url: String): File? {
-        val file = File(cs3Dir, "$internalName@$version.cs3")
+        val stem = safeFileStem(internalName)
+        val file = File(cs3Dir, "$stem@$version.cs3")
         if (file.exists() && file.length() > 0) return file
         return try {
             val conn = (URL(url).openConnection() as HttpURLConnection).apply {
@@ -163,7 +175,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
             conn.inputStream.use { input -> file.outputStream.use { input.copyTo(it) } }
             // drop stale versions of the same plugin
             cs3Dir.listFiles()?.forEach { f ->
-                if (f.name.startsWith("$internalName@") && f.name != file.name) f.delete()
+                if (f.name.startsWith("$stem@") && f.name != file.name) f.delete()
             }
             file
         } catch (t: Throwable) { Log.e(TAG, "download cs3 failed: ${t.message}"); null }
@@ -385,7 +397,8 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
         }
         if (removed.isNotEmpty()) host.removeProviders(removed)
         try {
-            cs3Dir.listFiles()?.forEach { f -> if (f.name.startsWith("$internalName@")) f.delete() }
+            val stem = safeFileStem(internalName)
+            cs3Dir.listFiles()?.forEach { f -> if (f.name.startsWith("$stem@")) f.delete() }
         } catch (_: Throwable) {}
 
         val repoEmpty = remaining.length() == 0
@@ -446,7 +459,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     val file = if (downloaded.add(internalName)) {
                         downloadCs3(ref.internalName, ref.version, ref.url)
                     } else {
-                        File(cs3Dir, "${ref.internalName}@${ref.version}.cs3").takeIf { it.exists() }
+                        File(cs3Dir, "${safeFileStem(ref.internalName)}@${ref.version}.cs3").takeIf { it.exists() }
                     }
                     if (file != null) {
                         e.put("cs3Path", file.absolutePath)

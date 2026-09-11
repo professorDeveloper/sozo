@@ -222,7 +222,7 @@ class _EnterNew extends StatelessWidget {
             height: 22,
             child: state.errorMessage != null
                 ? Text(
-                    state.errorMessage!.tr(),
+                    state.errorMessage!.tr(args: state.errorArgs),
                     style: const TextStyle(
                       color: AppColors.error,
                       fontSize: 13,
@@ -277,7 +277,7 @@ class _VerifyForChange extends StatelessWidget {
             height: 22,
             child: state.errorMessage != null
                 ? Text(
-                    state.errorMessage!.tr(),
+                    state.errorMessage!.tr(args: state.errorArgs),
                     style: const TextStyle(
                       color: AppColors.error,
                       fontSize: 13,

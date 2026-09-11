@@ -8,6 +8,7 @@ import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/notifications/domain/entities/notification_item.dart';
 import 'package:soplay/features/notifications/presentation/bloc/notifications_bloc.dart';
+import 'package:soplay/features/notifications/presentation/notification_routing.dart';
 
 class NotificationsPage extends StatelessWidget {
   const NotificationsPage({super.key});
@@ -152,9 +153,15 @@ class _NotificationsViewState extends State<_NotificationsView> {
           final item = state.items[index];
           return _NotificationTile(
             item: item,
-            onTap: () => context
-                .read<NotificationsBloc>()
-                .add(NotificationsMarkRead(item.id)),
+            onTap: () {
+              context
+                  .read<NotificationsBloc>()
+                  .add(NotificationsMarkRead(item.id));
+              openNotification(
+                {'type': item.type, ...item.data},
+                fromList: true,
+              );
+            },
             onDelete: () => context
                 .read<NotificationsBloc>()
                 .add(NotificationsDelete(item.id)),

@@ -5,14 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/localization/app_language.dart';
-import 'package:soplay/core/navigation/app_tab.dart';
-import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/tv/tv.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
-import 'package:soplay/features/detail/domain/entities/detail_args.dart';
-import 'package:soplay/features/home/presentation/bloc/view_all/view_all_bloc.dart';
+import 'package:soplay/features/app_lock/presentation/widgets/app_lock_overlay.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
+import 'package:soplay/features/notifications/presentation/notification_routing.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
@@ -137,52 +134,13 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  void _handlePushTap(Map<String, dynamic> data) {
-    final router = AppRouter.router;
-
-    // Watch-party invites arrive as type:'system_other' + data.roomCode, so a
-    // type-based branch would never fire — key off roomCode before the switch.
-    final roomCode = data['roomCode'];
-    if (roomCode is String && roomCode.isNotEmpty) {
-      router.push('/watch-party?code=$roomCode');
-      return;
-    }
-
-    final type = data['type']?.toString() ?? '';
-    final contentUrl = data['contentUrl']?.toString();
-    final provider = data['provider']?.toString();
-
-    switch (type) {
-      case 'system_comment_reply':
-      case 'system_comment_like':
-        if (contentUrl != null && contentUrl.isNotEmpty) {
-          router.push(
-            '/detail',
-            extra: DetailArgs(contentUrl: contentUrl, provider: provider),
-          );
-        } else {
-          router.push('/notifications');
-        }
-      case 'system_ban':
-        getIt<AuthBloc>().add(AuthSessionExpired());
-        router.go('/login');
-      case 'system_unban':
-      case 'admin_broadcast':
-      case 'admin_direct':
-        router.push('/notifications');
-      case 'streak_risk':
-        getIt<NavController>().goToId(TabId.profile);
-      default:
-        router.push('/notifications');
-    }
-  }
+  void _handlePushTap(Map<String, dynamic> data) => openNotification(data);
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>.value(value: getIt<AuthBloc>()),
-        BlocProvider<ViewAllBloc>(create: (_) => getIt<ViewAllBloc>()),
         BlocProvider<HomeBloc>(create: (_) => getIt<HomeBloc>()),
         BlocProvider<SearchBloc>(create: (_) => getIt<SearchBloc>()),
         BlocProvider<ProviderBloc>(
@@ -208,7 +166,13 @@ class _MyAppState extends State<MyApp> {
         // topmost dialog/sheet, else pops the page). Mobile returns the child
         // unchanged.
         builder: (context, child) {
-          final app = child ?? const SizedBox.shrink();
+          // The app lock covers the router rather than being a route in it:
+          // a deep link or a push tap navigates underneath and is simply
+          // revealed on unlock, and relocking on return from the background
+          // keeps the whole navigation stack — a redirect would have thrown
+          // away the pages below, and the `extra` arguments pages like the
+          // player are opened with.
+          final app = AppLockOverlay(child: child ?? const SizedBox.shrink());
           // Android TV: Flutter's default shortcut map activates the focused
           // widget on enter/space, but a remote's OK button arrives as
           // DPAD_CENTER (LogicalKeyboardKey.select) and a game controller's as

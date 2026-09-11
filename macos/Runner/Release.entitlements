@@ -14,5 +14,12 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
+	<!--
+	  No keychain-access-groups here either: not sandboxed means the login
+	  keychain is reachable without one, and an entitlement naming an
+	  $(AppIdentifierPrefix) would demand a development certificate this project
+	  does not have. A future sandboxed, properly signed distribution build would
+	  need that key, or SecureBoxes quietly leaves the token stores unencrypted.
+	-->
 </dict>
 </plist>

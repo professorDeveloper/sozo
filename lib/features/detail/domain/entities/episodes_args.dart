@@ -12,6 +12,14 @@ class EpisodesArgs {
   final int total;
   final int totalPages;
 
+  /// Opened from Continue Watching: play the episode history points at
+  /// instead of stopping on the list.
+  ///
+  /// The detail page was handed the episode to resume and dropped it, so the
+  /// one-tap "continue" from the home rail landed on a list of every episode
+  /// and made the viewer find their place a second time.
+  final bool resumeFromHistory;
+
   const EpisodesArgs({
     required this.title,
     required this.episodes,
@@ -23,5 +31,6 @@ class EpisodesArgs {
     this.size = 100,
     this.total = 0,
     this.totalPages = 1,
+    this.resumeFromHistory = false,
   });
 }

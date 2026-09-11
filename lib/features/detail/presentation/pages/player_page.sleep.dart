@@ -108,9 +108,7 @@ extension _PlayerSleepTimer on _PlayerPageState {
       // A controller that is already gone has nothing to pause, and the
       // wakelock below is still worth releasing.
     }
-    try {
-      await WakelockPlus.disable();
-    } catch (_) {}
+    await WakelockHolds.release(this);
     if (!mounted) return;
     // Controls up and kept up, so the viewer who is still awake sees why it
     // stopped and can hit play without hunting for the tap target. The hide

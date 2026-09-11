@@ -45,7 +45,13 @@ class DownloadStorage {
     if (_root != null && preferredBase == null) return;
 
     var base = preferredBase?.trim();
-    if (base != null && base.isNotEmpty) {
+    // Empty means "not chosen", which is not the same as an empty path. It used
+    // to survive both branches below — the probe skipped it for being empty,
+    // and `??=` left it alone for not being null — so the root came out as
+    // '' + '/downloads' and every platform failed to create `/downloads` at the
+    // filesystem root: read-only on Android, not permitted on macOS.
+    if (base != null && base.isEmpty) base = null;
+    if (base != null) {
       try {
         final dir = Directory(base);
         if (!await dir.exists()) await dir.create(recursive: true);

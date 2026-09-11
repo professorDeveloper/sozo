@@ -30,7 +30,6 @@ class AlternateSourceSheet extends StatefulWidget {
     required this.provider,
     required this.category,
     required this.episodeNumber,
-    required this.headers,
     this.resumeAt = Duration.zero,
   });
 
@@ -38,7 +37,6 @@ class AlternateSourceSheet extends StatefulWidget {
   final String provider;
   final String category;
   final int? episodeNumber;
-  final Map<String, String> headers;
 
   /// Where the viewer is now, carried onto the source they pick.
   ///
@@ -53,7 +51,6 @@ class AlternateSourceSheet extends StatefulWidget {
     required String provider,
     required String category,
     required int? episodeNumber,
-    required Map<String, String> headers,
     Duration resumeAt = Duration.zero,
   }) {
     return showAdaptiveModal<PlayerArgs>(
@@ -68,7 +65,6 @@ class AlternateSourceSheet extends StatefulWidget {
         provider: provider,
         category: category,
         episodeNumber: episodeNumber,
-        headers: headers,
         resumeAt: resumeAt,
       ),
     );
@@ -134,7 +130,6 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     final args = await getIt<AlternateSourceService>().buildArgs(
       source: source,
       episodeNumber: widget.episodeNumber,
-      headers: widget.headers,
       resumeAt: widget.resumeAt,
     );
     if (!mounted) return;

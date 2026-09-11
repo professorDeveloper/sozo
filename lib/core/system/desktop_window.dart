@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -123,6 +125,11 @@ class WindowButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // macOS draws its own. The window is created with
+    // `windowButtonVisibility: true` there, deliberately, because the traffic
+    // lights are where a Mac user reaches — so adding a Windows-style cluster
+    // in the opposite corner gave the window two sets of controls at once.
+    if (Platform.isMacOS) return const SizedBox.shrink();
     return Row(
       children: [
         _WinButton(

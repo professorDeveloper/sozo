@@ -187,6 +187,7 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
                     put("pkg", pkgName)
                     put("className", pkg.optString("name"))
                     put("apkUrl", apkRemote)
+                    put("fingerprint", pkg.optString("fingerprint"))
                     put("iconUrl", iconRemote)
                     put("nsfw", nsfw)
                 }
@@ -284,6 +285,7 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
                             put("pkg", pkgName)
                             put("className", pkg.optString("name"))
                             put("apkUrl", apkRemote)
+                            put("fingerprint", pkg.optString("fingerprint"))
                             put("iconUrl", iconRemote)
                             put("nsfw", pkg.optBoolean("nsfw", false))
                         }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
+import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
@@ -143,7 +144,6 @@ class AlternateSourceService {
   Future<PlayerArgs?> buildArgs({
     required AlternateSource source,
     required int? episodeNumber,
-    required Map<String, String> headers,
     Duration resumeAt = Duration.zero,
   }) async {
     final playback = (await _episodes(
@@ -159,24 +159,42 @@ class AlternateSourceService {
 
     if (playback.isSerial || episodes.isNotEmpty) {
       if (episodes.isEmpty) return null;
+      var window = playback;
       var index = 0;
       if (episodeNumber != null && episodeNumber > 0) {
         index = episodes.indexWhere((e) => e.episode == episodeNumber);
-        if (index < 0) return null;
+        if (index < 0) {
+          // Only the first page came back — a hundred episodes. Episode 240
+          // of a long run is on a later one, and "this source does not have
+          // it" was the answer every long show got.
+          final found = await _findOnLaterPage(source, playback, episodeNumber);
+          if (found == null) return null;
+          (window, index) = found;
+        }
       }
+      final size = playback.size > 0 ? playback.size : episodes.length;
       return PlayerArgs(
         title: source.item.title,
         provider: source.provider.id,
-        headers: headers,
+        // The NEW provider's headers. The caller used to pass the ones the
+        // failing source was played with — its Referer, its cookies — which
+        // the new host has no use for and some reject outright.
+        headers: window.headers.isNotEmpty ? window.headers : playback.headers,
         contentUrl: source.item.url,
         thumbnail: source.item.thumbnail,
-        episodes: episodes,
+        episodes: window.episodes,
         initialEpisodeIndex: index,
         // Switching source mid-episode should not restart it. The new provider
         // is a different file behind the same minute of the same show, so the
         // position carries over — that is the whole point of switching rather
         // than going back and starting again.
         resumePosition: resumeAt,
+        // Where this window sits in the run, so Next keeps working past the
+        // page that was loaded — the same four the episode list passes.
+        windowStart: (window.page - 1) * size,
+        totalEpisodes: playback.total,
+        pageSize: size,
+        sort: playback.sort,
       );
     }
 
@@ -184,13 +202,48 @@ class AlternateSourceService {
     return PlayerArgs(
       title: source.item.title,
       provider: source.provider.id,
-      headers: headers,
+      headers: playback.headers,
       contentUrl: source.item.url,
       thumbnail: source.item.thumbnail,
       videoSources: List.of(playback.videoSources),
       movieUrl: playback.playerSrc,
       resumePosition: resumeAt,
     );
+  }
+
+  /// Finds episode [number] on a page past the first.
+  ///
+  /// The page the numbering says it should be on first, then its neighbours:
+  /// a recap or a special in the list shifts an episode across a page boundary,
+  /// rarely further. Three requests at most — this runs while somebody waits.
+  Future<(PlaybackEntity, int)?> _findOnLaterPage(
+    AlternateSource source,
+    PlaybackEntity first,
+    int number,
+  ) async {
+    if (first.totalPages < 2 || first.episodes.isEmpty) return null;
+    final size = first.size > 0 ? first.size : first.episodes.length;
+    if (size <= 0) return null;
+    final base = first.episodes.first.episode;
+    final ascending = first.sort.toLowerCase() != 'desc';
+    final offset = ascending ? number - base : base - number;
+    if (offset < 0) return null;
+    final guess = offset ~/ size + 1;
+    for (final page in [guess, guess + 1, guess - 1]) {
+      if (page < 2 || page > first.totalPages) continue;
+      final result = (await _episodes(
+        source.item.url,
+        page: page,
+        size: size,
+        sort: first.sort,
+        provider: source.provider.id,
+      ))
+          .getOrNull();
+      if (result == null) continue;
+      final i = result.episodes.indexWhere((e) => e.episode == number);
+      if (i >= 0) return (result, i);
+    }
+    return null;
   }
 
   // --- title matching ------------------------------------------------------

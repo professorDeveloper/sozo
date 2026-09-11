@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -12,6 +13,7 @@ import 'package:soplay/features/auth/domain/entities/auth_token.dart';
 import 'package:soplay/features/auth/domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
+import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
@@ -245,14 +247,19 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> logout() async {
+    // The server call is a courtesy — it revokes the refresh token there. The
+    // local wipe is the part that matters on this device, so it runs whatever
+    // the call does; it used to be skipped on anything but a DioException.
     try {
       await _remoteDataSource.logout();
-    } on DioException {
+    } catch (_) {
+    } finally {
       await _clearAccountScopedData();
-      return;
     }
-    await _clearAccountScopedData();
   }
+
+  @override
+  Future<void> clearLocalSession() => _clearAccountScopedData();
 
   /// Tokens are not the only account-scoped state on the device.
   ///
@@ -294,6 +301,11 @@ class AuthRepositoryImpl implements AuthRepository {
     // the app to another person's saved titles, streak and viewing totals.
     if (getIt.isRegistered<MyListLocalDataSource>()) {
       await getIt<MyListLocalDataSource>().clearLocalOnly();
+    }
+    // Watch Later / Watched: the same kind of server-backed cache as My List,
+    // and it was the one left behind.
+    if (Hive.isBoxOpen(AppConstants.userListsBox)) {
+      await Hive.box(AppConstants.userListsBox).clear();
     }
     if (getIt.isRegistered<StreakService>()) {
       getIt<StreakService>().reset();

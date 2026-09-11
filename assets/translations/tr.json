@@ -951,7 +951,16 @@
     "up_to_date": "Tüm eklentiler güncel.",
     "updated_n": "{} eklenti güncellendi.",
     "spread": "Çift sayfa",
-    "spread_desc": "Yatay konumda yan yana, kitabın çizildiği gibi"
+    "spread_desc": "Yatay konumda yan yana, kitabın çizildiği gibi",
+    "text_size": "Yazı boyutu",
+    "line_height": "Satır aralığı",
+    "typeface": "Yazı tipi",
+    "typeface_default": "Varsayılan",
+    "typeface_serif": "Tırnaklı",
+    "typeface_mono": "Mono",
+    "alignment": "Hizalama",
+    "align_left": "Sola",
+    "align_justify": "İki yana"
   },
   "cloudflare": {
     "title": "İnsan olduğunu doğrula",

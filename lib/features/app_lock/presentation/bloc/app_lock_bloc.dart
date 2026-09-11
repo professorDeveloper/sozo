@@ -1,12 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/features/app_lock/domain/entities/pin_check.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 
 import 'app_lock_event.dart';
 import 'app_lock_state.dart';
 
 enum AppLockMode { setup, verify, change }
-
-
 
 class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
   AppLockBloc({
@@ -22,10 +23,13 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
     on<AppLockBiometricRequested>(_onBiometric);
     on<AppLockToggleBiometric>(_onToggleBiometric);
     on<AppLockDisableRequested>(_onDisable);
+    on<AppLockLockoutEnded>(_onLockoutEnded);
+    on<AppLockResetRequested>(_onResetRequested);
   }
 
   final AppLockRepository _repo;
   final AppLockMode mode;
+  Timer? _lockoutTimer;
 
   static AppLockState _initialFor(AppLockRepository repo, AppLockMode mode) {
     final base = AppLockState.initial().copyWith(
@@ -48,6 +52,61 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
   ) async {
     final available = await _repo.isBiometricAvailable();
     emit(state.copyWith(biometricAvailable: available));
+    if (mode == AppLockMode.setup) return;
+    // A lockout outlives the screen — leaving and coming back must not reset
+    // the wait.
+    final until = await _repo.lockedOutUntil();
+    if (until != null) _enterLockout(until, emit);
+    if (_repo.isEnabled && !await _repo.isPinReadable()) {
+      emit(state.copyWith(
+        pinUnavailable: true,
+        errorTick: state.errorTick + 1,
+        errorMessage: 'app_lock.pin_unavailable',
+      ));
+    }
+  }
+
+  void _enterLockout(DateTime until, Emitter<AppLockState> emit) {
+    final seconds = until.difference(DateTime.now()).inSeconds + 1;
+    emit(state.copyWith(
+      entered: '',
+      isProcessing: false,
+      retryAt: until,
+      errorTick: state.errorTick + 1,
+      errorMessage: 'app_lock.locked_out',
+      errorArgs: ['$seconds'],
+    ));
+    _lockoutTimer?.cancel();
+    _lockoutTimer = Timer(
+      until.difference(DateTime.now()),
+      () => add(const AppLockLockoutEnded()),
+    );
+  }
+
+  void _onLockoutEnded(AppLockLockoutEnded event, Emitter<AppLockState> emit) {
+    emit(state.copyWith(clearRetryAt: true, clearError: true));
+  }
+
+  Future<void> _onResetRequested(
+    AppLockResetRequested event,
+    Emitter<AppLockState> emit,
+  ) async {
+    emit(state.copyWith(isProcessing: true));
+    await _repo.resetForgotten();
+    emit(state.copyWith(
+      stage: AppLockStage.done,
+      entered: '',
+      isProcessing: false,
+      pinUnavailable: false,
+      clearRetryAt: true,
+      clearError: true,
+    ));
+  }
+
+  @override
+  Future<void> close() {
+    _lockoutTimer?.cancel();
+    return super.close();
   }
 
   void _onLengthChosen(
@@ -67,7 +126,7 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
     AppLockPinDigitPressed event,
     Emitter<AppLockState> emit,
   ) async {
-    if (state.isProcessing) return;
+    if (state.isProcessing || state.isLockedOut || state.pinUnavailable) return;
     if (state.entered.length >= state.pinLength) return;
     final next = state.entered + event.digit;
     emit(state.copyWith(entered: next, clearError: true));
@@ -120,8 +179,8 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
         }
       case AppLockStage.verify:
         emit(state.copyWith(isProcessing: true));
-        final ok = await _repo.verifyPin(state.entered);
-        if (ok) {
+        final result = await _repo.checkPin(state.entered);
+        if (result.isOk) {
           if (mode == AppLockMode.change) {
             emit(state.copyWith(
               stage: AppLockStage.chooseLength,
@@ -139,12 +198,26 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
             ));
           }
         } else {
-          emit(state.copyWith(
-            entered: '',
-            isProcessing: false,
-            errorTick: state.errorTick + 1,
-            errorMessage: 'app_lock.pin_wrong',
-          ));
+          switch (result.outcome) {
+            case PinCheck.lockedOut:
+              _enterLockout(result.retryAt!, emit);
+            case PinCheck.unavailable:
+              emit(state.copyWith(
+                entered: '',
+                isProcessing: false,
+                pinUnavailable: true,
+                errorTick: state.errorTick + 1,
+                errorMessage: 'app_lock.pin_unavailable',
+              ));
+            case PinCheck.wrong:
+            case PinCheck.ok:
+              emit(state.copyWith(
+                entered: '',
+                isProcessing: false,
+                errorTick: state.errorTick + 1,
+                errorMessage: 'app_lock.pin_wrong',
+              ));
+          }
         }
       case AppLockStage.chooseLength:
       case AppLockStage.done:

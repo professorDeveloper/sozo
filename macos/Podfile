@@ -1,4 +1,7 @@
-platform :osx, '10.15'
+# 11.0, not 10.15: `gal` and `speech_to_text` both declare an 11.0 minimum, and
+# CocoaPods refuses the whole install rather than skipping them — "Error running
+# pod install" was the entire macOS build, not one plugin.
+platform :osx, '11.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'

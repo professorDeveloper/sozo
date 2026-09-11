@@ -251,9 +251,9 @@ class _DownloadsView extends StatelessWidget {
     context.push(
       '/player',
       extra: PlayerArgs(
-        title: item.isSerial && item.episodeNumber != null
-            ? '${item.title} · EP ${item.episodeNumber}'
-            : item.title,
+        // The series title alone: history and the trackers key on it, and the
+        // player adds the episode itself from offlineEpisodeNumber below.
+        title: item.title,
         provider: item.provider,
         headers: const {},
         contentUrl: item.contentUrl,
@@ -261,6 +261,9 @@ class _DownloadsView extends StatelessWidget {
         movieUrl: item.isHls ? Uri.file(path).toString() : path,
         type: item.isHls ? 'hls' : null,
         showDownloadAction: false,
+        // Recorded as the episode it is, not as a film under the series url.
+        offlineEpisodeNumber: item.isSerial ? item.episodeNumber : null,
+        offlineEpisodeLabel: item.isSerial ? item.episodeLabel : null,
       ),
     );
   }
@@ -276,7 +279,15 @@ class _DownloadsView extends StatelessWidget {
         if (group.key == item.groupKey)
           for (final d in group.items)
             if (d.isManga && d.status == DownloadStatus.completed) d,
-    ]..sort((a, b) => (a.chapterIndex ?? 0).compareTo(b.chapterIndex ?? 0));
+    ]..sort((a, b) {
+        // By chapter number first: it is the one thing that means the same
+        // wherever the chapter was downloaded from — the reader, a later block
+        // of the list, a list sorted newest-first. The stored index breaks
+        // ties, for sources that number nothing.
+        final byNumber = (a.episodeNumber ?? 0).compareTo(b.episodeNumber ?? 0);
+        if (byNumber != 0) return byNumber;
+        return (a.chapterIndex ?? 0).compareTo(b.chapterIndex ?? 0);
+      });
 
     final chapters = [
       for (final d in siblings)

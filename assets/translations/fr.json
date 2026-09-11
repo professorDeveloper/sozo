@@ -951,7 +951,16 @@
     "up_to_date": "Toutes les extensions sont à jour.",
     "updated_n": "{} extension(s) mise(s) à jour.",
     "spread": "Double page",
-    "spread_desc": "Côte à côte en paysage, comme le livre a été dessiné"
+    "spread_desc": "Côte à côte en paysage, comme le livre a été dessiné",
+    "text_size": "Taille du texte",
+    "line_height": "Interligne",
+    "typeface": "Police",
+    "typeface_default": "Par défaut",
+    "typeface_serif": "Serif",
+    "typeface_mono": "Mono",
+    "alignment": "Alignement",
+    "align_left": "À gauche",
+    "align_justify": "Justifié"
   },
   "cloudflare": {
     "title": "Confirme que tu es humain",

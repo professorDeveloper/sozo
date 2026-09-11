@@ -951,7 +951,16 @@
     "up_to_date": "كل الإضافات محدَّثة.",
     "updated_n": "تم تحديث {} إضافة.",
     "spread": "صفحتان",
-    "spread_desc": "جنباً إلى جنب أفقياً، كما رُسم الكتاب"
+    "spread_desc": "جنباً إلى جنب أفقياً، كما رُسم الكتاب",
+    "text_size": "حجم النص",
+    "line_height": "تباعد الأسطر",
+    "typeface": "الخط",
+    "typeface_default": "افتراضي",
+    "typeface_serif": "مذيّل",
+    "typeface_mono": "أحادي",
+    "alignment": "المحاذاة",
+    "align_left": "لليمين",
+    "align_justify": "ضبط"
   },
   "cloudflare": {
     "title": "تأكيد أنك لست روبوتاً",

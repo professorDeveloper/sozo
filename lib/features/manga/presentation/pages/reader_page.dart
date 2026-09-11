@@ -7,13 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/system/system_controls.dart';
+import 'package:soplay/features/detail/domain/playback/wakelock_holds.dart';
 import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
@@ -68,6 +68,12 @@ class _ReaderPageState extends State<ReaderPage> {
   late String _bgPref;
   double _brightness = 0.5;
 
+  // Prose typography. Only a novel chapter uses these; a comic ignores them.
+  late double _novelSize;
+  late double _novelLeading;
+  late String _novelFamily;
+  late bool _novelJustify;
+
   Color get _backgroundColor => switch (_bgPref) {
         'white' => const Color(0xFFFAFAFA),
         'gray' => const Color(0xFF2A2A2A),
@@ -90,6 +96,19 @@ class _ReaderPageState extends State<ReaderPage> {
   int _initialIndex = 0;
   Timer? _saveDebounce;
 
+  /// Bumped by every [_loadChapter]. A chapter answer that arrives after the
+  /// reader has already moved on — two quick taps on "next", a pick from the
+  /// chapter sheet while the previous chapter is still loading — is dropped
+  /// instead of painting the wrong chapter under the new chapter's title.
+  int _loadToken = 0;
+
+  /// How far through a novel chapter the reader is, in thousandths.
+  ///
+  /// Prose has no page index, so the history row carries this where a comic
+  /// carries its page: position out of a duration of 1000. It is what brings a
+  /// reader back to the middle of a long chapter instead of its first line.
+  int _novelPermille = 0;
+
   int get _currentPage => _page.value;
   int get _pageCount => _pages.length;
   List<dynamic> get _chapters => widget.args.chapters;
@@ -103,7 +122,12 @@ class _ReaderPageState extends State<ReaderPage> {
     _spreadPref = _hive.readerSpread;
     _rtl = _hive.getReaderRtl(widget.args.contentUrl);
     _bgPref = _hive.getReaderBackground();
+    _novelSize = _hive.getNovelFontSize();
+    _novelLeading = _hive.getNovelLineHeight();
+    _novelFamily = _hive.getNovelFontFamily();
+    _novelJustify = _hive.getNovelJustify();
     _itemPositionsListener.itemPositions.addListener(_onItemPositions);
+    _novelScrollController.addListener(_onNovelScroll);
     if (!isDesktopPlatform) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
@@ -117,8 +141,9 @@ class _ReaderPageState extends State<ReaderPage> {
   @override
   void dispose() {
     _spreadController.dispose();
-    _novelScrollController.dispose();
+    _novelScrollController.removeListener(_onNovelScroll);
     _saveProgress();
+    _novelScrollController.dispose();
     _saveDebounce?.cancel();
     _itemPositionsListener.itemPositions.removeListener(_onItemPositions);
     _pageController?.dispose();
@@ -134,13 +159,17 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _setWakelock(bool on) {
-    try {
-      WakelockPlus.toggle(enable: on);
-    } catch (_) {}
+    // A hold, not a switch: a download running under the reader keeps its own.
+    if (on) {
+      WakelockHolds.acquire(this);
+    } else {
+      WakelockHolds.release(this);
+    }
   }
 
   Future<void> _loadChapter(int index, {int startPage = 0}) async {
     if (index < 0 || index >= _chapters.length) return;
+    final token = ++_loadToken;
     setState(() {
       _chapterIndex = index;
       _loading = true;
@@ -158,7 +187,7 @@ class _ReaderPageState extends State<ReaderPage> {
       chapterRef: ref,
     );
     final local = await _downloads.localMangaPages(localId);
-    if (!mounted) return;
+    if (!mounted || token != _loadToken) return;
     if (local.isNotEmpty) {
       final start = startPage.clamp(0, local.length - 1);
       _pageController?.dispose();
@@ -180,7 +209,7 @@ class _ReaderPageState extends State<ReaderPage> {
       ref: ref,
       provider: widget.args.provider,
     );
-    if (!mounted) return;
+    if (!mounted || token != _loadToken) return;
     switch (result) {
       case Success(:final value):
         final start = value.pages.isEmpty
@@ -190,12 +219,15 @@ class _ReaderPageState extends State<ReaderPage> {
         _pageController = PageController(initialPage: start);
         _page.value = start;
         _initialIndex = start;
+        final isText = value.isText;
+        _novelPermille = isText ? startPage.clamp(0, 1000) : 0;
         setState(() {
           _pages = value.pages;
-          _html = value.isText ? value.html : null;
+          _html = isText ? value.html : null;
           _headers = value.headers;
           _loading = false;
         });
+        if (isText) _restoreNovelPosition(_novelPermille);
         _scheduleSave();
       case Failure(:final error):
         setState(() {
@@ -229,13 +261,42 @@ class _ReaderPageState extends State<ReaderPage> {
     _itemScrollController.jumpTo(index: page.clamp(0, _pageCount - 1));
   }
 
+  /// Scrolls a freshly loaded novel chapter to where the reader left it.
+  ///
+  /// After the first frame, because the prose has no extent to scroll through
+  /// until it has been laid out — and always, even to the top, because the
+  /// scroll view can otherwise come back holding the previous chapter's offset.
+  void _restoreNovelPosition(int permille) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_novelScrollController.hasClients) return;
+      final max = _novelScrollController.position.maxScrollExtent;
+      _novelScrollController.jumpTo(max * permille / 1000);
+    });
+  }
+
+  void _onNovelScroll() {
+    if (_html == null || !_novelScrollController.hasClients) return;
+    final max = _novelScrollController.position.maxScrollExtent;
+    if (max <= 0) return;
+    final permille =
+        (_novelScrollController.offset / max * 1000).round().clamp(0, 1000);
+    // Every scrolled pixel would otherwise restart the save timer; a change
+    // of half a percent is the smallest one worth recording.
+    if ((permille - _novelPermille).abs() < 5 && permille != 1000) return;
+    _novelPermille = permille;
+    _scheduleSave();
+  }
+
   void _scheduleSave() {
     _saveDebounce?.cancel();
     _saveDebounce = Timer(const Duration(milliseconds: 800), _saveProgress);
   }
 
   void _saveProgress() {
-    if (_pageCount == 0) return;
+    // A novel chapter has no pages but is very much being read; returning on
+    // an empty page list is what used to leave novels out of history entirely.
+    final isNovel = _html != null;
+    if (!isNovel && _pageCount == 0) return;
     final ch = widget.args.chapters[_chapterIndex];
     getIt<HistoryService>().save(HistoryItem(
       contentUrl: widget.args.contentUrl,
@@ -246,8 +307,8 @@ class _ReaderPageState extends State<ReaderPage> {
       episodeIndex: _chapterIndex,
       episodeNumber: ch.episode,
       episodeLabel: ch.label,
-      positionMs: _currentPage,
-      durationMs: _pageCount > 1 ? _pageCount - 1 : 0,
+      positionMs: isNovel ? _novelPermille : _currentPage,
+      durationMs: isNovel ? 1000 : (_pageCount > 1 ? _pageCount - 1 : 0),
       watchedAt: DateTime.now().millisecondsSinceEpoch,
     ));
   }
@@ -498,7 +559,14 @@ class _ReaderPageState extends State<ReaderPage> {
         child: NovelText(
           html: html,
           color: onWhite ? const Color(0xFF16181C) : Colors.white,
-          fontSize: 17,
+          fontSize: _novelSize,
+          lineHeight: _novelLeading,
+          fontFamily: _novelFamily.isEmpty ? null : _novelFamily,
+          justify: _novelJustify,
+          // Paragraphs need air in proportion to their leading, or a generous
+          // line height closes the gap between them and the page reads as one
+          // block.
+          paragraphSpacing: _novelSize * _novelLeading * 0.85,
         ),
       ),
     );
@@ -1018,6 +1086,71 @@ class _ReaderPageState extends State<ReaderPage> {
                   },
                 ),
               ],
+              if (_html != null) ...[
+                const SizedBox(height: 18),
+                Text('manga.text_size'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                _novelSlider(
+                  value: _novelSize,
+                  min: 13,
+                  max: 26,
+                  divisions: 13,
+                  label: _novelSize.round().toString(),
+                  onChanged: (v) {
+                    setSheet(() {});
+                    setState(() => _novelSize = v);
+                    _hive.saveNovelFontSize(v);
+                  },
+                ),
+                Text('manga.line_height'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                _novelSlider(
+                  value: _novelLeading,
+                  min: 1.2,
+                  max: 2.2,
+                  divisions: 10,
+                  label: _novelLeading.toStringAsFixed(2),
+                  onChanged: (v) {
+                    setSheet(() {});
+                    setState(() => _novelLeading = v);
+                    _hive.saveNovelLineHeight(v);
+                  },
+                ),
+                const SizedBox(height: 6),
+                Text('manga.typeface'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 8),
+                _segmented(
+                  options: {
+                    '': 'manga.typeface_default'.tr(),
+                    'serif': 'manga.typeface_serif'.tr(),
+                    'monospace': 'manga.typeface_mono'.tr(),
+                  },
+                  value: _novelFamily,
+                  onChanged: (v) {
+                    _hive.saveNovelFontFamily(v);
+                    setState(() => _novelFamily = v);
+                    setSheet(() {});
+                  },
+                ),
+                const SizedBox(height: 18),
+                Text('manga.alignment'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 8),
+                _segmented(
+                  options: {
+                    'left': 'manga.align_left'.tr(),
+                    'justify': 'manga.align_justify'.tr(),
+                  },
+                  value: _novelJustify ? 'justify' : 'left',
+                  onChanged: (v) {
+                    final want = v == 'justify';
+                    _hive.saveNovelJustify(want);
+                    setState(() => _novelJustify = want);
+                    setSheet(() {});
+                  },
+                ),
+              ],
               const SizedBox(height: 18),
               Text('manga.background'.tr(),
                   style: const TextStyle(color: Colors.white70, fontSize: 12)),
@@ -1062,6 +1195,40 @@ class _ReaderPageState extends State<ReaderPage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// A labelled slider for the prose settings, sized to sit in the sheet.
+  Widget _novelSlider({
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required String label,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Slider(
+            activeColor: _accent,
+            inactiveColor: Colors.white24,
+            min: min,
+            max: max,
+            divisions: divisions,
+            value: value.clamp(min, max),
+            onChanged: onChanged,
+          ),
+        ),
+        SizedBox(
+          width: 40,
+          child: Text(
+            label,
+            textAlign: TextAlign.end,
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+        ),
+      ],
     );
   }
 

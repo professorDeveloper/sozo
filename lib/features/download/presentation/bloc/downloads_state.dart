@@ -68,8 +68,31 @@ class DownloadGroup extends Equatable {
 
   List<String> get ids => [for (final i in items) i.id];
 
+  /// Everything about a row the list draws, not only which rows there are.
+  ///
+  /// Comparing ids alone made every progress tick an "equal" state: Bloc drops
+  /// an emit that equals the current one, so a download sat at the percentage
+  /// it had when the page opened and a finished one never turned into
+  /// "completed" until something else changed the set of rows.
   @override
-  List<Object?> get props => [key, items.map((i) => i.id).toList()];
+  List<Object?> get props => [
+        key,
+        [
+          for (final i in items)
+            [
+              i.id,
+              i.status,
+              i.completedUnits,
+              i.totalUnits,
+              i.sizeBytes,
+              i.updatedAt,
+              i.failure,
+              i.failureDetail,
+              i.attempts,
+              i.thumbnailRelativePath,
+            ],
+        ],
+      ];
 }
 
 class DownloadsState extends Equatable {

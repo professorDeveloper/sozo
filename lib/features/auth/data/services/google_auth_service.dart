@@ -29,23 +29,46 @@ class GoogleAuthService {
 
   bool _initialized = false;
 
+  /// The OAuth client an Apple build needs, when one is configured.
+  ///
+  /// Android finds it in google-services.json, which the Gradle plugin wires
+  /// up. There is no equivalent here: this repo ships no GoogleService-Info
+  /// .plist under ios/ or macos/ and no GIDClientID in either Info.plist, so
+  /// nothing tells the plugin which client to use and `authenticate` throws the
+  /// moment the button is tapped.
+  static String? get _appleClientId => _env('GOOGLE_IOS_CLIENT_ID');
+
+  /// dotenv before `load` throws rather than answering null.
+  static String? _env(String key) {
+    try {
+      final value = dotenv.maybeGet(key);
+      return value != null && value.isNotEmpty ? value : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Whether to offer the button at all.
   ///
   /// The desktop and TV builds share these screens and have no Google plugin
   /// behind them, so the button has to disappear there rather than throw when
-  /// tapped.
-  static bool get isSupported =>
-      Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+  /// tapped. Apple builds are the same case once you look: the button was shown
+  /// and the flow could not complete, which is worse than no button — it reads
+  /// as the account being broken rather than as the method not being offered.
+  /// Configure GOOGLE_IOS_CLIENT_ID (or add the plist) and it appears.
+  static bool get isSupported {
+    if (Platform.isAndroid) return true;
+    if (Platform.isIOS || Platform.isMacOS) return _appleClientId != null;
+    return false;
+  }
 
   Future<void> _ensureInitialized() async {
     if (_initialized) return;
     // Android reads the web client from google-services.json; the env override
     // is for builds that ship without it.
-    final serverClientId = dotenv.maybeGet('GOOGLE_SERVER_CLIENT_ID');
     await _googleSignIn.initialize(
-      serverClientId: serverClientId != null && serverClientId.isNotEmpty
-          ? serverClientId
-          : null,
+      clientId: Platform.isAndroid ? null : _appleClientId,
+      serverClientId: _env('GOOGLE_SERVER_CLIENT_ID'),
     );
     _initialized = true;
   }

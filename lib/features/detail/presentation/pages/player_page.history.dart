@@ -43,7 +43,7 @@ extension _PlayerHistory on _PlayerPageState {
         // makes seeking move the bar instead of leaving it wrong.
         startedAt: now.subtract(position),
         endsAt: duration > Duration.zero ? now.add(duration - position) : null,
-        watchUrl: 'https://sozo.framer.website/',
+        watchUrl: 'https://sozo.azamov.me/',
       ),
     );
   }
@@ -87,6 +87,9 @@ extension _PlayerHistory on _PlayerPageState {
         _episodeIndex < _episodes.length) {
       ep = _episodes[_episodeIndex];
     }
+    // A downloaded episode has no list, but it is still an episode — see
+    // PlayerArgs.offlineEpisodeNumber.
+    final offlineEp = widget.args.offlineEpisodeNumber;
 
     _history.save(
       HistoryItem(
@@ -94,10 +97,10 @@ extension _PlayerHistory on _PlayerPageState {
         provider: widget.args.provider,
         title: widget.args.title,
         thumbnail: widget.args.thumbnail,
-        isSerial: widget.args.isSerial,
+        isSerial: widget.args.isSerial || offlineEp != null,
         episodeIndex: widget.args.isSerial ? _episodeIndex : null,
-        episodeNumber: ep?.episode,
-        episodeLabel: ep?.label,
+        episodeNumber: ep?.episode ?? offlineEp,
+        episodeLabel: ep?.label ?? widget.args.offlineEpisodeLabel,
         positionMs: posMs,
         durationMs: durMs,
         watchedAt: DateTime.now().millisecondsSinceEpoch,
@@ -179,9 +182,10 @@ extension _PlayerHistory on _PlayerPageState {
     // The window says which episode; WatchProgress decides whether to report
     // it. The movie-is-episode-1 rule, the zero-or-less guard and the
     // once-per-episode ledger all live there now.
+    final offlineEp = widget.args.offlineEpisodeNumber;
     final episodeNumber = _progress.episodeToReport(
-      isSerial: widget.args.isSerial,
-      episodeNumber: _window.current?.episode,
+      isSerial: widget.args.isSerial || offlineEp != null,
+      episodeNumber: _window.current?.episode ?? offlineEp,
     );
     if (episodeNumber == null) return;
 

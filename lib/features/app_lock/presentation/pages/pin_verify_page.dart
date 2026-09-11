@@ -6,6 +6,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
+import 'package:soplay/features/app_lock/presentation/app_lock_gate.dart';
 import 'package:soplay/features/app_lock/presentation/bloc/app_lock_bloc.dart';
 import 'package:soplay/features/app_lock/presentation/bloc/app_lock_event.dart';
 import 'package:soplay/features/app_lock/presentation/bloc/app_lock_state.dart';
@@ -13,9 +14,13 @@ import 'package:soplay/features/app_lock/presentation/widgets/pin_dots.dart';
 import 'package:soplay/features/app_lock/presentation/widgets/pin_keypad.dart';
 
 class PinVerifyPage extends StatelessWidget {
-  const PinVerifyPage({super.key, this.redirectTo = '/main'});
+  const PinVerifyPage({super.key, this.redirectTo = '/main', this.onUnlocked});
 
   final String redirectTo;
+
+  /// Called instead of navigating when the PIN is accepted. The lock overlay
+  /// passes this; the `/pin-verify` route leaves it null.
+  final VoidCallback? onUnlocked;
 
   @override
   Widget build(BuildContext context) {
@@ -24,14 +29,15 @@ class PinVerifyPage extends StatelessWidget {
         repository: getIt<AppLockRepository>(),
         mode: AppLockMode.verify,
       )..add(const AppLockStarted()),
-      child: _PinVerifyView(redirectTo: redirectTo),
+      child: _PinVerifyView(redirectTo: redirectTo, onUnlocked: onUnlocked),
     );
   }
 }
 
 class _PinVerifyView extends StatefulWidget {
-  const _PinVerifyView({required this.redirectTo});
+  const _PinVerifyView({required this.redirectTo, this.onUnlocked});
   final String redirectTo;
+  final VoidCallback? onUnlocked;
 
   @override
   State<_PinVerifyView> createState() => _PinVerifyViewState();
@@ -81,8 +87,17 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
       ),
     );
     if (confirmed != true) return;
-    await getIt<AppLockRepository>().disable();
     if (!mounted) return;
+    context.read<AppLockBloc>().add(const AppLockResetRequested());
+  }
+
+  void _finish() {
+    final onUnlocked = widget.onUnlocked;
+    if (onUnlocked != null) {
+      onUnlocked();
+      return;
+    }
+    getIt<AppLockGate>().unlock();
     context.go(widget.redirectTo);
   }
 
@@ -106,7 +121,7 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
             a.biometricPreferred != b.biometricPreferred,
         listener: (context, state) {
           if (state.stage == AppLockStage.done) {
-            context.go(widget.redirectTo);
+            _finish();
             return;
           }
           _maybeAutoBiometric(state);
@@ -162,7 +177,7 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
                       height: 22,
                       child: state.errorMessage != null
                           ? Text(
-                              state.errorMessage!.tr(),
+                              state.errorMessage!.tr(args: state.errorArgs),
                               style: const TextStyle(
                                 color: AppColors.error,
                                 fontSize: 13,
@@ -184,7 +199,10 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
                                   ))
                               : null,
                     ),
-                    if (isDesktopPlatform)
+                    // Desktop has no other way back in; a phone whose
+                    // stored PIN cannot be read (a restore onto new hardware,
+                    // a keystore reset) would otherwise be locked for good.
+                    if (isDesktopPlatform || state.pinUnavailable)
                       TextButton(
                         onPressed: _resetLock,
                         child: Text(
