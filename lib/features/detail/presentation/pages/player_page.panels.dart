@@ -257,8 +257,12 @@ extension _PlayerPanels on _PlayerPageState {
 
   Future<void> _switchServer(String server) async {
     final labels = _sourceLabels;
-    final current =
-        _currentQuality == null ? -1 : labels.indexOf(_currentQuality!);
+    // The row playing, not the first row wearing its label — see
+    // _switchQuality.
+    final current = _currentSourceIndex >= 0 &&
+            _currentSourceIndex < labels.length
+        ? _currentSourceIndex
+        : (_currentQuality == null ? -1 : labels.indexOf(_currentQuality!));
     final target = VideoOptionGroups.switchTo(labels, current, server);
     if (target < 0 || target >= _videoSources.length) return;
 
@@ -1045,7 +1049,7 @@ extension _PlayerPanels on _PlayerPageState {
     final bytes = await controller.grabFrame();
     if (!mounted) return;
     if (bytes == null || bytes.isEmpty) {
-      _PlayerSubtitles(this)._toast('player.share_frame_failed'.tr());
+      _toast('player.share_frame_failed'.tr());
       return;
     }
 
@@ -1064,7 +1068,7 @@ extension _PlayerPanels on _PlayerPageState {
       await Share.shareXFiles([XFile(file.path)], text: widget.args.title);
     } catch (e) {
       _plog('share frame failed: $e', level: LogLevel.warn);
-      if (mounted) _PlayerSubtitles(this)._toast('player.share_frame_failed'.tr());
+      if (mounted) _toast('player.share_frame_failed'.tr());
     }
   }
 
@@ -1086,7 +1090,7 @@ extension _PlayerPanels on _PlayerPageState {
     final bytes = await controller.grabFrame();
     if (!mounted) return;
     if (bytes == null || bytes.isEmpty) {
-      _PlayerSubtitles(this)._toast('player.save_frame_failed'.tr());
+      _toast('player.save_frame_failed'.tr());
       return;
     }
 
@@ -1097,7 +1101,7 @@ extension _PlayerPanels on _PlayerPageState {
       if (!await Gal.hasAccess(toAlbum: true)) {
         if (!await Gal.requestAccess(toAlbum: true)) {
           if (mounted) {
-            _PlayerSubtitles(this)._toast('player.save_frame_denied'.tr());
+            _toast('player.save_frame_denied'.tr());
           }
           return;
         }
@@ -1114,11 +1118,11 @@ extension _PlayerPanels on _PlayerPageState {
       // The temp copy has served its purpose the moment the gallery has one.
       unawaited(file.delete().catchError((_) => file));
 
-      if (mounted) _PlayerSubtitles(this)._toast('player.save_frame_done'.tr());
+      if (mounted) _toast('player.save_frame_done'.tr());
     } on GalException catch (e) {
       _plog('save frame failed: ${e.type}', level: LogLevel.warn);
       if (mounted) {
-        _PlayerSubtitles(this)._toast(
+        _toast(
           e.type == GalExceptionType.accessDenied
               ? 'player.save_frame_denied'.tr()
               : 'player.save_frame_failed'.tr(),
@@ -1127,7 +1131,7 @@ extension _PlayerPanels on _PlayerPageState {
     } catch (e) {
       _plog('save frame failed: $e', level: LogLevel.warn);
       if (mounted) {
-        _PlayerSubtitles(this)._toast('player.save_frame_failed'.tr());
+        _toast('player.save_frame_failed'.tr());
       }
     }
   }
@@ -1194,7 +1198,7 @@ extension _PlayerPanels on _PlayerPageState {
               final src = _videoSources[sources[i]];
               return _QualityRow(
                 source: _resolutionOnly(src),
-                isActive: src.quality == _currentQuality,
+                isActive: sources[i] == _currentSourceIndex,
                 onTap: () => _switchQuality(src),
               );
             },

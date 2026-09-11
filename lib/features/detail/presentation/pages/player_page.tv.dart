@@ -252,17 +252,15 @@ extension _PlayerTv on _PlayerPageState {
       _tvReveal();
       return true;
     }
+    // Series bounds, as the on-screen buttons use: the loaded page ends at a
+    // hundred, and the remote's Next key used to stop there while the Next
+    // button carried on.
     if (k == LogicalKeyboardKey.mediaTrackNext) {
-      if (widget.args.isSerial &&
-          _episodeIndex + 1 < _episodes.length) {
-        _partyEpisodeNav(_episodeIndex + 1);
-      }
+      if (_hasNextEpisode) _partyEpisodeNav(_episodeIndex + 1);
       return true;
     }
     if (k == LogicalKeyboardKey.mediaTrackPrevious) {
-      if (widget.args.isSerial && _episodeIndex - 1 >= 0) {
-        _partyEpisodeNav(_episodeIndex - 1);
-      }
+      if (_hasPrevEpisode) _partyEpisodeNav(_episodeIndex - 1);
       return true;
     }
     return false;

@@ -2,6 +2,7 @@ package com.soplay.sozo.manga
 
 import android.content.Context
 import android.util.Log
+import com.soplay.sozo.extensions.ApkSignature
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -46,6 +47,8 @@ class MangaHost(private val context: Context) {
         val iconUrl: String,
         val nsfw: Boolean,
         val repoName: String,
+        // The repo's signing-key SHA-256, empty when it declares none.
+        val fingerprint: String = "",
     )
 
     private val sources = LinkedHashMap<String, SourceMeta>()
@@ -70,6 +73,7 @@ class MangaHost(private val context: Context) {
             iconUrl = entry.optString("iconUrl"),
             nsfw = entry.optBoolean("nsfw", false),
             repoName = repoName,
+            fingerprint = entry.optString("fingerprint"),
         )
     }
 
@@ -216,6 +220,13 @@ class MangaHost(private val context: Context) {
             }
             if (written <= 0) {
                 Log.e(TAG, "apk ${meta.apkUrl} empty"); tmp.delete(); return null
+            }
+            // An apk the repo's own key did not sign never reaches the class
+            // loader — see ApkSignature for why this runs in-process at all.
+            if (!ApkSignature.matches(context, tmp.absolutePath, meta.fingerprint)) {
+                Log.e(TAG, "apk ${meta.apkUrl} signature does not match its repo")
+                tmp.delete()
+                return null
             }
             // Clear read-only in case a previous load marked an older file at this
             // path; renameTo onto a read-only target fails silently otherwise.

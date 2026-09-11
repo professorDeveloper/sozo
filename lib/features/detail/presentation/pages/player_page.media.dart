@@ -13,6 +13,39 @@ extension _PlayerMedia on _PlayerPageState {
 
   bool _isHlsType(String? type) => type?.trim().toLowerCase() == 'hls';
 
+  /// The format hint for playing [source]: its own when the provider stated
+  /// one, else what the resolve said about the media as a whole.
+  ///
+  /// Switching mirror used to reuse whatever the previous mirror was played
+  /// as, so going from an HLS server to an MP4 one told the engine to expect a
+  /// playlist — and the decoder failure that followed was blamed on the new
+  /// server.
+  String? _typeOf(VideoSourceEntity? source) {
+    final own = source?.type?.trim();
+    return (own != null && own.isNotEmpty) ? own : _resolvedType;
+  }
+
+  /// The headers a network stream is requested with: the app's defaults, then
+  /// whatever the source asked for on top.
+  ///
+  /// Nothing at all for loopback — the local HLS proxy already carries the
+  /// upstream headers, and it is our own server.
+  Map<String, String> _mergedStreamHeaders(
+    Uri uri,
+    Map<String, String> sourceHeaders,
+  ) {
+    if (uri.host == '127.0.0.1' || uri.host == 'localhost') return {};
+    final merged = <String, String>{
+      'User-Agent': kSozoUserAgent,
+      'Accept': '*/*',
+      'Accept-Language': 'uz,ru;q=0.9,en;q=0.8',
+    };
+    final defaultReferer = _defaultRefererFor(widget.args.provider);
+    if (defaultReferer != null) merged['Referer'] = defaultReferer;
+    merged.addAll(sourceHeaders);
+    return merged;
+  }
+
   Future<void> _bootstrap() async {
     final resume = widget.args.resumePosition;
     if (widget.args.isSerial) {
@@ -33,12 +66,13 @@ extension _PlayerMedia on _PlayerPageState {
           ? _videoSources[_currentSourceIndex]
           : null;
       _currentQuality = source?.quality;
+      _resolvedType = widget.args.type;
       if (mounted) setState(() => _stage = _LoadingStage.loading);
       unawaited(_loadThumbnails(widget.args.thumbnails));
       await _initializeWith(
         url: source?.videoUrl ?? widget.args.movieUrl ?? '',
         headers: widget.args.headers,
-        type: widget.args.type,
+        type: _typeOf(source),
         resumeAt: resume,
       );
     }
@@ -177,6 +211,7 @@ extension _PlayerMedia on _PlayerPageState {
     // A new episode is a new thing to finish. Without this, watching six in a
     // row would count as one.
     _countedComplete = false;
+    _endHandled = false;
     // And a new episode is a new question for the auto-translator: episode 4
     // may carry a subtitle in the viewer's language when episode 3 did not.
     _autoTranslateDone = false;
@@ -272,13 +307,14 @@ extension _PlayerMedia on _PlayerPageState {
       _secondarySubtitleIndex = -1;
       _secondaryCaptionFile = null;
       _extractorConfig = value.extractor;
+      _resolvedType = value.type;
     });
 
     unawaited(_loadThumbnails(value.thumbnails));
     await _initializeWith(
       url: url,
       headers: value.headers,
-      type: value.type,
+      type: useSources ? _typeOf(sources[pickedIdx]) : value.type,
       resumeAt: resumeAt,
     );
     // Host announces the new episode identity (never a video URL).
@@ -392,7 +428,14 @@ extension _PlayerMedia on _PlayerPageState {
   }
 
   Future<void> _switchQuality(VideoSourceEntity source) async {
-    if (source.quality == _currentQuality) {
+    // Which ROW, not which label. Two servers may both call themselves
+    // "1080p", and matching on the label made the second one impossible to
+    // pick: it read as the one already playing and the tap did nothing.
+    var idx = _videoSources.indexOf(source);
+    if (idx < 0) {
+      idx = _videoSources.indexWhere((s) => s.videoUrl == source.videoUrl);
+    }
+    if (idx >= 0 && idx == _currentSourceIndex) {
       setState(() => _panel = _SidePanel.none);
       return;
     }
@@ -407,7 +450,6 @@ extension _PlayerMedia on _PlayerPageState {
       ),
     );
     final keepPosition = _controller?.value.position ?? Duration.zero;
-    final idx = _videoSources.indexWhere((s) => s.quality == source.quality);
     _retryAttempts = 0;
     _lifetimeRetries = 0;
     // A deliberate pick is a fresh walk — the same reset the retry counters get
@@ -430,8 +472,12 @@ extension _PlayerMedia on _PlayerPageState {
     if (!mounted) return;
     await _initializeWith(
       url: source.videoUrl,
-      headers: _headers.isNotEmpty ? _headers : widget.args.headers,
-      type: _mediaType,
+      // The new mirror's own headers when it has any: the previous one's
+      // Referer and cookies belong to a different host.
+      headers: source.headers.isNotEmpty
+          ? source.headers
+          : (_headers.isNotEmpty ? _headers : widget.args.headers),
+      type: _typeOf(source),
       resumeAt: keepPosition,
     );
   }
@@ -511,7 +557,10 @@ extension _PlayerMedia on _PlayerPageState {
       return candidate;
     }
     try {
-      final res = await getIt<Dio>().get<String>(
+      // The plain client: this is a CDN, and the app's own Dio pins the
+      // backend's certificate chain — against any other host the handshake
+      // fails and every rewrite looked "rejected".
+      final res = await ExternalDio.instance.get<String>(
         candidate,
         options: Options(
           headers: headers,
@@ -728,7 +777,9 @@ extension _PlayerMedia on _PlayerPageState {
 
     String body;
     try {
-      final res = await getIt<Dio>().get<String>(
+      // The plain client, for the same reason as in [_applyRewrite]: a master
+      // playlist lives on a CDN, not behind the backend's pinned chain.
+      final res = await ExternalDio.instance.get<String>(
         url,
         options: Options(
           headers: headers,
@@ -861,6 +912,32 @@ extension _PlayerMedia on _PlayerPageState {
     _plog('loading url: $effectiveUrl');
     _plog('type: $fmt (raw=${type ?? 'unknown'}) local: $isLocal');
 
+    // Engine = External player. Sozo still does the hard part — extraction,
+    // header-gated proxying, picking the quality — and then hands the resolved
+    // URL to VLC / MX Player. That happens HERE, before a controller exists:
+    // it used to happen after `initialize()`, which opened the stream in-app
+    // first — network, a decoder, and on some sources the one use of a
+    // single-use token — only to pause it again, the opposite of what the note
+    // in media_controller promises. Resume position is NOT carried across: the
+    // intent has no standard extra for it, so the external app starts from zero.
+    if (ExternalPlayer.isSupported &&
+        resolvePlayerEngine() == PlayerEngine.external) {
+      _videoUrl = effectiveUrl;
+      _headers = isLocal
+          ? const {}
+          : _mergedStreamHeaders(Uri.parse(effectiveUrl), effectiveHeaders);
+      _mediaType = type;
+      _isNetworkVideo = !isLocal;
+      _plog('external engine — handing off to a third-party player');
+      setState(() {
+        _initializing = false;
+        _errorMessage = null;
+        _isCodecError = false;
+      });
+      await _handOffToExternalPlayer();
+      return;
+    }
+
     PlayerController controller;
     if (isLocal && isHls) {
       final fileUri = isFileUri ? Uri.parse(effectiveUrl) : Uri.file(effectiveUrl);
@@ -881,19 +958,7 @@ extension _PlayerMedia on _PlayerPageState {
       _headers = const {};
     } else {
       final uri = Uri.parse(effectiveUrl);
-      final isLoopback = uri.host == '127.0.0.1' || uri.host == 'localhost';
-      final mergedHeaders = <String, String>{};
-      if (!isLoopback) {
-        mergedHeaders.addAll(<String, String>{
-          'User-Agent':
-              kSozoUserAgent,
-          'Accept': '*/*',
-          'Accept-Language': 'uz,ru;q=0.9,en;q=0.8',
-        });
-        final defaultReferer = _defaultRefererFor(widget.args.provider);
-        if (defaultReferer != null) mergedHeaders['Referer'] = defaultReferer;
-        mergedHeaders.addAll(effectiveHeaders);
-      }
+      final mergedHeaders = _mergedStreamHeaders(uri, effectiveHeaders);
 
       _plog('provider: ${widget.args.provider}');
       _plog('headers (${mergedHeaders.length}):');
@@ -991,25 +1056,6 @@ extension _PlayerMedia on _PlayerPageState {
           AnalyticsProp.kind: _isLive ? 'live' : (widget.args.type ?? 'video'),
         },
       );
-
-      // Engine = External player. Sozo still does the hard part — extraction,
-      // header-gated proxying, picking the quality — and then hands the
-      // resolved URL to VLC / MX Player. Bail out before autoplay rather than
-      // starting playback and immediately pausing it, so there is no burst of
-      // audio and no wasted bandwidth. Resume position is NOT carried across:
-      // the intent has no standard extra for it, so the external app starts
-      // from zero.
-      if (ExternalPlayer.isSupported &&
-          resolvePlayerEngine() == PlayerEngine.external) {
-        _plog('external engine — handing off to a third-party player');
-        setState(() {
-          _initializing = false;
-          _errorMessage = null;
-          _isCodecError = false;
-        });
-        await _handOffToExternalPlayer();
-        return;
-      }
 
       if (_canGeneratePreview && !_isLive) {
         FramePreviewService.open(
@@ -1309,15 +1355,38 @@ extension _PlayerMedia on _PlayerPageState {
           _loadEpisode(_episodeIndex + 1);
           return;
         }
-        final url = widget.args.contentUrl;
-        if (url != null && url.isNotEmpty) {
-          _history.remove(url);
+        if (!_endHandled) {
+          _endHandled = true;
+          _recordFinishedWithoutAdvancing();
         }
         if (_sleepAtEpisodeEnd) unawaited(_fireSleepTimer());
       }
     }
 
     if (changed && mounted) setState(() {});
+  }
+
+  /// What history says once an episode has played out and nothing advanced.
+  ///
+  /// This used to call `_history.remove(contentUrl)` for everything, on every
+  /// tick of the last two seconds. For a film that is right — finished, so it
+  /// leaves Continue Watching. For a series it did nothing useful: episode rows
+  /// are keyed per episode, so the finished one stayed at 99% and Continue
+  /// kept offering to resume the episode just watched. Now a series moves its
+  /// resume point to the next episode, the same row auto-advance would have
+  /// written, and the last episode of a show is left alone — an ongoing show
+  /// gets new episodes, and its row is how the viewer finds them.
+  void _recordFinishedWithoutAdvancing() {
+    final url = widget.args.contentUrl;
+    if (url == null || url.isEmpty) return;
+    // A downloaded episode of a series is not a finished film: its row is the
+    // episode's, and the series row it would remove is not this file's to drop.
+    if (widget.args.offlineEpisodeNumber != null) return;
+    if (!widget.args.isSerial) {
+      unawaited(_history.remove(url));
+      return;
+    }
+    if (_hasNextEpisode) _saveHistoryForNextEpisode();
   }
 
   /// Reconnects a dropped live channel, backing off between attempts.
@@ -1386,8 +1455,10 @@ extension _PlayerMedia on _PlayerPageState {
       if (!mounted) return;
       await _initializeWith(
         url: next.videoUrl,
-        headers: _headers.isNotEmpty ? _headers : widget.args.headers,
-        type: _mediaType,
+        headers: next.headers.isNotEmpty
+            ? next.headers
+            : (_headers.isNotEmpty ? _headers : widget.args.headers),
+        type: _typeOf(next),
       );
       _autoRetrying = false;
       return;
@@ -1436,7 +1507,12 @@ extension _PlayerMedia on _PlayerPageState {
   }
 
   String _episodeTitle() {
-    if (!widget.args.isSerial) return widget.args.title;
+    if (!widget.args.isSerial) {
+      final offline = widget.args.offlineEpisodeNumber;
+      if (offline == null) return widget.args.title;
+      final label = widget.args.offlineEpisodeLabel?.trim() ?? '';
+      return '${widget.args.title} · ${label.isEmpty ? 'EP $offline' : label}';
+    }
     final ep = _episodes[_episodeIndex];
     final fallback = 'Episode ${ep.episode}';
     final label = ep.label.trim().isEmpty ? fallback : ep.label;
@@ -1489,7 +1565,7 @@ extension _PlayerMedia on _PlayerPageState {
     _thumbnailsKey = key;
     _storyboard = null;
     try {
-      final response = await Dio().get<String>(
+      final response = await ExternalDio.instance.get<String>(
         url,
         options: Options(
           responseType: ResponseType.plain,

@@ -30,14 +30,35 @@ class DownloadLocalDataSource {
   List<DownloadItem> all() {
     final items = <DownloadItem>[];
     for (final key in _box.keys) {
-      final item = _decode(_box.get(key));
+      final item = _cachedDecode(key, _box.get(key));
       if (item != null) items.add(item);
     }
     items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return items;
   }
 
-  DownloadItem? get(String id) => _decode(_box.get(id));
+  DownloadItem? get(String id) => _cachedDecode(id, _box.get(id));
+
+  /// Rows already decoded, with the exact string each was decoded from.
+  ///
+  /// Every episode row on the episode list asks for its download twice a
+  /// second while anything is downloading, and each ask was a box read, a
+  /// `jsonDecode` and a `fromJson`. Hive hands back the same String instance
+  /// until the row is rewritten, so an identity check is enough to know the
+  /// decoded copy is still the row — no invalidation to forget.
+  final Map<Object, (String, DownloadItem?)> _decoded = {};
+
+  DownloadItem? _cachedDecode(Object key, Object? raw) {
+    if (raw is! String) {
+      _decoded.remove(key);
+      return null;
+    }
+    final hit = _decoded[key];
+    if (hit != null && identical(hit.$1, raw)) return hit.$2;
+    final item = _decode(raw);
+    _decoded[key] = (raw, item);
+    return item;
+  }
 
   Future<void> put(DownloadItem item, {bool notify = true}) async {
     await _box.put(item.id, jsonEncode(DownloadItemModel.toJson(item)));

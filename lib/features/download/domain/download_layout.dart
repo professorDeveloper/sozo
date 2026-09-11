@@ -81,6 +81,14 @@ abstract final class DownloadLayout {
 
   static String segmentName(int index) => 'seg_$index.ts';
 
+  /// A decryption key an HLS playlist points at (`#EXT-X-KEY`).
+  static String hlsKeyName(int index) => 'key_$index.bin';
+
+  /// An initialisation segment an HLS playlist points at (`#EXT-X-MAP`) —
+  /// what fMP4 streams need before the first media segment can be decoded.
+  static String hlsMapName(int index, String extension) =>
+      'init_$index$extension';
+
   static String pageName(int index, String extension) =>
       'p_${index.toString().padLeft(3, '0')}$extension';
 

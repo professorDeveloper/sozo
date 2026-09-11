@@ -8,6 +8,7 @@ import 'package:soplay/core/player/shader_presets.dart';
 import 'package:soplay/core/player/shader_store.dart';
 import 'package:soplay/features/detail/data/title_prefs_store.dart';
 import 'package:soplay/features/stats/data/watch_stats_store.dart';
+import 'package:soplay/core/network/external_dio.dart';
 import 'package:soplay/core/network/user_agent.dart';
 import 'dart:async';
 import 'dart:io';
@@ -41,6 +42,7 @@ import 'package:soplay/features/detail/domain/playback/episode_window.dart';
 import 'package:soplay/features/detail/domain/playback/playback_fault.dart';
 import 'package:soplay/features/detail/domain/playback/retry_policy.dart';
 import 'package:soplay/features/detail/domain/playback/skip_offers.dart';
+import 'package:soplay/features/detail/domain/playback/wakelock_holds.dart';
 import 'package:soplay/features/detail/domain/playback/watch_progress.dart';
 import 'package:soplay/features/detail/domain/player_controls_layout.dart';
 import 'package:soplay/features/detail/domain/playback/party_rules.dart';
@@ -93,7 +95,6 @@ import 'package:soplay/features/watch_party/presentation/party_entry.dart';
 import 'package:soplay/features/watch_party/presentation/widgets/party_reactions_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/player/media_controller.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
 import 'package:soplay/features/live_tv/presentation/widgets/live_guide_sheet.dart';
 import 'package:soplay/core/torrent/torrent_engine.dart';
@@ -184,6 +185,10 @@ class _PlayerPageState extends State<PlayerPage>
   String? _currentQuality;
   String? _videoUrl;
   String? _mediaType;
+
+  /// What the resolve said about the media as a whole — the format hint for
+  /// any source that does not state its own. See `_typeOf`.
+  String? _resolvedType;
 
   /// Torrent playback, when the source turned out to be a magnet rather than a
   /// stream. The engine is lazy — constructing it costs nothing and it never
@@ -380,6 +385,13 @@ class _PlayerPageState extends State<PlayerPage>
   /// Whether this episode has already been counted as finished. Reset when the
   /// player moves to another episode.
   bool _countedComplete = false;
+
+  /// Whether this episode's last two seconds have already been handled.
+  ///
+  /// The listener that notices the end fires on every position tick, so
+  /// without this the end-of-episode bookkeeping ran a dozen times in a row.
+  /// Reset alongside [_countedComplete].
+  bool _endHandled = false;
 
   double _playbackSpeed = 1.0;
 

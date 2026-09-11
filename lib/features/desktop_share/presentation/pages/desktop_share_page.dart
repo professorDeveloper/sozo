@@ -512,7 +512,7 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
               controller: _urlCtrl,
               style: const TextStyle(color: AppColors.textPrimary),
               decoration: const InputDecoration(
-                hintText: 'http://192.168.x.x:8765',
+                hintText: 'http://192.168.x.x:8765/?t=…',
                 hintStyle: TextStyle(color: AppColors.textHint),
                 border: OutlineInputBorder(),
               ),

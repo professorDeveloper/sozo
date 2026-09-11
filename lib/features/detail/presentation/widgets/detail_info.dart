@@ -84,7 +84,11 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
           const SizedBox(height: 18),
           if (item != null &&
               (item.positionMs > 0 || item.episodeNumber != null))
-            _ContinueWatchingCard(item: item, onTap: widget.onPrimaryAction),
+            _ContinueWatchingCard(
+              item: item,
+              onTap: widget.onPrimaryAction,
+              reader: widget.detail.provider.opensReader,
+            ),
           if (item != null &&
               (item.positionMs > 0 || item.episodeNumber != null))
             const SizedBox(height: 12),
@@ -134,9 +138,19 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
 /// end. The progress the player already records was on the page for the
 /// carousel and nowhere on the title's own screen.
 class _ContinueWatchingCard extends StatelessWidget {
-  const _ContinueWatchingCard({required this.item, required this.onTap});
+  const _ContinueWatchingCard({
+    required this.item,
+    required this.onTap,
+    this.reader = false,
+  });
   final HistoryItem item;
   final VoidCallback onTap;
+
+  /// A manga or novel title. The reader records a page index (or, for prose,
+  /// thousandths of the chapter) in the fields the player uses for
+  /// milliseconds, so "time left" and "% watched" would read page 12 of 30 as
+  /// "18ms left". The bar alone is honest for both.
+  final bool reader;
 
   /// "1h 12m" / "24m" — the shape a remaining-time label wants, and short
   /// enough to sit next to the episode on one line.
@@ -151,7 +165,7 @@ class _ContinueWatchingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = item.progress;
-    final left = item.durationMs > 0
+    final left = !reader && item.durationMs > 0
         ? Duration(milliseconds: item.durationMs - item.positionMs)
         : null;
 
@@ -160,7 +174,7 @@ class _ContinueWatchingCard extends StatelessWidget {
         'detail.episode_n'.tr(args: ['${item.episodeNumber}']),
       if (left != null && left > const Duration(seconds: 30))
         'detail.time_left'.tr(args: [_short(left)])
-      else if (progress > 0)
+      else if (!reader && progress > 0)
         'detail.watched_pct'.tr(args: ['${(progress * 100).round()}']),
     ].join(' \u00b7 ');
 

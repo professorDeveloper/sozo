@@ -11,10 +11,6 @@ class FavoriteInitial extends FavoriteState {
   const FavoriteInitial();
 }
 
-class FavoriteGuest extends FavoriteState {
-  const FavoriteGuest();
-}
-
 class FavoriteReady extends FavoriteState {
   const FavoriteReady({
     required this.isInList,

@@ -165,6 +165,18 @@ class MainActivity : FlutterFragmentActivity() {
                     val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
                     result.success(openExternalVideo(url, title, headers))
                 }
+                // The package an apk on disk would install as, or null when the
+                // file is not a readable apk. The in-app updater checks it before
+                // handing the file to the installer.
+                "apkPackageName" -> {
+                    val path = call.argument<String>("path").orEmpty()
+                    val name = try {
+                        packageManager.getPackageArchiveInfo(path, 0)?.packageName
+                    } catch (_: Throwable) {
+                        null
+                    }
+                    result.success(name)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -759,7 +771,7 @@ class MainActivity : FlutterFragmentActivity() {
     private fun bridgePrefs() = getSharedPreferences("sozo_bridge", Context.MODE_PRIVATE)
 
     /** Control channel for the desktop-sharing bridge: enable/disable + status
-     *  (the shareable `http://<lan-ip>:8765` link). */
+     *  (the shareable `http://<lan-ip>:8765/?t=<token>` link). */
     private fun setupBridgeChannel(flutterEngine: FlutterEngine) {
         bridgeChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger, bridgeChannelName)
@@ -769,7 +781,12 @@ class MainActivity : FlutterFragmentActivity() {
                 "setEnabled" -> {
                     val enabled = call.argument<Boolean>("enabled") ?: false
                     bridgePrefs().edit().putBoolean("enabled", enabled).apply()
-                    if (enabled) startBridgeServer() else stopBridgeServer()
+                    if (enabled) {
+                        startBridgeServer()
+                    } else {
+                        stopBridgeServer()
+                        bridgePrefs().edit().remove("token").apply()
+                    }
                     result.success(bridgeStatus())
                 }
                 "getSharedProviders" -> result.success(sharedProvidersConfig())
@@ -813,18 +830,46 @@ class MainActivity : FlutterFragmentActivity() {
     private fun bridgeStatus(): Map<String, Any?> {
         val running = bridgeServer != null
         val ip = localIpAddress()
+        val token = bridgeToken()
         return mapOf(
             "enabled" to running,
             "port" to bridgePort,
             "ip" to ip,
-            "link" to if (running && ip != null) "http://$ip:$bridgePort" else null,
+            // The token rides in the link so pasting it on the PC is still the
+            // whole setup; see BridgeServer for why every request needs it.
+            "link" to if (running && ip != null && token != null) {
+                "http://$ip:$bridgePort/?t=$token"
+            } else {
+                null
+            },
         )
+    }
+
+    /** The bridge's access token, or null when sharing is off. */
+    private fun bridgeToken(): String? =
+        bridgePrefs().getString("token", null)?.takeIf { it.isNotEmpty() }
+
+    /** A fresh random token, minted each time sharing is switched on so a link
+     *  handed out earlier stops working once the user turns sharing off. It is
+     *  kept while sharing stays on, so a restart does not break the PC's saved
+     *  link. */
+    private fun ensureBridgeToken(): String {
+        bridgeToken()?.let { return it }
+        val bytes = ByteArray(18)
+        java.security.SecureRandom().nextBytes(bytes)
+        val token = android.util.Base64.encodeToString(
+            bytes,
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
+        )
+        bridgePrefs().edit().putString("token", token).apply()
+        return token
     }
 
     /** Start the local HTTP bridge so a same-Wi-Fi desktop client can reach the
      *  extension hosts on `http://<lan-ip>:8765`. */
     private fun startBridgeServer() {
         if (bridgeServer != null) return
+        ensureBridgeToken()
         try {
             val server = BridgeServer(
                 bridgePort,
@@ -832,6 +877,7 @@ class MainActivity : FlutterFragmentActivity() {
                 { aniyomiHost }, { aniyomiRepoManager },
                 { mangaHost }, { mangaRepoManager },
                 { sharedIdsOrNull() },
+                { bridgeToken() },
             )
             server.start()
             bridgeServer = server

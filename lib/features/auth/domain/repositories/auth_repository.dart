@@ -43,4 +43,8 @@ abstract class AuthRepository {
   Future<Result<String>> uploadAvatar(File file);
 
   Future<void> logout();
+
+  /// Wipes everything the signed-in account left on this device, without
+  /// asking the server — for when the server has already ended the session.
+  Future<void> clearLocalSession();
 }

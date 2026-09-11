@@ -1,10 +1,13 @@
 import 'package:soplay/features/app_lock/data/datasources/app_lock_local_data_source.dart';
+import 'package:soplay/features/app_lock/domain/entities/pin_check.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 
 class AppLockRepositoryImpl implements AppLockRepository {
-  AppLockRepositoryImpl(this._source);
+  AppLockRepositoryImpl(this._source, {Future<void> Function()? wipeProtected})
+      : _wipeProtected = wipeProtected;
 
   final AppLockLocalDataSource _source;
+  final Future<void> Function()? _wipeProtected;
 
   @override
   bool get isEnabled => _source.isEnabled;
@@ -19,13 +22,25 @@ class AppLockRepositoryImpl implements AppLockRepository {
   Future<void> setPin(String pin) => _source.setPin(pin);
 
   @override
-  Future<bool> verifyPin(String pin) => _source.verifyPin(pin);
+  Future<PinCheckResult> checkPin(String pin) => _source.checkPin(pin);
+
+  @override
+  Future<DateTime?> lockedOutUntil() => _source.lockedOutUntil();
+
+  @override
+  Future<bool> isPinReadable() => _source.isPinReadable();
 
   @override
   Future<void> disable() => _source.disable();
 
   @override
   Future<void> ensureConsistent() => _source.ensureConsistent();
+
+  @override
+  Future<void> resetForgotten() async {
+    await _wipeProtected?.call();
+    await _source.disable();
+  }
 
   @override
   Future<bool> isBiometricAvailable() => _source.isBiometricAvailable();

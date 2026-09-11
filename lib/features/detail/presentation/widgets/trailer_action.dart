@@ -53,14 +53,17 @@ class _TrailerActionState extends State<TrailerAction> {
     setState(() => _trailer = result);
   }
 
-  void _open() {
+  Future<void> _open() async {
     final trailer = _trailer;
     if (trailer == null || _opening) return;
     // Guard the double tap: these URLs take a moment to hand over to the
     // player, and two taps used to push two players onto the stack.
     setState(() => _opening = true);
 
-    context.push(
+    // Awaited: the future completes when the player is popped. Without the
+    // await the guard was lifted on the very next line — before the player
+    // had even appeared — and a second tap still pushed a second player.
+    await context.push(
       '/player',
       extra: PlayerArgs(
         title: trailer.title,

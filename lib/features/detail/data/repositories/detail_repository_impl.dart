@@ -289,8 +289,7 @@ class DetailRepositoryImpl implements DetailRepository {
     if (provider.startsWith('mn:')) {
       try {
         final map = await MangaChannel.pageList(provider.substring(3), ref);
-        final pages = map['pages'];
-        if (map.isNotEmpty && pages is List && pages.isNotEmpty) {
+        if (_hasReadableContent(map)) {
           return Success(MangaPagesModel.fromJson(map));
         }
         return Failure(Exception('Manga: sahifalar topilmadi'));
@@ -301,8 +300,7 @@ class DetailRepositoryImpl implements DetailRepository {
     if (provider.startsWith('my:')) {
       try {
         final map = await mangayomi.pageList(provider.substring(3), ref);
-        final pages = map['pages'];
-        if (map.isNotEmpty && pages is List && pages.isNotEmpty) {
+        if (_hasReadableContent(map)) {
           return Success(MangaPagesModel.fromJson(map));
         }
         return Failure(Exception('Mangayomi: sahifalar topilmadi'));
@@ -311,6 +309,20 @@ class DetailRepositoryImpl implements DetailRepository {
       }
     }
     return Failure(Exception('Sahifalar faqat manga manbalari uchun'));
+  }
+
+  /// Whether a host's chapter payload has anything the reader can show.
+  ///
+  /// A comic chapter is a list of page images; a novel chapter is one HTML
+  /// document with `pages: []`. Requiring pages turned every novel chapter into
+  /// "no pages found" before the reader — which renders `html` as prose — ever
+  /// saw it.
+  static bool _hasReadableContent(Map<String, dynamic> map) {
+    if (map.isEmpty) return false;
+    final pages = map['pages'];
+    if (pages is List && pages.isNotEmpty) return true;
+    final html = map['html'];
+    return html is String && html.trim().isNotEmpty;
   }
 
   /// The single place a resolved media object is finished before it leaves the

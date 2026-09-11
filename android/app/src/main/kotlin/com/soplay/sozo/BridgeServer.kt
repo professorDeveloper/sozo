@@ -13,6 +13,7 @@ import fi.iki.elonen.NanoHTTPD.newFixedLengthResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
+import java.security.MessageDigest
 
 /**
  * Local HTTP bridge that exposes the on-device CloudStream / Aniyomi / Manga
@@ -27,7 +28,17 @@ import org.json.JSONArray
  * <sys> = cloudstream | aniyomi | manga
  * ```
  * Hosts are provided as suppliers so their (lazy) runtimes only spin up on the
- * first request. Debug-only: [MainActivity] starts this behind `BuildConfig.DEBUG`.
+ * first request. [MainActivity] starts it only while the user has "share sources
+ * to desktop" switched on — in release builds too, so it is guarded:
+ *
+ * Every request must carry the access token the phone shows in its link
+ * (`http://<lan-ip>:8765/?t=<token>`), as the `X-Sozo-Bridge-Token` header or
+ * the `t` query parameter. The server listens on every interface so a PC on the
+ * same Wi-Fi can reach it, and its routes install repos and run extension code
+ * (`addRepo`, `setPreference`, `loadLinks`, …) — without the token anyone on the
+ * network, or any other app on the phone, could do the same. There is no CORS
+ * header on purpose: the only client is the native desktop app, and a browser
+ * page has no business calling this.
  */
 class BridgeServer(
     port: Int,
@@ -41,7 +52,23 @@ class BridgeServer(
     // provider. Read fresh per request so toggling a source on the phone takes
     // effect on the desktop's next "Refresh" without restarting the bridge.
     private val sharedIds: () -> Set<String>? = { null },
+    // The access token the link carries. Read per request; null or empty
+    // refuses everything, so a half-configured bridge fails closed.
+    private val token: () -> String?,
 ) : NanoHTTPD("0.0.0.0", port) {
+
+    /** Constant-time comparison, so the token cannot be recovered byte by byte
+     *  from response timing. */
+    private fun authorized(session: IHTTPSession): Boolean {
+        val expected = token()?.takeIf { it.isNotEmpty() } ?: return false
+        val given = session.headers["x-sozo-bridge-token"]
+            ?: session.parameters["t"]?.firstOrNull()
+            ?: return false
+        return MessageDigest.isEqual(
+            expected.toByteArray(Charsets.UTF_8),
+            given.toByteArray(Charsets.UTF_8),
+        )
+    }
 
     /** Keep only the providers the user opted to share (by `id`). A null
      *  allow-list (share-all) or a parse failure passes the JSON through. */
@@ -62,10 +89,16 @@ class BridgeServer(
     }
 
     override fun serve(session: IHTTPSession): Response {
+        if (!authorized(session)) {
+            return newFixedLengthResponse(
+                Response.Status.UNAUTHORIZED,
+                "application/json; charset=utf-8",
+                "{\"error\":\"unauthorized\"}",
+            )
+        }
         return try {
             val json = runBlocking(Dispatchers.IO) { dispatch(session) }
             newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", json)
-                .apply { addHeader("Access-Control-Allow-Origin", "*") }
         } catch (t: Throwable) {
             val msg = (t.message ?: "bridge error").replace("\"", "'")
             newFixedLengthResponse(

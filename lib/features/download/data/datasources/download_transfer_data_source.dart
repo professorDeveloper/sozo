@@ -282,6 +282,47 @@ class DownloadTransferDataSource {
       );
     }
 
+    // Keys and init segments. The playlist used to be saved with their URIs
+    // untouched — pointing at the CDN, or relative to a folder that does not
+    // exist on the device — so an AES-128 stream downloaded every segment and
+    // then could not decrypt one of them offline, and an fMP4 stream had no
+    // header to start decoding from. They are fetched like segments and the
+    // playlist is rewritten to the local copies.
+    final auxNames = <String, String>{};
+    final aux = auxiliaryUris(playlist);
+    for (var i = 0; i < aux.length; i++) {
+      if (cancel.isCancelled) {
+        return const TransferResult.failed(
+          DownloadFailureKind.unknown,
+          'cancelled',
+        );
+      }
+      final entry = aux[i];
+      final resolved = _resolve(entry.uri, _baseOf(playlistUrl));
+      // A `data:` key is already inline, and an `skd://` one is FairPlay,
+      // which no file on disk could stand in for. Both stay as they are.
+      if (!resolved.startsWith('http://') && !resolved.startsWith('https://')) {
+        continue;
+      }
+      final name = entry.isMap
+          ? DownloadLayout.hlsMapName(i, _mapExtensionFor(resolved))
+          : DownloadLayout.hlsKeyName(i);
+      final file = File('$dirPath/$name');
+      if (!await file.exists() || await file.length() <= 0) {
+        await _fetchToFile(
+          url: resolved,
+          file: file,
+          headers: headers,
+          cancel: cancel,
+          attempts: _segmentAttempts,
+          // A key is sixteen raw bytes, and servers label it as anything —
+          // text/plain included. The media check would refuse a good key.
+          checkMedia: false,
+        );
+      }
+      auxNames[entry.uri] = name;
+    }
+
     var bytes = 0;
     for (var i = 0; i < segments.length; i++) {
       if (cancel.isCancelled) {
@@ -323,7 +364,7 @@ class DownloadTransferDataSource {
       bytes: bytes,
     );
     await File('$dirPath/${DownloadLayout.hlsIndexName}')
-        .writeAsString(_localPlaylist(playlist));
+        .writeAsString(localPlaylist(playlist, auxNames));
 
     return TransferResult.success(
       artefactPath: '$dirPath/${DownloadLayout.hlsIndexName}',
@@ -397,32 +438,49 @@ class DownloadTransferDataSource {
   // --- helpers -------------------------------------------------------------
 
   /// Fetches one part, retrying a transient failure with a short backoff.
+  ///
+  /// Streamed to the `.part` file as it arrives. It used to be read whole into
+  /// memory first — every segment and every page a full byte array on the
+  /// heap before a single byte reached the disk, which on a 4K segment is tens
+  /// of megabytes held for nothing.
   Future<void> _fetchToFile({
     required String url,
     required File file,
     required Map<String, String> headers,
     required CancelToken cancel,
     required int attempts,
+    bool checkMedia = true,
   }) async {
     final part = File(DownloadLayout.partOf(file.path));
     Object? lastError;
     for (var attempt = 0; attempt < attempts; attempt++) {
       if (cancel.isCancelled) return;
       try {
-        final response = await _dio.get<List<int>>(
+        final response = await _dio.get<ResponseBody>(
           url,
           cancelToken: cancel,
           options: Options(
             headers: headers,
-            responseType: ResponseType.bytes,
+            responseType: ResponseType.stream,
           ),
         );
-        _rejectNonMedia(response.headers.value('content-type'));
-        final bytes = response.data;
-        if (bytes == null || bytes.isEmpty) {
+        if (checkMedia) {
+          _rejectNonMedia(response.headers.value('content-type'));
+        }
+        var written = 0;
+        final sink = part.openWrite();
+        try {
+          await for (final chunk in response.data!.stream) {
+            sink.add(chunk);
+            written += chunk.length;
+          }
+          await sink.flush();
+        } finally {
+          await sink.close();
+        }
+        if (written <= 0) {
           throw const _NotMediaException('empty part');
         }
-        await part.writeAsBytes(bytes, flush: true);
         if (await file.exists()) await file.delete();
         await part.rename(file.path);
         return;
@@ -547,18 +605,64 @@ class DownloadTransferDataSource {
             _resolve(line.trim(), base),
       ];
 
-  String _localPlaylist(String original) {
+  static final RegExp _uriAttribute = RegExp(r'URI="([^"]*)"');
+
+  /// The key and init-segment URIs a media playlist refers to, each once, in
+  /// the order they first appear.
+  ///
+  /// `METHOD=NONE` keys carry no file and are left out.
+  @visibleForTesting
+  static List<({String uri, bool isMap})> auxiliaryUris(String playlist) {
+    final out = <({String uri, bool isMap})>[];
+    final seen = <String>{};
+    for (final raw in playlist.split('\n')) {
+      final line = raw.trim();
+      final isKey = line.startsWith('#EXT-X-KEY:');
+      final isMap = line.startsWith('#EXT-X-MAP:');
+      if (!isKey && !isMap) continue;
+      if (isKey && line.contains('METHOD=NONE')) continue;
+      final uri = _uriAttribute.firstMatch(line)?.group(1);
+      if (uri == null || uri.isEmpty || !seen.add(uri)) continue;
+      out.add((uri: uri, isMap: isMap));
+    }
+    return out;
+  }
+
+  /// [original] pointed at the files on disk: segments by position, and every
+  /// key or init-segment URI found in [auxNames] replaced by its local name.
+  @visibleForTesting
+  static String localPlaylist(
+    String original, [
+    Map<String, String> auxNames = const {},
+  ]) {
     var index = 0;
     final out = StringBuffer();
     for (final line in original.split('\n')) {
       final trimmed = line.trim();
-      if (trimmed.isEmpty || trimmed.startsWith('#')) {
+      if (trimmed.isEmpty) {
         out.writeln(trimmed);
+      } else if (trimmed.startsWith('#')) {
+        out.writeln(
+          auxNames.isEmpty
+              ? trimmed
+              : trimmed.replaceAllMapped(_uriAttribute, (m) {
+                  final local = auxNames[m.group(1)];
+                  return local == null ? m.group(0)! : 'URI="$local"';
+                }),
+        );
       } else {
         out.writeln(DownloadLayout.segmentName(index++));
       }
     }
     return out.toString();
+  }
+
+  String _mapExtensionFor(String url) {
+    final path = Uri.tryParse(url)?.path.toLowerCase() ?? '';
+    for (final ext in const ['.mp4', '.m4s', '.m4v', '.cmfv', '.ts']) {
+      if (path.endsWith(ext)) return ext;
+    }
+    return '.mp4';
   }
 
   void dispose() => _dio.close(force: true);

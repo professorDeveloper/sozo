@@ -76,6 +76,16 @@ class PlayerArgs {
   /// which page is "next".
   final String sort;
 
+  /// Which episode a downloaded file is, when it belongs to a series.
+  ///
+  /// An offline episode plays as a single file — there is nothing to resolve
+  /// and no episode list — so without this the player saw a film. It then
+  /// wrote a film-shaped history row under the series url, which the detail
+  /// page's Continue card prefers over the real per-episode rows, and reported
+  /// "episode 1" to AniList for whichever episode was actually watched.
+  final int? offlineEpisodeNumber;
+  final String? offlineEpisodeLabel;
+
   const PlayerArgs({
     required this.title,
     required this.provider,
@@ -100,6 +110,8 @@ class PlayerArgs {
     this.totalEpisodes = 0,
     this.pageSize = 0,
     this.sort = 'asc',
+    this.offlineEpisodeNumber,
+    this.offlineEpisodeLabel,
   });
 
   /// The number of episodes the player should behave as if it has.

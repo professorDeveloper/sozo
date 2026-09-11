@@ -280,6 +280,12 @@ class _DetailViewState extends State<_DetailView>
   bool _autoPlayTriggered = false;
   bool _isFollowing = false;
 
+  /// Whether the next episode list opened should go straight on to the
+  /// episode history points at. True only for the auto-play that Continue
+  /// Watching starts, and spent by the first list it opens: a later Play from
+  /// this page is somebody choosing to browse.
+  late bool _resumeOnOpen = widget.autoPlay && widget.resumeEpisodeIndex != null;
+
   @override
   void initState() {
     super.initState();
@@ -764,7 +770,6 @@ class _DetailViewState extends State<_DetailView>
       provider: detail.provider,
       category: getIt<HiveService>().providerCategory(detail.provider),
       episodeNumber: history?.episodeNumber,
-      headers: const {},
     );
     if (!mounted) return;
     if (args == null) return;
@@ -878,6 +883,8 @@ class _DetailViewState extends State<_DetailView>
   }
 
   void _openEpisodes(PlaybackEntity playback) {
+    final resume = _resumeOnOpen;
+    _resumeOnOpen = false;
     context.push(
       '/episodes',
       extra: EpisodesArgs(
@@ -893,6 +900,7 @@ class _DetailViewState extends State<_DetailView>
         size: playback.size,
         total: playback.total,
         totalPages: playback.totalPages,
+        resumeFromHistory: resume,
       ),
     );
   }

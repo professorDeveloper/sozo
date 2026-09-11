@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/network/certificate_pinning.dart';
 
 /// Single-flight JWT freshener for the socket handshake.
 ///
@@ -73,7 +74,11 @@ class TokenRefresher {
     final refreshToken = _hive.getRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) return null;
     try {
-      final dio = _bareDio ??= Dio(BaseOptions(baseUrl: AppConstants.baseUrl));
+      // Bare so the auth interceptor cannot recurse into another refresh —
+      // but pinned like every other request to the API: this one carries the
+      // refresh token.
+      final dio = _bareDio ??= Dio(BaseOptions(baseUrl: AppConstants.baseUrl))
+        ..httpClientAdapter = CertificatePinning.adapter();
       final res = await dio.post(
         '/auth/refresh',
         data: {'refreshToken': refreshToken},

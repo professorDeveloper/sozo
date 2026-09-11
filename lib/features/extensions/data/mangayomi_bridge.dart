@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/extensions/source_language.dart' as srclang;
 import 'package:soplay/core/storage/hive_service.dart';
@@ -275,6 +276,40 @@ class MangayomiBridge {
 
   // --- detail --------------------------------------------------------------
 
+  /// Whether an extension's chapter list already runs oldest-first.
+  ///
+  /// Upload dates decide when both ends carry one; otherwise the numbers in
+  /// the chapter names do. With neither, the upstream convention — newest
+  /// first — is assumed, which is what every list was assumed to be before.
+  @visibleForTesting
+  static bool listedAscending(List<Map> chapters) {
+    if (chapters.length < 2) return true;
+    final first = chapters.first;
+    final last = chapters.last;
+    final d1 = int.tryParse(first['dateUpload']?.toString() ?? '');
+    final d2 = int.tryParse(last['dateUpload']?.toString() ?? '');
+    if (d1 != null && d2 != null && d1 > 0 && d2 > 0 && d1 != d2) {
+      return d1 < d2;
+    }
+    final n1 = _chapterNumberOf(first['name']?.toString() ?? '');
+    final n2 = _chapterNumberOf(last['name']?.toString() ?? '');
+    if (n1 != null && n2 != null && n1 != n2) return n1 < n2;
+    return false;
+  }
+
+  /// The chapter number in a name like "Vol.2 Chapter 14.5: Title" — the
+  /// number after a chapter/episode word when there is one, else the last
+  /// number in the name.
+  static double? _chapterNumberOf(String name) {
+    final lower = name.toLowerCase();
+    final tagged = RegExp(
+      r'(?:chapter|chap|ch\.?|episode|ep\.?|глава|серия|bob|qism)\s*(\d+(?:\.\d+)?)',
+    ).firstMatch(lower);
+    if (tagged != null) return double.tryParse(tagged.group(1)!);
+    final all = RegExp(r'\d+(?:\.\d+)?').allMatches(lower).toList();
+    return all.isEmpty ? null : double.tryParse(all.last.group(0)!);
+  }
+
   Future<Map<String, dynamic>> load(String id, String url) async {
     final src = _source(id);
     if (src == null) return const {};
@@ -286,7 +321,11 @@ class MangayomiBridge {
     if (chapters is List) {
       // Upstream returns newest-first; the app numbers episodes from 1 in
       // reading order, so reverse unless the source already ordered ascending.
-      final ordered = chapters.whereType<Map>().toList().reversed.toList();
+      // The comment always said "unless"; the code reversed every list, so a
+      // source that lists oldest-first came out with chapter 1 last.
+      final listed = chapters.whereType<Map>().toList();
+      final ordered =
+          listedAscending(listed) ? listed : listed.reversed.toList();
       for (var i = 0; i < ordered.length; i++) {
         final c = ordered[i];
         final ref = (c['url'] ?? c['link'])?.toString() ?? '';
@@ -451,7 +490,14 @@ class MangayomiBridge {
         videoSources.add({
           'quality': (e['quality'] ?? 'Source').toString(),
           'videoUrl': url,
-          'type': url.contains('.m3u8') ? 'hls' : 'http',
+          // A type the rest of the app knows. `http` is not one: the download
+          // sheet labels hls / mp4 rows as "HLS" / "Direct" and an `http` row
+          // got neither, and the player's format hint had nothing to go on.
+          'type': url.contains('.m3u8')
+              ? 'hls'
+              : url.contains('.mpd')
+                  ? 'dash'
+                  : 'mp4',
           'host': src.name,
           'isDefault': videoSources.isEmpty,
           'accessible': true,

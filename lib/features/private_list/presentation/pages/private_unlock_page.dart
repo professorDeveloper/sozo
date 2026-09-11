@@ -122,7 +122,7 @@ class _PrivateUnlockViewState extends State<_PrivateUnlockView> {
                     height: 22,
                     child: state.errorMessage != null
                         ? Text(
-                            state.errorMessage!.tr(),
+                            state.errorMessage!.tr(args: state.errorArgs),
                             style: const TextStyle(
                               color: AppColors.error,
                               fontSize: 13,

@@ -30,9 +30,9 @@ extension _PlayerPip on _PlayerPageState {
         _seekRelative(_seekStep);
       case 'prev':
         if (_partyBlockEpisodeNav()) return;
-        if (widget.args.isSerial && _episodeIndex - 1 >= 0) {
-          _loadEpisode(_episodeIndex - 1);
-        }
+        // The SERIES bounds, not the loaded page's: at the top of page two
+        // `_episodeIndex - 1` is -1, and _loadEpisode pages back across it.
+        if (_hasPrevEpisode) _loadEpisode(_episodeIndex - 1);
       case 'next':
         if (_partyBlockEpisodeNav()) return;
         if (widget.args.isSerial &&
@@ -46,7 +46,7 @@ extension _PlayerPip on _PlayerPageState {
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
     final isPlaying = c.value.isPlaying;
-    final hasPrev = widget.args.isSerial && _episodeIndex > 0;
+    final hasPrev = _hasPrevEpisode;
     final hasNext =
         _hasNextEpisode;
     if (isPlaying == _lastPipPlaying) {
@@ -119,7 +119,7 @@ extension _PlayerPip on _PlayerPageState {
 
   Future<void> _enterFullscreen() async {
     if (isDesktopPlatform) {
-      if (_hive.keepScreenOn) await WakelockPlus.enable();
+      if (_hive.keepScreenOn) await WakelockHolds.acquire(this);
       return;
     }
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -129,7 +129,7 @@ extension _PlayerPip on _PlayerPageState {
         DeviceOrientation.landscapeRight,
       ]);
     } catch (_) {}
-    if (_hive.keepScreenOn) await WakelockPlus.enable();
+    if (_hive.keepScreenOn) await WakelockHolds.acquire(this);
   }
 
   Future<void> _toggleFullscreen() async {
@@ -163,9 +163,9 @@ extension _PlayerPip on _PlayerPageState {
         _isFullscreen = false;
         await DesktopWindow.setFullscreen(false);
       }
-      try {
-        await WakelockPlus.disable();
-      } catch (_) {}
+      // Only this page's hold: a download on this machine may still need the
+      // screen awake after the player closes.
+      await WakelockHolds.release(this);
       return;
     }
     try {
@@ -177,7 +177,7 @@ extension _PlayerPip on _PlayerPageState {
         DeviceOrientation.portraitUp,
       ]);
     } catch (_) {}
-    await WakelockPlus.disable();
+    await WakelockHolds.release(this);
   }
 
   Future<void> _setSystemBrightness(double value) async {

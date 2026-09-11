@@ -73,7 +73,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     if (state is AuthInitial) return;
     await notificationService.unregister();
     await googleAuthService.signOut();
-    await hiveService.clearAuth();
+    // The whole account, not just its tokens: an expired session (a refresh
+    // that failed, a ban) used to leave the history, lists, tracker links and
+    // streak of the account that had been signed in on screen for whoever
+    // picked the phone up next — the exact leak logout already guards against.
+    await authRepository.clearLocalSession();
     emit(AuthInitial());
   }
 
