@@ -138,40 +138,18 @@ class AppRouter {
                   );
                 }();
 
-          final page = DetailPage(args: args);
-
-          // A fade, but ONLY when a poster is flying in.
+          // MaterialPage, plainly.
           //
-          // The platform default on Android is ZoomPageTransitionsBuilder: the
-          // incoming page scales as well as fades. A Hero flies in the
-          // navigator's overlay, in absolute coordinates, so while the page
-          // underneath is still scaling the rectangle the poster is aiming at
-          // is not where the eye sees the header. Two motions, disagreeing.
-          //
-          // The fade is not applied unconditionally, because on iOS it would
-          // cost the interactive edge-swipe back — a real gesture traded for a
-          // transition nobody asked to change. So: fade where there is a
-          // flight to protect, platform default everywhere else, which is
-          // every deeplink, search result and player hand-off.
-          final flying = args.heroTag != null && !Platform.isIOS;
-          if (!flying) return MaterialPage<void>(key: state.pageKey, child: page);
-
-          return CustomTransitionPage<void>(
+          // This used to swap in a fade whenever `heroTag` was set, to keep the
+          // platform's page transition from fighting a poster flying in the
+          // navigator's overlay. There is no flight to protect any more —
+          // PosterHero.flightEnabled has been false app-wide since the glide
+          // turned out to arrive as a stall and a jump — so all this did was
+          // give the detail page a different, flatter transition than every
+          // other route, depending on which card was tapped.
+          return MaterialPage<void>(
             key: state.pageKey,
-            // On the house durations, and long enough that
-            // _HeroOverlayFade's Interval(0.45, 1.0) gets the ~140ms window
-            // it was tuned for.
-            transitionDuration: const Duration(milliseconds: 260),
-            reverseTransitionDuration: const Duration(milliseconds: 200),
-            transitionsBuilder: (_, animation, _, child) => FadeTransition(
-              opacity: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOut,
-                reverseCurve: Curves.easeIn,
-              ),
-              child: child,
-            ),
-            child: page,
+            child: DetailPage(args: args),
           );
         },
       ),

@@ -68,7 +68,13 @@ class _TrailerActionState extends State<TrailerAction> {
       extra: PlayerArgs(
         title: trailer.title,
         provider: 'trailer',
-        thumbnail: trailer.thumbnail,
+        // The title's own poster, not YouTube's still. The player shows this
+        // while the stream is being handed over, and a frame grabbed off the
+        // trailer — or the grey placeholder standing in for one that failed to
+        // load — is not what somebody who just tapped a film expects to see.
+        thumbnail: widget.detail.thumbnail?.isNotEmpty == true
+            ? widget.detail.thumbnail
+            : trailer.thumbnail,
         movieUrl: trailer.streamUrl,
         type: 'mp4',
         headers: const {},
