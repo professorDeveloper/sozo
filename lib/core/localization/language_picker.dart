@@ -1,27 +1,44 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/localization/app_language.dart';
-import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
 /// First-run choice, after the introduction and before entering the app/auth.
 Future<bool> confirmIntroLanguage(BuildContext context) async {
   final code = await Navigator.of(
     context,
-  ).push<String>(MaterialPageRoute(builder: (_) => const IntroLanguagePage()));
+  ).push<String>(MaterialPageRoute(builder: (_) => const LanguagePage()));
   if (code == null || !context.mounted) return false;
   await AppLanguage.set(context, code);
   return true;
 }
 
-class IntroLanguagePage extends StatefulWidget {
-  const IntroLanguagePage({super.key});
+/// The same page from Settings, where picking one applies it.
+Future<void> openLanguagePage(BuildContext context) => Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const LanguagePage(firstRun: false)),
+    );
+
+/// Every language the app ships, in its own name.
+///
+/// One page for both places it is asked. First run is a step in a sequence, so
+/// it confirms and hands the answer back; Settings is a setting, so a tap is the
+/// change and the page closes behind it — which is what every other row in
+/// Settings does.
+///
+/// It had three implementations: this page, a bottom sheet nothing called, and
+/// a dropdown in Settings. Three ways to make one choice is three places for it
+/// to drift, and the dropdown was the one people actually met.
+class LanguagePage extends StatefulWidget {
+  const LanguagePage({super.key, this.firstRun = true});
+
+  /// Show the wordmark and a Continue button, rather than applying on tap.
+  final bool firstRun;
 
   @override
-  State<IntroLanguagePage> createState() => _IntroLanguagePageState();
+  State<LanguagePage> createState() => _LanguagePageState();
 }
 
-class _IntroLanguagePageState extends State<IntroLanguagePage> {
+class _LanguagePageState extends State<LanguagePage> {
   String? _selected;
 
   @override
@@ -47,7 +64,7 @@ class _IntroLanguagePageState extends State<IntroLanguagePage> {
                       icon: const Icon(Icons.arrow_back_rounded),
                     ),
                     const Spacer(),
-                    Text(
+                    if (widget.firstRun) Text(
                       'SOZO',
                       style: TextStyle(
                         color: AppColors.primary,
@@ -101,80 +118,35 @@ class _IntroLanguagePageState extends State<IntroLanguagePage> {
                     return _LanguageRow(
                       code: locale.languageCode,
                       selected: selected == locale.languageCode,
-                      onTap: () =>
-                          setState(() => _selected = locale.languageCode),
+                      onTap: () async {
+                        if (widget.firstRun) {
+                          setState(() => _selected = locale.languageCode);
+                          return;
+                        }
+                        // Applied through the page's own context, which
+                        // outlives this one being popped.
+                        final navigator = Navigator.of(context);
+                        await AppLanguage.set(context, locale.languageCode);
+                        navigator.pop();
+                      },
                     );
                   },
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(context, selected),
-                  child: Text('ux.continue'.tr()),
+              if (widget.firstRun)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context, selected),
+                    child: Text('ux.continue'.tr()),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
       ),
     );
   }
-}
-
-/// Lists every language the app ships, in its own name.
-Future<void> showLanguageSheet(BuildContext context) {
-  return showAdaptiveModal<void>(
-    context: context,
-    backgroundColor: AppColors.surface,
-    isScrollControlled: true,
-    showDragHandle: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (sheetContext) => SafeArea(
-      top: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(20, 4, 20, 12),
-            child: Text(
-              'profile.language'.tr(),
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          // Scrolls rather than sizing to eleven rows: on a short phone in
-          // landscape the full list is taller than the sheet is allowed to be.
-          Flexible(
-            child: ListView(
-              shrinkWrap: true,
-              padding: const EdgeInsets.only(bottom: 8),
-              children: [
-                for (final locale in context.supportedLocales)
-                  _LanguageRow(
-                    code: locale.languageCode,
-                    selected:
-                        locale.languageCode == context.locale.languageCode,
-                    // The sheet's own context is popped; the change is applied
-                    // through the page's, which outlives it.
-                    onTap: () async {
-                      Navigator.of(sheetContext).pop();
-                      await AppLanguage.set(context, locale.languageCode);
-                    },
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class _LanguageRow extends StatelessWidget {
