@@ -1,13 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_linked_badge.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/core/presentation/widgets/kaizoku_badge.dart';
 import 'package:soplay/core/presentation/widgets/kaizoku_media_card.dart';
-import 'package:soplay/core/theme/kaizoku_colors.dart';
-import 'package:soplay/core/widgets/poster_hero.dart';
 
 const double _posterRatio = 2 / 3;
 const double _captionHeight = 48;

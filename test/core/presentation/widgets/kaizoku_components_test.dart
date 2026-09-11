@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/core/presentation/widgets/kaizoku_badge.dart';
 import 'package:soplay/core/presentation/widgets/kaizoku_button.dart';
 import 'package:soplay/core/presentation/widgets/kaizoku_media_card.dart';
-import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 void main() {
   group('KaizokuBadge', () {

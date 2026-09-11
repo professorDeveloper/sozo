@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:soplay/core/presentation/widgets/kaizoku_badge.dart';
-import 'package:soplay/core/presentation/widgets/kaizoku_media_card.dart';
 import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/search/presentation/widgets/search_result_card.dart';

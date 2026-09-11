@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/widgets/app_tab_bar.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';

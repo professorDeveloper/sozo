@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/core/theme/kaizoku_colors.dart';
-import 'package:soplay/features/comments/domain/entities/comment_author.dart';
 import 'package:soplay/features/live_tv/data/live_tv_service.dart';
 import 'package:soplay/features/live_tv/presentation/widgets/channel_sheet.dart';
 import 'package:soplay/features/trivia/presentation/widgets/buff_empty_panel.dart';

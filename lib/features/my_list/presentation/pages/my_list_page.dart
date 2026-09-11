@@ -7,7 +7,6 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
-import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';

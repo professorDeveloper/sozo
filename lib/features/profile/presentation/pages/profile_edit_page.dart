@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/auth/domain/entities/user_entity.dart';
 import 'package:soplay/features/auth/domain/repositories/auth_repository.dart';

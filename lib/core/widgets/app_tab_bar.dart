@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 /// Canonical tab strip. Styling lifted verbatim from the detail page's

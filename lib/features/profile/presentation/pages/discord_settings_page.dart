@@ -9,7 +9,6 @@ import 'package:soplay/core/discord/discord_brand.dart';
 import 'package:soplay/core/discord/discord_presence_service.dart';
 import 'package:soplay/features/profile/presentation/widgets/discord_preview_card.dart';
 import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 
