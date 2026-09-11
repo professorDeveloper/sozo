@@ -951,7 +951,16 @@
     "up_to_date": "Alle extensies zijn up-to-date.",
     "updated_n": "{} extensie(s) bijgewerkt.",
     "spread": "Twee pagina's",
-    "spread_desc": "Naast elkaar in liggende stand, zoals het boek getekend is"
+    "spread_desc": "Naast elkaar in liggende stand, zoals het boek getekend is",
+    "text_size": "Tekstgrootte",
+    "line_height": "Regelafstand",
+    "typeface": "Lettertype",
+    "typeface_default": "Standaard",
+    "typeface_serif": "Schreef",
+    "typeface_mono": "Mono",
+    "alignment": "Uitlijning",
+    "align_left": "Links",
+    "align_justify": "Uitgevuld"
   },
   "cloudflare": {
     "title": "Bevestig dat je een mens bent",

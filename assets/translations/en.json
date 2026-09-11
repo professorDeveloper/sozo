@@ -951,7 +951,16 @@
     "up_to_date": "All extensions are up to date.",
     "updated_n": "Updated {} extension(s).",
     "spread": "Two pages",
-    "spread_desc": "Side by side in landscape, as the book was drawn"
+    "spread_desc": "Side by side in landscape, as the book was drawn",
+    "text_size": "Text size",
+    "line_height": "Line spacing",
+    "typeface": "Typeface",
+    "typeface_default": "Default",
+    "typeface_serif": "Serif",
+    "typeface_mono": "Mono",
+    "alignment": "Alignment",
+    "align_left": "Ragged",
+    "align_justify": "Justified"
   },
   "cloudflare": {
     "title": "Verify you're human",

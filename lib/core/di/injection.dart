@@ -88,6 +88,7 @@ import 'package:soplay/features/extensions/data/catalog_repository.dart';
 import 'package:soplay/features/extensions/data/extension_repo_repository.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
+import 'package:soplay/features/sources/data/source_browse_repository.dart';
 import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/reports/data/datasources/reports_data_source.dart';
 import 'package:soplay/features/reports/data/repositories/reports_repository_impl.dart';
@@ -435,6 +436,15 @@ Future<void> configureDependencies() async {
     () => MangayomiBridge(
       runtime: getIt<MangayomiRuntime>(),
       store: getIt<MangayomiRepoStore>(),
+    ),
+  );
+
+  // Browsing a source without becoming it: both kinds of catalogue answer
+  // through one repository, so the hub renders them with one widget.
+  getIt.registerLazySingleton<SourceBrowseRepository>(
+    () => SourceBrowseRepository(
+      dio: getIt<Dio>(),
+      bridge: getIt<MangayomiBridge>(),
     ),
   );
   getIt.registerLazySingleton<ExtractorRunner>(

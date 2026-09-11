@@ -951,7 +951,16 @@
     "up_to_date": "Todas as extensões estão em dia.",
     "updated_n": "{} extensão(ões) atualizada(s).",
     "spread": "Duas páginas",
-    "spread_desc": "Lado a lado na horizontal, como o livro foi desenhado"
+    "spread_desc": "Lado a lado na horizontal, como o livro foi desenhado",
+    "text_size": "Tamanho do texto",
+    "line_height": "Entrelinha",
+    "typeface": "Tipo de letra",
+    "typeface_default": "Padrão",
+    "typeface_serif": "Serifa",
+    "typeface_mono": "Mono",
+    "alignment": "Alinhamento",
+    "align_left": "À esquerda",
+    "align_justify": "Justificado"
   },
   "cloudflare": {
     "title": "Confirme que você é humano",

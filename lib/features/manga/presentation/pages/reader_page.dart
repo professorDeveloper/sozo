@@ -68,6 +68,12 @@ class _ReaderPageState extends State<ReaderPage> {
   late String _bgPref;
   double _brightness = 0.5;
 
+  // Prose typography. Only a novel chapter uses these; a comic ignores them.
+  late double _novelSize;
+  late double _novelLeading;
+  late String _novelFamily;
+  late bool _novelJustify;
+
   Color get _backgroundColor => switch (_bgPref) {
         'white' => const Color(0xFFFAFAFA),
         'gray' => const Color(0xFF2A2A2A),
@@ -103,6 +109,10 @@ class _ReaderPageState extends State<ReaderPage> {
     _spreadPref = _hive.readerSpread;
     _rtl = _hive.getReaderRtl(widget.args.contentUrl);
     _bgPref = _hive.getReaderBackground();
+    _novelSize = _hive.getNovelFontSize();
+    _novelLeading = _hive.getNovelLineHeight();
+    _novelFamily = _hive.getNovelFontFamily();
+    _novelJustify = _hive.getNovelJustify();
     _itemPositionsListener.itemPositions.addListener(_onItemPositions);
     if (!isDesktopPlatform) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -498,7 +508,14 @@ class _ReaderPageState extends State<ReaderPage> {
         child: NovelText(
           html: html,
           color: onWhite ? const Color(0xFF16181C) : Colors.white,
-          fontSize: 17,
+          fontSize: _novelSize,
+          lineHeight: _novelLeading,
+          fontFamily: _novelFamily.isEmpty ? null : _novelFamily,
+          justify: _novelJustify,
+          // Paragraphs need air in proportion to their leading, or a generous
+          // line height closes the gap between them and the page reads as one
+          // block.
+          paragraphSpacing: _novelSize * _novelLeading * 0.85,
         ),
       ),
     );
@@ -1018,6 +1035,71 @@ class _ReaderPageState extends State<ReaderPage> {
                   },
                 ),
               ],
+              if (_html != null) ...[
+                const SizedBox(height: 18),
+                Text('manga.text_size'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                _novelSlider(
+                  value: _novelSize,
+                  min: 13,
+                  max: 26,
+                  divisions: 13,
+                  label: _novelSize.round().toString(),
+                  onChanged: (v) {
+                    setSheet(() {});
+                    setState(() => _novelSize = v);
+                    _hive.saveNovelFontSize(v);
+                  },
+                ),
+                Text('manga.line_height'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                _novelSlider(
+                  value: _novelLeading,
+                  min: 1.2,
+                  max: 2.2,
+                  divisions: 10,
+                  label: _novelLeading.toStringAsFixed(2),
+                  onChanged: (v) {
+                    setSheet(() {});
+                    setState(() => _novelLeading = v);
+                    _hive.saveNovelLineHeight(v);
+                  },
+                ),
+                const SizedBox(height: 6),
+                Text('manga.typeface'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 8),
+                _segmented(
+                  options: {
+                    '': 'manga.typeface_default'.tr(),
+                    'serif': 'manga.typeface_serif'.tr(),
+                    'monospace': 'manga.typeface_mono'.tr(),
+                  },
+                  value: _novelFamily,
+                  onChanged: (v) {
+                    _hive.saveNovelFontFamily(v);
+                    setState(() => _novelFamily = v);
+                    setSheet(() {});
+                  },
+                ),
+                const SizedBox(height: 18),
+                Text('manga.alignment'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 8),
+                _segmented(
+                  options: {
+                    'left': 'manga.align_left'.tr(),
+                    'justify': 'manga.align_justify'.tr(),
+                  },
+                  value: _novelJustify ? 'justify' : 'left',
+                  onChanged: (v) {
+                    final want = v == 'justify';
+                    _hive.saveNovelJustify(want);
+                    setState(() => _novelJustify = want);
+                    setSheet(() {});
+                  },
+                ),
+              ],
               const SizedBox(height: 18),
               Text('manga.background'.tr(),
                   style: const TextStyle(color: Colors.white70, fontSize: 12)),
@@ -1062,6 +1144,40 @@ class _ReaderPageState extends State<ReaderPage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// A labelled slider for the prose settings, sized to sit in the sheet.
+  Widget _novelSlider({
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required String label,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Slider(
+            activeColor: _accent,
+            inactiveColor: Colors.white24,
+            min: min,
+            max: max,
+            divisions: divisions,
+            value: value.clamp(min, max),
+            onChanged: onChanged,
+          ),
+        ),
+        SizedBox(
+          width: 40,
+          child: Text(
+            label,
+            textAlign: TextAlign.end,
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+        ),
+      ],
     );
   }
 

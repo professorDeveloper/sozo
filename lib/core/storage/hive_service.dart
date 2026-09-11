@@ -894,6 +894,40 @@ class HiveService {
     await _settingsBox.put('reader_bg', bg);
   }
 
+  // ── Novel typography ──────────────────────────────────────────────────────
+  //
+  // A novel chapter is a wall of text and the reader had exactly one control
+  // over it: the background colour. Size, leading and justification were
+  // constants in the widget, which is the difference between a chapter
+  // somebody reads and one they give up on. Global rather than per-title:
+  // these are how a person reads, not how one book is laid out.
+
+  double getNovelFontSize() =>
+      (_settingsBox.get('novel_font_size', defaultValue: 17.0) as num).toDouble();
+
+  Future<void> saveNovelFontSize(double v) async =>
+      _settingsBox.put('novel_font_size', v);
+
+  double getNovelLineHeight() =>
+      (_settingsBox.get('novel_line_height', defaultValue: 1.62) as num)
+          .toDouble();
+
+  Future<void> saveNovelLineHeight(double v) async =>
+      _settingsBox.put('novel_line_height', v);
+
+  /// Empty means the platform default, which is what most prose should use.
+  String getNovelFontFamily() =>
+      _settingsBox.get('novel_font_family', defaultValue: '') as String;
+
+  Future<void> saveNovelFontFamily(String v) async =>
+      _settingsBox.put('novel_font_family', v);
+
+  bool getNovelJustify() =>
+      _settingsBox.get('novel_justify', defaultValue: false) == true;
+
+  Future<void> saveNovelJustify(bool v) async =>
+      _settingsBox.put('novel_justify', v);
+
   /// Whether to translate a subtitle on play when the source has none in the
   /// chosen language. Off by default — it spends a shared, capped budget.
   bool getSubtitleAutoTranslate() {

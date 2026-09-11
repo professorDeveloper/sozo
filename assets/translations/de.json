@@ -951,7 +951,16 @@
     "up_to_date": "Alle Erweiterungen sind aktuell.",
     "updated_n": "{} Erweiterung(en) aktualisiert.",
     "spread": "Doppelseite",
-    "spread_desc": "Nebeneinander im Querformat, so wie das Buch gezeichnet wurde"
+    "spread_desc": "Nebeneinander im Querformat, so wie das Buch gezeichnet wurde",
+    "text_size": "Schriftgröße",
+    "line_height": "Zeilenabstand",
+    "typeface": "Schriftart",
+    "typeface_default": "Standard",
+    "typeface_serif": "Serif",
+    "typeface_mono": "Mono",
+    "alignment": "Ausrichtung",
+    "align_left": "Flattersatz",
+    "align_justify": "Blocksatz"
   },
   "cloudflare": {
     "title": "Bestätige, dass du ein Mensch bist",
