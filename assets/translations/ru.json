@@ -406,7 +406,7 @@
     "section_providers": "Источники",
     "section_content": "КОНТЕНТ",
     "sources_row": "Источники расширений",
-    "sources_row_subtitle": "CloudStream, Aniyomi, Mangayomi",
+    "sources_row_subtitle": "Просмотр всех источников и установка новых",
     "provider": "Источник",
     "choose_provider": "Сменить источник",
     "search_providers_hint": "Поиск источников…",
@@ -1809,6 +1809,9 @@
     "quality_unknown": "Качество неизвестно",
     "size_unknown": "Источник не указал размер",
     "interface_language_note": "Меняется только интерфейс приложения. Названия фильмов, описания и другой контент источников остаются на исходном языке.",
-    "continue": "Продолжить"
+    "continue": "Продолжить",
+    "use_source": "Использовать этот источник",
+    "in_use": "Используется",
+    "now_using": "Используется {}"
   }
 }

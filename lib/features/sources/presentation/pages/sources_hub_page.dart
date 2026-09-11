@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/widgets/app_tab_bar.dart';
@@ -12,6 +13,7 @@ import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/home/presentation/widgets/view_all_widgets.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
 import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
@@ -144,6 +146,44 @@ class _SourcesHubPageState extends State<SourcesHubPage>
           ),
         ],
       ),
+      actions: [
+        // Here, and not on the list row: this is the moment the decision gets
+        // made, with what the source actually carries on the screen behind it.
+        BlocBuilder<ProviderBloc, ProviderState>(
+          builder: (context, state) {
+            final current = state is ProviderLoaded &&
+                state.currentProviderId == source.id;
+            return Padding(
+              padding: const EdgeInsetsDirectional.only(end: 8),
+              child: TextButton(
+                onPressed: current ? null : () => _use(source),
+                child: Text(
+                  current ? 'ux.in_use'.tr() : 'ux.use_source'.tr(),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  /// Makes the browsed source the app's source.
+  ///
+  /// The mode moves with it. Home is driven by whichever source is current, so
+  /// leaving a video source selected in manga mode shows an empty screen and
+  /// reads as the switch having failed — the same reason the quick switcher
+  /// carries the mode across.
+  Future<void> _use(ProviderEntity source) async {
+    final hive = getIt<HiveService>();
+    final mode = source.id.contentMode;
+    if (ContentMode.fromId(hive.getContentMode()) != mode) {
+      await hive.setContentMode(mode.id);
+    }
+    if (!mounted) return;
+    context.read<ProviderBloc>().add(ProviderSelect(source.id));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('ux.now_using'.tr(args: [source.name]))),
     );
   }
 
@@ -208,6 +248,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (_, i) => _SourceTile(
                         source: sources[i],
+                        current: sources[i].id == state.currentProviderId,
                         onTap: () => setState(() => _open = sources[i]),
                       ),
                     ),
@@ -220,9 +261,17 @@ class _SourcesHubPageState extends State<SourcesHubPage>
 }
 
 class _SourceTile extends StatelessWidget {
-  const _SourceTile({required this.source, required this.onTap});
+  const _SourceTile({
+    required this.source,
+    required this.onTap,
+    this.current = false,
+  });
 
   final ProviderEntity source;
+
+  /// The app's source right now. Marked, not made un-tappable: tapping still
+  /// browses, which is what every other row here does.
+  final bool current;
   final VoidCallback onTap;
 
   @override
@@ -250,14 +299,25 @@ class _SourceTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    source.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          source.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (current) ...[
+                        const SizedBox(width: 6),
+                        Icon(Icons.check_rounded,
+                            size: 16, color: AppColors.primary),
+                      ],
+                    ],
                   ),
                   if (subtitle.isNotEmpty) ...[
                     const SizedBox(height: 2),

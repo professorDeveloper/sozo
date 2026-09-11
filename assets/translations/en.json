@@ -406,7 +406,7 @@
     "section_providers": "Sources",
     "section_content": "CONTENT",
     "sources_row": "Extension sources",
-    "sources_row_subtitle": "CloudStream, Aniyomi, Mangayomi",
+    "sources_row_subtitle": "Browse every source, and install more",
     "provider": "Source",
     "choose_provider": "Change source",
     "search_providers_hint": "Search providers…",
@@ -1808,6 +1808,9 @@
     "quality_unknown": "Quality unknown",
     "size_unknown": "Size not provided by the source",
     "interface_language_note": "Only the app interface changes. Film titles, descriptions and other source content stay in their original language.",
-    "continue": "Continue"
+    "continue": "Continue",
+    "use_source": "Use this source",
+    "in_use": "In use",
+    "now_using": "Now using {}"
   }
 }

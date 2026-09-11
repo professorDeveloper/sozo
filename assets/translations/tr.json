@@ -406,7 +406,7 @@
     "section_providers": "Kaynaklar",
     "section_content": "İÇERİK",
     "sources_row": "Eklenti kaynakları",
-    "sources_row_subtitle": "CloudStream, Aniyomi, Mangayomi",
+    "sources_row_subtitle": "Tüm kaynakları gözat ve yenilerini kur",
     "provider": "Kaynak",
     "choose_provider": "Kaynağı değiştir",
     "search_providers_hint": "Kaynaklarda ara…",
@@ -1808,6 +1808,9 @@
     "quality_unknown": "Kalite bilinmiyor",
     "size_unknown": "Kaynak dosya boyutunu belirtmedi",
     "interface_language_note": "Yalnızca uygulama arayüzü değişir. Film adları, açıklamalar ve diğer kaynak içerikleri orijinal dilinde kalır.",
-    "continue": "Devam et"
+    "continue": "Devam et",
+    "use_source": "Bu kaynağı kullan",
+    "in_use": "Kullanımda",
+    "now_using": "{} kullanılıyor"
   }
 }

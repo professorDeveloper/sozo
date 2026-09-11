@@ -406,7 +406,7 @@
     "section_providers": "Manbalar",
     "section_content": "KONTENT",
     "sources_row": "Kengaytma manbalari",
-    "sources_row_subtitle": "CloudStream, Aniyomi, Mangayomi",
+    "sources_row_subtitle": "Har bir manbani ko'rish va yangisini o'rnatish",
     "provider": "Manba",
     "choose_provider": "Manbani almashtirish",
     "search_providers_hint": "Manbalarni qidirish…",
@@ -1808,6 +1808,9 @@
     "quality_unknown": "Sifat noma’lum",
     "size_unknown": "Manba fayl hajmini bermagan",
     "interface_language_note": "Faqat ilova interfeysi o‘zgaradi. Film nomlari, tavsiflari va manbadagi boshqa kontent asl tilida qoladi.",
-    "continue": "Davom etish"
+    "continue": "Davom etish",
+    "use_source": "Shu manbani ishlatish",
+    "in_use": "Ishlatilmoqda",
+    "now_using": "{} ishlatilmoqda"
   }
 }

@@ -406,7 +406,7 @@
     "section_providers": "Sumber",
     "section_content": "KONTEN",
     "sources_row": "Sumber ekstensi",
-    "sources_row_subtitle": "CloudStream, Aniyomi, Mangayomi",
+    "sources_row_subtitle": "Jelajahi semua sumber dan pasang lainnya",
     "provider": "Sumber",
     "choose_provider": "Ganti sumber",
     "search_providers_hint": "Cari sumber…",
@@ -1808,6 +1808,9 @@
     "quality_unknown": "Kualitas tidak diketahui",
     "size_unknown": "Sumber tidak memberikan ukuran berkas",
     "interface_language_note": "Hanya antarmuka aplikasi yang berubah. Judul film, deskripsi, dan konten sumber lainnya tetap dalam bahasa aslinya.",
-    "continue": "Lanjutkan"
+    "continue": "Lanjutkan",
+    "use_source": "Gunakan sumber ini",
+    "in_use": "Digunakan",
+    "now_using": "Menggunakan {}"
   }
 }
