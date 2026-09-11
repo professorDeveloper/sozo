@@ -33,6 +33,15 @@ class SecureBoxes {
   static const FlutterSecureStorage _defaultStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+    // The file-based login keychain, not the data-protection one.
+    //
+    // The plugin defaults macOS to the data-protection keychain, which only
+    // answers an app carrying a `keychain-access-groups` entitlement — and that
+    // entitlement requires signing with a development certificate. Without one,
+    // every read and write came back -34018 ("A required entitlement isn't
+    // present"), the cipher was null, and both token boxes opened in plain
+    // text. The encryption existed and never once ran on macOS.
+    mOptions: MacOsOptions(useDataProtectionKeyChain: false),
   );
 
   /// The shared cipher, creating and storing its key on first use; null when
