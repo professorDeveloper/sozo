@@ -17,6 +17,12 @@ class FavoriteCard extends StatelessWidget {
   final VoidCallback onTap;
   final bool synced;
 
+  static const double titleFontSize = 12;
+  static const double titleLineHeight = 1.18;
+  static const double metaFontSize = 10.5;
+  static const double metaLineHeight = 1.2;
+  static const double metaGap = 3;
+
   @override
   Widget build(BuildContext context) {
     final title =

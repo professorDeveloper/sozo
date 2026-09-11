@@ -51,6 +51,7 @@ import 'package:soplay/core/player/webview_stream_extractor.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/widgets/server_badge.dart';
 import 'package:soplay/core/system/app_orientation.dart';
+import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';

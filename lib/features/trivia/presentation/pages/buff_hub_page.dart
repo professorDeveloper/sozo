@@ -923,7 +923,7 @@ class _HowStep extends StatelessWidget {
             color: KaizokuColors.surfaceLight,
             shape: BoxShape.circle,
           ),
-          child: const Icon(icon, color: KaizokuColors.neonCrimson, size: 18),
+          child: Icon(icon, color: KaizokuColors.neonCrimson, size: 18),
         ),
         const SizedBox(height: 8),
         Padding(

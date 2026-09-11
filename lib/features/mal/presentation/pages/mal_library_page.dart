@@ -326,6 +326,7 @@ class _EntryTile extends StatelessWidget {
           ),
         ),
       ),
+      ),
     );
   }
 }

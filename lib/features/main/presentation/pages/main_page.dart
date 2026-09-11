@@ -374,6 +374,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                   destinations: [
                     for (final def in defs)
                       KaizokuNavigationDestination(
+                        id: def.id.name,
                         label: def.labelKey.tr(),
                         icon: Icon(def.icon),
                         selectedIcon: Icon(def.activeIcon),
