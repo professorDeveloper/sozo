@@ -13,6 +13,7 @@ import 'package:soplay/features/home/presentation/widgets/view_all_widgets.dart'
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
+import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
 import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
 
@@ -72,6 +73,22 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   void _openExtensions() => Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => const SourcesPage()),
       );
+
+  /// Where an empty tab sends somebody who wants to fill it.
+  ///
+  /// Manga and novels come from one ecosystem — the JavaScript extensions —
+  /// and its screen is the one carrying the recommended repos that actually
+  /// publish a novel index. Sending them to the generic list instead would be
+  /// one more hop to the same place.
+  void _openInstaller(ContentMode mode) {
+    if (mode == ContentMode.video) {
+      _openExtensions();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const MangayomiSourcesPage()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -180,9 +197,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                       // install has nothing in either tab and the only way out
                       // is a gear icon the message never mentions.
                       actionLabel: needle.isEmpty ? 'manga.add_source'.tr() : null,
-                      onAction: needle.isEmpty ? _openExtensions : null,
+                      onAction: needle.isEmpty ? () => _openInstaller(mode) : null,
                     )
                   : ListView.separated(
+                      // Going into a source and back rebuilt this list from
+                      // nothing, so a tap forty rows down returned to the top.
+                      key: PageStorageKey<String>('sources-list-${mode.id}'),
                       padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                       itemCount: sources.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -292,8 +312,15 @@ class _SourceBrowseViewState extends State<_SourceBrowseView> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snap.hasError) {
+          final error = snap.error;
+          // The raw object used to go straight to the screen, so a source the
+          // backend does not know answered with eleven lines of DioException
+          // about `validateStatus` and a link to MDN's page for HTTP 400.
+          final text = error is SourceBrowseException && error.message != null
+              ? error.message!
+              : 'search.source_failed'.tr();
           return _Message(
-            text: snap.error.toString(),
+            text: text,
             actionLabel: 'general.retry'.tr(),
             onAction: _retry,
           );

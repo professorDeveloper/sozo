@@ -1,4 +1,7 @@
 import 'package:dio/dio.dart';
+import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
+import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
+import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
 import 'package:soplay/features/home/data/models/home_data_model.dart';
 import 'package:soplay/features/home/domain/entities/home_data_entity.dart';
@@ -15,10 +18,11 @@ import 'package:soplay/features/home/domain/entities/home_data_entity.dart';
 /// and `DetailArgs` carries one, so a card opened from here reaches the right
 /// source without anything global moving.
 ///
-/// Mangayomi sources answer from the device rather than the backend, and
-/// `getMainPage` already returns the same `{provider, banner, sections}` shape
-/// the backend does — so both kinds parse through one model and render through
-/// one widget instead of two catalogue screens that drift.
+/// Four of the five kinds of source never touch the backend at all: CloudStream,
+/// Aniyomi, Manga and Mangayomi all answer from the device. Routing by prefix
+/// mirrors `HomeRepositoryImpl.loadHome`, which is the only other place that has
+/// to know this — sending a `cs:` id to `/contents/home` is what made opening
+/// XD Movies here answer 400.
 class SourceBrowseRepository {
   const SourceBrowseRepository({required this.dio, required this.bridge});
 
@@ -26,18 +30,19 @@ class SourceBrowseRepository {
   final MangayomiBridge bridge;
 
   Future<HomeDataEntity> load(String providerId) async {
+    final bare = providerId.length > 3 ? providerId.substring(3) : providerId;
+
+    if (providerId.startsWith('cs:')) {
+      return _fromHost(() => CloudStreamChannel.getMainPage(bare), 'CloudStream');
+    }
+    if (providerId.startsWith('an:')) {
+      return _fromHost(() => AniyomiChannel.getMainPage(bare), 'Aniyomi');
+    }
+    if (providerId.startsWith('mn:')) {
+      return _fromHost(() => MangaChannel.getMainPage(bare), 'Manga');
+    }
     if (providerId.startsWith('my:')) {
-      final data = await bridge.getMainPage(MangayomiBridge.bare(providerId));
-      final sections = data['sections'];
-      final error = data['error'];
-      // The bridge reports a dead source in the payload rather than by
-      // throwing, because a source that implements only one of popular/latest
-      // is a real configuration and not a failure. Empty AND carrying an error
-      // is the case that is actually broken.
-      if ((sections is! List || sections.isEmpty) && error != null) {
-        throw SourceBrowseException(error.toString());
-      }
-      return HomeDataModel.fromJson(data);
+      return _fromHost(() => bridge.getMainPage(bare), 'Mangayomi');
     }
 
     final res = await dio.get<Map<String, dynamic>>(
@@ -46,13 +51,40 @@ class SourceBrowseRepository {
     );
     return HomeDataModel.fromJson(res.data ?? const <String, dynamic>{});
   }
+
+  /// An on-device host's catalogue.
+  ///
+  /// Each reports *why* it came back empty in an `error` field — a bad apk, a
+  /// dex link failure, the HTTP status the source answered with — and that is
+  /// worth more than "nothing here", because it is the difference between a
+  /// user who can re-add the repo and one staring at a blank screen.
+  Future<HomeDataEntity> _fromHost(
+    Future<Map<String, dynamic>> Function() call,
+    String label,
+  ) async {
+    final map = await call();
+    final error = map['error'];
+    final sections = map['sections'];
+    if (sections is! List || sections.isEmpty) {
+      throw SourceBrowseException(
+        error is String && error.isNotEmpty ? '$label: $error' : null,
+      );
+    }
+    return HomeDataModel.fromJson(map);
+  }
 }
 
+/// A browse failure with something a person can read.
+///
+/// The raw object went to the screen before this existed, so a source the
+/// backend does not know answered with eleven lines of DioException about
+/// `validateStatus` and a link to the MDN page for HTTP 400.
 class SourceBrowseException implements Exception {
   const SourceBrowseException(this.message);
 
-  final String message;
+  /// Null when there is nothing specific to say; the UI supplies the wording.
+  final String? message;
 
   @override
-  String toString() => message;
+  String toString() => message ?? '';
 }
