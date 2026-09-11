@@ -6,9 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/bridge/bridge_control.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/discord/discord_brand.dart';
-import 'package:soplay/core/discord/discord_presence_service.dart';
 import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
@@ -76,7 +75,7 @@ class _ProfileConnectionsPageState extends State<ProfileConnectionsPage> {
       value: connected.isEmpty
           ? 'profile.not_connected'.tr()
           : connected.join(' · '),
-      valueColor: connected.isEmpty ? AppColors.textHint : kAnilistBlue,
+      valueColor: connected.isEmpty ? KaizokuColors.textMuted : kAnilistBlue,
       onTap: () => context.push('/connections'),
     );
   }
@@ -195,7 +194,7 @@ class _TrackerPair extends StatelessWidget {
               decoration: BoxDecoration(
                 // A ring in the card colour, so the lower mark reads as in
                 // front of the upper one instead of merging with it.
-                color: AppColors.surface,
+                color: KaizokuColors.surface,
                 borderRadius: BorderRadius.circular(8.5),
               ),
               child: Opacity(

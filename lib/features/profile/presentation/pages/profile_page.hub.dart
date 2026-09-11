@@ -91,29 +91,30 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = Colors.white.withValues(alpha: 0.05);
+    final border = Colors.white.withValues(alpha: 0.08);
     return Expanded(
       child: Material(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: onTap,
+          splashColor: KaizokuColors.neonCrimson.withValues(alpha: 0.1),
           child: Container(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 11),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: border, width: 0.5),
+              border: Border.all(color: border, width: 0.8),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, size: 18, color: AppColors.textSecondary),
+                Icon(icon, size: 18, color: KaizokuColors.neonCrimson),
                 const SizedBox(height: 8),
                 Text(
                   value,
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                     height: 1,
@@ -126,7 +127,7 @@ class _StatTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 11,
                   ),
                 ),
@@ -243,7 +244,7 @@ class _ConnectionsHubTileState extends State<_ConnectionsHubTile> {
       // else is behind it when there is not.
       subtitle: names.isEmpty ? 'profile.connections_subtitle'.tr() : null,
       value: names.isEmpty ? 'profile.not_connected'.tr() : names.join(' · '),
-      valueColor: names.isEmpty ? AppColors.textHint : kAnilistBlue,
+      valueColor: names.isEmpty ? KaizokuColors.textSecondary : kAnilistBlue,
       onTap: () => context.push('/profile/connections'),
     );
   }
@@ -428,7 +429,7 @@ class _HubBellState extends State<_HubBell> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.07),
+            color: KaizokuColors.surfaceLight,
             shape: BoxShape.circle,
           ),
           child: Stack(
@@ -437,7 +438,7 @@ class _HubBellState extends State<_HubBell> {
               const Center(
                 child: Icon(
                   Icons.notifications_none_rounded,
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   size: 21,
                 ),
               ),
@@ -452,10 +453,10 @@ class _HubBellState extends State<_HubBell> {
                       minHeight: 15,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      color: KaizokuColors.neonCrimson,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: AppColors.navBackground,
+                        color: KaizokuColors.cyberObsidian,
                         width: 1.2,
                       ),
                     ),

@@ -9,7 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/trivia/domain/entities/actor_ref_entity.dart';
 import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
@@ -102,7 +102,7 @@ class _ResultPageState extends State<ResultPage> {
     final r = widget.result;
     final bottom = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.background,
       body: Stack(
         children: [
           SafeArea(
@@ -116,7 +116,7 @@ class _ResultPageState extends State<ResultPage> {
                     child: IconButton(
                       onPressed: () => context.pop(),
                       icon: const Icon(CupertinoIcons.xmark,
-                          color: AppColors.textPrimary),
+                          color: KaizokuColors.textPrimary),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -124,7 +124,7 @@ class _ResultPageState extends State<ResultPage> {
                     'trivia.fan_test_done'.tr(),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: KaizokuColors.textPrimary,
                       fontSize: 26,
                       fontWeight: FontWeight.w700,
                     ),
@@ -141,7 +141,7 @@ class _ResultPageState extends State<ResultPage> {
                       ),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textHint,
                         fontSize: 12,
                         height: 1.4,
                       ),
@@ -243,7 +243,7 @@ class _FandomGauge extends StatelessWidget {
                     Text(
                       '${(value * 100).round()}%',
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: KaizokuColors.textPrimary,
                         fontSize: 46,
                         fontWeight: FontWeight.w700,
                       ),
@@ -251,7 +251,7 @@ class _FandomGauge extends StatelessWidget {
                     Text(
                       'trivia.fandom'.tr().toUpperCase(),
                       style: TextStyle(
-                        color: AppColors.textSecondary,
+                        color: KaizokuColors.textSecondary,
                         fontSize: 12,
                         letterSpacing: 1,
                         fontWeight: FontWeight.w700,
@@ -284,7 +284,7 @@ class _GaugePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
-      ..color = AppColors.surfaceVariant;
+      ..color = KaizokuColors.surfaceVariant;
     canvas.drawCircle(center, radius, track);
 
     if (progress <= 0) return;
@@ -292,7 +292,7 @@ class _GaugePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
-      ..color = AppColors.primary;
+      ..color = KaizokuColors.primary;
     canvas.drawArc(rect, -math.pi / 2, math.pi * 2 * progress, false, arc);
   }
 
@@ -355,21 +355,21 @@ class _StatTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: KaizokuColors.border),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: AppColors.primaryLight, size: 20),
+          Icon(icon, color: KaizokuColors.primaryLight, size: 20),
           const SizedBox(height: 8),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: KaizokuColors.textPrimary,
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
@@ -378,7 +378,7 @@ class _StatTile extends StatelessWidget {
           Text(
             label.toUpperCase(),
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 10,
               letterSpacing: 0.5,
               fontWeight: FontWeight.w700,
@@ -411,7 +411,7 @@ class _SecondaryButton extends StatelessWidget {
         onPressed: busy ? null : onTap,
         style: OutlinedButton.styleFrom(
           side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
-          foregroundColor: AppColors.textPrimary,
+          foregroundColor: KaizokuColors.textPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(kButtonRadius),
           ),
@@ -422,7 +422,7 @@ class _SecondaryButton extends StatelessWidget {
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.primary,
+                  color: KaizokuColors.primary,
                 ),
               )
             : Icon(icon, size: 18),

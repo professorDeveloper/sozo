@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/presentation/widgets/trailer_action.dart';
 import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/core/tv/tv.dart';
@@ -174,11 +174,11 @@ class _ContinueWatchingCard extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: onTap,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
+                backgroundColor: KaizokuColors.neonCrimson,
+                foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(kButtonRadius),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               icon: const Icon(Icons.play_arrow_rounded, size: 26),
@@ -202,8 +202,8 @@ class _ContinueWatchingCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress,
                 minHeight: 3,
-                backgroundColor: AppColors.surfaceVariant,
-                valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                backgroundColor: Colors.white24,
+                valueColor: const AlwaysStoppedAnimation(KaizokuColors.neonCrimson),
               ),
             ),
           ],
@@ -212,7 +212,7 @@ class _ContinueWatchingCard extends StatelessWidget {
             Text(
               caption,
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -252,7 +252,7 @@ class _MetaLine extends StatelessWidget {
         Text(
           parts[i],
           style: const TextStyle(
-            color: AppColors.textSecondary,
+            color: KaizokuColors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -293,13 +293,13 @@ class _LikeRatio extends StatelessWidget {
         Icon(
           positive ? Icons.thumb_up_rounded : Icons.thumb_down_rounded,
           size: 13,
-          color: positive ? AppColors.rating : AppColors.textHint,
+          color: positive ? KaizokuColors.solarAmber : KaizokuColors.textMuted,
         ),
         const SizedBox(width: 5),
         Text(
           'detail.liked'.tr(args: ['$percent']),
           style: TextStyle(
-            color: positive ? AppColors.rating : AppColors.textSecondary,
+            color: positive ? KaizokuColors.solarAmber : KaizokuColors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
@@ -308,7 +308,7 @@ class _LikeRatio extends StatelessWidget {
         Text(
           '($votes)',
           style: const TextStyle(
-            color: AppColors.textHint,
+            color: KaizokuColors.textMuted,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
@@ -327,7 +327,7 @@ class _Dot extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 8),
       child: Text(
         '•',
-        style: TextStyle(color: AppColors.textHint, fontSize: 12),
+        style: TextStyle(color: KaizokuColors.textMuted, fontSize: 12),
       ),
     );
   }
@@ -381,7 +381,7 @@ class _Chip extends StatelessWidget {
     // Material owns the fill so the ink lands on top of it; on the bare
     // Container the splash painted under an opaque chip and was invisible.
     return Material(
-      color: AppColors.surfaceVariant,
+      color: KaizokuColors.surfaceElevated,
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         onTap: onTap,
@@ -391,7 +391,7 @@ class _Chip extends StatelessWidget {
           child: Text(
             label,
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textHigh,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -413,7 +413,7 @@ class _ExpandableDescription extends StatefulWidget {
 class _ExpandableDescriptionState extends State<_ExpandableDescription> {
   static const int _collapsedLines = 3;
   static const TextStyle _style = TextStyle(
-    color: AppColors.textSecondary,
+    color: KaizokuColors.textSecondary,
     fontSize: 13,
     height: 1.5,
   );
@@ -461,7 +461,7 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
             Text(
               _expanded ? 'detail.show_less'.tr() : 'detail.show_more'.tr(),
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: Colors.white,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
@@ -511,12 +511,12 @@ class _SquareAction extends StatelessWidget {
         width: 46,
         height: 46,
         child: Material(
-          color: AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(kButtonRadius),
+          color: KaizokuColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(10),
           child: InkWell(
-            borderRadius: BorderRadius.circular(kButtonRadius),
+            borderRadius: BorderRadius.circular(10),
             onTap: onTap,
-            child: Icon(icon, size: 21, color: AppColors.textPrimary),
+            child: Icon(icon, size: 21, color: KaizokuColors.textHigh),
           ),
         ),
       ),
@@ -539,11 +539,11 @@ class _PlayButton extends StatelessWidget {
       child: ElevatedButton.icon(
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
+          backgroundColor: KaizokuColors.neonCrimson,
+          foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(kButtonRadius),
+            borderRadius: BorderRadius.circular(10),
           ),
         ),
         icon: Icon(

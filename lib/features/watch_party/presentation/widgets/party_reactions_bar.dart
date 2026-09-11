@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/watch_party/data/watch_party_service.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_reaction.dart';
 
@@ -85,9 +85,9 @@ class PartyReactionPicker extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.border, width: 0.6),
+        border: Border.all(color: KaizokuColors.cardBorder, width: 0.6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
@@ -56,7 +57,7 @@ class SearchContentView extends StatelessWidget {
               height: 2,
               child: LinearProgressIndicator(
                 minHeight: 2,
-                color: AppColors.primary,
+                color: KaizokuColors.neonCrimson,
                 backgroundColor: Colors.transparent,
               ),
             ),
@@ -135,7 +136,7 @@ class SearchContentView extends StatelessWidget {
                 padding: EdgeInsets.symmetric(vertical: 20),
                 child: Center(
                   child: CircularProgressIndicator(
-                    color: AppColors.primary,
+                    color: KaizokuColors.neonCrimson,
                     strokeWidth: 2,
                   ),
                 ),
@@ -726,19 +727,25 @@ class _ActionChip extends StatelessWidget {
     final content = Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.15),
+        color: KaizokuColors.neonCrimson.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+        border: Border.all(color: KaizokuColors.neonCrimson.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: KaizokuColors.neonCrimson.withValues(alpha: 0.2),
+            blurRadius: 8,
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: AppColors.primary),
+          Icon(icon, size: 16, color: KaizokuColors.neonCrimson),
           const SizedBox(width: 8),
           Text(
             label,
-            style: TextStyle(
-              color: AppColors.primary,
+            style: const TextStyle(
+              color: KaizokuColors.neonCrimson,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),

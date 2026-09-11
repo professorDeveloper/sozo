@@ -861,7 +861,7 @@ extension _PlayerControls on _PlayerPageState {
                                   icon: _inParty
                                       ? Icons.groups_rounded
                                       : Icons.groups_2_outlined,
-                                  color: _inParty ? AppColors.primary : null,
+                                  color: _inParty ? KaizokuColors.neonCrimson : null,
                                   onTap: _openWatchParty,
                                 ),
                                 const SizedBox(width: 2),
@@ -1260,11 +1260,11 @@ extension _PlayerControls on _PlayerPageState {
               trackHeight: 4,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-              activeTrackColor: AppColors.primary,
+              activeTrackColor: KaizokuColors.neonCrimson,
               inactiveTrackColor: Colors.white24,
               secondaryActiveTrackColor: Colors.white38,
               thumbColor: Colors.white,
-              overlayColor: AppColors.primary.withValues(alpha: 0.2),
+              overlayColor: KaizokuColors.neonCrimson.withValues(alpha: 0.2),
             ),
             child: Slider(
               value: sliderVal,
@@ -1393,7 +1393,7 @@ extension _PlayerControls on _PlayerPageState {
       case 'stats':
         return _IconButton(
           icon: Icons.info_outline_rounded,
-          color: _showPlayerInfo ? AppColors.primary : null,
+          color: _showPlayerInfo ? KaizokuColors.neonCrimson : null,
           onTap: () => setState(() => _showPlayerInfo = !_showPlayerInfo),
         );
       case 'speed':
@@ -1431,7 +1431,7 @@ extension _PlayerControls on _PlayerPageState {
         if (!(_controller?.supportsShaders ?? false)) return null;
         return _IconButton(
           icon: Icons.auto_awesome_rounded,
-          color: _shaderPreset.isOff ? null : AppColors.primary,
+          color: _shaderPreset.isOff ? null : KaizokuColors.neonCrimson,
           onTap: _openShaderSheet,
         );
       case 'fit':
@@ -1446,7 +1446,7 @@ extension _PlayerControls on _PlayerPageState {
         if (!_canCast) return null;
         return _IconButton(
           icon: Icons.cast_rounded,
-          color: _cast.isCasting ? AppColors.primary : null,
+          color: _cast.isCasting ? KaizokuColors.neonCrimson : null,
           onTap: _openCastSheet,
         );
       case 'party':
@@ -1455,7 +1455,7 @@ extension _PlayerControls on _PlayerPageState {
         if (!_inParty && widget.args.provider.startsWith('cs:')) return null;
         return _IconButton(
           icon: _inParty ? Icons.groups_rounded : Icons.groups_2_outlined,
-          color: _inParty ? AppColors.primary : null,
+          color: _inParty ? KaizokuColors.neonCrimson : null,
           onTap: _openWatchParty,
         );
       case 'pip':

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:soplay/core/constants/app_constants.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 /// The privacy warning shown before the first torrent of an install.
 ///
@@ -50,13 +50,13 @@ class _TorrentConsentDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: AppColors.surface,
-      icon: Icon(Icons.hub_outlined, color: AppColors.primary, size: 30),
+      backgroundColor: KaizokuColors.surface,
+      icon: Icon(Icons.hub_outlined, color: KaizokuColors.primary, size: 30),
       title: Text(
         'torrent.consent_title'.tr(),
         textAlign: TextAlign.center,
         style: TextStyle(
-          color: AppColors.textPrimary,
+          color: KaizokuColors.textPrimary,
           fontSize: 18,
           fontWeight: FontWeight.w700,
         ),
@@ -64,7 +64,7 @@ class _TorrentConsentDialog extends StatelessWidget {
       content: Text(
         'torrent.consent_body'.tr(),
         style: TextStyle(
-          color: AppColors.textSecondary,
+          color: KaizokuColors.textSecondary,
           fontSize: 14,
           height: 1.45,
         ),
@@ -75,7 +75,7 @@ class _TorrentConsentDialog extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(false),
           child: Text(
             'general.cancel'.tr(),
-            style: TextStyle(color: AppColors.textSecondary),
+            style: TextStyle(color: KaizokuColors.textSecondary),
           ),
         ),
         ElevatedButton(

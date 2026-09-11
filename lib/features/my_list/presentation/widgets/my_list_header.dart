@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 class MyListHeader extends StatelessWidget {
   const MyListHeader({
@@ -28,11 +29,11 @@ class MyListHeader extends StatelessWidget {
     final content = Container(
       padding: EdgeInsetsDirectional.fromSTEB(20, topPad + 14, 16, 14),
       decoration: BoxDecoration(
-        color: AppColors.navBackground.withValues(alpha: 0.78 * progress),
+        color: KaizokuColors.cyberObsidian.withValues(alpha: 0.88 * progress),
         border: progress > 0.05
             ? Border(
                 bottom: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.07 * progress),
+                  color: Colors.white.withValues(alpha: 0.08 * progress),
                   width: 0.5,
                 ),
               )
@@ -45,7 +46,7 @@ class MyListHeader extends StatelessWidget {
             child: Text(
               'home.my_list'.tr(),
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: Colors.white,
                 fontSize: 28,
                 fontWeight: FontWeight.w900,
                 height: 1.05,
@@ -59,13 +60,13 @@ class MyListHeader extends StatelessWidget {
             tooltip: 'user_lists.title'.tr(),
             icon: const Icon(
               Icons.playlist_add_check_rounded,
-              color: AppColors.textSecondary,
+              color: KaizokuColors.neonCrimson,
             ),
             onPressed: () => context.push('/my-lists'),
           ),
           if (onRefresh != null)
             DesktopRefreshButton(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               onRefresh: onRefresh!,
             ),
         ],

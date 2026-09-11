@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/live_tv/data/live_tv_service.dart';
 
@@ -24,7 +24,7 @@ Future<void> showChannelSheet({
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: AppColors.background,
+    backgroundColor: KaizokuColors.cyberObsidian,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
     ),
@@ -142,8 +142,8 @@ class _ChannelSheetState extends State<ChannelSheet> {
                   _favourite ? Icons.star_rounded : Icons.star_border_rounded,
                   size: 20,
                   color: _favourite
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
+                      ? KaizokuColors.neonCrimson
+                      : KaizokuColors.textSecondary,
                 ),
                 label: Text(
                   _favourite
@@ -157,17 +157,17 @@ class _ChannelSheetState extends State<ChannelSheet> {
                   const Icon(
                     Icons.list_alt_rounded,
                     size: 18,
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    'live_tv.guide'.tr(),
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
+                  const Text(
+                    'live_tv.guide',
+                    style: TextStyle(
+                      color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
-                  ),
+                  ).tr(),
                 ],
               ),
               const SizedBox(height: 10),
@@ -189,15 +189,15 @@ class _ChannelSheetState extends State<ChannelSheet> {
           height: 48,
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppColors.card,
+            color: KaizokuColors.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            border: Border.all(color: KaizokuColors.cardBorder),
           ),
           child: channel.logoUrl == null
               ? const Icon(
                   Icons.live_tv_rounded,
                   size: 22,
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textMuted,
                 )
               : CachedNetworkImage(
                   imageUrl: channel.logoUrl!,
@@ -206,7 +206,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
                   errorWidget: (_, _, _) => const Icon(
                     Icons.live_tv_rounded,
                     size: 22,
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textMuted,
                   ),
                   placeholder: (_, _) => const SizedBox.shrink(),
                 ),
@@ -222,7 +222,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   fontSize: 15.5,
                   fontWeight: FontWeight.w700,
                   height: 1.2,
@@ -237,7 +237,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                   ),
@@ -261,7 +261,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
       Text(
         'live_tv.now'.tr(),
         style: const TextStyle(
-          color: AppColors.textSecondary,
+          color: KaizokuColors.textSecondary,
           fontSize: 10.5,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.6,
@@ -273,7 +273,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
-          color: AppColors.textPrimary,
+          color: Colors.white,
           fontSize: 14,
           fontWeight: FontWeight.w700,
           height: 1.25,
@@ -286,7 +286,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: AppColors.textSecondary,
+            color: KaizokuColors.textSecondary,
             fontSize: 11.5,
             fontWeight: FontWeight.w500,
           ),
@@ -297,7 +297,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
         Text(
           '${_hhmm(slot.start!)} – ${_hhmm(slot.stop!)}',
           style: const TextStyle(
-            color: AppColors.textSecondary,
+            color: KaizokuColors.textSecondary,
             fontSize: 11.5,
             fontWeight: FontWeight.w600,
           ),
@@ -313,12 +313,12 @@ class _ChannelSheetState extends State<ChannelSheet> {
             width: double.infinity,
             height: 3,
             child: Container(
-              color: AppColors.surfaceVariant,
+              color: KaizokuColors.surfaceLight,
               child: FractionallySizedBox(
                 alignment: AlignmentDirectional.centerStart,
                 widthFactor: bar,
                 heightFactor: 1,
-                child: Container(color: AppColors.primary),
+                child: Container(color: KaizokuColors.neonCrimson),
               ),
             ),
           ),
@@ -331,7 +331,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: AppColors.textSecondary,
+            color: KaizokuColors.textSecondary,
             fontSize: 12.5,
             height: 1.45,
           ),
@@ -346,7 +346,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
       Text(
         'live_tv.next'.tr(),
         style: const TextStyle(
-          color: AppColors.textSecondary,
+          color: KaizokuColors.textSecondary,
           fontSize: 10.5,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.6,
@@ -359,7 +359,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
             Text(
               _hhmm(next.start!),
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
               ),
@@ -372,7 +372,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: Colors.white,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -421,7 +421,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
       return Text(
         'live_tv.no_guide'.tr(),
         style: const TextStyle(
-          color: AppColors.textSecondary,
+          color: KaizokuColors.textSecondary,
           fontSize: 12.5,
           fontWeight: FontWeight.w500,
         ),
@@ -433,7 +433,8 @@ class _ChannelSheetState extends State<ChannelSheet> {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0) Divider(height: 1, thickness: 1, color: AppColors.divider),
+          if (i > 0)
+            const Divider(height: 1, thickness: 1, color: KaizokuColors.cardBorder),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 9),
             child: Row(
@@ -444,7 +445,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
                   child: Text(
                     _hhmm(rows[i].start!),
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -457,7 +458,7 @@ class _ChannelSheetState extends State<ChannelSheet> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),

@@ -7,7 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
 import 'package:soplay/features/extensions/presentation/widgets/recommended_repos_section.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_source_settings_page.dart';
@@ -26,7 +26,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
       'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s';
   /// The manga screens used to carry their own private blue. There is one
   /// accent in the app now, and the user chooses it.
-  static Color get _accent => AppColors.primary;
+  static Color get _accent => KaizokuColors.neonCrimson;
 
   late final HiveService _hive = getIt<HiveService>();
 
@@ -210,9 +210,9 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
     }
     final visibleSources = _visibleSources;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
@@ -253,11 +253,11 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
             children: [
               Text('manga.installed_sources'.tr(),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.textHint, letterSpacing: 1)),
+                      color: KaizokuColors.textMuted, letterSpacing: 1)),
               const Spacer(),
               if (_repos.isNotEmpty)
                 Text('${_repos.length}',
-                    style: const TextStyle(color: AppColors.textHint)),
+                    style: const TextStyle(color: KaizokuColors.textMuted)),
             ],
           ),
           const SizedBox(height: 8),
@@ -270,7 +270,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
                 const SizedBox(width: 6),
                 Text('manga.source_settings'.tr(),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.textHint, letterSpacing: 1)),
+                        color: KaizokuColors.textMuted, letterSpacing: 1)),
               ],
             ),
             const SizedBox(height: 8),
@@ -283,9 +283,9 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
 
   Widget _nsfwCard() => Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: KaizokuColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border, width: 0.6),
+          border: Border.all(color: KaizokuColors.cardBorder, width: 0.6),
         ),
         padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 6, 10),
         child: Row(
@@ -299,7 +299,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
                       Flexible(
                         child: Text('manga.show_nsfw'.tr(),
                             style: const TextStyle(
-                                color: AppColors.textPrimary,
+                                color: Colors.white,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600)),
                       ),
@@ -310,7 +310,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
                   const SizedBox(height: 3),
                   Text('manga.show_nsfw_hint'.tr(),
                       style: const TextStyle(
-                          color: AppColors.textHint,
+                          color: KaizokuColors.textMuted,
                           fontSize: 12,
                           height: 1.35)),
                 ],
@@ -333,7 +333,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: ListTile(
@@ -358,10 +358,10 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
           subtitle: lang.isNotEmpty
               ? Text(lang.toUpperCase(),
                   style: const TextStyle(
-                      color: AppColors.textHint, fontSize: 11))
+                      color: KaizokuColors.textMuted, fontSize: 11))
               : null,
           trailing: const Icon(Icons.settings_outlined,
-              color: AppColors.textHint),
+              color: KaizokuColors.textMuted),
           onTap: () => _openSourceSettings(source),
         ),
       ),
@@ -393,7 +393,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
             child: Text(
               'manga.sources_desc'.tr(),
               style: const TextStyle(
-                  color: AppColors.textHint, fontSize: 12.5, height: 1.35),
+                  color: KaizokuColors.textMuted, fontSize: 12.5, height: 1.35),
             ),
           ),
         ],
@@ -401,7 +401,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
 
   Widget _addCard() => Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: KaizokuColors.surface,
           borderRadius: BorderRadius.circular(14),
         ),
         padding: const EdgeInsets.all(14),
@@ -416,12 +416,12 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 labelText: 'manga.repo_url'.tr(),
-                labelStyle: const TextStyle(color: AppColors.textHint),
+                labelStyle: const TextStyle(color: KaizokuColors.textMuted),
                 floatingLabelStyle: TextStyle(color: _accent),
                 hintText: 'https://…/index.min.json',
-                hintStyle: const TextStyle(color: AppColors.textHint),
+                hintStyle: const TextStyle(color: KaizokuColors.textMuted),
                 filled: true,
-                fillColor: AppColors.background,
+                fillColor: KaizokuColors.cyberObsidian,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
@@ -434,7 +434,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
                 suffixIcon: _controller.text.isEmpty
                     ? null
                     : IconButton(
-                        icon: const Icon(Icons.clear, color: AppColors.textHint),
+                        icon: const Icon(Icons.clear, color: KaizokuColors.textMuted),
                         tooltip: 'general.clear'.tr(),
                         onPressed: _busy
                             ? null
@@ -499,16 +499,16 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 28),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: KaizokuColors.surface,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
           children: [
             const Icon(Icons.cloud_off_outlined,
-                color: AppColors.textHint, size: 32),
+                color: KaizokuColors.textMuted, size: 32),
             const SizedBox(height: 8),
             Text('manga.no_sources'.tr(),
-                style: const TextStyle(color: AppColors.textHint)),
+                style: const TextStyle(color: KaizokuColors.textMuted)),
           ],
         ),
       );
@@ -519,7 +519,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: ListTile(
@@ -534,7 +534,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
           subtitle: Text(url,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AppColors.textHint, fontSize: 11)),
+              style: const TextStyle(color: KaizokuColors.textMuted, fontSize: 11)),
           trailing: IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
             onPressed: _busy ? null : () => _remove(url),

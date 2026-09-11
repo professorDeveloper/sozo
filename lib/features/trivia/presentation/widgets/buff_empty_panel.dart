@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
 
 /// The app's shipped empty / error panel, lifted out of the cast picker so every
@@ -55,7 +55,7 @@ class BuffEmptyPanel extends StatelessWidget {
                 title,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
@@ -67,7 +67,7 @@ class BuffEmptyPanel extends StatelessWidget {
                   text,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 13,
                     height: 1.5,
                   ),
@@ -81,7 +81,7 @@ class BuffEmptyPanel extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: onAction,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: KaizokuColors.primary,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -124,13 +124,13 @@ class BuffIconCircle extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: RadialGradient(
           colors: [
-            AppColors.primary.withValues(alpha: 0.22),
-            AppColors.primary.withValues(alpha: 0.06),
+            KaizokuColors.primary.withValues(alpha: 0.22),
+            KaizokuColors.primary.withValues(alpha: 0.06),
           ],
         ),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.22)),
+        border: Border.all(color: KaizokuColors.primary.withValues(alpha: 0.22)),
       ),
-      child: Icon(icon, color: AppColors.primaryLight, size: 30),
+      child: Icon(icon, color: KaizokuColors.primaryLight, size: 30),
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/comments/domain/entities/comment_author.dart';
 import 'package:soplay/features/comments/presentation/widgets/comment_avatar.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_member.dart';
@@ -25,7 +25,7 @@ class PartyMemberBar extends StatelessWidget {
             Text(
               'watch_party.members'.tr(),
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.4,
@@ -35,13 +35,14 @@ class PartyMemberBar extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.surfaceVariant,
+                color: KaizokuColors.surface,
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: KaizokuColors.cardBorder),
               ),
               child: Text(
                 '${room.onlineCount}/${room.maxMembers}',
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),
@@ -104,13 +105,13 @@ class _MemberTile extends StatelessWidget {
                   left: -2,
                   child: Container(
                     padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
+                    decoration: const BoxDecoration(
+                      color: KaizokuColors.cyberObsidian,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.workspace_premium_rounded,
-                      color: AppColors.rating,
+                      color: KaizokuColors.solarAmber,
                       size: 15,
                     ),
                   ),
@@ -122,9 +123,9 @@ class _MemberTile extends StatelessWidget {
                   width: 11,
                   height: 11,
                   decoration: BoxDecoration(
-                    color: member.online ? AppColors.success : AppColors.textHint,
+                    color: member.online ? KaizokuColors.electricCyan : KaizokuColors.textMuted,
                     shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.background, width: 2),
+                    border: Border.all(color: KaizokuColors.cyberObsidian, width: 2),
                   ),
                 ),
               ),
@@ -137,7 +138,7 @@ class _MemberTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isMe ? AppColors.textPrimary : AppColors.textSecondary,
+              color: isMe ? Colors.white : KaizokuColors.textSecondary,
               fontSize: 10.5,
               fontWeight: isMe ? FontWeight.w800 : FontWeight.w600,
             ),

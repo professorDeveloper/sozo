@@ -8,6 +8,7 @@ import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
 import 'package:soplay/features/banners/presentation/bloc/banners_bloc.dart';
@@ -156,8 +157,8 @@ class _HomeContentBody extends StatelessWidget {
   Widget build(BuildContext context) {
     // No top bar here — HomePage mounts it once above this subtree.
     return RefreshIndicator(
-      color: AppColors.primary,
-      backgroundColor: AppColors.surface,
+      color: KaizokuColors.neonCrimson,
+      backgroundColor: KaizokuColors.surface,
       edgeOffset: topPad + 10,
       displacement: topPad + 10,
       strokeWidth: 2.6,

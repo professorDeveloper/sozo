@@ -1,6 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
 
@@ -62,7 +62,7 @@ class CastCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textHint,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 height: 1.2,
@@ -106,9 +106,9 @@ class CastAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.surfaceVariant,
+        color: KaizokuColors.surfaceVariant,
         border: Border.all(
-          color: highlightRing ? AppColors.primary : AppColors.border,
+          color: highlightRing ? KaizokuColors.primary : KaizokuColors.border,
           width: highlightRing ? 2 : 1.2,
         ),
       ),
@@ -152,12 +152,12 @@ class _Initials extends StatelessWidget {
         final side = constraints.biggest.shortestSide;
         final fontSize = (side.isFinite ? side * 0.31 : 20.0).clamp(12.0, 22.0);
         return Container(
-          color: AppColors.surfaceVariant,
+          color: KaizokuColors.surfaceVariant,
           alignment: Alignment.center,
           child: Text(
             _initials(name),
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontWeight: FontWeight.w800,
               fontSize: fontSize,
               height: 1,
@@ -188,7 +188,7 @@ class _HighlightedName extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const base = TextStyle(
-      color: AppColors.textPrimary,
+      color: KaizokuColors.textPrimary,
       fontSize: 12,
       fontWeight: FontWeight.w700,
       height: 1.2,
@@ -220,7 +220,7 @@ class _HighlightedName extends StatelessWidget {
           TextSpan(
             text: name.substring(start, end),
             style: TextStyle(
-              color: AppColors.primaryLight,
+              color: KaizokuColors.primaryLight,
               fontWeight: FontWeight.w800,
             ),
           ),

@@ -8,7 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/player/media_controller.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
@@ -157,21 +157,21 @@ class _GameViewState extends State<_GameView> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: KaizokuColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: AppColors.border.withValues(alpha: 0.6)),
+          side: BorderSide(color: KaizokuColors.border.withValues(alpha: 0.6)),
         ),
         title: Text(
           'trivia.forfeit_title'.tr(),
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: KaizokuColors.textPrimary,
             fontWeight: FontWeight.w800,
           ),
         ),
         content: Text(
           'trivia.forfeit_body'.tr(),
-          style: const TextStyle(color: AppColors.textSecondary),
+          style: const TextStyle(color: KaizokuColors.textSecondary),
         ),
         actions: [
           TextButton(
@@ -182,7 +182,7 @@ class _GameViewState extends State<_GameView> {
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(
               'trivia.forfeit_confirm'.tr(),
-              style: TextStyle(color: AppColors.primaryLight),
+              style: TextStyle(color: KaizokuColors.primaryLight),
             ),
           ),
         ],
@@ -431,12 +431,12 @@ class _RevealPanel extends StatelessWidget {
               decoration: BoxDecoration(
                 // Surface card scale: radius 12. The border keeps its semantic
                 // colour (green/red) because it is the correctness signal.
-                color: AppColors.surface,
+                color: KaizokuColors.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: (reveal.correct
-                          ? AppColors.success
-                          : AppColors.error)
+                          ? KaizokuColors.success
+                          : KaizokuColors.error)
                       .withValues(alpha: 0.5),
                   width: 1.2,
                 ),
@@ -463,8 +463,8 @@ class _RevealPanel extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: reveal.correct
-                                    ? AppColors.success
-                                    : AppColors.errorLight,
+                                    ? KaizokuColors.success
+                                    : KaizokuColors.errorLight,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
                                 height: 1.2,
@@ -476,7 +476,7 @@ class _RevealPanel extends StatelessWidget {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                color: AppColors.textPrimary,
+                                color: KaizokuColors.textPrimary,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
                                 height: 1.2,
@@ -499,7 +499,7 @@ class _RevealPanel extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: onWatchFull,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: KaizokuColors.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -561,7 +561,7 @@ class _PointsBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = correct ? AppColors.success : AppColors.textHint;
+    final color = correct ? KaizokuColors.success : KaizokuColors.textHint;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.6, end: 1),
       duration: const Duration(milliseconds: 420),
@@ -667,7 +667,7 @@ class _LoadingView extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'trivia.building_round'.tr(),
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            style: const TextStyle(color: KaizokuColors.textSecondary, fontSize: 14),
           ),
         ],
       ),

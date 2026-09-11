@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "Sozo" "\0"
-            VALUE "FileDescription", "Sozo" "\0"
+            VALUE "CompanyName", "Kaizoku" "\0"
+            VALUE "FileDescription", "Kaizoku" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "soplay" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 Sozo. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Kaizoku. All rights reserved." "\0"
             VALUE "OriginalFilename", "soplay.exe" "\0"
-            VALUE "ProductName", "Sozo" "\0"
+            VALUE "ProductName", "Kaizoku" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

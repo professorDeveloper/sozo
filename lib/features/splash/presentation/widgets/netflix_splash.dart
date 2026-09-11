@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 class NetflixSplash extends StatefulWidget {
   const NetflixSplash({super.key, required this.onComplete});
@@ -26,7 +26,7 @@ class _NetflixSplashState extends State<NetflixSplash>
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: AppColors.background,
+        systemNavigationBarColor: KaizokuColors.background,
       ),
     );
     _setup();
@@ -90,7 +90,7 @@ class _NetflixSplashState extends State<NetflixSplash>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.background,
       body: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
@@ -101,23 +101,47 @@ class _NetflixSplashState extends State<NetflixSplash>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Opacity(
-                    opacity: _sOpacity.value,
-                    child: Transform.scale(
-                      scale: _sScale.value,
-                      alignment: Alignment.center,
-                      child: Text('S', style: _kStyle),
-                    ),
-                  ),
-                  ClipRect(
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      widthFactor: _oplayWidth.value,
-                      child: Opacity(
-                        opacity: _oplayOpacity.value,
-                        child: Text('OZO', style: _kStyle),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Opacity(
+                            opacity: _sOpacity.value,
+                            child: Transform.scale(
+                              scale: _sScale.value,
+                              alignment: Alignment.center,
+                              child: Text('K', style: _kStyle),
+                            ),
+                          ),
+                          ClipRect(
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              widthFactor: _oplayWidth.value,
+                              child: Opacity(
+                                opacity: _oplayOpacity.value,
+                                child: Text('AIZOKU', style: _kStyle),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 6),
+                      Opacity(
+                        opacity: _oplayOpacity.value,
+                        child: Text(
+                          '海賊  •  STREAM UNBOUND',
+                          style: TextStyle(
+                            color: Colors.white.withAlpha(160),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 4.0,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -132,9 +156,9 @@ class _NetflixSplashState extends State<NetflixSplash>
 /// A getter, not a `const`: the wordmark is painted in the accent colour, and
 /// the accent is a runtime choice now.
 TextStyle get _kStyle => TextStyle(
-  color: AppColors.primary,
-  fontSize: 80,
+  color: KaizokuColors.primary,
+  fontSize: 64,
   fontWeight: FontWeight.w900,
-  letterSpacing: -3.5,
+  letterSpacing: 2.0,
   height: 1.0,
 );

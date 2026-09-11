@@ -10,6 +10,10 @@ import 'package:soplay/features/home/domain/entities/view_all.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/home/presentation/widgets/home_ui_helpers.dart';
 
+import 'package:soplay/core/presentation/widgets/kaizoku_badge.dart';
+import 'package:soplay/core/presentation/widgets/kaizoku_media_card.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
+
 class MovieSection extends StatelessWidget {
   const MovieSection({
     super.key,
@@ -52,25 +56,19 @@ class MovieSection extends StatelessWidget {
               padding: const EdgeInsetsDirectional.fromSTEB(17, 18, 20, 14),
               child: Row(
                 children: [
-                  // The accent tick is on EVERY row now, not only the
-                  // highlighted one — it is the mark that carries the chosen
-                  // colour down the whole of Home. Highlighted rows keep their
-                  // distinction by being taller and gradient-filled.
+                  // Shin Kaizoku glowing crimson accent tick
                   Container(
-                    width: 3,
-                    height: isHighlighted ? 19 : 15,
+                    width: 3.5,
+                    height: isHighlighted ? 20 : 16,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: isHighlighted
-                            ? [AppColors.primaryLight, AppColors.primary]
-                            : [
-                                AppColors.primary,
-                                AppColors.primary.withValues(alpha: 0.55),
-                              ],
-                      ),
+                      color: KaizokuColors.neonCrimson,
                       borderRadius: BorderRadius.circular(2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: KaizokuColors.neonCrimson.withValues(alpha: isHighlighted ? 0.75 : 0.45),
+                          blurRadius: isHighlighted ? 8 : 5,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -80,18 +78,19 @@ class MovieSection extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: KaizokuColors.textHigh,
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
                         height: 1.1,
+                        letterSpacing: -0.2,
                       ),
                     ),
                   ),
                   Icon(
                     Icons.chevron_right_rounded,
                     color: isHighlighted
-                        ? AppColors.primary
-                        : AppColors.textHint,
+                        ? KaizokuColors.neonCrimson
+                        : KaizokuColors.textMuted,
                     size: 22,
                   ),
                 ],
@@ -99,7 +98,7 @@ class MovieSection extends StatelessWidget {
             ),
           ),
           SizedBox(
-            height: isDesktopPlatform ? 300 : 195,
+            height: isDesktopPlatform ? 255 : 195,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               // Don't clip the hover scale/ring on desktop.
@@ -130,24 +129,13 @@ class MovieSection extends StatelessWidget {
   }
 }
 
-class _MovieCard extends StatefulWidget {
+class _MovieCard extends StatelessWidget {
   const _MovieCard({required this.movie, this.heroTag});
 
   final MovieEntity movie;
-
-  /// Threaded, but currently inert: `PosterHero.flightEnabled` is false, so
-  /// nothing flies. Kept so the flight is one word away from coming back.
   final String? heroTag;
 
-  @override
-  State<_MovieCard> createState() => _MovieCardState();
-}
-
-class _MovieCardState extends State<_MovieCard> {
-  bool _hover = false;
-
-  void _openDetail() {
-    final movie = widget.movie;
+  void _openDetail(BuildContext context) {
     if (movie.url.isNotEmpty) {
       context.push(
         '/detail',
@@ -161,186 +149,22 @@ class _MovieCardState extends State<_MovieCard> {
 
   @override
   Widget build(BuildContext context) {
-    final movie = widget.movie;
-    final quality = primaryQuality(movie);
     final desktop = isDesktopPlatform;
-
-    // Sozo-Desktop item sizing/styling on desktop; untouched on mobile.
     final width = desktop ? 152.0 : 118.0;
-    final radius = desktop ? 12.0 : 10.0;
+    final quality = primaryQuality(movie);
 
-    // Computed once here rather than inside the image, so the tile and the
-    // hero shuttle resolve byte-identical cache keys. Desktop keeps full
-    // resolution — HomeNetworkImage skips its own sizing there too.
-    final decodeWidth = desktop
-        ? null
-        : (width * MediaQuery.devicePixelRatioOf(context)).round();
-
-    final cover = Expanded(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        // foregroundDecoration paints the hover ring OVER the poster, so the
-        // image stays full-bleed (no permanent inset gap) when not hovered.
-        foregroundDecoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
-          border: Border.all(
-            color: desktop && _hover
-                ? AppColors.textPrimary
-                : Colors.transparent,
-            width: 2.5,
-          ),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Only the IMAGE flies, not the card. Carrying the badges and
-              // the gradient along would mean interpolating a 9pt quality
-              // chip up to header size, which reads as a glitch rather than
-              // a transition.
-              PosterHero(
-                tag: widget.heroTag,
-                url: movie.thumbnail,
-                fromRadius: radius,
-                // The SAME number goes to both, and that is the whole point:
-                // memCacheWidth becomes part of the image-cache key, so a
-                // shuttle that measured its own width would miss the cache
-                // this tile just filled and fly a blank frame.
-                memCacheWidth: decodeWidth,
-                child: HomeNetworkImage(
-                  url: movie.thumbnail,
-                  borderRadius: BorderRadius.zero,
-                  placeholderIcon: Icons.movie_outlined,
-                  memCacheWidth: decodeWidth,
-                ),
-              ),
-              const Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: SizedBox(
-                  height: 40,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [Color(0x99000000), Color(0x00000000)],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (quality != null)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(
-                      quality,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        height: 1,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    final content = SizedBox(
+    return Container(
       width: width,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: desktop ? 6 : 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            cover,
-            SizedBox(height: desktop ? 10 : 6),
-            FixedTextLines(
-              fontSize: desktop ? 15 : 11.5,
-              lineHeight: desktop ? 1.3 : 1.25,
-              lines: desktop ? 2 : 1,
-              child: Text(
-                movieTitle(movie),
-                maxLines: desktop ? 2 : 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: desktop ? 15 : 11.5,
-                  fontWeight: desktop ? FontWeight.w800 : FontWeight.w600,
-                  height: desktop ? 1.3 : 1.25,
-                ),
-              ),
-            ),
-            SizedBox(height: desktop ? 6 : 0),
-            FixedTextLines(
-              fontSize: desktop ? 12.5 : 10,
-              lineHeight: 1.3,
-              child: movie.year == null
-                  ? null
-                  : Row(
-                      children: [
-                        if (desktop) ...[
-                          const Icon(
-                            Icons.calendar_today_rounded,
-                            size: 12,
-                            color: AppColors.textHint,
-                          ),
-                          const SizedBox(width: 5),
-                        ],
-                        Text(
-                          movie.year.toString(),
-                          style: TextStyle(
-                            color: desktop
-                                ? AppColors.textHint
-                                : AppColors.textSecondary,
-                            fontSize: desktop ? 12.5 : 10,
-                            fontWeight: desktop
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (!desktop) {
-      return HoverTap(onTap: _openDetail, child: content);
-    }
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        onTap: _openDetail,
-        child: AnimatedScale(
-          scale: _hover ? 1.06 : 1.0,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          child: content,
-        ),
+      margin: EdgeInsets.symmetric(horizontal: desktop ? 6 : 4),
+      child: KaizokuMediaCard(
+        title: movieTitle(movie),
+        imageUrl: movie.thumbnail,
+        subtitle: movie.year != null ? '${movie.year}' : null,
+        ratio: KaizokuCardRatio.poster,
+        badgeText: quality,
+        badgeVariant: KaizokuBadgeVariant.primary,
+        tagText: movie.rating != null ? '★ ${movie.rating}' : null,
+        onTap: () => _openDetail(context),
       ),
     );
   }

@@ -2,7 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/tracker/data/tracker_link_store.dart';
@@ -70,9 +70,9 @@ class _TrackerLinksPageState extends State<TrackerLinksPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.background,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
@@ -119,7 +119,7 @@ class _LinkTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.surface,
+      color: KaizokuColors.surface,
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -140,7 +140,7 @@ class _LinkTile extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: KaizokuColors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         height: 1.3,
@@ -155,7 +155,7 @@ class _LinkTile extends StatelessWidget {
                           label: link.provider.isEmpty
                               ? '\u2014'
                               : link.provider,
-                          color: AppColors.textSecondary,
+                          color: KaizokuColors.textSecondary,
                         ),
                         if (link.auto)
                           AnilistChip(
@@ -173,7 +173,7 @@ class _LinkTile extends StatelessWidget {
                 onPressed: onUnlink,
                 icon: const Icon(
                   Icons.link_off_rounded,
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textHint,
                   size: 20,
                 ),
               ),

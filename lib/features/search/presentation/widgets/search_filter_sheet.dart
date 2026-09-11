@@ -7,6 +7,8 @@ import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 
+import 'package:soplay/core/theme/kaizoku_colors.dart';
+
 class SearchFilterSelection {
   const SearchFilterSelection({this.genre = ''});
 
@@ -63,7 +65,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
         filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF161616).withValues(alpha: 0.96),
+            color: KaizokuColors.surface.withValues(alpha: 0.96),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border(
               top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
@@ -80,7 +82,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                 Text(
                   'search.filter'.tr(),
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textHigh,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -114,7 +116,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                       child: OutlinedButton(
                         onPressed: _clearFilters,
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textSecondary,
+                          foregroundColor: KaizokuColors.textSecondary,
                           side: BorderSide(
                             color: Colors.white.withValues(alpha: 0.12),
                           ),
@@ -138,7 +140,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                       child: ElevatedButton(
                         onPressed: _applyFilters,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
+                          backgroundColor: KaizokuColors.neonCrimson,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -268,19 +270,19 @@ class _SheetChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
       decoration: BoxDecoration(
         color: selected
-            ? AppColors.primary.withValues(alpha: 0.18)
-            : AppColors.surfaceVariant.withValues(alpha: 0.6),
+            ? KaizokuColors.neonCrimson.withValues(alpha: 0.18)
+            : KaizokuColors.surfaceElevated.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: selected
-              ? AppColors.primary.withValues(alpha: 0.6)
-              : Colors.white.withValues(alpha: 0.06),
+              ? KaizokuColors.neonCrimson.withValues(alpha: 0.7)
+              : Colors.white.withValues(alpha: 0.08),
         ),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: selected ? AppColors.primary : AppColors.textSecondary,
+          color: selected ? KaizokuColors.neonCrimson : KaizokuColors.textSecondary,
           fontSize: 13,
           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         ),

@@ -107,7 +107,7 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
 
   Widget _navSegment(String value, String labelKey) {
     final selected = _navStyle == value;
-    final accent = selected ? AppColors.primary : AppColors.textSecondary;
+    final accent = selected ? KaizokuColors.primary : KaizokuColors.textSecondary;
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -119,12 +119,12 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
           padding: const EdgeInsets.fromLTRB(6, 9, 6, 7),
           decoration: BoxDecoration(
             color: selected
-                ? AppColors.primary.withValues(alpha: 0.14)
+                ? KaizokuColors.primary.withValues(alpha: 0.14)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(11),
             border: Border.all(
               color: selected
-                  ? AppColors.primary.withValues(alpha: 0.5)
+                  ? KaizokuColors.primary.withValues(alpha: 0.5)
                   : Colors.transparent,
             ),
           ),
@@ -141,8 +141,8 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: selected
-                      ? AppColors.textPrimary
-                      : AppColors.textSecondary,
+                      ? KaizokuColors.textPrimary
+                      : KaizokuColors.textSecondary,
                   fontSize: 11,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
@@ -170,22 +170,22 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                 SwitchListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   value: _native,
-                  activeThumbColor: AppColors.primary,
+                  activeThumbColor: KaizokuColors.primary,
                   secondary: const Icon(
                     Icons.web_asset_rounded,
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                   ),
                   title: Text(
                     'profile.native_window_bar'.tr(),
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: KaizokuColors.textPrimary,
                       fontSize: 15,
                     ),
                   ),
                   subtitle: Text(
                     'profile.native_window_bar_subtitle'.tr(),
                     style: const TextStyle(
-                      color: AppColors.textHint,
+                      color: KaizokuColors.textMuted,
                       fontSize: 12,
                     ),
                   ),
@@ -200,13 +200,13 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                         const Icon(
                           Icons.dashboard_customize_rounded,
                           size: 18,
-                          color: AppColors.textHint,
+                          color: KaizokuColors.textMuted,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'profile.nav_style'.tr(),
                           style: const TextStyle(
-                            color: AppColors.textSecondary,
+                            color: KaizokuColors.textSecondary,
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -218,7 +218,7 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: AppColors.background,
+                      color: KaizokuColors.background,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Row(
@@ -233,7 +233,7 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                   child: Material(
-                    color: AppColors.background,
+                    color: KaizokuColors.background,
                     borderRadius: BorderRadius.circular(14),
                     child: ListTile(
                       shape: RoundedRectangleBorder(
@@ -241,19 +241,19 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                       ),
                       leading: const Icon(
                         Icons.view_week_rounded,
-                        color: AppColors.textSecondary,
+                        color: KaizokuColors.textSecondary,
                       ),
                       title: Text(
                         'nav_customize.entry_title'.tr(),
                         style: const TextStyle(
-                          color: AppColors.textPrimary,
+                          color: KaizokuColors.textPrimary,
                           fontSize: 15,
                         ),
                       ),
                       subtitle: Text(
                         'nav_customize.entry_subtitle'.tr(),
                         style: const TextStyle(
-                          color: AppColors.textHint,
+                          color: KaizokuColors.textMuted,
                           fontSize: 12,
                         ),
                       ),
@@ -269,7 +269,7 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                   child: Material(
-                    color: AppColors.background,
+                    color: KaizokuColors.background,
                     borderRadius: BorderRadius.circular(14),
                     child: ListTile(
                       shape: RoundedRectangleBorder(
@@ -277,19 +277,19 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                       ),
                       leading: const Icon(
                         Icons.dashboard_customize_outlined,
-                        color: AppColors.textSecondary,
+                        color: KaizokuColors.textSecondary,
                       ),
                       title: Text(
                         'home_rails.entry_title'.tr(),
                         style: const TextStyle(
-                          color: AppColors.textPrimary,
+                          color: KaizokuColors.textPrimary,
                           fontSize: 15,
                         ),
                       ),
                       subtitle: Text(
                         'home_rails.entry_subtitle'.tr(),
                         style: const TextStyle(
-                          color: AppColors.textHint,
+                          color: KaizokuColors.textMuted,
                           fontSize: 12,
                         ),
                       ),

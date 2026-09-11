@@ -256,7 +256,7 @@ extension _PlayerSubtitles on _PlayerPageState {
               ListTile(
                 focusColor: _kTvFocusFill,
                 leading: Icon(Icons.auto_awesome_rounded,
-                    color: AppColors.primaryLight, size: 20),
+                    color: KaizokuColors.neonCrimson, size: 20),
                 title: Text('player.ai_translate_menu'.tr(),
                     style: const TextStyle(
                         color: Colors.white,
@@ -315,7 +315,7 @@ extension _PlayerSubtitles on _PlayerPageState {
       SnackBar(
         content: Row(
           children: [
-            Icon(icon, size: 18, color: AppColors.primaryLight),
+            Icon(icon, size: 18, color: KaizokuColors.neonCrimson),
             const SizedBox(width: 10),
             Expanded(
               child: Text(message,
@@ -684,7 +684,7 @@ extension _PlayerSubtitles on _PlayerPageState {
             child: Row(
               children: [
                 Icon(Icons.bolt_rounded,
-                    size: 15, color: AppColors.primaryLight),
+                    size: 15, color: KaizokuColors.neonCrimson),
                 const SizedBox(width: 6),
                 Text('player.ready_translations'.tr(),
                     style: const TextStyle(
@@ -754,12 +754,12 @@ extension _PlayerSubtitles on _PlayerPageState {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withValues(alpha: 0.22),
-            AppColors.primary.withValues(alpha: 0.08),
+            KaizokuColors.neonCrimson.withValues(alpha: 0.22),
+            KaizokuColors.neonCrimson.withValues(alpha: 0.08),
           ],
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
+        border: Border.all(color: KaizokuColors.neonCrimson.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
@@ -786,7 +786,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                           : 'player.ai_translate_remaining'.tr(
                               args: ['${quota.remaining}', '${quota.limit}']),
                   style: TextStyle(
-                    color: atLimit ? AppColors.error : Colors.white70,
+                    color: atLimit ? KaizokuColors.neonCrimson : Colors.white70,
                     fontSize: 11.5,
                     height: 1.35,
                   ),
@@ -1236,11 +1236,11 @@ extension _PlayerSubtitles on _PlayerPageState {
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                         child: SliderTheme(
                           data: SliderTheme.of(ctx).copyWith(
-                            activeTrackColor: AppColors.primary,
+                            activeTrackColor: KaizokuColors.neonCrimson,
                             inactiveTrackColor: Colors.white12,
-                            thumbColor: AppColors.primary,
+                            thumbColor: KaizokuColors.neonCrimson,
                             overlayColor:
-                                AppColors.primary.withValues(alpha: 0.15),
+                                KaizokuColors.neonCrimson.withValues(alpha: 0.15),
                             trackHeight: 3,
                           ),
                           child: Slider(
@@ -1301,7 +1301,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                                   (_subtitleRate.value - rate).abs() < 0.00001,
                               onSelected: (_) => setRate(rate),
                               backgroundColor: Colors.white10,
-                              selectedColor: AppColors.primary,
+                              selectedColor: KaizokuColors.neonCrimson,
                               labelStyle: const TextStyle(color: Colors.white),
                               side: const BorderSide(color: Colors.white24),
                               showCheckmark: false,
@@ -1426,10 +1426,10 @@ extension _PlayerSubtitles on _PlayerPageState {
                                   )
                                 : SliderTheme(
                               data: SliderTheme.of(ctx).copyWith(
-                                activeTrackColor: AppColors.primary,
+                                activeTrackColor: KaizokuColors.neonCrimson,
                                 inactiveTrackColor: Colors.white12,
-                                thumbColor: AppColors.primary,
-                                overlayColor: AppColors.primary.withValues(
+                                thumbColor: KaizokuColors.neonCrimson,
+                                overlayColor: KaizokuColors.neonCrimson.withValues(
                                   alpha: 0.15,
                                 ),
                                 trackHeight: 3,
@@ -1543,10 +1543,10 @@ extension _PlayerSubtitles on _PlayerPageState {
                             )
                           : SliderTheme(
                         data: SliderTheme.of(ctx).copyWith(
-                          activeTrackColor: AppColors.primary,
+                          activeTrackColor: KaizokuColors.neonCrimson,
                           inactiveTrackColor: Colors.white12,
-                          thumbColor: AppColors.primary,
-                          overlayColor: AppColors.primary.withValues(
+                          thumbColor: KaizokuColors.neonCrimson,
+                          overlayColor: KaizokuColors.neonCrimson.withValues(
                             alpha: 0.15,
                           ),
                           trackHeight: 3,
@@ -1645,7 +1645,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                               ),
                               Switch.adaptive(
                                 value: _subtitleStyle.bold,
-                                activeThumbColor: AppColors.primary,
+                                activeThumbColor: KaizokuColors.neonCrimson,
                                 onChanged: (v) =>
                                     apply(_subtitleStyle.copyWith(bold: v)),
                               ),
@@ -1900,7 +1900,7 @@ class _AiTranslateChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.primary.withValues(alpha: 0.18),
+      color: KaizokuColors.neonCrimson.withValues(alpha: 0.18),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onTap,
@@ -1911,12 +1911,12 @@ class _AiTranslateChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.auto_awesome_rounded,
-                  size: 13, color: AppColors.primaryLight),
+                  size: 13, color: KaizokuColors.neonCrimson),
               const SizedBox(width: 5),
               Text(
                 'AI → $lang',
-                style: TextStyle(
-                  color: AppColors.primaryLight,
+                style: const TextStyle(
+                  color: KaizokuColors.neonCrimson,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
                 ),

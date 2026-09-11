@@ -8,6 +8,7 @@ import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
 import 'package:soplay/features/my_list/data/models/favorite_model.dart';
@@ -139,14 +140,14 @@ class _MyListViewState extends State<_MyListView>
     final headerH = topPad + MyListHeader.contentHeight;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       body: Stack(
         children: [
           const MyListBackground(),
           RefreshIndicator(
             onRefresh: _refresh,
-            color: AppColors.primary,
-            backgroundColor: AppColors.surface,
+            color: KaizokuColors.neonCrimson,
+            backgroundColor: KaizokuColors.surface,
             edgeOffset: headerH,
             child: BlocBuilder<MyListBloc, MyListState>(
               builder: (context, state) {

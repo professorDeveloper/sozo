@@ -9,6 +9,10 @@ import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 
+import 'package:soplay/core/presentation/widgets/kaizoku_badge.dart';
+import 'package:soplay/core/presentation/widgets/kaizoku_media_card.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
+
 class HistorySection extends StatelessWidget {
   const HistorySection({super.key, required this.items});
 
@@ -37,22 +41,37 @@ class HistorySection extends StatelessWidget {
     final visible = filtered.length > 20 ? filtered.sublist(0, 20) : filtered;
     final showViewAll =
         filtered.length > visible.length || filtered.length >= 3;
+    final desktop = isDesktopPlatform;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Whole header strip is the target, like every other rail: the old
-          // "View all" TextButton was a ~26dp tap target squeezed into the row.
           HomeSectionTapTarget(
             onTap: showViewAll ? () => context.push('/history') : null,
             child: Padding(
               padding: const EdgeInsetsDirectional.fromSTEB(17, 18, 20, 14),
               child: Row(
                 children: [
+                  Container(
+                    width: 3.5,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: KaizokuColors.neonCrimson,
+                      borderRadius: BorderRadius.circular(2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: KaizokuColors.neonCrimson.withValues(alpha: 0.5),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   const Icon(
                     Icons.history_rounded,
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.neonCrimson,
                     size: 18,
                   ),
                   const SizedBox(width: 8),
@@ -60,10 +79,11 @@ class HistorySection extends StatelessWidget {
                     child: Text(
                       'home.continue_watching'.tr(),
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: KaizokuColors.textHigh,
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
                         height: 1.1,
+                        letterSpacing: -0.2,
                       ),
                     ),
                   ),
@@ -71,14 +91,14 @@ class HistorySection extends StatelessWidget {
                     Text(
                       'home.view_all'.tr(),
                       style: const TextStyle(
-                        color: AppColors.textSecondary,
+                        color: KaizokuColors.textSecondary,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const Icon(
                       Icons.chevron_right_rounded,
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       size: 18,
                     ),
                   ],
@@ -87,7 +107,7 @@ class HistorySection extends StatelessWidget {
             ),
           ),
           SizedBox(
-            height: 170,
+            height: desktop ? 150 : 130,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -122,7 +142,7 @@ class _HistoryCard extends StatelessWidget {
   Future<void> _showActions(BuildContext context) async {
     final action = await showModalBottomSheet<_HistoryAction>(
       context: context,
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -136,7 +156,7 @@ class _HistoryCard extends StatelessWidget {
               width: 38,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.textSecondary.withValues(alpha: 0.4),
+                color: Colors.white24,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -148,7 +168,7 @@ class _HistoryCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textHigh,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
@@ -156,14 +176,14 @@ class _HistoryCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             ListTile(
-              leading: Icon(
+              leading: const Icon(
                 Icons.play_arrow_rounded,
-                color: AppColors.primary,
+                color: KaizokuColors.neonCrimson,
               ),
               title: Text(
                 'player.resume'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -172,12 +192,12 @@ class _HistoryCard extends StatelessWidget {
             ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,
-                color: AppColors.error,
+                color: Colors.redAccent,
               ),
               title: Text(
                 'home.remove_from_continue'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -205,143 +225,28 @@ class _HistoryCard extends StatelessWidget {
     final episodeLabel = (item.isSerial && label != null && label.isNotEmpty)
         ? label
         : null;
-    return HoverTap(
-      onTap: () => _openDetail(context),
-      onLongPress: () => _showActions(context),
-      onSecondaryTap: () => _showActions(context),
-      child: SizedBox(
-        width: 150,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      HomeNetworkImage(
-                        url: item.thumbnail,
-                        borderRadius: BorderRadius.zero,
-                        placeholderIcon: Icons.movie_outlined,
-                      ),
-                      const Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: SizedBox(
-                          height: 56,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  Color(0xDD000000),
-                                  Color(0x00000000),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (item.isSerial && item.episodeNumber != null)
-                        Positioned(
-                          top: 6,
-                          left: 6,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: Text(
-                              'home.ep_number'.tr(
-                                args: ['${item.episodeNumber}'],
-                              ),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                height: 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                      Positioned(
-                        right: 8,
-                        bottom: 12,
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.play_arrow_rounded,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                      if (item.progress > 0)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: LinearProgressIndicator(
-                            value: item.progress,
-                            minHeight: 3,
-                            backgroundColor: Colors.white24,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.primary,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              FixedTextLines(
-                fontSize: 11.5,
-                lineHeight: 1.25,
-                child: Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    height: 1.25,
-                  ),
-                ),
-              ),
-              FixedTextLines(
-                fontSize: 10,
-                lineHeight: 1.3,
-                child: episodeLabel == null
-                    ? null
-                    : Text(
-                        episodeLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 10,
-                          height: 1.3,
-                        ),
-                      ),
-              ),
-            ],
-          ),
+    final desktop = isDesktopPlatform;
+    final width = desktop ? 210.0 : 180.0;
+
+    final badgeText = (item.isSerial && item.episodeNumber != null)
+        ? 'home.ep_number'.tr(args: ['${item.episodeNumber}'])
+        : null;
+
+    return Container(
+      width: width,
+      margin: const EdgeInsets.symmetric(horizontal: 5),
+      child: GestureDetector(
+        onLongPress: () => _showActions(context),
+        onSecondaryTap: () => _showActions(context),
+        child: KaizokuMediaCard(
+          title: item.title,
+          imageUrl: item.thumbnail,
+          subtitle: episodeLabel,
+          ratio: KaizokuCardRatio.backdrop,
+          progress: item.progress > 0 ? item.progress : null,
+          badgeText: badgeText,
+          badgeVariant: KaizokuBadgeVariant.glass,
+          onTap: () => _openDetail(context),
         ),
       ),
     );

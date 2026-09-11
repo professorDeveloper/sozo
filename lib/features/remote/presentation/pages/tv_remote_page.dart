@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/remote/data/remote_control_service.dart';
 import 'package:soplay/features/remote/presentation/remote_controller.dart';
 
@@ -74,9 +74,9 @@ class _TvRemotePageState extends State<TvRemotePage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: Text(
@@ -124,8 +124,8 @@ class _TvRemotePageState extends State<TvRemotePage>
     final canControl = _controller.canControl;
 
     return RefreshIndicator(
-      color: AppColors.primary,
-      backgroundColor: AppColors.surface,
+      color: KaizokuColors.neonCrimson,
+      backgroundColor: KaizokuColors.surface,
       onRefresh: _controller.load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -214,14 +214,14 @@ class _ConnectionBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = device?.name ?? '';
     final playing = state;
-    final accent = online ? AppColors.success : AppColors.textHint;
+    final accent = online ? KaizokuColors.electricCyan : KaizokuColors.textMuted;
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.35)),
+        border: Border.all(color: KaizokuColors.cardBorder),
       ),
       child: Row(
         children: [
@@ -253,7 +253,7 @@ class _ConnectionBanner extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -265,7 +265,7 @@ class _ConnectionBanner extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 11.5,
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textMuted,
                   ),
                 ),
                 if (online && (playing?.hasPlayback ?? false)) ...[
@@ -275,8 +275,8 @@ class _ConnectionBanner extends StatelessWidget {
                     child: LinearProgressIndicator(
                       minHeight: 3,
                       value: (playing!.positionMs ?? 0) / playing.durationMs!,
-                      backgroundColor: AppColors.surfaceVariant,
-                      valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                      backgroundColor: KaizokuColors.surfaceLight,
+                      valueColor: const AlwaysStoppedAnimation(KaizokuColors.neonCrimson),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -284,7 +284,7 @@ class _ConnectionBanner extends StatelessWidget {
                     '${_clock(playing.positionMs ?? 0)} / ${_clock(playing.durationMs!)}',
                     style: const TextStyle(
                       fontSize: 10.5,
-                      color: AppColors.textHint,
+                      color: KaizokuColors.textMuted,
                     ),
                   ),
                 ],
@@ -326,11 +326,11 @@ class _DeviceList extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: active
-                    ? AppColors.primary.withValues(alpha: 0.16)
-                    : AppColors.surface,
+                    ? KaizokuColors.neonCrimson.withValues(alpha: 0.16)
+                    : KaizokuColors.surface,
                 borderRadius: BorderRadius.circular(19),
                 border: Border.all(
-                  color: active ? AppColors.primary : Colors.transparent,
+                  color: active ? KaizokuColors.neonCrimson : KaizokuColors.cardBorder,
                   width: 1.2,
                 ),
               ),
@@ -343,8 +343,8 @@ class _DeviceList extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: device.online
-                          ? AppColors.success
-                          : AppColors.textHint,
+                          ? KaizokuColors.electricCyan
+                          : KaizokuColors.textMuted,
                     ),
                   ),
                   const SizedBox(width: 7),
@@ -354,8 +354,8 @@ class _DeviceList extends StatelessWidget {
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
                       color: active
-                          ? AppColors.primary
-                          : AppColors.textSecondary,
+                          ? KaizokuColors.neonCrimson
+                          : KaizokuColors.textSecondary,
                     ),
                   ),
                 ],
@@ -537,8 +537,9 @@ class _Card extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: KaizokuColors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -549,7 +550,7 @@ class _Card extends StatelessWidget {
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.7,
-              color: AppColors.textHint,
+              color: KaizokuColors.textMuted,
             ),
           ),
           const SizedBox(height: 10),
@@ -572,7 +573,7 @@ class _Key extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(4),
       child: Material(
-        color: primary ? AppColors.primary : AppColors.surfaceVariant,
+        color: primary ? KaizokuColors.neonCrimson : KaizokuColors.surfaceLight,
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
@@ -612,14 +613,14 @@ class _Message extends StatelessWidget {
             Icon(
               icon,
               size: 46,
-              color: AppColors.textHint.withValues(alpha: 0.6),
+              color: KaizokuColors.textMuted.withValues(alpha: 0.6),
             ),
             const SizedBox(height: 14),
             Text(
               text,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textSecondary,
                 fontSize: 13.5,
                 height: 1.5,
               ),

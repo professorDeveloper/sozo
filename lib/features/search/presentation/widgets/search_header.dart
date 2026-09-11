@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
 
 class SearchStickyHeader extends StatelessWidget {
@@ -234,17 +235,20 @@ class _SearchField extends StatelessWidget {
             // in a soft glow instead, where it says the same thing quietly.
             decoration: BoxDecoration(
               color: focused
-                  ? AppColors.surfaceVariant.withValues(alpha: 0.96)
-                  : AppColors.surface.withValues(alpha: 0.9),
+                  ? KaizokuColors.surfaceElevated
+                  : KaizokuColors.surface,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: Colors.white.withValues(alpha: focused ? 0.16 : 0.08),
+                color: focused
+                    ? KaizokuColors.neonCrimson.withValues(alpha: 0.65)
+                    : Colors.white.withValues(alpha: 0.08),
+                width: focused ? 1.2 : 1.0,
               ),
               boxShadow: focused
                   ? [
                       BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.22),
-                        blurRadius: 14,
+                        color: KaizokuColors.neonCrimson.withValues(alpha: 0.3),
+                        blurRadius: 16,
                         spreadRadius: -2,
                       ),
                     ]
@@ -280,11 +284,17 @@ class _SearchAction extends StatelessWidget {
       style: TextButton.styleFrom(
         minimumSize: const Size(48, 48),
         foregroundColor: selected
-            ? AppColors.primaryLight
-            : AppColors.textSecondary,
+            ? KaizokuColors.neonCrimson
+            : KaizokuColors.textSecondary,
         backgroundColor: selected
-            ? AppColors.primary.withValues(alpha: 0.14)
-            : AppColors.surface,
+            ? KaizokuColors.neonCrimson.withValues(alpha: 0.16)
+            : KaizokuColors.surface,
+        side: BorderSide(
+          color: selected
+              ? KaizokuColors.neonCrimson.withValues(alpha: 0.6)
+              : const Color(0x1AFFFFFF),
+          width: 0.8,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 12),
       ),
     ),

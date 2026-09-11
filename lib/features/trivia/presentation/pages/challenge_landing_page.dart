@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/trivia/domain/entities/challenge_entity.dart';
 import 'package:soplay/features/trivia/presentation/bloc/challenge/challenge_bloc.dart';
 import 'package:soplay/features/trivia/presentation/bloc/challenge/challenge_event.dart';
@@ -38,7 +38,7 @@ class _ChallengeLandingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.background,
       body: BlocConsumer<ChallengeBloc, ChallengeState>(
         listenWhen: (a, b) =>
             b.status == ChallengeStatus.joined && b.round != null,
@@ -141,7 +141,7 @@ class _ChallengeCard extends StatelessWidget {
                   ),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textPrimary,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.3,
@@ -153,7 +153,7 @@ class _ChallengeCard extends StatelessWidget {
                     challenge.actor!.name,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 14,
                     ),
                   ),
@@ -167,7 +167,7 @@ class _ChallengeCard extends StatelessWidget {
                   'trivia.same_clips_head_to_head'.tr(),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 13.5,
                     height: 1.3,
                   ),
@@ -205,7 +205,7 @@ class _Backdrop extends StatelessWidget {
             imageUrl: url,
             fit: BoxFit.cover,
             errorWidget: (_, _, _) =>
-                ColoredBox(color: AppColors.surfaceVariant),
+                ColoredBox(color: KaizokuColors.surfaceVariant),
           ),
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 34, sigmaY: 34),
@@ -217,8 +217,8 @@ class _Backdrop extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  AppColors.background.withValues(alpha: 0.67),
-                  AppColors.background,
+                  KaizokuColors.background.withValues(alpha: 0.67),
+                  KaizokuColors.background,
                 ],
                 stops: const [0.0, 0.8],
               ),
@@ -240,7 +240,7 @@ class _SwordsBadge extends StatelessWidget {
       height: 88,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.primary,
+        color: KaizokuColors.primary,
       ),
       child: const Icon(CupertinoIcons.bolt_fill, color: Colors.white, size: 40),
     );
@@ -256,16 +256,16 @@ class _ScoreToBeat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.85),
+        color: KaizokuColors.surface.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: KaizokuColors.border),
       ),
       child: Column(
         children: [
           Text(
             'trivia.score_to_beat'.tr().toUpperCase(),
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.3,
@@ -275,7 +275,7 @@ class _ScoreToBeat extends StatelessWidget {
           Text(
             '$score',
             style: const TextStyle(
-              color: AppColors.rating,
+              color: KaizokuColors.rating,
               fontSize: 40,
               fontWeight: FontWeight.w800,
               height: 1,
@@ -309,7 +309,7 @@ class _ParticipantAvatars extends StatelessWidget {
             child: Text(
               '+$extra',
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
@@ -332,20 +332,20 @@ class _MiniAvatar extends StatelessWidget {
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
       ),
       child: ClipOval(
         child: SizedBox(
           width: size,
           height: size,
           child: ColoredBox(
-            color: AppColors.surfaceVariant,
+            color: KaizokuColors.surfaceVariant,
             child: url.trim().isEmpty
                 ? Center(
                     child: Text(
                       name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase(),
                       style: const TextStyle(
-                        color: AppColors.textSecondary,
+                        color: KaizokuColors.textSecondary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -371,7 +371,7 @@ class _PlayButton extends StatelessWidget {
         height: 56,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: AppColors.primary,
+          color: KaizokuColors.primary,
           borderRadius: BorderRadius.circular(4),
         ),
         child: joining
@@ -410,7 +410,7 @@ class _LoadingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: CircularProgressIndicator(color: AppColors.primary),
+      child: CircularProgressIndicator(color: KaizokuColors.primary),
     );
   }
 }
@@ -429,7 +429,7 @@ class _ErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(CupertinoIcons.link,
-                color: AppColors.textHint, size: 46),
+                color: KaizokuColors.textHint, size: 46),
             const SizedBox(height: 16),
             Text(
               message?.isNotEmpty == true
@@ -437,7 +437,7 @@ class _ErrorView extends StatelessWidget {
                   : 'trivia.challenge_not_found'.tr(),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: KaizokuColors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
@@ -447,14 +447,14 @@ class _ErrorView extends StatelessWidget {
               TextButton(
                 onPressed: onRetry,
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primaryLight,
+                  foregroundColor: KaizokuColors.primaryLight,
                 ),
                 child: Text('general.retry'.tr()),
               ),
             TextButton(
               onPressed: () => Navigator.of(context).maybePop(),
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.textSecondary,
+                foregroundColor: KaizokuColors.textSecondary,
               ),
               child: Text('general.close'.tr()),
             ),

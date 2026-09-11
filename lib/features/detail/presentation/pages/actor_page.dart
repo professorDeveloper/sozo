@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_event.dart';
@@ -59,8 +59,8 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
   // Shown until the poster's palette is extracted (and kept when there is no
   // poster). Follows the chosen accent rather than the old hard-coded brand
   // red, so the hero never opens in a colour the app no longer uses.
-  Color _accent = AppColors.primaryDark;
-  Color _accentDeep = _deepen(AppColors.primary);
+  Color _accent = KaizokuColors.neonCrimson;
+  Color _accentDeep = _deepen(KaizokuColors.neonCrimson);
 
   /// The very dark, desaturated floor a hero gradient falls to. The old literal
   /// #3A0306 is what this produces for the default red.
@@ -146,7 +146,7 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.background,
         body: Stack(
           children: [
             BlocConsumer<ViewAllBloc, ViewAllState>(
@@ -172,7 +172,7 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
                           padding: EdgeInsets.symmetric(vertical: 40),
                           child: Center(
                             child: CircularProgressIndicator(
-                              color: AppColors.primary,
+                              color: KaizokuColors.neonCrimson,
                               strokeWidth: 2.5,
                             ),
                           ),
@@ -190,7 +190,7 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
                               children: [
                                 const Icon(
                                   Icons.error_outline_rounded,
-                                  color: AppColors.textHint,
+                                  color: KaizokuColors.textMuted,
                                   size: 48,
                                 ),
                                 const SizedBox(height: 12),
@@ -198,7 +198,7 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
                                   state.mesage,
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
-                                    color: AppColors.textSecondary,
+                                    color: KaizokuColors.textSecondary,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -249,14 +249,14 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
                 children: [
                   const Icon(
                     Icons.movie_outlined,
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textMuted,
                     size: 48,
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'detail.no_films'.tr(),
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 14,
                     ),
                   ),
@@ -277,7 +277,7 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
               Text(
                 'detail.filmography'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
@@ -286,7 +286,7 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
               Text(
                 '(${state.items.length})',
                 style: const TextStyle(
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textMuted,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -320,7 +320,7 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
                 height: 22,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: AppColors.primary,
+                  color: KaizokuColors.neonCrimson,
                 ),
               ),
             ),
@@ -363,7 +363,7 @@ class _ActorHero extends StatelessWidget {
                 colors: [
                   accent.withValues(alpha: 0.55),
                   accentDeep.withValues(alpha: 0.85),
-                  AppColors.background,
+                  KaizokuColors.background,
                 ],
                 stops: const [0.0, 0.55, 1.0],
               ),
@@ -420,7 +420,7 @@ class _ActorHero extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.2,
@@ -438,7 +438,7 @@ class _ActorHero extends StatelessWidget {
                 Text(
                   'detail.actor'.tr(),
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -488,8 +488,8 @@ class _AvatarRing extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.surface,
-          border: Border.all(color: AppColors.background, width: 2),
+          color: KaizokuColors.surface,
+          border: Border.all(color: KaizokuColors.background, width: 2),
         ),
         clipBehavior: Clip.antiAlias,
         child: image.isNotEmpty
@@ -539,12 +539,12 @@ class _AvatarInitials extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.surface,
+      color: KaizokuColors.surface,
       alignment: Alignment.center,
       child: Text(
         initials,
         style: const TextStyle(
-          color: AppColors.textPrimary,
+          color: Colors.white,
           fontSize: 36,
           fontWeight: FontWeight.w900,
         ),
@@ -578,10 +578,10 @@ class _ActorTopBar extends StatelessWidget {
             child: Container(
               height: topPad + kToolbarHeight,
               decoration: BoxDecoration(
-                color: AppColors.background.withValues(alpha: 0.96),
+                color: KaizokuColors.background.withValues(alpha: 0.96),
                 border: Border(
                   bottom: BorderSide(
-                    color: AppColors.divider.withValues(alpha: solid),
+                    color: KaizokuColors.cardBorder.withValues(alpha: solid),
                     width: 0.5,
                   ),
                 ),
@@ -628,7 +628,7 @@ class _ActorTopBar extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
@@ -702,7 +702,7 @@ class _ActorMovieCard extends StatelessWidget {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primary,
+                          color: KaizokuColors.neonCrimson,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -726,7 +726,7 @@ class _ActorMovieCard extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: Colors.white,
               fontSize: 11,
               fontWeight: FontWeight.w600,
               height: 1.25,
@@ -738,7 +738,7 @@ class _ActorMovieCard extends StatelessWidget {
             movie.year?.toString() ?? '',
             maxLines: 1,
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 10,
               height: 1.3,
             ),

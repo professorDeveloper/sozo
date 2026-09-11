@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 /// The 1…N clip progress indicator shown at the top of the game. Answered clips
 /// read as solid dots, the clip in play is a stretched brand-red pill, and
@@ -41,10 +41,10 @@ class ProgressDots extends StatelessWidget {
           width: isCurrent ? currentWidth : dot,
           decoration: BoxDecoration(
             color: isCurrent
-                ? AppColors.primary
+                ? KaizokuColors.primary
                 : isDone
-                    ? AppColors.textPrimary
-                    : AppColors.textHint,
+                    ? KaizokuColors.textPrimary
+                    : KaizokuColors.textHint,
             borderRadius: BorderRadius.circular(99),
           ),
         );

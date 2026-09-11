@@ -10,7 +10,7 @@ import 'package:soplay/core/player/source_ladder.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
 import 'package:soplay/features/banners/presentation/widgets/banners_carousel.dart';
@@ -114,7 +114,7 @@ class _DetailScaffold extends StatelessWidget {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.background,
         body: BlocListener<DetailBloc, DetailState>(
           listenWhen: (prev, curr) {
             if (curr is! DetailLoaded) return false;
@@ -488,7 +488,7 @@ class _DetailViewState extends State<_DetailView>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: AppColors.surface,
+        backgroundColor: KaizokuColors.surface,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
       ),
@@ -649,7 +649,7 @@ class _DetailViewState extends State<_DetailView>
   void _showPrivateActions() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: KaizokuColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -663,7 +663,7 @@ class _DetailViewState extends State<_DetailView>
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textMuted,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -671,11 +671,11 @@ class _DetailViewState extends State<_DetailView>
               ListTile(
                 leading: const Icon(
                   Icons.playlist_add_rounded,
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                 ),
                 title: Text(
                   'app_lock.move_to_my_list'.tr(),
-                  style: const TextStyle(color: AppColors.textPrimary),
+                  style: const TextStyle(color: Colors.white),
                 ),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -685,11 +685,11 @@ class _DetailViewState extends State<_DetailView>
               ListTile(
                 leading: const Icon(
                   Icons.delete_outline_rounded,
-                  color: AppColors.error,
+                  color: KaizokuColors.neonCrimson,
                 ),
                 title: Text(
                   'app_lock.removed_from_private'.tr(),
-                  style: const TextStyle(color: AppColors.error),
+                  style: const TextStyle(color: KaizokuColors.neonCrimson),
                 ),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -965,7 +965,7 @@ class _DetailViewState extends State<_DetailView>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: AppColors.primary),
+            CircularProgressIndicator(color: KaizokuColors.neonCrimson),
             const SizedBox(height: 18),
             TextButton(
               onPressed: () => Navigator.of(dctx).pop(),
@@ -1100,7 +1100,7 @@ class _DetailViewState extends State<_DetailView>
                 expandedHeight: expandedHeight,
                 collapsedHeight: toolbarHeight,
                 pinned: true,
-                backgroundColor: AppColors.background,
+                backgroundColor: KaizokuColors.cyberObsidian,
                 automaticallyImplyLeading: false,
                 elevation: 0,
                 scrolledUnderElevation: 0,
@@ -1150,7 +1150,7 @@ class _DetailViewState extends State<_DetailView>
                           // for the artwork underneath it.
                           IgnorePointer(
                             child: ColoredBox(
-                              color: AppColors.background.withValues(
+                              color: KaizokuColors.cyberObsidian.withValues(
                                 alpha: c.clamp(0.0, 1.0),
                               ),
                             ),
@@ -1382,7 +1382,7 @@ class _AnimatedTopBar extends StatelessWidget {
           child: Container(
             height: topPad + kToolbarHeight,
             decoration: BoxDecoration(
-              color: AppColors.background.withValues(
+              color: KaizokuColors.cyberObsidian.withValues(
                 alpha: 0.96 * solidOpacity,
               ),
               border: Border(
@@ -1391,8 +1391,8 @@ class _AnimatedTopBar extends StatelessWidget {
                   // Opacity too, so it faded with the fill AND with its own
                   // alpha. Keeping that keeps the hairline from arriving
                   // before the surface it sits on.
-                  color: AppColors.divider.withValues(
-                    alpha: solidOpacity * solidOpacity,
+                  color: Colors.white.withValues(
+                    alpha: 0.08 * solidOpacity * solidOpacity,
                   ),
                   width: 0.5,
                 ),
@@ -1423,7 +1423,7 @@ class _AnimatedTopBar extends StatelessWidget {
                       // layer, and this one was getting a fresh one on every
                       // scroll frame of the collapse.
                       style: TextStyle(
-                        color: AppColors.textPrimary.withValues(
+                        color: Colors.white.withValues(
                           alpha: titleOpacity,
                         ),
                         fontSize: 16,
@@ -1472,7 +1472,7 @@ class _AnimatedTopBar extends StatelessWidget {
                           : isInList
                           ? Icons.check_rounded
                           : Icons.add_rounded,
-                      iconColor: inPrivate ? AppColors.rating : Colors.white,
+                      iconColor: inPrivate ? KaizokuColors.solarAmber : Colors.white,
                       // The icon has four states and the label follows it —
                       // "Add to list" announced on a button that would in fact
                       // remove it is worse than no label.
@@ -1553,7 +1553,7 @@ class _ActionPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: KaizokuColors.neonCrimson,
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
@@ -1569,20 +1569,20 @@ class _ActionPill extends StatelessWidget {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.black,
+                    color: Colors.white,
                   ),
                 )
               else
                 Icon(
                   reader ? Icons.menu_book_rounded : Icons.play_arrow_rounded,
                   size: reader ? 16 : 18,
-                  color: Colors.black,
+                  color: Colors.white,
                 ),
               const SizedBox(width: 4),
               Text(
                 reader ? 'detail.read'.tr() : 'detail.play'.tr(),
                 style: const TextStyle(
-                  color: Colors.black,
+                  color: Colors.white,
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1617,7 +1617,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   ) {
     return Container(
       key: stripKey,
-      color: AppColors.background,
+      color: KaizokuColors.cyberObsidian,
       child: Column(
         children: [
           SizedBox(
@@ -1627,7 +1627,10 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
               child: tabBar,
             ),
           ),
-          Container(height: AppTabBar.dividerHeight, color: AppColors.divider),
+          Container(
+            height: AppTabBar.dividerHeight,
+            color: Colors.white.withValues(alpha: 0.08),
+          ),
         ],
       ),
     );
@@ -1687,11 +1690,11 @@ class _ErrorBackButton extends StatelessWidget {
       height: 38,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.surfaceVariant,
+        color: KaizokuColors.surfaceLight,
       ),
       child: const Icon(
         Icons.arrow_back_ios_new_rounded,
-        color: AppColors.textPrimary,
+        color: Colors.white,
         size: 17,
       ),
     );
@@ -1740,7 +1743,7 @@ class _ErrorView extends StatelessWidget {
           const Spacer(),
           const Icon(
             Icons.error_outline_rounded,
-            color: AppColors.textHint,
+            color: KaizokuColors.textMuted,
             size: 52,
           ),
           const SizedBox(height: 16),
@@ -1754,7 +1757,7 @@ class _ErrorView extends StatelessWidget {
               maxLines: 6,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 14,
               ),
             ),
@@ -1766,8 +1769,8 @@ class _ErrorView extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onSolveCloudflare,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textPrimary,
-                side: BorderSide(color: AppColors.border),
+                foregroundColor: Colors.white,
+                side: BorderSide(color: KaizokuColors.cardBorder),
               ),
               icon: const Icon(Icons.shield_outlined, size: 18),
               label: Text('cloudflare.solve'.tr()),

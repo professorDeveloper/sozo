@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 
 import 'package:soplay/features/remote/data/remote_control_service.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
@@ -242,7 +242,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
   Future<RemoteDevice?> _pickDevice(List<RemoteDevice> devices) {
     return showModalBottomSheet<RemoteDevice>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: KaizokuColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -263,7 +263,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                   child: Text(
                     'remote.pick_device'.tr(),
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: Colors.white,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                     ),
@@ -278,8 +278,8 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                   leading: Icon(
                     device.online ? Icons.tv_rounded : Icons.tv_off_rounded,
                     color: device.online
-                        ? AppColors.textSecondary
-                        : AppColors.textHint,
+                        ? KaizokuColors.textSecondary
+                        : KaizokuColors.textMuted,
                   ),
                   title: Text(
                     device.name,
@@ -287,8 +287,8 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: device.online
-                          ? AppColors.textPrimary
-                          : AppColors.textHint,
+                          ? Colors.white
+                          : KaizokuColors.textMuted,
                     ),
                   ),
                   subtitle: Text(
@@ -297,8 +297,8 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                         : 'remote.device_offline'.tr(),
                     style: TextStyle(
                       color: device.online
-                          ? AppColors.success
-                          : AppColors.textHint,
+                          ? KaizokuColors.electricCyan
+                          : KaizokuColors.textMuted,
                       fontSize: 12,
                     ),
                   ),
@@ -382,7 +382,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
           child: Material(
-            color: AppColors.surface.withValues(alpha: 0.94),
+            color: KaizokuColors.surface.withValues(alpha: 0.94),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
               side: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
@@ -407,15 +407,15 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                             width: 38,
                             height: 54,
                             fit: BoxFit.cover,
-                            placeholder: (_, _) => SizedBox(
+                            placeholder: (_, _) => const SizedBox(
                               width: 38,
                               height: 54,
-                              child: ColoredBox(color: AppColors.surfaceVariant),
+                              child: ColoredBox(color: KaizokuColors.surfaceLight),
                             ),
-                            errorWidget: (_, _, _) => SizedBox(
+                            errorWidget: (_, _, _) => const SizedBox(
                               width: 38,
                               height: 54,
-                              child: ColoredBox(color: AppColors.surfaceVariant),
+                              child: ColoredBox(color: KaizokuColors.surfaceLight),
                             ),
                           ),
                         ),
@@ -430,7 +430,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                color: AppColors.textPrimary,
+                                color: Colors.white,
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w800,
                                 height: 1.25,
@@ -443,7 +443,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  color: AppColors.textHint,
+                                  color: KaizokuColors.textMuted,
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 0.2,
@@ -457,7 +457,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                   ),
                 ),
                 Divider(
-                  color: AppColors.divider.withValues(alpha: 0.7),
+                  color: KaizokuColors.cardBorder.withValues(alpha: 0.7),
                   height: 1,
                   indent: 14,
                   endIndent: 14,
@@ -523,7 +523,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                           ),
                         ),
                         Divider(
-                          color: AppColors.divider,
+                          color: KaizokuColors.cardBorder,
                           height: 13,
                           indent: 16,
                           endIndent: 16,
@@ -533,7 +533,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                           label: 'detail.find_other_sources'.tr(),
                           trailing: const Icon(
                             Icons.chevron_right_rounded,
-                            color: AppColors.textHint,
+                            color: KaizokuColors.textMuted,
                             size: 20,
                           ),
                           onTap: () => _run(widget.onFindSources),
@@ -549,12 +549,12 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: AppColors.textSecondary,
+                                    color: KaizokuColors.textSecondary,
                                   ),
                                 )
                               : const Icon(
                                   Icons.chevron_right_rounded,
-                                  color: AppColors.textHint,
+                                  color: KaizokuColors.textMuted,
                                   size: 20,
                                 ),
                           onTap: _sendingToTv ? null : _playOnTv,
@@ -564,7 +564,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                           label: 'movie.share'.tr(),
                           trailing: const Icon(
                             Icons.chevron_right_rounded,
-                            color: AppColors.textHint,
+                            color: KaizokuColors.textMuted,
                             size: 20,
                           ),
                           onTap: () => _run(widget.onShare),
@@ -575,7 +575,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                           onTap: _copyLink,
                         ),
                         Divider(
-                          color: AppColors.divider,
+                          color: KaizokuColors.cardBorder,
                           height: 13,
                           indent: 16,
                           endIndent: 16,
@@ -789,7 +789,7 @@ class _MenuRow extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.active = false,
-    this.accent = AppColors.rating,
+    this.accent = KaizokuColors.solarAmber,
     this.trailing,
   });
 
@@ -822,7 +822,7 @@ class _MenuRow extends StatelessWidget {
                 child: Icon(
                   icon,
                   size: 18,
-                  color: active ? accent : AppColors.textPrimary,
+                  color: active ? accent : Colors.white,
                 ),
               ),
               const SizedBox(width: 12),
@@ -832,7 +832,7 @@ class _MenuRow extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
                   ),

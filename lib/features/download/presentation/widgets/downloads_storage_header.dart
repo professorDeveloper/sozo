@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/download/domain/entities/storage_usage.dart';
 import 'package:soplay/features/download/presentation/download_messages.dart';
 
@@ -34,8 +34,9 @@ class DownloadsStorageHeader extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: KaizokuColors.cardBorder, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,7 +46,7 @@ class DownloadsStorageHeader extends StatelessWidget {
               const Icon(
                 Icons.sd_storage_outlined,
                 size: 18,
-                color: AppColors.textSecondary,
+                color: KaizokuColors.electricCyan,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -54,7 +55,7 @@ class DownloadsStorageHeader extends StatelessWidget {
                     args: [formatBytes(usage.usedBytes)],
                   ),
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textPrimary,
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                   ),
@@ -66,7 +67,7 @@ class DownloadsStorageHeader extends StatelessWidget {
                     args: [formatBytes(usage.freeBytes)],
                   ),
                   style: const TextStyle(
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textMuted,
                     fontSize: 11.5,
                   ),
                 ),
@@ -79,8 +80,10 @@ class DownloadsStorageHeader extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: fraction.clamp(0.0, 1.0),
                 minHeight: 4,
-                backgroundColor: AppColors.divider,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                backgroundColor: KaizokuColors.surfaceLight,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  KaizokuColors.electricCyan,
+                ),
               ),
             ),
           ],
@@ -97,7 +100,7 @@ class DownloadsStorageHeader extends StatelessWidget {
                       args: [formatBytes(usage.orphanBytes)],
                     ),
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 12,
                       height: 1.3,
                     ),
@@ -107,7 +110,7 @@ class DownloadsStorageHeader extends StatelessWidget {
                 TextButton(
                   onPressed: busy ? null : onSweep,
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primary,
+                    foregroundColor: KaizokuColors.neonCrimson,
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     minimumSize: const Size(0, 34),
                   ),
@@ -115,8 +118,10 @@ class DownloadsStorageHeader extends StatelessWidget {
                       ? const SizedBox(
                           width: 14,
                           height: 14,
-                          child:
-                              CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: KaizokuColors.neonCrimson,
+                          ),
                         )
                       : Text('downloads.orphans_clean'.tr()),
                 ),

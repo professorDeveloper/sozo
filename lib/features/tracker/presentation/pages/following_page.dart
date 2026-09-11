@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/widgets/app_tab_bar.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/presentation/controllers/anilist_library_controller.dart';
@@ -48,22 +49,27 @@ class _FollowingPageState extends State<FollowingPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
         titleSpacing: 16,
         title: Text(
           'tracker.title'.tr(),
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         actions: [
           IconButton(
             tooltip: 'anilist.connections_title'.tr(),
             onPressed: () => context.push('/connections'),
-            icon: const Icon(Icons.link_rounded),
+            icon: const Icon(Icons.link_rounded, color: Colors.white),
+            hoverColor: KaizokuColors.neonCrimson.withValues(alpha: 0.15),
           ),
         ],
         bottom: AppTabBar(
@@ -165,8 +171,8 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
 
     if (_items.isEmpty) {
       return RefreshIndicator(
-        color: AppColors.primary,
-        backgroundColor: AppColors.surface,
+        color: KaizokuColors.neonCrimson,
+        backgroundColor: KaizokuColors.surface,
         onRefresh: () => _check(silent: true),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -177,18 +183,37 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
                 padding: const EdgeInsets.all(32),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.notifications_none_rounded,
-                      color: AppColors.textHint.withValues(alpha: 0.5),
-                      size: 52,
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: KaizokuColors.surface,
+                        border: Border.all(
+                          color: KaizokuColors.neonCrimson.withValues(alpha: 0.3),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: KaizokuColors.neonCrimson.withValues(alpha: 0.12),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.notifications_none_rounded,
+                        color: KaizokuColors.neonCrimson,
+                        size: 34,
+                      ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 18),
                     Text(
                       'tracker.following_empty'.tr(),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: AppColors.textHint,
-                        fontSize: 13.5,
+                        color: KaizokuColors.textSecondary,
+                        fontSize: 14,
                         height: 1.5,
                       ),
                     ),
@@ -202,16 +227,16 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
     }
 
     return RefreshIndicator(
-      color: AppColors.primary,
-      backgroundColor: AppColors.surface,
+      color: KaizokuColors.neonCrimson,
+      backgroundColor: KaizokuColors.surface,
       onRefresh: () => _check(),
       child: Column(
         children: [
           if (_checking)
-            LinearProgressIndicator(
-              minHeight: 2,
+            const LinearProgressIndicator(
+              minHeight: 2.5,
               backgroundColor: Colors.transparent,
-              valueColor: AlwaysStoppedAnimation(AppColors.primary),
+              valueColor: AlwaysStoppedAnimation<Color>(KaizokuColors.neonCrimson),
             ),
           Expanded(
             child: ListView.separated(
@@ -239,29 +264,46 @@ class _FollowTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: title.contentUrl.isEmpty
-            ? null
-            : () => context.push(
-                  '/detail',
-                  extra: DetailArgs(
-                    contentUrl: title.contentUrl,
-                    provider: title.provider,
+    return Container(
+      decoration: BoxDecoration(
+        color: KaizokuColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: title.contentUrl.isEmpty
+              ? null
+              : () => context.push(
+                    '/detail',
+                    extra: DetailArgs(
+                      contentUrl: title.contentUrl,
+                      provider: title.provider,
+                    ),
                   ),
-                ),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
+          splashColor: KaizokuColors.neonCrimson.withValues(alpha: 0.1),
+          highlightColor: Colors.white.withValues(alpha: 0.05),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
+                Container(
                   width: 46,
                   height: 65,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      width: 0.8,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
                   child: title.thumbnail.isEmpty
                       ? const _Placeholder()
                       : CachedNetworkImage(
@@ -271,55 +313,56 @@ class _FollowTile extends StatelessWidget {
                           errorWidget: (_, _, _) => const _Placeholder(),
                         ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        AnilistChip(
-                          label: title.lastEpisodeCount > 0
-                              ? 'tracker.n_episodes'
-                                  .tr(args: ['${title.lastEpisodeCount}'])
-                              : 'tracker.not_checked'.tr(),
-                          color: AppColors.textSecondary,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
                         ),
-                        if (title.provider.isNotEmpty)
+                      ),
+                      const SizedBox(height: 7),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
                           AnilistChip(
-                            label: title.provider,
-                            color: AppColors.textHint,
+                            label: title.lastEpisodeCount > 0
+                                ? 'tracker.n_episodes'
+                                    .tr(args: ['${title.lastEpisodeCount}'])
+                                : 'tracker.not_checked'.tr(),
+                            color: KaizokuColors.neonCrimson,
                           ),
-                      ],
-                    ),
-                  ],
+                          if (title.provider.isNotEmpty)
+                            AnilistChip(
+                              label: title.provider,
+                              color: KaizokuColors.textSecondary,
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              IconButton(
-                tooltip: 'tracker.unfollow'.tr(),
-                onPressed: onUnfollow,
-                icon: const Icon(
-                  Icons.notifications_off_outlined,
-                  color: AppColors.textHint,
-                  size: 20,
+                IconButton(
+                  tooltip: 'tracker.unfollow'.tr(),
+                  onPressed: onUnfollow,
+                  icon: const Icon(
+                    Icons.notifications_off_outlined,
+                    color: KaizokuColors.textMuted,
+                    size: 20,
+                  ),
+                  hoverColor: KaizokuColors.neonCrimson.withValues(alpha: 0.15),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -332,7 +375,11 @@ class _Placeholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        color: AppColors.surfaceVariant,
-        child: const Icon(Icons.movie_rounded, color: AppColors.textHint, size: 20),
+        color: KaizokuColors.surfaceLight,
+        child: const Icon(
+          Icons.movie_rounded,
+          color: KaizokuColors.textMuted,
+          size: 20,
+        ),
       );
 }

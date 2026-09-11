@@ -3,7 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/entities/cast_entity.dart';
 import 'package:soplay/features/detail/presentation/pages/actor_page.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_empty_state.dart';
@@ -66,15 +66,15 @@ class _DirectorTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border, width: 0.6),
+        border: Border.all(color: KaizokuColors.cardBorder, width: 0.6),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.movie_creation_outlined,
-            color: AppColors.textHint,
+            color: KaizokuColors.textMuted,
             size: 18,
           ),
           const SizedBox(width: 10),
@@ -84,7 +84,7 @@ class _DirectorTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -97,7 +97,7 @@ class _DirectorTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: Colors.white,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
@@ -126,9 +126,9 @@ class _CastGridCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: KaizokuColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border, width: 0.6),
+          border: Border.all(color: KaizokuColors.cardBorder, width: 0.6),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -142,7 +142,7 @@ class _CastGridCard extends StatelessWidget {
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   height: 1.2,
@@ -153,7 +153,7 @@ class _CastGridCard extends StatelessWidget {
             Text(
               'detail.actor'.tr(),
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -186,8 +186,8 @@ class _CastAvatar extends StatelessWidget {
       height: 64,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.surfaceVariant,
-        border: Border.all(color: AppColors.border, width: 1.2),
+        color: KaizokuColors.surfaceLight,
+        border: Border.all(color: KaizokuColors.cardBorder, width: 1.2),
       ),
       clipBehavior: Clip.antiAlias,
       child: imageUrl.isNotEmpty
@@ -210,12 +210,12 @@ class _Initials extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.surfaceVariant,
+      color: KaizokuColors.surfaceLight,
       alignment: Alignment.center,
       child: Text(
         initials,
         style: const TextStyle(
-          color: AppColors.textSecondary,
+          color: KaizokuColors.textSecondary,
           fontSize: 20,
           fontWeight: FontWeight.w800,
         ),

@@ -25,6 +25,9 @@ import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
 import 'package:showcaseview/showcaseview.dart';
+import 'package:soplay/core/presentation/navigation/navigation_destination.dart';
+import 'package:soplay/core/presentation/shells/desktop_nav_shell.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 import '../../../../core/navigation/app_tab.dart';
 import '../../../../core/navigation/nav_controller.dart';
@@ -365,27 +368,22 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           child: isTvPlatform
               ? _buildTvShell(tabs, defs)
               : isDesktopPlatform
-              ? Scaffold(
-                  backgroundColor: AppColors.background,
-                  body: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: IndexedStack(index: _index, children: tabs),
+              ? KaizokuDesktopNavShell(
+                  currentIndex: _index,
+                  onIndexChanged: _onTabTap,
+                  destinations: [
+                    for (final def in defs)
+                      KaizokuNavigationDestination(
+                        label: def.labelKey.tr(),
+                        icon: Icon(def.icon),
+                        selectedIcon: Icon(def.activeIcon),
                       ),
-                      // Sozo-Desktop: floating bottom-center rounded pill nav
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 18),
-                          child: _SoplayFloatingNav(
-                            index: _index,
-                            onTap: _onTabTap,
-                            items: defs,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  ],
+                  backgroundColor: KaizokuColors.cyberObsidian,
+                  sidebarColor: KaizokuColors.surface,
+                  activeColor: KaizokuColors.neonCrimson,
+                  inactiveColor: KaizokuColors.textSecondary,
+                  body: IndexedStack(index: _index, children: tabs),
                 )
               : Scaffold(
                   backgroundColor: AppColors.background,
@@ -1364,14 +1362,14 @@ class _TvNavRailState extends State<_TvNavRail> {
         curve: Curves.easeOut,
         width: _expanded ? _TvNavRail.expandedWidth : _TvNavRail.collapsedWidth,
         decoration: BoxDecoration(
-          color: AppColors.navBackground,
-          border: Border(
-            right: BorderSide(color: AppColors.border, width: 0.6),
+          color: KaizokuColors.cyberObsidian,
+          border: const Border(
+            right: BorderSide(color: Color(0x1AFFFFFF), width: 0.8),
           ),
           boxShadow: _expanded
               ? [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
+                    color: Colors.black.withValues(alpha: 0.7),
                     blurRadius: 36,
                     offset: const Offset(10, 0),
                   ),
@@ -1425,7 +1423,7 @@ class _TvRailButtonState extends State<_TvRailButton> {
   @override
   Widget build(BuildContext context) {
     final active = widget.selected || _focused;
-    final color = active ? AppColors.textPrimary : AppColors.textSecondary;
+    final color = active ? KaizokuColors.textPrimary : KaizokuColors.textSecondary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -1449,12 +1447,20 @@ class _TvRailButtonState extends State<_TvRailButton> {
           height: 54,
           padding: const EdgeInsets.symmetric(horizontal: 13),
           decoration: BoxDecoration(
-            color: _focused ? AppColors.surface : Colors.transparent,
+            color: _focused ? KaizokuColors.surface : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _focused ? AppColors.border : Colors.transparent,
-              width: 0.6,
+              color: _focused ? KaizokuColors.neonCrimson : Colors.transparent,
+              width: 1.2,
             ),
+            boxShadow: _focused
+                ? [
+                    BoxShadow(
+                      color: KaizokuColors.neonCrimson.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             children: [
@@ -1465,8 +1471,16 @@ class _TvRailButtonState extends State<_TvRailButton> {
                 width: 3,
                 height: widget.selected ? 20 : 0,
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
+                  color: KaizokuColors.neonCrimson,
                   borderRadius: BorderRadius.circular(2),
+                  boxShadow: widget.selected
+                      ? [
+                          BoxShadow(
+                            color: KaizokuColors.neonCrimson.withValues(alpha: 0.6),
+                            blurRadius: 6,
+                          ),
+                        ]
+                      : null,
                 ),
               ),
               const SizedBox(width: 11),

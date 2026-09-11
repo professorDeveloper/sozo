@@ -163,7 +163,7 @@ class DiscordIpcClient {
       if (a.imageText != null) assets['large_text'] = a.imageText;
     } else {
       assets['large_image'] = fallbackAssetKey;
-      assets['large_text'] = 'Sozo';
+      assets['large_text'] = 'Kaizoku';
     }
     return {
       // 3 is "Watching". Discord renders it as "Watching <name>" rather than
@@ -178,7 +178,7 @@ class DiscordIpcClient {
       },
       if (a.watchUrl != null && a.watchUrl!.isNotEmpty)
         'buttons': [
-          {'label': 'Sozo', 'url': a.watchUrl},
+          {'label': 'Kaizoku', 'url': a.watchUrl},
         ],
     };
   }

@@ -10,7 +10,7 @@ import 'package:soplay/core/player/media_controller.dart'
     show warmUpPlayerEngine;
 import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/subtitles/subtitle_languages.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
@@ -139,9 +139,9 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: Text(
@@ -465,7 +465,7 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
               icon: const Icon(Icons.restart_alt_rounded, size: 18),
               label: Text('player.reset'.tr()),
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.textSecondary,
+                foregroundColor: KaizokuColors.textSecondary,
               ),
             ),
           ),
@@ -580,12 +580,12 @@ class _SubtitleColorRow extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: AppColors.textSecondary.withValues(alpha: 0.1),
+              color: KaizokuColors.textSecondary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.palette_outlined,
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               size: 18,
             ),
           ),
@@ -594,7 +594,7 @@ class _SubtitleColorRow extends StatelessWidget {
             child: Text(
               'player.text_color'.tr(),
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: KaizokuColors.textPrimary,
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
               ),
@@ -611,7 +611,7 @@ class _SubtitleColorRow extends StatelessWidget {
                   color: Color(c),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: c == selected ? AppColors.primary : Colors.white24,
+                    color: c == selected ? KaizokuColors.neonCrimson : Colors.white24,
                     width: c == selected ? 2.5 : 1,
                   ),
                 ),
@@ -639,12 +639,12 @@ class _SubtitleOpacityRow extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: AppColors.textSecondary.withValues(alpha: 0.1),
+              color: KaizokuColors.textSecondary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.opacity_rounded,
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               size: 18,
             ),
           ),
@@ -654,7 +654,7 @@ class _SubtitleOpacityRow extends StatelessWidget {
             child: Text(
               'player.background'.tr(),
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: KaizokuColors.textPrimary,
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
               ),
@@ -664,7 +664,7 @@ class _SubtitleOpacityRow extends StatelessWidget {
             flex: 4,
             child: Slider(
               value: value.clamp(0.0, 1.0),
-              activeColor: AppColors.primary,
+              activeColor: KaizokuColors.neonCrimson,
               onChanged: onChanged,
             ),
           ),
@@ -674,7 +674,7 @@ class _SubtitleOpacityRow extends StatelessWidget {
               '${(value * 100).round()}%',
               textAlign: TextAlign.right,
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -714,14 +714,14 @@ class _EngineRow extends StatelessWidget {
                 height: 34,
                 decoration: BoxDecoration(
                   color: selected
-                      ? AppColors.primary.withValues(alpha: 0.15)
-                      : AppColors.textSecondary.withValues(alpha: 0.1),
+                      ? KaizokuColors.neonCrimson.withValues(alpha: 0.15)
+                      : KaizokuColors.textSecondary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   playerEngineIcon(engine),
                   size: 18,
-                  color: selected ? AppColors.primary : AppColors.textSecondary,
+                  color: selected ? KaizokuColors.neonCrimson : KaizokuColors.textSecondary,
                 ),
               ),
               const SizedBox(width: 14),
@@ -735,7 +735,7 @@ class _EngineRow extends StatelessWidget {
                           child: Text(
                             playerEngineTitleKey(engine).tr(),
                             style: const TextStyle(
-                              color: AppColors.textPrimary,
+                              color: KaizokuColors.textPrimary,
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
                             ),
@@ -749,13 +749,13 @@ class _EngineRow extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.14),
+                              color: KaizokuColors.neonCrimson.withValues(alpha: 0.14),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               'profile.player_engine_badge_default'.tr(),
                               style: TextStyle(
-                                color: AppColors.primary,
+                                color: KaizokuColors.neonCrimson,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -768,7 +768,7 @@ class _EngineRow extends StatelessWidget {
                     Text(
                       playerEngineDescKey(engine).tr(),
                       style: const TextStyle(
-                        color: AppColors.textSecondary,
+                        color: KaizokuColors.textSecondary,
                         fontSize: 12,
                         height: 1.35,
                       ),
@@ -782,7 +782,7 @@ class _EngineRow extends StatelessWidget {
                     ? Icons.radio_button_checked_rounded
                     : Icons.radio_button_unchecked_rounded,
                 size: 20,
-                color: selected ? AppColors.primary : AppColors.textHint,
+                color: selected ? KaizokuColors.neonCrimson : KaizokuColors.textSecondary,
               ),
             ],
           ),

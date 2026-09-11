@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/torrent/torrent_engine.dart';
 import 'package:soplay/core/torrent/torrent_status.dart';
 import 'package:soplay/features/torrent/data/torrent_trackers.dart';
@@ -192,7 +192,7 @@ abstract final class TorrentPlayback {
     if (!navigator.mounted) return;
     unawaited(showModalBottomSheet<void>(
       context: navigator.context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: KaizokuColors.surface,
       isDismissible: false,
       enableDrag: false,
       // Full width and bottom-anchored. Without this the sheet inherits the
@@ -303,13 +303,13 @@ class _PreparationSheet extends StatelessWidget {
                         width: 34,
                         height: 34,
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.14),
+                          color: KaizokuColors.primary.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(11),
                         ),
                         child: Icon(
                           Icons.hub_rounded,
                           size: 18,
-                          color: AppColors.primary,
+                          color: KaizokuColors.primary,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -319,7 +319,7 @@ class _PreparationSheet extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: KaizokuColors.textPrimary,
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
@@ -329,7 +329,7 @@ class _PreparationSheet extends StatelessWidget {
                         Text(
                           '${(buffer * 100).round()}%',
                           style: TextStyle(
-                            color: AppColors.primary,
+                            color: KaizokuColors.primary,
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                             fontFeatures: const [FontFeature.tabularFigures()],
@@ -345,7 +345,7 @@ class _PreparationSheet extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textMuted,
                         fontSize: 12.5,
                         height: 1.35,
                       ),
@@ -360,8 +360,8 @@ class _PreparationSheet extends StatelessWidget {
                       // claim progress it cannot measure.
                       value: buffer,
                       minHeight: 4,
-                      backgroundColor: AppColors.surfaceVariant,
-                      color: AppColors.primary,
+                      backgroundColor: KaizokuColors.surfaceVariant,
+                      color: KaizokuColors.primary,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -374,13 +374,13 @@ class _PreparationSheet extends StatelessWidget {
                       Icon(
                         Icons.arrow_downward_rounded,
                         size: 13,
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textMuted,
                       ),
                       const SizedBox(width: 3),
                       Text(
                         _speed(progress.downloadSpeed),
                         style: TextStyle(
-                          color: AppColors.textSecondary,
+                          color: KaizokuColors.textSecondary,
                           fontSize: 12,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
@@ -389,13 +389,13 @@ class _PreparationSheet extends StatelessWidget {
                       Icon(
                         Icons.hub_outlined,
                         size: 12,
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textMuted,
                       ),
                       const SizedBox(width: 3),
                       Text(
                         'torrent.stats_peers'.tr(args: ['${progress.peers}']),
                         style: TextStyle(
-                          color: AppColors.textSecondary,
+                          color: KaizokuColors.textSecondary,
                           fontSize: 12,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
@@ -408,7 +408,7 @@ class _PreparationSheet extends StatelessWidget {
                         },
                         child: Text(
                           'general.cancel'.tr(),
-                          style: TextStyle(color: AppColors.textSecondary),
+                          style: TextStyle(color: KaizokuColors.textSecondary),
                         ),
                       ),
                     ],

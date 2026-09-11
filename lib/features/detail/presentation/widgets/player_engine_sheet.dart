@@ -5,8 +5,8 @@ import 'package:soplay/core/player/media_controller.dart'
     show warmUpPlayerEngine;
 import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 /// Icon shown for each backend. Shared with Settings → Player so the row a
 /// user taps in the sheet is visually the same row they see in settings.
@@ -73,7 +73,7 @@ Future<bool> showPlayerEngineSheet(BuildContext context) async {
 
   final confirmed = await showModalBottomSheet<bool>(
     context: context,
-    backgroundColor: const Color(0xFF111111),
+    backgroundColor: KaizokuColors.cyberObsidian,
     isScrollControlled: true,
     // Deliberately dismissible: BACK / tapping outside means "not now", and the
     // caller treats that as a cancelled playback rather than a silent default.
@@ -114,7 +114,7 @@ Future<bool> showPlayerEngineSheet(BuildContext context) async {
                 child: Text(
                   'player.engine_sheet_subtitle'.tr(),
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 12.5,
                     height: 1.35,
                   ),
@@ -135,13 +135,13 @@ Future<bool> showPlayerEngineSheet(BuildContext context) async {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Icon(Icons.info_outline_rounded,
-                          color: AppColors.textHint, size: 14),
+                          color: KaizokuColors.textMuted, size: 14),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           'profile.player_engine_external_note'.tr(),
                           style: const TextStyle(
-                            color: AppColors.textHint,
+                            color: KaizokuColors.textMuted,
                             fontSize: 11,
                             height: 1.35,
                           ),
@@ -161,7 +161,7 @@ Future<bool> showPlayerEngineSheet(BuildContext context) async {
                         value: dontAskAgain,
                         onChanged: (v) =>
                             setSheetState(() => dontAskAgain = v ?? false),
-                        activeColor: AppColors.primary,
+                        activeColor: KaizokuColors.neonCrimson,
                         side: const BorderSide(color: Colors.white38),
                         materialTapTargetSize:
                             MaterialTapTargetSize.shrinkWrap,
@@ -172,7 +172,7 @@ Future<bool> showPlayerEngineSheet(BuildContext context) async {
                         child: Text(
                           'player.engine_sheet_dont_ask'.tr(),
                           style: const TextStyle(
-                            color: AppColors.textSecondary,
+                            color: KaizokuColors.textSecondary,
                             fontSize: 13,
                           ),
                         ),
@@ -187,7 +187,7 @@ Future<bool> showPlayerEngineSheet(BuildContext context) async {
                   width: double.infinity,
                   child: FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: KaizokuColors.neonCrimson,
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(kButtonRadius),
@@ -242,7 +242,7 @@ class _EngineOption extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
       child: Material(
         color: selected
-            ? AppColors.primary.withValues(alpha: 0.12)
+            ? KaizokuColors.neonCrimson.withValues(alpha: 0.12)
             : Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
@@ -253,7 +253,7 @@ class _EngineOption extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: selected ? AppColors.primary : Colors.transparent,
+                color: selected ? KaizokuColors.neonCrimson : Colors.transparent,
                 width: 1.2,
               ),
             ),
@@ -263,7 +263,7 @@ class _EngineOption extends StatelessWidget {
                 Icon(
                   icon,
                   size: 22,
-                  color: selected ? AppColors.primary : Colors.white70,
+                  color: selected ? KaizokuColors.neonCrimson : Colors.white70,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -274,8 +274,8 @@ class _EngineOption extends StatelessWidget {
                         title,
                         style: TextStyle(
                           color: selected
-                              ? AppColors.primary
-                              : AppColors.textPrimary,
+                              ? KaizokuColors.neonCrimson
+                              : Colors.white,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w700,
                         ),
@@ -284,7 +284,7 @@ class _EngineOption extends StatelessWidget {
                       Text(
                         description,
                         style: const TextStyle(
-                          color: AppColors.textSecondary,
+                          color: KaizokuColors.textSecondary,
                           fontSize: 11.5,
                           height: 1.35,
                         ),
@@ -298,7 +298,7 @@ class _EngineOption extends StatelessWidget {
                       ? Icons.radio_button_checked_rounded
                       : Icons.radio_button_unchecked_rounded,
                   size: 19,
-                  color: selected ? AppColors.primary : AppColors.textHint,
+                  color: selected ? KaizokuColors.neonCrimson : KaizokuColors.textMuted,
                 ),
               ],
             ),

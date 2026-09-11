@@ -1,6 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/network/image_headers.dart';
 import 'package:soplay/core/trailer/trailer_query.dart';
 import 'package:soplay/core/widgets/poster_hero.dart';
@@ -96,9 +96,9 @@ class DetailHeroBackground extends StatelessWidget {
                   // page. The middle one used to be the literal #181818, which
                   // left a grey band hanging in mid-air under AMOLED.
                   colors: [
-                    AppColors.background,
-                    AppColors.background.withValues(alpha: 0.933),
-                    AppColors.background.withValues(alpha: 0.0),
+                    const Color(0xFF090A0F),
+                    const Color(0xFF090A0F).withValues(alpha: 0.933),
+                    const Color(0xFF090A0F).withValues(alpha: 0.0),
                   ],
                   stops: const [0.0, 0.5, 1.0],
                 ),
@@ -115,7 +115,7 @@ class DetailHeroBackground extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: Colors.white,
               fontSize: 26,
               fontWeight: FontWeight.w900,
               height: 1.15,
@@ -145,11 +145,11 @@ class _ThumbnailImage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (url == null || url!.isEmpty) {
       return Container(
-        color: AppColors.surfaceVariant,
+        color: KaizokuColors.surfaceLight,
         child: const Center(
           child: Icon(
             Icons.movie_creation_outlined,
-            color: AppColors.textHint,
+            color: KaizokuColors.textMuted,
             size: 64,
           ),
         ),
@@ -165,7 +165,7 @@ class _ThumbnailImage extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        ColoredBox(color: AppColors.surfaceVariant),
+        const ColoredBox(color: KaizokuColors.surfaceLight),
         CachedNetworkImage(
           imageUrl: url!,
           // The same headers the grid sent. A poster the host served to one
@@ -175,13 +175,13 @@ class _ThumbnailImage extends StatelessWidget {
           fit: BoxFit.cover,
           fadeInDuration: const Duration(milliseconds: 240),
           fadeInCurve: Curves.easeOut,
-          placeholder: (_, _) => ColoredBox(color: AppColors.surfaceVariant),
+          placeholder: (_, _) => const ColoredBox(color: KaizokuColors.surfaceLight),
           errorWidget: (_, _, _) => Container(
-            color: AppColors.surfaceVariant,
+            color: KaizokuColors.surfaceLight,
             child: const Center(
               child: Icon(
                 Icons.broken_image_outlined,
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 size: 64,
               ),
             ),

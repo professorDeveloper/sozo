@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/stats/data/watch_stats_store.dart';
 
 /// What has been watched, since counting began.
@@ -42,9 +42,9 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
     final since = _store.since;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.background,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
@@ -57,8 +57,8 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
       // is held briefly — otherwise the gesture completes before the eye can
       // register that anything happened.
       body: RefreshIndicator(
-        color: AppColors.primary,
-        backgroundColor: AppColors.surface,
+        color: KaizokuColors.primary,
+        backgroundColor: KaizokuColors.surface,
         onRefresh: () async {
           await Future<void>.delayed(const Duration(milliseconds: 350));
           if (mounted) setState(() {});
@@ -124,14 +124,14 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
             const Icon(
               Icons.bar_chart_rounded,
               size: 52,
-              color: AppColors.textHint,
+              color: KaizokuColors.textHint,
             ),
             const SizedBox(height: 14),
             Text(
               'stats.empty_title'.tr(),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 15,
               ),
             ),
@@ -140,7 +140,7 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
               'stats.empty_subtitle'.tr(),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textHint,
                 fontSize: 13,
                 height: 1.4,
               ),
@@ -166,16 +166,16 @@ class _Headline extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.divider),
+        border: Border.all(color: KaizokuColors.divider),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'stats.watched'.tr(),
-            style: const TextStyle(color: AppColors.textHint, fontSize: 12.5),
+            style: const TextStyle(color: KaizokuColors.textHint, fontSize: 12.5),
           ),
           const SizedBox(height: 6),
           Row(
@@ -185,7 +185,7 @@ class _Headline extends StatelessWidget {
               Text(
                 '$hours',
                 style: TextStyle(
-                  color: AppColors.primary,
+                  color: KaizokuColors.primary,
                   fontSize: 40,
                   fontWeight: FontWeight.w800,
                   height: 1,
@@ -195,7 +195,7 @@ class _Headline extends StatelessWidget {
               Text(
                 'stats.hours_short'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
@@ -204,7 +204,7 @@ class _Headline extends StatelessWidget {
               Text(
                 '$minutes',
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
                   height: 1,
@@ -214,7 +214,7 @@ class _Headline extends StatelessWidget {
               Text(
                 'stats.minutes_short'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -229,7 +229,7 @@ class _Headline extends StatelessWidget {
               'stats.since'.tr(
                 args: [DateFormat.yMMMd(context.locale.toString()).format(since!)],
               ),
-              style: const TextStyle(color: AppColors.textHint, fontSize: 11.5),
+              style: const TextStyle(color: KaizokuColors.textHint, fontSize: 11.5),
             ),
           ],
         ],
@@ -253,19 +253,19 @@ class _StatBox extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: KaizokuColors.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.divider),
+          border: Border.all(color: KaizokuColors.divider),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 18, color: AppColors.textSecondary),
+            Icon(icon, size: 18, color: KaizokuColors.textSecondary),
             const SizedBox(height: 10),
             Text(
               value,
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: KaizokuColors.textPrimary,
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
                 height: 1,
@@ -274,7 +274,7 @@ class _StatBox extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(color: AppColors.textHint, fontSize: 11.5),
+              style: const TextStyle(color: KaizokuColors.textHint, fontSize: 11.5),
             ),
           ],
         ),
@@ -326,7 +326,7 @@ class _DayChart extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: values[i] == 0
                           ? Colors.white.withValues(alpha: 0.07)
-                          : AppColors.primary.withValues(
+                          : KaizokuColors.primary.withValues(
                               alpha: 0.45 + 0.55 * (values[i] / peak),
                             ),
                       borderRadius: BorderRadius.circular(3),
@@ -342,7 +342,7 @@ class _DayChart extends StatelessWidget {
                         ? Text(
                             '${now.subtract(Duration(days: values.length - 1 - i)).day}',
                             style: const TextStyle(
-                              color: AppColors.textHint,
+                              color: KaizokuColors.textHint,
                               fontSize: 9.5,
                             ),
                           )
@@ -390,7 +390,7 @@ class _ProviderBreakdown extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 12.5,
                     ),
                   ),
@@ -402,7 +402,7 @@ class _ProviderBreakdown extends StatelessWidget {
                       value: peak == 0 ? 0 : row.value / peak,
                       minHeight: 6,
                       backgroundColor: Colors.white.withValues(alpha: 0.06),
-                      valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                      valueColor: AlwaysStoppedAnimation(KaizokuColors.primary),
                     ),
                   ),
                 ),
@@ -413,7 +413,7 @@ class _ProviderBreakdown extends StatelessWidget {
                     _short(row.value),
                     textAlign: TextAlign.end,
                     style: const TextStyle(
-                      color: AppColors.textHint,
+                      color: KaizokuColors.textHint,
                       fontSize: 11.5,
                     ),
                   ),
@@ -441,7 +441,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Text(
         text,
         style: const TextStyle(
-          color: AppColors.textPrimary,
+          color: KaizokuColors.textPrimary,
           fontSize: 13,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.3,

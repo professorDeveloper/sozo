@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:soplay/core/widgets/app_buttons.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/onboarding/presentation/widgets/poster_wall.dart';
 
@@ -37,7 +38,7 @@ class AuthScaffold extends StatelessWidget {
     );
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusScope.of(context).unfocus(),
@@ -89,7 +90,7 @@ class AuthScaffold extends StatelessWidget {
                           Text(
                             title,
                             style: const TextStyle(
-                              color: AppColors.textPrimary,
+                              color: Colors.white,
                               fontSize: 28,
                               fontWeight: FontWeight.w800,
                               height: 1.15,
@@ -100,7 +101,7 @@ class AuthScaffold extends StatelessWidget {
                             Text(
                               subtitle!,
                               style: const TextStyle(
-                                color: AppColors.textSecondary,
+                                color: KaizokuColors.textSecondary,
                                 fontSize: 14,
                                 height: 1.4,
                               ),
@@ -138,14 +139,14 @@ class _AuthTopBar extends StatelessWidget {
             IconButton(
               onPressed: onBack,
               icon: const Icon(Icons.arrow_back_rounded),
-              color: AppColors.textPrimary,
+              color: Colors.white,
             )
           else
             const SizedBox(width: 12),
           Text(
             'app_name'.tr(),
-            style: TextStyle(
-              color: AppColors.primary,
+            style: const TextStyle(
+              color: KaizokuColors.neonCrimson,
               fontSize: 22,
               fontWeight: FontWeight.w900,
               letterSpacing: 2,
@@ -155,7 +156,7 @@ class _AuthTopBar extends StatelessWidget {
           IconButton(
             onPressed: onClose,
             icon: const Icon(Icons.close_rounded),
-            color: AppColors.textPrimary,
+            color: Colors.white,
           ),
         ],
       ),
@@ -240,14 +241,15 @@ class _AuthTextFieldState extends State<AuthTextField> {
       autofillHints: widget.autofillHints,
       inputFormatters: widget.inputFormatters,
       onFieldSubmitted: widget.onFieldSubmitted,
-      cursorColor: AppColors.primary,
-      style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+      cursorColor: KaizokuColors.neonCrimson,
+      style: const TextStyle(color: Colors.white, fontSize: 15),
       decoration: InputDecoration(
         hintText: widget.hint,
+        hintStyle: const TextStyle(color: KaizokuColors.textMuted),
         filled: true,
         fillColor: _focused
-            ? AppColors.surfaceVariant
-            : AppColors.surface.withValues(alpha: 0.9),
+            ? KaizokuColors.surfaceLight
+            : KaizokuColors.surface,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 17,
@@ -258,18 +260,18 @@ class _AuthTextFieldState extends State<AuthTextField> {
           child: Icon(
             widget.icon,
             size: 20,
-            color: _focused ? AppColors.primary : AppColors.textHint,
+            color: _focused ? KaizokuColors.neonCrimson : KaizokuColors.textMuted,
           ),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
         suffixIcon: widget.suffix,
-        border: _border(AppColors.border),
-        enabledBorder: _border(AppColors.border),
-        disabledBorder: _border(AppColors.divider),
-        focusedBorder: _border(AppColors.primary, 1.4),
-        errorBorder: _border(AppColors.error, 1.2),
-        focusedErrorBorder: _border(AppColors.error, 1.4),
-        errorStyle: const TextStyle(color: AppColors.error, fontSize: 12),
+        border: _border(Colors.white.withValues(alpha: 0.08)),
+        enabledBorder: _border(Colors.white.withValues(alpha: 0.08)),
+        disabledBorder: _border(KaizokuColors.surfaceLight.withValues(alpha: 0.4)),
+        focusedBorder: _border(KaizokuColors.neonCrimson, 1.4),
+        errorBorder: _border(KaizokuColors.neonCrimson, 1.2),
+        focusedErrorBorder: _border(KaizokuColors.neonCrimson, 1.4),
+        errorStyle: const TextStyle(color: KaizokuColors.neonCrimson, fontSize: 12),
       ),
       validator: widget.validator,
     );
@@ -297,10 +299,10 @@ class AuthErrorBanner extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 14),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.12),
+                  color: KaizokuColors.neonCrimson.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: AppColors.error.withValues(alpha: 0.4),
+                    color: KaizokuColors.neonCrimson.withValues(alpha: 0.4),
                   ),
                 ),
                 child: Padding(
@@ -311,14 +313,14 @@ class AuthErrorBanner extends StatelessWidget {
                       const Icon(
                         Icons.error_outline_rounded,
                         size: 18,
-                        color: AppColors.error,
+                        color: KaizokuColors.neonCrimson,
                       ),
                       const SizedBox(width: 9),
                       Expanded(
                         child: Text(
                           message!,
                           style: const TextStyle(
-                            color: AppColors.textPrimary,
+                            color: Colors.white,
                             fontSize: 12.5,
                             height: 1.35,
                           ),
@@ -365,15 +367,28 @@ class AuthDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Divider(color: AppColors.border, height: 1)),
+        Expanded(
+          child: Divider(
+            color: KaizokuColors.surfaceLight.withValues(alpha: 0.5),
+            height: 1,
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             'auth.or_continue_with'.tr(),
-            style: const TextStyle(color: AppColors.textHint, fontSize: 12.5),
+            style: const TextStyle(
+              color: KaizokuColors.textMuted,
+              fontSize: 12.5,
+            ),
           ),
         ),
-        Expanded(child: Divider(color: AppColors.border, height: 1)),
+        Expanded(
+          child: Divider(
+            color: KaizokuColors.surfaceLight.withValues(alpha: 0.5),
+            height: 1,
+          ),
+        ),
       ],
     );
   }
@@ -450,7 +465,7 @@ class AuthSwitchPrompt extends StatelessWidget {
           child: Text(
             text,
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -459,8 +474,8 @@ class AuthSwitchPrompt extends StatelessWidget {
           onPressed: onTap,
           child: Text(
             action,
-            style: TextStyle(
-              color: AppColors.primary,
+            style: const TextStyle(
+              color: KaizokuColors.neonCrimson,
               fontWeight: FontWeight.w700,
             ),
           ),

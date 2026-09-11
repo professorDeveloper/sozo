@@ -3,6 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/player/hls_variants.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/download_choices.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/video_option_groups.dart';
@@ -28,6 +29,10 @@ Future<DownloadSelection?> chooseDownload(
   List<VideoSourceEntity> sources = const [],
 }) => showModalBottomSheet<DownloadSelection>(
   context: context,
+  backgroundColor: KaizokuColors.cyberObsidian,
+  shape: const RoundedRectangleBorder(
+    borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+  ),
   isScrollControlled: true,
   showDragHandle: true,
   builder: (_) => DownloadChoiceSheet(
@@ -179,25 +184,38 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
                   Text(
                     'ux.download_options'.tr(),
                     style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
+                      color: KaizokuColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'ux.download_options_note'.tr(),
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    style: const TextStyle(color: KaizokuColors.textSecondary),
                   ),
                   if (_sources.length > 1) ...[
                     const SizedBox(height: 12),
                     for (var i = 0; i < _sources.length; i++)
                       ListTile(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        selectedTileColor: KaizokuColors.neonCrimson.withValues(alpha: 0.12),
                         title: Text(
                           _sources[i].quality.isEmpty
                               ? 'ux.source_number'.tr(args: ['${i + 1}'])
                               : _sources[i].quality,
+                          style: TextStyle(
+                            color: i == _source
+                                ? KaizokuColors.neonCrimson
+                                : KaizokuColors.textPrimary,
+                            fontWeight: i == _source ? FontWeight.w700 : FontWeight.w500,
+                          ),
                         ),
-                        trailing: i == _source ? const Icon(Icons.check) : null,
+                        trailing: i == _source
+                            ? const Icon(Icons.check, color: KaizokuColors.neonCrimson)
+                            : null,
                         selected: i == _source,
                         onTap: () {
                           _source = i;
@@ -207,22 +225,44 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
                   ],
                   const SizedBox(height: 12),
                   if (_loading) ...[
-                    const LinearProgressIndicator(),
+                    LinearProgressIndicator(
+                      backgroundColor: KaizokuColors.surfaceLight,
+                      valueColor: const AlwaysStoppedAnimation(KaizokuColors.neonCrimson),
+                    ),
                     const SizedBox(height: 12),
-                    Text('ux.checking_quality'.tr()),
+                    Text(
+                      'ux.checking_quality'.tr(),
+                      style: const TextStyle(color: KaizokuColors.textSecondary),
+                    ),
                   ] else if (_failed) ...[
-                    Text('ux.quality_unavailable'.tr()),
+                    Text(
+                      'ux.quality_unavailable'.tr(),
+                      style: const TextStyle(color: KaizokuColors.neonCrimson),
+                    ),
                     TextButton(
                       onPressed: _probe,
+                      style: TextButton.styleFrom(foregroundColor: KaizokuColors.neonCrimson),
                       child: Text('general.retry'.tr()),
                     ),
                   ] else if (_variants.isNotEmpty)
                     for (var i = 0; i < _variants.length; i++)
                       ListTile(
-                        title: Text('${_variants[i].height}p'),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        selectedTileColor: KaizokuColors.neonCrimson.withValues(alpha: 0.12),
+                        title: Text(
+                          '${_variants[i].height}p',
+                          style: TextStyle(
+                            color: i == _variant
+                                ? KaizokuColors.neonCrimson
+                                : KaizokuColors.textPrimary,
+                            fontWeight: i == _variant ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
                         selected: i == _variant,
                         trailing: i == _variant
-                            ? const Icon(Icons.check)
+                            ? const Icon(Icons.check, color: KaizokuColors.neonCrimson)
                             : null,
                         onTap: () => setState(() => _variant = i),
                       )
@@ -231,6 +271,7 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
                       source.height == null
                           ? 'ux.quality_unknown'.tr()
                           : '${source.height}p',
+                      style: const TextStyle(color: KaizokuColors.textPrimary),
                     ),
                   const SizedBox(height: 12),
                   // A master size cannot describe a selected rendition; never reuse it.
@@ -238,7 +279,7 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
                     size != null && _variants.isEmpty
                         ? size
                         : 'ux.size_unknown'.tr(),
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    style: const TextStyle(color: KaizokuColors.textMuted),
                   ),
                 ],
               ),
@@ -246,6 +287,14 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: KaizokuColors.neonCrimson,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 onPressed: _loading
                     ? null
                     : () {

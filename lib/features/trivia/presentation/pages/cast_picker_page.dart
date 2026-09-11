@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
 import 'package:soplay/features/trivia/presentation/bloc/cast/cast_bloc.dart';
 import 'package:soplay/features/trivia/presentation/bloc/cast/cast_event.dart';
@@ -63,7 +63,7 @@ class _CastPickerViewState extends State<_CastPickerView> {
     final contentTop = topSafe + _headerHeight;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.background,
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
@@ -191,13 +191,13 @@ class _GlassHeader extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  AppColors.background.withValues(alpha: 0.92),
-                  AppColors.background.withValues(alpha: 0.55),
+                  KaizokuColors.background.withValues(alpha: 0.92),
+                  KaizokuColors.background.withValues(alpha: 0.55),
                 ],
               ),
               border: Border(
                 bottom: BorderSide(
-                  color: AppColors.border.withValues(alpha: 0.5),
+                  color: KaizokuColors.border.withValues(alpha: 0.5),
                 ),
               ),
             ),
@@ -232,7 +232,7 @@ class _SearchField extends StatelessWidget {
         return Container(
           height: 46,
           decoration: BoxDecoration(
-            color: AppColors.surface.withValues(alpha: 0.9),
+            color: KaizokuColors.surface.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
@@ -241,17 +241,17 @@ class _SearchField extends StatelessWidget {
               const SizedBox(width: 12),
               const Icon(
                 CupertinoIcons.search,
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
                   controller: controller,
-                  cursorColor: AppColors.primary,
+                  cursorColor: KaizokuColors.primary,
                   textInputAction: TextInputAction.search,
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textPrimary,
                     fontSize: 15,
                   ),
                   decoration: InputDecoration(
@@ -259,7 +259,7 @@ class _SearchField extends StatelessWidget {
                     border: InputBorder.none,
                     hintText: 'trivia.search_cast_hint'.tr(),
                     hintStyle: const TextStyle(
-                      color: AppColors.textHint,
+                      color: KaizokuColors.textHint,
                       fontSize: 15,
                     ),
                   ),
@@ -278,7 +278,7 @@ class _SearchField extends StatelessWidget {
                     padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Icon(
                       CupertinoIcons.clear_circled_solid,
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       size: 20,
                     ),
                   ),
@@ -317,7 +317,7 @@ class _ContextCaption extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: KaizokuColors.textPrimary,
             fontSize: 15,
             fontWeight: FontWeight.w800,
             height: 1.1,

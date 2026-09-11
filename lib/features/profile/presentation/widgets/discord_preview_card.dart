@@ -27,7 +27,7 @@ class DiscordPreviewCard extends StatelessWidget {
     super.key,
     required this.activity,
     required this.connected,
-    this.appName = 'Sozo',
+    this.appName = 'Kaizoku',
   });
 
   /// Null when nothing is playing, which is the ordinary state on a settings

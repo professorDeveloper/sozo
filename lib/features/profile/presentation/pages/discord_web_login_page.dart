@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 /// Signs in to Discord inside the app and hands the user token back to whoever
 /// pushed this route, via `context.pop(token)`. Pops with nothing if the viewer
@@ -176,7 +176,7 @@ class _DiscordWebLoginPageState extends State<DiscordWebLoginPage> {
     final value = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: KaizokuColors.surface,
         title: Text('discord.web_login_paste_title'.tr()),
         content: TextField(
           controller: ctrl,
@@ -184,10 +184,10 @@ class _DiscordWebLoginPageState extends State<DiscordWebLoginPage> {
           maxLines: 3,
           autocorrect: false,
           enableSuggestions: false,
-          style: const TextStyle(color: AppColors.textPrimary),
+          style: const TextStyle(color: KaizokuColors.textPrimary),
           decoration: InputDecoration(
             hintText: 'discord.web_login_paste_hint'.tr(),
-            hintStyle: const TextStyle(color: AppColors.textHint),
+            hintStyle: const TextStyle(color: KaizokuColors.textMuted),
           ),
         ),
         actions: [
@@ -209,9 +209,9 @@ class _DiscordWebLoginPageState extends State<DiscordWebLoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.background,
         title: Text('discord.web_login_title'.tr()),
         actions: [
           TextButton(
@@ -260,9 +260,9 @@ class _DiscordWebLoginPageState extends State<DiscordWebLoginPage> {
           ),
           if (!_firstLoadDone)
             ColoredBox(
-              color: AppColors.background,
+              color: KaizokuColors.background,
               child: Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
+                child: CircularProgressIndicator(color: KaizokuColors.primary),
               ),
             ),
         ],

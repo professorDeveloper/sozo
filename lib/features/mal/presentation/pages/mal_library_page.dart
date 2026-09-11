@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
 import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
@@ -115,15 +116,19 @@ class _MalLibraryPageState extends State<MalLibraryPage>
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
         title: Text(
           'mal.open_library'.tr(),
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          style: const TextStyle(
+            color: KaizokuColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         actions: [
           if (connected)
@@ -155,8 +160,8 @@ class _StatusTabBar extends StatelessWidget {
       tabAlignment: TabAlignment.start,
       indicatorColor: kMalBlue,
       indicatorSize: TabBarIndicatorSize.label,
-      labelColor: AppColors.textPrimary,
-      unselectedLabelColor: AppColors.textSecondary,
+      labelColor: KaizokuColors.textPrimary,
+      unselectedLabelColor: KaizokuColors.textSecondary,
       dividerColor: Colors.transparent,
       labelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
       unselectedLabelStyle:
@@ -233,44 +238,50 @@ class _EntryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = entry.anime.episodes;
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: busy ? null : onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AnilistCover(url: entry.anime.picture, width: 46, radius: 8),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entry.anime.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
+    return Container(
+      decoration: BoxDecoration(
+        color: KaizokuColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: KaizokuColors.cardBorder, width: 0.5),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: busy ? null : onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnilistCover(url: entry.anime.picture, width: 46, radius: 8),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entry.anime.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: KaizokuColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      total != null
-                          ? '${entry.progress} / $total  ·  ${'anilist.episodes_watched'.tr()}'
-                          : '${entry.progress}  ·  ${'anilist.episodes_watched'.tr()}',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
+                      const SizedBox(height: 6),
+                      Text(
+                        total != null
+                            ? '${entry.progress} / $total  ·  ${'anilist.episodes_watched'.tr()}'
+                            : '${entry.progress}  ·  ${'anilist.episodes_watched'.tr()}',
+                        style: const TextStyle(
+                          color: KaizokuColors.textSecondary,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
                     if (total != null && total > 0) ...[
                       const SizedBox(height: 6),
                       AnilistProgressBar(value: entry.fraction),

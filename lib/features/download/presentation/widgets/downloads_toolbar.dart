@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/download/presentation/bloc/downloads_state.dart';
 
 /// The filter row.
@@ -62,22 +62,34 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Material(
-        color: selected
-            ? AppColors.primary
-            : Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(11),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.white : AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+      child: Container(
+        decoration: BoxDecoration(
+          color: selected
+              ? KaizokuColors.neonCrimson
+              : KaizokuColors.surface,
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(
+            color: selected
+                ? KaizokuColors.neonCrimson
+                : KaizokuColors.cardBorder,
+            width: 0.5,
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(11),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.white : KaizokuColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
               ),
             ),
           ),

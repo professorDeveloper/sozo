@@ -10,6 +10,7 @@ import 'package:soplay/core/discord/discord_presence_service.dart';
 import 'package:soplay/features/profile/presentation/widgets/discord_preview_card.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 
 /// Where somebody turns Discord Rich Presence on, and on a phone hands over
@@ -114,10 +115,20 @@ class _DiscordSettingsPageState extends State<DiscordSettingsPage> {
     final desktop = DiscordPresenceService.isDesktop;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: Text('discord.title'.tr()),
+        backgroundColor: KaizokuColors.cyberObsidian,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        title: Text(
+          'discord.title'.tr(),
+          style: const TextStyle(
+            color: KaizokuColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 32),
@@ -128,7 +139,7 @@ class _DiscordSettingsPageState extends State<DiscordSettingsPage> {
             child: Text(
               'discord.what_it_does'.tr(),
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 13,
                 height: 1.45,
               ),
@@ -173,6 +184,13 @@ class _DiscordSettingsPageState extends State<DiscordSettingsPage> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: FilledButton.icon(
                 onPressed: _busy ? null : _signIn,
+                style: FilledButton.styleFrom(
+                  backgroundColor: DiscordBrand.blurple,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
                 icon: DiscordBrand.mark(size: 18),
                 label: Text('discord.sign_in'.tr()),
               ),
@@ -182,7 +200,7 @@ class _DiscordSettingsPageState extends State<DiscordSettingsPage> {
               child: Text(
                 'discord.sign_in_desc'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 12.5,
                   height: 1.45,
                 ),
@@ -192,18 +210,18 @@ class _DiscordSettingsPageState extends State<DiscordSettingsPage> {
               padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
               child: Row(
                 children: [
-                  Expanded(child: Divider(color: AppColors.surfaceVariant)),
+                  Expanded(child: Divider(color: KaizokuColors.cardBorder)),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Text(
                       'discord.or_paste'.tr(),
                       style: const TextStyle(
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textMuted,
                         fontSize: 12,
                       ),
                     ),
                   ),
-                  Expanded(child: Divider(color: AppColors.surfaceVariant)),
+                  Expanded(child: Divider(color: KaizokuColors.cardBorder)),
                 ],
               ),
             ),
@@ -214,18 +232,36 @@ class _DiscordSettingsPageState extends State<DiscordSettingsPage> {
                 obscureText: true,
                 autocorrect: false,
                 enableSuggestions: false,
-                style: const TextStyle(color: AppColors.textPrimary),
+                style: const TextStyle(color: KaizokuColors.textPrimary),
                 decoration: InputDecoration(
                   labelText: 'discord.token_label'.tr(),
+                  labelStyle: const TextStyle(color: KaizokuColors.textSecondary),
                   hintText: _hasToken
                       ? 'discord.token_saved'.tr()
                       : 'discord.token_hint'.tr(),
-                  hintStyle: const TextStyle(color: AppColors.textHint),
+                  hintStyle: const TextStyle(color: KaizokuColors.textMuted),
                   filled: true,
-                  fillColor: AppColors.surfaceVariant,
+                  fillColor: KaizokuColors.surfaceLight,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
+                    borderSide: BorderSide(
+                      color: KaizokuColors.cardBorder,
+                      width: 0.5,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                      color: KaizokuColors.cardBorder,
+                      width: 0.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: KaizokuColors.electricCyan,
+                      width: 1.2,
+                    ),
                   ),
                 ),
               ),
@@ -237,6 +273,13 @@ class _DiscordSettingsPageState extends State<DiscordSettingsPage> {
                   Expanded(
                     child: FilledButton(
                       onPressed: _busy ? null : _saveToken,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: KaizokuColors.neonCrimson,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                       child: Text('discord.token_save'.tr()),
                     ),
                   ),
@@ -246,7 +289,13 @@ class _DiscordSettingsPageState extends State<DiscordSettingsPage> {
                       child: OutlinedButton(
                         onPressed: _busy ? null : _forget,
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.error,
+                          foregroundColor: KaizokuColors.neonCrimson,
+                          side: BorderSide(
+                            color: KaizokuColors.neonCrimson.withValues(alpha: 0.5),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         child: Text('discord.token_forget'.tr()),
                       ),
@@ -274,22 +323,27 @@ class _RiskNotice extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.08),
+        color: KaizokuColors.neonCrimson.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.35)),
+        border: Border.all(
+          color: KaizokuColors.neonCrimson.withValues(alpha: 0.35),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.warning_amber_rounded,
-                  size: 18, color: AppColors.error),
+              Icon(
+                Icons.warning_amber_rounded,
+                size: 18,
+                color: KaizokuColors.neonCrimson,
+              ),
               const SizedBox(width: 8),
               Text(
                 'discord.risk_title'.tr(),
-                style: TextStyle(
-                  color: AppColors.error,
+                style: const TextStyle(
+                  color: KaizokuColors.neonCrimson,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w800,
                 ),
@@ -300,7 +354,7 @@ class _RiskNotice extends StatelessWidget {
           Text(
             'discord.risk_body'.tr(),
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 12.5,
               height: 1.5,
             ),

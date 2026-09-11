@@ -237,7 +237,7 @@ class _ConnectionsTileState extends State<_ConnectionsTile> {
                     Text(
                       'anilist.connections_title'.tr(),
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: KaizokuColors.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
@@ -248,7 +248,7 @@ class _ConnectionsTileState extends State<_ConnectionsTile> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: anyConnected ? kAnilistBlue : AppColors.textHint,
+                        color: anyConnected ? kAnilistBlue : KaizokuColors.textSecondary,
                         fontSize: 12.5,
                         fontWeight:
                             anyConnected ? FontWeight.w600 : FontWeight.w400,
@@ -336,7 +336,7 @@ class _SecurityRowsState extends State<_SecurityRows> {
           icon: Icons.lock_rounded,
           title: 'app_lock.app_lock'.tr(),
           value: enabled ? 'app_lock.state_on'.tr() : 'app_lock.state_off'.tr(),
-          valueColor: enabled ? AppColors.primary : null,
+          valueColor: enabled ? KaizokuColors.neonCrimson : null,
           onTap: () async {
             await context.push('/app-lock-settings');
             if (mounted) setState(() {});

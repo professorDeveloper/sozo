@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 class ShortsLoadingView extends StatelessWidget {
   const ShortsLoadingView({super.key});
@@ -17,13 +17,13 @@ class ShortsLoadingView extends StatelessWidget {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.15),
+                color: KaizokuColors.neonCrimson.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Padding(
+              child: const Padding(
                 padding: EdgeInsets.all(14),
                 child: CircularProgressIndicator(
-                  color: AppColors.primary,
+                  color: KaizokuColors.neonCrimson,
                   strokeWidth: 2.5,
                 ),
               ),
@@ -108,16 +108,16 @@ class _ShortsMessage extends StatelessWidget {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: KaizokuColors.neonCrimson.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.2),
+                    color: KaizokuColors.neonCrimson.withValues(alpha: 0.25),
                     width: 1.5,
                   ),
                 ),
                 child: Icon(
                   icon,
-                  color: AppColors.primaryLight,
+                  color: KaizokuColors.neonCrimson,
                   size: 36,
                 ),
               ),
@@ -158,6 +158,8 @@ class _ShortsMessage extends StatelessWidget {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
+                      backgroundColor: KaizokuColors.neonCrimson,
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(23),
                       ),

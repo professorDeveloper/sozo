@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 /// Visual state of a single answer chip during a clip.
 ///
@@ -81,8 +81,8 @@ class OptionChip extends StatelessWidget {
     switch (status) {
       case OptionChipStatus.correct:
         return _ChipPalette(
-          fill: AppColors.success.withValues(alpha: 0.92),
-          border: AppColors.success,
+          fill: KaizokuColors.success.withValues(alpha: 0.92),
+          border: KaizokuColors.success,
           text: Colors.white,
           icon: Icons.check_rounded,
         );
@@ -91,17 +91,17 @@ class OptionChip extends StatelessWidget {
         // whole point is that they read as opposites; under a green accent
         // "wrong" and "correct" would both have been green.
         return _ChipPalette(
-          fill: AppColors.error.withValues(alpha: 0.9),
+          fill: KaizokuColors.error.withValues(alpha: 0.9),
           // Lifted off the fill so the 1.4px rim still reads as a rim. This is
           // the exact colour the chip had before the accent became a setting.
-          border: AppColors.errorLight,
+          border: KaizokuColors.errorLight,
           text: Colors.white,
           icon: Icons.close_rounded,
         );
       case OptionChipStatus.selected:
         return _ChipPalette(
-          fill: AppColors.primary.withValues(alpha: 0.18),
-          border: AppColors.primaryLight,
+          fill: KaizokuColors.primary.withValues(alpha: 0.18),
+          border: KaizokuColors.primaryLight,
           text: Colors.white,
         );
       case OptionChipStatus.idle:

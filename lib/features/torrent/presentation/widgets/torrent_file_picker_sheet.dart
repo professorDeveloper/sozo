@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/torrent/torrent_status.dart';
 
 /// Lets the user pick which video inside a torrent to play.
@@ -31,7 +31,7 @@ class TorrentFilePickerSheet extends StatelessWidget {
   ) {
     return showModalBottomSheet<TorrentFileEntry>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: KaizokuColors.surface,
       isScrollControlled: true,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
@@ -92,7 +92,7 @@ class TorrentFilePickerSheet extends StatelessWidget {
             child: Text(
               'torrent.pick_file'.tr(),
               style: TextStyle(
-                color: AppColors.textPrimary,
+                color: KaizokuColors.textPrimary,
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
               ),
@@ -102,7 +102,7 @@ class TorrentFilePickerSheet extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
             child: Text(
               'torrent.pick_file_hint'.tr(args: ['${sorted.length}']),
-              style: TextStyle(color: AppColors.textHint, fontSize: 13),
+              style: TextStyle(color: KaizokuColors.textMuted, fontSize: 13),
             ),
           ),
           Flexible(
@@ -113,7 +113,7 @@ class TorrentFilePickerSheet extends StatelessWidget {
               ),
               itemCount: sorted.length,
               separatorBuilder: (_, _) =>
-                  Divider(color: AppColors.divider, height: 1, indent: 56),
+                  Divider(color: KaizokuColors.border, height: 1, indent: 56),
               itemBuilder: (context, index) {
                 final file = sorted[index];
                 return ListTile(
@@ -122,12 +122,12 @@ class TorrentFilePickerSheet extends StatelessWidget {
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
+                      color: KaizokuColors.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       Icons.play_arrow_rounded,
-                      color: AppColors.primary,
+                      color: KaizokuColors.primary,
                       size: 20,
                     ),
                   ),
@@ -136,14 +136,14 @@ class TorrentFilePickerSheet extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: KaizokuColors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   subtitle: Text(
                     _size(file.lengthBytes),
-                    style: TextStyle(color: AppColors.textHint, fontSize: 12),
+                    style: TextStyle(color: KaizokuColors.textMuted, fontSize: 12),
                   ),
                 );
               },

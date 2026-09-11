@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 import '../../domain/entities/linked_device.dart';
 import '../bloc/link_tv_bloc.dart';
@@ -100,19 +100,19 @@ class _LinkTvViewState extends State<_LinkTvView> {
             ..showSnackBar(
               SnackBar(
                 content: Text(_errorText(state)),
-                backgroundColor: AppColors.error,
+                backgroundColor: KaizokuColors.neonCrimson,
               ),
             );
         }
       },
       builder: (context, state) {
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: KaizokuColors.cyberObsidian,
           appBar: AppBar(
-            backgroundColor: AppColors.background,
+            backgroundColor: KaizokuColors.cyberObsidian,
             title: Text('link_tv.title'.tr(),
-                style: const TextStyle(color: AppColors.textPrimary)),
-            iconTheme: const IconThemeData(color: AppColors.textPrimary),
+                style: const TextStyle(color: KaizokuColors.textPrimary)),
+            iconTheme: const IconThemeData(color: KaizokuColors.textPrimary),
             actions: [
               // Reached from here because this is where the TVs are: pairing
               // one and then driving it are the same errand.
@@ -124,7 +124,7 @@ class _LinkTvViewState extends State<_LinkTvView> {
             ],
           ),
           body: RefreshIndicator(
-            color: AppColors.primary,
+            color: KaizokuColors.neonCrimson,
             onRefresh: () async =>
                 context.read<LinkTvBloc>().add(const LinkTvDevicesRequested()),
             child: ListView(
@@ -135,7 +135,7 @@ class _LinkTvViewState extends State<_LinkTvView> {
                 else ...[
                   Text('link_tv.subtitle'.tr(),
                       style: const TextStyle(
-                          color: AppColors.textSecondary, height: 1.4)),
+                          color: KaizokuColors.textSecondary, height: 1.4)),
                   const SizedBox(height: 20),
                   _ScannerCard(
                     controller: _scanner,
@@ -231,18 +231,18 @@ class _ScannerPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.surface,
+      color: KaizokuColors.surface,
       child: InkWell(
         onTap: onStart,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.qr_code_scanner,
-                size: 64, color: AppColors.primary),
+            const Icon(Icons.qr_code_scanner,
+                size: 64, color: KaizokuColors.neonCrimson),
             const SizedBox(height: 16),
             Text('link_tv.scan_button'.tr(),
                 style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
@@ -250,7 +250,7 @@ class _ScannerPlaceholder extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Text('link_tv.scan_hint'.tr(),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.textHint, fontSize: 13)),
+                  style: const TextStyle(color: KaizokuColors.textSecondary, fontSize: 13)),
             ),
           ],
         ),
@@ -271,7 +271,7 @@ class _ScannerError extends StatelessWidget {
     // retrying — say so, and leave the manual code entry below as the way through.
     final denied = error.errorCode == MobileScannerErrorCode.permissionDenied;
     return ColoredBox(
-      color: AppColors.surface,
+      color: KaizokuColors.surface,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -279,20 +279,21 @@ class _ScannerError extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.no_photography_outlined,
-                  size: 48, color: AppColors.textHint),
+                  size: 48, color: KaizokuColors.textSecondary),
               const SizedBox(height: 12),
               Text(
                 denied
                     ? 'link_tv.camera_denied'.tr()
                     : 'link_tv.camera_error'.tr(),
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary),
+                style: const TextStyle(color: KaizokuColors.textSecondary),
               ),
               if (!denied) ...[
                 const SizedBox(height: 12),
                 TextButton(
                   onPressed: onRetry,
-                  child: Text('general.retry'.tr()),
+                  child: Text('general.retry'.tr(),
+                      style: const TextStyle(color: KaizokuColors.neonCrimson)),
                 ),
               ],
             ],
@@ -315,7 +316,7 @@ class _ScannerReticle extends StatelessWidget {
           heightFactor: 0.7,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.primary, width: 3),
+              border: Border.all(color: KaizokuColors.neonCrimson, width: 3),
               borderRadius: BorderRadius.circular(20),
             ),
           ),
@@ -339,7 +340,7 @@ class _ManualEntry extends StatelessWidget {
       children: [
         Text('link_tv.manual_title'.tr(),
             style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: KaizokuColors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w600)),
         const SizedBox(height: 12),
@@ -350,7 +351,7 @@ class _ManualEntry extends StatelessWidget {
           textInputAction: TextInputAction.done,
           maxLength: LinkTvBloc.codeLength,
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: KaizokuColors.textPrimary,
             fontSize: 26,
             letterSpacing: 8,
             fontFeatures: [FontFeature.tabularFigures()],
@@ -358,12 +359,20 @@ class _ManualEntry extends StatelessWidget {
           decoration: InputDecoration(
             counterText: '',
             hintText: 'ABCD2345',
-            hintStyle: const TextStyle(color: AppColors.textHint, letterSpacing: 8),
+            hintStyle: const TextStyle(color: KaizokuColors.textSecondary, letterSpacing: 8),
             filled: true,
-            fillColor: AppColors.surface,
+            fillColor: KaizokuColors.surface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+              borderSide: const BorderSide(color: KaizokuColors.borderGlass),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: KaizokuColors.borderGlass),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: KaizokuColors.neonCrimson, width: 1.5),
             ),
           ),
           inputFormatters: [
@@ -377,8 +386,12 @@ class _ManualEntry extends StatelessWidget {
           width: double.infinity,
           child: FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: KaizokuColors.neonCrimson,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed:
                 state.canSubmit ? () => bloc.add(const LinkTvApprove()) : null,
@@ -408,12 +421,13 @@ class _ApprovedCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: KaizokuColors.borderGlass),
       ),
       child: Column(
         children: [
-          const Icon(Icons.check_circle, color: AppColors.success, size: 56),
+          const Icon(Icons.check_circle, color: KaizokuColors.electricCyan, size: 56),
           const SizedBox(height: 12),
           Text(
             name == null || name.isEmpty
@@ -421,14 +435,14 @@ class _ApprovedCard extends StatelessWidget {
                 : 'link_tv.approved_named'.tr(args: [name]),
             textAlign: TextAlign.center,
             style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: KaizokuColors.textPrimary,
                 fontSize: 17,
                 fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text('link_tv.approved_hint'.tr(),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary)),
+              style: const TextStyle(color: KaizokuColors.textSecondary)),
         ],
       ),
     );
@@ -449,7 +463,7 @@ class _LinkedDevices extends StatelessWidget {
           children: [
             Text('link_tv.linked_devices'.tr(),
                 style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w600)),
             const Spacer(),
@@ -458,14 +472,14 @@ class _LinkedDevices extends StatelessWidget {
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: AppColors.textHint),
+                    strokeWidth: 2, color: KaizokuColors.textSecondary),
               ),
           ],
         ),
         const SizedBox(height: 12),
         if (state.devices.isEmpty && !state.loadingDevices)
           Text('link_tv.no_devices'.tr(),
-              style: const TextStyle(color: AppColors.textHint))
+              style: const TextStyle(color: KaizokuColors.textSecondary))
         else
           ...state.devices.map(
             (device) => _DeviceRow(
@@ -490,33 +504,34 @@ class _DeviceRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KaizokuColors.borderGlass),
       ),
       child: ListTile(
-        leading: Icon(Icons.tv, color: AppColors.primary),
+        leading: const Icon(Icons.tv, color: KaizokuColors.neonCrimson),
         title: Text(
           device.deviceName?.isNotEmpty == true
               ? device.deviceName!
               : 'link_tv.unnamed_device'.tr(),
-          style: const TextStyle(color: AppColors.textPrimary),
+          style: const TextStyle(color: KaizokuColors.textPrimary),
         ),
         subtitle: lastSeen == null
             ? null
             : Text(
                 'link_tv.last_seen'.tr(
                     args: [DateFormat.yMMMd().add_Hm().format(lastSeen)]),
-                style: const TextStyle(color: AppColors.textHint, fontSize: 12),
+                style: const TextStyle(color: KaizokuColors.textSecondary, fontSize: 12),
               ),
         trailing: unlinking
             ? const SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: AppColors.textHint),
+                    strokeWidth: 2, color: KaizokuColors.textSecondary),
               )
             : IconButton(
-                icon: const Icon(Icons.link_off, color: AppColors.textSecondary),
+                icon: const Icon(Icons.link_off, color: KaizokuColors.textSecondary),
                 onPressed: () => _confirmUnlink(context),
               ),
       ),
@@ -528,20 +543,25 @@ class _DeviceRow extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.card,
+        backgroundColor: KaizokuColors.surfaceElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: KaizokuColors.borderGlass),
+        ),
         title: Text('link_tv.unlink_title'.tr(),
-            style: const TextStyle(color: AppColors.textPrimary)),
+            style: const TextStyle(color: KaizokuColors.textPrimary)),
         content: Text('link_tv.unlink_message'.tr(),
-            style: const TextStyle(color: AppColors.textSecondary)),
+            style: const TextStyle(color: KaizokuColors.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text('general.cancel'.tr()),
+            child: Text('general.cancel'.tr(),
+                style: const TextStyle(color: KaizokuColors.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text('link_tv.unlink_confirm'.tr(),
-                style: const TextStyle(color: AppColors.error)),
+                style: const TextStyle(color: KaizokuColors.neonCrimson, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

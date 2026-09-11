@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/widgets/app_tab_bar.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/trivia/domain/entities/leaderboard_entry_entity.dart';
@@ -55,18 +55,18 @@ class _LeaderboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.background,
         elevation: 0,
         title: Text(
           'trivia.leaderboard'.tr(),
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: KaizokuColors.textPrimary,
             fontWeight: FontWeight.w800,
           ),
         ),
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        iconTheme: const IconThemeData(color: KaizokuColors.textPrimary),
       ),
       body: Column(
         children: [
@@ -138,8 +138,8 @@ class _Board extends StatelessWidget {
       children: [
         Expanded(
           child: RefreshIndicator(
-            color: AppColors.primary,
-            backgroundColor: AppColors.surface,
+            color: KaizokuColors.primary,
+            backgroundColor: KaizokuColors.surface,
             onRefresh: () async => context
                 .read<LeaderboardBloc>()
                 .add(const LeaderboardRefreshed()),
@@ -169,11 +169,11 @@ class _EntryRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: isMe
-            ? AppColors.primary.withValues(alpha: 0.14)
-            : AppColors.surface,
+            ? KaizokuColors.primary.withValues(alpha: 0.14)
+            : KaizokuColors.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isMe ? AppColors.primary : AppColors.border,
+          color: isMe ? KaizokuColors.primary : KaizokuColors.border,
           width: isMe ? 1.4 : 1,
         ),
       ),
@@ -192,7 +192,7 @@ class _EntryRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textPrimary,
                     fontSize: 14.5,
                     fontWeight: isMe ? FontWeight.w800 : FontWeight.w600,
                   ),
@@ -203,7 +203,7 @@ class _EntryRow extends StatelessWidget {
                     namedArgs: {'count': '${entry.correctCount}'},
                   ),
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -214,7 +214,7 @@ class _EntryRow extends StatelessWidget {
           Text(
             '${entry.score}',
             style: const TextStyle(
-              color: AppColors.rating,
+              color: KaizokuColors.rating,
               fontSize: 17,
               fontWeight: FontWeight.w900,
             ),
@@ -235,8 +235,8 @@ class _PinnedMyRow extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomSafe),
       decoration: BoxDecoration(
-        color: AppColors.navBackground,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        color: KaizokuColors.navBackground,
+        border: Border(top: BorderSide(color: KaizokuColors.border)),
       ),
       child: _EntryRow(entry: entry),
     );
@@ -256,7 +256,7 @@ class _Avatar extends StatelessWidget {
         width: size,
         height: size,
         child: ColoredBox(
-          color: AppColors.surfaceVariant,
+          color: KaizokuColors.surfaceVariant,
           child: url.trim().isEmpty
               ? _fallback()
               : CachedNetworkImage(
@@ -278,7 +278,7 @@ class _Avatar extends StatelessWidget {
       child: Text(
         initial,
         style: TextStyle(
-          color: AppColors.textSecondary,
+          color: KaizokuColors.textSecondary,
           fontWeight: FontWeight.w800,
           fontSize: size * 0.4,
         ),
@@ -322,7 +322,7 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: AppColors.textHint, size: 44),
+            Icon(icon, color: KaizokuColors.textHint, size: 44),
             const SizedBox(height: 14),
             Text(
               message?.isNotEmpty == true
@@ -330,7 +330,7 @@ class _ErrorView extends StatelessWidget {
                   : 'trivia.something_wrong'.tr(),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 14,
               ),
             ),
@@ -339,7 +339,7 @@ class _ErrorView extends StatelessWidget {
               TextButton(
                 onPressed: onRetry,
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primaryLight,
+                  foregroundColor: KaizokuColors.primaryLight,
                 ),
                 child: Text('general.retry'.tr()),
               ),

@@ -17,6 +17,7 @@ class DeeplinkService {
   static const _tag = '[Deeplink]';
   static const _host = 'sozo.azamov.me';
   static const _scheme = 'sozo';
+  static const _kaizokuScheme = 'kaizoku';
 
   final AppLinks _appLinks;
   StreamSubscription<Uri>? _sub;
@@ -49,7 +50,7 @@ class DeeplinkService {
     debugPrint('$_tag received: $uri');
 
     final isUniversal = uri.scheme == 'https' && uri.host == _host;
-    final isCustom = uri.scheme == _scheme;
+    final isCustom = uri.scheme == _scheme || uri.scheme == _kaizokuScheme;
     if (!isUniversal && !isCustom) {
       debugPrint('$_tag ignoring unknown link');
       return;

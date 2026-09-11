@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/torrent/domain/entities/torrent_result.dart';
 
 /// One search result.
@@ -24,13 +24,13 @@ class TorrentResultTile extends StatelessWidget {
   final VoidCallback? onLongPress;
 
   Color get _healthColor => switch (result.health) {
-        SwarmHealth.good => AppColors.success,
-        SwarmHealth.fair => AppColors.rating,
-        SwarmHealth.poor => AppColors.errorLight,
-        SwarmHealth.dead => AppColors.error,
+        SwarmHealth.good => KaizokuColors.success,
+        SwarmHealth.fair => KaizokuColors.rating,
+        SwarmHealth.poor => KaizokuColors.errorLight,
+        SwarmHealth.dead => KaizokuColors.error,
         // Grey, not red: Tokyo Toshokan simply does not report swarm size, and
         // painting every one of its rows as dead would be a lie.
-        SwarmHealth.unknown => AppColors.textHint,
+        SwarmHealth.unknown => KaizokuColors.textMuted,
       };
 
   @override
@@ -92,7 +92,7 @@ class TorrentResultTile extends StatelessWidget {
               child: Icon(
                 Icons.verified_rounded,
                 size: 14,
-                color: AppColors.success,
+                color: KaizokuColors.success,
               ),
             ),
           ),
@@ -104,7 +104,7 @@ class TorrentResultTile extends StatelessWidget {
               child: Icon(
                 Icons.replay_rounded,
                 size: 14,
-                color: AppColors.errorLight,
+                color: KaizokuColors.errorLight,
               ),
             ),
           ),
@@ -114,7 +114,7 @@ class TorrentResultTile extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: AppColors.textPrimary,
+              color: KaizokuColors.textPrimary,
               fontSize: 13.5,
               height: 1.3,
               fontWeight: FontWeight.w500,
@@ -134,13 +134,13 @@ class TorrentResultTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
+              color: KaizokuColors.surfaceVariant,
               borderRadius: BorderRadius.circular(5),
             ),
             child: Text(
               badge,
               style: TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 10.5,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.2,
@@ -156,7 +156,7 @@ class TorrentResultTile extends StatelessWidget {
     final size = result.displaySize;
 
     return DefaultTextStyle(
-      style: TextStyle(color: AppColors.textHint, fontSize: 11.5),
+      style: TextStyle(color: KaizokuColors.textMuted, fontSize: 11.5),
       child: Row(
         children: [
           Icon(Icons.arrow_upward_rounded, size: 12, color: _healthColor),
@@ -176,7 +176,7 @@ class TorrentResultTile extends StatelessWidget {
             Icon(
               Icons.arrow_downward_rounded,
               size: 12,
-              color: AppColors.textHint,
+              color: KaizokuColors.textMuted,
             ),
             const SizedBox(width: 2),
             Text('${result.leechers}'),
@@ -189,7 +189,7 @@ class TorrentResultTile extends StatelessWidget {
           Text(
             result.indexerName,
             style: TextStyle(
-              color: AppColors.textHint,
+              color: KaizokuColors.textMuted,
               fontSize: 10.5,
               fontWeight: FontWeight.w600,
             ),
@@ -201,6 +201,6 @@ class TorrentResultTile extends StatelessWidget {
 
   Widget _dot() => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: Text('·', style: TextStyle(color: AppColors.textHint)),
+        child: Text('·', style: TextStyle(color: KaizokuColors.textMuted)),
       );
 }

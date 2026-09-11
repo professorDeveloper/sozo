@@ -7,7 +7,7 @@ import 'package:soplay/features/reports/domain/entities/report_payload.dart';
 import 'package:soplay/features/reports/presentation/widgets/report_sheet.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:soplay/core/system/platform_utils.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 import '../../domain/entities/short_entity.dart';
 
@@ -686,7 +686,7 @@ class _ShortReelItemState extends State<ShortReelItem>
                   s.contentThumbnail,
                   fit: BoxFit.cover,
                   errorBuilder: (_, e, st) => Container(
-                    color: AppColors.surfaceVariant,
+                    color: KaizokuColors.surfaceElevated,
                     child: const Icon(
                       Icons.movie_rounded,
                       color: Colors.white54,
@@ -832,14 +832,14 @@ class _ShortReelItemState extends State<ShortReelItem>
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             // Was a second, hard-coded red — the accent's job, duplicated.
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.primaryDark],
+            gradient: const LinearGradient(
+              colors: [KaizokuColors.neonCrimson, Color(0xFFC70039)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.3),
+                color: KaizokuColors.neonCrimson.withValues(alpha: 0.3),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -1001,7 +1001,7 @@ class _ShortReelItemState extends State<ShortReelItem>
           value: _progress,
           minHeight: 3,
           backgroundColor: Colors.white24,
-          color: AppColors.primary,
+          color: KaizokuColors.neonCrimson,
         ),
       ),
     );

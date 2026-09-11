@@ -4,7 +4,9 @@ import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_linked_badge.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
-import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:soplay/core/presentation/widgets/kaizoku_badge.dart';
+import 'package:soplay/core/presentation/widgets/kaizoku_media_card.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/widgets/poster_hero.dart';
 
 const double _posterRatio = 2 / 3;
@@ -79,128 +81,33 @@ class SearchResultCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final subtitle = sourceLabel ?? (movie.year != null ? '${movie.year}' : '');
 
-    final card = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final card = Stack(
       children: [
-        Expanded(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Only the artwork flies. The AniList badge and the rating pill
-              // stay with the grid — a 9pt pill interpolated up to header size
-              // reads as a glitch, not a transition.
-              PosterHero(
-                tag: heroTag,
-                url: movie.thumbnail,
-                child: HomeNetworkImage(
-                  url: movie.thumbnail,
-                  borderRadius: BorderRadius.circular(10),
-                  placeholderIcon: Icons.movie_rounded,
-                ),
-              ),
-              Positioned(
-                top: 6,
-                left: 6,
-                child: AnilistLinkedBadge(
-                  contentUrl: movie.url,
-                  provider: provider,
-                ),
-              ),
-              if (movie.rating != null)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: _Pill(
-                    color: Colors.black.withValues(alpha: 0.72),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          color: AppColors.rating,
-                          size: 10,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          '${movie.rating}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (sourceCount > 1)
-                Positioned(
-                  left: 6,
-                  bottom: 6,
-                  child: _Pill(
-                    color: AppColors.primary.withValues(alpha: 0.92),
-                    child: Text(
-                      'search.sources_n'.tr(args: ['$sourceCount']),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+        KaizokuMediaCard(
+          title: movie.title,
+          imageUrl: movie.thumbnail,
+          subtitle: subtitle.isNotEmpty ? subtitle : null,
+          ratio: KaizokuCardRatio.poster,
+          tagText: movie.rating != null ? '★ ${movie.rating}' : null,
+          badgeText: sourceCount > 1
+              ? 'search.sources_n'.tr(args: ['$sourceCount'])
+              : sourceLabel,
+          badgeVariant: sourceCount > 1
+              ? KaizokuBadgeVariant.primary
+              : KaizokuBadgeVariant.glass,
+          onTap: onTap,
+        ),
+        Positioned(
+          top: 6,
+          left: 6,
+          child: AnilistLinkedBadge(
+            contentUrl: movie.url,
+            provider: provider,
           ),
         ),
-        const SizedBox(height: 6),
-        Text(
-          movie.title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 12,
-            height: 1.15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (subtitle.isNotEmpty)
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textHint,
-              fontSize: 10.5,
-              height: 1.2,
-            ),
-          ),
       ],
     );
 
-    final tappable = HoverTap(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: card,
-    );
-
-    return width == null ? tappable : SizedBox(width: width, child: tappable);
+    return width == null ? card : SizedBox(width: width, child: card);
   }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill({required this.color, required this.child});
-
-  final Color color;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-    decoration: BoxDecoration(
-      color: color,
-      borderRadius: BorderRadius.circular(5),
-    ),
-    child: child,
-  );
 }

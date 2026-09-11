@@ -12,11 +12,11 @@ class _ProfileHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: KaizokuColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.06),
-            width: 0.5,
+            color: Colors.white.withValues(alpha: 0.08),
+            width: 0.8,
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -50,18 +50,19 @@ class _GuestContent extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      AppColors.primary.withValues(alpha: 0.25),
-                      AppColors.primaryDark.withValues(alpha: 0.15),
+                      KaizokuColors.neonCrimson.withValues(alpha: 0.25),
+                      KaizokuColors.surfaceLight,
                     ],
                   ),
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.2),
+                    color: KaizokuColors.neonCrimson.withValues(alpha: 0.3),
+                    width: 1,
                   ),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.person_outline_rounded,
-                  color: AppColors.primaryLight,
+                  color: KaizokuColors.neonCrimson,
                   size: 28,
                 ),
               ),
@@ -73,7 +74,7 @@ class _GuestContent extends StatelessWidget {
                     Text(
                       'profile.signin_account_title'.tr(),
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                       ),
@@ -82,7 +83,7 @@ class _GuestContent extends StatelessWidget {
                     Text(
                       'profile.signin_account_subtitle'.tr(),
                       style: const TextStyle(
-                        color: AppColors.textSecondary,
+                        color: KaizokuColors.textSecondary,
                         fontSize: 12,
                         height: 1.4,
                       ),
@@ -116,6 +117,9 @@ class _GuestContent extends StatelessWidget {
               icon: const Icon(Icons.login_rounded, size: 18),
               label: Text('profile.sign_in'.tr()),
               style: ElevatedButton.styleFrom(
+                backgroundColor: KaizokuColors.neonCrimson,
+                foregroundColor: Colors.white,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(kButtonRadius),
                 ),
@@ -138,13 +142,13 @@ class _Benefit extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: AppColors.primaryLight),
+        Icon(icon, size: 16, color: KaizokuColors.neonCrimson),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 12.5,
               height: 1.3,
             ),
@@ -199,7 +203,7 @@ class _UserContent extends StatelessWidget {
                 Text(
                   name,
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                     height: 1.15,
@@ -211,7 +215,7 @@ class _UserContent extends StatelessWidget {
                 Text(
                   handle,
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 13,
                   ),
                   maxLines: 1,
@@ -222,7 +226,7 @@ class _UserContent extends StatelessWidget {
                   Text(
                     meta,
                     style: const TextStyle(
-                      color: AppColors.textHint,
+                      color: KaizokuColors.textMuted,
                       fontSize: 11.5,
                     ),
                     maxLines: 1,
@@ -253,10 +257,10 @@ class _EditProfileButton extends StatelessWidget {
     return IconButton(
       onPressed: () => context.push('/profile/edit', extra: user),
       icon: const Icon(Icons.edit_outlined, size: 19),
-      color: AppColors.textPrimary,
+      color: Colors.white,
       tooltip: 'profile.edit_profile'.tr(),
       style: IconButton.styleFrom(
-        backgroundColor: Colors.white.withValues(alpha: 0.07),
+        backgroundColor: KaizokuColors.surfaceLight,
         fixedSize: const Size(40, 40),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
@@ -289,25 +293,31 @@ class _SignOutSection extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: KaizokuColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: 0.08),
+            width: 1,
+          ),
+        ),
         title: Text(
           'profile.sign_out'.tr(),
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: Colors.white,
             fontWeight: FontWeight.w700,
           ),
         ),
         content: Text(
           'profile.sign_out_confirm'.tr(),
-          style: const TextStyle(color: AppColors.textSecondary),
+          style: const TextStyle(color: KaizokuColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
               'general.cancel'.tr(),
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: const TextStyle(color: KaizokuColors.textMuted),
             ),
           ),
           TextButton(
@@ -318,7 +328,7 @@ class _SignOutSection extends StatelessWidget {
             child: Text(
               'profile.sign_out'.tr(),
               style: const TextStyle(
-                color: AppColors.error,
+                color: KaizokuColors.neonCrimson,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -350,7 +360,7 @@ class _Avatar extends StatelessWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
+          color: KaizokuColors.surfaceLight,
           borderRadius: BorderRadius.circular(19),
         ),
         clipBehavior: Clip.antiAlias,

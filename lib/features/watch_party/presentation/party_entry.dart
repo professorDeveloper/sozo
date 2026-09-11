@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
 import 'package:soplay/features/watch_party/presentation/widgets/party_code_sheet.dart';
 
@@ -34,7 +34,7 @@ Future<void> showCreatePartySheet(
   if (!await _ensurePartyLogin(context) || !context.mounted) return;
   await showAdaptiveModal<void>(
     context: context,
-    backgroundColor: AppColors.surface,
+    backgroundColor: KaizokuColors.cyberObsidian,
     isScrollControlled: true,
     showDragHandle: true,
     shape: const RoundedRectangleBorder(
@@ -49,7 +49,7 @@ Future<void> showJoinPartySheet(BuildContext context) async {
   if (!await _ensurePartyLogin(context) || !context.mounted) return;
   await showAdaptiveModal<void>(
     context: context,
-    backgroundColor: AppColors.surface,
+    backgroundColor: KaizokuColors.cyberObsidian,
     isScrollControlled: true,
     showDragHandle: true,
     shape: const RoundedRectangleBorder(
@@ -65,7 +65,7 @@ Future<void> showPartyEntrySheet(BuildContext context) async {
   if (!await _ensurePartyLogin(context) || !context.mounted) return;
   final choice = await showAdaptiveModal<String>(
     context: context,
-    backgroundColor: AppColors.surface,
+    backgroundColor: KaizokuColors.cyberObsidian,
     isScrollControlled: true,
     showDragHandle: true,
     shape: const RoundedRectangleBorder(
@@ -107,13 +107,13 @@ class _PartyEntrySheet extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    AppColors.primary,
-                    AppColors.primary.withValues(alpha: 0.55),
+                    KaizokuColors.neonCrimson,
+                    KaizokuColors.neonCrimson.withValues(alpha: 0.55),
                   ],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.35),
+                    color: KaizokuColors.neonCrimson.withValues(alpha: 0.35),
                     blurRadius: 20,
                     spreadRadius: 1,
                   ),
@@ -127,7 +127,7 @@ class _PartyEntrySheet extends StatelessWidget {
             'watch_party.title'.tr(),
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.w800,
             ),
@@ -137,7 +137,7 @@ class _PartyEntrySheet extends StatelessWidget {
             'watch_party.entry_subtitle'.tr(),
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 12.5,
               height: 1.4,
             ),
@@ -183,8 +183,8 @@ class _EntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: primary
-          ? AppColors.primary.withValues(alpha: 0.12)
-          : AppColors.surfaceVariant,
+          ? KaizokuColors.neonCrimson.withValues(alpha: 0.12)
+          : KaizokuColors.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -195,8 +195,8 @@ class _EntryCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: primary
-                  ? AppColors.primary.withValues(alpha: 0.55)
-                  : AppColors.border,
+                  ? KaizokuColors.neonCrimson.withValues(alpha: 0.55)
+                  : KaizokuColors.cardBorder,
               width: 0.8,
             ),
           ),
@@ -207,13 +207,13 @@ class _EntryCard extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   color: primary
-                      ? AppColors.primary
+                      ? KaizokuColors.neonCrimson
                       : Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   icon,
-                  color: primary ? Colors.white : AppColors.textPrimary,
+                  color: Colors.white,
                   size: 22,
                 ),
               ),
@@ -225,7 +225,7 @@ class _EntryCard extends StatelessWidget {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                       ),
@@ -234,7 +234,7 @@ class _EntryCard extends StatelessWidget {
                     Text(
                       hint,
                       style: const TextStyle(
-                        color: AppColors.textSecondary,
+                        color: KaizokuColors.textSecondary,
                         fontSize: 11.5,
                         height: 1.3,
                       ),
@@ -244,7 +244,7 @@ class _EntryCard extends StatelessWidget {
               ),
               const Icon(
                 Icons.chevron_right_rounded,
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 size: 22,
               ),
             ],

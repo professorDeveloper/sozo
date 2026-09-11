@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/profile/presentation/widgets/library_accents.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/history/data/history_service.dart';
@@ -50,25 +51,31 @@ class _HistoryPageState extends State<HistoryPage> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: KaizokuColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: 0.08),
+            width: 1,
+          ),
+        ),
         title: Text(
           'history.clear_title'.tr(),
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: Colors.white,
             fontWeight: FontWeight.w700,
           ),
         ),
         content: Text(
           'history.clear_confirm'.tr(),
-          style: const TextStyle(color: AppColors.textSecondary),
+          style: const TextStyle(color: KaizokuColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
               'general.cancel'.tr(),
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: const TextStyle(color: KaizokuColors.textMuted),
             ),
           ),
           TextButton(
@@ -88,10 +95,8 @@ class _HistoryPageState extends State<HistoryPage> {
             },
             child: Text(
               'history.clear'.tr(),
-              // error, not primary: clearing history writes a tombstone, so
-              // sync cannot bring it back.
               style: const TextStyle(
-                color: AppColors.error,
+                color: KaizokuColors.neonCrimson,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -118,7 +123,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       body: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -127,7 +132,7 @@ class _HistoryPageState extends State<HistoryPage> {
           SliverAppBar(
             pinned: true,
             automaticallyImplyLeading: false,
-            backgroundColor: AppColors.background,
+            backgroundColor: KaizokuColors.cyberObsidian,
             surfaceTintColor: Colors.transparent,
             elevation: 0,
             scrolledUnderElevation: 0,
@@ -146,7 +151,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                     ),
@@ -169,8 +174,11 @@ class _HistoryPageState extends State<HistoryPage> {
           else
             SliverList.separated(
               itemCount: _items.length,
-              separatorBuilder: (_, _) =>
-                  Divider(color: AppColors.divider, height: 1, indent: 82),
+              separatorBuilder: (_, _) => Divider(
+                color: KaizokuColors.surfaceLight.withValues(alpha: 0.5),
+                height: 1,
+                indent: 82,
+              ),
               itemBuilder: (_, i) {
                 final item = _items[i];
                 return _HistoryRow(
@@ -204,19 +212,28 @@ class _CircleBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: const SizedBox(
-          width: 36,
-          height: 36,
-          child: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: AppColors.textPrimary,
-            size: 16,
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: KaizokuColors.surface,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: const SizedBox(
+            width: 36,
+            height: 36,
+            child: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Colors.white,
+              size: 16,
+            ),
           ),
         ),
       ),
@@ -233,20 +250,26 @@ class _PillButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.surface,
+      color: KaizokuColors.neonCrimson.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: KaizokuColors.neonCrimson.withValues(alpha: 0.3),
+              width: 1,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           child: Text(
             label,
-            // The page's only pill is "Clear all" — destructive, so error.
             style: const TextStyle(
-              color: AppColors.error,
+              color: KaizokuColors.neonCrimson,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -271,7 +294,7 @@ class _HistoryRow extends StatelessWidget {
   Future<void> _showActions(BuildContext context) async {
     final remove = await showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -280,16 +303,16 @@ class _HistoryRow extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Container(
               width: 38,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.textSecondary.withValues(alpha: 0.4),
+                color: KaizokuColors.surfaceLight,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
@@ -297,7 +320,7 @@ class _HistoryRow extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
@@ -307,12 +330,12 @@ class _HistoryRow extends StatelessWidget {
             ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,
-                color: AppColors.error,
+                color: KaizokuColors.neonCrimson,
               ),
               title: Text(
                 'history.remove'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.neonCrimson,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -331,39 +354,46 @@ class _HistoryRow extends StatelessWidget {
     final row = InkWell(
         onTap: onTap,
         onLongPress: isDesktopPlatform ? null : () => _showActions(context),
+        splashColor: KaizokuColors.neonCrimson.withValues(alpha: 0.1),
+        highlightColor: Colors.white.withValues(alpha: 0.05),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 54,
-                  height: 76,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      HomeNetworkImage(
-                        url: item.thumbnail,
-                        borderRadius: BorderRadius.zero,
-                        placeholderIcon: Icons.movie_outlined,
-                      ),
-                      if (item.progress > 0)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: LinearProgressIndicator(
-                            value: item.progress,
-                            minHeight: 3,
-                            backgroundColor: Colors.black45,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.primary,
-                            ),
+              Container(
+                width: 54,
+                height: 76,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    width: 0.8,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    HomeNetworkImage(
+                      url: item.thumbnail,
+                      borderRadius: BorderRadius.zero,
+                      placeholderIcon: Icons.movie_outlined,
+                    ),
+                    if (item.progress > 0)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: LinearProgressIndicator(
+                          value: item.progress,
+                          minHeight: 3.5,
+                          backgroundColor: KaizokuColors.surface,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            KaizokuColors.neonCrimson,
                           ),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(width: 14),
@@ -377,7 +407,7 @@ class _HistoryRow extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         height: 1.3,
@@ -389,8 +419,8 @@ class _HistoryRow extends StatelessWidget {
                         if (item.isSerial && item.episodeNumber != null) ...[
                           Text(
                             'EP ${item.episodeNumber}',
-                            style: TextStyle(
-                              color: AppColors.primary,
+                            style: const TextStyle(
+                              color: KaizokuColors.neonCrimson,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
@@ -403,7 +433,7 @@ class _HistoryRow extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  color: AppColors.textSecondary,
+                                  color: KaizokuColors.textSecondary,
                                   fontSize: 11,
                                 ),
                               ),
@@ -413,17 +443,17 @@ class _HistoryRow extends StatelessWidget {
                           Text(
                             _formatProgress(item),
                             style: const TextStyle(
-                              color: AppColors.textSecondary,
+                              color: KaizokuColors.textSecondary,
                               fontSize: 11,
                             ),
                           ),
                       ],
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       _watchedAgo(context, item.watchedAt),
                       style: const TextStyle(
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textMuted,
                         fontSize: 10,
                       ),
                     ),
@@ -435,13 +465,17 @@ class _HistoryRow extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
+                  color: KaizokuColors.neonCrimson.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: KaizokuColors.neonCrimson.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.play_arrow_rounded,
-                  color: AppColors.primary,
-                  size: 20,
+                  color: KaizokuColors.neonCrimson,
+                  size: 22,
                 ),
               ),
             ],
@@ -455,8 +489,11 @@ class _HistoryRow extends StatelessWidget {
           Expanded(child: row),
           IconButton(
             tooltip: 'history.remove'.tr(),
-            icon: const Icon(Icons.delete_outline_rounded,
-                color: AppColors.textHint),
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: KaizokuColors.textMuted,
+            ),
+            hoverColor: KaizokuColors.neonCrimson.withValues(alpha: 0.15),
             onPressed: onDismissed,
           ),
           const SizedBox(width: 8),
@@ -511,7 +548,7 @@ class _SwipeToRemoveBackground extends StatelessWidget {
     return Container(
       alignment: AlignmentDirectional.centerEnd,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      color: AppColors.error,
+      color: KaizokuColors.neonCrimson,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -540,21 +577,46 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.history_rounded,
-              color: AppColors.textHint, size: 52),
-          const SizedBox(height: 14),
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: KaizokuColors.surface,
+              border: Border.all(
+                color: KaizokuColors.neonCrimson.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: KaizokuColors.neonCrimson.withValues(alpha: 0.12),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.history_rounded,
+              color: KaizokuColors.neonCrimson,
+              size: 34,
+            ),
+          ),
+          const SizedBox(height: 18),
           Text(
             'history.empty_title'.tr(),
             style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             'history.empty_subtitle'.tr(),
-            style: const TextStyle(color: AppColors.textHint, fontSize: 13),
+            style: const TextStyle(
+              color: KaizokuColors.textSecondary,
+              fontSize: 13,
+            ),
           ),
         ],
       ),

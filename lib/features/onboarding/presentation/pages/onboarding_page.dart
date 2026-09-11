@@ -208,12 +208,12 @@ class OnboardingHeader extends StatelessWidget {
         child: Row(
           children: [
             Text(
-              'SOZO',
+              'KAIZOKU',
               style: TextStyle(
                 color: AppColors.primary,
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
-                letterSpacing: 2,
+                letterSpacing: 2.5,
                 height: 1,
               ),
             ),

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
 import 'package:soplay/features/my_list/data/private_list_service.dart';
@@ -19,11 +19,21 @@ class PrivateListPage extends StatelessWidget {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: KaizokuColors.cyberObsidian,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
-        title: Text('app_lock.private_list'.tr()),
+        titleSpacing: 16,
+        title: Text(
+          'app_lock.private_list'.tr(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
       body: ValueListenableBuilder<int>(
         valueListenable: service.revision,
@@ -37,16 +47,27 @@ class PrivateListPage extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 64,
-                      height: 64,
+                      width: 72,
+                      height: 72,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.primary.withValues(alpha: 0.12),
+                        color: KaizokuColors.surface,
+                        border: Border.all(
+                          color: KaizokuColors.neonCrimson.withValues(alpha: 0.3),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: KaizokuColors.neonCrimson.withValues(alpha: 0.12),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          ),
+                        ],
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.lock_outline_rounded,
-                        color: AppColors.primary,
-                        size: 30,
+                        color: KaizokuColors.neonCrimson,
+                        size: 32,
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -54,7 +75,7 @@ class PrivateListPage extends StatelessWidget {
                       'app_lock.private_empty'.tr(),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: AppColors.textSecondary,
+                        color: KaizokuColors.textSecondary,
                         fontSize: 14,
                         height: 1.5,
                       ),
@@ -107,7 +128,7 @@ class PrivateListPage extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     showAdaptiveModal<void>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: KaizokuColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -121,7 +142,7 @@ class PrivateListPage extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.textHint,
+                  color: KaizokuColors.surfaceLight,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -129,11 +150,14 @@ class PrivateListPage extends StatelessWidget {
               ListTile(
                 leading: const Icon(
                   Icons.playlist_add_rounded,
-                  color: AppColors.textSecondary,
+                  color: Colors.white,
                 ),
                 title: Text(
                   'app_lock.move_to_my_list'.tr(),
-                  style: const TextStyle(color: AppColors.textPrimary),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 onTap: () async {
                   Navigator.of(sheetContext).pop();
@@ -147,11 +171,14 @@ class PrivateListPage extends StatelessWidget {
               ListTile(
                 leading: const Icon(
                   Icons.delete_outline_rounded,
-                  color: AppColors.error,
+                  color: KaizokuColors.neonCrimson,
                 ),
                 title: Text(
                   'app_lock.removed_from_private'.tr(),
-                  style: const TextStyle(color: AppColors.error),
+                  style: const TextStyle(
+                    color: KaizokuColors.neonCrimson,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 onTap: () async {
                   Navigator.of(sheetContext).pop();

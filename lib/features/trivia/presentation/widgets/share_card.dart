@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/trivia/domain/entities/actor_ref_entity.dart';
 import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
 
@@ -40,10 +40,10 @@ class ShareCard extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [
             Color.alphaBlend(
-              AppColors.primaryDark.withValues(alpha: 0.25),
-              AppColors.background,
+              KaizokuColors.primaryDark.withValues(alpha: 0.25),
+              KaizokuColors.background,
             ),
-            AppColors.background,
+            KaizokuColors.background,
           ],
         ),
       ),
@@ -55,7 +55,7 @@ class ShareCard extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.movie_filter_rounded,
-                    color: AppColors.primary, size: 22),
+                    color: KaizokuColors.primary, size: 22),
                 const SizedBox(width: 8),
                 Text(
                   'BUFF',
@@ -84,7 +84,7 @@ class ShareCard extends StatelessWidget {
             Text(
               headlineLabel.toUpperCase(),
               style: TextStyle(
-                color: AppColors.primaryLight,
+                color: KaizokuColors.primaryLight,
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1,
@@ -155,8 +155,8 @@ class _Avatar extends StatelessWidget {
       height: 108,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.primary, width: 3),
+        color: KaizokuColors.surface,
+        border: Border.all(color: KaizokuColors.primary, width: 3),
         image: image == null
             ? null
             : DecorationImage(image: image!, fit: BoxFit.cover),

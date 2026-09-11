@@ -4,7 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/live_tv/data/live_tv_service.dart';
 
 /// The programme guide, from inside the player.
@@ -34,9 +34,8 @@ class LiveGuideSheet extends StatefulWidget {
   }) {
     return showModalBottomSheet<void>(
       context: context,
-      // Black, not the app surface: this opens over video, and a lighter sheet
-      // reads as a different app.
-      backgroundColor: const Color(0xF00A0A0A),
+      // Obsidian-translucent backdrop over video
+      backgroundColor: KaizokuColors.cyberObsidian.withValues(alpha: 0.94),
       isScrollControlled: true,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
@@ -159,7 +158,7 @@ class _LiveGuideSheetState extends State<LiveGuideSheet> {
         // so this says so plainly rather than looking like a failure.
         child: Text(
           'live_tv.no_guide'.tr(),
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          style: const TextStyle(color: KaizokuColors.textSecondary, fontSize: 13),
         ),
       );
     }
@@ -180,8 +179,8 @@ class _LiveGuideSheetState extends State<LiveGuideSheet> {
           const SizedBox(height: 16),
           Text(
             'live_tv.up_next'.tr(),
-            style: TextStyle(
-              color: AppColors.textSecondary,
+            style: const TextStyle(
+              color: KaizokuColors.textSecondary,
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.4,
@@ -190,7 +189,7 @@ class _LiveGuideSheetState extends State<LiveGuideSheet> {
           const SizedBox(height: 4),
           for (var i = 0; i < upcoming.length; i++) ...[
             if (i > 0)
-              Divider(height: 1, color: Colors.white.withValues(alpha: 0.06)),
+              const Divider(height: 1, color: KaizokuColors.cardBorder),
             _row(upcoming[i]),
           ],
         ],
@@ -219,7 +218,7 @@ class _LiveGuideSheetState extends State<LiveGuideSheet> {
           const SizedBox(height: 2),
           Text(
             programme.subtitle,
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+            style: const TextStyle(color: KaizokuColors.textSecondary, fontSize: 12.5),
           ),
         ],
         if (programme.hasWindow) ...[
@@ -230,7 +229,7 @@ class _LiveGuideSheetState extends State<LiveGuideSheet> {
               value: progress,
               minHeight: 3,
               backgroundColor: Colors.white.withValues(alpha: 0.14),
-              color: AppColors.primary,
+              color: KaizokuColors.neonCrimson,
             ),
           ),
           const SizedBox(height: 6),
@@ -238,13 +237,13 @@ class _LiveGuideSheetState extends State<LiveGuideSheet> {
             children: [
               Text(
                 '${_hhmm(programme.start!)} – ${_hhmm(stop!)}',
-                style: TextStyle(color: AppColors.textHint, fontSize: 11.5),
+                style: const TextStyle(color: KaizokuColors.textMuted, fontSize: 11.5),
               ),
               const Spacer(),
               if (left != null && !left.isNegative)
                 Text(
                   'live_tv.minutes_left'.tr(args: ['${left.inMinutes}']),
-                  style: TextStyle(color: AppColors.textHint, fontSize: 11.5),
+                  style: const TextStyle(color: KaizokuColors.textMuted, fontSize: 11.5),
                 ),
             ],
           ),
@@ -255,8 +254,8 @@ class _LiveGuideSheetState extends State<LiveGuideSheet> {
             programme.description,
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: AppColors.textSecondary,
+            style: const TextStyle(
+              color: KaizokuColors.textSecondary,
               fontSize: 12.5,
               height: 1.4,
             ),
@@ -276,8 +275,8 @@ class _LiveGuideSheetState extends State<LiveGuideSheet> {
             width: 46,
             child: Text(
               _hhmm(programme.start!),
-              style: TextStyle(
-                color: AppColors.textSecondary,
+              style: const TextStyle(
+                color: KaizokuColors.textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
@@ -303,8 +302,8 @@ class _LiveGuideSheetState extends State<LiveGuideSheet> {
                     programme.subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppColors.textHint,
+                    style: const TextStyle(
+                      color: KaizokuColors.textMuted,
                       fontSize: 11.5,
                     ),
                   ),
@@ -325,7 +324,7 @@ class _LiveDot extends StatelessWidget {
         width: 7,
         height: 7,
         decoration: const BoxDecoration(
-          color: Color(0xFFE53935),
+          color: KaizokuColors.neonCrimson,
           shape: BoxShape.circle,
         ),
       );

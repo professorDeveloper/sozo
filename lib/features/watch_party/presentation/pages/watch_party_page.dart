@@ -8,7 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/watch_party/data/watch_party_service.dart';
@@ -260,9 +260,9 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
           // the inset and shoves the composer (and the send button) off screen,
           // so typing/sending becomes impossible — disable the auto-resize.
           resizeToAvoidBottomInset: false,
-          backgroundColor: AppColors.background,
+          backgroundColor: KaizokuColors.cyberObsidian,
           appBar: AppBar(
-            backgroundColor: AppColors.background,
+            backgroundColor: KaizokuColors.cyberObsidian,
             elevation: 0,
             title: Text(
               'watch_party.title'.tr(),
@@ -367,14 +367,14 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
             ),
           ),
         ),
-        Divider(height: 1, color: AppColors.border),
+        const Divider(height: 1, color: KaizokuColors.cardBorder),
         // Fixed reaction bar directly above the chat — always reachable instead
         // of buried at the bottom of the scrollable top region.
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Center(child: PartyReactionPicker(service: _service)),
         ),
-        Divider(height: 1, color: AppColors.border),
+        const Divider(height: 1, color: KaizokuColors.cardBorder),
         Expanded(
           flex: 6,
           child: Stack(
@@ -412,14 +412,14 @@ class _ConnectingView extends StatelessWidget {
             height: 34,
             child: CircularProgressIndicator(
               strokeWidth: 2.6,
-              color: AppColors.primary,
+              color: KaizokuColors.neonCrimson,
             ),
           ),
           const SizedBox(height: 16),
           Text(
             label,
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 13.5,
             ),
           ),
@@ -445,16 +445,16 @@ class _CodeBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: AppColors.card,
+            color: KaizokuColors.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            border: Border.all(color: KaizokuColors.cardBorder),
           ),
           child: Row(
             children: [
               Text(
                 'watch_party.code_label'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 12.5,
                 ),
               ),
@@ -462,14 +462,14 @@ class _CodeBar extends StatelessWidget {
               Text(
                 code,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 3,
                 ),
               ),
               const SizedBox(width: 10),
-              const Icon(Icons.copy_rounded, size: 18, color: AppColors.textHint),
+              const Icon(Icons.copy_rounded, size: 18, color: KaizokuColors.neonCrimson),
             ],
           ),
         ),
@@ -491,7 +491,7 @@ class _ContentCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
         child: Text(
           'watch_party.content_none'.tr(),
-          style: const TextStyle(color: AppColors.textHint, fontSize: 13),
+          style: const TextStyle(color: KaizokuColors.textMuted, fontSize: 13),
         ),
       );
     }
@@ -507,14 +507,14 @@ class _ContentCard extends StatelessWidget {
               width: 54,
               height: 78,
               child: thumb == null
-                  ? Container(color: AppColors.surfaceVariant)
+                  ? Container(color: KaizokuColors.surfaceLight)
                   : CachedNetworkImage(
                       imageUrl: thumb,
                       fit: BoxFit.cover,
                       placeholder: (_, _) =>
-                          Container(color: AppColors.surfaceVariant),
+                          Container(color: KaizokuColors.surfaceLight),
                       errorWidget: (_, _, _) =>
-                          Container(color: AppColors.surfaceVariant),
+                          Container(color: KaizokuColors.surfaceLight),
                     ),
             ),
           ),
@@ -528,7 +528,7 @@ class _ContentCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -538,7 +538,7 @@ class _ContentCard extends StatelessWidget {
                   Text(
                     'E${c.episode}',
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 12.5,
                     ),
                   ),
@@ -582,7 +582,7 @@ class _BottomActions extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: busy ? null : onStart,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: KaizokuColors.neonCrimson,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 icon: busy
@@ -607,7 +607,7 @@ class _BottomActions extends StatelessWidget {
             Text(
               'watch_party.lobby_waiting_host'.tr(),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textHint, fontSize: 13),
+              style: const TextStyle(color: KaizokuColors.textMuted, fontSize: 13),
             ),
           const SizedBox(height: 8),
           TextButton(
@@ -616,7 +616,7 @@ class _BottomActions extends StatelessWidget {
               isHost
                   ? 'watch_party.close_party'.tr()
                   : 'watch_party.leave_party'.tr(),
-              style: const TextStyle(color: AppColors.error),
+              style: const TextStyle(color: KaizokuColors.neonCrimson),
             ),
           ),
         ],

@@ -15,7 +15,7 @@ import 'package:soplay/features/profile/presentation/widgets/provider_quick_swit
 import 'package:soplay/features/profile/presentation/widgets/home_rail_customizer_sheet.dart';
 import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
 import 'package:soplay/core/bridge/bridge_control.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/profile/presentation/pages/appearance_page.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -117,24 +117,19 @@ class _ProfileViewState extends State<_ProfileView> {
     final headerH = topPad + _headerContentHeight;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       body: Stack(
         children: [
-          // Accent-tinted at the top, falling to the page background. Used to
-          // be the literals [#1E1416, #181818, #101010]; those are exactly what
-          // these three resolve to at the default red, and they now follow the
-          // chosen accent and darkness instead of staying red on a blue app.
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  AppColors.heroTop,
-                  AppColors.heroMid,
-                  AppColors.heroBottom,
+                  KaizokuColors.neonCrimson.withValues(alpha: 0.08),
+                  KaizokuColors.cyberObsidian,
                 ],
-                stops: const [0, 0.35, 1],
+                stops: const [0, 0.4],
               ),
             ),
             child: const SizedBox.expand(),
@@ -142,47 +137,25 @@ class _ProfileViewState extends State<_ProfileView> {
           _ProfileScrollFrame(
             child: RefreshIndicator(
               onRefresh: _onRefresh,
-              color: AppColors.primary,
-              backgroundColor: AppColors.surface,
+              color: KaizokuColors.neonCrimson,
+              backgroundColor: KaizokuColors.surface,
               edgeOffset: headerH,
               child: CustomScrollView(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(child: SizedBox(height: headerH + 16)),
-                  // One BlocBuilder over the whole list rather than a stack of
-                  // fixed slivers with conditionals sprinkled through it.
-                  //
-                  // A guest cannot use the streak, a tracker connection or a TV
-                  // pairing — all three bind to a Sozo account — and the old
-                  // list still reserved their gaps, so signed out the page was
-                  // a run of empty space with Settings pushed below the fold.
-                  // Building the sections into a list means the spacing belongs
-                  // to the sections that are actually there, and the reveal
-                  // stagger renumbers itself.
                   SliverToBoxAdapter(
                     child: BlocBuilder<AuthBloc, AuthState>(
                       builder: (context, state) {
                         final signedIn = state is AuthLoaded;
                         final user = signedIn ? state.token.user : null;
-                        // Mobile is a hub: who you are, what you have done,
-                        // then one row per area. Each row owns a screen, so
-                        // this list stays short enough to read in one glance
-                        // no matter how much the app grows behind it.
                         final sections = <Widget>[
                           _ProfileHeader(user: user),
-                          // Watch counters are local, so a guest who has
-                          // watched something has real numbers; a guest who
-                          // has not would only get three zeroes.
                           if (signedIn || _StatsStripState.hasNumbers)
                             const _StatsStrip(),
                           if (signedIn) const StreakCard(),
                           const _HubOverview(),
-                          // signedIn is passed rather than read inside: a
-                          // const widget is the same instance every build, so
-                          // Flutter would skip rebuilding it and the Watch
-                          // Party row would not appear until something else
-                          // disturbed the tree.
                           _HubWatch(signedIn: signedIn),
                           const _HubApp(),
                           if (signedIn) const _SignOutSection(),
@@ -190,15 +163,8 @@ class _ProfileViewState extends State<_ProfileView> {
                         return Column(
                           children: [
                             for (var i = 0; i < sections.length; i++) ...[
-                              // The header carries its own padding; the gap
-                              // after it is the wider one it always had.
                               if (i > 0) SizedBox(height: i == 1 ? 20 : 16),
                               _Reveal(
-                                // Keyed by section type, which is unique in
-                                // this list: signing out removes three entries
-                                // and every section below shifts index, and an
-                                // unkeyed Column would hand each one the
-                                // previous occupant's Element and State.
                                 key: ValueKey<Type>(sections[i].runtimeType),
                                 order: i,
                                 child: sections[i],
@@ -229,7 +195,7 @@ class _ProfileViewState extends State<_ProfileView> {
                 final title = Text(
                   'profile.title'.tr(),
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
                     height: 1.05,
@@ -238,14 +204,14 @@ class _ProfileViewState extends State<_ProfileView> {
                 final content = Container(
                   padding: EdgeInsetsDirectional.fromSTEB(20, topPad + 14, 16, 14),
                   decoration: BoxDecoration(
-                    color: AppColors.navBackground.withValues(
-                      alpha: 0.78 * progress,
+                    color: KaizokuColors.cyberObsidian.withValues(
+                      alpha: 0.85 * progress,
                     ),
                     border: progress > 0.05
                         ? Border(
                             bottom: BorderSide(
                               color: Colors.white.withValues(
-                                alpha: 0.07 * progress,
+                                alpha: 0.08 * progress,
                               ),
                               width: 0.5,
                             ),
@@ -309,7 +275,7 @@ class _ProfileViewState extends State<_ProfileView> {
 
   Widget _buildDesktop(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -423,7 +389,7 @@ class _SettingsSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 236,
-      color: AppColors.navBackground,
+      color: KaizokuColors.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -432,7 +398,7 @@ class _SettingsSidebar extends StatelessWidget {
             child: Text(
               'profile.title'.tr(),
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: Colors.white,
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
               ),
@@ -475,8 +441,8 @@ class _SettingsNavItemState extends State<_SettingsNavItem> {
   Widget build(BuildContext context) {
     final active = widget.active;
     final color = active
-        ? AppColors.primary
-        : (_hover ? AppColors.textPrimary : AppColors.textSecondary);
+        ? KaizokuColors.neonCrimson
+        : (_hover ? Colors.white : KaizokuColors.textSecondary);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -490,11 +456,17 @@ class _SettingsNavItemState extends State<_SettingsNavItem> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: active
-                ? AppColors.primary.withValues(alpha: 0.12)
+                ? KaizokuColors.neonCrimson.withValues(alpha: 0.15)
                 : (_hover
                       ? Colors.white.withValues(alpha: 0.05)
                       : Colors.transparent),
             borderRadius: BorderRadius.circular(10),
+            border: active
+                ? Border.all(
+                    color: KaizokuColors.neonCrimson.withValues(alpha: 0.3),
+                    width: 0.8,
+                  )
+                : null,
           ),
           child: Row(
             children: [
@@ -592,9 +564,9 @@ class NavbarPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: Text(

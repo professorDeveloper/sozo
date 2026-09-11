@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/torrent/torrent_engine.dart';
 import 'package:soplay/features/torrent/data/indexers/torrent_indexer.dart';
 import 'package:soplay/features/torrent/data/torrent_search_repository.dart';
@@ -154,7 +154,7 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
 
     final action = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: KaizokuColors.surface,
       showDragHandle: true,
       builder: (context) => SafeArea(
         child: Column(
@@ -167,34 +167,34 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
             ListTile(
-              leading: Icon(Icons.content_copy_rounded, color: AppColors.textSecondary),
+              leading: Icon(Icons.content_copy_rounded, color: KaizokuColors.textSecondary),
               title: Text(
                 'torrent.copy_magnet'.tr(),
-                style: TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(color: KaizokuColors.textPrimary),
               ),
               onTap: () => Navigator.of(context).pop('copy'),
             ),
             ListTile(
-              leading: Icon(Icons.open_in_new_rounded, color: AppColors.textSecondary),
+              leading: Icon(Icons.open_in_new_rounded, color: KaizokuColors.textSecondary),
               title: Text(
                 'torrent.open_external'.tr(),
-                style: TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(color: KaizokuColors.textPrimary),
               ),
               onTap: () => Navigator.of(context).pop('external'),
             ),
             if (result.pageUrl != null)
               ListTile(
-                leading: Icon(Icons.public_rounded, color: AppColors.textSecondary),
+                leading: Icon(Icons.public_rounded, color: KaizokuColors.textSecondary),
                 title: Text(
                   'torrent.open_page'.tr(),
-                  style: TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(color: KaizokuColors.textPrimary),
                 ),
                 onTap: () => Navigator.of(context).pop('page'),
               ),
@@ -232,9 +232,9 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.background,
         title: _searchField(),
         titleSpacing: 0,
         actions: [
@@ -269,12 +269,12 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
         margin: const EdgeInsetsDirectional.only(end: 4),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
+          color: KaizokuColors.surfaceVariant,
           borderRadius: BorderRadius.circular(21),
         ),
         child: Row(
           children: [
-            Icon(Icons.search_rounded, size: 19, color: AppColors.textHint),
+            Icon(Icons.search_rounded, size: 19, color: KaizokuColors.textMuted),
             const SizedBox(width: 8),
             Expanded(
               child: TextField(
@@ -287,11 +287,11 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
                   setState(() {});
                 },
                 onSubmitted: (_) => _controller.search(),
-                style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
-                cursorColor: AppColors.primary,
+                style: TextStyle(color: KaizokuColors.textPrimary, fontSize: 15),
+                cursorColor: KaizokuColors.primary,
                 decoration: InputDecoration(
                   hintText: 'torrent.search_hint'.tr(),
-                  hintStyle: TextStyle(color: AppColors.textHint, fontSize: 14.5),
+                  hintStyle: TextStyle(color: KaizokuColors.textMuted, fontSize: 14.5),
                   isDense: true,
                   filled: false,
                   contentPadding: EdgeInsets.zero,
@@ -314,7 +314,7 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
                 child: Icon(
                   Icons.close_rounded,
                   size: 18,
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textMuted,
                 ),
               ),
           ],
@@ -383,7 +383,7 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
   Future<void> _pickSort() async {
     final sort = await showModalBottomSheet<TorrentSort>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: KaizokuColors.surface,
       showDragHandle: true,
       builder: (context) => SafeArea(
         child: Column(
@@ -393,10 +393,10 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
               ListTile(
                 title: Text(
                   _sortLabel(sort),
-                  style: TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(color: KaizokuColors.textPrimary),
                 ),
                 trailing: _controller.query.sort == sort
-                    ? Icon(Icons.check_rounded, color: AppColors.primary)
+                    ? Icon(Icons.check_rounded, color: KaizokuColors.primary)
                     : null,
                 onTap: () => Navigator.of(context).pop(sort),
               ),
@@ -413,11 +413,11 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: AppColors.primary),
+            CircularProgressIndicator(color: KaizokuColors.primary),
             const SizedBox(height: 16),
             Text(
               'torrent.searching'.tr(),
-              style: TextStyle(color: AppColors.textHint, fontSize: 13),
+              style: TextStyle(color: KaizokuColors.textMuted, fontSize: 13),
             ),
           ],
         ),
@@ -447,7 +447,7 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
         if (_controller.loading)
           LinearProgressIndicator(
             minHeight: 2,
-            color: AppColors.primary,
+            color: KaizokuColors.primary,
             backgroundColor: Colors.transparent,
           ),
         if (_controller.failedIndexers.isNotEmpty &&
@@ -457,20 +457,20 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
             margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
-              color: AppColors.errorLight.withValues(alpha: 0.10),
+              color: KaizokuColors.error.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline_rounded,
-                    size: 14, color: AppColors.errorLight),
+                    size: 14, color: KaizokuColors.error),
                 const SizedBox(width: 7),
                 Expanded(
                   child: Text(
                     'torrent.tracker_failed'
                         .tr(args: [_controller.failedIndexers.join(', ')]),
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 11.5,
                       height: 1.3,
                     ),
@@ -491,7 +491,7 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
                   ? '${'torrent.results_n'.tr(args: ['${_controller.results.length}'])}'
                       ' · ${'torrent.still_searching'.tr(args: ['${_controller.pendingIndexers}'])}'
                   : 'torrent.results_n'.tr(args: ['${_controller.results.length}']),
-              style: TextStyle(color: AppColors.textHint, fontSize: 12),
+              style: TextStyle(color: KaizokuColors.textMuted, fontSize: 12),
             ),
           ),
         ),
@@ -499,7 +499,7 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
           child: ListView.separated(
             itemCount: _controller.results.length,
             separatorBuilder: (_, _) =>
-                Divider(color: AppColors.divider, height: 1, indent: 31),
+                Divider(color: KaizokuColors.border, height: 1, indent: 31),
             itemBuilder: (context, index) {
               final result = _controller.results[index];
               return TorrentResultTile(
@@ -527,13 +527,13 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 42, color: AppColors.textHint),
+              Icon(icon, size: 42, color: KaizokuColors.textMuted),
               const SizedBox(height: 14),
               Text(
                 title,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -543,7 +543,7 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
                 body,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textMuted,
                   fontSize: 13,
                   height: 1.4,
                 ),

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/profile/data/backup_service.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 
@@ -59,34 +59,37 @@ class _BackupPageState extends State<BackupPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: KaizokuColors.surfaceElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: KaizokuColors.borderGlass),
+        ),
         title: Text(
           'backup.restore'.tr(),
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: KaizokuColors.textPrimary,
             fontSize: 17,
             fontWeight: FontWeight.w700,
           ),
         ),
         content: Text(
           'backup.restore_warning'.tr(),
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+          style: const TextStyle(color: KaizokuColors.textSecondary, fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(
               'general.cancel'.tr(),
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: const TextStyle(color: KaizokuColors.textSecondary),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(
               'backup.restore'.tr(),
-              style: TextStyle(
-                color: AppColors.primary,
+              style: const TextStyle(
+                color: KaizokuColors.neonCrimson,
                 fontWeight: FontWeight.w700,
               ),
             ),

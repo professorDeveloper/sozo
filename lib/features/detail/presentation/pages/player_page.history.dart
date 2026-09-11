@@ -319,7 +319,7 @@ extension _PlayerHistory on _PlayerPageState {
       builder: (_) => PopScope(
         canPop: false,
         child: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
+          child: CircularProgressIndicator(color: KaizokuColors.neonCrimson),
         ),
       ),
     ).whenComplete(() => barrierOpen = false);

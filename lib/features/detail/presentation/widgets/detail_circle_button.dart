@@ -68,7 +68,11 @@ class DetailCircleButton extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.black.withValues(alpha: 0.42),
+              color: const Color(0xFF1A1E2C).withValues(alpha: 0.85),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.12),
+                width: 0.8,
+              ),
             ),
             child: Icon(
               icon,

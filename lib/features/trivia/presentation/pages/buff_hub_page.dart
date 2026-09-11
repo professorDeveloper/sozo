@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
 import 'package:soplay/features/trivia/domain/entities/leaderboard_entry_entity.dart';
@@ -51,10 +51,10 @@ class _HubView extends StatelessWidget {
     // Floating nav capsule clearance — same budget as home / My List.
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       body: RefreshIndicator(
-        color: AppColors.primary,
-        backgroundColor: AppColors.surface,
+        color: KaizokuColors.neonCrimson,
+        backgroundColor: KaizokuColors.surface,
         onRefresh: () async {
           context.read<TriviaHubBloc>().add(const TriviaHubRefreshed());
           context.read<CastBloc>().add(const CastStarted());
@@ -102,9 +102,9 @@ class _Masthead extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
+              const Icon(
                 CupertinoIcons.film_fill,
-                color: AppColors.primary,
+                color: KaizokuColors.neonCrimson,
                 size: 24,
               ),
               const SizedBox(width: 10),
@@ -114,7 +114,7 @@ class _Masthead extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                     height: 1.1,
@@ -127,7 +127,7 @@ class _Masthead extends StatelessWidget {
           Text(
             'trivia.hub_tagline'.tr(),
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 14,
               height: 1.35,
               fontWeight: FontWeight.w500,
@@ -178,9 +178,9 @@ class _FanTestHero extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border, width: 0.6),
+        border: Border.all(color: KaizokuColors.cardBorder, width: 0.6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,7 +197,7 @@ class _FanTestHero extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                         height: 1.15,
@@ -209,7 +209,7 @@ class _FanTestHero extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.textSecondary,
+                        color: KaizokuColors.textSecondary,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w500,
                         height: 1.3,
@@ -229,10 +229,10 @@ class _FanTestHero extends StatelessWidget {
             child: ElevatedButton(
               onPressed: enabled ? onTap : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: KaizokuColors.neonCrimson,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: AppColors.surfaceVariant,
-                disabledForegroundColor: AppColors.textHint,
+                disabledBackgroundColor: KaizokuColors.surfaceLight,
+                disabledForegroundColor: KaizokuColors.textMuted,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 minimumSize: Size.zero,
@@ -289,12 +289,12 @@ class _FaceStack extends StatelessWidget {
         width: 46,
         height: 46,
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
+          color: KaizokuColors.surfaceLight,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(
+        child: const Icon(
           CupertinoIcons.heart_fill,
-          color: AppColors.primaryLight,
+          color: KaizokuColors.neonCrimson,
           size: 24,
         ),
       );
@@ -314,8 +314,8 @@ class _FaceStack extends StatelessWidget {
               left: i * _step,
               child: Container(
                 padding: const EdgeInsets.all(_ring),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
+                decoration: const BoxDecoration(
+                  color: KaizokuColors.surface,
                   shape: BoxShape.circle,
                 ),
                 child: faces.isEmpty
@@ -490,7 +490,7 @@ class _RailPerson extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: Colors.white,
               fontSize: 11,
               fontWeight: FontWeight.w600,
               height: 1.3,
@@ -504,7 +504,7 @@ class _RailPerson extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 height: 1.25,
@@ -556,7 +556,7 @@ class _ShimmerCircle extends StatelessWidget {
 }
 
 /// Circular person avatar with the app's neutral grey ring. A missing photo
-/// falls back to initials on [AppColors.surfaceVariant] — the same treatment
+/// falls back to initials on [KaizokuColors.surfaceLight] — the same treatment
 /// the shipped Detail cast rail uses, so it reads as deliberate.
 class _PersonAvatar extends StatelessWidget {
   const _PersonAvatar({
@@ -582,10 +582,10 @@ class _PersonAvatar extends StatelessWidget {
       height: size,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: KaizokuColors.surfaceLight,
         shape: BoxShape.circle,
         border: Border.all(
-          color: ringColor ?? AppColors.border,
+          color: ringColor ?? KaizokuColors.cardBorder,
           width: ringWidth,
         ),
       ),
@@ -606,13 +606,13 @@ class _PersonAvatar extends StatelessWidget {
 
   Widget _initials() {
     return ColoredBox(
-      color: AppColors.surfaceVariant,
+      color: KaizokuColors.surfaceLight,
       child: Center(
         child: Text(
           _initialsOf(name),
           maxLines: 1,
           style: TextStyle(
-            color: AppColors.textSecondary,
+            color: KaizokuColors.textSecondary,
             fontWeight: FontWeight.w800,
             fontSize: initialSize,
             height: 1,
@@ -661,7 +661,7 @@ class _SectionHeader extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
                     height: 1.1,
@@ -670,7 +670,7 @@ class _SectionHeader extends StatelessWidget {
               ),
               const Icon(
                 Icons.chevron_right_rounded,
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 size: 22,
               ),
               const SizedBox(width: 4),
@@ -722,15 +722,15 @@ class _TodaysTopSection extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: KaizokuColors.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border, width: 0.6),
+                  border: Border.all(color: KaizokuColors.cardBorder, width: 0.6),
                 ),
                 child: Column(
                   children: [
                     for (var i = 0; i < entries.length; i++) ...[
                       if (i != 0)
-                        Container(height: 0.6, color: AppColors.border),
+                        Container(height: 0.6, color: KaizokuColors.cardBorder),
                       _TopRow(entry: entries[i]),
                     ],
                   ],
@@ -776,7 +776,7 @@ class _TopRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
                     fontSize: 14.5,
                     fontWeight: FontWeight.w600,
                   ),
@@ -789,7 +789,7 @@ class _TopRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -801,7 +801,7 @@ class _TopRow extends StatelessWidget {
             '${entry.score}',
             maxLines: 1,
             style: const TextStyle(
-              color: AppColors.rating,
+              color: KaizokuColors.solarAmber,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
@@ -855,9 +855,9 @@ class _HowItWorksCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border, width: 0.6),
+        border: Border.all(color: KaizokuColors.cardBorder, width: 0.6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -867,7 +867,7 @@ class _HowItWorksCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: Colors.white,
               fontSize: 15,
               fontWeight: FontWeight.w800,
               height: 1.1,
@@ -919,11 +919,11 @@ class _HowStep extends StatelessWidget {
         Container(
           width: 40,
           height: 40,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceVariant,
+          decoration: const BoxDecoration(
+            color: KaizokuColors.surfaceLight,
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, color: AppColors.primaryLight, size: 18),
+          child: const Icon(icon, color: KaizokuColors.neonCrimson, size: 18),
         ),
         const SizedBox(height: 8),
         Padding(
@@ -934,7 +934,7 @@ class _HowStep extends StatelessWidget {
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 11,
               fontWeight: FontWeight.w600,
               height: 1.3,
@@ -960,7 +960,7 @@ class _RankCard extends StatelessWidget {
         final rank = state.myDailyRank;
         final loading = state.status == TriviaHubStatus.loading;
         return Material(
-          color: AppColors.surface,
+          color: KaizokuColors.surface,
           clipBehavior: Clip.antiAlias,
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
@@ -968,7 +968,7 @@ class _RankCard extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border, width: 0.6),
+                border: Border.all(color: KaizokuColors.cardBorder, width: 0.6),
               ),
               child: Column(
                 children: [
@@ -976,14 +976,14 @@ class _RankCard extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
                     child: _RankRow(rank: rank, loading: loading),
                   ),
-                  Container(height: 0.6, color: AppColors.border),
+                  Container(height: 0.6, color: KaizokuColors.cardBorder),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
                     child: Row(
                       children: [
                         const Icon(
                           CupertinoIcons.chart_bar_alt_fill,
-                          color: AppColors.textSecondary,
+                          color: KaizokuColors.textSecondary,
                           size: 18,
                         ),
                         const SizedBox(width: 10),
@@ -993,7 +993,7 @@ class _RankCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: AppColors.textPrimary,
+                              color: Colors.white,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
@@ -1001,7 +1001,7 @@ class _RankCard extends StatelessWidget {
                         ),
                         const Icon(
                           Icons.chevron_right_rounded,
-                          color: AppColors.textHint,
+                          color: KaizokuColors.textMuted,
                           size: 22,
                         ),
                       ],
@@ -1041,17 +1041,17 @@ class _RankRow extends StatelessWidget {
                       name: entry.username,
                       size: 52,
                       initialSize: 18,
-                      ringColor: AppColors.primary,
+                      ringColor: KaizokuColors.neonCrimson,
                       ringWidth: 2,
                     )
                   : Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
+                      decoration: const BoxDecoration(
+                        color: KaizokuColors.surfaceLight,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         CupertinoIcons.game_controller_solid,
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textMuted,
                         size: 22,
                       ),
                     ),
@@ -1067,7 +1067,7 @@ class _RankRow extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
@@ -1081,7 +1081,7 @@ class _RankRow extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
@@ -1099,7 +1099,7 @@ class _RankRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textMuted,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     height: 1.2,
@@ -1114,17 +1114,17 @@ class _RankRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.15),
+              color: KaizokuColors.neonCrimson.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.4),
+                color: KaizokuColors.neonCrimson.withValues(alpha: 0.4),
               ),
             ),
             child: Text(
               'trivia.points_value'.tr(args: ['${entry.score}']),
               maxLines: 1,
-              style: TextStyle(
-                color: AppColors.primaryLight,
+              style: const TextStyle(
+                color: KaizokuColors.neonCrimson,
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
                 height: 1.1,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 /// The "nothing in this tab" panel, at one geometry for every tab that has one.
 ///
@@ -36,13 +36,13 @@ class DetailEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: AppColors.textHint, size: 48),
+            Icon(icon, color: KaizokuColors.textMuted, size: 48),
             const SizedBox(height: 12),
             Text(
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 14,
                 height: 1.45,
               ),

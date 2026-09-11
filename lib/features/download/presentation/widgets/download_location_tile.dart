@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/download/domain/entities/download_location.dart';
 import 'package:soplay/features/download/presentation/download_messages.dart';
 
@@ -34,8 +34,12 @@ class DownloadLocationTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Material(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: KaizokuColors.cardBorder, width: 0.5),
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: busy ? null : () => _openPicker(context),
@@ -48,7 +52,7 @@ class DownloadLocationTile extends StatelessWidget {
                       ? Icons.sd_card_outlined
                       : Icons.smartphone_rounded,
                   size: 18,
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -59,7 +63,7 @@ class DownloadLocationTile extends StatelessWidget {
                       Text(
                         'downloads.location'.tr(),
                         style: const TextStyle(
-                          color: AppColors.textPrimary,
+                          color: KaizokuColors.textPrimary,
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                         ),
@@ -70,7 +74,7 @@ class DownloadLocationTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: AppColors.textSecondary,
+                          color: KaizokuColors.textSecondary,
                           fontSize: 12,
                         ),
                       ),
@@ -81,12 +85,15 @@ class DownloadLocationTile extends StatelessWidget {
                   const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: KaizokuColors.neonCrimson,
+                    ),
                   )
                 else
                   const Icon(
                     Icons.chevron_right_rounded,
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                   ),
               ],
             ),
@@ -99,7 +106,7 @@ class DownloadLocationTile extends StatelessWidget {
   void _openPicker(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -115,7 +122,7 @@ class DownloadLocationTile extends StatelessWidget {
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.textSecondary.withValues(alpha: 0.4),
+                  color: KaizokuColors.surfaceLight,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -126,7 +133,7 @@ class DownloadLocationTile extends StatelessWidget {
               child: Text(
                 'downloads.location'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                 ),
@@ -138,7 +145,7 @@ class DownloadLocationTile extends StatelessWidget {
               child: Text(
                 'downloads.location_hint'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textMuted,
                   fontSize: 12,
                   height: 1.4,
                 ),
@@ -150,11 +157,11 @@ class DownloadLocationTile extends StatelessWidget {
                   option.isRemovable
                       ? Icons.sd_card_outlined
                       : Icons.smartphone_rounded,
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                 ),
                 title: Text(
                   locationLabel(option),
-                  style: const TextStyle(color: AppColors.textPrimary),
+                  style: const TextStyle(color: KaizokuColors.textPrimary),
                 ),
                 subtitle: Text(
                   option.freeBytes > 0
@@ -164,12 +171,12 @@ class DownloadLocationTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textMuted,
                     fontSize: 12,
                   ),
                 ),
                 trailing: option.path == current?.path
-                    ? const Icon(Icons.check_rounded, color: AppColors.success)
+                    ? const Icon(Icons.check_rounded, color: KaizokuColors.electricCyan)
                     : null,
                 onTap: option.path == current?.path
                     ? null

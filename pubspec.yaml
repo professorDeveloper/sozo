@@ -4,7 +4,7 @@
 # brand. The brand lives in the Android/iOS app label and in `Sozo` everywhere
 # a person can see it.
 name: soplay
-description: "Sozo — kino, serial, anime, manga va light novellalar uchun ochiq kodli Flutter ilovasi."
+description: "Kaizoku — movies, series, anime, manga and light novels open-source streaming client."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

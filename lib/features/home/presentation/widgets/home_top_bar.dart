@@ -46,15 +46,36 @@ class HomeTopBar extends StatelessWidget {
       padding: EdgeInsetsDirectional.fromSTEB(20, topPad + 10, 12, 10),
       child: Row(
         children: [
-          Text(
-            'SOZO',
-            style: TextStyle(
-              color: AppColors.primary,
-              fontSize: compact ? 18 : 22,
-              fontWeight: FontWeight.w900,
-              letterSpacing: compact ? 1.6 : 2.5,
-              height: 1,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: compact ? 22 : 26,
+                height: compact ? 22 : 26,
+                margin: const EdgeInsets.only(right: 7),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.local_fire_department_rounded,
+                    color: Colors.white,
+                    size: compact ? 15 : 18,
+                  ),
+                ),
+              ),
+              Text(
+                'KAIZOKU',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: compact ? 18 : 21,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: compact ? 1.5 : 2.2,
+                  height: 1,
+                ),
+              ),
+            ],
           ),
           SizedBox(width: compact ? 8 : 10),
           const Expanded(

@@ -4,7 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/domain/services/provider_probe.dart';
 
@@ -109,20 +109,21 @@ class _ProviderTestPageState extends State<ProviderTestPage> {
     final playable = _results.values.where((r) => r.playable).length;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
-        title: Text('provider_test.title'.tr()),
+        title: Text('provider_test.title'.tr(), style: const TextStyle(color: KaizokuColors.textPrimary)),
+        iconTheme: const IconThemeData(color: KaizokuColors.textPrimary),
         actions: [
           TextButton(
             onPressed: _testAll,
             child: Text(
               _sweeping ? 'provider_test.stop'.tr() : 'provider_test.run_all'.tr(),
-              style: TextStyle(
-                color: AppColors.primary,
+              style: const TextStyle(
+                color: KaizokuColors.neonCrimson,
                 fontWeight: FontWeight.w600,
               ),
             ),

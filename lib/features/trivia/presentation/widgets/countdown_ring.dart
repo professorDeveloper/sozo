@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 /// A circular countdown ring with the seconds-remaining badge in its centre.
 /// The window length comes from [totalSeconds] — never assumed — so the ring
@@ -26,7 +26,7 @@ class CountdownRing extends StatelessWidget {
   Widget build(BuildContext context) {
     // The last four seconds are an alarm state, so they stay red whatever the
     // accent is — a green "hurry up" ring says the opposite of what it means.
-    final color = _danger ? AppColors.error : Colors.white;
+    final color = _danger ? KaizokuColors.error : Colors.white;
     final target = totalSeconds <= 0
         ? 0.0
         : (secondsRemaining / totalSeconds).clamp(0.0, 1.0);
@@ -78,7 +78,7 @@ class _RingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
-      ..color = AppColors.border;
+      ..color = KaizokuColors.border;
     canvas.drawCircle(center, radius, track);
 
     if (progress <= 0) return;

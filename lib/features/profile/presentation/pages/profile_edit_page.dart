@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/auth/domain/entities/user_entity.dart';
 import 'package:soplay/features/auth/domain/repositories/auth_repository.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
@@ -51,7 +52,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
   Future<void> _pickPhoto() async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: KaizokuColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -59,41 +60,47 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Container(
-              width: 36,
+              width: 38,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.border,
+                color: KaizokuColors.surfaceLight,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             ListTile(
               leading: const Icon(
                 Icons.photo_library_outlined,
-                color: AppColors.textSecondary,
+                color: Colors.white,
               ),
-              title: Text('profile.pick_from_gallery'.tr()),
+              title: Text(
+                'profile.pick_from_gallery'.tr(),
+                style: const TextStyle(color: Colors.white),
+              ),
               onTap: () => Navigator.of(sheet).pop(ImageSource.gallery),
             ),
             ListTile(
               leading: const Icon(
                 Icons.photo_camera_outlined,
-                color: AppColors.textSecondary,
+                color: Colors.white,
               ),
-              title: Text('profile.take_photo'.tr()),
+              title: Text(
+                'profile.take_photo'.tr(),
+                style: const TextStyle(color: Colors.white),
+              ),
               onTap: () => Navigator.of(sheet).pop(ImageSource.camera),
             ),
             if (_photoUrl != null && _photoUrl!.isNotEmpty)
               ListTile(
                 leading: const Icon(
                   Icons.delete_outline_rounded,
-                  color: AppColors.error,
+                  color: KaizokuColors.neonCrimson,
                 ),
                 title: Text(
                   'profile.remove_photo'.tr(),
-                  style: const TextStyle(color: AppColors.error),
+                  style: const TextStyle(color: KaizokuColors.neonCrimson),
                 ),
                 onTap: () => Navigator.of(sheet).pop(null),
               ),
@@ -188,14 +195,23 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
     final busy = _saving || _uploading;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
-        title: Text('profile.edit_profile'.tr()),
+        titleSpacing: 16,
+        title: Text(
+          'profile.edit_profile'.tr(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
           onPressed: () => context.pop(),
         ),
       ),
@@ -258,7 +274,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                 Text(
                   widget.user.email,
                   style: const TextStyle(
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textMuted,
                     fontSize: 12.5,
                   ),
                 ),
@@ -305,18 +321,18 @@ class _AvatarPicker extends StatelessWidget {
             width: 108,
             height: 108,
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
+              color: KaizokuColors.surfaceLight,
               borderRadius: BorderRadius.circular(28),
               border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
             clipBehavior: Clip.antiAlias,
             child: uploading
-                ? Center(
+                ? const Center(
                     child: SizedBox(
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(
-                        color: AppColors.primary,
+                        color: KaizokuColors.neonCrimson,
                         strokeWidth: 2.4,
                       ),
                     ),
@@ -337,9 +353,9 @@ class _AvatarPicker extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
-                color: AppColors.primary,
+                color: KaizokuColors.neonCrimson,
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.background, width: 2.5),
+                border: Border.all(color: KaizokuColors.cyberObsidian, width: 2.5),
               ),
               child: const Icon(
                 Icons.photo_camera_rounded,
@@ -365,7 +381,7 @@ class _Initial extends StatelessWidget {
       child: Text(
         initial,
         style: const TextStyle(
-          color: AppColors.textPrimary,
+          color: Colors.white,
           fontSize: 40,
           fontWeight: FontWeight.w800,
         ),

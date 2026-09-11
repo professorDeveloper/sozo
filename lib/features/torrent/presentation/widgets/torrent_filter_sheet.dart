@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/torrent/data/indexers/torrent_indexer.dart';
 import 'package:soplay/features/torrent/data/torrent_search_repository.dart';
 
@@ -31,7 +31,7 @@ class TorrentFilterSheet extends StatefulWidget {
   }) {
     return showModalBottomSheet<({TorrentFilters filters, Set<String> indexers})>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: KaizokuColors.surface,
       isScrollControlled: true,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
@@ -112,7 +112,7 @@ class _TorrentFilterSheetState extends State<TorrentFilterSheet> {
                         '${_filters.minSeeders}',
                         textAlign: TextAlign.end,
                         style: TextStyle(
-                          color: AppColors.textPrimary,
+                          color: KaizokuColors.textPrimary,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -184,7 +184,7 @@ class _TorrentFilterSheetState extends State<TorrentFilterSheet> {
               child: Text(
                 'torrent.filters'.tr(),
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                 ),
@@ -215,7 +215,7 @@ class _TorrentFilterSheetState extends State<TorrentFilterSheet> {
         child: Text(
           text,
           style: TextStyle(
-            color: AppColors.textSecondary,
+            color: KaizokuColors.textSecondary,
             fontSize: 12.5,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.3,
@@ -231,7 +231,7 @@ class _TorrentFilterSheetState extends State<TorrentFilterSheet> {
         onChanged: onChanged,
         title: Text(
           label,
-          style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
+          style: TextStyle(color: KaizokuColors.textPrimary, fontSize: 14),
         ),
       );
 

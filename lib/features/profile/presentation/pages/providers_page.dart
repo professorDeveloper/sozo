@@ -9,7 +9,7 @@ import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/extensions/source_language.dart' as srclang;
 import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_sources_page.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
@@ -97,9 +97,9 @@ class _ProvidersPageState extends State<ProvidersPage> {
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
@@ -163,10 +163,10 @@ class _ProvidersPageState extends State<ProvidersPage> {
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: 'profile.search_providers_hint'.tr(),
-                    hintStyle: const TextStyle(color: AppColors.textHint),
+                    hintStyle: const TextStyle(color: KaizokuColors.textSecondary),
                     prefixIcon: const Icon(
                       Icons.search,
-                      color: AppColors.textHint,
+                      color: KaizokuColors.textSecondary,
                       size: 20,
                     ),
                     suffixIcon: _query.isEmpty
@@ -174,7 +174,7 @@ class _ProvidersPageState extends State<ProvidersPage> {
                         : IconButton(
                             icon: const Icon(
                               Icons.clear,
-                              color: AppColors.textHint,
+                              color: KaizokuColors.textSecondary,
                               size: 20,
                             ),
                             onPressed: () => setState(() {
@@ -183,7 +183,7 @@ class _ProvidersPageState extends State<ProvidersPage> {
                             }),
                           ),
                     filled: true,
-                    fillColor: AppColors.surface,
+                    fillColor: KaizokuColors.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -237,7 +237,7 @@ class _ProvidersPageState extends State<ProvidersPage> {
                           : '${filtered.length} / ${state.providers.length} · '
                                 '${'profile.searching_all_sources'.tr()}',
                       style: const TextStyle(
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textSecondary,
                         fontSize: 12,
                       ),
                     ),
@@ -441,7 +441,7 @@ class _LanguageFilterRow extends StatelessWidget {
     int? count,
   }) {
     return Material(
-      color: active ? AppColors.primary.withValues(alpha: 0.18) : AppColors.surface,
+      color: active ? KaizokuColors.neonCrimson.withValues(alpha: 0.18) : KaizokuColors.surface,
       borderRadius: BorderRadius.circular(19),
       child: InkWell(
         borderRadius: BorderRadius.circular(19),
@@ -453,7 +453,7 @@ class _LanguageFilterRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(19),
             border: Border.all(
               color: active
-                  ? AppColors.primary.withValues(alpha: 0.55)
+                  ? KaizokuColors.neonCrimson.withValues(alpha: 0.55)
                   : Colors.white.withValues(alpha: 0.07),
             ),
           ),
@@ -463,7 +463,7 @@ class _LanguageFilterRow extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  color: active ? AppColors.primaryLight : AppColors.textSecondary,
+                  color: active ? KaizokuColors.neonCrimson : KaizokuColors.textSecondary,
                   fontSize: 12.5,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w600,
                 ),
@@ -474,8 +474,8 @@ class _LanguageFilterRow extends StatelessWidget {
                   '$count',
                   style: TextStyle(
                     color: active
-                        ? AppColors.primaryLight.withValues(alpha: 0.75)
-                        : AppColors.textHint,
+                        ? KaizokuColors.neonCrimson.withValues(alpha: 0.75)
+                        : KaizokuColors.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -580,7 +580,7 @@ class _CategoryFilterButton extends StatelessWidget {
     return PopupMenuButton<String>(
       tooltip: 'search.filter'.tr(),
       offset: const Offset(0, 44),
-      color: AppColors.surfaceVariant,
+      color: KaizokuColors.surfaceElevated,
       elevation: 8,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -598,8 +598,8 @@ class _CategoryFilterButton extends StatelessWidget {
                   icon,
                   size: 16,
                   color: selected == id
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
+                      ? KaizokuColors.neonCrimson
+                      : KaizokuColors.textSecondary,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -609,8 +609,8 @@ class _CategoryFilterButton extends StatelessWidget {
                     maxLines: 1,
                     style: TextStyle(
                       color: selected == id
-                          ? AppColors.primary
-                          : AppColors.textPrimary,
+                          ? KaizokuColors.neonCrimson
+                          : KaizokuColors.textPrimary,
                       fontSize: 13.5,
                       fontWeight: selected == id
                           ? FontWeight.w700
@@ -622,7 +622,7 @@ class _CategoryFilterButton extends StatelessWidget {
                 Text(
                   '$count',
                   style: const TextStyle(
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -634,19 +634,19 @@ class _CategoryFilterButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsetsDirectional.fromSTEB(10, 7, 8, 7),
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant.withValues(alpha: 0.6),
+          color: KaizokuColors.surfaceElevated.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(selectedMeta.$2, size: 14, color: AppColors.textSecondary),
+            Icon(selectedMeta.$2, size: 14, color: KaizokuColors.textSecondary),
             const SizedBox(width: 6),
             Text(
               selectedMeta.$1,
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: KaizokuColors.textPrimary,
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
               ),
@@ -655,7 +655,7 @@ class _CategoryFilterButton extends StatelessWidget {
             Text(
               '$selectedCount',
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textSecondary,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -664,7 +664,7 @@ class _CategoryFilterButton extends StatelessWidget {
             const Icon(
               Icons.keyboard_arrow_down_rounded,
               size: 16,
-              color: AppColors.textHint,
+              color: KaizokuColors.textSecondary,
             ),
           ],
         ),
@@ -746,7 +746,7 @@ class _ProvidersListState extends State<_ProvidersList> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('profile.provider_needs_server'.tr()),
-                    backgroundColor: AppColors.surface,
+                    backgroundColor: KaizokuColors.surface,
                     behavior: SnackBarBehavior.floating,
                     duration: const Duration(seconds: 3),
                   ),
@@ -777,13 +777,13 @@ class _ProvidersEmpty extends StatelessWidget {
             Icon(
               Icons.search_off_rounded,
               size: 44,
-              color: AppColors.textHint.withValues(alpha: 0.7),
+              color: KaizokuColors.textSecondary.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 12),
             Text(
               'profile.no_providers_in_category'.tr(),
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -793,7 +793,7 @@ class _ProvidersEmpty extends StatelessWidget {
               'profile.try_select_all'.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppColors.textHint.withValues(alpha: 0.85),
+                color: KaizokuColors.textSecondary.withValues(alpha: 0.85),
                 fontSize: 12,
               ),
             ),
@@ -832,7 +832,7 @@ class _ProviderListTile extends StatelessWidget {
     messenger.showSnackBar(
       SnackBar(
         content: Text(ok ? '${'general.done'.tr()} ✓' : 'general.cancel'.tr()),
-        backgroundColor: AppColors.surface,
+        backgroundColor: KaizokuColors.surface,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
       ),
@@ -847,15 +847,15 @@ class _ProviderListTile extends StatelessWidget {
   Widget _tile(BuildContext context) {
     return Material(
       color: selected
-          ? AppColors.primary.withValues(alpha: 0.10)
-          : AppColors.surfaceVariant,
+          ? KaizokuColors.neonCrimson.withValues(alpha: 0.10)
+          : KaizokuColors.surfaceElevated,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: selected
-              ? Border.all(color: AppColors.primary, width: 1.2)
+              ? Border.all(color: KaizokuColors.neonCrimson, width: 1.2)
               : null,
         ),
         child: InkWell(
@@ -884,8 +884,8 @@ class _ProviderListTile extends StatelessWidget {
                               provider.name,
                               style: TextStyle(
                                 color: selected
-                                    ? AppColors.textPrimary
-                                    : AppColors.textSecondary,
+                                    ? KaizokuColors.textPrimary
+                                    : KaizokuColors.textSecondary,
                                 fontSize: 14,
                                 fontWeight: selected
                                     ? FontWeight.w700
@@ -947,7 +947,7 @@ class _ProviderListTile extends StatelessWidget {
                         Text(
                           provider.description,
                           style: const TextStyle(
-                            color: AppColors.textHint,
+                            color: KaizokuColors.textSecondary,
                             fontSize: 11,
                             height: 1.25,
                           ),
@@ -963,7 +963,7 @@ class _ProviderListTile extends StatelessWidget {
                   onPressed: onToggleFavorite,
                   icon: Icon(
                     isFavorite ? Icons.star : Icons.star_border,
-                    color: isFavorite ? Colors.amber : AppColors.textHint,
+                    color: isFavorite ? Colors.amber : KaizokuColors.textSecondary,
                     size: 20,
                   ),
                   visualDensity: VisualDensity.compact,
@@ -982,7 +982,7 @@ class _ProviderListTile extends StatelessWidget {
                     width: 20,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      color: KaizokuColors.neonCrimson,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -994,7 +994,7 @@ class _ProviderListTile extends StatelessWidget {
                 else
                   const Icon(
                     Icons.chevron_right_rounded,
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textSecondary,
                     size: 20,
                   ),
               ],
@@ -1013,7 +1013,7 @@ class _ServerDownBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const color = AppColors.error;
+    const color = KaizokuColors.neonCrimson;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
@@ -1059,16 +1059,16 @@ class _ProvidersOfflineBanner extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 2, 16, 10),
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border, width: 0.6),
+        border: Border.all(color: KaizokuColors.borderGlass, width: 0.6),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(
             Icons.cloud_off_rounded,
-            color: AppColors.textSecondary,
+            color: KaizokuColors.textSecondary,
             size: 20,
           ),
           const SizedBox(width: 10),
@@ -1079,7 +1079,7 @@ class _ProvidersOfflineBanner extends StatelessWidget {
                 Text(
                   'profile.offline_title'.tr(),
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1092,7 +1092,7 @@ class _ProvidersOfflineBanner extends StatelessWidget {
                         )
                       : 'profile.offline_no_local'.tr(),
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 12,
                     height: 1.4,
                   ),
@@ -1102,7 +1102,7 @@ class _ProvidersOfflineBanner extends StatelessWidget {
                   Text(
                     'profile.offline_cached_at'.tr(args: [_stamp(cachedAt!)]),
                     style: const TextStyle(
-                      color: AppColors.textHint,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 11,
                     ),
                   ),
@@ -1298,7 +1298,7 @@ class _ProvidersLoading extends StatelessWidget {
     return const Center(
       child: CircularProgressIndicator(
         strokeWidth: 2,
-        color: AppColors.textHint,
+        color: KaizokuColors.textSecondary,
       ),
     );
   }
@@ -1340,7 +1340,7 @@ class _ProvidersError extends StatelessWidget {
                     ),
                     child: const Icon(
                       Icons.cloud_off_rounded,
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       size: 28,
                     ),
                   ),
@@ -1349,7 +1349,7 @@ class _ProvidersError extends StatelessWidget {
                     'profile.offline_title'.tr(),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: KaizokuColors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
                       height: 1.2,
@@ -1360,7 +1360,7 @@ class _ProvidersError extends StatelessWidget {
                     'profile.offline_no_local'.tr(),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 13,
                       height: 1.5,
                     ),
@@ -1438,12 +1438,12 @@ class _ProviderFallback extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      color: AppColors.surfaceVariant,
+      color: KaizokuColors.surfaceElevated,
       alignment: Alignment.center,
       child: Text(
         name.isEmpty ? '?' : name[0].toUpperCase(),
         style: TextStyle(
-          color: AppColors.textSecondary,
+          color: KaizokuColors.textSecondary,
           fontWeight: FontWeight.w800,
           fontSize: size * 0.38,
         ),

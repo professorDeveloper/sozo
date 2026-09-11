@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/widgets/app_tab_bar.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
@@ -47,16 +48,20 @@ class _UserListsPageState extends State<UserListsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
         titleSpacing: 16,
         title: Text(
           'user_lists.title'.tr(),
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         bottom: AppTabBar(
           // Two tabs: split the bar rather than hugging the left edge.
@@ -132,23 +137,26 @@ class _UserListTabState extends State<_UserListTab>
     super.build(context);
     final items = _items;
     if (items == null) {
-      return Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
+      return const Center(
+        child: CircularProgressIndicator(color: KaizokuColors.neonCrimson),
       );
     }
 
     return RefreshIndicator(
-      color: AppColors.primary,
-      backgroundColor: AppColors.surface,
+      color: KaizokuColors.neonCrimson,
+      backgroundColor: KaizokuColors.surface,
       onRefresh: _load,
       child: items.isEmpty
           ? const _EmptyState()
           : ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 12),
               physics: const AlwaysScrollableScrollPhysics(),
               itemCount: items.length,
-              separatorBuilder: (_, _) =>
-                  Divider(color: AppColors.divider, height: 1, indent: 84),
+              separatorBuilder: (_, _) => Divider(
+                color: KaizokuColors.surfaceLight.withValues(alpha: 0.5),
+                height: 1,
+                indent: 84,
+              ),
               itemBuilder: (context, i) {
                 final item = items[i];
                 return _UserListRow(
@@ -177,15 +185,24 @@ class _UserListRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      splashColor: KaizokuColors.neonCrimson.withValues(alpha: 0.1),
+      highlightColor: Colors.white.withValues(alpha: 0.05),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            // Fixed box: the thumbnail loads late, and letting it size the row
-            // makes the whole list jump as images arrive.
-            SizedBox(
+            // Fixed box with subtle glass border
+            Container(
               width: 54,
               height: 76,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 0.8,
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
               child: HomeNetworkImage(
                 url: item.thumbnail,
                 borderRadius: BorderRadius.circular(8),
@@ -205,21 +222,40 @@ class _UserListRow extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       height: 1.3,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    item.provider,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                    ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: KaizokuColors.surfaceLight,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.06),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Text(
+                          item.provider,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: KaizokuColors.textSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -229,9 +265,10 @@ class _UserListRow extends StatelessWidget {
               tooltip: 'user_lists.remove'.tr(),
               icon: const Icon(
                 Icons.close_rounded,
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 size: 20,
               ),
+              hoverColor: KaizokuColors.neonCrimson.withValues(alpha: 0.15),
               onPressed: onRemove,
             ),
           ],
@@ -246,18 +283,12 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Scrollable so the empty tab still answers a pull-to-refresh.
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
           child: Padding(
-            // Biased above the true centre. The app bar and the tab strip take
-            // the top of the screen, so a block centred in what is left reads
-            // as sitting too low — the eye measures against the whole screen,
-            // not against the viewport it was given. The same 1/8 nudge is what
-            // the My List empty state gets from its bottom padding.
             padding: EdgeInsets.only(
               left: 32,
               right: 32,
@@ -266,27 +297,46 @@ class _EmptyState extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.playlist_add_check_rounded,
-                  color: AppColors.textHint,
-                  size: 52,
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: KaizokuColors.surface,
+                    border: Border.all(
+                      color: KaizokuColors.neonCrimson.withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: KaizokuColors.neonCrimson.withValues(alpha: 0.12),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.playlist_add_check_rounded,
+                    color: KaizokuColors.neonCrimson,
+                    size: 34,
+                  ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 18),
                 Text(
                   'user_lists.empty_title'.tr(),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   'user_lists.empty_subtitle'.tr(),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 13,
                     height: 1.4,
                   ),

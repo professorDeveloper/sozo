@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
@@ -66,7 +67,7 @@ class _DownloadsView extends StatelessWidget {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       body: BlocConsumer<DownloadsBloc, DownloadsState>(
         // A move is an event, not a condition: it is reported once, when it
         // finishes, rather than by every later rebuild.
@@ -91,7 +92,7 @@ class _DownloadsView extends StatelessWidget {
               SliverAppBar(
                 pinned: true,
                 automaticallyImplyLeading: false,
-                backgroundColor: AppColors.background,
+                backgroundColor: KaizokuColors.cyberObsidian,
                 surfaceTintColor: Colors.transparent,
                 elevation: 0,
                 scrolledUnderElevation: 0,
@@ -112,7 +113,7 @@ class _DownloadsView extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: AppColors.textPrimary,
+                          color: KaizokuColors.textPrimary,
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
                         ),
@@ -187,7 +188,7 @@ class _DownloadsView extends StatelessWidget {
                 SliverList.separated(
                   itemCount: state.groups.length,
                   separatorBuilder: (_, _) =>
-                      Divider(color: AppColors.divider, height: 1, indent: 82),
+                      Divider(color: KaizokuColors.cardBorder, height: 1, indent: 82),
                   itemBuilder: (_, i) {
                     final group = state.groups[i];
                     return DownloadGroupTile(
@@ -336,12 +337,15 @@ class _DownloadsView extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: KaizokuColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: KaizokuColors.cardBorder, width: 0.5),
+        ),
         title: Text(
           'downloads.delete_all_title'.tr(),
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: KaizokuColors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -350,7 +354,7 @@ class _DownloadsView extends StatelessWidget {
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
               'general.cancel'.tr(),
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: const TextStyle(color: KaizokuColors.textSecondary),
             ),
           ),
           TextButton(
@@ -361,7 +365,7 @@ class _DownloadsView extends StatelessWidget {
             child: Text(
               'general.delete'.tr(),
               style: const TextStyle(
-                color: AppColors.error,
+                color: KaizokuColors.neonCrimson,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -392,8 +396,12 @@ class _OverflowMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<Object>(
-      icon: const Icon(Icons.more_vert_rounded, color: AppColors.textPrimary),
-      color: AppColors.surface,
+      icon: const Icon(Icons.more_vert_rounded, color: KaizokuColors.textPrimary),
+      color: KaizokuColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: KaizokuColors.cardBorder, width: 0.5),
+      ),
       onSelected: (value) {
         if (value is DownloadsSort) {
           onSort(value);
@@ -409,7 +417,7 @@ class _OverflowMenu extends StatelessWidget {
           height: 30,
           child: Text(
             'downloads.sort_by'.tr(),
-            style: const TextStyle(color: AppColors.textHint, fontSize: 11),
+            style: const TextStyle(color: KaizokuColors.textMuted, fontSize: 11),
           ),
         ),
         for (final option in DownloadsSort.values)
@@ -420,21 +428,21 @@ class _OverflowMenu extends StatelessWidget {
               DownloadsSort.newest => 'downloads.sort_newest'.tr(),
               DownloadsSort.title => 'downloads.sort_title'.tr(),
               DownloadsSort.size => 'downloads.sort_size'.tr(),
-            }, style: const TextStyle(color: AppColors.textPrimary)),
+            }, style: const TextStyle(color: KaizokuColors.textPrimary)),
           ),
         const PopupMenuDivider(),
         PopupMenuItem<Object>(
           value: 'retry',
           child: Text(
             'downloads.retry_all'.tr(),
-            style: const TextStyle(color: AppColors.textPrimary),
+            style: const TextStyle(color: KaizokuColors.textPrimary),
           ),
         ),
         PopupMenuItem<Object>(
           value: 'clear',
           child: Text(
             'downloads.clear_all'.tr(),
-            style: const TextStyle(color: AppColors.error),
+            style: const TextStyle(color: KaizokuColors.neonCrimson),
           ),
         ),
       ],
@@ -450,8 +458,10 @@ class _CircleBackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.surface,
-      shape: const CircleBorder(),
+      color: KaizokuColors.surface,
+      shape: CircleBorder(
+        side: BorderSide(color: KaizokuColors.cardBorder, width: 0.5),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -460,7 +470,7 @@ class _CircleBackButton extends StatelessWidget {
           height: 36,
           child: Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: AppColors.textPrimary,
+            color: KaizokuColors.textPrimary,
             size: 16,
           ),
         ),

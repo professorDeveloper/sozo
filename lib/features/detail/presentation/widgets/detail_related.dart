@@ -3,7 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/detail/domain/entities/related_entity.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_empty_state.dart';
@@ -115,7 +115,7 @@ class _RelatedCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: Colors.white,
               fontSize: 12,
               fontWeight: FontWeight.w600,
               height: 1.25,
@@ -128,7 +128,7 @@ class _RelatedCard extends StatelessWidget {
             item.year?.toString() ?? '',
             maxLines: 1,
             style: const TextStyle(
-              color: AppColors.textHint,
+              color: KaizokuColors.textMuted,
               fontSize: 11,
               height: 1.3,
             ),
@@ -147,11 +147,11 @@ class _RelatedThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     if (url == null || url!.isEmpty) {
       return Container(
-        color: AppColors.surfaceVariant,
+        color: KaizokuColors.surfaceLight,
         child: const Center(
           child: Icon(
             Icons.movie_outlined,
-            color: AppColors.textHint,
+            color: KaizokuColors.textMuted,
             size: 28,
           ),
         ),
@@ -164,13 +164,13 @@ class _RelatedThumbnail extends StatelessWidget {
       imageUrl: url!,
       fit: BoxFit.cover,
       fadeInDuration: const Duration(milliseconds: 180),
-      placeholder: (_, _) => ColoredBox(color: AppColors.surfaceVariant),
+      placeholder: (_, _) => const ColoredBox(color: KaizokuColors.surfaceLight),
       errorWidget: (_, _, _) => Container(
-        color: AppColors.surfaceVariant,
+        color: KaizokuColors.surfaceLight,
         child: const Center(
           child: Icon(
             Icons.movie_outlined,
-            color: AppColors.textHint,
+            color: KaizokuColors.textMuted,
             size: 28,
           ),
         ),

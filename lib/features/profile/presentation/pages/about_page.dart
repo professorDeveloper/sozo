@@ -4,7 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -42,7 +42,7 @@ class AboutSection extends StatelessWidget {
     showAdaptiveModal<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
+      backgroundColor: KaizokuColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -65,7 +65,7 @@ class AboutSection extends StatelessWidget {
                   errorBuilder: (_, _, _) => Container(
                     width: 56,
                     height: 56,
-                    color: AppColors.primary,
+                    color: KaizokuColors.primary,
                     child: const Center(
                       child: Text(
                         'AX',
@@ -83,7 +83,7 @@ class AboutSection extends StatelessWidget {
               const Text(
                 'Azamov X',
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
                 ),
@@ -92,7 +92,7 @@ class AboutSection extends StatelessWidget {
               Text(
                 'profile.developer_role'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 12,
                 ),
               ),
@@ -100,7 +100,7 @@ class AboutSection extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: Material(
-                  color: AppColors.surfaceVariant,
+                  color: KaizokuColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
@@ -121,7 +121,7 @@ class AboutSection extends StatelessWidget {
                           Text(
                             '@ackles',
                             style: TextStyle(
-                              color: AppColors.textPrimary,
+                              color: KaizokuColors.textPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -129,7 +129,7 @@ class AboutSection extends StatelessWidget {
                           Spacer(),
                           Icon(
                             Icons.open_in_new_rounded,
-                            color: AppColors.textHint,
+                            color: KaizokuColors.textMuted,
                             size: 16,
                           ),
                         ],
@@ -155,7 +155,7 @@ class AboutSection extends StatelessWidget {
           children: [
             SettingsNavTile(
               icon: Icons.info_outline_rounded,
-              title: 'Sozo',
+              title: 'app_name'.tr(),
               trailing: FutureBuilder<PackageInfo>(
                 future: _packageInfo,
                 builder: (_, snap) => Text(
@@ -163,7 +163,7 @@ class AboutSection extends StatelessWidget {
                       ? 'v${snap.data!.version} (${snap.data!.buildNumber})'
                       : '…',
                   style: const TextStyle(
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textMuted,
                     fontSize: 13,
                   ),
                 ),
@@ -217,7 +217,7 @@ class _SheetHandle extends StatelessWidget {
       width: 40,
       height: 4,
       decoration: BoxDecoration(
-        color: AppColors.border,
+        color: KaizokuColors.border,
         borderRadius: BorderRadius.circular(2),
       ),
     );
@@ -246,20 +246,20 @@ class _SocialIcon extends StatelessWidget {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: KaizokuColors.surface,
               shape: BoxShape.circle,
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.08),
                 width: 0.5,
               ),
             ),
-            child: Icon(icon, color: AppColors.textSecondary, size: 22),
+            child: Icon(icon, color: KaizokuColors.textSecondary, size: 22),
           ),
           const SizedBox(height: 6),
           Text(
             label,
             style: const TextStyle(
-              color: AppColors.textHint,
+              color: KaizokuColors.textMuted,
               fontSize: 10,
               fontWeight: FontWeight.w600,
             ),
@@ -307,7 +307,7 @@ class _ServerCountdownTileState extends State<_ServerCountdownTile> {
   void _showSupportSheet(BuildContext context) {
     showAdaptiveModal<void>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: KaizokuColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -345,8 +345,8 @@ class _ServerCountdownTileState extends State<_ServerCountdownTile> {
                     // "Expired" means nothing will load: an error, not a
                     // place to show the theme.
                     color: rem == Duration.zero
-                        ? AppColors.error
-                        : AppColors.textSecondary,
+                        ? KaizokuColors.error
+                        : KaizokuColors.textSecondary,
                     fontSize: 13,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
@@ -380,12 +380,12 @@ class _ServerSupportSheet extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
+              color: KaizokuColors.surfaceVariant,
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
               Icons.dns_rounded,
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               size: 24,
             ),
           ),
@@ -393,7 +393,7 @@ class _ServerSupportSheet extends StatelessWidget {
           Text(
             'profile.support_title'.tr(),
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: KaizokuColors.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
@@ -407,14 +407,14 @@ class _ServerSupportSheet extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.08),
+                    color: KaizokuColors.error.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'profile.server_expired'.tr(),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: AppColors.error,
+                      color: KaizokuColors.error,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                     ),
@@ -455,7 +455,7 @@ class _ServerSupportSheet extends StatelessWidget {
                   : 'profile.support_body'.tr(),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 13,
                 height: 1.5,
               ),
@@ -495,7 +495,7 @@ class _SheetCountdownCell extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
+          color: KaizokuColors.surfaceVariant,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -503,7 +503,7 @@ class _SheetCountdownCell extends StatelessWidget {
             Text(
               value.toString().padLeft(2, '0'),
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: KaizokuColors.textPrimary,
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
                 height: 1,
@@ -514,7 +514,7 @@ class _SheetCountdownCell extends StatelessWidget {
             Text(
               label,
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),

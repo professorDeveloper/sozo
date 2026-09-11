@@ -8,7 +8,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/platform_utils.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/view_all.dart';
 import 'package:soplay/features/shorts/domain/entities/short_entity.dart';
@@ -102,7 +102,7 @@ class _ShortsViewState extends State<_ShortsView>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: AppColors.surface,
+        backgroundColor: KaizokuColors.surface,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
       ),
@@ -325,7 +325,7 @@ class _ShortsViewState extends State<_ShortsView>
                                 right: 0,
                                 child: LinearProgressIndicator(
                                   minHeight: 2,
-                                  color: AppColors.primary,
+                                  color: KaizokuColors.neonCrimson,
                                   backgroundColor: Colors.transparent,
                                 ),
                               ),

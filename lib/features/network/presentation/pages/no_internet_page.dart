@@ -3,7 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/constants/app_constants.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_downloads_section.dart';
 
 class NoInternetPage extends StatefulWidget {
@@ -48,7 +48,7 @@ class _NoInternetPageState extends State<NoInternetPage> {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: SizedBox(height: topPad + 24)),
@@ -62,12 +62,13 @@ class _NoInternetPageState extends State<NoInternetPage> {
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(8),
+                      color: KaizokuColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: KaizokuColors.borderGlass),
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.wifi_off_rounded,
-                      color: AppColors.primary,
+                      color: KaizokuColors.neonCrimson,
                       size: 26,
                     ),
                   ),
@@ -75,7 +76,7 @@ class _NoInternetPageState extends State<NoInternetPage> {
                   Text(
                     'general.no_internet'.tr(),
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: KaizokuColors.textPrimary,
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
                       height: 1.1,
@@ -85,7 +86,7 @@ class _NoInternetPageState extends State<NoInternetPage> {
                   Text(
                     'desktop.offline_watch_downloads'.tr(),
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 14,
                       height: 1.35,
                     ),
@@ -96,6 +97,14 @@ class _NoInternetPageState extends State<NoInternetPage> {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: _checking ? null : _retry,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: KaizokuColors.neonCrimson,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
                           icon: _checking
                               ? const SizedBox(
                                   width: 16,
@@ -116,8 +125,12 @@ class _NoInternetPageState extends State<NoInternetPage> {
                           icon: const Icon(Icons.download_done_rounded),
                           label: Text('navigation.downloads'.tr()),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.textPrimary,
-                            side: BorderSide(color: AppColors.divider),
+                            foregroundColor: KaizokuColors.textPrimary,
+                            side: const BorderSide(color: KaizokuColors.borderGlass),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
                       ),

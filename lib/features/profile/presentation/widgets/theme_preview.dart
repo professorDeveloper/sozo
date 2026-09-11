@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/theme/app_palette.dart';
 import 'package:soplay/core/theme/app_theme.dart';
 
@@ -30,9 +30,9 @@ class ThemePreview extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: KaizokuColors.background,
         borderRadius: BorderRadius.circular(kFieldRadius),
-        border: Border.all(color: AppColors.border, width: 0.8),
+        border: Border.all(color: KaizokuColors.border, width: 0.8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,7 +68,7 @@ class ThemePreview extends StatelessWidget {
                       minimumSize: const Size(0, kButtonHeight),
                       padding: EdgeInsets.zero,
                       side: BorderSide(
-                        color: AppColors.textPrimary.withValues(alpha: 0.22),
+                        color: KaizokuColors.textPrimary.withValues(alpha: 0.22),
                         width: 1.2,
                       ),
                     ),
@@ -104,8 +104,8 @@ class _SampleSectionHead extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                AppColors.primary,
-                AppColors.primary.withValues(alpha: 0.55),
+                KaizokuColors.primary,
+                KaizokuColors.primary.withValues(alpha: 0.55),
               ],
             ),
             borderRadius: BorderRadius.circular(2),
@@ -122,7 +122,7 @@ class _SampleSectionHead extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: KaizokuColors.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.w800,
               height: 1.1,
@@ -131,7 +131,7 @@ class _SampleSectionHead extends StatelessWidget {
         ),
         const Icon(
           Icons.chevron_right_rounded,
-          color: AppColors.textHint,
+          color: KaizokuColors.textMuted,
           size: 20,
         ),
       ],
@@ -149,10 +149,10 @@ class _SampleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.textPrimary.withValues(alpha: 0.05),
+          color: KaizokuColors.textPrimary.withValues(alpha: 0.05),
           width: 0.5,
         ),
       ),
@@ -164,7 +164,7 @@ class _SampleCard extends StatelessWidget {
             title: 'appearance.title'.tr(),
             trailing: _SampleSwitch(),
           ),
-          Divider(color: AppColors.divider, height: 1, indent: 60),
+          Divider(color: KaizokuColors.border, height: 1, indent: 60),
           _SampleRow(
             icon: Icons.play_circle_outline_rounded,
             title: 'profile.section_player'.tr(),
@@ -183,7 +183,7 @@ class _SampleCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: AppColors.primary,
+                        color: KaizokuColors.primary,
                         fontSize: 13.5,
                         fontWeight: FontWeight.w600,
                       ),
@@ -191,7 +191,7 @@ class _SampleCard extends StatelessWidget {
                   ),
                   Icon(
                     Icons.arrow_drop_down_rounded,
-                    color: AppColors.primary,
+                    color: KaizokuColors.primary,
                     size: 22,
                   ),
                 ],
@@ -227,10 +227,10 @@ class _SampleRow extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: AppColors.textSecondary.withValues(alpha: 0.1),
+              color: KaizokuColors.textSecondary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: AppColors.textSecondary, size: 17),
+            child: Icon(icon, color: KaizokuColors.textSecondary, size: 17),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -239,7 +239,7 @@ class _SampleRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: KaizokuColors.textPrimary,
                 fontSize: 14.5,
                 fontWeight: FontWeight.w500,
               ),
@@ -264,7 +264,7 @@ class _SampleSwitch extends StatelessWidget {
         value: true,
         onChanged: (_) {},
         activeThumbColor: Colors.white,
-        activeTrackColor: AppColors.primary,
+        activeTrackColor: KaizokuColors.primary,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );
@@ -285,8 +285,8 @@ class _SampleProgress extends StatelessWidget {
             child: LinearProgressIndicator(
               value: 0.62,
               minHeight: 4,
-              backgroundColor: AppColors.surfaceVariant,
-              color: AppColors.primary,
+              backgroundColor: KaizokuColors.surfaceVariant,
+              color: KaizokuColors.primary,
             ),
           ),
         ),
@@ -294,7 +294,7 @@ class _SampleProgress extends StatelessWidget {
         Text(
           '62%',
           style: TextStyle(
-            color: AppColors.primary,
+            color: KaizokuColors.primary,
             fontSize: 12,
             fontWeight: FontWeight.w700,
             fontFeatures: const [FontFeature.tabularFigures()],
@@ -334,7 +334,7 @@ class DarknessSample extends StatelessWidget {
                   color: palette.surface,
                   borderRadius: BorderRadius.circular(7),
                   border: Border.all(
-                    color: AppColors.textPrimary.withValues(alpha: 0.05),
+                    color: KaizokuColors.textPrimary.withValues(alpha: 0.05),
                     width: 0.5,
                   ),
                 ),
@@ -353,7 +353,7 @@ class DarknessSample extends StatelessWidget {
                       child: Container(
                         height: 4,
                         decoration: BoxDecoration(
-                          color: AppColors.textPrimary.withValues(alpha: 0.85),
+                          color: KaizokuColors.textPrimary.withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),

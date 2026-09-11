@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/download/domain/entities/download_status.dart';
 import 'package:soplay/features/download/presentation/bloc/downloads_state.dart';
@@ -132,7 +133,7 @@ class _GroupHeader extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: KaizokuColors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       height: 1.3,
@@ -144,7 +145,7 @@ class _GroupHeader extends StatelessWidget {
                       args: ['$done', '${group.items.length}'],
                     ),
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 11.5,
                     ),
                   ),
@@ -155,7 +156,7 @@ class _GroupHeader extends StatelessWidget {
                         Text(
                           formatBytes(group.sizeBytes),
                           style: const TextStyle(
-                            color: AppColors.textHint,
+                            color: KaizokuColors.textMuted,
                             fontSize: 11,
                           ),
                         ),
@@ -164,14 +165,14 @@ class _GroupHeader extends StatelessWidget {
                           const Text(
                             '  ·  ',
                             style: TextStyle(
-                              color: AppColors.textHint,
+                              color: KaizokuColors.textMuted,
                               fontSize: 11,
                             ),
                           ),
                         Text(
                           'downloads.group_problems'.tr(),
                           style: const TextStyle(
-                            color: AppColors.error,
+                            color: KaizokuColors.neonCrimson,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -188,14 +189,17 @@ class _GroupHeader extends StatelessWidget {
                 child: SizedBox(
                   width: 14,
                   height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: KaizokuColors.neonCrimson,
+                  ),
                 ),
               ),
             Icon(
               expanded
                   ? Icons.keyboard_arrow_up_rounded
                   : Icons.keyboard_arrow_down_rounded,
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
             ),
           ],
         ),
@@ -330,15 +334,15 @@ class _DownloadRow extends StatelessWidget {
                 // indeterminate rather than pretending to sit at zero.
                 value: item.progress,
                 minHeight: 3,
-                backgroundColor: AppColors.divider,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                backgroundColor: KaizokuColors.surfaceLight,
+                valueColor: const AlwaysStoppedAnimation<Color>(KaizokuColors.neonCrimson),
               ),
             ),
             const SizedBox(height: 4),
             Text(
               downloadProgressLabel(item),
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -348,7 +352,7 @@ class _DownloadRow extends StatelessWidget {
         return Text(
           downloadSizeLabel(item),
           style: const TextStyle(
-            color: AppColors.success,
+            color: KaizokuColors.electricCyan,
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -357,7 +361,7 @@ class _DownloadRow extends StatelessWidget {
         return Text(
           'downloads.missing'.tr(),
           style: const TextStyle(
-            color: AppColors.rating,
+            color: KaizokuColors.solarAmber,
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -368,7 +372,7 @@ class _DownloadRow extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: AppColors.error,
+            color: KaizokuColors.neonCrimson,
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -377,7 +381,7 @@ class _DownloadRow extends StatelessWidget {
         return Text(
           'downloads.paused'.tr(),
           style: const TextStyle(
-            color: AppColors.textSecondary,
+            color: KaizokuColors.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -404,14 +408,14 @@ class _DownloadRow extends StatelessWidget {
       case DownloadStatus.missing:
         return _CircleAction(
           icon: Icons.refresh_rounded,
-          color: AppColors.error,
+          color: KaizokuColors.neonCrimson,
           onTap: onRetry,
           semanticLabel: 'general.retry'.tr(),
         );
       case DownloadStatus.completed:
         return const _CircleAction(
           icon: Icons.check_rounded,
-          color: AppColors.success,
+          color: KaizokuColors.electricCyan,
           onTap: null,
           semanticLabel: '',
         );
@@ -421,7 +425,7 @@ class _DownloadRow extends StatelessWidget {
   Future<void> _showActions(BuildContext context) async {
     final action = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -435,7 +439,7 @@ class _DownloadRow extends StatelessWidget {
               width: 38,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.textSecondary.withValues(alpha: 0.4),
+                color: KaizokuColors.surfaceLight,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -447,7 +451,7 @@ class _DownloadRow extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
@@ -458,11 +462,11 @@ class _DownloadRow extends StatelessWidget {
               ListTile(
                 leading: const Icon(
                   Icons.refresh_rounded,
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                 ),
                 title: Text(
                   'downloads.download_again'.tr(),
-                  style: const TextStyle(color: AppColors.textPrimary),
+                  style: const TextStyle(color: KaizokuColors.textPrimary),
                 ),
                 onTap: () => Navigator.of(sheetCtx).pop('retry'),
               ),
@@ -473,16 +477,16 @@ class _DownloadRow extends StatelessWidget {
               ListTile(
                 leading: const Icon(
                   Icons.save_alt_rounded,
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                 ),
                 title: Text(
                   'downloads.export'.tr(),
-                  style: const TextStyle(color: AppColors.textPrimary),
+                  style: const TextStyle(color: KaizokuColors.textPrimary),
                 ),
                 subtitle: Text(
                   'downloads.export_hint'.tr(),
                   style: const TextStyle(
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -491,11 +495,11 @@ class _DownloadRow extends StatelessWidget {
             ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,
-                color: AppColors.error,
+                color: KaizokuColors.neonCrimson,
               ),
               title: Text(
                 'downloads.remove'.tr(),
-                style: const TextStyle(color: AppColors.textPrimary),
+                style: const TextStyle(color: KaizokuColors.neonCrimson),
               ),
               onTap: () => Navigator.of(sheetCtx).pop('remove'),
             ),
@@ -595,8 +599,9 @@ class _CircleAction extends StatelessWidget {
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: KaizokuColors.surfaceLight,
         shape: BoxShape.circle,
+        border: Border.all(color: KaizokuColors.cardBorder, width: 0.5),
       ),
       child: Icon(icon, size: 18, color: color),
     );

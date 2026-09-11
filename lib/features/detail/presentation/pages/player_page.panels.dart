@@ -710,7 +710,7 @@ extension _PlayerPanels on _PlayerPageState {
           content: Text(
             'player.external_player_gated'.tr(),
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 13,
               height: 1.4,
             ),
@@ -1109,7 +1109,7 @@ extension _PlayerPanels on _PlayerPageState {
 
       // Into an album of its own, so screenshots taken over months are one
       // scroll rather than scattered through the camera roll by date.
-      await Gal.putImage(file.path, album: 'Sozo');
+      await Gal.putImage(file.path, album: 'Kaizoku');
 
       // The temp copy has served its purpose the moment the gallery has one.
       unawaited(file.delete().catchError((_) => file));
@@ -1351,7 +1351,7 @@ class _ServerTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.textSecondary,
+                        color: KaizokuColors.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),

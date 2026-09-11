@@ -2,7 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/entities/screenshot_entity.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_empty_state.dart';
 
@@ -76,7 +76,7 @@ class _ScreenshotCard extends StatelessWidget {
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
+          color: KaizokuColors.surfaceLight,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Stack(
@@ -87,11 +87,11 @@ class _ScreenshotCard extends StatelessWidget {
               fit: BoxFit.cover,
               fadeInDuration: const Duration(milliseconds: 180),
               placeholder: (_, _) =>
-                  ColoredBox(color: AppColors.surfaceVariant),
+                  const ColoredBox(color: KaizokuColors.surfaceLight),
               errorWidget: (_, _, _) => const Center(
                 child: Icon(
                   Icons.broken_image_outlined,
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textMuted,
                 ),
               ),
             ),
@@ -337,7 +337,7 @@ class _ZoomablePhotoState extends State<_ZoomablePhoto>
             // download — the spinner is for the first open only.
             errorWidget: (_, _, _) => const Icon(
               Icons.broken_image_outlined,
-              color: AppColors.textHint,
+              color: KaizokuColors.textMuted,
               size: 48,
             ),
             progressIndicatorBuilder: (_, _, _) {

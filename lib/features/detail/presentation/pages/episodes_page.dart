@@ -13,7 +13,7 @@ import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.
 import 'package:soplay/features/detail/domain/episode_blocks.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/system/platform_utils.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/download_choices.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
@@ -48,7 +48,7 @@ import 'package:soplay/features/history/domain/entities/history_item.dart';
 /// Null off TV, which is what these `InkWell`s passed before, so phone and
 /// desktop keep the theme default and render unchanged.
 Color? get _kTvRowFocusFill =>
-    isTvPlatform ? AppColors.primary.withValues(alpha: 0.22) : null;
+    isTvPlatform ? KaizokuColors.neonCrimson.withValues(alpha: 0.22) : null;
 
 class EpisodesPage extends StatefulWidget {
   const EpisodesPage({super.key, required this.args});
@@ -855,10 +855,10 @@ class _EpisodesPageState extends State<EpisodesPage> {
   Future<bool?> _confirmLargeBatch(List<int> indices) => showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      backgroundColor: AppColors.surface,
+      backgroundColor: KaizokuColors.surface,
       title: Text(
         'detail.download_batch_title'.tr(),
-        style: TextStyle(color: AppColors.textPrimary, fontSize: 17),
+        style: const TextStyle(color: Colors.white, fontSize: 17),
       ),
       content: Text(
         'detail.download_batch_body'.tr(
@@ -867,14 +867,14 @@ class _EpisodesPageState extends State<EpisodesPage> {
             'count': '${indices.length}',
           },
         ),
-        style: TextStyle(color: AppColors.textSecondary, height: 1.4),
+        style: const TextStyle(color: KaizokuColors.textSecondary, height: 1.4),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),
           child: Text(
             'general.cancel'.tr(),
-            style: TextStyle(color: AppColors.textSecondary),
+            style: const TextStyle(color: KaizokuColors.textSecondary),
           ),
         ),
         FilledButton(
@@ -955,7 +955,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
           if (!didPop) _clearSelection();
         },
         child: Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: KaizokuColors.cyberObsidian,
           body: Stack(
             children: [
               _episodes.isEmpty
@@ -1045,7 +1045,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
                                         namedArgs: {'query': _query},
                                       ),
                                 style: const TextStyle(
-                                  color: AppColors.textHint,
+                                  color: KaizokuColors.textMuted,
                                   fontSize: 13,
                                   height: 1.4,
                                 ),
@@ -1058,7 +1058,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
                           // Indents line up with where the row's label starts:
                           // 16 + 88 thumb + 12, or 16 + 44 number + 12.
                           separatorBuilder: (_, _) => Divider(
-                            color: AppColors.divider,
+                            color: KaizokuColors.cardBorder,
                             height: 1,
                             indent: _showImages ? 116 : 72,
                           ),
@@ -1104,7 +1104,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
                                   width: 22,
                                   height: 22,
                                   child: CircularProgressIndicator(
-                                    color: AppColors.primary,
+                                    color: KaizokuColors.neonCrimson,
                                     strokeWidth: 2.4,
                                   ),
                                 ),
@@ -1310,8 +1310,8 @@ class _BlockChip extends StatelessWidget {
       selected: active,
       child: Material(
         color: active
-            ? AppColors.primary
-            : Colors.white.withValues(alpha: 0.06),
+            ? KaizokuColors.neonCrimson
+            : KaizokuColors.surfaceElevated,
         borderRadius: BorderRadius.circular(11),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -1322,7 +1322,7 @@ class _BlockChip extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: active ? Colors.white : AppColors.textSecondary,
+                  color: active ? Colors.white : KaizokuColors.textSecondary,
                   fontSize: 13.5,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                   // Numerals line up between pills, so the strip does not
@@ -1366,13 +1366,13 @@ class _EpisodeFilterField extends StatelessWidget {
         decoration: InputDecoration(
           isDense: true,
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.05),
+          fillColor: KaizokuColors.surfaceElevated,
           hintText: 'episodes.filter_hint'.tr(),
-          hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 13.5),
+          hintStyle: const TextStyle(color: KaizokuColors.textMuted, fontSize: 13.5),
           prefixIcon: const Icon(
             Icons.search_rounded,
             size: 19,
-            color: AppColors.textHint,
+            color: KaizokuColors.textMuted,
           ),
           prefixIconConstraints: const BoxConstraints(minWidth: 40),
           suffixIcon: ValueListenableBuilder<TextEditingValue>(
@@ -1381,7 +1381,7 @@ class _EpisodeFilterField extends StatelessWidget {
                 ? const SizedBox.shrink()
                 : IconButton(
                     icon: const Icon(Icons.close_rounded, size: 18),
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textMuted,
                     onPressed: () {
                       controller.clear();
                       onChanged('');
@@ -1424,7 +1424,7 @@ class _JumpToEpisodeRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 2, 16, 12),
       child: Material(
-        color: AppColors.primary.withValues(alpha: 0.14),
+        color: KaizokuColors.neonCrimson.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -1440,13 +1440,13 @@ class _JumpToEpisodeRow extends StatelessWidget {
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppColors.primary,
+                      color: KaizokuColors.neonCrimson,
                     ),
                   )
                 else
                   Icon(
                     Icons.my_location_rounded,
-                    color: AppColors.primary,
+                    color: KaizokuColors.neonCrimson,
                     size: 20,
                   ),
                 const SizedBox(width: 12),
@@ -1458,7 +1458,7 @@ class _JumpToEpisodeRow extends StatelessWidget {
                       Text(
                         'episodes.jump_to'.tr(namedArgs: {'n': '$number'}),
                         style: const TextStyle(
-                          color: AppColors.textPrimary,
+                          color: Colors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
@@ -1469,7 +1469,7 @@ class _JumpToEpisodeRow extends StatelessWidget {
                           namedArgs: {'range': block.label},
                         ),
                         style: const TextStyle(
-                          color: AppColors.textSecondary,
+                          color: KaizokuColors.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1519,7 +1519,7 @@ class _EpisodesAppBar extends StatelessWidget {
     final content = Container(
       height: topPad + 56,
       decoration: BoxDecoration(
-        color: AppColors.background.withValues(alpha: 0.9 * progress),
+        color: KaizokuColors.cyberObsidian.withValues(alpha: 0.94 * progress),
         border: progress > 0.05
             ? Border(
                 bottom: BorderSide(
@@ -1557,7 +1557,7 @@ class _EpisodesAppBar extends StatelessWidget {
         child: Text(
           'detail.selected_n'.tr(args: ['$selectedCount']),
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: Colors.white,
             fontSize: 17,
             fontWeight: FontWeight.w700,
             height: 1.1,
@@ -1568,8 +1568,8 @@ class _EpisodesAppBar extends StatelessWidget {
         onPressed: onSelectAll,
         child: Text(
           allSelected ? 'detail.select_none'.tr() : 'detail.select_all'.tr(),
-          style: TextStyle(
-            color: AppColors.primary,
+          style: const TextStyle(
+            color: KaizokuColors.neonCrimson,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1594,7 +1594,7 @@ class _EpisodesAppBar extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: Colors.white,
             fontSize: 17,
             fontWeight: FontWeight.w700,
             height: 1.1,
@@ -1619,7 +1619,7 @@ class _SortToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDesc = sort == 'desc';
     return Material(
-      color: AppColors.surface,
+      color: KaizokuColors.surfaceElevated,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: busy ? null : onTap,
@@ -1635,7 +1635,7 @@ class _SortToggle extends StatelessWidget {
                   height: 14,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                   ),
                 )
               else
@@ -1643,14 +1643,14 @@ class _SortToggle extends StatelessWidget {
                   isDesc
                       ? Icons.arrow_downward_rounded
                       : Icons.arrow_upward_rounded,
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   size: 16,
                 ),
               const SizedBox(width: 6),
               Text(
                 isDesc ? 'search.sort_newest'.tr() : 'search.sort_oldest'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1693,7 +1693,7 @@ class _CountHeader extends StatelessWidget {
     return Text(
       label,
       style: const TextStyle(
-        color: AppColors.textSecondary,
+        color: KaizokuColors.textSecondary,
         fontSize: 13,
         fontWeight: FontWeight.w500,
       ),
@@ -1711,15 +1711,15 @@ class _LoadMoreError extends StatelessWidget {
     return Container(
       padding: const EdgeInsetsDirectional.fromSTEB(14, 12, 12, 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border, width: 0.6),
+        border: Border.all(color: KaizokuColors.cardBorder, width: 0.6),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.error_outline_rounded,
-            color: AppColors.textHint,
+            color: KaizokuColors.textMuted,
             size: 18,
           ),
           const SizedBox(width: 10),
@@ -1729,7 +1729,7 @@ class _LoadMoreError extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -1858,9 +1858,9 @@ class _EpisodeRow extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 260),
         color: selected
-            ? AppColors.primary.withValues(alpha: 0.10)
+            ? KaizokuColors.neonCrimson.withValues(alpha: 0.12)
             : flash
-            ? AppColors.primary.withValues(alpha: 0.18)
+            ? KaizokuColors.neonCrimson.withValues(alpha: 0.20)
             : Colors.transparent,
         padding: EdgeInsets.symmetric(
           horizontal: 16,
@@ -1894,8 +1894,8 @@ class _EpisodeRow extends StatelessWidget {
                       maxLines: 1,
                       style: TextStyle(
                         color: progress != null
-                            ? AppColors.primary
-                            : AppColors.textHint,
+                            ? KaizokuColors.neonCrimson
+                            : KaizokuColors.textMuted,
                         fontSize: episode.episode >= 1000 ? 16 : 22,
                         fontWeight: FontWeight.w900,
                         fontFeatures: const [FontFeature.tabularFigures()],
@@ -1919,8 +1919,8 @@ class _EpisodeRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: showImage
-                                ? AppColors.textPrimary
-                                : AppColors.textSecondary,
+                                ? Colors.white
+                                : KaizokuColors.textSecondary,
                             fontSize: showImage ? 13 : 14,
                             fontWeight: showImage
                                 ? FontWeight.w600
@@ -1935,7 +1935,7 @@ class _EpisodeRow extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: AppColors.textHint,
+                            color: KaizokuColors.textMuted,
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1959,7 +1959,7 @@ class _EpisodeRow extends StatelessWidget {
                         ? Icons.check_circle_rounded
                         : Icons.circle_outlined,
                     size: 24,
-                    color: selected ? AppColors.primary : AppColors.textHint,
+                    color: selected ? KaizokuColors.neonCrimson : KaizokuColors.textMuted,
                   ),
                 ] else ...[
                   if (onDownload != null) ...[
@@ -1975,8 +1975,8 @@ class _EpisodeRow extends StatelessWidget {
                     height: 34,
                     decoration: BoxDecoration(
                       color: progress != null
-                          ? AppColors.primary.withValues(alpha: 0.15)
-                          : AppColors.surfaceVariant,
+                          ? KaizokuColors.neonCrimson.withValues(alpha: 0.15)
+                          : KaizokuColors.surfaceElevated,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -1984,8 +1984,8 @@ class _EpisodeRow extends StatelessWidget {
                           ? Icons.menu_book_outlined
                           : Icons.play_arrow_rounded,
                       color: progress != null
-                          ? AppColors.primary
-                          : AppColors.textPrimary,
+                          ? KaizokuColors.neonCrimson
+                          : Colors.white,
                       size: 18,
                     ),
                   ),
@@ -2003,9 +2003,9 @@ class _EpisodeRow extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: progress!,
                     minHeight: 3,
-                    backgroundColor: AppColors.divider,
+                    backgroundColor: KaizokuColors.surfaceElevated,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.primary,
+                      KaizokuColors.neonCrimson,
                     ),
                   ),
                 ),
@@ -2049,13 +2049,22 @@ class _BatchDownloadBar extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPad + 12),
       decoration: BoxDecoration(
-        color: AppColors.navBackground,
-        border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),
+        color: KaizokuColors.surface,
+        border: Border(
+          top: BorderSide(
+            color: Colors.white.withValues(alpha: 0.08),
+            width: 0.5,
+          ),
+        ),
       ),
       child: SizedBox(
         height: 46,
         width: double.infinity,
         child: FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: KaizokuColors.neonCrimson,
+            foregroundColor: Colors.white,
+          ),
           // Disabled while queueing so a second tap cannot double-queue a set
           // that is halfway through resolving.
           onPressed: busy ? null : onDownload,
@@ -2136,7 +2145,7 @@ class _DownloadControl extends StatelessWidget {
                   ? download?.progress
                   : null,
               strokeWidth: 2,
-              color: AppColors.primary,
+              color: KaizokuColors.neonCrimson,
             ),
           ),
         ),
@@ -2151,12 +2160,12 @@ class _DownloadControl extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
+              color: KaizokuColors.surfaceLight,
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.download_done_rounded,
-              color: AppColors.success,
+              color: KaizokuColors.electricCyan,
               size: 18,
             ),
           ),
@@ -2169,14 +2178,14 @@ class _DownloadControl extends StatelessWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: KaizokuColors.surfaceLight,
         shape: BoxShape.circle,
       ),
       child: Icon(
         failed ? Icons.refresh_rounded : Icons.download_outlined,
         // The retry glyph IS the failure signal on this row — it has to stay
         // red rather than turn into whatever the accent is.
-        color: failed ? AppColors.error : AppColors.textSecondary,
+        color: failed ? KaizokuColors.neonCrimson : KaizokuColors.textSecondary,
         size: 18,
       ),
     );
@@ -2240,7 +2249,7 @@ class _DownloadedTick extends StatelessWidget {
           padding: EdgeInsetsDirectional.only(end: 10),
           child: Icon(
             Icons.download_done_rounded,
-            color: AppColors.success,
+            color: KaizokuColors.electricCyan,
             size: 18,
           ),
         ),
@@ -2331,11 +2340,11 @@ class _ThumbFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.surfaceVariant,
+      color: KaizokuColors.surfaceElevated,
       alignment: Alignment.center,
       child: const Icon(
         Icons.movie_outlined,
-        color: AppColors.textHint,
+        color: KaizokuColors.textMuted,
         size: 18,
       ),
     );
@@ -2349,7 +2358,7 @@ class _LangChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = primary ? AppColors.primary : AppColors.textSecondary;
+    final color = primary ? KaizokuColors.neonCrimson : KaizokuColors.electricCyan;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -2381,14 +2390,14 @@ class _EmptyState extends StatelessWidget {
         children: [
           const Icon(
             Icons.video_library_outlined,
-            color: AppColors.textHint,
+            color: KaizokuColors.textMuted,
             size: 48,
           ),
           const SizedBox(height: 12),
           Text(
             'detail.no_episodes'.tr(),
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 14,
             ),
           ),

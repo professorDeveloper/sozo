@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/home/domain/home_rail.dart';
 
 /// Reorders and hides the bands on the home screen.
@@ -25,7 +25,7 @@ Future<void> showHomeRailCustomizer(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppColors.background,
+    backgroundColor: KaizokuColors.background,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -95,7 +95,7 @@ class _HomeRailCustomizerSheetState extends State<_HomeRailCustomizerSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.border,
+              color: KaizokuColors.border,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -107,7 +107,7 @@ class _HomeRailCustomizerSheetState extends State<_HomeRailCustomizerSheet> {
                   child: Text(
                     'home_rails.title'.tr(),
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: KaizokuColors.textPrimary,
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                     ),
@@ -117,7 +117,7 @@ class _HomeRailCustomizerSheetState extends State<_HomeRailCustomizerSheet> {
                   onPressed: _reset,
                   child: Text(
                     'nav_customize.reset'.tr(),
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    style: const TextStyle(color: KaizokuColors.textSecondary),
                   ),
                 ),
               ],
@@ -128,7 +128,7 @@ class _HomeRailCustomizerSheetState extends State<_HomeRailCustomizerSheet> {
             child: Text(
               'home_rails.hint'.tr(),
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 fontSize: 12.5,
                 height: 1.4,
               ),
@@ -138,7 +138,7 @@ class _HomeRailCustomizerSheetState extends State<_HomeRailCustomizerSheet> {
             child: ReorderableListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               itemCount: _order.length,
-              onReorderItem: _reorder,
+              onReorder: _reorder,
               proxyDecorator: (child, _, animation) => Material(
                 color: Colors.transparent,
                 child: Transform.scale(scale: 1.02, child: child),
@@ -163,7 +163,7 @@ class _HomeRailCustomizerSheetState extends State<_HomeRailCustomizerSheet> {
               child: FilledButton(
                 onPressed: _save,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: KaizokuColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: Text('nav_customize.save'.tr()),
@@ -204,9 +204,9 @@ class _RailPreviewTile extends StatelessWidget {
         opacity: hidden ? 0.42 : 1,
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: KaizokuColors.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.divider),
+            border: Border.all(color: KaizokuColors.border),
           ),
           padding: const EdgeInsets.fromLTRB(14, 12, 8, 14),
           child: Column(
@@ -214,13 +214,13 @@ class _RailPreviewTile extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(rail.icon, size: 17, color: AppColors.textSecondary),
+                  Icon(rail.icon, size: 17, color: KaizokuColors.textSecondary),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       rail.labelKey.tr(),
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: KaizokuColors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
@@ -238,8 +238,8 @@ class _RailPreviewTile extends StatelessWidget {
                             : Icons.visibility_outlined,
                         size: 19,
                         color: hidden
-                            ? AppColors.textHint
-                            : AppColors.textSecondary,
+                            ? KaizokuColors.textMuted
+                            : KaizokuColors.textSecondary,
                       ),
                     )
                   else
@@ -251,7 +251,7 @@ class _RailPreviewTile extends StatelessWidget {
                       child: Icon(
                         Icons.lock_outline_rounded,
                         size: 17,
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textMuted,
                       ),
                     ),
                   ReorderableDragStartListener(
@@ -260,7 +260,7 @@ class _RailPreviewTile extends StatelessWidget {
                       padding: EdgeInsets.symmetric(horizontal: 6),
                       child: Icon(
                         Icons.drag_handle_rounded,
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textMuted,
                       ),
                     ),
                   ),
@@ -319,7 +319,7 @@ class _RailShape extends StatelessWidget {
                       Container(
                         height: 3,
                         width: 34.0 - i * 8,
-                        color: AppColors.primary.withValues(alpha: 0.7),
+                        color: KaizokuColors.primary.withValues(alpha: 0.7),
                       ),
                     ],
                   ),

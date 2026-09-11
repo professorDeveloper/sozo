@@ -9,7 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
@@ -144,7 +144,7 @@ class _ActorHeroPageState extends State<ActorHeroPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(error.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.surface,
+            backgroundColor: KaizokuColors.surface,
           ),
         );
     }
@@ -164,7 +164,7 @@ class _ActorHeroPageState extends State<ActorHeroPage> {
     return BlocProvider<TopFansBloc>.value(
       value: _topFansBloc,
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.background,
         body: Stack(
           children: [
             _Backdrop(url: _backdropUrl),
@@ -252,12 +252,12 @@ class _Backdrop extends StatelessWidget {
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
               placeholder: (_, _) =>
-                  ColoredBox(color: AppColors.surfaceVariant),
+                  ColoredBox(color: KaizokuColors.surfaceVariant),
               errorWidget: (_, _, _) =>
-                  ColoredBox(color: AppColors.surfaceVariant),
+                  ColoredBox(color: KaizokuColors.surfaceVariant),
             )
           else
-            ColoredBox(color: AppColors.surfaceVariant),
+            ColoredBox(color: KaizokuColors.surfaceVariant),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -282,9 +282,9 @@ class _Backdrop extends StatelessWidget {
                     // so the backdrop dissolves into whatever the page is —
                     // #181818 or true black.
                     colors: [
-                      AppColors.background,
-                      AppColors.background.withValues(alpha: 0.933),
-                      AppColors.background.withValues(alpha: 0.0),
+                      KaizokuColors.background,
+                      KaizokuColors.background.withValues(alpha: 0.933),
+                      KaizokuColors.background.withValues(alpha: 0.0),
                     ],
                     stops: const [0.0, 0.5, 1.0],
                   ),
@@ -351,7 +351,7 @@ class _HeroHead extends StatelessWidget {
             name,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: KaizokuColors.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.4,
@@ -373,7 +373,7 @@ class _HeroHead extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 13.5,
                 height: 1.25,
               ),
@@ -398,22 +398,22 @@ class _TitlesChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.85),
+        color: KaizokuColors.surface.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border, width: 0.6),
+        border: Border.all(color: KaizokuColors.border, width: 0.6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(CupertinoIcons.film_fill,
-              color: AppColors.primaryLight, size: 14),
+              color: KaizokuColors.primaryLight, size: 14),
           const SizedBox(width: 7),
           Text(
             loading
                 ? '…'
                 : 'trivia.n_titles'.tr(namedArgs: {'count': '$count'}),
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: KaizokuColors.textPrimary,
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
             ),
@@ -504,7 +504,7 @@ class _FilmographySection extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: KaizokuColors.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w800,
               height: 1.1,
@@ -592,7 +592,7 @@ class _PosterCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: KaizokuColors.textPrimary,
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
               height: 1.25,
@@ -605,7 +605,7 @@ class _PosterCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.textHint,
+              color: KaizokuColors.textHint,
               fontSize: 11,
               height: 1.3,
             ),
@@ -690,8 +690,8 @@ class _StickyBar extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppColors.background.withValues(alpha: 0),
-              AppColors.background,
+              KaizokuColors.background.withValues(alpha: 0),
+              KaizokuColors.background,
             ],
             stops: const [0.0, 0.35],
           ),
@@ -729,7 +729,7 @@ class _PrimaryButton extends StatelessWidget {
         height: _kActionButtonHeight,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: AppColors.primary,
+          color: KaizokuColors.primary,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -769,9 +769,9 @@ class _SecondaryButton extends StatelessWidget {
         height: _kActionButtonHeight,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.15),
+          color: KaizokuColors.primary.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+          border: Border.all(color: KaizokuColors.primary.withValues(alpha: 0.4)),
         ),
         child: busy
             ? SizedBox(
@@ -779,14 +779,14 @@ class _SecondaryButton extends StatelessWidget {
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.primary,
+                  color: KaizokuColors.primary,
                 ),
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(CupertinoIcons.person_2_fill,
-                      color: AppColors.primary, size: 16),
+                      color: KaizokuColors.primary, size: 16),
                   const SizedBox(width: 7),
                   Flexible(
                     child: Text(
@@ -794,7 +794,7 @@ class _SecondaryButton extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: AppColors.primary,
+                        color: KaizokuColors.primary,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -820,9 +820,9 @@ class _InlineError extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: KaizokuColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border, width: 0.6),
+          border: Border.all(color: KaizokuColors.border, width: 0.6),
         ),
         child: Column(
           children: [
@@ -830,7 +830,7 @@ class _InlineError extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 13,
                 height: 1.5,
               ),
@@ -842,16 +842,16 @@ class _InlineError extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
+                  color: KaizokuColors.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.4),
+                    color: KaizokuColors.primary.withValues(alpha: 0.4),
                   ),
                 ),
                 child: Text(
                   'general.retry'.tr(),
                   style: TextStyle(
-                    color: AppColors.primary,
+                    color: KaizokuColors.primary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),

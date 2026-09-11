@@ -9,7 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/platform_utils.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/live_tv/data/live_tv_service.dart';
@@ -518,9 +518,9 @@ class _LiveTvPageState extends State<LiveTvPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
@@ -532,7 +532,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
         leading: _scoped
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded, size: 22),
-                color: AppColors.textPrimary,
+                color: Colors.white,
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: _closeScope,
               )
@@ -552,8 +552,8 @@ class _LiveTvPageState extends State<LiveTvPage> {
         // landscape makes it several points narrower than the screen.
         child: LayoutBuilder(
           builder: (context, constraints) => RefreshIndicator(
-            color: AppColors.primary,
-            backgroundColor: AppColors.surface,
+            color: KaizokuColors.neonCrimson,
+            backgroundColor: KaizokuColors.surface,
             onRefresh: _refresh,
             child: CustomScrollView(
               controller: _scroll,
@@ -584,7 +584,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
           controller: _search,
           onChanged: _onQueryChanged,
           textInputAction: TextInputAction.search,
-          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+          style: const TextStyle(fontSize: 14, color: Colors.white),
           // Fill, padding and radius all come from inputDecorationTheme, so
           // this field is the same field as every other one in the app.
           decoration: InputDecoration(
@@ -594,7 +594,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
             prefixIcon: const Icon(
               Icons.search_rounded,
               size: 20,
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
             ),
             suffixIcon: _query.isEmpty
                 ? null
@@ -602,7 +602,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
                     icon: const Icon(
                       Icons.close_rounded,
                       size: 18,
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                     ),
                     onPressed: () {
                       _search.clear();
@@ -752,14 +752,14 @@ class _SectionHeader extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(_kGutter, 18, _kGutter, 12),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: AppColors.textSecondary),
+            Icon(icon, size: 18, color: KaizokuColors.textSecondary),
             const SizedBox(width: 8),
             Semantics(
               header: true,
               child: Text(
                 label,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
                   height: 1.1,
@@ -771,7 +771,7 @@ class _SectionHeader extends StatelessWidget {
               Text(
                 tail,
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -809,7 +809,7 @@ class _ScopeLine extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
@@ -820,7 +820,7 @@ class _ScopeLine extends StatelessWidget {
               Text(
                 'live_tv.channel_count'.plural(total),
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
                 ),
@@ -846,7 +846,7 @@ class _HintLine extends StatelessWidget {
         child: Text(
           'live_tv.hint_long_press'.tr(),
           style: const TextStyle(
-            color: AppColors.textSecondary,
+            color: KaizokuColors.textMuted,
             fontSize: 11.5,
             height: 1.35,
           ),
@@ -923,7 +923,7 @@ class _PinTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Material(
-            color: AppColors.card,
+            color: KaizokuColors.surface,
             borderRadius: BorderRadius.circular(16),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -938,15 +938,15 @@ class _PinTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: favourite
-                        ? AppColors.primary.withValues(alpha: 0.45)
-                        : Colors.white.withValues(alpha: 0.06),
+                        ? KaizokuColors.neonCrimson.withValues(alpha: 0.45)
+                        : KaizokuColors.cardBorder,
                   ),
                 ),
                 child: channel.logoUrl == null
                     ? const Icon(
                         Icons.live_tv_rounded,
                         size: 26,
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textMuted,
                       )
                     : CachedNetworkImage(
                         imageUrl: channel.logoUrl!,
@@ -956,7 +956,7 @@ class _PinTile extends StatelessWidget {
                         errorWidget: (_, _, _) => const Icon(
                           Icons.live_tv_rounded,
                           size: 26,
-                          color: AppColors.textHint,
+                          color: KaizokuColors.textMuted,
                         ),
                         placeholder: (_, _) => const SizedBox.shrink(),
                       ),
@@ -976,7 +976,7 @@ class _PinTile extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
               ),
             ),
           ),
@@ -1047,7 +1047,7 @@ class _CategoryGrid extends StatelessWidget {
         delegate: SliverChildBuilderDelegate((context, i) {
           final folder = folders[i];
           return Material(
-            color: AppColors.card,
+            color: KaizokuColors.surface,
             borderRadius: BorderRadius.circular(14),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -1057,7 +1057,7 @@ class _CategoryGrid extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.06),
+                    color: KaizokuColors.cardBorder,
                   ),
                 ),
                 child: Row(
@@ -1067,13 +1067,13 @@ class _CategoryGrid extends StatelessWidget {
                       height: 34,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.12),
+                        color: KaizokuColors.neonCrimson.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
                         _glyphFor(folder.name),
                         size: 18,
-                        color: AppColors.primary,
+                        color: KaizokuColors.neonCrimson,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1088,7 +1088,7 @@ class _CategoryGrid extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: AppColors.textPrimary,
+                              color: Colors.white,
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
                               height: 1.2,
@@ -1100,7 +1100,7 @@ class _CategoryGrid extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: AppColors.textSecondary,
+                              color: KaizokuColors.textSecondary,
                               fontSize: 10.5,
                               height: 1.2,
                             ),
@@ -1159,7 +1159,7 @@ class _CountryRail extends StatelessWidget {
             final country = countries[i];
             final flag = showFlags ? flagOf(country.code) : '';
             return Material(
-              color: AppColors.card,
+              color: KaizokuColors.surface,
               borderRadius: BorderRadius.circular(20),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
@@ -1170,7 +1170,7 @@ class _CountryRail extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.06),
+                      color: KaizokuColors.cardBorder,
                     ),
                   ),
                   child: Row(
@@ -1183,7 +1183,7 @@ class _CountryRail extends StatelessWidget {
                       Text(
                         nameOf(country.code),
                         style: const TextStyle(
-                          color: AppColors.textPrimary,
+                          color: Colors.white,
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
                         ),
@@ -1192,7 +1192,7 @@ class _CountryRail extends StatelessWidget {
                       Text(
                         '${country.count}',
                         style: const TextStyle(
-                          color: AppColors.textSecondary,
+                          color: KaizokuColors.textSecondary,
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,
                         ),
@@ -1313,7 +1313,7 @@ class _ChannelCard extends StatelessWidget {
       button: true,
       label: slot == null ? channel.name : '${channel.name}. ${slot.title}',
       child: Material(
-        color: AppColors.card,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(14),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -1325,8 +1325,8 @@ class _ChannelCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: favourite
-                    ? AppColors.primary.withValues(alpha: 0.45)
-                    : Colors.white.withValues(alpha: 0.06),
+                    ? KaizokuColors.neonCrimson.withValues(alpha: 0.45)
+                    : KaizokuColors.cardBorder,
               ),
             ),
             child: Column(
@@ -1363,7 +1363,7 @@ class _ChannelCard extends StatelessWidget {
                           child: Icon(
                             Icons.star_rounded,
                             size: 15,
-                            color: AppColors.primary,
+                            color: KaizokuColors.neonCrimson,
                           ),
                         ),
                       // Rides the bottom edge of the logo box, so it costs the
@@ -1381,7 +1381,7 @@ class _ChannelCard extends StatelessWidget {
                                 alignment: AlignmentDirectional.centerStart,
                                 widthFactor: bar,
                                 heightFactor: 1,
-                                child: Container(color: AppColors.primary),
+                                child: Container(color: KaizokuColors.neonCrimson),
                               ),
                             ),
                           ),
@@ -1410,7 +1410,7 @@ class _ChannelCard extends StatelessWidget {
                             fontSize: _fontSize,
                             height: _lineHeight,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
+                            color: Colors.white,
                           ),
                         ),
                         if (slot != null)
@@ -1423,7 +1423,7 @@ class _ChannelCard extends StatelessWidget {
                               fontSize: _slotFontSize,
                               height: _lineHeight,
                               fontWeight: FontWeight.w500,
-                              color: AppColors.textSecondary,
+                              color: KaizokuColors.textSecondary,
                             ),
                           ),
                       ],
@@ -1452,7 +1452,7 @@ class _Fallback extends StatelessWidget {
         style: const TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w800,
-          color: AppColors.textHint,
+          color: KaizokuColors.textMuted,
         ),
       ),
     );
@@ -1600,14 +1600,14 @@ class _Empty extends StatelessWidget {
             Icon(
               icon,
               size: 46,
-              color: AppColors.textHint.withValues(alpha: 0.6),
+              color: KaizokuColors.textMuted.withValues(alpha: 0.6),
             ),
             const SizedBox(height: 14),
             Text(
               text,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 13.5,
                 height: 1.5,
               ),

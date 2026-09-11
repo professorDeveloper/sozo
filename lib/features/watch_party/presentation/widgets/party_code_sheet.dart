@@ -4,8 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/watch_party/data/watch_party_service.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_room.dart';
@@ -65,7 +65,7 @@ class _PartyCreateSheetState extends State<PartyCreateSheet> {
       SnackBar(
         content: Text('watch_party.copied'.tr()),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.surfaceVariant,
+        backgroundColor: KaizokuColors.surface,
       ),
     );
   }
@@ -96,14 +96,14 @@ class _PartyCreateSheetState extends State<PartyCreateSheet> {
             'watch_party.create'.tr(),
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: Colors.white,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 20),
           if (_loading)
-            Padding(
+            const Padding(
               padding: EdgeInsets.symmetric(vertical: 28),
               child: Center(
                 child: SizedBox(
@@ -111,7 +111,7 @@ class _PartyCreateSheetState extends State<PartyCreateSheet> {
                   height: 26,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.4,
-                    color: AppColors.primary,
+                    color: KaizokuColors.neonCrimson,
                   ),
                 ),
               ),
@@ -153,7 +153,7 @@ class _CodeReveal extends StatelessWidget {
           'watch_party.code_label'.tr(),
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: AppColors.textHint,
+            color: KaizokuColors.textMuted,
             fontSize: 12,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.4,
@@ -163,15 +163,15 @@ class _CodeReveal extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            color: AppColors.background,
+            color: KaizokuColors.cyberObsidian,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border, width: 0.8),
+            border: Border.all(color: KaizokuColors.cardBorder, width: 0.8),
           ),
           child: Text(
             code,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: Colors.white,
               fontSize: 30,
               fontWeight: FontWeight.w900,
               letterSpacing: 8,
@@ -204,7 +204,7 @@ class _CodeReveal extends StatelessWidget {
           child: ElevatedButton.icon(
             onPressed: onOpen,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: KaizokuColors.neonCrimson,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -278,7 +278,7 @@ class _PartyJoinSheetState extends State<PartyJoinSheet> {
             'watch_party.join'.tr(),
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: Colors.white,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
@@ -288,7 +288,7 @@ class _PartyJoinSheetState extends State<PartyJoinSheet> {
             'watch_party.join_hint'.tr(),
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 12.5,
               height: 1.4,
             ),
@@ -310,7 +310,7 @@ class _PartyJoinSheetState extends State<PartyJoinSheet> {
               _UpperCaseFormatter(),
             ],
             style: const TextStyle(
-              color: AppColors.textPrimary,
+              color: Colors.white,
               fontSize: 24,
               fontWeight: FontWeight.w900,
               letterSpacing: 6,
@@ -318,24 +318,24 @@ class _PartyJoinSheetState extends State<PartyJoinSheet> {
             decoration: InputDecoration(
               counterText: '',
               filled: true,
-              fillColor: AppColors.background,
+              fillColor: KaizokuColors.cyberObsidian,
               hintText: 'ABCD12',
               hintStyle: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 letterSpacing: 6,
                 fontWeight: FontWeight.w700,
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide(
-                  color: _invalid ? AppColors.error : AppColors.border,
+                  color: _invalid ? KaizokuColors.neonCrimson : KaizokuColors.cardBorder,
                   width: 0.8,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide(
-                  color: _invalid ? AppColors.error : AppColors.primary,
+                  color: _invalid ? KaizokuColors.neonCrimson : KaizokuColors.neonCrimson,
                   width: 1.2,
                 ),
               ),
@@ -346,7 +346,7 @@ class _PartyJoinSheetState extends State<PartyJoinSheet> {
             Text(
               'watch_party.invalid_code'.tr(),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.error, fontSize: 12),
+              style: const TextStyle(color: KaizokuColors.neonCrimson, fontSize: 12),
             ),
           ],
           const SizedBox(height: 14),
@@ -355,7 +355,7 @@ class _PartyJoinSheetState extends State<PartyJoinSheet> {
             child: ElevatedButton(
               onPressed: _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: KaizokuColors.neonCrimson,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -401,7 +401,7 @@ class _GhostButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.surfaceVariant,
+      color: KaizokuColors.surface,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -411,7 +411,7 @@ class _GhostButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16, color: AppColors.textPrimary),
+              Icon(icon, size: 16, color: Colors.white),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -419,7 +419,7 @@ class _GhostButton extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
@@ -443,12 +443,12 @@ class _ErrorRetry extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 34),
+        const Icon(Icons.error_outline_rounded, color: KaizokuColors.neonCrimson, size: 34),
         const SizedBox(height: 12),
         Text(
           message,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          style: const TextStyle(color: KaizokuColors.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: 16),
         SizedBox(
@@ -456,7 +456,7 @@ class _ErrorRetry extends StatelessWidget {
           child: ElevatedButton(
             onPressed: onRetry,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: KaizokuColors.neonCrimson,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(

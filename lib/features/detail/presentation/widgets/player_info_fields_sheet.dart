@@ -2,8 +2,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/system/responsive.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/playback/player_info_fields.dart';
 
 /// Picks which rows the player info overlay shows.
@@ -30,7 +30,7 @@ class PlayerInfoFieldsSheet extends StatefulWidget {
   }) =>
       showAdaptiveModal<Set<String>>(
         context: context,
-        backgroundColor: const Color(0xFF111111),
+        backgroundColor: KaizokuColors.cyberObsidian,
         isScrollControlled: true,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -116,7 +116,7 @@ class _PlayerInfoFieldsSheetState extends State<PlayerInfoFieldsSheet> {
                     TextButton(
                       onPressed: () => _apply(PlayerInfoFields.defaults),
                       style: TextButton.styleFrom(
-                        foregroundColor: AppColors.primaryLight,
+                        foregroundColor: KaizokuColors.neonCrimson,
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         minimumSize: const Size(0, 34),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -144,7 +144,7 @@ class _PlayerInfoFieldsSheetState extends State<PlayerInfoFieldsSheet> {
                   return InkWell(
                     onTap: () => _toggle(f.id, !on),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 2, 12, 2),
+                       padding: const EdgeInsets.fromLTRB(18, 2, 12, 2),
                       child: Row(
                         children: [
                           Expanded(
@@ -161,8 +161,8 @@ class _PlayerInfoFieldsSheetState extends State<PlayerInfoFieldsSheet> {
                           Checkbox(
                             value: on,
                             onChanged: (v) => _toggle(f.id, v ?? false),
-                            activeColor: AppColors.primary,
-                            checkColor: AppColors.onPrimary,
+                            activeColor: KaizokuColors.neonCrimson,
+                            checkColor: Colors.white,
                             side: const BorderSide(
                               color: Colors.white38,
                               width: 1.6,

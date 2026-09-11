@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_accent.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/theme/app_palette.dart';
 import 'package:soplay/core/theme/theme_controller.dart';
 import 'package:soplay/features/profile/presentation/widgets/library_accents.dart';
@@ -27,9 +27,9 @@ class AppearancePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: Text(
@@ -306,8 +306,8 @@ class _CustomAccentRow extends StatelessWidget {
                   gradient: const SweepGradient(colors: _wheel),
                   border: Border.all(
                     color: active
-                        ? AppColors.textPrimary
-                        : AppColors.textPrimary.withValues(alpha: 0.12),
+                        ? KaizokuColors.textPrimary
+                        : KaizokuColors.textPrimary.withValues(alpha: 0.12),
                     width: active ? 2 : 1,
                   ),
                 ),
@@ -317,7 +317,7 @@ class _CustomAccentRow extends StatelessWidget {
                 child: Text(
                   'appearance.custom_title'.tr(),
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textPrimary,
                     fontSize: 15,
                     fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                   ),
@@ -329,12 +329,12 @@ class _CustomAccentRow extends StatelessWidget {
                   child: Icon(
                     Icons.check_rounded,
                     size: 18,
-                    color: AppColors.primary,
+                    color: KaizokuColors.neonCrimson,
                   ),
                 ),
               const Icon(
                 Icons.chevron_right_rounded,
-                color: AppColors.textHint,
+                color: KaizokuColors.textSecondary,
                 size: 20,
               ),
             ],
@@ -380,8 +380,8 @@ class _Swatch extends StatelessWidget {
             // accent and a bright one are equally obviously selected.
             border: Border.all(
               color: selected
-                  ? AppColors.textPrimary
-                  : AppColors.textPrimary.withValues(alpha: 0.10),
+                  ? KaizokuColors.textPrimary
+                  : KaizokuColors.textPrimary.withValues(alpha: 0.10),
               width: selected ? 2 : 1,
             ),
           ),
@@ -430,7 +430,7 @@ class _CurrentAccentRow extends StatelessWidget {
                   color: accent.base,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: AppColors.textPrimary.withValues(alpha: 0.12),
+                    color: KaizokuColors.textPrimary.withValues(alpha: 0.12),
                   ),
                 ),
               ),
@@ -439,7 +439,7 @@ class _CurrentAccentRow extends StatelessWidget {
                 child: Text(
                   accent.labelKey.tr(),
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                   ),
@@ -448,7 +448,7 @@ class _CurrentAccentRow extends StatelessWidget {
               Text(
                 '#$hex',
                 style: const TextStyle(
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 12.5,
                   fontFeatures: [FontFeature.tabularFigures()],
                   letterSpacing: 0.4,
@@ -570,10 +570,10 @@ class _ActionRow extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.14),
+                  color: KaizokuColors.neonCrimson.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: AppColors.primary, size: 18),
+                child: Icon(icon, color: KaizokuColors.neonCrimson, size: 18),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -584,7 +584,7 @@ class _ActionRow extends StatelessWidget {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: KaizokuColors.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
                       ),
@@ -593,7 +593,7 @@ class _ActionRow extends StatelessWidget {
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textSecondary,
                         fontSize: 11.5,
                         height: 1.3,
                       ),
@@ -691,13 +691,13 @@ class _DarknessTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(9, 9, 9, 10),
           decoration: BoxDecoration(
             color: selected
-                ? AppColors.primary.withValues(alpha: 0.12)
+                ? KaizokuColors.neonCrimson.withValues(alpha: 0.12)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(13),
             border: Border.all(
               color: selected
-                  ? AppColors.primary.withValues(alpha: 0.55)
-                  : AppColors.textPrimary.withValues(alpha: 0.07),
+                  ? KaizokuColors.neonCrimson.withValues(alpha: 0.55)
+                  : KaizokuColors.textPrimary.withValues(alpha: 0.07),
             ),
           ),
           child: Column(
@@ -712,7 +712,7 @@ class _DarknessTile extends StatelessWidget {
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_unchecked_rounded,
                     size: 15,
-                    color: selected ? AppColors.primary : AppColors.textHint,
+                    color: selected ? KaizokuColors.neonCrimson : KaizokuColors.textSecondary,
                   ),
                   const SizedBox(width: 6),
                   Expanded(
@@ -722,8 +722,8 @@ class _DarknessTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: selected
-                            ? AppColors.textPrimary
-                            : AppColors.textSecondary,
+                            ? KaizokuColors.textPrimary
+                            : KaizokuColors.textSecondary,
                         fontSize: 13,
                         fontWeight:
                             selected ? FontWeight.w700 : FontWeight.w500,
@@ -737,7 +737,7 @@ class _DarknessTile extends StatelessWidget {
                 descKey.tr(),
                 maxLines: 2,
                 style: const TextStyle(
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 11,
                   height: 1.3,
                 ),
@@ -762,7 +762,7 @@ class _ResetAction extends StatelessWidget {
     return IconButton(
       tooltip: 'appearance.reset_tooltip'.tr(),
       icon: const Icon(Icons.settings_backup_restore_rounded, size: 22),
-      color: AppColors.textSecondary,
+      color: KaizokuColors.textSecondary,
       onPressed: () {
         if (isMobilePlatform) HapticFeedback.selectionClick();
         theme.reset();
@@ -793,12 +793,12 @@ class _ResetRow extends StatelessWidget {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: AppColors.textSecondary.withValues(alpha: 0.1),
+                    color: KaizokuColors.textSecondary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.settings_backup_restore_rounded,
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     size: 18,
                   ),
                 ),
@@ -807,7 +807,7 @@ class _ResetRow extends StatelessWidget {
                   child: Text(
                     'appearance.reset'.tr(),
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: KaizokuColors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -832,7 +832,7 @@ Future<Color?> showCustomAccentSheet(
 }) {
   return showModalBottomSheet<Color>(
     context: context,
-    backgroundColor: AppColors.surface,
+    backgroundColor: KaizokuColors.surface,
     isScrollControlled: true,
     useSafeArea: true,
     shape: const RoundedRectangleBorder(
@@ -896,7 +896,7 @@ class _CustomAccentSheetState extends State<_CustomAccentSheet> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: AppColors.textHint.withValues(alpha: 0.5),
+                    color: KaizokuColors.textSecondary.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -907,7 +907,7 @@ class _CustomAccentSheetState extends State<_CustomAccentSheet> {
                     child: Text(
                       'appearance.custom_title'.tr(),
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: KaizokuColors.textPrimary,
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                       ),
@@ -916,7 +916,7 @@ class _CustomAccentSheetState extends State<_CustomAccentSheet> {
                   Text(
                     '#$hex',
                     style: const TextStyle(
-                      color: AppColors.textHint,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 13,
                       fontFeatures: [FontFeature.tabularFigures()],
                       letterSpacing: 0.5,
@@ -986,14 +986,14 @@ class _CustomAccentSheetState extends State<_CustomAccentSheet> {
                     const Icon(
                       Icons.info_outline_rounded,
                       size: 15,
-                      color: AppColors.textHint,
+                      color: KaizokuColors.textSecondary,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'appearance.custom_adjusted'.tr(),
                         style: const TextStyle(
-                          color: AppColors.textHint,
+                          color: KaizokuColors.textSecondary,
                           fontSize: 11.5,
                           height: 1.4,
                         ),
@@ -1011,7 +1011,7 @@ class _CustomAccentSheetState extends State<_CustomAccentSheet> {
                       onPressed: () => Navigator.of(context).pop(),
                       style: TextButton.styleFrom(
                         minimumSize: const Size(0, 46),
-                        foregroundColor: AppColors.textSecondary,
+                        foregroundColor: KaizokuColors.textSecondary,
                       ),
                       child: Text('general.cancel'.tr()),
                     ),
@@ -1072,7 +1072,7 @@ class _GradientSlider extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            color: AppColors.textHint,
+            color: KaizokuColors.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.6,
@@ -1109,7 +1109,7 @@ class _GradientSlider extends StatelessWidget {
                           borderRadius: BorderRadius.circular(_trackHeight / 2),
                           gradient: LinearGradient(colors: gradient),
                           border: Border.all(
-                            color: AppColors.textPrimary.withValues(alpha: 0.10),
+                            color: KaizokuColors.textPrimary.withValues(alpha: 0.10),
                             width: 0.5,
                           ),
                         ),

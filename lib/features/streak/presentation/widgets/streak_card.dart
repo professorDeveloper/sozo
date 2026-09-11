@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/streak/domain/entities/streak_state.dart';
 
@@ -54,7 +54,7 @@ class _StreakCardState extends State<StreakCard> {
             child: Text(
               'streak.section_label'.tr(),
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textHint,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.8,
@@ -96,7 +96,7 @@ class _CompactStreakRow extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [AppColors.surface, AppColors.background],
+              colors: [KaizokuColors.surface, KaizokuColors.background],
             ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
@@ -122,7 +122,7 @@ class _CompactStreakRow extends StatelessWidget {
                                 .tr(args: ['${state.current}'])
                             : 'streak.empty_title'.tr(),
                         style: const TextStyle(
-                          color: AppColors.textPrimary,
+                          color: KaizokuColors.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
                           height: 1.1,
@@ -134,7 +134,7 @@ class _CompactStreakRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: AppColors.textSecondary,
+                          color: KaizokuColors.textSecondary,
                           fontSize: 12,
                           height: 1.3,
                         ),
@@ -157,7 +157,7 @@ class _CompactStreakRow extends StatelessWidget {
                         Text(
                           '${state.freezes.available}',
                           style: const TextStyle(
-                            color: AppColors.textSecondary,
+                            color: KaizokuColors.textSecondary,
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                           ),
@@ -179,7 +179,7 @@ class _CompactStreakRow extends StatelessWidget {
                         Text(
                           '${state.longest}',
                           style: const TextStyle(
-                            color: AppColors.textSecondary,
+                            color: KaizokuColors.textSecondary,
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                           ),
@@ -189,7 +189,7 @@ class _CompactStreakRow extends StatelessWidget {
                   ),
                 const Icon(
                   Icons.chevron_right_rounded,
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textHint,
                   size: 22,
                 ),
               ],

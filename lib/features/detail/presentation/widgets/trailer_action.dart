@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/trailer/trailer_service.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -108,15 +108,15 @@ class _TrailerActionState extends State<TrailerAction> {
                   width: 46,
                   height: 46,
                   child: Material(
-                    color: AppColors.surfaceVariant,
+                    color: KaizokuColors.surfaceLight,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: _open,
-                      child: Icon(
+                      child: const Icon(
                         Icons.movie_outlined,
                         size: 21,
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                       ),
                     ),
                   ),

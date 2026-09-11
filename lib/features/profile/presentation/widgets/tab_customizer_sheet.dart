@@ -4,7 +4,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/nav_prefs.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
 
 /// Bottom-bar customizer (Settings → Appearance). Ports satashkent's
@@ -14,7 +14,7 @@ Future<void> showTabCustomizer(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppColors.background,
+    backgroundColor: KaizokuColors.background,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -48,7 +48,7 @@ class _TabCustomizerSheetState extends State<_TabCustomizerSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(key.tr(namedArgs: args)),
-          backgroundColor: AppColors.card,
+          backgroundColor: KaizokuColors.card,
         ),
       );
 
@@ -77,6 +77,8 @@ class _TabCustomizerSheetState extends State<_TabCustomizerSheet> {
         args: {'min': '$kMinTabs', 'max': '$kMaxTabs'},
       );
     }
+    // Encode the draft through the canonical list format so the hive string
+    // stays standard, and drop duplicates / missing tabs along the way.
     final encoded = encodeTabOrder(sanitizeTabOrder(encodeTabOrder(_draft)));
     await getIt<HiveService>().setTabOrder(encoded);
     NavPrefs.tabOrder.value = encoded; // shell listener rebuilds the bar live
@@ -92,7 +94,7 @@ class _TabCustomizerSheetState extends State<_TabCustomizerSheet> {
           width: 40,
           height: 4,
           decoration: BoxDecoration(
-            color: AppColors.border,
+            color: KaizokuColors.border,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -103,7 +105,7 @@ class _TabCustomizerSheetState extends State<_TabCustomizerSheet> {
               Text(
                 'nav_customize.title'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
@@ -112,7 +114,7 @@ class _TabCustomizerSheetState extends State<_TabCustomizerSheet> {
               Text(
                 '${_draft.length}/$kMaxTabs',
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
@@ -182,7 +184,7 @@ class _TabCustomizerSheetState extends State<_TabCustomizerSheet> {
     child: Text(
       t.toUpperCase(),
       style: const TextStyle(
-        color: AppColors.textHint,
+        color: KaizokuColors.textMuted,
         fontSize: 11.5,
         fontWeight: FontWeight.w800,
         letterSpacing: 0.8,
@@ -208,7 +210,7 @@ class _NavBarPreview extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: KaizokuColors.card,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
@@ -228,17 +230,19 @@ class _NavBarPreview extends StatelessWidget {
                   for (var i = 0; i < tabs.length; i++)
                     AnimatedPositioned(
                       // Keyed on the tab, not the slot, so Flutter animates the
-                      // same widget to a new place instead of fading one out
-                      // and another in.
-                      key: ValueKey(tabs[i].name),
-                      duration: const Duration(milliseconds: 240),
+                      // widget sliding to its new slot instead of replacing it.
+                      key: ValueKey(tabs[i]),
+                      duration: const Duration(milliseconds: 220),
                       curve: Curves.easeOutCubic,
                       left: i * slot,
-                      top: 0,
                       width: slot,
-                      child: _PreviewTab(
-                        def: kTabRegistry[tabs[i]]!,
-                        active: i == 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: _PreviewTab(
+                          def: kTabRegistry[tabs[i]]!,
+                          active: i == 0,
+                        ),
                       ),
                     ),
                 ],
@@ -259,7 +263,7 @@ class _PreviewTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? AppColors.primary : AppColors.textHint;
+    final color = active ? KaizokuColors.primary : KaizokuColors.textMuted;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Column(
@@ -316,7 +320,7 @@ class _PinnedTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -325,17 +329,17 @@ class _PinnedTile extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.14),
+              color: KaizokuColors.primary.withValues(alpha: 0.14),
               shape: BoxShape.circle,
             ),
-            child: Icon(def.activeIcon, color: AppColors.primary, size: 19),
+            child: Icon(def.activeIcon, color: KaizokuColors.primary, size: 19),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               def.labelKey.tr(),
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: KaizokuColors.textPrimary,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
@@ -349,7 +353,7 @@ class _PinnedTile extends StatelessWidget {
               height: 40,
               child: Icon(
                 Icons.lock_rounded,
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 size: 18,
               ),
             )
@@ -358,7 +362,7 @@ class _PinnedTile extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               icon: const Icon(
                 Icons.remove_circle_rounded,
-                color: AppColors.error,
+                color: KaizokuColors.error,
                 size: 22,
               ),
               onPressed: onRemove,
@@ -369,7 +373,7 @@ class _PinnedTile extends StatelessWidget {
               padding: EdgeInsetsDirectional.only(start: 4),
               child: Icon(
                 Icons.drag_handle_rounded,
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 size: 22,
               ),
             ),
@@ -398,9 +402,9 @@ class _AvailableTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: KaizokuColors.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+          border: Border.all(color: KaizokuColors.border.withValues(alpha: 0.5)),
         ),
         child: Row(
           children: [
@@ -408,17 +412,17 @@ class _AvailableTile extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: AppColors.textSecondary.withValues(alpha: 0.1),
+                color: KaizokuColors.textSecondary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(def.icon, color: AppColors.textSecondary, size: 19),
+              child: Icon(def.icon, color: KaizokuColors.textSecondary, size: 19),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 def.labelKey.tr(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 15,
                 ),
               ),
@@ -427,7 +431,7 @@ class _AvailableTile extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               icon: Icon(
                 Icons.add_circle_rounded,
-                color: disabled ? AppColors.textHint : AppColors.primary,
+                color: disabled ? KaizokuColors.textMuted : KaizokuColors.primary,
                 size: 24,
               ),
               onPressed: disabled ? null : onAdd,
@@ -459,7 +463,7 @@ class _Footer extends StatelessWidget {
         MediaQuery.paddingOf(context).bottom + 12,
       ),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.divider, width: 1)),
+        border: Border(top: BorderSide(color: KaizokuColors.border, width: 1)),
       ),
       child: Row(
         children: [
@@ -467,7 +471,7 @@ class _Footer extends StatelessWidget {
             onPressed: onReset,
             child: Text(
               'nav_customize.reset'.tr(),
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: const TextStyle(color: KaizokuColors.textSecondary),
             ),
           ),
           const Spacer(),
@@ -475,14 +479,14 @@ class _Footer extends StatelessWidget {
             onPressed: onCancel,
             child: Text(
               'nav_customize.cancel'.tr(),
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: const TextStyle(color: KaizokuColors.textSecondary),
             ),
           ),
           const SizedBox(width: 8),
           FilledButton(
             onPressed: onSave,
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: KaizokuColors.primary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(kButtonRadius),
               ),

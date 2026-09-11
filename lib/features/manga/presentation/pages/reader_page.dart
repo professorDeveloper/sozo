@@ -26,7 +26,7 @@ import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/manga/presentation/widgets/novel_text.dart';
 import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 class ReaderPage extends StatefulWidget {
   final ReaderArgs args;
@@ -39,7 +39,7 @@ class ReaderPage extends StatefulWidget {
 class _ReaderPageState extends State<ReaderPage> {
   /// The manga screens used to carry their own private blue. There is one
   /// accent in the app now, and the user chooses it.
-  static Color get _accent => AppColors.primary;
+  static Color get _accent => KaizokuColors.neonCrimson;
 
   final _hive = getIt<HiveService>();
   final _downloads = getIt<GetDownloadsUseCase>();
@@ -1211,7 +1211,7 @@ class _PageImage extends StatefulWidget {
 class _PageImageState extends State<_PageImage> {
   /// The manga screens used to carry their own private blue. There is one
   /// accent in the app now, and the user chooses it.
-  static Color get _accent => AppColors.primary;
+  static Color get _accent => KaizokuColors.neonCrimson;
   int _retry = 0;
 
   /// Chapter headers plus this page's host-scoped cookies, if it has any.

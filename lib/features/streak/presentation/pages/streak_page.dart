@@ -3,15 +3,15 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/streak/domain/entities/streak_state.dart';
 import 'package:soplay/features/streak/presentation/widgets/streak_calendar_heatmap.dart';
 
-const Color _ember = Color(0xFFFFA94D);
-const Color _emberDeep = Color(0xFFEF7A35);
-const Color _emberSoft = Color(0xFFFFC078);
-const Color _frost = Color(0xFF8FD4FF);
+const Color _ember = KaizokuColors.solarAmber;
+const Color _emberDeep = KaizokuColors.neonCrimson;
+const Color _emberSoft = Color(0xFFFFD56B);
+const Color _frost = KaizokuColors.electricCyan;
 
 class StreakPage extends StatefulWidget {
   const StreakPage({super.key});
@@ -68,7 +68,7 @@ class _StreakPageState extends State<StreakPage>
     final daysLeft = state.daysToNextMilestone ?? 0;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -80,10 +80,10 @@ class _StreakPageState extends State<StreakPage>
             filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
               decoration: BoxDecoration(
-                color: AppColors.background.withValues(alpha: 0.55),
+                color: KaizokuColors.cyberObsidian.withValues(alpha: 0.65),
                 border: Border(
                   bottom: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.06),
+                    color: KaizokuColors.cardBorder,
                     width: 0.5,
                   ),
                 ),
@@ -94,7 +94,7 @@ class _StreakPageState extends State<StreakPage>
         title: Text(
           'streak.section_label'.tr(),
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: KaizokuColors.textPrimary,
             fontSize: 17,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.5,
@@ -107,7 +107,7 @@ class _StreakPageState extends State<StreakPage>
             ? const _StreakSkeleton()
             : RefreshIndicator(
                 color: _ember,
-                backgroundColor: AppColors.surface,
+                backgroundColor: KaizokuColors.surface,
                 edgeOffset: MediaQuery.paddingOf(context).top + kToolbarHeight,
                 onRefresh: _service.refresh,
                 child: _content(
@@ -163,7 +163,7 @@ class _StreakPageState extends State<StreakPage>
                     ? 'streak.current_n_days'.tr(args: ['${state.current}'])
                     : 'streak.empty_title'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 28,
                   fontWeight: FontWeight.w900,
                   height: 1.05,
@@ -182,7 +182,7 @@ class _StreakPageState extends State<StreakPage>
                     : 'streak.empty_subtitle'.tr(),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 13.5,
                   height: 1.45,
                 ),
@@ -246,7 +246,7 @@ class _StreakPageState extends State<StreakPage>
                   padding: EdgeInsets.only(top: 1),
                   child: Icon(
                     Icons.info_outline_rounded,
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textHint,
                     size: 13,
                   ),
                 ),
@@ -255,7 +255,7 @@ class _StreakPageState extends State<StreakPage>
                   child: Text(
                     'streak.freeze_explainer'.tr(),
                     style: const TextStyle(
-                      color: AppColors.textHint,
+                      color: KaizokuColors.textHint,
                       fontSize: 11.5,
                       height: 1.45,
                     ),
@@ -269,7 +269,7 @@ class _StreakPageState extends State<StreakPage>
               child: Text(
                 'streak.calendar_label'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textHint,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.8,
@@ -422,10 +422,10 @@ class _ProgressBlock extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: KaizokuColors.cardBorder,
           width: 0.5,
         ),
       ),
@@ -447,7 +447,7 @@ class _ProgressBlock extends StatelessWidget {
                 Text(
                   '$goal',
                   style: const TextStyle(
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textHint,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
@@ -481,7 +481,7 @@ class _ProgressBlock extends StatelessWidget {
                 ? 'streak.days_to_milestone'.tr(args: ['$daysLeft'])
                 : 'streak.milestone_subtitle'.tr(),
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -566,7 +566,7 @@ class _DayCell extends StatelessWidget {
         Text(
           weekday,
           style: TextStyle(
-            color: isToday ? _emberSoft : AppColors.textHint,
+            color: isToday ? _emberSoft : KaizokuColors.textHint,
             fontSize: 10.5,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.4,
@@ -579,14 +579,14 @@ class _DayCell extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               color: active
-                  ? _ember.withValues(alpha: 0.14)
-                  : Colors.white.withValues(alpha: 0.04),
+                  ? _ember.withValues(alpha: 0.16)
+                  : KaizokuColors.surface,
               border: Border.all(
                 color: active
-                    ? _ember.withValues(alpha: 0.45)
+                    ? _ember.withValues(alpha: 0.5)
                     : (todayPending
-                          ? _emberSoft.withValues(alpha: 0.55)
-                          : Colors.white.withValues(alpha: 0.05)),
+                          ? _emberDeep.withValues(alpha: 0.6)
+                          : KaizokuColors.cardBorder),
                 width: active || todayPending ? 1 : 0.5,
               ),
             ),
@@ -602,7 +602,7 @@ class _DayCell extends StatelessWidget {
                       style: TextStyle(
                         color: todayPending
                             ? _emberSoft
-                            : AppColors.textSecondary,
+                            : KaizokuColors.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
@@ -634,10 +634,10 @@ class _StatTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
+          color: KaizokuColors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: KaizokuColors.cardBorder,
             width: 0.5,
           ),
         ),
@@ -649,7 +649,7 @@ class _StatTile extends StatelessWidget {
             Text(
               value,
               style: const TextStyle(
-                color: AppColors.textPrimary,
+                color: KaizokuColors.textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
               ),
@@ -658,7 +658,7 @@ class _StatTile extends StatelessWidget {
             Text(
               label,
               style: const TextStyle(
-                color: AppColors.textHint,
+                color: KaizokuColors.textMuted,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.3,

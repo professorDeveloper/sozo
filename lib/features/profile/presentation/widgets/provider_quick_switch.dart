@@ -5,7 +5,7 @@ import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
@@ -150,7 +150,7 @@ Future<void> _openSwitcher(
   ];
   final result = await showAdaptiveModal<String>(
     context: context,
-    backgroundColor: AppColors.surface,
+    backgroundColor: KaizokuColors.surface,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -347,7 +347,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                                       : 'ux.no_source_match')
                                   .tr(),
                               style: const TextStyle(
-                                color: AppColors.textSecondary,
+                                color: KaizokuColors.textSecondary,
                               ),
                             ),
                             if (_query.isNotEmpty)
@@ -398,7 +398,7 @@ class _ModeChip extends StatelessWidget {
       button: true,
       selected: active,
       child: Material(
-        color: active ? AppColors.primary : AppColors.surfaceVariant,
+        color: active ? KaizokuColors.primary : KaizokuColors.surfaceVariant,
         borderRadius: BorderRadius.circular(10),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -412,7 +412,7 @@ class _ModeChip extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: active ? Colors.white : AppColors.textSecondary,
+                  color: active ? Colors.white : KaizokuColors.textSecondary,
                   fontSize: 13,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                 ),
@@ -439,13 +439,13 @@ Widget _favoriteProviderTile(
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+        color: selected ? KaizokuColors.textPrimary : KaizokuColors.textSecondary,
         fontSize: 14,
         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
       ),
     ),
     trailing: selected
-        ? Icon(Icons.check_rounded, color: AppColors.primary, size: 20)
+        ? Icon(Icons.check_rounded, color: KaizokuColors.primary, size: 20)
         : favorite
         ? const Icon(Icons.star_rounded, color: Colors.amber, size: 20)
         : null,
@@ -464,11 +464,11 @@ class ProviderLogo extends StatelessWidget {
     final fallback = Container(
       width: size,
       height: size,
-      color: AppColors.surfaceVariant,
+      color: KaizokuColors.surfaceVariant,
       alignment: Alignment.center,
       child: Icon(
         Icons.movie_filter_outlined,
-        color: AppColors.textHint,
+        color: KaizokuColors.textMuted,
         size: size * 0.55,
       ),
     );

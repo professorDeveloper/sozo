@@ -75,7 +75,7 @@ extension _PlayerCast on _PlayerPageState {
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/localization/app_language.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 
@@ -73,7 +73,7 @@ class _SettingsPageState extends State<SettingsPage> {
               value: lockOn
                   ? 'app_lock.state_on'.tr()
                   : 'app_lock.state_off'.tr(),
-              valueColor: lockOn ? AppColors.primary : null,
+              valueColor: lockOn ? KaizokuColors.neonCrimson : null,
               onTap: () async {
                 await context.push('/app-lock-settings');
                 if (mounted) setState(() {});

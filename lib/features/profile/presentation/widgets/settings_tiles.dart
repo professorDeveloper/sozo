@@ -3,7 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/whats_new.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/theme/theme_controller.dart';
 
 /// The tile vocabulary shared by Profile and every settings screen it opens,
@@ -32,14 +32,20 @@ class SettingsPageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
+        titleSpacing: 16,
         title: Text(
           title,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         actions: actions,
       ),
@@ -65,11 +71,11 @@ class SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.05),
-          width: 0.5,
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -95,26 +101,26 @@ class SettingsLabel extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 2.5,
-            height: 11,
+            width: 3,
+            height: 12,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  AppColors.primary,
-                  AppColors.primary.withValues(alpha: 0.5),
+                  KaizokuColors.neonCrimson,
+                  KaizokuColors.neonCrimson.withValues(alpha: 0.4),
                 ],
               ),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(width: 7),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                color: AppColors.textHint,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.8,
@@ -142,7 +148,7 @@ class SettingsFootnote extends StatelessWidget {
       child: Text(
         text,
         style: const TextStyle(
-          color: AppColors.textHint,
+          color: KaizokuColors.textMuted,
           fontSize: 11,
           height: 1.4,
         ),
@@ -155,8 +161,11 @@ class SettingsDivider extends StatelessWidget {
   const SettingsDivider({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      Divider(color: AppColors.divider, height: 1, indent: 64);
+  Widget build(BuildContext context) => Divider(
+    color: KaizokuColors.surfaceLight.withValues(alpha: 0.5),
+    height: 1,
+    indent: 64,
+  );
 }
 
 class SettingsChevron extends StatelessWidget {
@@ -165,7 +174,7 @@ class SettingsChevron extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const Icon(
     Icons.chevron_right_rounded,
-    color: AppColors.textHint,
+    color: KaizokuColors.textMuted,
     size: 20,
   );
 }
@@ -225,15 +234,21 @@ class SettingsLeadingChip extends StatelessWidget {
       height: 34,
       decoration: BoxDecoration(
         color: destructive
-            ? AppColors.error.withValues(alpha: 0.12)
-            : AppColors.textSecondary.withValues(alpha: 0.1),
+            ? KaizokuColors.neonCrimson.withValues(alpha: 0.15)
+            : KaizokuColors.surfaceLight,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: destructive
+              ? KaizokuColors.neonCrimson.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.05),
+          width: 0.8,
+        ),
       ),
       child: icon == null
           ? null
           : Icon(
               icon,
-              color: destructive ? AppColors.error : AppColors.textSecondary,
+              color: destructive ? KaizokuColors.neonCrimson : Colors.white,
               size: 18,
             ),
     );
@@ -287,13 +302,13 @@ class SettingsNewBadge extends StatelessWidget {
           margin: const EdgeInsetsDirectional.only(start: 7),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
           decoration: BoxDecoration(
-            color: AppColors.primary,
+            color: KaizokuColors.neonCrimson,
             borderRadius: BorderRadius.circular(5),
           ),
           child: Text(
             'general.new_badge'.tr(),
-            style: TextStyle(
-              color: AppColors.onPrimary,
+            style: const TextStyle(
+              color: Colors.white,
               fontSize: 9.5,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.4,
@@ -321,8 +336,8 @@ class SettingsNewDot extends StatelessWidget {
           margin: const EdgeInsetsDirectional.only(start: 6),
           width: 6,
           height: 6,
-          decoration: BoxDecoration(
-            color: AppColors.primary,
+          decoration: const BoxDecoration(
+            color: KaizokuColors.neonCrimson,
             shape: BoxShape.circle,
           ),
         );
@@ -385,7 +400,7 @@ class SettingsNavTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: valueColor ?? AppColors.textSecondary,
+                    color: valueColor ?? KaizokuColors.textSecondary,
                     fontSize: 14,
                   ),
                 ),
@@ -418,22 +433,23 @@ class SettingsNavTile extends StatelessWidget {
   }
 }
 
-/// A row that opens a menu of mutually exclusive values, with the current one
-/// shown on the right.
+/// Dropdown row: label on the left, current value as a pop-up menu on the right.
 class SettingsDropdownTile<T> extends StatelessWidget {
   const SettingsDropdownTile({
     super.key,
-    required this.icon,
+    this.icon,
+    this.leading,
     required this.title,
+    this.subtitle,
     required this.value,
     required this.options,
     required this.labelOf,
     required this.onChanged,
-    this.subtitle,
     this.enabled = true,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? leading;
   final String title;
   final String? subtitle;
   final T value;
@@ -446,6 +462,7 @@ class SettingsDropdownTile<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SettingsRow(
       icon: icon,
+      leading: leading,
       title: title,
       subtitle: subtitle,
       enabled: enabled,
@@ -453,7 +470,7 @@ class SettingsDropdownTile<T> extends StatelessWidget {
       // the anchor, so the row itself is inert and the button fills the slot.
       trailing: PopupMenuButton<T>(
         enabled: enabled,
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         position: PopupMenuPosition.under,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -472,8 +489,8 @@ class SettingsDropdownTile<T> extends StatelessWidget {
                       labelOf(option),
                       style: TextStyle(
                         color: option == value
-                            ? AppColors.primary
-                            : AppColors.textPrimary,
+                            ? KaizokuColors.primary
+                            : KaizokuColors.textPrimary,
                         fontSize: 14,
                         fontWeight: option == value
                             ? FontWeight.w700
@@ -484,7 +501,7 @@ class SettingsDropdownTile<T> extends StatelessWidget {
                   if (option == value)
                     Icon(
                       Icons.check_rounded,
-                      color: AppColors.primary,
+                      color: KaizokuColors.primary,
                       size: 17,
                     ),
                 ],
@@ -500,7 +517,7 @@ class SettingsDropdownTile<T> extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: enabled ? AppColors.primary : AppColors.textHint,
+                  color: enabled ? KaizokuColors.primary : KaizokuColors.textMuted,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -509,7 +526,7 @@ class SettingsDropdownTile<T> extends StatelessWidget {
             const SizedBox(width: 2),
             Icon(
               Icons.arrow_drop_down_rounded,
-              color: enabled ? AppColors.primary : AppColors.textHint,
+              color: enabled ? KaizokuColors.primary : KaizokuColors.textMuted,
               size: 22,
             ),
           ],
@@ -551,7 +568,7 @@ class SettingsSwitchTile extends StatelessWidget {
         value: value,
         onChanged: enabled ? onChanged : null,
         activeThumbColor: Colors.white,
-        activeTrackColor: AppColors.primary,
+        activeTrackColor: KaizokuColors.neonCrimson,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );
@@ -589,6 +606,8 @@ class _SettingsRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        splashColor: KaizokuColors.neonCrimson.withValues(alpha: 0.1),
+        highlightColor: Colors.white.withValues(alpha: 0.05),
         child: Opacity(
           opacity: enabled ? 1 : 0.45,
           child: Padding(
@@ -617,8 +636,8 @@ class _SettingsRow extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: destructive
-                                      ? AppColors.error
-                                      : AppColors.textPrimary,
+                                      ? KaizokuColors.neonCrimson
+                                      : Colors.white,
                                   fontSize: 15,
                                   fontWeight: destructive
                                       ? FontWeight.w600
@@ -635,7 +654,7 @@ class _SettingsRow extends StatelessWidget {
                           Text(
                             sub,
                             style: const TextStyle(
-                              color: AppColors.textHint,
+                              color: KaizokuColors.textSecondary,
                               fontSize: 11.5,
                               height: 1.3,
                             ),

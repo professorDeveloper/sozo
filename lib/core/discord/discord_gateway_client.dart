@@ -182,7 +182,7 @@ class DiscordGatewayClient {
       if (a.imageText != null) assets['large_text'] = a.imageText;
     }
     return {
-      'name': 'Sozo',
+      'name': 'Kaizoku',
       'type': 3,
       'details': a.title,
       if (a.subtitle != null && a.subtitle!.isNotEmpty) 'state': a.subtitle,

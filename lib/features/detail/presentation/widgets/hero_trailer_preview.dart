@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/trailer/trailer_query.dart';
 import 'package:soplay/core/trailer/trailer_service.dart';
 
@@ -278,7 +277,7 @@ class _MuteButton extends StatelessWidget {
             child: Icon(
               muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
               size: 17,
-              color: AppColors.textPrimary,
+              color: Colors.white,
             ),
           ),
         ),

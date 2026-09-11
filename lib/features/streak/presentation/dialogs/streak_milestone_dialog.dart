@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
 
 const Color _ember = Color(0xFFFFA94D);
@@ -101,7 +101,7 @@ class _StreakMilestoneDialogState extends State<StreakMilestoneDialog>
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [AppColors.surface, AppColors.background],
+                    colors: [KaizokuColors.surface, KaizokuColors.background],
                   ),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
@@ -126,7 +126,7 @@ class _StreakMilestoneDialogState extends State<StreakMilestoneDialog>
                           .tr(args: ['${widget.days}']),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
+                        color: KaizokuColors.textPrimary,
                         fontSize: 24,
                         fontWeight: FontWeight.w900,
                         height: 1.15,
@@ -137,7 +137,7 @@ class _StreakMilestoneDialogState extends State<StreakMilestoneDialog>
                       'streak.milestone_subtitle'.tr(),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: AppColors.textSecondary,
+                        color: KaizokuColors.textSecondary,
                         fontSize: 13,
                         height: 1.45,
                       ),
@@ -157,7 +157,7 @@ class _StreakMilestoneDialogState extends State<StreakMilestoneDialog>
                               side: BorderSide(
                                 color: Colors.white.withValues(alpha: 0.18),
                               ),
-                              foregroundColor: AppColors.textPrimary,
+                              foregroundColor: KaizokuColors.textPrimary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(kButtonRadius),
                               ),
@@ -177,7 +177,7 @@ class _StreakMilestoneDialogState extends State<StreakMilestoneDialog>
                             onPressed: _share,
                             style: FilledButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 13),
-                              backgroundColor: AppColors.primary,
+                              backgroundColor: KaizokuColors.primary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(kButtonRadius),
                               ),
@@ -350,7 +350,7 @@ class StreakFreezeSavedDialog extends StatelessWidget {
                   'streak.freeze_saved_title'.tr(),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textPrimary,
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                     height: 1.15,
@@ -361,7 +361,7 @@ class StreakFreezeSavedDialog extends StatelessWidget {
                   'streak.freeze_saved_subtitle'.tr(),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 13,
                     height: 1.45,
                   ),

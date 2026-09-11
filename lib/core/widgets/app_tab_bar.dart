@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 /// Canonical tab strip. Styling lifted verbatim from the detail page's
 /// tab bar so every feature reads the same.
@@ -26,9 +27,7 @@ class AppTabBar extends StatefulWidget implements PreferredSizeWidget {
   final TabController? controller;
   final bool isScrollable;
   final bool showDivider;
-  /// Defaults to [AppColors.background]. Nullable rather than defaulted in the
-  /// constructor because the palette is a runtime value now, and a default
-  /// parameter has to be a compile-time constant.
+  /// Defaults to [KaizokuColors.cyberObsidian].
   final Color? background;
   /// Geometry rather than [EdgeInsets] so a caller — and the default below —
   /// can express a leading inset that mirrors in Arabic instead of clinging to
@@ -122,7 +121,7 @@ class _AppTabBarState extends State<AppTabBar>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: widget.background ?? AppColors.background,
+      color: widget.background ?? KaizokuColors.cyberObsidian,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -137,11 +136,11 @@ class _AppTabBarState extends State<AppTabBar>
                 tabAlignment: widget.isScrollable
                     ? TabAlignment.start
                     : TabAlignment.fill,
-                indicatorColor: AppColors.primary,
+                indicatorColor: KaizokuColors.neonCrimson,
                 indicatorWeight: AppTabBar.indicatorWeight,
                 indicatorSize: TabBarIndicatorSize.label,
-                labelColor: AppColors.textPrimary,
-                unselectedLabelColor: AppColors.textHint,
+                labelColor: Colors.white,
+                unselectedLabelColor: KaizokuColors.textSecondary,
                 dividerColor: Colors.transparent,
                 overlayColor: WidgetStateProperty.all(Colors.transparent),
                 labelPadding: const EdgeInsets.symmetric(horizontal: 14),
@@ -163,7 +162,7 @@ class _AppTabBarState extends State<AppTabBar>
           if (widget.showDivider)
             Container(
               height: AppTabBar.dividerHeight,
-              color: AppColors.divider.withValues(alpha: 0.55),
+              color: Colors.white.withValues(alpha: 0.08),
             ),
         ],
       ),

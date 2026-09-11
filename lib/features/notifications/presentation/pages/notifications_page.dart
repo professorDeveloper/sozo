@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/notifications/domain/entities/notification_item.dart';
 import 'package:soplay/features/notifications/presentation/bloc/notifications_bloc.dart';
 
@@ -65,24 +65,24 @@ class _NotificationsViewState extends State<_NotificationsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back, color: KaizokuColors.textPrimary),
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/main'),
         ),
         title: Text(
           'notifications.title'.tr(),
-          style: const TextStyle(color: AppColors.textPrimary),
+          style: const TextStyle(color: KaizokuColors.textPrimary),
         ),
         actions: [
           DesktopRefreshButton(
-            color: AppColors.textPrimary,
+            color: KaizokuColors.textPrimary,
             onRefresh: () => context
                 .read<NotificationsBloc>()
                 .add(const NotificationsRefresh()),
@@ -97,7 +97,7 @@ class _NotificationsViewState extends State<_NotificationsView> {
                     .add(const NotificationsMarkAllRead()),
                 child: Text(
                   'notifications.mark_all_read'.tr(),
-                  style: TextStyle(color: AppColors.primary),
+                  style: const TextStyle(color: KaizokuColors.neonCrimson, fontWeight: FontWeight.w600),
                 ),
               );
             },
@@ -107,15 +107,15 @@ class _NotificationsViewState extends State<_NotificationsView> {
       body: BlocBuilder<NotificationsBloc, NotificationsState>(
         builder: (context, state) {
           if (state.loading && state.items.isEmpty) {
-            return Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+            return const Center(
+              child: CircularProgressIndicator(color: KaizokuColors.neonCrimson),
             );
           }
           // The empty and error states are scrollable too: off desktop the
           // refresh button is hidden, so a pull is the only way back.
           return RefreshIndicator(
-            color: AppColors.primary,
-            backgroundColor: AppColors.surface,
+            color: KaizokuColors.neonCrimson,
+            backgroundColor: KaizokuColors.surface,
             onRefresh: _refresh,
             child: _body(context, state),
           );
@@ -142,10 +142,10 @@ class _NotificationsViewState extends State<_NotificationsView> {
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           if (index >= state.items.length) {
-            return Padding(
+            return const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
+                child: CircularProgressIndicator(color: KaizokuColors.neonCrimson),
               ),
             );
           }
@@ -196,16 +196,22 @@ class _NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tile = Material(
-      color: item.read ? AppColors.surface : AppColors.surfaceVariant,
-      borderRadius: BorderRadius.circular(12),
+    final tile = Container(
+      decoration: BoxDecoration(
+        color: item.read ? KaizokuColors.surface : KaizokuColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KaizokuColors.borderGlass),
+      ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: isDesktopPlatform ? null : () => _showActions(context),
-        child: item.imageUrl != null && item.imageUrl!.isNotEmpty
-            ? _buildImageCard(context)
-            : _buildTextRow(context),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: isDesktopPlatform ? null : () => _showActions(context),
+          child: item.imageUrl != null && item.imageUrl!.isNotEmpty
+              ? _buildImageCard(context)
+              : _buildTextRow(context),
+        ),
       ),
     );
 
@@ -240,7 +246,7 @@ class _NotificationTile extends StatelessWidget {
         alignment: AlignmentDirectional.centerEnd,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: AppColors.error,
+          color: KaizokuColors.neonCrimson,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -273,7 +279,7 @@ class _NotificationTile extends StatelessWidget {
   Future<void> _showActions(BuildContext context) async {
     final remove = await showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.surfaceElevated,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -287,7 +293,7 @@ class _NotificationTile extends StatelessWidget {
               width: 38,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.textSecondary.withValues(alpha: 0.4),
+                color: KaizokuColors.textSecondary.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -299,7 +305,7 @@ class _NotificationTile extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
@@ -309,12 +315,12 @@ class _NotificationTile extends StatelessWidget {
             ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,
-                color: AppColors.error,
+                color: KaizokuColors.neonCrimson,
               ),
               title: Text(
                 'general.delete'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -340,11 +346,11 @@ class _NotificationTile extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: item.imageUrl!,
                 fit: BoxFit.cover,
-                placeholder: (_, _) => ColoredBox(
-                  color: AppColors.surfaceVariant,
+                placeholder: (_, _) => const ColoredBox(
+                  color: KaizokuColors.surfaceElevated,
                 ),
-                errorWidget: (_, _, _) => ColoredBox(
-                  color: AppColors.surfaceVariant,
+                errorWidget: (_, _, _) => const ColoredBox(
+                  color: KaizokuColors.surfaceElevated,
                 ),
               ),
               if (!item.read)
@@ -354,8 +360,8 @@ class _NotificationTile extends StatelessWidget {
                   child: Container(
                     width: 10,
                     height: 10,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
+                    decoration: const BoxDecoration(
+                      color: KaizokuColors.neonCrimson,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -371,7 +377,7 @@ class _NotificationTile extends StatelessWidget {
               Text(
                 item.title,
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 14,
                   fontWeight: item.read ? FontWeight.w600 : FontWeight.w800,
                 ),
@@ -381,7 +387,7 @@ class _NotificationTile extends StatelessWidget {
                 Text(
                   item.body,
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 13,
                     height: 1.3,
                   ),
@@ -391,7 +397,7 @@ class _NotificationTile extends StatelessWidget {
               Text(
                 _formatDate(context, item.createdAt),
                 style: const TextStyle(
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 11,
                 ),
               ),
@@ -413,8 +419,8 @@ class _NotificationTile extends StatelessWidget {
               width: 8,
               height: 8,
               margin: const EdgeInsetsDirectional.only(top: 6, end: 10),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
+              decoration: const BoxDecoration(
+                color: KaizokuColors.neonCrimson,
                 shape: BoxShape.circle,
               ),
             ),
@@ -425,7 +431,7 @@ class _NotificationTile extends StatelessWidget {
                 Text(
                   item.title,
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textPrimary,
                     fontSize: 14,
                     fontWeight: item.read ? FontWeight.w500 : FontWeight.w700,
                   ),
@@ -435,7 +441,7 @@ class _NotificationTile extends StatelessWidget {
                   Text(
                     item.body,
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
+                      color: KaizokuColors.textSecondary,
                       fontSize: 13,
                       height: 1.3,
                     ),
@@ -445,7 +451,7 @@ class _NotificationTile extends StatelessWidget {
                 Text(
                   _formatDate(context, item.createdAt),
                   style: const TextStyle(
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 11,
                   ),
                 ),
@@ -496,18 +502,18 @@ class _EmptyView extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      Colors.white.withValues(alpha: 0.07),
-                      Colors.white.withValues(alpha: 0.015),
+                      KaizokuColors.neonCrimson.withValues(alpha: 0.15),
+                      KaizokuColors.neonCrimson.withValues(alpha: 0.02),
                     ],
                   ),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.06),
-                    width: 0.8,
+                    color: KaizokuColors.borderGlass,
+                    width: 1,
                   ),
                 ),
                 child: const Icon(
                   Icons.notifications_none_rounded,
-                  color: AppColors.textSecondary,
+                  color: KaizokuColors.textSecondary,
                   size: 46,
                 ),
               ),
@@ -515,7 +521,7 @@ class _EmptyView extends StatelessWidget {
               Text(
                 'notifications.empty_title'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: KaizokuColors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
@@ -525,7 +531,7 @@ class _EmptyView extends StatelessWidget {
                 'notifications.empty_subtitle'.tr(),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: AppColors.textHint,
+                  color: KaizokuColors.textSecondary,
                   fontSize: 13,
                   height: 1.45,
                 ),
@@ -549,14 +555,14 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, color: AppColors.error, size: 56),
+          const Icon(Icons.error_outline, color: KaizokuColors.neonCrimson, size: 56),
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              style: const TextStyle(color: KaizokuColors.textSecondary, fontSize: 14),
             ),
           ),
           const SizedBox(height: 16),
@@ -564,7 +570,7 @@ class _ErrorView extends StatelessWidget {
             onPressed: onRetry,
             child: Text(
               'general.retry'.tr(),
-              style: TextStyle(color: AppColors.primary),
+              style: const TextStyle(color: KaizokuColors.neonCrimson, fontWeight: FontWeight.w700),
             ),
           ),
         ],

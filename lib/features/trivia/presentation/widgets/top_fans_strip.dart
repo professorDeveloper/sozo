@@ -1,16 +1,16 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/trivia/domain/entities/top_fan_entity.dart';
 
 /// Medal accent colors for ranks 1..3. Semantic, not decorative — they come
 /// from the shared medal tokens so the board and this strip cannot drift apart.
 const List<Color> kMedalColors = [
-  AppColors.medalGold,
-  AppColors.medalSilver,
-  AppColors.medalBronze,
+  KaizokuColors.medalGold,
+  KaizokuColors.medalSilver,
+  KaizokuColors.medalBronze,
 ];
 
 /// Compact "Top Fans" preview strip for the Actor Hero: top-3 avatars with
@@ -40,9 +40,9 @@ class TopFansStrip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 12, 14),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: KaizokuColors.surface,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border, width: 1),
+          border: Border.all(color: KaizokuColors.border, width: 1),
         ),
         child: Row(
           children: [
@@ -60,7 +60,7 @@ class TopFansStrip extends StatelessWidget {
                   Text(
                     'trivia.top_fans'.tr(),
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: KaizokuColors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
@@ -72,7 +72,7 @@ class TopFansStrip extends StatelessWidget {
                     Text(
                       'trivia.be_first_fan'.tr(),
                       style: const TextStyle(
-                        color: AppColors.textHint,
+                        color: KaizokuColors.textHint,
                         fontSize: 12,
                       ),
                     )
@@ -85,7 +85,7 @@ class TopFansStrip extends StatelessWidget {
             if (myRank != null) _MyRankChip(rank: myRank!),
             const Icon(
               Icons.chevron_right_rounded,
-              color: AppColors.textSecondary,
+              color: KaizokuColors.textSecondary,
               size: 22,
             ),
           ],
@@ -139,7 +139,7 @@ class _MedalAvatar extends StatelessWidget {
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         border: Border.all(color: medal, width: 2),
       ),
       child: ClipOval(
@@ -147,7 +147,7 @@ class _MedalAvatar extends StatelessWidget {
           width: size,
           height: size,
           child: ColoredBox(
-            color: AppColors.surfaceVariant,
+            color: KaizokuColors.surfaceVariant,
             child: fan.avatar.trim().isEmpty
                 ? _initial(fan.username)
                 : CachedNetworkImage(
@@ -169,7 +169,7 @@ class _MedalAvatar extends StatelessWidget {
       child: Text(
         name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase(),
         style: const TextStyle(
-          color: AppColors.textSecondary,
+          color: KaizokuColors.textSecondary,
           fontWeight: FontWeight.w800,
           fontSize: 15,
         ),
@@ -188,7 +188,7 @@ class _MyRankChip extends StatelessWidget {
       margin: const EdgeInsetsDirectional.only(end: 4),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.primary,
+        color: KaizokuColors.primary,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(

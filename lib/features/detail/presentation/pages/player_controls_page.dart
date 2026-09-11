@@ -2,7 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/detail/domain/player_controls_layout.dart';
 
 /// The icon each control wears, on the bar and in this list.
@@ -106,7 +106,7 @@ class _PlayerControlsPageState extends State<PlayerControlsPage> {
             TextButton(
               onPressed: _reset,
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.primaryLight,
+                foregroundColor: KaizokuColors.neonCrimson,
               ),
               child: Text(
                 'general.reset'.tr(),
@@ -148,8 +148,8 @@ class _PlayerControlsPageState extends State<PlayerControlsPage> {
             children: [
               Text(
                 _slotLabel(slot).toUpperCase(),
-                style: TextStyle(
-                  color: AppColors.primaryLight,
+                style: const TextStyle(
+                  color: KaizokuColors.neonCrimson,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.9,
@@ -383,7 +383,7 @@ class _LayoutPreview extends StatelessWidget {
                   widthFactor: 0.38,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      color: KaizokuColors.neonCrimson,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),

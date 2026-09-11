@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:soplay/core/widgets/shimmer_wrapper.dart';
 
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/core/widgets/poster_hero.dart';
@@ -198,7 +198,7 @@ class _TabStripSk extends StatelessWidget {
           ),
         ),
         const SizedBox(height: _indicatorWeight),
-        Container(height: _dividerHeight, color: AppColors.divider),
+        Container(height: _dividerHeight, color: KaizokuColors.cardBorder),
       ],
     );
   }
@@ -309,7 +309,7 @@ class _Block extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: KaizokuColors.surfaceLight,
         borderRadius: BorderRadius.circular(radius),
       ),
     );

@@ -217,7 +217,7 @@ class _LoadingOverlay extends StatelessWidget {
                 child: LinearProgressIndicator(
                   minHeight: 3,
                   backgroundColor: Colors.white12,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                  valueColor: AlwaysStoppedAnimation<Color>(KaizokuColors.neonCrimson),
                 ),
               ),
             ),
@@ -583,7 +583,7 @@ class _EpisodeRow extends StatelessWidget {
               child: Text(
                 episode.episode.toString().padLeft(2, '0'),
                 style: TextStyle(
-                  color: isActive ? AppColors.primary : Colors.white54,
+                  color: isActive ? KaizokuColors.neonCrimson : Colors.white54,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
@@ -605,7 +605,7 @@ class _EpisodeRow extends StatelessWidget {
             if (isActive)
               Icon(
                 Icons.play_arrow_rounded,
-                color: AppColors.primary,
+                color: KaizokuColors.neonCrimson,
                 size: 22,
               ),
           ],
@@ -650,7 +650,7 @@ class _VideoTrackRow extends StatelessWidget {
                   Text(
                     track.isAuto ? 'player.auto'.tr() : track.label,
                     style: TextStyle(
-                      color: isActive ? AppColors.primary : Colors.white,
+                      color: isActive ? KaizokuColors.neonCrimson : Colors.white,
                       fontSize: 14,
                       fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                     ),
@@ -669,7 +669,7 @@ class _VideoTrackRow extends StatelessWidget {
               ),
             ),
             if (isActive)
-              Icon(Icons.check_rounded, color: AppColors.primary, size: 18),
+              Icon(Icons.check_rounded, color: KaizokuColors.neonCrimson, size: 18),
           ],
         ),
       ),
@@ -704,7 +704,7 @@ class _QualityRow extends StatelessWidget {
               isActive
                   ? Icons.radio_button_checked_rounded
                   : Icons.radio_button_unchecked_rounded,
-              color: isActive ? AppColors.primary : Colors.white54,
+              color: isActive ? KaizokuColors.neonCrimson : Colors.white54,
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -736,8 +736,8 @@ class _QualityRow extends StatelessWidget {
                           worst.icon,
                           size: 13,
                           color: worst.risk == StreamRisk.blocking
-                              ? AppColors.error
-                              : AppColors.rating,
+                              ? KaizokuColors.neonCrimson
+                              : KaizokuColors.solarAmber,
                         ),
                         const SizedBox(width: 5),
                         Expanded(
@@ -747,8 +747,8 @@ class _QualityRow extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: worst.risk == StreamRisk.blocking
-                                  ? AppColors.error
-                                  : AppColors.textSecondary,
+                                  ? KaizokuColors.neonCrimson
+                                  : KaizokuColors.textSecondary,
                               fontSize: 11,
                               height: 1.3,
                             ),
@@ -765,7 +765,7 @@ class _QualityRow extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.18),
+                  color: KaizokuColors.neonCrimson.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -774,8 +774,8 @@ class _QualityRow extends StatelessWidget {
                   // viewer now has, since the rows below it explain what is
                   // wrong with the alternatives.
                   'player.recommended'.tr(),
-                  style: TextStyle(
-                    color: AppColors.primaryLight,
+                  style: const TextStyle(
+                    color: KaizokuColors.neonCrimson,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1003,7 +1003,7 @@ class _OptionTile extends StatelessWidget {
               selected
                   ? Icons.radio_button_checked_rounded
                   : Icons.radio_button_unchecked_rounded,
-              color: selected ? AppColors.primary : Colors.white54,
+              color: selected ? KaizokuColors.neonCrimson : Colors.white54,
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -1071,7 +1071,7 @@ class _FontChip extends StatelessWidget {
       selected: selected,
       child: Material(
         color:
-            selected ? AppColors.primary : Colors.white.withValues(alpha: 0.07),
+            selected ? KaizokuColors.neonCrimson : Colors.white.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(10),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -1240,13 +1240,13 @@ class _ColorDot extends StatelessWidget {
           shape: BoxShape.circle,
           color: color,
           border: Border.all(
-            color: selected ? AppColors.primary : Colors.white24,
+            color: selected ? KaizokuColors.neonCrimson : Colors.white24,
             width: selected ? 3 : 1.5,
           ),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.4),
+                    color: KaizokuColors.neonCrimson.withValues(alpha: 0.4),
                     blurRadius: 8,
                   ),
                 ]
@@ -1317,7 +1317,7 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: selected
-          ? AppColors.primary.withValues(alpha: 0.18)
+          ? KaizokuColors.neonCrimson.withValues(alpha: 0.18)
           : Colors.white10,
       borderRadius: BorderRadius.circular(10),
       clipBehavior: Clip.antiAlias,
@@ -1329,7 +1329,7 @@ class _Chip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? AppColors.primary : Colors.white12,
+              color: selected ? KaizokuColors.neonCrimson : Colors.white12,
               width: selected ? 1.5 : 1,
             ),
           ),

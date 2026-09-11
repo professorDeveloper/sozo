@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
@@ -43,18 +43,18 @@ class _TopFansView extends StatelessWidget {
   Widget build(BuildContext context) {
     final myId = _currentUserId();
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.background,
         elevation: 0,
         title: Text(
           'trivia.top_fans'.tr(),
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: KaizokuColors.textPrimary,
             fontWeight: FontWeight.w800,
           ),
         ),
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        iconTheme: const IconThemeData(color: KaizokuColors.textPrimary),
       ),
       body: BlocBuilder<TopFansBloc, TopFansState>(
         builder: (context, state) {
@@ -140,9 +140,9 @@ class _ActorMiniHeader extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: KaizokuColors.border),
       ),
       child: Row(
         children: [
@@ -160,7 +160,7 @@ class _ActorMiniHeader extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
+                      color: KaizokuColors.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                     ),
@@ -173,7 +173,7 @@ class _ActorMiniHeader extends StatelessWidget {
                     'fandom': fanStat.avgFandom.toStringAsFixed(0),
                   }),
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 12.5,
                   ),
                 ),
@@ -198,11 +198,11 @@ class _FanRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: isMe
-            ? AppColors.primary.withValues(alpha: 0.14)
-            : AppColors.surface,
+            ? KaizokuColors.primary.withValues(alpha: 0.14)
+            : KaizokuColors.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isMe ? AppColors.primary : AppColors.border,
+          color: isMe ? KaizokuColors.primary : KaizokuColors.border,
           width: isMe ? 1.4 : 1,
         ),
       ),
@@ -221,7 +221,7 @@ class _FanRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: KaizokuColors.textPrimary,
                     fontSize: 14.5,
                     fontWeight: isMe ? FontWeight.w800 : FontWeight.w600,
                   ),
@@ -230,7 +230,7 @@ class _FanRow extends StatelessWidget {
                 Text(
                   'trivia.best_score'.tr(namedArgs: {'score': '${fan.bestScore}'}),
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -255,8 +255,8 @@ class _PinnedMyRow extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomSafe),
       decoration: BoxDecoration(
-        color: AppColors.navBackground,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        color: KaizokuColors.navBackground,
+        border: Border(top: BorderSide(color: KaizokuColors.border)),
       ),
       child: _FanRow(fan: fan, isMe: true),
     );
@@ -275,14 +275,14 @@ class _FandomBadge extends StatelessWidget {
         Text(
           '${percent.toStringAsFixed(0)}%',
           style: TextStyle(
-            color: AppColors.primaryLight,
+            color: KaizokuColors.primaryLight,
             fontSize: 17,
             fontWeight: FontWeight.w900,
           ),
         ),
         Text(
           'trivia.fandom'.tr(),
-          style: const TextStyle(color: AppColors.textHint, fontSize: 10),
+          style: const TextStyle(color: KaizokuColors.textHint, fontSize: 10),
         ),
       ],
     );
@@ -298,7 +298,7 @@ class RankBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMedal = rank >= 1 && rank <= 3;
-    final color = isMedal ? kMedalColors[rank - 1] : AppColors.surfaceVariant;
+    final color = isMedal ? kMedalColors[rank - 1] : KaizokuColors.surfaceVariant;
     return Container(
       width: 30,
       height: 30,
@@ -307,14 +307,14 @@ class RankBadge extends StatelessWidget {
         shape: BoxShape.circle,
         color: isMedal ? color.withValues(alpha: 0.2) : Colors.transparent,
         border: Border.all(
-          color: isMedal ? color : AppColors.border,
+          color: isMedal ? color : KaizokuColors.border,
           width: 1.5,
         ),
       ),
       child: Text(
         '$rank',
         style: TextStyle(
-          color: isMedal ? color : AppColors.textSecondary,
+          color: isMedal ? color : KaizokuColors.textSecondary,
           fontSize: 13,
           fontWeight: FontWeight.w900,
         ),
@@ -336,7 +336,7 @@ class _Avatar extends StatelessWidget {
         width: size,
         height: size,
         child: ColoredBox(
-          color: AppColors.surfaceVariant,
+          color: KaizokuColors.surfaceVariant,
           child: url.trim().isEmpty
               ? _fallback()
               : CachedNetworkImage(
@@ -357,7 +357,7 @@ class _Avatar extends StatelessWidget {
       child: Text(
         initial,
         style: TextStyle(
-          color: AppColors.textSecondary,
+          color: KaizokuColors.textSecondary,
           fontWeight: FontWeight.w800,
           fontSize: size * 0.4,
         ),
@@ -401,7 +401,7 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: AppColors.textHint, size: 44),
+            Icon(icon, color: KaizokuColors.textHint, size: 44),
             const SizedBox(height: 14),
             Text(
               message?.isNotEmpty == true
@@ -409,7 +409,7 @@ class _ErrorView extends StatelessWidget {
                   : 'trivia.something_wrong'.tr(),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textSecondary,
+                color: KaizokuColors.textSecondary,
                 fontSize: 14,
               ),
             ),
@@ -418,7 +418,7 @@ class _ErrorView extends StatelessWidget {
               TextButton(
                 onPressed: onRetry,
                 style:
-                    TextButton.styleFrom(foregroundColor: AppColors.primaryLight),
+                    TextButton.styleFrom(foregroundColor: KaizokuColors.primaryLight),
                 child: Text('general.retry'.tr()),
               ),
             ],

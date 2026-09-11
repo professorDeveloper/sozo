@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/comments/domain/entities/comment_author.dart';
 import 'package:soplay/features/comments/presentation/widgets/comment_avatar.dart';
 import 'package:soplay/features/watch_party/data/watch_party_service.dart';
@@ -111,14 +111,14 @@ class _EmptyChat extends StatelessWidget {
         children: [
           const Icon(
             Icons.forum_outlined,
-            color: AppColors.textHint,
+            color: KaizokuColors.textMuted,
             size: 40,
           ),
           const SizedBox(height: 10),
           Text(
             'watch_party.chat_empty'.tr(),
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textHint, fontSize: 12.5),
+            style: const TextStyle(color: KaizokuColors.textMuted, fontSize: 12.5),
           ),
         ],
       ),
@@ -161,7 +161,7 @@ class _ChatRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: isMe ? AppColors.primaryLight : AppColors.textPrimary,
+                    color: isMe ? KaizokuColors.neonCrimson : Colors.white,
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
                   ),
@@ -170,7 +170,7 @@ class _ChatRow extends StatelessWidget {
                 Text(
                   message.text,
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
+                    color: KaizokuColors.textSecondary,
                     fontSize: 13,
                     height: 1.35,
                   ),
@@ -198,10 +198,10 @@ class _Composer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.background,
+      decoration: const BoxDecoration(
+        color: KaizokuColors.cyberObsidian,
         border: Border(
-          top: BorderSide(color: AppColors.divider, width: 0.6),
+          top: BorderSide(color: KaizokuColors.cardBorder, width: 0.6),
         ),
       ),
       padding: EdgeInsets.fromLTRB(
@@ -212,9 +212,9 @@ class _Composer extends StatelessWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: KaizokuColors.surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border, width: 0.6),
+          border: Border.all(color: KaizokuColors.cardBorder, width: 0.6),
         ),
         padding: const EdgeInsetsDirectional.fromSTEB(12, 4, 4, 4),
         child: Row(
@@ -230,13 +230,13 @@ class _Composer extends StatelessWidget {
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => onSend(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   fontSize: 13,
                 ),
                 decoration: InputDecoration(
                   hintText: 'watch_party.chat_hint'.tr(),
                   hintStyle: const TextStyle(
-                    color: AppColors.textHint,
+                    color: KaizokuColors.textMuted,
                     fontSize: 13,
                   ),
                   border: InputBorder.none,
@@ -248,7 +248,7 @@ class _Composer extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Material(
-              color: AppColors.primary,
+              color: KaizokuColors.neonCrimson,
               shape: const CircleBorder(),
               child: InkWell(
                 onTap: onSend,

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/streak/domain/entities/streak_state.dart';
 
-const Color _ember = Color(0xFFFFA94D);
-const Color _emberDeep = Color(0xFFEF7A35);
+const Color _ember = KaizokuColors.solarAmber;
+const Color _emberDeep = KaizokuColors.neonCrimson;
 
 /// A 5×7 (35-cell) activity heatmap built from [StreakState.calendar]
 /// (oldest → newest, newest anchored to the bottom-right cell).
@@ -28,10 +29,10 @@ class StreakCalendarHeatmap extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: KaizokuColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: KaizokuColors.cardBorder,
           width: 0.5,
         ),
       ),

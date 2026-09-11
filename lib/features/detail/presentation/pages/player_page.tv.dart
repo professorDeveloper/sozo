@@ -35,7 +35,7 @@ const double _kTvEpisodeRowEstimate = 58;
 /// Null off TV, which is exactly what those `InkWell`s pass today — so phone
 /// and desktop keep the theme default and render unchanged.
 Color? get _kTvFocusFill =>
-    isTvPlatform ? AppColors.primary.withValues(alpha: 0.22) : null;
+    isTvPlatform ? KaizokuColors.neonCrimson.withValues(alpha: 0.22) : null;
 
 extension _PlayerTv on _PlayerPageState {
   /// Seconds added per left/right press, growing while the key is held so a
@@ -438,7 +438,7 @@ class _TvSeekBarState extends State<_TvSeekBar> {
                     child: Container(
                       height: trackHeight,
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: KaizokuColors.neonCrimson,
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
@@ -455,7 +455,7 @@ class _TvSeekBarState extends State<_TvSeekBar> {
                         color: Colors.white,
                         shape: BoxShape.circle,
                         border: active
-                            ? Border.all(color: AppColors.primary, width: 2.5)
+                            ? Border.all(color: KaizokuColors.neonCrimson, width: 2.5)
                             : null,
                       ),
                     ),
@@ -560,7 +560,7 @@ class _TvFocusRingState extends State<_TvFocusRing> {
           borderRadius:
               widget.circle ? null : BorderRadius.circular(widget.radius),
           border: Border.all(
-            color: _focused ? AppColors.primary : Colors.transparent,
+            color: _focused ? KaizokuColors.neonCrimson : Colors.transparent,
             width: 2,
           ),
         ),

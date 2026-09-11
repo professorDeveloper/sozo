@@ -17,6 +17,7 @@ import 'package:soplay/features/banners/presentation/bloc/banners_bloc.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/hero_slide.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/home/presentation/widgets/home_ui_helpers.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -324,9 +325,9 @@ class _SlideOverlays extends StatelessWidget {
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    AppColors.background,
-                    AppColors.background.withValues(alpha: 0.733),
-                    AppColors.background.withValues(alpha: 0.0),
+                    KaizokuColors.cyberObsidian,
+                    KaizokuColors.cyberObsidian.withValues(alpha: 0.733),
+                    KaizokuColors.cyberObsidian.withValues(alpha: 0.0),
                   ],
                   stops: const [0.0, 0.52, 1.0],
                 ),
@@ -579,8 +580,16 @@ class _DesktopBannerState extends State<_DesktopBanner> {
                   height: 8,
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
-                    color: active ? AppColors.textPrimary : AppColors.textHint,
+                    color: active ? KaizokuColors.neonCrimson : Colors.white24,
                     borderRadius: BorderRadius.circular(99),
+                    boxShadow: active
+                        ? [
+                            BoxShadow(
+                              color: KaizokuColors.neonCrimson.withValues(alpha: 0.6),
+                              blurRadius: 8,
+                            ),
+                          ]
+                        : null,
                   ),
                 ),
               );
@@ -903,7 +912,7 @@ class _EdgeBlend extends StatelessWidget {
   /// halo glowing around the hero.
   @override
   Widget build(BuildContext context) {
-    final bg = AppColors.background;
+    final bg = KaizokuColors.cyberObsidian;
     final clear = bg.withValues(alpha: 0.0);
     return IgnorePointer(
       child: Stack(
@@ -998,9 +1007,9 @@ class _BannerButtonState extends State<_BannerButton> {
     // there is. The second action is where the accent belongs: tinted glass,
     // so the row says which theme is on without ever fighting the poster.
     final bg = primary
-        ? Colors.white
-        : AppColors.primary.withValues(alpha: _hover ? 0.46 : 0.30);
-    final fg = primary ? Colors.black : Colors.white;
+        ? KaizokuColors.neonCrimson
+        : KaizokuColors.surface;
+    final fg = Colors.white;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -1017,7 +1026,19 @@ class _BannerButtonState extends State<_BannerButton> {
             padding: EdgeInsets.symmetric(horizontal: primary ? 24 : 20),
             decoration: BoxDecoration(
               color: bg,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
+              border: primary
+                  ? null
+                  : Border.all(color: const Color(0x26FFFFFF), width: 1),
+              boxShadow: primary
+                  ? [
+                      BoxShadow(
+                        color: KaizokuColors.neonCrimson.withValues(alpha: 0.45),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

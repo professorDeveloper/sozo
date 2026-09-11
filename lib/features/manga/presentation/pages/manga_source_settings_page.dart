@@ -2,7 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'package:soplay/core/manga/manga_channel.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/kaizoku_colors.dart';
 
 class MangaSourceSettingsPage extends StatefulWidget {
   final String sourceId;
@@ -21,7 +21,7 @@ class MangaSourceSettingsPage extends StatefulWidget {
 class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
   /// The manga screens used to carry their own private blue. There is one
   /// accent in the app now, and the user chooses it.
-  static Color get _accent => AppColors.primary;
+  static Color get _accent => KaizokuColors.neonCrimson;
 
   List<Map<String, dynamic>> _prefs = const [];
   bool _loading = true;
@@ -51,9 +51,9 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: KaizokuColors.cyberObsidian,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: KaizokuColors.cyberObsidian,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
@@ -69,7 +69,7 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
                     child: Text(
                       'manga.no_preferences'.tr(),
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.textHint),
+                      style: const TextStyle(color: KaizokuColors.textMuted),
                     ),
                   ),
                 )
@@ -99,7 +99,7 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
           subtitle: summary?.isNotEmpty == true
               ? Text(summary!,
                   style: const TextStyle(
-                      color: AppColors.textHint, fontSize: 12))
+                      color: KaizokuColors.textMuted, fontSize: 12))
               : null,
           value: value,
           onChanged: (v) {
@@ -120,8 +120,8 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
           title: Text(title?.isNotEmpty == true ? title! : key,
               style: const TextStyle(color: Colors.white, fontSize: 14)),
           subtitle: Text(label.isNotEmpty ? label : (summary ?? ''),
-              style: const TextStyle(color: AppColors.textHint, fontSize: 12)),
-          trailing: const Icon(Icons.expand_more, color: AppColors.textHint),
+              style: const TextStyle(color: KaizokuColors.textMuted, fontSize: 12)),
+          trailing: const Icon(Icons.expand_more, color: KaizokuColors.textMuted),
           onTap: () => _pickList(p, key, entries, values, current),
         );
 
@@ -139,9 +139,9 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
                     ? summary!
                     : 'manga.not_selected'.tr())
                 : 'manga.n_selected'.tr(args: ['${current.length}']),
-            style: const TextStyle(color: AppColors.textHint, fontSize: 12),
+            style: const TextStyle(color: KaizokuColors.textMuted, fontSize: 12),
           ),
-          trailing: const Icon(Icons.checklist, color: AppColors.textHint),
+          trailing: const Icon(Icons.checklist, color: KaizokuColors.textMuted),
           onTap: () => _pickMulti(p, key, entries, values, current),
         );
 
@@ -152,12 +152,12 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
               style: const TextStyle(color: Colors.white, fontSize: 14)),
           subtitle: Text(
             current.isNotEmpty ? current : (summary ?? ''),
-            style: const TextStyle(color: AppColors.textHint, fontSize: 12),
+            style: const TextStyle(color: KaizokuColors.textMuted, fontSize: 12),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           trailing: const Icon(Icons.edit_outlined,
-              color: AppColors.textHint, size: 18),
+              color: KaizokuColors.textMuted, size: 18),
           onTap: () => _editText(p, key, title ?? key, current),
         );
 
@@ -168,7 +168,7 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
           subtitle: summary?.isNotEmpty == true
               ? Text(summary!,
                   style: const TextStyle(
-                      color: AppColors.textHint, fontSize: 12))
+                      color: KaizokuColors.textMuted, fontSize: 12))
               : null,
         );
     }
@@ -179,7 +179,7 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
     final picked = await showDialog<String>(
       context: context,
       builder: (_) => SimpleDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: KaizokuColors.surface,
         title: Text(p['title']?.toString() ?? key,
             style: const TextStyle(color: Colors.white, fontSize: 16)),
         children: [
@@ -216,7 +216,7 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (context, setLocal) => AlertDialog(
-          backgroundColor: AppColors.surface,
+          backgroundColor: KaizokuColors.surface,
           title: Text(p['title']?.toString() ?? key,
               style: const TextStyle(color: Colors.white, fontSize: 16)),
           content: SizedBox(
@@ -271,7 +271,7 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
     final result = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: KaizokuColors.surface,
         title: Text(title,
             style: const TextStyle(color: Colors.white, fontSize: 16)),
         content: TextField(
@@ -279,8 +279,8 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
           autofocus: true,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintStyle: TextStyle(color: AppColors.textHint),
-            enabledBorder: UnderlineInputBorder(
+            hintStyle: const TextStyle(color: KaizokuColors.textMuted),
+            enabledBorder: const UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white24)),
             focusedBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: _accent)),
