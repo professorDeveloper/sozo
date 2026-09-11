@@ -67,6 +67,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
 
   void _close() => setState(() => _open = null);
 
+  /// Installing and removing extensions is a different job from browsing them,
+  /// and it keeps its own screen.
+  void _openExtensions() => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const SourcesPage()),
+      );
+
   @override
   Widget build(BuildContext context) {
     final open = _open;
@@ -96,11 +102,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         IconButton(
           tooltip: 'profile.section_extensions'.tr(),
           icon: const Icon(Icons.tune_rounded),
-          // Installing and removing extensions is a different job from
-          // browsing them, and it keeps its own screen.
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const SourcesPage()),
-          ),
+          onPressed: _openExtensions,
         ),
       ],
       bottom: AppTabBar(
@@ -173,6 +175,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                       text: needle.isEmpty
                           ? 'mode.none_installed'.tr(args: [mode.labelKey.tr()])
                           : 'profile.no_providers_in_category'.tr(),
+                      // An empty mode is a dead end without this. Manga and
+                      // novels are both extension ecosystems, so a fresh
+                      // install has nothing in either tab and the only way out
+                      // is a gear icon the message never mentions.
+                      actionLabel: needle.isEmpty ? 'manga.add_source'.tr() : null,
+                      onAction: needle.isEmpty ? _openExtensions : null,
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
@@ -286,7 +294,8 @@ class _SourceBrowseViewState extends State<_SourceBrowseView> {
         if (snap.hasError) {
           return _Message(
             text: snap.error.toString(),
-            onRetry: _retry,
+            actionLabel: 'general.retry'.tr(),
+            onAction: _retry,
           );
         }
         final data = snap.data;
@@ -296,7 +305,8 @@ class _SourceBrowseViewState extends State<_SourceBrowseView> {
         if (sections.isEmpty) {
           return _Message(
             text: 'profile.no_providers_in_category'.tr(),
-            onRetry: _retry,
+            actionLabel: 'general.retry'.tr(),
+            onAction: _retry,
           );
         }
         return ListView.builder(
@@ -392,10 +402,11 @@ class _SourceMark extends StatelessWidget {
 }
 
 class _Message extends StatelessWidget {
-  const _Message({required this.text, this.onRetry});
+  const _Message({required this.text, this.actionLabel, this.onAction});
 
   final String text;
-  final VoidCallback? onRetry;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -410,11 +421,11 @@ class _Message extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(color: AppColors.textSecondary),
             ),
-            if (onRetry != null) ...[
+            if (onAction != null) ...[
               const SizedBox(height: 16),
               TextButton(
-                onPressed: onRetry,
-                child: Text('general.retry'.tr()),
+                onPressed: onAction,
+                child: Text(actionLabel ?? 'general.retry'.tr()),
               ),
             ],
           ],
