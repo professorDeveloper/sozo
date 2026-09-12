@@ -195,7 +195,16 @@ class AniyomiHost(private val context: Context) {
         val dir = file.parentFile!!
         if (file.exists() && file.length() > 0) return file
 
-        val tmp = File(dir, "${file.name}.part")
+        // `<name>.part.apk`, not `<name>.apk.part`.
+        //
+        // The signature check runs against this temp file, and
+        // getPackageArchiveInfo is documented against apk paths. It does
+        // dispatch on content rather than extension in current AOSP, so the old
+        // name worked — but if it ever returned null here, `fingerprints` would
+        // come back empty and every apk from a repo that declares a fingerprint
+        // would be rejected. That failure mode is indistinguishable from
+        // "nothing works", and the extension costs nothing.
+        val tmp = File(dir, "${file.nameWithoutExtension}.part.apk")
         return try {
             val conn = (URL(meta.apkUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"; instanceFollowRedirects = true
@@ -506,20 +515,52 @@ class AniyomiHost(private val context: Context) {
     fun loadJson(id: String, url: String): String {
         val src = sourceFor(id) ?: return "{}"
         val anime = newAnime(url)
+        // Why the failures are carried rather than logged and dropped.
+        //
+        // Both calls below used to catch, Log.e and continue with an empty
+        // result, and nothing put a reason in the payload. A Cloudflare
+        // challenge, a dead domain and a site that redesigned its markup then
+        // arrived at the app as the same blank page, indistinguishable from a
+        // title that genuinely has nothing — which is what "Aniyomi doesn't
+        // work at all" looks like from the outside. CloudStream has always
+        // reported its own reason here (PluginHost.loadJson), and so do this
+        // host's own getMainPageJson and searchJson; only this method did not.
+        var failure: String? = null
         val details = try { runBlocking { src.getAnimeDetails(anime) } }
-        catch (t: Throwable) { Log.e(TAG, "details $id: ${t.message}"); anime }
+        catch (t: Throwable) {
+            Log.e(TAG, "details $id: ${t.message}")
+            failure = "details: ${t.message ?: t.javaClass.simpleName}"
+            anime
+        }
         val eps = try { runBlocking { src.getEpisodeList(anime) } }
-        catch (t: Throwable) { Log.e(TAG, "episodes $id: ${t.message}"); emptyList() }
-        // A single-episode entry is a movie; multiple episodes is a series.
-        val isMovie = eps.size <= 1
+        catch (t: Throwable) {
+            Log.e(TAG, "episodes $id: ${t.message}")
+            failure = "episodes: ${t.message ?: t.javaClass.simpleName}"
+            emptyList()
+        }
+        // One episode is a movie. NO episodes is a failure, and calling it a
+        // movie sent the app down the movie branch, where the "this source has
+        // no episodes" message is not even reachable.
+        val isMovie = eps.size == 1
         val episodes = JSONArray()
         eps.sortedBy { it.episode_number }.forEachIndexed { i, e ->
             val num = if (e.episode_number > 0) e.episode_number.toInt() else (i + 1)
+            // `SEpisode.name` is lateinit. An extension that fills url and
+            // episode_number but not name threw straight out of this method,
+            // and the app showed "details not found" for a source that had
+            // just handed over a perfectly good episode list.
+            val label = if (isMovie) "Play" else {
+                val named = try { e.name } catch (_: Throwable) { "" }
+                named.ifEmpty { "Episode $num" }
+            }
             episodes.put(JSONObject().apply {
                 put("episode", num)
-                put("label", if (isMovie) "Play" else e.name.ifEmpty { "Episode $num" })
+                put("label", label)
                 put("mediaRef", e.url)
             })
+        }
+        if (eps.isEmpty() && failure == null) {
+            failure = "no episodes returned for this title"
         }
         val title = try { details.title } catch (_: Throwable) { "" }
         val author = try { details.author } catch (_: Throwable) { null }
@@ -534,10 +575,15 @@ class AniyomiHost(private val context: Context) {
         }
         // Aniyomi has no "recommendations" API, so derive a "similar" row from a
         // title search (same fallback CloudStream uses).
+        //
+        // Skipped when the page itself did not load. This is a third serial
+        // round trip against a client whose call timeout is two minutes, and
+        // spending it to decorate a page that is already empty is how a failed
+        // detail open turns into a two-minute spinner that reads as a hang.
         val related = JSONArray()
         try {
             val q = title.replace(Regex("\\(.*?\\)"), "").trim()
-            if (q.length >= 2) {
+            if (failure == null && q.length >= 2) {
                 val results = runBlocking { src.getSearchAnime(1, q, AnimeFilterList()) }
                 for (a in results.animes) {
                     if (a.url == url) continue
@@ -561,6 +607,10 @@ class AniyomiHost(private val context: Context) {
             put("cast", JSONArray())
             put("related", related)
             put("episodes", episodes)
+            // Carried to the app so it can say what happened instead of
+            // rendering an empty page. DetailRepositoryImpl already reads this
+            // key for every other host.
+            failure?.let { put("error", "${sources[id]?.name ?: id}: $it") }
         }.toString()
     }
 
@@ -571,9 +621,18 @@ class AniyomiHost(private val context: Context) {
         val subs = JSONArray()
         val seen = HashSet<String>()
         val seenSub = HashSet<String>()
-        if (src != null && meta != null) {
+        var failure: String? = null
+        if (src == null || meta == null) {
+            failure = "source not loaded"
+        } else {
             val episode = SEpisodeImpl().apply { url = data; name = "" }
-            val videos = fetchVideos(src, episode, id)
+            val videos = try {
+                fetchVideos(src, episode, id)
+            } catch (t: Throwable) {
+                Log.e(TAG, "links $id: ${t.message}")
+                failure = t.message ?: t.javaClass.simpleName
+                emptyList()
+            }
             for (v in videos) {
                 val vu = v.videoUrl ?: continue
                 if (vu.isEmpty() || !seen.add(vu)) continue
@@ -597,12 +656,18 @@ class AniyomiHost(private val context: Context) {
             }
         }
         val first = if (videoSources.length() > 0) videoSources.getJSONObject(0) else null
+        if (videoSources.length() == 0 && failure == null) {
+            failure = "the source returned no mirrors for this episode"
+        }
         return JSONObject().apply {
             put("videoUrl", first?.optString("videoUrl"))
             put("type", first?.optString("type"))
             put("headers", first?.optJSONObject("headers") ?: JSONObject())
             put("videoSources", videoSources)
             put("subtitles", subs)
+            // Same reason as loadJson: "the hoster is down", "the episode has
+            // no mirrors" and "the extension threw" were one flat message.
+            failure?.let { put("error", "${meta?.name ?: id}: $it") }
         }.toString()
     }
 }

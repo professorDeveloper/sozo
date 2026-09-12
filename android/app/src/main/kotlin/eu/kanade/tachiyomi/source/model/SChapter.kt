@@ -14,12 +14,16 @@ interface SChapter : Serializable {
 
     var scanlator: String?
 
+    /** See [SManga.memo] — same 1.6 addition, same reason. */
+    var memo: String?
+
     fun copyFrom(other: SChapter) {
         name = other.name
         url = other.url
         date_upload = other.date_upload
         chapter_number = other.chapter_number
         scanlator = other.scanlator
+        memo = other.memo
     }
 
     companion object {

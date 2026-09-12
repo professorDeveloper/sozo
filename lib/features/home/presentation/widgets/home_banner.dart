@@ -189,7 +189,12 @@ class _MovieSlide extends StatelessWidget {
     if (movie.url.isNotEmpty) {
       context.push(
         '/detail',
-        extra: DetailArgs(contentUrl: movie.url, preview: movie),
+        extra: DetailArgs(
+          contentUrl: movie.url,
+          preview: movie,
+          // The banner's own source, for the same reason the rails carry it.
+          provider: movie.provider.isNotEmpty ? movie.provider : null,
+        ),
       );
     }
   }
@@ -884,7 +889,12 @@ class _DesktopSlideState extends State<_DesktopSlide>
     if (movie.url.isNotEmpty) {
       context.push(
         '/detail',
-        extra: DetailArgs(contentUrl: movie.url, preview: movie),
+        extra: DetailArgs(
+          contentUrl: movie.url,
+          preview: movie,
+          // The banner's own source, for the same reason the rails carry it.
+          provider: movie.provider.isNotEmpty ? movie.provider : null,
+        ),
       );
     }
   }

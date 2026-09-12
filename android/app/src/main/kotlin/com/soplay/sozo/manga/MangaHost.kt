@@ -195,7 +195,16 @@ class MangaHost(private val context: Context) {
         val dir = file.parentFile!!
         if (file.exists() && file.length() > 0) return file
 
-        val tmp = File(dir, "${file.name}.part")
+        // `<name>.part.apk`, not `<name>.apk.part`.
+        //
+        // The signature check runs against this temp file, and
+        // getPackageArchiveInfo is documented against apk paths. It does
+        // dispatch on content rather than extension in current AOSP, so the old
+        // name worked — but if it ever returned null here, `fingerprints` would
+        // come back empty and every apk from a repo that declares a fingerprint
+        // would be rejected. That failure mode is indistinguishable from
+        // "nothing works", and the extension costs nothing.
+        val tmp = File(dir, "${file.nameWithoutExtension}.part.apk")
         return try {
             val conn = (URL(meta.apkUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"; instanceFollowRedirects = true
@@ -419,7 +428,14 @@ class MangaHost(private val context: Context) {
         pageCache[cacheKey]?.let {
             if (System.currentTimeMillis() - it.ts < cacheTtlMs) return it.json
         }
-        val src = sourceFor(id) ?: return "{}"
+        // An empty object told the app nothing, so it said "source unavailable"
+        // over whatever really happened — a failed dex load, a missing apk, an
+        // extension that threw on construction. getMainPageJson has always
+        // reported the reason; this path did not.
+        val src = sourceFor(id)
+            ?: return JSONObject()
+                .put("error", MangaRuntime.lastError ?: "source unavailable: mn:$id")
+                .toString()
         val manga = newManga(url)
         // details + chapter list are independent → fetch concurrently (was two
         // sequential network round-trips on every detail open).

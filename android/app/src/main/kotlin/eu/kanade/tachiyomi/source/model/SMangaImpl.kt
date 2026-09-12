@@ -21,4 +21,6 @@ class SMangaImpl : SManga {
     override var initialized: Boolean = false
 
     override var update_strategy: UpdateStrategy = UpdateStrategy.ALWAYS_UPDATE
+
+    override var memo: String? = null
 }

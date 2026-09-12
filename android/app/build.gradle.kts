@@ -207,6 +207,23 @@ dependencies {
     // Interceptor/Response/Headers APIs used are stable across okhttp 4.x/5.x.
     compileOnly("com.squareup.okhttp3:okhttp:4.12.0")
 
+    // Brotli and Zstd, because the extensions expect them and we were not
+    // shipping them.
+    //
+    // Current Keiyoushi extensions build their OkHttpClient with
+    // `CompressionInterceptor(Brotli, Zstd)`, and both classes live in
+    // artifacts separate from okhttp core. Without them the very first request
+    // an affected extension makes dies with NoClassDefFoundError — and because
+    // the client is behind a Kotlin `lazy`, that failure is permanent for the
+    // process. Nineteen of forty sampled extensions reference them, including
+    // MangaDex, Weeb Central, Asura Scans, MangaFire and Manganato, which is
+    // why "manga extensions don't work" reads as all of them.
+    //
+    // Pinned to what okhttp core actually resolves to here (4.12.0 -> 5.3.2,
+    // dragged in transitively); these must move together with it.
+    implementation("com.squareup.okhttp3:okhttp-brotli:5.3.2")
+    implementation("com.squareup.okhttp3:okhttp-zstd:5.3.2")
+
     // Aniyomi extension runtime (Android-only). Extension APKs compile against the
     // stub `extensions-lib` as compileOnly, so the host app must supply the real
     // runtime + these libraries at DexClassLoader time. See docs/ANIYOMI_INTEGRATION.md.

@@ -154,6 +154,11 @@ class _MovieCardState extends State<_MovieCard> {
         extra: DetailArgs(
           contentUrl: movie.url,
           preview: movie,
+          // The card's own source. Without it the detail page falls back to
+          // whatever Hive calls current, which is a different source the moment
+          // the two have drifted — and then it looks this title up in a
+          // catalogue that has never heard of it.
+          provider: movie.provider.isNotEmpty ? movie.provider : null,
         ),
       );
     }

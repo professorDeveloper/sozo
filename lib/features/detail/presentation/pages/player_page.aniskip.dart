@@ -15,8 +15,18 @@ part of 'player_page.dart';
 /// episode is a much worse first impression than a button they chose not to
 /// press. Once someone trusts it, the setting is there.
 extension _PlayerAniSkip on _PlayerPageState {
-  bool get _aniSkipEligible =>
-      _hive.providerCategory(widget.args.provider) == 'anime';
+  /// Anime, by whatever the provider's kind actually says.
+  ///
+  /// This asked only for the backend category `anime`. Every Aniyomi provider
+  /// carries its ECOSYSTEM as its category — `aniyomi` — and Hive's category
+  /// lookup only knows backend providers anyway, so it returns '' for any
+  /// `an:` id. Intro and outro skip was therefore permanently off for the one
+  /// ecosystem that is entirely anime.
+  bool get _aniSkipEligible {
+    final provider = widget.args.provider;
+    if (provider.startsWith('an:')) return true;
+    return _hive.providerCategory(provider) == 'anime';
+  }
 
   /// Look up skip times for whatever is playing now.
   ///
