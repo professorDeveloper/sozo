@@ -1409,6 +1409,7 @@ class _PageImageState extends State<_PageImage> {
         : CachedNetworkImage(
             key: ValueKey('$url#$_retry'),
             imageUrl: url,
+            cacheKey: widget.page.cacheKey,
             // The page's own cookies win over anything in the chapter headers:
             // they are scoped to this image's host, which the shared headers
             // are not. Without them a Cloudflare-gated source serves the page

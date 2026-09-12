@@ -16,6 +16,10 @@ object DataStoreHelper {
 }
 
 object AppContextUtils {
+    // No @JvmStatic: upstream declares these on a plain object, so plugin
+    // bytecode calls them with invoke-virtual on INSTANCE. Marking them static
+    // makes ART reject the call outright — IncompatibleClassChangeError, not a
+    // fallback. See CommonActivity for the same lesson learned the hard way.
     /**
      * Ignored.
      *
@@ -24,20 +28,15 @@ object AppContextUtils {
      * from inside a callback would fight it — the visible result being focus
      * jumping while somebody is pressing a direction on the remote.
      */
-    @JvmStatic
     @JvmOverloads
     fun setDefaultFocus(view: View?, unused: Any? = null, a: Int = 0, b: Int = 0) {
         // Deliberately empty; see above.
     }
 }
 
-/**
- * CloudStream's thread-safe list.
- *
- * Backed by a synchronized list rather than being a no-op: a plugin that adds
- * to one expects to read back what it added, and returning an always-empty
- * collection would be a silent wrong answer rather than a missing feature.
- */
-class AtomicMutableList<T>(
-    initial: Collection<T> = emptyList(),
-) : MutableList<T> by java.util.Collections.synchronizedList(ArrayList(initial))
+// AtomicMutableList used to be stubbed here. It is not any more: library v4.8.0
+// ships its own, and APIHolder — the library's own code — calls
+// `withLock(Function0)` on it and builds it from a List. Our version had
+// neither, and two definitions of one class name means ART picks whichever
+// landed in the lower-numbered dex. Ours did, so every provider would have
+// died inside APIHolder.initAll with NoSuchMethodError.

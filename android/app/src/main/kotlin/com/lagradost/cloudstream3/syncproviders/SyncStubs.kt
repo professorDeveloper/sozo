@@ -44,7 +44,7 @@ open class SyncAPI {
 /**
  * Reads a service's library. Always empty, because [AuthUser] is always null.
  */
-class SyncRepo(val api: Any? = null) {
+class SyncRepo(val api: SyncAPI? = null) {
 
     fun authUser(): AuthUser? = null
 

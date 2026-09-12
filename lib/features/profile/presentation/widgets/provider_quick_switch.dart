@@ -238,6 +238,23 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   final DraggableScrollableController _sheet = DraggableScrollableController();
   bool _keyboardUp = false;
 
+  /// One source row. Fixed so the sheet can open ON the current source: a
+  /// builder with variable rows can only be scrolled to a position it has
+  /// already laid out, and the current source is usually far below the fold.
+  static const double _tileExtent = 56;
+
+  /// Used on TV and desktop, where there is no sheet to supply one.
+  final ScrollController _flat = ScrollController();
+
+  /// Opening on the current source is a one-time move. Re-running it after a
+  /// keystroke in the filter would yank the list out from under the typing.
+  bool _aligned = false;
+
+  /// Measures the block above the rows, so the opening jump lands on a row
+  /// rather than a guess. Its height depends on the mode chips wrapping and on
+  /// whether the filter is shown at all.
+  final GlobalKey _headerKey = GlobalKey();
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -260,6 +277,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   void dispose() {
     _filter.dispose();
     _sheet.dispose();
+    _flat.dispose();
     super.dispose();
   }
 
@@ -361,7 +379,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
         padding: EdgeInsets.only(bottom: keyboard),
         child: SizedBox(
           height: available * (keyboard > 0 ? 1 : 0.78),
-          child: _body(context, null),
+          child: _body(context, _flat),
         ),
       );
     }
@@ -380,103 +398,85 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
         // finger left it, which is how a sheet ends up permanently at 63%.
         snapSizes: [resting],
         builder: (_, controller) =>
-            SafeArea(top: false, child: _body(context, controller)),
+            SafeArea(
+              top: false,
+              child: _body(context, controller, draggable: true),
+            ),
       ),
     );
   }
 
-  Widget _body(BuildContext context, ScrollController? controller) {
+  /// Puts the list where the current source is, not at the top.
+  ///
+  /// Somebody opening this sheet is looking at the source they are on before
+  /// they look for another one, and with a couple of hundred installed sources
+  /// that row was never on screen — the sheet opened on whatever happened to be
+  /// alphabetically first and gave no sign that anything was selected.
+  void _alignToCurrent(ScrollController controller, List<ProviderEntity> items) {
+    if (_aligned || _query.isNotEmpty) return;
+    _aligned = true;
+    final index = items.indexWhere((p) => p.id == widget.currentProviderId);
+    if (index <= 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !controller.hasClients) return;
+      final header =
+          (_headerKey.currentContext?.findRenderObject() as RenderBox?)
+              ?.size
+              .height ??
+          0;
+      // Two rows of lead-in, so the current source reads as one entry in a
+      // list rather than as the first thing in it.
+      final target = header + (index - 2) * _tileExtent;
+      controller.jumpTo(
+        target.clamp(0.0, controller.position.maxScrollExtent),
+      );
+    });
+  }
+
+  Widget _body(
+    BuildContext context,
+    ScrollController controller, {
+    bool draggable = false,
+  }) {
     final favorites = _shownFavorites;
     final items = [...favorites, ..._rest];
+    _alignToCurrent(controller, items);
     return Column(
       children: [
-        if (controller != null) _grabber(context),
         Expanded(
-          child: ListView.builder(
+          child: CustomScrollView(
             controller: controller,
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            itemCount: items.length + 1,
-            itemBuilder: (context, index) {
-              if (index > 0) {
-                final p = items[index - 1];
-                return _favoriteProviderTile(
-                  context,
-                  p,
-                  widget.currentProviderId,
-                  favorite: index <= favorites.length,
-                );
-              }
-              return Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'ux.change_source'.tr(),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final m in ContentMode.values)
-                          _ModeChip(
-                            label: m.labelKey.tr(),
-                            active: m == widget.mode,
-                            onTap: m == widget.mode
-                                ? null
-                                : () => Navigator.of(
-                                    context,
-                                  ).pop('$_kModePrefix${m.id}'),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (widget.all.length >= _filterThreshold)
-                      TextField(
-                        controller: _filter,
-                        onChanged: (v) => setState(() => _query = v),
-                        decoration: InputDecoration(
-                          hintText: 'profile.search_providers_hint'.tr(),
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: _query.isEmpty
-                              ? null
-                              : IconButton(
-                                  tooltip: 'general.clear'.tr(),
-                                  onPressed: () {
-                                    _filter.clear();
-                                    setState(() => _query = '');
-                                  },
-                                  icon: const Icon(Icons.close),
-                                ),
-                        ),
-                      ),
-                    if (items.isEmpty) ...[
-                      const SizedBox(height: 24),
-                      Text(
-                        (_query.isEmpty
-                                ? 'profile.no_providers_in_category'
-                                : 'ux.no_source_match')
-                            .tr(),
-                        style: const TextStyle(color: AppColors.textSecondary),
-                      ),
-                      if (_query.isNotEmpty)
-                        TextButton(
-                          onPressed: () {
-                            _filter.clear();
-                            setState(() => _query = '');
-                          },
-                          child: Text('general.clear'.tr()),
-                        ),
+            slivers: [
+              // Scrolls with the rows rather than being pinned above them: a
+              // fixed block plus the filter plus the footer is taller than this
+              // sheet has on a small screen with the keyboard up, and a Column
+              // does not shrink its children to fit.
+              SliverToBoxAdapter(
+                child: KeyedSubtree(
+                  key: _headerKey,
+                  child: Column(
+                    children: [
+                      if (draggable) _grabber(context),
+                      _header(context, items),
                     ],
-                  ],
+                  ),
                 ),
-              );
-            },
+              ),
+              // Fixed rows are what make the opening jump land on the right one.
+              SliverFixedExtentList(
+                itemExtent: _tileExtent,
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _favoriteProviderTile(
+                    context,
+                    items[index],
+                    widget.currentProviderId,
+                    favorite: index < favorites.length,
+                  ),
+                  childCount: items.length,
+                ),
+              ),
+            ],
           ),
         ),
         const Divider(height: 1),
@@ -487,6 +487,81 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
           onTap: () => Navigator.of(context).pop(_kAllProvidersAction),
         ),
       ],
+    );
+  }
+
+  /// Title, mode chips and filter.
+  ///
+  /// Above the list rather than the first row of it: a header that scrolls away
+  /// cannot be combined with opening the list part-way down, which would put
+  /// the mode chips and the search box off screen the moment the sheet opened.
+  Widget _header(BuildContext context, List<ProviderEntity> items) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'ux.change_source'.tr(),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final m in ContentMode.values)
+                _ModeChip(
+                  label: m.labelKey.tr(),
+                  active: m == widget.mode,
+                  onTap: m == widget.mode
+                      ? null
+                      : () =>
+                            Navigator.of(context).pop('$_kModePrefix${m.id}'),
+                ),
+            ],
+          ),
+          if (widget.all.length >= _filterThreshold) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _filter,
+              onChanged: (v) => setState(() => _query = v),
+              decoration: InputDecoration(
+                hintText: 'profile.search_providers_hint'.tr(),
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'general.clear'.tr(),
+                        onPressed: () {
+                          _filter.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
+              ),
+            ),
+          ],
+          if (items.isEmpty) ...[
+            const SizedBox(height: 24),
+            Text(
+              (_query.isEmpty
+                      ? 'profile.no_providers_in_category'
+                      : 'ux.no_source_match')
+                  .tr(),
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            if (_query.isNotEmpty)
+              TextButton(
+                onPressed: () {
+                  _filter.clear();
+                  setState(() => _query = '');
+                },
+                child: Text('general.clear'.tr()),
+              ),
+          ],
+        ],
+      ),
     );
   }
 }

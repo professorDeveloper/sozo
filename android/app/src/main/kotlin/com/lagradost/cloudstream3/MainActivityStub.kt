@@ -24,5 +24,18 @@ class MainActivity {
          */
         @JvmStatic
         val afterPluginsLoadedEvent = Event<Boolean>()
+
+        /**
+         * Never fired either, and for the same reason: Sozo keeps its own
+         * library and never announces CloudStream's. Present because a plugin
+         * that subscribes to one it cannot find does not degrade — it fails to
+         * link, and takes the whole provider with it.
+         */
+        @JvmStatic
+        val bookmarksUpdatedEvent = Event<Boolean>()
+
+        /** See [bookmarksUpdatedEvent]. */
+        @JvmStatic
+        val reloadLibraryEvent = Event<Boolean>()
     }
 }

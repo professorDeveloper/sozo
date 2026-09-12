@@ -34,8 +34,19 @@ import android.widget.Toast
  */
 object CommonActivity {
 
+    // No @JvmStatic anywhere in here, deliberately.
+    //
+    // Upstream CommonActivity is a plain object, so every member of it compiles
+    // to an INSTANCE method and plugin bytecode reads
+    // `sget-object CommonActivity.INSTANCE` followed by an invoke-virtual.
+    // @JvmStatic emits the static form instead, and ART does not treat the two
+    // as interchangeable: `IncompatibleClassChangeError: getActivity() was
+    // expected to be of type virtual but instead was found to be of type
+    // static`. That is what XD Movies hit on `load`, and it is the same reason
+    // `showToast$default` lost its receiver parameter — ten more plugins, dying
+    // the first time they reported anything to the viewer.
+
     /** The resumed activity, or null while none is. */
-    @JvmStatic
     var activity: Activity?
         get() = CloudStreamApp.currentActivity
         set(_) {
@@ -44,24 +55,18 @@ object CommonActivity {
         }
 
     /** Upstream signature. A no-op for the same reason the setter above is. */
-    @JvmStatic
     fun setActivityInstance(newActivity: Activity?) = Unit
 
     /** Key events upstream routes to the player; nothing here consumes them yet. */
-    @JvmStatic
     var keyEventListener: ((Pair<KeyEvent?, Boolean>) -> Boolean)? = null
 
-    @JvmStatic
     var isInPIPMode: Boolean = false
 
-    @JvmStatic
     var isPipDesired: Boolean = false
 
-    @JvmStatic
     fun showToast(message: String?, duration: Int? = null) =
         showToast(activity, message, duration)
 
-    @JvmStatic
     fun showToast(act: Activity?, message: String?, duration: Int? = null) {
         val text = message?.takeIf { it.isNotBlank() } ?: return
         val host = act ?: activity ?: return
@@ -70,15 +75,12 @@ object CommonActivity {
         }
     }
 
-    @JvmStatic
     val displayMetrics: DisplayMetrics?
         get() = CloudStreamApp.context?.resources?.displayMetrics
 
-    @JvmStatic
     val screenWidth: Int
         get() = displayMetrics?.widthPixels ?: 0
 
-    @JvmStatic
     val screenHeight: Int
         get() = displayMetrics?.heightPixels ?: 0
 }

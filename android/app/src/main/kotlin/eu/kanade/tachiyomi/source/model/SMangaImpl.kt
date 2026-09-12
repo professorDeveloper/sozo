@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.source.model
 
+import kotlinx.serialization.json.JsonObject
+
 class SMangaImpl : SManga {
 
     override lateinit var url: String
@@ -22,5 +24,5 @@ class SMangaImpl : SManga {
 
     override var update_strategy: UpdateStrategy = UpdateStrategy.ALWAYS_UPDATE
 
-    override var memo: String? = null
+    override var memo: JsonObject = JsonObject(emptyMap())
 }

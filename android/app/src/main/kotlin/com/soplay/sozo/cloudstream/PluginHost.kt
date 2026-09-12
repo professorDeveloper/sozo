@@ -350,6 +350,9 @@ class PluginHost(private val appContext: Context) {
     suspend fun getSectionJson(providerName: String, data: String, page: Int): String {
         val api = apiByName(providerName)
         val items = JSONArray()
+        var sectionError: String? =
+            if (api == null) (lastError(providerName) ?: "provider not loaded: $providerName")
+            else null
         if (api != null) {
             val mp = api.mainPage.firstOrNull { it.data == data }
             val name = mp?.name ?: data
@@ -358,11 +361,21 @@ class PluginHost(private val appContext: Context) {
                 if (resp != null) {
                     for (list in resp.items) for (sr in list.list) items.put(cardJson(sr, api.name))
                 }
-            } catch (_: Throwable) { }
+            } catch (t: Throwable) {
+                if (sectionError == null) {
+                    sectionError = "${t.javaClass.simpleName}: ${t.message}"
+                }
+                Log.e(TAG, "getMainPage ${api.name}", t)
+            }
         }
         return JSONObject().apply {
             put("provider", providerName)
             put("items", items)
+            // Otherwise "View all" on a plugin that threw looks exactly like a
+            // section that genuinely has nothing in it.
+            if (items.length() == 0) {
+                sectionError?.let { put("error", "${api?.name ?: providerName}: $it") }
+            }
             put("page", page)
             put("totalPages", if (items.length() > 0) page + 1 else page)
         }.toString()
@@ -402,12 +415,31 @@ class PluginHost(private val appContext: Context) {
     }
 
     suspend fun loadJson(providerName: String, url: String): String {
+        // "{}" is what the app reads as "source unavailable". A plugin built
+        // against a CloudStream older or newer than ours fails here with a
+        // NoSuchMethodError that NAMES the missing member, and that was the one
+        // string capable of explaining a dead provider — thrown away on every
+        // detail open. lastErrors has been recorded since plugins loaded and
+        // was never read by anything.
         val api = apiByName(providerName) ?: run {
-            Log.e(TAG, "load: provider '$providerName' not found"); return "{}"
+            Log.e(TAG, "load: provider '$providerName' not found")
+            return JSONObject()
+                .put("error", lastError(providerName) ?: "provider not loaded: $providerName")
+                .toString()
         }
-        val resp = try { api.load(url) } catch (t: Throwable) {
-            Log.e(TAG, "load ${api.name}: ${t.javaClass.simpleName}: ${t.message}"); null
-        } ?: return "{}"
+        val failure: String
+        val resp = try {
+            failure = ""
+            api.load(url)
+        } catch (t: Throwable) {
+            Log.e(TAG, "load ${api.name}", t)
+            return JSONObject()
+                .put("error", "${api.name}: ${t.javaClass.simpleName}: ${t.message ?: "failed"}")
+                .toString()
+        } ?: return JSONObject()
+            .put("error", "${api.name}: details not found")
+            .toString()
+        @Suppress("UNUSED_EXPRESSION") failure
         val episodes = JSONArray()
         var isSerial = false
         var unsupported: String? = null
@@ -418,7 +450,12 @@ class PluginHost(private val appContext: Context) {
             }
             is AnimeLoadResponse -> {
                 isSerial = true
-                val list = resp.episodes.values.firstOrNull() ?: emptyList()
+                // `episodes` is keyed by DubStatus. Taking the first key meant
+                // taking whichever one the map happened to iterate first — for a
+                // dual-audio title that could be a two-entry Dub list standing in
+                // for a full Sub run, with the rest of the season simply absent.
+                // The longest list is the one that represents the season.
+                val list = resp.episodes.values.maxByOrNull { it.size } ?: emptyList()
                 list.forEachIndexed { i, e -> episodes.put(episodeJson(e, i)) }
             }
             is MovieLoadResponse -> {
@@ -503,7 +540,7 @@ class PluginHost(private val appContext: Context) {
             // with zero entries and the detail page just sat there.
             if (episodes.length() == 0) {
                 put("error", unsupported
-                    ?: "${'$'}{api.name}: no playable entry for this title (${'$'}{resp.javaClass.simpleName})")
+                    ?: "${api.name}: no playable entry for this title (${resp.javaClass.simpleName})")
             }
         }.toString()
     }
@@ -519,6 +556,9 @@ class PluginHost(private val appContext: Context) {
         val subs = JSONArray()
         val seenUrls = HashSet<String>()
         val seenSubs = HashSet<String>()
+        var linkError: String? =
+            if (api == null) (lastError(providerName) ?: "provider not loaded: $providerName")
+            else null
         if (api != null) {
             try {
                 api.loadLinks(
@@ -605,7 +645,8 @@ class PluginHost(private val appContext: Context) {
                     }
                 )
             } catch (t: Throwable) {
-                Log.e(TAG, "loadLinks ${api.name}: ${t.javaClass.simpleName}: ${t.message}")
+                linkError = "${t.javaClass.simpleName}: ${t.message ?: "failed"}"
+                Log.e(TAG, "loadLinks ${api.name}", t)
             }
             Log.i(TAG, "loadLinks ${api.name}: ${collected.size} source(s), ${subs.length()} sub(s)")
         }
@@ -628,6 +669,13 @@ class PluginHost(private val appContext: Context) {
             put("headers", first?.optJSONObject("headers") ?: JSONObject())
             put("videoSources", videoSources)
             put("subtitles", subs)
+            // A plugin that threw and a title with no mirrors both produced an
+            // empty list, so "this provider is broken" reached the player as
+            // "no sources for this episode".
+            if (videoSources.length() == 0) {
+                put("error", "${apiByName(providerName)?.name ?: providerName}: " +
+                    (linkError ?: "the provider returned no mirrors for this episode"))
+            }
         }.toString()
     }
 }

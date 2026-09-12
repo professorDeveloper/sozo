@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.source.model
 
+import kotlinx.serialization.json.JsonObject
+
 
 class SChapterImpl : SChapter {
 
@@ -13,5 +15,5 @@ class SChapterImpl : SChapter {
 
     override var scanlator: String? = null
 
-    override var memo: String? = null
+    override var memo: JsonObject = JsonObject(emptyMap())
 }

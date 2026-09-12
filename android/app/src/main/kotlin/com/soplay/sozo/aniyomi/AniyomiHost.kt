@@ -29,6 +29,10 @@ class AniyomiHost(private val context: Context) {
         private const val TAG = "AniyomiHost"
         private const val UA =
             "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
+
+        /** Named, not referenced by class: an extension loads its own copy. */
+        private const val SHIM_HTTP_SOURCE =
+            "eu.kanade.tachiyomi.animesource.online.AnimeHttpSource"
     }
 
     private data class SourceMeta(
@@ -263,44 +267,50 @@ class AniyomiHost(private val context: Context) {
     /**
      * Every video for an episode, across both Aniyomi source APIs.
      *
-     * Aniyomi 0.16 split resolution in two: `getHosterList(episode)` returns
-     * the servers, then `getVideoList(hoster)` returns one server's qualities.
-     * The old single call is still there and still what most extensions
-     * implement, so this asks for hosters FIRST and falls back.
+     * extensions-lib 16 split resolution in two: `getHosterList(episode)`
+     * returns the servers, then `getVideoList(hoster)` returns one server's
+     * qualities. The old single call is still there and still what many
+     * extensions implement, so this asks for hosters FIRST and falls back.
      *
      * Order matters. A new-API extension inherits a `getVideoList(episode)`
      * that returns nothing — its real implementation is on the hoster path — so
      * calling the old one first got an empty list and stopped, which on screen
-     * is a source that finds the episode and then offers no servers. Calling
-     * the new one first and falling back covers both, because an old-API
-     * extension has no getHosterList to find.
+     * is a source that finds the episode and then offers no servers.
      *
-     * Resolved reflectively rather than against the type: the shim's
-     * AnimeHttpSource does not declare getHosterList, and a source object comes
-     * from a class loader of its own. A NoSuchMethodException here is the
-     * ordinary case for an old extension, not an error.
+     * [implementsHosterApi] decides which one goes first, because the shim now
+     * declares the whole hoster API itself: without that check every old
+     * extension would spend one wasted request reaching a `hosterListParse`
+     * that only throws.
+     *
+     * Resolved reflectively rather than against the type: a source object comes
+     * from a class loader of its own, and an extension may override the hoster
+     * call without extending our AnimeHttpSource at all.
      */
     private fun fetchVideos(src: Any, episode: SEpisodeImpl, id: String): List<Video> {
-        val viaHosters = try {
-            val method = src.javaClass.methods.firstOrNull {
-                it.name == "getHosterList" && it.parameterTypes.size >= 1
-            }
-            if (method == null) {
-                null
-            } else {
-                @Suppress("UNCHECKED_CAST")
-                val hosters = runBlocking {
-                    suspendCallCompat(method, src, episode) as? List<Hoster>
-                } ?: emptyList()
-                // A hoster that already carries its videos needs no second
-                // call; one that does not is asked for them individually.
-                hosters.flatMap { hoster ->
-                    hoster.videoList ?: fetchHosterVideos(src, hoster)
-                }
-            }
-        } catch (t: Throwable) {
-            Log.e(TAG, "hosters $id: ${t.message}")
+        val viaHosters = if (!implementsHosterApi(src)) {
             null
+        } else {
+            try {
+                val method = src.javaClass.methods.firstOrNull {
+                    it.name == "getHosterList" && it.parameterTypes.size >= 1
+                }
+                if (method == null) {
+                    null
+                } else {
+                    @Suppress("UNCHECKED_CAST")
+                    val hosters = runBlocking {
+                        suspendCallCompat(method, src, episode) as? List<Hoster>
+                    } ?: emptyList()
+                    // A hoster that already carries its videos needs no second
+                    // call; one that does not is asked for them individually.
+                    hosters.flatMap { hoster ->
+                        hoster.videoList ?: fetchHosterVideos(src, hoster)
+                    }
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "hosters $id: ${t.message}")
+                null
+            }
         }
 
         if (!viaHosters.isNullOrEmpty()) return viaHosters
@@ -311,6 +321,31 @@ class AniyomiHost(private val context: Context) {
             Log.e(TAG, "videos $id: ${t.message}")
             emptyList()
         }
+    }
+
+    /**
+     * Whether this source resolves videos the extensions-lib 16 way.
+     *
+     * True only when something BELOW the shim's AnimeHttpSource overrides part
+     * of the hoster API. The shim supplies defaults for all of it so that a
+     * lib-16 extension's own `super.getHosterList(...)` resolves, which means
+     * the method being present says nothing about who implements it.
+     */
+    private fun implementsHosterApi(src: Any): Boolean {
+        var cls: Class<*>? = src.javaClass
+        while (cls != null && cls.name != SHIM_HTTP_SOURCE && cls != Any::class.java) {
+            val declares = cls.declaredMethods.any { m ->
+                when (m.name) {
+                    "getHosterList", "hosterListParse" -> true
+                    "getVideoList", "videoListParse" ->
+                        m.parameterTypes.any { it.name.endsWith(".Hoster") }
+                    else -> false
+                }
+            }
+            if (declares) return true
+            cls = cls.superclass
+        }
+        return false
     }
 
     /** One hoster's qualities, when the hoster list did not carry them. */

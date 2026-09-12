@@ -195,10 +195,18 @@ dependencies {
 
     // CloudStream provider runtime (Android-only feature). The `library` module
     // carries MainAPI/APIHolder/`app` HTTP client/extractors/BasePlugin so .cs3
-    // plugins load against it. Resolves on JitPack (POM/module/jar verified at
-    // v4.7.0; Gradle picks the KMP android variant via .module). See
-    // docs/CLOUDSTREAM_INTEGRATION.md + cloudstream/PluginHost.kt.
-    implementation("com.github.recloudstream.cloudstream:library:v4.7.0")
+    // plugins load against it. Resolves on JitPack (Gradle picks the KMP android
+    // variant via .module). See docs/CLOUDSTREAM_INTEGRATION.md +
+    // cloudstream/PluginHost.kt.
+    //
+    // v4.8.0, not v4.7.0. `MainAPIKt.getJson()` arrived in 4.8 and 60 of the 100
+    // plugins in the two repos this app recommends reference it — and because
+    // `parseJson`/`tryParseJson` are inline, the reference sits in the plugin's
+    // own getMainPage/load/search rather than behind a library call, so those
+    // plugins failed on every request with NoSuchMethodError. 4.8 also adds
+    // StringUtils.encodeUrl and keeps getMapper(), so the older plugins that
+    // use that still link.
+    implementation("com.github.recloudstream.cloudstream:library:v4.8.0")
     // CloudStream plugins/extractors use coroutines on the IO dispatcher.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$extensionCoroutines")
     // compileOnly: lets our clean-room CloudflareKiller implement okhttp3.Interceptor.

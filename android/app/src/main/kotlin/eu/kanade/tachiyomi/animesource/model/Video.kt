@@ -26,6 +26,17 @@ open class Video(
     @Transient
     var headers: Headers? = headers
 
+    /**
+     * What extensions-lib 16 renamed [quality] to.
+     *
+     * An extension compiled against it calls `getVideoTitle()`, which our
+     * Video did not have: the hoster list resolved, every quality was found,
+     * and then each one died on the accessor — an episode that lists servers
+     * and plays none.
+     */
+    val videoTitle: String
+        get() = quality
+
     @Suppress("UNUSED_PARAMETER")
     constructor(
         url: String,

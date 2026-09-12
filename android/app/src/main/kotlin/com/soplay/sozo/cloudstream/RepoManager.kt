@@ -111,6 +111,22 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
             host.removeProviders(providers)
             meta.remove(key); saveMeta(meta)
         }
+        // Delete the .cs3 files as well, not just the bookkeeping.
+        //
+        // removeRepo only cleared prefs, so "remove the repo and add it again" —
+        // the remedy the load failure itself suggests — re-read the very same
+        // file off disk and failed the same way.
+        if (entries != null) {
+            for (i in 0 until entries.length()) {
+                val stem = entries.optJSONObject(i)?.optString("internalName")
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { safeFileStem(it) }
+                    ?: continue
+                cs3Dir.listFiles()?.forEach { f ->
+                    if (f.name.startsWith("$stem@")) f.delete()
+                }
+            }
+        }
         val names = loadNames(); names.remove(key); saveNames(names)
         val repos = savedRepos()
         repos.remove(key)
@@ -172,7 +188,20 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                 setRequestProperty("User-Agent", UA)
             }
             if (conn.responseCode !in 200..299) { Log.e(TAG, "cs3 $url -> ${conn.responseCode}"); return null }
-            conn.inputStream.use { input -> file.outputStream.use { input.copyTo(it) } }
+            // Downloaded beside the real name, then renamed.
+            //
+            // Writing straight to the final path meant a download interrupted
+            // halfway left a truncated zip there — and the cache check above
+            // only asks whether the file exists and is non-empty, so that
+            // corrupt file was handed back on every retry from then on. The
+            // plugin could never load again, and the advice the failure gives
+            // ("remove and add the repo again") does not delete it either.
+            val part = File(cs3Dir, "${file.name}.part")
+            part.delete()
+            conn.inputStream.use { input -> part.outputStream.use { input.copyTo(it) } }
+            if (part.length() <= 0L) { part.delete(); return null }
+            file.delete()
+            if (!part.renameTo(file)) { part.delete(); return null }
             // drop stale versions of the same plugin
             cs3Dir.listFiles()?.forEach { f ->
                 if (f.name.startsWith("$stem@") && f.name != file.name) f.delete()
