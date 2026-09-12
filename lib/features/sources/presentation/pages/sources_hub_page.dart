@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -18,6 +19,7 @@ import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
 import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
+import 'package:soplay/features/sources/domain/source_index.dart';
 
 /// Every source in one place, grouped by what it carries, browsable in place.
 ///
@@ -52,17 +54,61 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// which is what "from that one page" means.
   ProviderEntity? _open;
 
+  /// Jumping to a letter, the way the episode list jumps to a range.
+  ///
+  /// With CloudStream installed this tab is several hundred rows of
+  /// alphabetically sorted names, and the only way to reach the middle was to
+  /// keep swiping. Search finds a source somebody can already name; the index
+  /// is for the far more common case of looking for one you cannot.
+  final ItemScrollController _listCtl = ItemScrollController();
+  final ItemPositionsListener _listPos = ItemPositionsListener.create();
+
+  /// Where each tab was left, so returning from a source lands where it did.
+  /// PageStorage cannot do this for a positioned list — it restores by offset,
+  /// and this one is addressed by index.
+  final Map<String, int> _restore = {};
+  String _activeLetter = '';
+
+  /// Below this the strip is chrome over a list that already fits a swipe.
+  static const int _indexThreshold = 25;
+
   @override
   void initState() {
     super.initState();
     _tabs.addListener(() {
       if (!_tabs.indexIsChanging) return;
-      setState(() {});
+      setState(() => _activeLetter = '');
     });
+    _listPos.itemPositions.addListener(_onScrolled);
   }
+
+  /// The first row actually on screen decides the active letter, and is what
+  /// gets restored on the way back.
+  void _onScrolled() {
+    final positions = _listPos.itemPositions.value;
+    if (positions.isEmpty) return;
+    final first = positions
+        .where((p) => p.itemTrailingEdge > 0)
+        .fold<int?>(null, (a, p) => a == null || p.index < a ? p.index : a);
+    if (first == null) return;
+    _restore[ContentMode.values[_tabs.index].id] = first;
+    final letter = _letterAt(first);
+    if (letter == _activeLetter) return;
+    setState(() => _activeLetter = letter);
+  }
+
+  /// Set by [_list] each build so the scroll listener can read it without
+  /// rebuilding the whole page to find out which names are on screen.
+  List<ProviderEntity> _shown = const [];
+
+  String _letterAt(int i) =>
+      i >= 0 && i < _shown.length ? _letterOf(_shown[i]) : '';
+
+  static String _letterOf(ProviderEntity p) => indexLetterOf(p.name);
 
   @override
   void dispose() {
+    _listPos.itemPositions.removeListener(_onScrolled);
     _tabs.dispose();
     _search.dispose();
     super.dispose();
@@ -206,6 +252,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
               p,
         ];
 
+        _shown = sources;
         return Column(
           children: [
             Padding(
@@ -226,6 +273,22 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                 ),
               ),
             ),
+            if (sources.length >= _indexThreshold)
+              _LetterIndex(
+                letters: [
+                  for (final p in sources) _letterOf(p),
+                ],
+                active: _activeLetter,
+                onPick: (letter) {
+                  final i = sources.indexWhere((p) => _letterOf(p) == letter);
+                  if (i < 0 || !_listCtl.isAttached) return;
+                  _listCtl.scrollTo(
+                    index: i,
+                    duration: const Duration(milliseconds: 240),
+                    curve: Curves.easeOutCubic,
+                  );
+                },
+              ),
             Expanded(
               child: sources.isEmpty
                   ? _Message(
@@ -239,10 +302,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                       actionLabel: needle.isEmpty ? 'manga.add_source'.tr() : null,
                       onAction: needle.isEmpty ? () => _openInstaller(mode) : null,
                     )
-                  : ListView.separated(
+                  : ScrollablePositionedList.separated(
+                      itemScrollController: _listCtl,
+                      itemPositionsListener: _listPos,
                       // Going into a source and back rebuilt this list from
                       // nothing, so a tap forty rows down returned to the top.
-                      key: PageStorageKey<String>('sources-list-${mode.id}'),
+                      initialScrollIndex: _restore[mode.id] ?? 0,
                       padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                       itemCount: sources.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -256,6 +321,64 @@ class _SourcesHubPageState extends State<SourcesHubPage>
           ],
         );
       },
+    );
+  }
+}
+
+/// The letters present, in order, as a strip you can jump from.
+///
+/// Modelled on the episode list's range chips: the same idea that a long list
+/// needs somewhere to aim at, with the same rule that a chip only exists when
+/// there is something behind it.
+class _LetterIndex extends StatelessWidget {
+  const _LetterIndex({
+    required this.letters,
+    required this.active,
+    required this.onPick,
+  });
+
+  /// One entry per row, in row order — the widget takes the distinct set.
+  final List<String> letters;
+  final String active;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final distinct = indexLetters(letters);
+    if (distinct.length < 2) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 34,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: distinct.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        itemBuilder: (_, i) {
+          final letter = distinct[i];
+          final on = letter == active;
+          return HoverTap(
+            onTap: () => onPick(letter),
+            child: Container(
+              alignment: Alignment.center,
+              constraints: const BoxConstraints(minWidth: 30),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: on ? AppColors.primary : AppColors.card,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Text(
+                letter,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                  color: on ? Colors.white : AppColors.textSecondary,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
