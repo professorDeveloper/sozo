@@ -349,6 +349,15 @@ class MainActivity : FlutterFragmentActivity() {
                     resetWindowBrightness()
                     result.success(true)
                 }
+                // Name resolution for the extension runtimes. Returns what is
+                // actually in force, which is not always what was asked for: a
+                // resolver that cannot be built falls back to the system one
+                // rather than leaving the app unable to reach anything.
+                "setExtensionDns" -> {
+                    val id = call.argument<String>("id")
+                    result.success(ExtensionDns.apply(applicationContext, id))
+                }
+                "getExtensionDns" -> result.success(ExtensionDns.current())
                 else -> result.notImplemented()
             }
         }

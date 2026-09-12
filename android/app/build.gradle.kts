@@ -231,6 +231,9 @@ dependencies {
     // dragged in transitively); these must move together with it.
     implementation("com.squareup.okhttp3:okhttp-brotli:5.3.2")
     implementation("com.squareup.okhttp3:okhttp-zstd:5.3.2")
+    // DNS over HTTPS, for the setting of the same name. Same version pin, same
+    // reason. See ExtensionDns.
+    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:5.3.2")
 
     // Aniyomi extension runtime (Android-only). Extension APKs compile against the
     // stub `extensions-lib` as compileOnly, so the host app must supply the real

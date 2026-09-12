@@ -1836,5 +1836,16 @@
     "eco_manga": "Manga",
     "eco_mangayomi": "Mangayomi",
     "eco_all": "Semua"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "Selesaikan alamat sumber lewat penyedia lain. Membantu saat situs diblokir lewat DNS. Bukan VPN — tidak menyembunyikan lalu lintas atau mengubah IP Anda.",
+    "dns_system": "Bawaan sistem",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (tanpa filter)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "Resolver itu tidak dapat dijangkau, jadi milik sistem tetap dipakai."
   }
 }

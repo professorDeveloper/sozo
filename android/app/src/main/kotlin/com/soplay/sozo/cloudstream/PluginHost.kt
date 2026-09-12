@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.AssetManager
 import android.content.res.Resources
 import android.util.Log
+import com.soplay.sozo.ExtensionDns
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.CloudStreamApp
 import com.lagradost.cloudstream3.AnimeLoadResponse
@@ -44,6 +45,41 @@ import java.io.File
  * my-list / continue-watching keep working.
  */
 class PluginHost(private val appContext: Context) {
+
+    init {
+        // CloudStream plugins call `app`, the library's own HTTP client, which
+        // we do not build and cannot hand a Dns to. Reflection is the only way
+        // in, and it is worth taking: without it the DNS setting would apply to
+        // Aniyomi and Manga sources and silently not to CloudStream ones, with
+        // nothing on screen to say which half it covered.
+        applyDnsToLibraryClient()
+    }
+
+    /**
+     * Points the library's shared client at [ExtensionDns].
+     *
+     * Best effort by design: the field is an implementation detail of a version
+     * we pin but do not own. A failure here costs the setting on cs: sources
+     * and nothing else, so it is logged rather than thrown.
+     */
+    private fun applyDnsToLibraryClient() {
+        try {
+            val appField = Class.forName("com.lagradost.cloudstream3.MainAPIKt")
+                .getDeclaredMethod("getApp")
+            val requests = appField.invoke(null) ?: return
+            val clientField = requests.javaClass.methods
+                .firstOrNull { it.name == "getBaseClient" && it.parameterTypes.isEmpty() }
+                ?: return
+            val client = clientField.invoke(requests) as? okhttp3.OkHttpClient ?: return
+            val setter = requests.javaClass.methods.firstOrNull {
+                it.name == "setBaseClient" && it.parameterTypes.size == 1
+            } ?: return
+            setter.invoke(requests, client.newBuilder().dns(ExtensionDns.dns).build())
+            Log.i(TAG, "dns resolver applied to the library client")
+        } catch (t: Throwable) {
+            Log.w(TAG, "could not apply the dns resolver to the library client: ${t.javaClass.simpleName}")
+        }
+    }
 
     companion object {
         private const val TAG = "CloudStreamHost"

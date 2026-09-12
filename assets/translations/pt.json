@@ -1836,5 +1836,16 @@
     "eco_manga": "Mangá",
     "eco_mangayomi": "Mangayomi",
     "eco_all": "Todas"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "Resolver os endereços das fontes por outro provedor. Ajuda quando um site está bloqueado por DNS. Não é uma VPN — não esconde seu tráfego nem muda seu IP.",
+    "dns_system": "Padrão do sistema",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (sem filtro)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "Não foi possível alcançar esse resolvedor; o do sistema continua em uso."
   }
 }

@@ -1840,5 +1840,16 @@
     "eco_manga": "مانغا",
     "eco_mangayomi": "Mangayomi",
     "eco_all": "الكل"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "حلّ عناوين المصادر عبر مزوّد آخر. يفيد عندما يكون الموقع محجوبًا عبر DNS. ليس VPN — لا يخفي حركتك ولا يغيّر عنوان IP.",
+    "dns_system": "إعداد النظام",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (بدون تصفية)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "تعذّر الوصول إلى ذلك المحلّل، لذا لا يزال محلّل النظام قيد الاستخدام."
   }
 }

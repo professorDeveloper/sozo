@@ -21,6 +21,10 @@ class NetworkHelper(context: Context) {
 
     val client: OkHttpClient = OkHttpClient.Builder()
         .cookieJar(cookieJar)
+        // Reads the app's DNS setting on every lookup — see ExtensionDns. The
+        // client is built once behind a `lazy`, so a resolver captured here
+        // would only change on the next launch.
+        .dns(com.soplay.sozo.ExtensionDns.dns)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .callTimeout(2, TimeUnit.MINUTES)

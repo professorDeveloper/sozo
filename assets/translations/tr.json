@@ -1836,5 +1836,16 @@
     "eco_manga": "Manga",
     "eco_mangayomi": "Mangayomi",
     "eco_all": "Tümü"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "Kaynak adreslerini başka bir sağlayıcı üzerinden çöz. Site DNS ile engellendiyse işe yarar. VPN değildir — trafiğinizi gizlemez, IP'nizi değiştirmez.",
+    "dns_system": "Sistem varsayılanı",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (filtresiz)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "O çözümleyiciye ulaşılamadı, sistemdeki kullanılmaya devam ediyor."
   }
 }

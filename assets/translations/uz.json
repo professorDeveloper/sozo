@@ -1836,5 +1836,16 @@
     "eco_manga": "Manga",
     "eco_mangayomi": "Mangayomi",
     "eco_all": "Hammasi"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "Manba manzillarini boshqa provayder orqali aniqlaydi. Sayt DNS orqali to'silgan bo'lsa yordam beradi. Bu VPN emas — trafikni yashirmaydi va IP'ni o'zgartirmaydi.",
+    "dns_system": "Tizim sozlamasi",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (filtrsiz)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "O'sha resolverga ulanib bo'lmadi, shuning uchun tizimnikisi ishlayapti."
   }
 }

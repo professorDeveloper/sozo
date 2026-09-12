@@ -3,6 +3,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
+import 'package:soplay/core/system/extension_dns.dart';
+import 'package:soplay/core/system/responsive.dart';
+import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/bridge/bridge_control.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
@@ -105,6 +108,15 @@ class SourcesPage extends StatelessWidget {
             ],
           ),
         ],
+        // On this page rather than in general settings: it changes how SOURCE
+        // traffic resolves and nothing else, and putting it beside the sources
+        // is what makes that obvious without a paragraph.
+        if (ExtensionDns.isSupported) ...[
+          const SizedBox(height: 20),
+          SettingsLabel('settings.dns_title'.tr()),
+          const SettingsCard(children: [_DnsTile()]),
+          SettingsFootnote('settings.dns_subtitle'.tr()),
+        ],
       ],
     );
   }
@@ -160,6 +172,93 @@ class ProviderMark extends StatelessWidget {
         placeholder: (_, _) => const SizedBox(width: 22, height: 22),
         errorWidget: (_, _, _) => const SizedBox(width: 22, height: 22),
       ),
+    );
+  }
+}
+
+
+/// Which resolver the extension runtimes use.
+///
+/// Reads the platform side rather than a stored preference, so what it shows is
+/// what is actually in force. Those differ when a resolver cannot be built —
+/// the app falls back to the system one rather than losing name resolution
+/// entirely, and a row claiming Cloudflare over a system lookup would be a lie.
+class _DnsTile extends StatefulWidget {
+  const _DnsTile();
+
+  @override
+  State<_DnsTile> createState() => _DnsTileState();
+}
+
+class _DnsTileState extends State<_DnsTile> {
+  DnsProvider _current = DnsProvider.system;
+
+  @override
+  void initState() {
+    super.initState();
+    ExtensionDns.current().then((v) {
+      if (mounted) setState(() => _current = v);
+    });
+  }
+
+  Future<void> _pick() async {
+    final chosen = await showAdaptiveModal<DnsProvider>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheet) => SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+              child: SizedBox(
+                width: double.infinity,
+                child: Text(
+                  'settings.dns_title'.tr(),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            for (final p in DnsProvider.values)
+              ListTile(
+                title: Text(p.labelKey.tr()),
+                trailing: p == _current
+                    ? Icon(Icons.check_rounded, color: AppColors.primary)
+                    : null,
+                onTap: () => Navigator.of(sheet).pop(p),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    final applied = await ExtensionDns.apply(chosen);
+    if (!mounted) return;
+    setState(() => _current = applied);
+    // Only when it did not take. Announcing every success would be noise;
+    // silently showing "System default" after somebody picked Cloudflare would
+    // be a mystery.
+    if (applied != chosen) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('settings.dns_fallback'.tr())),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsNavTile(
+      icon: Icons.dns_outlined,
+      title: 'settings.dns_title'.tr(),
+      value: _current.labelKey.tr(),
+      onTap: _pick,
     );
   }
 }
