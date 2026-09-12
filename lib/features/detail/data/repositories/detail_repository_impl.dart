@@ -32,6 +32,18 @@ class DetailRepositoryImpl implements DetailRepository {
 
   final MangayomiBridge mangayomi;
 
+  /// The reason the host gave, when it gave one.
+  ///
+  /// All three extension hosts put an `error` on the payload when they fail:
+  /// the exception class and its message, or "no mirrors for this episode".
+  /// Nothing read it, so every one of those became the same flat sentence.
+  static String? _hostError(Map<dynamic, dynamic> map) {
+    final raw = map['error'];
+    if (raw is! String) return null;
+    final text = raw.trim();
+    return text.isEmpty ? null : text;
+  }
+
   String? _resolveProvider(String? provider) {
     if (provider != null && provider.isNotEmpty) return provider;
     final fromHive = hive?.getCurrentProvider();
@@ -208,7 +220,13 @@ class DetailRepositoryImpl implements DetailRepository {
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
           return await _postProcess(MediaResolveModel.fromJson(map));
         }
-        return Failure(Exception('CloudStream: stream not found'));
+        // The host already built a precise message — the exception class and
+        // its text, or "the provider returned no mirrors" — and this threw it
+        // away, so a plugin that crashed, a title with no mirrors and a WebView
+        // sniff that timed out after sixty seconds were one sentence.
+        return Failure(Exception(
+          _hostError(map) ?? 'CloudStream: stream not found',
+        ));
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] CloudStream path failed: $e');
         return Failure(Exception(_normalizeJsError(e)));
@@ -221,7 +239,9 @@ class DetailRepositoryImpl implements DetailRepository {
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
           return await _postProcess(MediaResolveModel.fromJson(map));
         }
-        return Failure(Exception('Aniyomi: stream not found'));
+        return Failure(Exception(
+          _hostError(map) ?? 'Aniyomi: stream not found',
+        ));
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] Aniyomi path failed: $e');
         return Failure(Exception(_normalizeJsError(e)));
@@ -234,7 +254,9 @@ class DetailRepositoryImpl implements DetailRepository {
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
           return await _postProcess(MediaResolveModel.fromJson(map));
         }
-        return Failure(Exception('Mangayomi: stream not found'));
+        return Failure(Exception(
+          _hostError(map) ?? 'Mangayomi: stream not found',
+        ));
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] Mangayomi path failed: $e');
         return Failure(Exception(_normalizeJsError(e)));

@@ -82,6 +82,18 @@ class MainActivity : FlutterFragmentActivity() {
         // throws NoClassDefFoundError on an OkHttp worker thread, which nothing
         // catches, and the process dies.
         CloudStreamApp.install(applicationContext)
+        // And the OTHER context, the one the library's own WebViewResolver
+        // reads. It is a different holder in a different package
+        // (com.lagradost.api), and it was never set.
+        //
+        // With it null, resolveUsingWebView throws "No base context in
+        // WebViewResolver" INSIDE a coroutine whose only handler is logError —
+        // so nothing propagates. The resolver then polls for its full sixty
+        // second timeout and returns nothing, and the screen says "no mirrors"
+        // after a minute of spinning. Twenty-four of the eighty-two plugins in
+        // the recommended repo reach that resolver, directly or through the
+        // filemoon / streamwish / filesim / watchsb extractors that use it.
+        com.lagradost.api.setContext(java.lang.ref.WeakReference(applicationContext))
         PluginHost(applicationContext)
     }
     private val repoManager by lazy { RepoManager(applicationContext, pluginHost) }

@@ -5,6 +5,7 @@ import android.content.res.AssetManager
 import android.content.res.Resources
 import android.util.Log
 import com.lagradost.cloudstream3.APIHolder
+import com.lagradost.cloudstream3.CloudStreamApp
 import com.lagradost.cloudstream3.AnimeLoadResponse
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.LiveStreamLoadResponse
@@ -146,7 +147,17 @@ class PluginHost(private val appContext: Context) {
                     assets, appContext.resources.displayMetrics, appContext.resources.configuration
                 )
             }
-            if (instance is Plugin) instance.load(appContext) else instance.load()
+            // The resumed Activity when there is one, not the Application.
+            //
+            // Upstream hands Plugin.load() an Activity, and four plugins cast
+            // it straight to AppCompatActivity to put up a settings dialog —
+            // Aniworld, Jellyfin, MovieBox and ShowBox all died on
+            // "android.app.Application cannot be cast to AppCompatActivity"
+            // before they had registered anything. Loading is lazy and happens
+            // on first use, so an Activity is normally resumed; the Application
+            // stays as the fallback rather than refusing to load at all.
+            val host = CloudStreamApp.currentActivity ?: appContext
+            if (instance is Plugin) instance.load(host) else instance.load()
             loaded[internalName] = instance
             // So a plugin walking PluginManager.getPluginsOnline() to find its
             // own .cs3 — the usual reason to call it — gets a real answer.
@@ -559,6 +570,7 @@ class PluginHost(private val appContext: Context) {
         var linkError: String? =
             if (api == null) (lastError(providerName) ?: "provider not loaded: $providerName")
             else null
+        val startedAt = System.currentTimeMillis()
         if (api != null) {
             try {
                 api.loadLinks(
@@ -648,7 +660,15 @@ class PluginHost(private val appContext: Context) {
                 linkError = "${t.javaClass.simpleName}: ${t.message ?: "failed"}"
                 Log.e(TAG, "loadLinks ${api.name}", t)
             }
-            Log.i(TAG, "loadLinks ${api.name}: ${collected.size} source(s), ${subs.length()} sub(s)")
+            // With the elapsed time, because the two ways of getting zero look
+            // identical in a log and nothing like each other in cause: a fast
+            // empty answer is a title with no mirrors, and a sixty-second one
+            // is WebViewResolver polling out its timeout.
+            Log.i(
+                TAG,
+                "loadLinks ${api.name}: ${collected.size} source(s), " +
+                    "${subs.length()} sub(s) in ${System.currentTimeMillis() - startedAt}ms",
+            )
         }
         // Best first. Extractors call back in whatever order they finish, so the
         // default source used to be a race: a 360p mirror that resolved quickly
