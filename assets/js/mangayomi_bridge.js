@@ -85,6 +85,22 @@
       return this._send('POST', url, headers, body);
     }
 
+    /**
+     * Some sources ask for headers alone — a redirect target, a content length.
+     * Annas Archive calls this in getDetail and threw a TypeError without it.
+     */
+    async head(url, headers) {
+      return this._send('HEAD', url, headers, null);
+    }
+
+    async put(url, headers, body) {
+      return this._send('PUT', url, headers, body);
+    }
+
+    async delete(url, headers, body) {
+      return this._send('DELETE', url, headers, body);
+    }
+
     async request(req) {
       const r = req || {};
       return this._send(r.method || 'GET', r.url, r.headers, r.body ?? r.data);
@@ -126,6 +142,15 @@
     /** Untrimmed text — a few extensions depend on the leading/trailing space. */
     get rawText() { return this._node ? (this._node.textContent || '') : ''; }
     get html() { return this._node ? (this._node.innerHTML || '') : ''; }
+    /**
+     * Upstream's name for the same thing, and the one extensions actually use.
+     *
+     * Mangayomi calls it `innerHtml`; we only had `html`, so every
+     * `.innerHtml` in an extension evaluated to `undefined` — a chapter body
+     * that came back as the literal string "undefined", and 103 call sites
+     * across the novel sources alone.
+     */
+    get innerHtml() { return this.html; }
     get outerHtml() { return this._node ? (this._node.outerHTML || '') : ''; }
     get className() { return this._node ? (this._node.className || '') : ''; }
     get id() { return this._node ? (this._node.id || '') : ''; }
@@ -139,9 +164,42 @@
       const v = this._node.getAttribute(name);
       return v == null ? '' : v;
     }
-    getHref() { return this.attr('href'); }
-    getSrc() { return this.attr('src'); }
-    getDst() { return this.attr('data-src') || this.attr('src'); }
+    // Getters, not methods — upstream declares them as properties and every
+    // extension reads them without parentheses.
+    //
+    // As methods, `el.getHref` evaluated to the Function itself. It went into
+    // the result object, and `JSON.stringify` at the WebView boundary drops
+    // function-valued properties silently — so the url was simply absent, the
+    // `if (link.isEmpty) continue` guard skipped the row, and browse, search
+    // and the chapter list all came back empty. That is the whole reason no
+    // novel source worked: 38 `.getHref` and 18 `.getSrc` across them, and not
+    // one of them written with parentheses.
+    get getHref() { return this.attr('href'); }
+    get getSrc() { return this.attr('src'); }
+    get getDataSrc() { return this.attr('data-src') || this.attr('src'); }
+    get getImg() { return this.attr('data-src') || this.attr('src'); }
+    /** Ours, kept for anything already written against it. */
+    get getDst() { return this.attr('data-src') || this.attr('src'); }
+
+    hasAttr(name) {
+      return !!(this._node && this._node.hasAttribute &&
+        this._node.hasAttribute(name));
+    }
+
+    get localName() {
+      return this._node && this._node.localName
+        ? String(this._node.localName).toLowerCase() : this.tagName;
+    }
+
+    get nextElementSibling() {
+      const n = this._node && this._node.nextElementSibling;
+      return n ? new MElement(n) : null;
+    }
+
+    get previousElementSibling() {
+      const n = this._node && this._node.previousElementSibling;
+      return n ? new MElement(n) : null;
+    }
 
     get attributes() {
       const out = {};
@@ -211,9 +269,50 @@
     select(query) { return selectAll(this._doc, query); }
     selectFirst(query) { return selectOne(this._doc, query); }
     xpath(expr) { return evaluateXPath(this._doc, expr); }
+    xpathFirst(expr) { return evaluateXPath(this._doc, expr)[0] || null; }
     get body() { return new MElement(this._doc.body); }
     get html() { return this._doc.documentElement ? this._doc.documentElement.outerHTML : ''; }
     get text() { return this._doc.body ? (this._doc.body.textContent || '').trim() : ''; }
+
+    // The rest of upstream's surface. None of it is load-bearing for the
+    // sources we ship today; all of it is the same class of silent break as
+    // `innerHtml` was, and it is three lines each.
+    get outerHtml() { return this.html; }
+    get innerHtml() {
+      return this._doc.documentElement ? this._doc.documentElement.innerHTML : '';
+    }
+    get documentElement() {
+      return this._doc.documentElement ? new MElement(this._doc.documentElement) : null;
+    }
+    get head() { return this._doc.head ? new MElement(this._doc.head) : null; }
+    get parent() { return null; }
+    get children() {
+      const root = this._doc.documentElement;
+      if (!root) return [];
+      return Array.from(root.children || []).map((n) => new MElement(n));
+    }
+    attr(name) {
+      const root = this._doc.documentElement;
+      if (!root || !root.getAttribute) return '';
+      const v = root.getAttribute(name);
+      return v == null ? '' : v;
+    }
+    hasAttr(name) {
+      const root = this._doc.documentElement;
+      return !!(root && root.hasAttribute && root.hasAttribute(name));
+    }
+    getElementById(id) {
+      const n = this._doc.getElementById ? this._doc.getElementById(id) : null;
+      return n ? new MElement(n) : null;
+    }
+    getElementsByTagName(tag) {
+      return Array.from(this._doc.getElementsByTagName(tag) || [])
+        .map((n) => new MElement(n));
+    }
+    getElementsByClassName(name) {
+      return Array.from(this._doc.getElementsByClassName(name) || [])
+        .map((n) => new MElement(n));
+    }
   }
 
   // --- per-source preferences --------------------------------------------

@@ -426,13 +426,23 @@ class MangayomiBridge {
         // than a default.
         args: [src.name, chapterUrl],
       );
+      // A list, sometimes. bookReadFree returns the chapter as an array of
+      // strings, and `toString()` on that produced the literal "[]" — which is
+      // not empty, so it passed the has-content check and the reader opened on
+      // two square brackets. Joined, and a whitespace-only result is reported
+      // as a failure rather than rendered.
+      final text = html is List
+          ? html.whereType<Object?>().map((e) => '$e').join()
+          : (html is String ? html : html?.toString() ?? '');
       return {
         'provider': src.providerId,
         'headers': <String, String>{
           if (src.baseUrl.isNotEmpty) 'Referer': src.baseUrl,
         },
         'pages': const <Map<String, dynamic>>[],
-        'html': html is String ? html : html?.toString(),
+        if (text.trim().isNotEmpty) 'html': text,
+        if (text.trim().isEmpty)
+          'error': '${src.name}: the chapter came back empty',
       };
     }
 
