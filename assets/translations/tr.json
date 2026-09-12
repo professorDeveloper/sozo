@@ -363,7 +363,8 @@
     "logs_empty": "Henüz günlük yok",
     "alt_unavailable": "Kaynak listesine ulaşılamadı. Bağlantını kontrol edip tekrar dene.",
     "alt_all_failed": "Hiçbir kaynak yanıt vermedi. Bu genelde bağlantıdır, içerik değil.",
-    "alt_some_failed": "Eşleşme yok; ancak {} kaynak yanıt vermedi."
+    "alt_some_failed": "Eşleşme yok; ancak {} kaynak yanıt vermedi.",
+    "resolve_timeout": "Kaynak zamanında yanıt vermedi. Başka bir sunucu ya da kaynak deneyin."
   },
   "profile": {
     "title": "Profil",
@@ -1434,7 +1435,8 @@
     "released_body": "{episode}. bölüm çıktı",
     "remove_entry": "Listemden çıkar",
     "remove_confirm": "“{}” AniList’ten çıkarılsın mı? Ona ait ilerlemen de silinir.",
-    "removed": "AniList’ten çıkarıldı"
+    "removed": "AniList’ten çıkarıldı",
+    "retry_in": "{} sn içinde yeniden denenecek"
   },
   "mal": {
     "connect": "MyAnimeList’i bağla",
@@ -1654,7 +1656,9 @@
     "video": "İzle",
     "manga": "Manga",
     "novel": "Roman",
-    "none_installed": "Henüz {} kaynağı yüklenmedi."
+    "none_installed": "Henüz {} kaynağı yüklenmedi.",
+    "novels_hint": "Roman, resim değil metindir — light novel ve web novel, manga ile aynı okuyucuda okunur. Roman kaynakları Mangayomi depolarından gelir: bir depo ekleyin, içindeki tüm roman kaynakları burada görünür.",
+    "manga_hint": "Manga kaynakları yerleşik değildir, kurulur. Bir depo ekleyin; içindeki tüm kaynaklar burada görünür."
   },
   "home_rails": {
     "title": "Ana sayfa düzeni",

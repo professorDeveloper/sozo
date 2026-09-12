@@ -29,3 +29,23 @@ List<String> indexLetters(Iterable<String> letters) {
   }
   return out;
 }
+
+/// Orders two source names for an A–Z index.
+///
+/// The index strip was drawn over the list in whatever order the backend sent
+/// it, so the chips read "V A I U A T K Y A P H" — a letter per run, over a
+/// list with no runs. An alphabetical index only means anything over an
+/// alphabetical list.
+///
+/// Names outside A–Z sort last as one block, matching the single '#' bucket
+/// [indexLetterOf] puts them in.
+int compareForIndex(String a, String b) {
+  final la = indexLetterOf(a);
+  final lb = indexLetterOf(b);
+  if (la != lb) {
+    if (la == '#') return 1;
+    if (lb == '#') return -1;
+    return la.compareTo(lb);
+  }
+  return a.toLowerCase().compareTo(b.toLowerCase());
+}

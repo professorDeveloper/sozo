@@ -108,8 +108,13 @@ class AnilistApi {
     String? token,
   }) async {
     final until = _throttledUntil;
-    if (until != null && DateTime.now().isBefore(until)) {
-      throw const AnilistException(_rateLimitMessage, rateLimited: true);
+    final now = DateTime.now();
+    if (until != null && now.isBefore(until)) {
+      throw AnilistException(
+        _rateLimitMessage,
+        rateLimited: true,
+        retryAfter: until.difference(now),
+      );
     }
     // While AniList is refusing everything there is nothing to gain by asking
     // again — and the calendar alone fires two requests per visit (the selected
@@ -130,8 +135,13 @@ class AnilistApi {
       );
     } on DioException catch (e) {
       if (e.response?.statusCode == 429) {
-        _throttledUntil = DateTime.now().add(_retryAfter(e.response));
-        throw const AnilistException(_rateLimitMessage, rateLimited: true);
+        final wait = _retryAfter(e.response);
+        _throttledUntil = DateTime.now().add(wait);
+        throw AnilistException(
+          _rateLimitMessage,
+          rateLimited: true,
+          retryAfter: wait,
+        );
       }
       // GraphQL errors normally arrive in a 200 body and are read below, but a
       // refusal comes back as a non-2xx — which Dio throws on, so the body was
@@ -619,12 +629,22 @@ class AnilistEntryState {
 }
 
 class AnilistException implements Exception {
-  const AnilistException(this.message, {this.rateLimited = false});
+  const AnilistException(
+    this.message, {
+    this.rateLimited = false,
+    this.retryAfter,
+  });
   final String message;
 
   /// AniList refused on its request budget, not because anything is wrong.
   /// Callers can say "try again in a moment" rather than "it failed".
   final bool rateLimited;
+
+  /// How long until the window reopens, when AniList said.
+  ///
+  /// Without it the screen offers a Try again that is certain to be refused
+  /// again, which reads as the feature being broken rather than busy.
+  final Duration? retryAfter;
 
   @override
   String toString() => message;

@@ -363,7 +363,8 @@
     "logs_empty": "Hozircha log yo‘q",
     "alt_unavailable": "Manbalar ro'yxatiga ulanib bo'lmadi. Aloqani tekshirib, qayta urining.",
     "alt_all_failed": "Hech bir manba javob bermadi. Odatda bu aloqa muammosi, kontent emas.",
-    "alt_some_failed": "Moslik topilmadi, lekin {} ta manba javob bermadi."
+    "alt_some_failed": "Moslik topilmadi, lekin {} ta manba javob bermadi.",
+    "resolve_timeout": "Manba vaqtida javob bermadi. Boshqa server yoki boshqa manbani sinab ko'ring."
   },
   "profile": {
     "title": "Profil",
@@ -1434,7 +1435,8 @@
     "released_body": "{episode}-qism chiqdi",
     "remove_entry": "Ro'yxatimdan o'chirish",
     "remove_confirm": "\"{}\" AniList ro'yxatingizdan o'chirilsinmi? Undagi progress ham o'chadi.",
-    "removed": "AniList ro'yxatidan o'chirildi"
+    "removed": "AniList ro'yxatidan o'chirildi",
+    "retry_in": "{} s dan keyin qayta urinamiz"
   },
   "mal": {
     "connect": "MyAnimeList ulash",
@@ -1654,7 +1656,9 @@
     "video": "Ko‘rish",
     "manga": "Manga",
     "novel": "Novellalar",
-    "none_installed": "“{}” manbalari hali o‘rnatilmagan."
+    "none_installed": "“{}” manbalari hali o‘rnatilmagan.",
+    "novels_hint": "Novellalar rasm emas, matn — light novel va web novel, manga bilan bir xil o'quvchida o'qiladi. Novel manbalari Mangayomi repolaridan keladi: bittasini qo'shsangiz, undagi barcha novel manbalari shu yerda chiqadi.",
+    "manga_hint": "Manga manbalari ilovaga kiritilmagan — o'rnatiladi. Repo qo'shsangiz, undagi barcha manbalar shu yerda chiqadi."
   },
   "home_rails": {
     "title": "Bosh ekran",

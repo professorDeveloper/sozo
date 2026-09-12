@@ -363,7 +363,8 @@
     "logs_empty": "Noch keine Logs",
     "alt_unavailable": "Quellenliste nicht erreichbar. Verbindung prüfen und erneut versuchen.",
     "alt_all_failed": "Keine Quelle hat geantwortet. Das liegt meist an der Verbindung.",
-    "alt_some_failed": "Kein Treffer, {} Quelle(n) haben nicht geantwortet."
+    "alt_some_failed": "Kein Treffer, {} Quelle(n) haben nicht geantwortet.",
+    "resolve_timeout": "Die Quelle hat nicht rechtzeitig geantwortet. Versuche einen anderen Server oder eine andere Quelle."
   },
   "profile": {
     "title": "Profil",
@@ -1434,7 +1435,8 @@
     "released_body": "Folge {episode} ist da",
     "remove_entry": "Aus meiner Liste entfernen",
     "remove_confirm": "„{}“ von AniList entfernen? Dein Fortschritt dazu wird ebenfalls gelöscht.",
-    "removed": "Von AniList entfernt"
+    "removed": "Von AniList entfernt",
+    "retry_in": "Erneut in {} s"
   },
   "mal": {
     "connect": "MyAnimeList verbinden",
@@ -1654,7 +1656,9 @@
     "video": "Schauen",
     "manga": "Manga",
     "novel": "Romane",
-    "none_installed": "Noch keine {}-Quellen installiert."
+    "none_installed": "Noch keine {}-Quellen installiert.",
+    "novels_hint": "Novels sind Text statt Bilder – Light Novels und Web Novels, im selben Reader wie Manga. Novel-Quellen kommen aus Mangayomi-Repositories: Füge eines hinzu, und alle Novel-Quellen darin erscheinen hier.",
+    "manga_hint": "Manga-Quellen sind nicht eingebaut, sie werden installiert. Füge ein Repository hinzu, und alle Quellen darin erscheinen hier."
   },
   "home_rails": {
     "title": "Startseiten-Layout",

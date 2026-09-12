@@ -19,6 +19,13 @@ class AnilistLibraryController extends ChangeNotifier {
   bool _loading = false;
   String? _error;
 
+  /// When the rate-limit window reopens, if that is what failed.
+  ///
+  /// The screen was offering a Try again against a budget AniList had already
+  /// closed, so every press produced the same message — the feature looked
+  /// broken rather than busy. Held so the page can count down and retry itself.
+  DateTime? _retryAt;
+
   /// Entry ids with a write in flight, so a card can show a spinner without
   /// blocking the rest of the list.
   final Set<int> _busy = <int>{};
@@ -26,6 +33,14 @@ class AnilistLibraryController extends ChangeNotifier {
   List<AnilistListEntry> get entries => _entries;
   bool get loading => _loading;
   String? get error => _error;
+
+  /// null unless the failure was a rate limit that has not expired yet.
+  Duration? get retryIn {
+    final at = _retryAt;
+    if (at == null) return null;
+    final left = at.difference(DateTime.now());
+    return left.isNegative ? null : left;
+  }
   bool isBusy(int entryId) => _busy.contains(entryId);
   bool get isConnected => _service.isConnected;
   AnilistViewer? get viewer => _service.viewer;
@@ -75,6 +90,7 @@ class AnilistLibraryController extends ChangeNotifier {
     if (!_service.isConnected) {
       _entries = const [];
       _error = null;
+      _retryAt = null;
       notifyListeners();
       return;
     }
@@ -82,6 +98,7 @@ class AnilistLibraryController extends ChangeNotifier {
 
     _loading = true;
     _error = null;
+    _retryAt = null;
     notifyListeners();
     try {
       _entries = await _service.library();
@@ -89,6 +106,8 @@ class AnilistLibraryController extends ChangeNotifier {
       _error = e is AnilistException
           ? e.message
           : 'anilist.calendar_list_error'.tr();
+      final wait = e is AnilistException ? e.retryAfter : null;
+      _retryAt = wait == null ? null : DateTime.now().add(wait);
     } finally {
       _loading = false;
       notifyListeners();

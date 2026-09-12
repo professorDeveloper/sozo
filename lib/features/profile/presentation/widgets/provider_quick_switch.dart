@@ -246,6 +246,21 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// Used on TV and desktop, where there is no sheet to supply one.
   final ScrollController _flat = ScrollController();
 
+  // The pinned block is measured, not estimated: a SliverPersistentHeader has
+  // one fixed height and anything taller than it overflows. Every piece below
+  // is given an explicit height so this arithmetic stays true.
+  static const double _chipRow = 48;
+  static const double _filterRow = 44;
+  static const double _pinnedPad = 12;
+
+  bool get _hasFilter => widget.all.length >= _filterThreshold;
+
+  /// Height of the pinned block: chips, and the filter when it is shown.
+  double get _pinnedExtent =>
+      _pinnedPad * 2 +
+      _chipRow +
+      (_hasFilter ? _pinnedPad + _filterRow : 0);
+
   /// Opening on the current source is a one-time move. Re-running it after a
   /// keystroke in the filter would yank the list out from under the typing.
   bool _aligned = false;
@@ -426,7 +441,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
           0;
       // Two rows of lead-in, so the current source reads as one entry in a
       // list rather than as the first thing in it.
-      final target = header + (index - 2) * _tileExtent;
+      final target = header + _pinnedExtent + (index - 2) * _tileExtent;
       controller.jumpTo(
         target.clamp(0.0, controller.position.maxScrollExtent),
       );
@@ -448,19 +463,41 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
             controller: controller,
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
-              // Scrolls with the rows rather than being pinned above them: a
-              // fixed block plus the filter plus the footer is taller than this
-              // sheet has on a small screen with the keyboard up, and a Column
-              // does not shrink its children to fit.
+              // The title scrolls away; the chips and the filter do not.
+              //
+              // Slivers rather than a Column above the list, because a fixed
+              // block plus the filter plus the footer is taller than this sheet
+              // has on a small screen with the keyboard up and a Column will
+              // not shrink its children to fit — it overflows. A pinned sliver
+              // stays put without taking the list's height away from it.
               SliverToBoxAdapter(
                 child: KeyedSubtree(
                   key: _headerKey,
                   child: Column(
                     children: [
                       if (draggable) _grabber(context),
-                      _header(context, items),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Text(
+                            'ux.change_source'.tr(),
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
+                ),
+              ),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _PinnedControls(
+                  extent: _pinnedExtent,
+                  child: _header(context, items),
                 ),
               ),
               // Fixed rows are what make the opening jump land on the right one.
@@ -476,6 +513,8 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                   childCount: items.length,
                 ),
               ),
+              if (items.isEmpty)
+                SliverToBoxAdapter(child: _emptyNote(context)),
             ],
           ),
         ),
@@ -490,80 +529,121 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
     );
   }
 
-  /// Title, mode chips and filter.
+  /// Mode chips and filter — the part that stays put.
   ///
-  /// Above the list rather than the first row of it: a header that scrolls away
-  /// cannot be combined with opening the list part-way down, which would put
-  /// the mode chips and the search box off screen the moment the sheet opened.
+  /// Pinned, because scrolling two hundred sources past a mode switcher that
+  /// has left the screen means scrolling back up to change mode, and the search
+  /// box goes with it for the same reason.
   Widget _header(BuildContext context, List<ProviderEntity> items) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+    return Container(
+      color: AppColors.surface,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            'ux.change_source'.tr(),
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          SizedBox(
+            height: _chipRow,
+            // Scrolls rather than wraps: a pinned header is one fixed height,
+            // and a Wrap that needs a second line for a long mode name would
+            // overflow it rather than grow.
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final m in ContentMode.values) ...[
+                  if (m != ContentMode.values.first) const SizedBox(width: 8),
+                  _ModeChip(
+                    label: m.labelKey.tr(),
+                    active: m == widget.mode,
+                    onTap: m == widget.mode
+                        ? null
+                        : () =>
+                              Navigator.of(context).pop('$_kModePrefix${m.id}'),
+                  ),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final m in ContentMode.values)
-                _ModeChip(
-                  label: m.labelKey.tr(),
-                  active: m == widget.mode,
-                  onTap: m == widget.mode
+          if (_hasFilter) ...[
+            const SizedBox(height: _pinnedPad),
+            SizedBox(
+              height: _filterRow,
+              child: TextField(
+                controller: _filter,
+                onChanged: (v) => setState(() => _query = v),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  hintText: 'profile.search_providers_hint'.tr(),
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _query.isEmpty
                       ? null
-                      : () =>
-                            Navigator.of(context).pop('$_kModePrefix${m.id}'),
+                      : IconButton(
+                          tooltip: 'general.clear'.tr(),
+                          onPressed: () {
+                            _filter.clear();
+                            setState(() => _query = '');
+                          },
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
                 ),
-            ],
-          ),
-          if (widget.all.length >= _filterThreshold) ...[
-            const SizedBox(height: 12),
-            TextField(
-              controller: _filter,
-              onChanged: (v) => setState(() => _query = v),
-              decoration: InputDecoration(
-                hintText: 'profile.search_providers_hint'.tr(),
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'general.clear'.tr(),
-                        onPressed: () {
-                          _filter.clear();
-                          setState(() => _query = '');
-                        },
-                        icon: const Icon(Icons.close),
-                      ),
               ),
             ),
-          ],
-          if (items.isEmpty) ...[
-            const SizedBox(height: 24),
-            Text(
-              (_query.isEmpty
-                      ? 'profile.no_providers_in_category'
-                      : 'ux.no_source_match')
-                  .tr(),
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-            if (_query.isNotEmpty)
-              TextButton(
-                onPressed: () {
-                  _filter.clear();
-                  setState(() => _query = '');
-                },
-                child: Text('general.clear'.tr()),
-              ),
           ],
         ],
       ),
     );
   }
+
+  /// Said under the list, not inside the pinned block: that block has a fixed
+  /// height, and a message that appears and disappears cannot live in one.
+  Widget _emptyNote(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+      child: Column(
+        children: [
+          Text(
+            (_query.isEmpty
+                    ? 'profile.no_providers_in_category'
+                    : 'ux.no_source_match')
+                .tr(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+          if (_query.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                _filter.clear();
+                setState(() => _query = '');
+              },
+              child: Text('general.clear'.tr()),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Holds [child] at a fixed height so it can be pinned.
+class _PinnedControls extends SliverPersistentHeaderDelegate {
+  const _PinnedControls({required this.extent, required this.child});
+
+  final double extent;
+  final Widget child;
+
+  @override
+  double get minExtent => extent;
+
+  @override
+  double get maxExtent => extent;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      SizedBox(height: extent, child: child);
+
+  @override
+  bool shouldRebuild(_PinnedControls old) =>
+      old.extent != extent || old.child != child;
 }
 
 /// One of the three catalogue kinds.

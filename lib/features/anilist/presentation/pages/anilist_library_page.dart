@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -224,11 +225,10 @@ class _StatusList extends StatelessWidget {
         backgroundColor: AppColors.surface,
         onRefresh: onRefresh,
         child: AnilistScrollableMessage(
-          message: AnilistStateMessage(
-            icon: Icons.cloud_off_rounded,
-            text: error,
-            actionLabel: 'anilist.retry'.tr(),
-            onAction: onRefresh,
+          message: _RateLimitCountdown(
+            controller: controller,
+            error: error,
+            onRefresh: onRefresh,
           ),
         ),
       );
@@ -436,6 +436,78 @@ class _LoadingList extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
         ),
       ),
+    );
+  }
+}
+
+
+/// The rate-limit message, with the wait counted down and the retry made itself.
+///
+/// A budget AniList has already closed does not reopen because somebody presses
+/// Try again — every press returned the same sentence, which reads as the
+/// feature being broken rather than busy. This says how long is left and
+/// reloads when it is up.
+///
+/// Falls back to the plain message and a live Try again for every other
+/// failure, where pressing again is exactly the right thing to do.
+class _RateLimitCountdown extends StatefulWidget {
+  const _RateLimitCountdown({
+    required this.controller,
+    required this.error,
+    required this.onRefresh,
+  });
+
+  final AnilistLibraryController controller;
+  final String error;
+  final Future<void> Function() onRefresh;
+
+  @override
+  State<_RateLimitCountdown> createState() => _RateLimitCountdownState();
+}
+
+class _RateLimitCountdownState extends State<_RateLimitCountdown> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.controller.retryIn != null) {
+      _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        if (widget.controller.retryIn == null) {
+          _tick?.cancel();
+          // The window is open again, so reload rather than waiting for
+          // somebody to notice that it is.
+          widget.onRefresh();
+          return;
+        }
+        setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final left = widget.controller.retryIn;
+    if (left == null) {
+      return AnilistStateMessage(
+        icon: Icons.cloud_off_rounded,
+        text: widget.error,
+        actionLabel: 'anilist.retry'.tr(),
+        onAction: widget.onRefresh,
+      );
+    }
+    final seconds = left.inSeconds + 1;
+    return AnilistStateMessage(
+      icon: Icons.hourglass_bottom_rounded,
+      text: '${widget.error}\n'
+          '${'anilist.retry_in'.tr(args: ['$seconds'])}',
     );
   }
 }

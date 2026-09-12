@@ -56,8 +56,8 @@ class _SourcesHubPageState extends State<SourcesHubPage>
 
   /// Jumping to a letter, the way the episode list jumps to a range.
   ///
-  /// With CloudStream installed this tab is several hundred rows of
-  /// alphabetically sorted names, and the only way to reach the middle was to
+  /// With CloudStream installed this tab is several hundred rows, sorted by
+  /// name right where the list is built, and the only way to reach the middle was to
   /// keep swiping. Search finds a source somebody can already name; the index
   /// is for the far more common case of looking for one you cannot.
   final ItemScrollController _listCtl = ItemScrollController();
@@ -105,6 +105,18 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       i >= 0 && i < _shown.length ? _letterOf(_shown[i]) : '';
 
   static String _letterOf(ProviderEntity p) => indexLetterOf(p.name);
+
+  /// What this tab is for, shown only when it is empty.
+  ///
+  /// Novels are the one mode nobody arrives already understanding: the word
+  /// does not say that it means text rather than pictures, and nothing on
+  /// screen said where a novel source comes from — so the tab read as a
+  /// feature that does not work.
+  static String? _modeHint(ContentMode mode) => switch (mode) {
+    ContentMode.novel => 'mode.novels_hint'.tr(),
+    ContentMode.manga => 'mode.manga_hint'.tr(),
+    _ => null,
+  };
 
   @override
   void dispose() {
@@ -251,6 +263,13 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                 (needle.isEmpty || p.name.toLowerCase().contains(needle)))
               p,
         ];
+        // Sorted here, not upstream: the quick switcher shows the same
+        // providers in the order the backend sent them, because there the list
+        // is short and its order is the recommendation. This page is the whole
+        // catalogue with an A–Z strip over it, and the strip was being drawn
+        // over an unsorted list — one chip per run of the same letter, which
+        // over backend order is no runs at all and reads as random letters.
+        sources.sort((a, b) => compareForIndex(a.name, b.name));
 
         _shown = sources;
         return Column(
@@ -295,6 +314,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                       text: needle.isEmpty
                           ? 'mode.none_installed'.tr(args: [mode.labelKey.tr()])
                           : 'profile.no_providers_in_category'.tr(),
+                      hint: needle.isEmpty ? _modeHint(mode) : null,
                       // An empty mode is a dead end without this. Manga and
                       // novels are both extension ecosystems, so a fresh
                       // install has nothing in either tab and the only way out
@@ -612,9 +632,20 @@ class _SourceMark extends StatelessWidget {
 }
 
 class _Message extends StatelessWidget {
-  const _Message({required this.text, this.actionLabel, this.onAction});
+  const _Message({
+    required this.text,
+    this.hint,
+    this.actionLabel,
+    this.onAction,
+  });
 
   final String text;
+
+  /// What this kind of source IS, for a tab somebody arrived at without
+  /// knowing. "No novel sources installed" answers nothing if the reader does
+  /// not know a novel source is a thing you install, or from where.
+  final String? hint;
+
   final String? actionLabel;
   final VoidCallback? onAction;
 
@@ -631,6 +662,18 @@ class _Message extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(color: AppColors.textSecondary),
             ),
+            if (hint != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                hint!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 12.5,
+                  height: 1.45,
+                ),
+              ),
+            ],
             if (onAction != null) ...[
               const SizedBox(height: 16),
               TextButton(

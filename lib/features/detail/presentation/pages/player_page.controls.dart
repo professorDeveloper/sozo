@@ -1737,8 +1737,18 @@ extension _PlayerControls on _PlayerPageState {
                   );
                 },
               ),
-              const SizedBox(height: 4),
-              if (isDesktopPlatform)
+              // Portrait shows the seek bar and nothing else.
+              //
+              // The row of icons under it is the least-used half of the player
+              // and it was the half sitting closest to the thumb, under a
+              // picture that occupies a third of the screen. Everything in it
+              // moves into the settings sheet on this orientation — see
+              // _openSettingsSheet, which grows those rows back when the bar
+              // is not carrying them.
+              if (!_compactBottomBar) const SizedBox(height: 4),
+              if (_compactBottomBar)
+                const SizedBox.shrink()
+              else if (isDesktopPlatform)
                 _buildDesktopControlRow(
                     c, hasEpisodes, hasServers, hasQualities, hasPrev, hasNext)
               else

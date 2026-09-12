@@ -363,7 +363,8 @@
     "logs_empty": "Belum ada log",
     "alt_unavailable": "Tidak bisa memuat daftar sumber. Periksa koneksi lalu coba lagi.",
     "alt_all_failed": "Tidak ada sumber yang menjawab. Biasanya ini koneksi, bukan judulnya.",
-    "alt_some_failed": "Tidak ada yang cocok, tetapi {} sumber tidak menjawab."
+    "alt_some_failed": "Tidak ada yang cocok, tetapi {} sumber tidak menjawab.",
+    "resolve_timeout": "Sumber tidak menjawab tepat waktu. Coba server atau sumber lain."
   },
   "profile": {
     "title": "Profil",
@@ -1434,7 +1435,8 @@
     "released_body": "Episode {episode} sudah keluar",
     "remove_entry": "Hapus dari daftar saya",
     "remove_confirm": "Hapus “{}” dari AniList-mu? Progresmu untuk judul itu ikut terhapus.",
-    "removed": "Dihapus dari AniList"
+    "removed": "Dihapus dari AniList",
+    "retry_in": "Coba lagi dalam {} d"
   },
   "mal": {
     "connect": "Hubungkan MyAnimeList",
@@ -1654,7 +1656,9 @@
     "video": "Tonton",
     "manga": "Manga",
     "novel": "Novel",
-    "none_installed": "Belum ada sumber {} yang terpasang."
+    "none_installed": "Belum ada sumber {} yang terpasang.",
+    "novels_hint": "Novel adalah teks, bukan gambar — light novel dan web novel, dibaca di pembaca yang sama dengan manga. Sumber novel berasal dari repositori Mangayomi: tambahkan satu dan semua sumber novelnya muncul di sini.",
+    "manga_hint": "Sumber manga tidak bawaan — dipasang. Tambahkan repositori dan semua sumbernya muncul di sini."
   },
   "home_rails": {
     "title": "Tata letak beranda",

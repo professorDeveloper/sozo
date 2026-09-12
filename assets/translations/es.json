@@ -363,7 +363,8 @@
     "logs_empty": "Aún no hay registros",
     "alt_unavailable": "No se pudo obtener la lista de fuentes. Revisa la conexión e inténtalo de nuevo.",
     "alt_all_failed": "Ninguna fuente respondió. Suele ser la conexión, no el título.",
-    "alt_some_failed": "Sin coincidencias, pero {} fuente(s) no respondieron."
+    "alt_some_failed": "Sin coincidencias, pero {} fuente(s) no respondieron.",
+    "resolve_timeout": "La fuente no respondió a tiempo. Prueba otro servidor u otra fuente."
   },
   "profile": {
     "title": "Perfil",
@@ -1434,7 +1435,8 @@
     "released_body": "Ya está el episodio {episode}",
     "remove_entry": "Quitar de mi lista",
     "remove_confirm": "¿Quitar «{}» de tu AniList? También se borra tu progreso.",
-    "removed": "Quitado de AniList"
+    "removed": "Quitado de AniList",
+    "retry_in": "Reintento en {} s"
   },
   "mal": {
     "connect": "Conectar MyAnimeList",
@@ -1654,7 +1656,9 @@
     "video": "Ver",
     "manga": "Manga",
     "novel": "Novelas",
-    "none_installed": "Aún no hay fuentes de {} instaladas."
+    "none_installed": "Aún no hay fuentes de {} instaladas.",
+    "novels_hint": "Las novelas son texto, no imágenes: light novels y web novels, leídas en el mismo lector que el manga. Las fuentes de novelas vienen de repositorios de Mangayomi: añade uno y todas sus fuentes aparecerán aquí.",
+    "manga_hint": "Las fuentes de manga no vienen incluidas: se instalan. Añade un repositorio y todas sus fuentes aparecerán aquí."
   },
   "home_rails": {
     "title": "Diseño del inicio",

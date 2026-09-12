@@ -363,7 +363,8 @@
     "logs_empty": "Ainda não há registos",
     "alt_unavailable": "Não foi possível obter a lista de fontes. Verifica a ligação e tenta de novo.",
     "alt_all_failed": "Nenhuma fonte respondeu. Normalmente é a ligação, não o título.",
-    "alt_some_failed": "Sem correspondências, mas {} fonte(s) não responderam."
+    "alt_some_failed": "Sem correspondências, mas {} fonte(s) não responderam.",
+    "resolve_timeout": "A fonte não respondeu a tempo. Tente outro servidor ou outra fonte."
   },
   "profile": {
     "title": "Perfil",
@@ -1434,7 +1435,8 @@
     "released_body": "O episódio {episode} saiu",
     "remove_entry": "Remover da minha lista",
     "remove_confirm": "Remover “{}” do seu AniList? Seu progresso nele também é apagado.",
-    "removed": "Removido do AniList"
+    "removed": "Removido do AniList",
+    "retry_in": "Nova tentativa em {} s"
   },
   "mal": {
     "connect": "Conectar o MyAnimeList",
@@ -1654,7 +1656,9 @@
     "video": "Assistir",
     "manga": "Mangá",
     "novel": "Novels",
-    "none_installed": "Nenhuma fonte de {} instalada ainda."
+    "none_installed": "Nenhuma fonte de {} instalada ainda.",
+    "novels_hint": "Novels são texto, não imagens — light novels e web novels, lidas no mesmo leitor do mangá. As fontes de novels vêm de repositórios Mangayomi: adicione um e todas as suas fontes aparecem aqui.",
+    "manga_hint": "As fontes de mangá não são embutidas, são instaladas. Adicione um repositório e todas as suas fontes aparecem aqui."
   },
   "home_rails": {
     "title": "Layout do início",

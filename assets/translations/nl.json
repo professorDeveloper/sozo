@@ -363,7 +363,8 @@
     "logs_empty": "Nog geen logboek",
     "alt_unavailable": "Bronnenlijst niet bereikbaar. Controleer je verbinding en probeer opnieuw.",
     "alt_all_failed": "Geen enkele bron antwoordde. Dat ligt meestal aan de verbinding.",
-    "alt_some_failed": "Geen match, maar {} bron(nen) antwoordden niet."
+    "alt_some_failed": "Geen match, maar {} bron(nen) antwoordden niet.",
+    "resolve_timeout": "De bron reageerde niet op tijd. Probeer een andere server of bron."
   },
   "profile": {
     "title": "Profiel",
@@ -1434,7 +1435,8 @@
     "released_body": "Aflevering {episode} is er",
     "remove_entry": "Uit mijn lijst verwijderen",
     "remove_confirm": "„{}” van je AniList verwijderen? Je voortgang ervoor wordt ook gewist.",
-    "removed": "Verwijderd van AniList"
+    "removed": "Verwijderd van AniList",
+    "retry_in": "Opnieuw over {} s"
   },
   "mal": {
     "connect": "MyAnimeList koppelen",
@@ -1654,7 +1656,9 @@
     "video": "Kijken",
     "manga": "Manga",
     "novel": "Romans",
-    "none_installed": "Nog geen {}-bronnen geïnstalleerd."
+    "none_installed": "Nog geen {}-bronnen geïnstalleerd.",
+    "novels_hint": "Novels zijn tekst, geen plaatjes — light novels en web novels, gelezen in dezelfde reader als manga. Novelbronnen komen uit Mangayomi-repositories: voeg er een toe en alle novelbronnen erin verschijnen hier.",
+    "manga_hint": "Mangabronnen zitten er niet in, je installeert ze. Voeg een repository toe en alle bronnen erin verschijnen hier."
   },
   "home_rails": {
     "title": "Indeling startscherm",

@@ -363,7 +363,8 @@
     "logs_empty": "Aucun journal pour l’instant",
     "alt_unavailable": "Liste des sources inaccessible. Vérifiez la connexion et réessayez.",
     "alt_all_failed": "Aucune source n'a répondu. C'est en général la connexion, pas le titre.",
-    "alt_some_failed": "Aucune correspondance, mais {} source(s) n'ont pas répondu."
+    "alt_some_failed": "Aucune correspondance, mais {} source(s) n'ont pas répondu.",
+    "resolve_timeout": "La source n'a pas répondu à temps. Essayez un autre serveur ou une autre source."
   },
   "profile": {
     "title": "Profil",
@@ -1434,7 +1435,8 @@
     "released_body": "L’épisode {episode} est sorti",
     "remove_entry": "Retirer de ma liste",
     "remove_confirm": "Retirer « {} » de ton AniList ? Ta progression dessus est aussi supprimée.",
-    "removed": "Retiré d’AniList"
+    "removed": "Retiré d’AniList",
+    "retry_in": "Nouvel essai dans {} s"
   },
   "mal": {
     "connect": "Connecter MyAnimeList",
@@ -1654,7 +1656,9 @@
     "video": "Regarder",
     "manga": "Manga",
     "novel": "Romans",
-    "none_installed": "Aucune source {} installée pour l’instant."
+    "none_installed": "Aucune source {} installée pour l’instant.",
+    "novels_hint": "Les novels sont du texte, pas des images — light novels et web novels, lus dans le même lecteur que les mangas. Les sources de novels viennent des dépôts Mangayomi : ajoutez-en un et toutes ses sources apparaissent ici.",
+    "manga_hint": "Les sources de manga ne sont pas intégrées, elles s'installent. Ajoutez un dépôt et toutes ses sources apparaissent ici."
   },
   "home_rails": {
     "title": "Disposition de l’accueil",
