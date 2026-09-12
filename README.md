@@ -2,7 +2,7 @@
 
 <img src="docs/images/banner-rounded.png" alt="Sozo" width="100%" />
 
-### Kino, serial, anime, manga va novellalar — bitta ilovada. Android, TV, iOS va desktop.
+### Films, series, anime, manga and novels — in one app. Android, TV, iOS and desktop.
 
 [![Release](https://img.shields.io/github/v/release/professorDeveloper/sozo?style=for-the-badge&label=Release&color=E50914&logo=github)](https://github.com/professorDeveloper/sozo/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/professorDeveloper/sozo/total?style=for-the-badge&color=E50914&logo=android&logoColor=white)](https://github.com/professorDeveloper/sozo/releases)
@@ -21,7 +21,7 @@
 <br/>
 
 <a href="https://github.com/professorDeveloper/sozo/releases/latest">
-  <img src="https://img.shields.io/badge/⬇️_YUKLAB_OLISH-E50914?style=for-the-badge&logo=android&logoColor=white&labelColor=111111" alt="Download" height="42"/>
+  <img src="https://img.shields.io/badge/⬇️_DOWNLOAD-E50914?style=for-the-badge&logo=android&logoColor=white&labelColor=111111" alt="Download" height="42"/>
 </a>
 &nbsp;
 <a href="https://telegram.me/sozoapp">
@@ -34,153 +34,156 @@
 
 <br/><br/>
 
-<a href="#-sozo-nima"><b>Sozo nima</b></a> ·
-<a href="#-imkoniyatlar"><b>Imkoniyatlar</b></a> ·
-<a href="#️-yuklab-olish"><b>Yuklab olish</b></a> ·
-<a href="#-skrinshotlar"><b>Skrinshotlar</b></a> ·
-<a href="#-texnologiyalar"><b>Texnologiyalar</b></a> ·
+<a href="#-what-sozo-is"><b>What it is</b></a> ·
+<a href="#-features"><b>Features</b></a> ·
+<a href="#️-download"><b>Download</b></a> ·
+<a href="#-screenshots"><b>Screenshots</b></a> ·
+<a href="#-how-sources-work"><b>How sources work</b></a> ·
+<a href="#-built-with"><b>Built with</b></a> ·
 <a href="#-faq"><b>FAQ</b></a> ·
 <a href="#️-disclaimer"><b>Disclaimer</b></a> ·
-<a href="#-litsenziya"><b>Litsenziya</b></a>
+<a href="#-license"><b>License</b></a>
 
 </div>
 
 ---
 
-## 🎬 Sozo nima
+## 🎬 What Sozo is
 
-Sozo — kino, serial, anime, manga va light novellalarni **topish, ko'rish, o'qish va kuzatib borish** uchun ochiq kodli Flutter ilovasi. Nomi yaponcha "yaratish, tasavvur" degan ma'noni beradi.
+Sozo is an open-source Flutter app for **finding, watching, reading and keeping track of** films, series, anime, manga and light novels. The name is Japanese for *creation, imagination*.
 
-Uchta rejimi bor — **Video**, **Manga** va **Novel** — har biri o'z manbalari va o'z pleyeri/o'quvchisi bilan. Ustiga Android TV interfeysi, Chromecast, torrent, birgalikda ko'rish va to'liq desktop versiyalari.
+It runs in three modes — **Video**, **Manga** and **Novel** — each with its own sources and its own player or reader. On top of that: an Android TV interface, Chromecast, torrents, watching together, and real desktop builds.
+
+Sozo hosts nothing. It is a client: you choose which sources to install, and it plays what they return. See [How sources work](#-how-sources-work) and the [Disclaimer](#️-disclaimer).
 
 > [!NOTE]
-> Ro'yxatlaringiz, progressingiz va tarixingiz qurilmalar orasida sinxronlanadi.
+> Your lists, progress and history sync across devices.
 
 <div align="center">
 
-| 🎬 Ko'rish | 📚 O'qish | 📈 Kuzatish | 🔄 Sinxron |
+| 🎬 Watch | 📚 Read | 📈 Track | 🔄 Sync |
 |:---:|:---:|:---:|:---:|
-| Kino, serial, anime | Manga va novel | AniList & MAL | Barcha qurilmada |
+| Films, series, anime | Manga and novels | AniList & MAL | Every device |
 
 </div>
 
 ---
 
-## ✨ Imkoniyatlar
+## ✨ Features
 
 <table>
 <tr><td width="50%" valign="top">
 
-**🍿 Ko'rish**
-- libmpv (media_kit) va native, ikkita pleyer dvigateli
-- Anime4K va boshqa **shader presetlar**
-- Sifat tanlash, audio yo'l, tezlik, PiP
-- Subtitrlar: onlayn qidiruv + **avtomatik tarjima**
-- OP/ED skip, tashqi pleyerga uzatish
-- **Chromecast** va Android TV'ga uzatish
-- DRM qo'llab-quvvatlash
+**🍿 Watching**
+- Two player engines: libmpv (media_kit) and the platform player
+- Anime4K and other **shader presets**
+- Quality, audio track, speed, picture-in-picture
+- Subtitles: online search + **automatic translation**
+- Opening/ending skip, hand off to an external player
+- **Chromecast** and Android TV
+- DRM playback
 
 </td><td width="50%" valign="top">
 
-**📚 O'qish**
-- Manga, manhwa, webtoon o'quvchisi
-- Light novel rejimi
-- Mangayomi / Aniyomi manbalari
+**📚 Reading**
+- Manga, manhwa and webtoon reader
+- Light novel mode
+- Mangayomi and Aniyomi sources
 
-**🔎 Topish**
-- Cross-provider qidiruv — barcha manbadan bir vaqtda
-- **Ovozli qidiruv**
-- Live TV kanallari
-- **Shorts** — qisqa treyler oqimi
+**🔎 Finding**
+- Cross-provider search — every source at once
+- **Voice search**
+- Live TV channels
+- **Shorts** — a stream of short trailers
 
 </td></tr>
 <tr><td width="50%" valign="top">
 
-**🧩 Kengaytmalar**
-- **Aniyomi** kengaytmalari
-- **CloudStream** kengaytmalari
-- **Mangayomi** repolari
-- O'z JS provider'laringiz
-- **Torrent** — Nyaa, Sukebei, Tokyo Toshokan
+**🧩 Extensions**
+- **Aniyomi** extensions
+- **CloudStream** plugins
+- **Mangayomi** repositories
+- Your own JavaScript providers
+- **Torrents** — Nyaa, Sukebei, Tokyo Toshokan
 
 </td><td width="50%" valign="top">
 
-**👥 Ijtimoiy**
-- **Watch Party** — birgalikda real vaqtda ko'rish
-- Izohlar va reyting
-- **Streak** va statistika
-- **Trivia** o'yini va leaderboard
-- AniList / MAL trekerlari
+**👥 Social**
+- **Watch Party** — watch together in real time
+- Comments and ratings
+- **Streaks** and statistics
+- **Trivia** game with a leaderboard
+- AniList and MyAnimeList trackers
 
 </td></tr>
 </table>
 
-**Yana:** offline yuklab olish · shaxsiy ro'yxatlar · PIN/biometrik qulf · 4 til (🇺🇿 🇬🇧 🇷🇺 🇸🇦) · TV pult · ilova ichida yangilanish
+**Also:** offline downloads · private lists · PIN and biometric lock · 11 languages · TV remote support · in-app updates · DNS over HTTPS for source traffic
 
 ---
 
-## ⬇️ Yuklab olish
+## ⬇️ Download
 
-Eng so'nggi versiya — **[Releases](https://github.com/professorDeveloper/sozo/releases/latest)** sahifasida.
+The latest build is on the **[Releases](https://github.com/professorDeveloper/sozo/releases/latest)** page.
 
 <div align="center">
 
 ### 📱 Android
 
-| Fayl | Kimga |
+| File | Who it is for |
 |---|---|
-| 🟢 `Sozo-vX.Y.Z-arm64-v8a.apk` | Zamonaviy 64-bit telefonlar — **tavsiya etiladi** |
-| 🟡 `Sozo-vX.Y.Z-armeabi-v7a.apk` | Eski 32-bit qurilmalar |
-| 🔵 `Sozo-vX.Y.Z-universal.apk` | Qaysi birini olishni bilmasangiz — hammasida ishlaydi, faqat kattaroq |
-| 📺 `Sozo-vX.Y.Z-tv.apk` | Android TV, Google TV, Shield, TV boks |
+| 🟢 `Sozo-vX.Y.Z-arm64-v8a.apk` | Modern 64-bit phones — **recommended** |
+| 🟡 `Sozo-vX.Y.Z-armeabi-v7a.apk` | Older 32-bit devices |
+| 🔵 `Sozo-vX.Y.Z-universal.apk` | If you are not sure — works everywhere, just larger |
+| 📺 `Sozo-vX.Y.Z-tv.apk` | Android TV, Google TV, Shield, TV boxes |
 
 ### 💻 Desktop
 
-| Fayl | Platforma |
+| File | Platform |
 |---|---|
-| 🪟 `Sozo-vX.Y.Z-Windows-portable.zip` | Windows 10/11 — arxivni oching, ishga tushiring |
+| 🪟 `Sozo-vX.Y.Z-Windows-portable.zip` | Windows 10/11 — unzip and run |
 | 🐧 `Sozo-vX.Y.Z-Linux-x64.tar.gz` | Linux x64 |
-| 🍎 `Sozo-vX.Y.Z-macOS.dmg` | macOS (Apple imzosi yo'q — pastdagi FAQ'ga qarang) |
+| 🍎 `Sozo-vX.Y.Z-macOS.dmg` | macOS (unsigned — see the FAQ below) |
 
 </div>
 
 > [!TIP]
-> Sozo yangi versiyani o'zi tekshiradi va **`Profil → Yangilanishni tekshirish`** orqali to'g'ridan-to'g'ri yangilanadi.
+> Sozo checks for new versions itself and updates in place from **`Profile → Check for updates`**.
 
 ---
 
-## 📸 Skrinshotlar
+## 📸 Screenshots
 
 <div align="center">
 <table>
 <tr>
-<td align="center"><img src="docs/images/screen1.png" width="180"/><br/><b>🏠 Bosh sahifa</b></td>
-<td align="center"><img src="docs/images/screen2.png" width="180"/><br/><b>📄 Batafsil</b></td>
+<td align="center"><img src="docs/images/screen1.png" width="180"/><br/><b>🏠 Home</b></td>
+<td align="center"><img src="docs/images/screen2.png" width="180"/><br/><b>📄 Details</b></td>
 <td align="center"><img src="docs/images/screen3.png" width="180"/><br/><b>⚡ Shorts</b></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/images/screen4.png" width="180"/><br/><b>🔍 Qidiruv</b></td>
-<td align="center"><img src="docs/images/screen5.png" width="180"/><br/><b>▶️ Pleyer</b></td>
-<td align="center"><img src="docs/images/screen6.png" width="180"/><br/><b>👤 Profil</b></td>
+<td align="center"><img src="docs/images/screen4.png" width="180"/><br/><b>🔍 Search</b></td>
+<td align="center"><img src="docs/images/screen5.png" width="180"/><br/><b>▶️ Player</b></td>
+<td align="center"><img src="docs/images/screen6.png" width="180"/><br/><b>👤 Profile</b></td>
 </tr>
 </table>
 </div>
 
 ---
 
-## 🧩 Platformalar
+## 🧩 Platforms
 
 <div align="center">
 
-| Platforma | Holat |
+| Platform | Status |
 |---|:---:|
-| 🤖 Android | ✅ Chiqarilgan |
-| 📺 Android TV | ✅ Chiqarilgan |
-| 🪟 Windows | ✅ Chiqarilgan |
-| 🐧 Linux | ✅ Chiqarilgan |
-| 🍎 macOS | ✅ Chiqarilgan (imzosiz) |
+| 🤖 Android | ✅ Released |
+| 📺 Android TV | ✅ Released |
+| 🪟 Windows | ✅ Released |
+| 🐧 Linux | ✅ Released |
+| 🍎 macOS | ✅ Released (unsigned) |
 | 📱 iOS | 🧪 Beta (sideload) |
-| 📺 Apple TV | 🚧 Rejada |
+| 📺 Apple TV | 🚧 Planned |
 
 </div>
 
@@ -193,94 +196,128 @@ Eng so'nggi versiya — **[Releases](https://github.com/professorDeveloper/sozo/
 
 ---
 
-## 🛠 Texnologiyalar
+## 🔌 How sources work
+
+This is the part that decides whether anything plays, so it is worth stating plainly.
+
+Sozo ships with **no content of its own**. What it ships is the runtimes; you install sources into them.
+
+| Ecosystem | What it is | Where it runs |
+|---|---|---|
+| **Sozo** | Our own cloud sources, served by the backend | Server |
+| **CloudStream** | `.cs3` plugins from CloudStream repositories | On the device, in a class loader |
+| **Aniyomi** | Anime extension APKs | On the device, in a class loader |
+| **Manga** | Mihon/Tachiyomi extension APKs | On the device, in a class loader |
+| **Mangayomi** | JavaScript sources, including every novel source | On the device, in a JS runtime |
+
+Add a repository from **`Profile → Sources → Add source`**, install what you want, and pick it from the source switcher on the home screen. Novels come from Mangayomi repositories specifically — that is the only ecosystem that publishes them.
+
+A source that stops working almost always stopped working on its own: sites move, shut down, or start blocking. Sozo now says which of those happened rather than printing the exception, and **`Profile → Sources → DNS`** can route name lookups through Cloudflare, Google, Quad9, AdGuard or Mullvad for the case where a provider blocks a site by refusing to resolve it. That is not a VPN: it does not hide your traffic and does not change your IP.
+
+---
+
+## 🛠 Built with
 
 <div align="center">
 <img src="https://skillicons.dev/icons?i=flutter,dart,kotlin,swift,nodejs,androidstudio,git,github" alt="Stack"/>
 </div>
 
-| Qatlam | Nima ishlatiladi |
+| Layer | What it uses |
 |---|---|
 | Framework | Flutter + Dart |
 | State | `flutter_bloc` · `get_it` (DI) · `go_router` |
-| Pleyer | `media_kit` (libmpv) + native `video_player` |
+| Player | `media_kit` (libmpv) + the platform `video_player` |
 | Storage | Hive + `flutter_secure_storage` |
-| Tarmoq | Dio + cookie jar |
-| Kengaytma dvigateli | Headless WebView (JS runtime) |
+| Networking | Dio + a cookie jar |
+| Extension runtimes | DexClassLoader (Aniyomi, Manga, CloudStream) + a headless WebView for JavaScript sources |
 | Backend | Node.js ([sozo-backend](https://github.com/professorDeveloper/sozo-backend)) |
 
-Arxitektura — **feature-first + clean architecture**: `lib/core/` (umumiy) va `lib/features/<feature>/{data,domain,presentation}`.
+The architecture is **feature-first clean architecture**: `lib/core/` for what everything shares, and `lib/features/<feature>/{data,domain,presentation}` for the rest.
 
 ---
 
-## 🏗 Loyihani yig'ish
+## 🏗 Building it
 
 ```bash
 git clone https://github.com/professorDeveloper/sozo.git
 cd sozo
 flutter pub get
 
-# .env kerak (pubspec asset sifatida e'lon qilingan — busiz build yiqiladi)
+# .env is declared as a pubspec asset, so the build fails without it
 cp .env.example .env
 
 flutter run
 ```
 
-Talab: Flutter SDK (Dart `^3.11.1`), Android SDK 34+, JDK 17.
+Requires the Flutter SDK (Dart `^3.11.1`), Android SDK 34+ and JDK 17.
 
-Batafsil — [CONTRIBUTING.md](CONTRIBUTING.md).
+More in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
 ## ❓ FAQ
 
 <details>
-<summary><b>Sozo kontent hosting qiladimi?</b></summary>
+<summary><b>Does Sozo host any content?</b></summary>
 <br/>
-Yo'q. Sozo — faqat kuzatish va boshqarish vositasi. U hech qanday kontentni saqlamaydi, tarqatmaydi va kengaytmalarni yuritmaydi. Batafsil — <a href="#️-disclaimer">Disclaimer</a>.
+No. Sozo is a client and a tracker. It stores nothing, distributes nothing, and does not run the extensions it loads. See the <a href="#️-disclaimer">Disclaimer</a>.
 </details>
 
 <details>
-<summary><b>Qaysi APK'ni yuklab olay?</b></summary>
+<summary><b>There are no sources after I install it. Is it broken?</b></summary>
 <br/>
-Zamonaviy telefonda <code>arm64-v8a</code>. Ishonchingiz komil bo'lmasa yoki "package not compatible" chiqsa — <code>universal</code> oling.
+No — that is the starting state. Extension sources are installed, not built in. Open <b>Profile → Sources → Add source</b>, add a repository, and install the ones you want. See <a href="#-how-sources-work">How sources work</a>.
 </details>
 
 <details>
-<summary><b>macOS'da "damaged / ochilmadi" deyapti</b></summary>
+<summary><b>Which APK should I download?</b></summary>
 <br/>
-DMG Apple sertifikati bilan imzolanmagan (sertifikat yillik $99). Terminal'da bir marta:
+<code>arm64-v8a</code> on any modern phone. If you are not sure, or Android says "package not compatible", take <code>universal</code>.
+</details>
+
+<details>
+<summary><b>macOS says the app is damaged and will not open</b></summary>
+<br/>
+The DMG is not signed with an Apple certificate (that costs $99 a year). Run this once:
 <pre>xattr -dr com.apple.quarantine /Applications/Sozo.app</pre>
-Yoki Applications'da Sozo.app → o'ng tugma → Open → Open.
+Or right-click Sozo.app in Applications → Open → Open.
 </details>
 
 <details>
-<summary><b>Manba ishlamayapti / video ochilmayapti</b></summary>
+<summary><b>A source stopped working, or a video will not play</b></summary>
 <br/>
-Bu deyarli har doim manbaning o'zidagi muammo, ilovada emas. <a href="https://github.com/professorDeveloper/sozo/issues/new?template=source_not_working.yml">Manba ishlamayapti</a> shablonidan foydalanib xabar bering — qaysi manba, qaysi kontent va qanday xato chiqqanini yozing.
+Almost always the source itself rather than the app: sites move, shut down, or start blocking. The error on screen now says which. Two things worth trying first — pick another source for the same title with <b>Try another source</b>, and set <b>Profile → Sources → DNS</b> to Cloudflare if your provider blocks by DNS.
+<br/><br/>
+If it still fails, report it with the <a href="https://github.com/professorDeveloper/sozo/issues/new?template=source_not_working.yml">source not working</a> template and include the exact message.
 </details>
 
 <details>
-<summary><b>Sozo bepulmi?</b></summary>
+<summary><b>Is the DNS setting a VPN?</b></summary>
 <br/>
-Ha — to'liq bepul va ochiq kodli, GPL-3.0 litsenziyasi ostida. Reklama yo'q, obuna yo'q.
+No. It only changes who answers "what is the address of this host". Your traffic takes the same route to the same servers from the same address. It helps when a site is blocked by DNS and does nothing when it is blocked by address.
 </details>
 
 <details>
-<summary><b>Qanday yordam beray?</b></summary>
+<summary><b>Is Sozo free?</b></summary>
 <br/>
-⭐ Repoga yulduz bering, do'stlaringizga ayting, xato haqida xabar bering yoki PR yuboring — <a href="CONTRIBUTING.md">CONTRIBUTING.md</a>.
+Yes — free and open source under GPL-3.0. No ads, no subscription.
+</details>
+
+<details>
+<summary><b>How can I help?</b></summary>
+<br/>
+⭐ Star the repo, tell a friend, report a bug, or open a PR — see <a href="CONTRIBUTING.md">CONTRIBUTING.md</a>.
 </details>
 
 ---
 
-## 🤝 Hissa qo'shish
+## 🤝 Contributing
 
-Har qanday hissa qadrlanadi — kod, tarjima, dizayn, xato hisoboti.
+Every kind of contribution counts — code, translations, design, bug reports.
 
-- 🐛 [Xato haqida xabar berish](https://github.com/professorDeveloper/sozo/issues/new?template=bug_report.yml)
-- 💡 [Yangi g'oya taklif qilish](https://github.com/professorDeveloper/sozo/issues/new?template=feature_request.yml)
-- 🔌 [Manba ishlamayapti](https://github.com/professorDeveloper/sozo/issues/new?template=source_not_working.yml)
+- 🐛 [Report a bug](https://github.com/professorDeveloper/sozo/issues/new?template=bug_report.yml)
+- 💡 [Suggest a feature](https://github.com/professorDeveloper/sozo/issues/new?template=feature_request.yml)
+- 🔌 [A source is not working](https://github.com/professorDeveloper/sozo/issues/new?template=source_not_working.yml)
 - 📖 [CONTRIBUTING.md](CONTRIBUTING.md) · [CLA.md](CLA.md) · [AI_POLICY.md](AI_POLICY.md)
 
 ---
@@ -288,40 +325,40 @@ Har qanday hissa qadrlanadi — kod, tarjima, dizayn, xato hisoboti.
 ## ⚠️ Disclaimer
 
 > [!IMPORTANT]
-> **Sozo — bu faqat kuzatish va boshqarish vositasi.** U hech qanday media kontentni hosting qilmaydi, taqdim etmaydi, tarqatmaydi yoki yuritmaydi. Ilova tarkibida hech qanday kontent yo'q.
+> **Sozo is a client and a tracker.** It does not host, provide, distribute or operate any media content. No content ships inside the app.
 
-- **Kontent manbalari** — Sozo ochiq internetdagi uchinchi tomon manbalari va foydalanuvchi o'zi o'rnatadigan kengaytmalar bilan ishlaydi. Bu manbalar Sozo tomonidan yaratilmagan, nazorat qilinmaydi va qo'llab-quvvatlanmaydi.
-- **Foydalanuvchi javobgarligi** — Ilovadan va u orqali murojaat qilinadigan har qanday uchinchi tomon xizmatidan foydalanish uchun to'liq javobgarlik foydalanuvchining o'zida. Foydalanuvchi o'z mamlakatining qonunlariga, mualliflik huquqi va intellektual mulk talablariga rioya qilishi shart.
-- **Javobgarlikdan voz kechish** — Sozo ishlab chiquvchisi ilovaning noto'g'ri ishlatilishi, undan kelib chiqadigan huquqiy oqibatlar yoki uchinchi tomon xizmatlari bilan bog'liq buzilishlar uchun javobgar emas.
-- **Huquqiy murojaatlar** — Muayyan manba yoki kengaytmaga oid da'volar o'sha manbaning egasiga yo'naltirilishi kerak, Sozo'ga emas. Sozo repozitoriysidan olib tashlash talabi faqat shu repodagi kodga taalluqli bo'lishi mumkin.
-- **Rasmiy API'lar** — Sozo AniList, MyAnimeList va TMDB kabi xizmatlarning faqat rasmiy, ochiq API'lari bilan integratsiya qilinadi.
+- **Sources** — Sozo works with third-party sources on the open internet and with extensions the user installs themselves. Those sources are not made, controlled or endorsed by Sozo.
+- **Responsibility** — Using the app, and any third-party service reached through it, is entirely the user's responsibility. Users must comply with the laws of their own country and with copyright and intellectual-property requirements.
+- **No liability** — The developer is not liable for misuse of the app, for anything that follows from it, or for breaches involving third-party services.
+- **Legal requests** — Complaints about a particular source or extension belong with the owner of that source, not with Sozo. A takedown request against this repository can only concern the code in this repository.
+- **Official APIs** — Sozo integrates only with the official, public APIs of services such as AniList, MyAnimeList and TMDB.
 
 ---
 
-## 📄 Litsenziya
+## 📄 License
 
 ```
 Sozo — Copyright (C) 2026 professorDeveloper
 
-Bu dastur erkin dasturiy ta'minot: uni GNU General Public License
-(3-versiya yoki keyingi) shartlari asosida qayta tarqatishingiz va
-o'zgartirishingiz mumkin.
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License, either version 3 or
+(at your option) any later version.
 
-Dastur foydali bo'lishiga umid qilib tarqatiladi, lekin HECH QANDAY
-KAFOLATSIZ.
+It is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY.
 ```
 
-To'liq matn — [LICENSE](LICENSE).
+Full text in [LICENSE](LICENSE).
 
-**Bu nimani anglatadi:** Sozo'ni fork qilishingiz, o'zgartirishingiz va tarqatishingiz mumkin — lekin o'zgartirilgan versiya ham **ochiq kodli va GPL-3.0 ostida** bo'lishi shart. Sozo'ni yopiq kodli yoki reklamali ilovaga aylantirib qayta sotish mumkin emas.
+**What that means:** you may fork, modify and redistribute Sozo — but a modified version has to stay **open source under GPL-3.0** too. You cannot turn Sozo into a closed-source or ad-supported app and sell it on.
 
 ---
 
 <div align="center">
 
-**Sozo foydali bo'lsa — ⭐ yulduz bering. Bu loyihaga eng katta yordam.**
+**If Sozo is useful to you, ⭐ star it. That helps the project more than anything else.**
 
-[![Star](https://img.shields.io/badge/⭐_Yulduz_berish-E50914?style=for-the-badge&logoColor=white&labelColor=111111)](https://github.com/professorDeveloper/sozo)
+[![Star](https://img.shields.io/badge/⭐_Star_this_repo-E50914?style=for-the-badge&logoColor=white&labelColor=111111)](https://github.com/professorDeveloper/sozo)
 [![Coffee](https://img.shields.io/badge/☕_Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/chihaku)
 
 <sub>Made with ❤️ and Flutter · <a href="https://sozo.framer.website/">sozo.framer.website</a></sub>
