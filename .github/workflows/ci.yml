@@ -1,13 +1,22 @@
 name: CI
 
-# Runs on every push and pull request. There was no CI here at all before, so
-# `flutter analyze` and the test suite only ever ran on whichever machine
-# happened to run them — which means a PR from somebody else arrived with no
-# evidence at all that it built.
+# There was no CI here at all before, so `flutter analyze` and the test suite
+# only ever ran on whichever machine happened to run them — which means a PR
+# from somebody else arrived with no evidence at all that it built.
+#
+# `push` is the default branch only, on purpose. It used to be every branch,
+# and with `pull_request` alongside it every push to a branch with a PR open ran
+# the whole thing TWICE: two analyses and two Android builds, about twenty-four
+# runner-minutes where twelve would do. The pair covers everything between them
+# — a branch with a PR is covered by `pull_request`, a push straight to the
+# default branch by `push` — and nothing is covered twice.
+#
+# A branch with no PR yet now gets no CI. That is the intended trade: it is the
+# state where nobody is waiting on a verdict, and opening the PR runs it.
 
 on:
   push:
-    branches: ['**']
+    branches: [master]
     tags-ignore: ['v*']      # a tag push is a release; release.yml owns that
   pull_request:
 
@@ -71,6 +80,21 @@ jobs:
         with:
           channel: stable
           cache: true
+
+      # Gradle's own caches, which flutter-action does not cover — it caches the
+      # Flutter SDK and the pub cache, and an Android build spends most of its
+      # time below both. Keyed on the Gradle files so a dependency change gets a
+      # cold cache and everything else gets a warm one.
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
       - run: touch .env
       - run: flutter pub get
       # Debug, not release: this proves the tree compiles. Signing a release

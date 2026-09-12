@@ -1,6 +1,6 @@
 name: Release → Telegram
 run-name: >-
-  Release ${{ inputs.version != '' && inputs.version || inputs.bump || github.ref_name }}
+  Release ${{ inputs.bump || github.ref_name }}${{ inputs.runner == 'self-hosted' && ' (self-hosted)' || '' }}
 
 # Builds ALL FOUR platforms (Android / Windows / Linux / macOS) when you cut a
 # version, and hands them off. It NEVER touches GitHub Releases at all — you cut
@@ -39,12 +39,14 @@ on:
           - patch          # 3.0.2 -> 3.0.3
           - minor          # 3.0.2 -> 3.1.0
           - major          # 3.0.2 -> 4.0.0
-          - build-only     # name unchanged, build number +1
           - none           # build and ship whatever is committed
-      version:
-        description: 'Exact version name, e.g. 3.1.0 (overrides the choice above)'
-        type: string
-        required: false
+      runner:
+        description: 'Where to build'
+        type: choice
+        default: github
+        options:
+          - github         # GitHub-hosted; macOS bills at 10x
+          - self-hosted    # your own Mac — free minutes, and it must be online
       notes:
         description: 'Release notes for the Telegram message'
         type: string
@@ -101,6 +103,11 @@ jobs:
       build: ${{ steps.resolve.outputs.build }}
       tag: ${{ steps.resolve.outputs.tag }}
       sha: ${{ steps.sha.outputs.sha }}
+      # Where each job runs, as JSON so a self-hosted runner can carry several
+      # labels. Windows and Linux are absent on purpose: a Mac cannot build
+      # either, so offering to move them would be offering a build that fails.
+      android_runner: ${{ steps.where.outputs.android }}
+      mac_runner: ${{ steps.where.outputs.mac }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -111,11 +118,37 @@ jobs:
           # RELEASE_PAT that belongs to somebody who can push is what gets it in.
           token: ${{ secrets.RELEASE_PAT || github.token }}
 
+      # Which machines build this release.
+      #
+      # A dispatch can pick the repository's own Mac instead of GitHub's. The
+      # macOS runner bills at ten times the Linux rate and it is the single
+      # largest line on the bill for a full release, so "build it on the Mac in
+      # the corner" is worth one dropdown.
+      #
+      # Resolved once, here, for the same reason the version is: every build job
+      # reads these outputs, so a release cannot end up half on one fleet and
+      # half on the other.
+      - name: Choose runners
+        id: where
+        env:
+          WHERE: ${{ inputs.runner }}
+        run: |
+          set -euo pipefail
+          if [ "${WHERE}" = "self-hosted" ]; then
+            ANDROID='["self-hosted","macOS"]'
+            MAC='["self-hosted","macOS"]'
+          else
+            ANDROID='["ubuntu-latest"]'
+            MAC='["macos-latest"]'
+          fi
+          echo "android=${ANDROID}" >> "$GITHUB_OUTPUT"
+          echo "mac=${MAC}"         >> "$GITHUB_OUTPUT"
+          echo "::notice title=Runners::android=${ANDROID} macos=${MAC} (windows and linux always run on GitHub)"
+
       - name: Resolve version
         id: resolve
         env:
           BUMP: ${{ inputs.bump }}
-          EXPLICIT: ${{ inputs.version }}
         run: |
           set -euo pipefail
 
@@ -145,22 +178,18 @@ jobs:
             MA="${MA:-0}"; MI="${MI:-0}"; PA="${PA:-0}"
             NEW_BUILD="$((BUILD + 1))"
 
-            if [ -n "${EXPLICIT}" ]; then
-              case "${EXPLICIT}" in
-                *[!0-9.]*) echo "::error title=Bad version::'${EXPLICIT}' must be digits and dots only, e.g. 3.1.0"; exit 1 ;;
-              esac
-              NEW_NAME="${EXPLICIT}"
-              BUMPED=yes
-            else
-              case "${BUMP}" in
-                patch)      NEW_NAME="${MA}.${MI}.$((PA + 1))"; BUMPED=yes ;;
-                minor)      NEW_NAME="${MA}.$((MI + 1)).0";     BUMPED=yes ;;
-                major)      NEW_NAME="$((MA + 1)).0.0";         BUMPED=yes ;;
-                build-only) NEW_NAME="${NAME}";                 BUMPED=yes ;;
-                none)       NEW_NAME="${NAME}"; NEW_BUILD="${BUILD}"; BUMPED=no ;;
-                *)          echo "::error title=Unknown bump::'${BUMP}'"; exit 1 ;;
-              esac
-            fi
+            # The version is computed, never typed. There used to be a free-text
+            # field that overrode the choice, and a field that accepts "v1.0.0",
+            # "1.0", " 1.0.0" or a number already released is a field that
+            # publishes one of those. What the next version IS follows from what
+            # is in pubspec.yaml and which part you are raising.
+            case "${BUMP}" in
+              patch) NEW_NAME="${MA}.${MI}.$((PA + 1))"; BUMPED=yes ;;
+              minor) NEW_NAME="${MA}.$((MI + 1)).0";     BUMPED=yes ;;
+              major) NEW_NAME="$((MA + 1)).0.0";         BUMPED=yes ;;
+              none)  NEW_NAME="${NAME}"; NEW_BUILD="${BUILD}"; BUMPED=no ;;
+              *)     echo "::error title=Unknown bump::'${BUMP}'"; exit 1 ;;
+            esac
           fi
 
           echo "name=${NEW_NAME}"   >> "$GITHUB_OUTPUT"
@@ -270,7 +299,7 @@ jobs:
   # ---------------------------------------------------------------- Android ----
   android:
     needs: version
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(needs.version.outputs.android_runner) }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -483,6 +512,7 @@ jobs:
     # runner, which is the only saving that is ever 100%.
     if: ${{ inputs.platforms == '' || inputs.platforms == 'all' }}
     runs-on: windows-latest
+    timeout-minutes: 60
     env:
       # The runner's very new MSVC turns flutter_inappwebview_windows's use of the
       # deprecated <experimental/coroutine> header into a hard error (STL1011).
@@ -550,6 +580,7 @@ jobs:
     # runner, which is the only saving that is ever 100%.
     if: ${{ inputs.platforms == '' || inputs.platforms == 'all' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -611,7 +642,11 @@ jobs:
     # empty case means everything.
     if: ${{ inputs.platforms == '' || inputs.platforms != 'android' }}
     needs: version
-    runs-on: macos-latest
+    runs-on: ${{ fromJSON(needs.version.outputs.mac_runner) }}
+    # A self-hosted runner that is offline queues a job for six hours before
+    # GitHub gives up. Ninety minutes is longer than this build has ever taken
+    # and short enough to notice.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
