@@ -1821,6 +1821,21 @@
     "continue": "Продолжить",
     "use_source": "Использовать этот источник",
     "in_use": "Используется",
-    "now_using": "Используется {}"
+    "now_using": "Используется {}",
+    "add_or_manage_sources": "Добавить или настроить источники"
+  },
+  "sources": {
+    "fail_gone": "Сайт этого источника больше не существует",
+    "fail_blocked": "Сайт блокирует приложение",
+    "fail_rate_limited": "Сайт отказывает из-за лимита запросов",
+    "fail_unreachable": "Не удалось подключиться к сайту",
+    "fail_incompatible": "Этому источнику нужна более новая версия приложения",
+    "fail_broken": "Ошибка внутри самого источника",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "Все"
   }
 }

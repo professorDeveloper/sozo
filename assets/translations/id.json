@@ -1820,6 +1820,21 @@
     "continue": "Lanjutkan",
     "use_source": "Gunakan sumber ini",
     "in_use": "Digunakan",
-    "now_using": "Menggunakan {}"
+    "now_using": "Menggunakan {}",
+    "add_or_manage_sources": "Tambah atau kelola sumber"
+  },
+  "sources": {
+    "fail_gone": "Situs sumber ini sudah tidak ada",
+    "fail_blocked": "Situs memblokir aplikasi",
+    "fail_rate_limited": "Situs menolak karena batas permintaan",
+    "fail_unreachable": "Tidak dapat menjangkau situs",
+    "fail_incompatible": "Sumber ini butuh versi aplikasi yang lebih baru",
+    "fail_broken": "Sumber ini gagal dengan sendirinya",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "Semua"
   }
 }

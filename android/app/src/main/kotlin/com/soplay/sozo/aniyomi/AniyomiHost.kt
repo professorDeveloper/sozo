@@ -1,5 +1,7 @@
 package com.soplay.sozo.aniyomi
 
+import com.soplay.sozo.ExtensionFailure
+
 import android.content.Context
 import android.util.Log
 import com.soplay.sozo.extensions.ApkSignature
@@ -564,13 +566,13 @@ class AniyomiHost(private val context: Context) {
         val details = try { runBlocking { src.getAnimeDetails(anime) } }
         catch (t: Throwable) {
             Log.e(TAG, "details $id: ${t.message}")
-            failure = "details: ${t.message ?: t.javaClass.simpleName}"
+            failure = "details: ${ExtensionFailure.describe(t)}"
             anime
         }
         val eps = try { runBlocking { src.getEpisodeList(anime) } }
         catch (t: Throwable) {
             Log.e(TAG, "episodes $id: ${t.message}")
-            failure = "episodes: ${t.message ?: t.javaClass.simpleName}"
+            failure = "episodes: ${ExtensionFailure.describe(t)}"
             emptyList()
         }
         // One episode is a movie. NO episodes is a failure, and calling it a
@@ -665,7 +667,7 @@ class AniyomiHost(private val context: Context) {
                 fetchVideos(src, episode, id)
             } catch (t: Throwable) {
                 Log.e(TAG, "links $id: ${t.message}")
-                failure = t.message ?: t.javaClass.simpleName
+                failure = ExtensionFailure.describe(t)
                 emptyList()
             }
             for (v in videos) {

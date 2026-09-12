@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soplay/features/sources/domain/source_ecosystem.dart';
 import 'package:soplay/features/sources/domain/source_index.dart';
 
 void main() {
   _sortingTests();
+  _ecosystemTests();
 
   group('indexLetterOf', () {
     test('uppercases the first Latin letter', () {
@@ -25,25 +27,6 @@ void main() {
       expect(indexLetterOf('   '), '#');
     });
   });
-
-  group('indexLetters', () {
-    test('one chip per run, in the list order', () {
-      expect(
-        indexLetters(['A', 'A', 'B', 'C', 'C', 'C']),
-        ['A', 'B', 'C'],
-      );
-    });
-
-    test('a letter that comes back later gets its own chip', () {
-      // Not a set: these lists are sorted by the ecosystem, not by us, and a
-      // set would merge the two runs into one chip that jumps to the first.
-      expect(indexLetters(['A', 'B', 'A']), ['A', 'B', 'A']);
-    });
-
-    test('empty in, empty out', () {
-      expect(indexLetters(const []), isEmpty);
-    });
-  });
 }
 
 void _sortingTests() {
@@ -61,11 +44,29 @@ void _sortingTests() {
       expect(names[1], 'Zoro');
       expect(names.sublist(2).toSet(), {'360资源', '9kMovies'});
     });
+  });
+}
 
-    test('a sorted list collapses to one chip per letter', () {
-      final names = ['Anime', 'AsilMedia', 'Bato', 'Zoro'];
-      names.sort(compareForIndex);
-      expect(indexLetters(names.map(indexLetterOf)), ['A', 'B', 'Z']);
+void _ecosystemTests() {
+  group('SourceEcosystem', () {
+    test('reads the runtime off the provider id', () {
+      expect(SourceEcosystem.of('cs:HDHub4U'), SourceEcosystem.cloudstream);
+      expect(SourceEcosystem.of('an:9163675745699695675'), SourceEcosystem.aniyomi);
+      expect(SourceEcosystem.of('mn:2499283573021220255'), SourceEcosystem.manga);
+      expect(SourceEcosystem.of('my:abc'), SourceEcosystem.mangayomi);
+    });
+
+    test('anything without a prefix is one of ours', () {
+      expect(SourceEcosystem.of('vidapi'), SourceEcosystem.sozo);
+      expect(SourceEcosystem.of('anilibria'), SourceEcosystem.sozo);
+      expect(SourceEcosystem.of(''), SourceEcosystem.sozo);
+    });
+
+    test('a name that merely contains a prefix is not matched', () {
+      // The prefix has to start the id. "answers" begins with "an" but not
+      // with "an:", and filing it under Aniyomi would hide one of ours.
+      expect(SourceEcosystem.of('answers'), SourceEcosystem.sozo);
+      expect(SourceEcosystem.of('mycima'), SourceEcosystem.sozo);
     });
   });
 }

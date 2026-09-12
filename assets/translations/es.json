@@ -1820,6 +1820,21 @@
     "continue": "Continuar",
     "use_source": "Usar esta fuente",
     "in_use": "En uso",
-    "now_using": "Usando {}"
+    "now_using": "Usando {}",
+    "add_or_manage_sources": "Añadir o gestionar fuentes"
+  },
+  "sources": {
+    "fail_gone": "El sitio de esta fuente ya no existe",
+    "fail_blocked": "El sitio está bloqueando la app",
+    "fail_rate_limited": "El sitio rechaza por su límite de peticiones",
+    "fail_unreachable": "No se pudo conectar con el sitio",
+    "fail_incompatible": "Esta fuente necesita una versión más nueva de la app",
+    "fail_broken": "Esta fuente falló por su cuenta",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "Todas"
   }
 }

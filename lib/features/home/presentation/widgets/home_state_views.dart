@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:soplay/features/sources/domain/source_failure.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -165,7 +166,12 @@ class HomeErrorStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showCloudflare = isCloudflareError(message);
-    final detail = message?.trim();
+    // The extension's own wording said "HttpException: HTTP error 404" over a
+    // headline that said "Network error" — two different wrong answers to the
+    // same question. SourceFailure tells a site that shut down from a phone
+    // with no signal, and keeps the original as the detail line.
+    final failure = SourceFailure.of(message);
+    final detail = failure.detail?.trim() ?? message?.trim();
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -184,7 +190,7 @@ class HomeErrorStrip extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'errors.network'.tr(),
+                  failure.headline,
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 13.5,
@@ -249,6 +255,7 @@ class HomeErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showCloudflare = isCloudflareError(message);
+    final failure = SourceFailure.of(message);
     // Scrollable: with a long diagnostic and the extra Cloudflare button this
     // column is taller than a short phone in landscape.
     return Center(
@@ -273,7 +280,7 @@ class HomeErrorView extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             Text(
-              'errors.network'.tr(),
+              failure.headline,
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 16,
@@ -301,10 +308,11 @@ class HomeErrorView extends StatelessWidget {
             // favour of a generic "network error". That made an extension
             // problem indistinguishable from being offline, for us as much as
             // for the user. Selectable so it can be copied into a bug report.
-            if (!showCloudflare && (message?.trim().isNotEmpty ?? false)) ...[
+            if (!showCloudflare &&
+                (failure.detail?.trim().isNotEmpty ?? false)) ...[
               const SizedBox(height: 10),
               SelectableText(
-                message!.trim(),
+                failure.detail!.trim(),
                 maxLines: 4,
                 style: const TextStyle(
                   color: AppColors.textHint,

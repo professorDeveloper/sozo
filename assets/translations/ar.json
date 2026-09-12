@@ -1824,6 +1824,21 @@
     "continue": "متابعة",
     "use_source": "استخدام هذا المصدر",
     "in_use": "قيد الاستخدام",
-    "now_using": "يتم استخدام {}"
+    "now_using": "يتم استخدام {}",
+    "add_or_manage_sources": "إضافة المصادر أو إدارتها"
+  },
+  "sources": {
+    "fail_gone": "موقع هذا المصدر لم يعد موجودًا",
+    "fail_blocked": "الموقع يحجب التطبيق",
+    "fail_rate_limited": "الموقع يرفض بسبب حد الطلبات",
+    "fail_unreachable": "تعذّر الوصول إلى الموقع",
+    "fail_incompatible": "يحتاج هذا المصدر إلى إصدار أحدث من التطبيق",
+    "fail_broken": "فشل هذا المصدر من تلقاء نفسه",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "مانغا",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "الكل"
   }
 }

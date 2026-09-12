@@ -1820,6 +1820,21 @@
     "continue": "Davom etish",
     "use_source": "Shu manbani ishlatish",
     "in_use": "Ishlatilmoqda",
-    "now_using": "{} ishlatilmoqda"
+    "now_using": "{} ishlatilmoqda",
+    "add_or_manage_sources": "Manba qo'shish yoki boshqarish"
+  },
+  "sources": {
+    "fail_gone": "Bu manbaning sayti yo'q bo'lib ketgan",
+    "fail_blocked": "Sayt ilovani bloklayapti",
+    "fail_rate_limited": "Sayt so'rovlar chegarasi tufayli rad etyapti",
+    "fail_unreachable": "Saytga ulanib bo'lmadi",
+    "fail_incompatible": "Bu manba ilovaning yangiroq versiyasini talab qiladi",
+    "fail_broken": "Bu manbaning o'zida xatolik",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "Hammasi"
   }
 }

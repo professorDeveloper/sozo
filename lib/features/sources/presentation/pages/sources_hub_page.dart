@@ -19,6 +19,8 @@ import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
 import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
+import 'package:soplay/features/sources/domain/source_ecosystem.dart';
+import 'package:soplay/features/sources/domain/source_failure.dart';
 import 'package:soplay/features/sources/domain/source_index.dart';
 
 /// Every source in one place, grouped by what it carries, browsable in place.
@@ -54,12 +56,10 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// which is what "from that one page" means.
   ProviderEntity? _open;
 
-  /// Jumping to a letter, the way the episode list jumps to a range.
-  ///
-  /// With CloudStream installed this tab is several hundred rows, sorted by
-  /// name right where the list is built, and the only way to reach the middle was to
-  /// keep swiping. Search finds a source somebody can already name; the index
-  /// is for the far more common case of looking for one you cannot.
+  /// The list is addressed by index so returning from a source lands where it
+  /// did. It used to carry an A–Z strip as well; the strip is gone — eleven
+  /// chips in a row above a search box that already finds anything by name
+  /// bought one gesture and cost a band of the screen.
   final ItemScrollController _listCtl = ItemScrollController();
   final ItemPositionsListener _listPos = ItemPositionsListener.create();
 
@@ -67,23 +67,19 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// PageStorage cannot do this for a positioned list — it restores by offset,
   /// and this one is addressed by index.
   final Map<String, int> _restore = {};
-  String _activeLetter = '';
 
-  /// Below this the strip is chrome over a list that already fits a swipe.
-  static const int _indexThreshold = 25;
+  /// null is "all". Which runtime a source comes from is the axis people
+  /// actually filter on here — "the one I added from CloudStream" — and it was
+  /// visible only as a word in grey under each of several hundred names.
+  SourceEcosystem? _eco;
 
   @override
   void initState() {
     super.initState();
-    _tabs.addListener(() {
-      if (!_tabs.indexIsChanging) return;
-      setState(() => _activeLetter = '');
-    });
     _listPos.itemPositions.addListener(_onScrolled);
   }
 
-  /// The first row actually on screen decides the active letter, and is what
-  /// gets restored on the way back.
+  /// The first row actually on screen is what gets restored on the way back.
   void _onScrolled() {
     final positions = _listPos.itemPositions.value;
     if (positions.isEmpty) return;
@@ -92,19 +88,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         .fold<int?>(null, (a, p) => a == null || p.index < a ? p.index : a);
     if (first == null) return;
     _restore[ContentMode.values[_tabs.index].id] = first;
-    final letter = _letterAt(first);
-    if (letter == _activeLetter) return;
-    setState(() => _activeLetter = letter);
   }
-
-  /// Set by [_list] each build so the scroll listener can read it without
-  /// rebuilding the whole page to find out which names are on screen.
-  List<ProviderEntity> _shown = const [];
-
-  String _letterAt(int i) =>
-      i >= 0 && i < _shown.length ? _letterOf(_shown[i]) : '';
-
-  static String _letterOf(ProviderEntity p) => indexLetterOf(p.name);
 
   /// What this tab is for, shown only when it is empty.
   ///
@@ -176,10 +160,17 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       backgroundColor: AppColors.background,
       title: Text('profile.sources_title'.tr()),
       actions: [
-        IconButton(
-          tooltip: 'profile.section_extensions'.tr(),
-          icon: const Icon(Icons.tune_rounded),
-          onPressed: _openExtensions,
+        // Labelled, not a sliders icon with a tooltip nobody long-presses.
+        // Installing a source is the reason most people open this screen, and
+        // it was the one thing on it with no words — indistinguishable from a
+        // settings button, which is what a tune icon means everywhere else.
+        Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: TextButton.icon(
+            onPressed: _openExtensions,
+            icon: const Icon(Icons.add_rounded, size: 20),
+            label: Text('manga.add_source'.tr()),
+          ),
         ),
       ],
       bottom: AppTabBar(
@@ -256,13 +247,22 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         }
         final mode = ContentMode.values[_tabs.index];
         final needle = _search.text.trim().toLowerCase();
-        final sources = [
+        // Everything this tab holds, before the ecosystem filter — the chips
+        // are built from it so a chip only appears when it has something in it.
+        final inMode = [
           for (final p in state.providers)
             if (state.isUsable(p) &&
                 p.id.contentMode == mode &&
                 (needle.isEmpty || p.name.toLowerCase().contains(needle)))
               p,
         ];
+        final present = <SourceEcosystem>{
+          for (final p in inMode) SourceEcosystem.of(p.id),
+        };
+        final eco = present.contains(_eco) ? _eco : null;
+        final sources = eco == null
+            ? inMode
+            : [for (final p in inMode) if (SourceEcosystem.of(p.id) == eco) p];
         // Sorted here, not upstream: the quick switcher shows the same
         // providers in the order the backend sent them, because there the list
         // is short and its order is the recommendation. This page is the whole
@@ -271,7 +271,6 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         // over backend order is no runs at all and reads as random letters.
         sources.sort((a, b) => compareForIndex(a.name, b.name));
 
-        _shown = sources;
         return Column(
           children: [
             Padding(
@@ -292,21 +291,11 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                 ),
               ),
             ),
-            if (sources.length >= _indexThreshold)
-              _LetterIndex(
-                letters: [
-                  for (final p in sources) _letterOf(p),
-                ],
-                active: _activeLetter,
-                onPick: (letter) {
-                  final i = sources.indexWhere((p) => _letterOf(p) == letter);
-                  if (i < 0 || !_listCtl.isAttached) return;
-                  _listCtl.scrollTo(
-                    index: i,
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeOutCubic,
-                  );
-                },
+            if (present.length > 1)
+              _EcosystemFilter(
+                present: present,
+                active: eco,
+                onPick: (picked) => setState(() => _eco = picked),
               ),
             Expanded(
               child: sources.isEmpty
@@ -341,64 +330,6 @@ class _SourcesHubPageState extends State<SourcesHubPage>
           ],
         );
       },
-    );
-  }
-}
-
-/// The letters present, in order, as a strip you can jump from.
-///
-/// Modelled on the episode list's range chips: the same idea that a long list
-/// needs somewhere to aim at, with the same rule that a chip only exists when
-/// there is something behind it.
-class _LetterIndex extends StatelessWidget {
-  const _LetterIndex({
-    required this.letters,
-    required this.active,
-    required this.onPick,
-  });
-
-  /// One entry per row, in row order — the widget takes the distinct set.
-  final List<String> letters;
-  final String active;
-  final ValueChanged<String> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    final distinct = indexLetters(letters);
-    if (distinct.length < 2) return const SizedBox.shrink();
-
-    return SizedBox(
-      height: 34,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: distinct.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 6),
-        itemBuilder: (_, i) {
-          final letter = distinct[i];
-          final on = letter == active;
-          return HoverTap(
-            onTap: () => onPick(letter),
-            child: Container(
-              alignment: Alignment.center,
-              constraints: const BoxConstraints(minWidth: 30),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: on ? AppColors.primary : AppColors.card,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Text(
-                letter,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: on ? FontWeight.w700 : FontWeight.w500,
-                  color: on ? Colors.white : AppColors.textSecondary,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 }
@@ -519,11 +450,18 @@ class _SourceBrowseViewState extends State<_SourceBrowseView> {
           // The raw object used to go straight to the screen, so a source the
           // backend does not know answered with eleven lines of DioException
           // about `validateStatus` and a link to MDN's page for HTTP 400.
-          final text = error is SourceBrowseException && error.message != null
-              ? error.message!
-              : 'search.source_failed'.tr();
+          //
+          // Even trimmed to the extension's own message it was still the
+          // extension's vocabulary — "HttpException: HTTP error 404",
+          // "InvocationTargetException: null" — which does not distinguish a
+          // site that shut down from a phone with no signal. SourceFailure
+          // says which, and keeps the original underneath for a bug report.
+          final failure = SourceFailure.of(
+            error is SourceBrowseException ? error.message : null,
+          );
           return _Message(
-            text: text,
+            text: failure.headline,
+            hint: failure.detail,
             actionLabel: 'general.retry'.tr(),
             onAction: _retry,
           );
@@ -683,6 +621,68 @@ class _Message extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+/// Which runtime a source comes from, as a row of chips.
+///
+/// Only the ecosystems this tab actually contains: a fresh install has no
+/// CloudStream plugins, and a chip that filters to nothing is a chip that
+/// teaches people the filter is broken.
+class _EcosystemFilter extends StatelessWidget {
+  const _EcosystemFilter({
+    required this.present,
+    required this.active,
+    required this.onPick,
+  });
+
+  final Set<SourceEcosystem> present;
+  final SourceEcosystem? active;
+  final ValueChanged<SourceEcosystem?> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final chips = <SourceEcosystem?>[
+      null,
+      for (final e in SourceEcosystem.values)
+        if (present.contains(e)) e,
+    ];
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: chips.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final e = chips[i];
+          final selected = e == active;
+          return Center(
+            child: Material(
+              color: selected ? AppColors.primary : AppColors.card,
+              borderRadius: BorderRadius.circular(10),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => onPick(e),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  child: Text(
+                    e?.label ?? 'sources.eco_all'.tr(),
+                    style: TextStyle(
+                      color: selected ? Colors.white : AppColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

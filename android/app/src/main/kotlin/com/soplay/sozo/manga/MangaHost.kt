@@ -1,5 +1,7 @@
 package com.soplay.sozo.manga
 
+import com.soplay.sozo.ExtensionFailure
+
 import android.content.Context
 import android.util.Log
 import com.soplay.sozo.extensions.ApkSignature
@@ -498,7 +500,7 @@ class MangaHost(private val context: Context) {
             }
                 .onFailure {
                     Log.e(TAG, "update $id", it)
-                    failure = it.message ?: it.javaClass.simpleName
+                    failure = ExtensionFailure.describe(it)
                 }
                 .getOrNull()
         }
@@ -588,7 +590,7 @@ class MangaHost(private val context: Context) {
         val pages = try { runBlocking { src.getPageList(chapter) } }
         catch (t: Throwable) {
             Log.e(TAG, "pages $id", t)
-            failure = t.message ?: t.javaClass.simpleName
+            failure = ExtensionFailure.describe(t)
             emptyList()
         }
 

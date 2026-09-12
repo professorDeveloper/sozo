@@ -246,29 +246,14 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// Used on TV and desktop, where there is no sheet to supply one.
   final ScrollController _flat = ScrollController();
 
-  // The pinned block is measured, not estimated: a SliverPersistentHeader has
-  // one fixed height and anything taller than it overflows. Every piece below
-  // is given an explicit height so this arithmetic stays true.
-  static const double _chipRow = 48;
-  static const double _filterRow = 44;
   static const double _pinnedPad = 12;
 
   bool get _hasFilter => widget.all.length >= _filterThreshold;
 
-  /// Height of the pinned block: chips, and the filter when it is shown.
-  double get _pinnedExtent =>
-      _pinnedPad * 2 +
-      _chipRow +
-      (_hasFilter ? _pinnedPad + _filterRow : 0);
 
   /// Opening on the current source is a one-time move. Re-running it after a
   /// keystroke in the filter would yank the list out from under the typing.
   bool _aligned = false;
-
-  /// Measures the block above the rows, so the opening jump lands on a row
-  /// rather than a guess. Its height depends on the mode chips wrapping and on
-  /// whether the filter is shown at all.
-  final GlobalKey _headerKey = GlobalKey();
 
   @override
   void didChangeDependencies() {
@@ -400,18 +385,34 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
     }
 
     final resting = _restingSize(context);
+    // A long list opens tall.
+    //
+    // A DraggableScrollableSheet grows on a drag only while its scrollable is
+    // at the very top — and this one opens part-way down, on the source in use.
+    // So with hundreds of rows the drag always scrolled the list and the sheet
+    // could never be pulled up, which is exactly how it reads: a window onto a
+    // list, stuck at three quarters of the screen. Starting at full height is
+    // also simply right for a list that long; the grabber still shrinks it.
+    // A long list opens tall.
+    //
+    // A DraggableScrollableSheet grows on a drag only while its scrollable is
+    // at the very top — and this one opens part-way down, on the source in use.
+    // So with hundreds of rows the drag always scrolled the list and the sheet
+    // could never be pulled up: a window onto a list, stuck at three quarters
+    // of the screen. The grabber still shrinks it.
+    final initial = _hasFilter ? _maxSize : resting;
     return Padding(
       padding: EdgeInsets.only(bottom: keyboard),
       child: DraggableScrollableSheet(
         controller: _sheet,
         expand: false,
         snap: true,
-        initialChildSize: resting,
+        initialChildSize: initial,
         minChildSize: _minSize,
         maxChildSize: _maxSize,
         // Resting and full. Without a snap list the sheet stops wherever the
         // finger left it, which is how a sheet ends up permanently at 63%.
-        snapSizes: [resting],
+        snapSizes: <double>{resting, initial}.toList()..sort(),
         builder: (_, controller) =>
             SafeArea(
               top: false,
@@ -434,14 +435,10 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
     if (index <= 0) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !controller.hasClients) return;
-      final header =
-          (_headerKey.currentContext?.findRenderObject() as RenderBox?)
-              ?.size
-              .height ??
-          0;
       // Two rows of lead-in, so the current source reads as one entry in a
-      // list rather than as the first thing in it.
-      final target = header + _pinnedExtent + (index - 2) * _tileExtent;
+      // list rather than as the first thing in it. Nothing scrolls above the
+      // rows any more, so the offset is the rows alone.
+      final target = (index - 2) * _tileExtent;
       controller.jumpTo(
         target.clamp(0.0, controller.position.maxScrollExtent),
       );
@@ -458,70 +455,51 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
     _alignToCurrent(controller, items);
     return Column(
       children: [
+        // Pinned by construction: the title, the mode chips and the filter are
+        // Column children, so scrolling the list underneath cannot carry them
+        // away. They were the first rows OF the list, which meant scrolling two
+        // hundred sources past the mode switcher and back up again to change
+        // mode.
+        if (draggable) _grabber(context),
+        // Flexible, and scrollable inside what it gets.
+        //
+        // The block is pinned, which means it takes its height off the list
+        // rather than sharing it. At 200% text the chips wrap to two lines and
+        // the filter grows with them, and an unbounded header pushed the list —
+        // and then the footer — off the bottom of the sheet. This one gives way
+        // instead, and scrolls within itself if the sheet is short enough to
+        // make it.
+        Flexible(
+          child: SingleChildScrollView(child: _header(context, items)),
+        ),
         Expanded(
-          child: CustomScrollView(
-            controller: controller,
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            slivers: [
-              // The title scrolls away; the chips and the filter do not.
-              //
-              // Slivers rather than a Column above the list, because a fixed
-              // block plus the filter plus the footer is taller than this sheet
-              // has on a small screen with the keyboard up and a Column will
-              // not shrink its children to fit — it overflows. A pinned sliver
-              // stays put without taking the list's height away from it.
-              SliverToBoxAdapter(
-                child: KeyedSubtree(
-                  key: _headerKey,
-                  child: Column(
-                    children: [
-                      if (draggable) _grabber(context),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            'ux.change_source'.tr(),
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _PinnedControls(
-                  extent: _pinnedExtent,
-                  child: _header(context, items),
-                ),
-              ),
-              // Fixed rows are what make the opening jump land on the right one.
-              SliverFixedExtentList(
-                itemExtent: _tileExtent,
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => _favoriteProviderTile(
+          // The note is not a row. Inside a fixed-extent list it had one row's
+          // height and two lines of text, which at large type overflowed by
+          // more than the row was tall.
+          child: items.isEmpty
+              ? SingleChildScrollView(child: _emptyNote(context))
+              : ListView.builder(
+                  controller: controller,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  // Fixed rows are what make the opening jump land on the right
+                  // one.
+                  itemExtent: _tileExtent,
+                  itemCount: items.length,
+                  itemBuilder: (context, index) => _favoriteProviderTile(
                     context,
                     items[index],
                     widget.currentProviderId,
                     favorite: index < favorites.length,
                   ),
-                  childCount: items.length,
                 ),
-              ),
-              if (items.isEmpty)
-                SliverToBoxAdapter(child: _emptyNote(context)),
-            ],
-          ),
         ),
         const Divider(height: 1),
         ListTile(
-          leading: const Icon(Icons.tune_rounded),
-          title: Text('ux.manage_sources'.tr()),
+          // "Add" first, because that is what somebody who cannot find their
+          // source is looking for, and the word was nowhere on this sheet.
+          leading: const Icon(Icons.add_rounded),
+          title: Text('ux.add_or_manage_sources'.tr()),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () => Navigator.of(context).pop(_kAllProvidersAction),
         ),
@@ -542,32 +520,32 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            height: _chipRow,
-            // Scrolls rather than wraps: a pinned header is one fixed height,
-            // and a Wrap that needs a second line for a long mode name would
-            // overflow it rather than grow.
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final m in ContentMode.values) ...[
-                  if (m != ContentMode.values.first) const SizedBox(width: 8),
-                  _ModeChip(
-                    label: m.labelKey.tr(),
-                    active: m == widget.mode,
-                    onTap: m == widget.mode
-                        ? null
-                        : () =>
-                              Navigator.of(context).pop('$_kModePrefix${m.id}'),
-                  ),
-                ],
-              ],
-            ),
+          Text(
+            'ux.change_source'.tr(),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: _pinnedPad),
+          // Wraps rather than scrolls sideways: at 200% text three mode names
+          // do not fit one line, and a row that clips is worse than a row that
+          // takes two.
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final m in ContentMode.values)
+                _ModeChip(
+                  label: m.labelKey.tr(),
+                  active: m == widget.mode,
+                  onTap: m == widget.mode
+                      ? null
+                      : () =>
+                            Navigator.of(context).pop('$_kModePrefix${m.id}'),
+                ),
+            ],
           ),
           if (_hasFilter) ...[
             const SizedBox(height: _pinnedPad),
             SizedBox(
-              height: _filterRow,
               child: TextField(
                 controller: _filter,
                 onChanged: (v) => setState(() => _query = v),
@@ -599,8 +577,9 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// height, and a message that appears and disappears cannot live in one.
   Widget _emptyNote(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             (_query.isEmpty
@@ -624,27 +603,6 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   }
 }
 
-/// Holds [child] at a fixed height so it can be pinned.
-class _PinnedControls extends SliverPersistentHeaderDelegate {
-  const _PinnedControls({required this.extent, required this.child});
-
-  final double extent;
-  final Widget child;
-
-  @override
-  double get minExtent => extent;
-
-  @override
-  double get maxExtent => extent;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) =>
-      SizedBox(height: extent, child: child);
-
-  @override
-  bool shouldRebuild(_PinnedControls old) =>
-      old.extent != extent || old.child != child;
-}
 
 /// One of the three catalogue kinds.
 ///

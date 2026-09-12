@@ -1,5 +1,7 @@
 package com.soplay.sozo.manga
 
+import com.soplay.sozo.ExtensionFailure
+
 import android.util.Base64
 import android.util.Log
 import eu.kanade.tachiyomi.source.model.Page
@@ -141,7 +143,7 @@ object MangaImageServer {
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "image $imageUrl", t)
-                respond(out, 502, t.message ?: t.javaClass.simpleName)
+                respond(out, 502, ExtensionFailure.describe(t))
             }
         }
     }

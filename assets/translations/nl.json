@@ -1820,6 +1820,21 @@
     "continue": "Doorgaan",
     "use_source": "Deze bron gebruiken",
     "in_use": "In gebruik",
-    "now_using": "{} wordt gebruikt"
+    "now_using": "{} wordt gebruikt",
+    "add_or_manage_sources": "Bronnen toevoegen of beheren"
+  },
+  "sources": {
+    "fail_gone": "De site van deze bron bestaat niet meer",
+    "fail_blocked": "De site blokkeert de app",
+    "fail_rate_limited": "De site weigert vanwege zijn verzoeklimiet",
+    "fail_unreachable": "Kon de site niet bereiken",
+    "fail_incompatible": "Deze bron vereist een nieuwere versie van de app",
+    "fail_broken": "Deze bron is op zichzelf vastgelopen",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "Alle"
   }
 }

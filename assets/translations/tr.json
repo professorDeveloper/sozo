@@ -1820,6 +1820,21 @@
     "continue": "Devam et",
     "use_source": "Bu kaynağı kullan",
     "in_use": "Kullanımda",
-    "now_using": "{} kullanılıyor"
+    "now_using": "{} kullanılıyor",
+    "add_or_manage_sources": "Kaynak ekle veya yönet"
+  },
+  "sources": {
+    "fail_gone": "Bu kaynağın sitesi artık yok",
+    "fail_blocked": "Site uygulamayı engelliyor",
+    "fail_rate_limited": "Site istek sınırı nedeniyle reddediyor",
+    "fail_unreachable": "Siteye ulaşılamadı",
+    "fail_incompatible": "Bu kaynak uygulamanın daha yeni bir sürümünü gerektiriyor",
+    "fail_broken": "Kaynağın kendisinde hata oluştu",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "Tümü"
   }
 }

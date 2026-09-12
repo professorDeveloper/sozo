@@ -1,5 +1,7 @@
 package com.soplay.sozo.manga
 
+import com.soplay.sozo.ExtensionFailure
+
 import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
@@ -112,7 +114,7 @@ object MangaRuntime {
                 val clazz = loader.loadClass(className)
                 clazz.getDeclaredConstructor().newInstance()
             } catch (t: Throwable) {
-                lastError = "instantiate $className: ${t.javaClass.simpleName}: ${t.message}"
+                lastError = "instantiate $className: ${ExtensionFailure.describe(t)}"
                 Log.e(TAG, "instantiate $className failed", t)
                 continue
             }
