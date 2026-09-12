@@ -364,7 +364,9 @@
     "alt_unavailable": "Couldn't reach the source list. Check your connection and try again.",
     "alt_all_failed": "Every source failed to answer. This is usually the connection, not the title.",
     "alt_some_failed": "No match found, though {} source(s) failed to answer.",
-    "resolve_timeout": "The source did not answer in time. Try another server or another source."
+    "resolve_timeout": "The source did not answer in time. Try another server or another source.",
+    "layout_center": "Around play",
+    "layout_center_full": "No room left around play"
   },
   "profile": {
     "title": "Profile",

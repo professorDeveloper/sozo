@@ -364,7 +364,9 @@
     "alt_unavailable": "Não foi possível obter a lista de fontes. Verifica a ligação e tenta de novo.",
     "alt_all_failed": "Nenhuma fonte respondeu. Normalmente é a ligação, não o título.",
     "alt_some_failed": "Sem correspondências, mas {} fonte(s) não responderam.",
-    "resolve_timeout": "A fonte não respondeu a tempo. Tente outro servidor ou outra fonte."
+    "resolve_timeout": "A fonte não respondeu a tempo. Tente outro servidor ou outra fonte.",
+    "layout_center": "Ao lado de reproduzir",
+    "layout_center_full": "Não há mais espaço ao lado de reproduzir"
   },
   "profile": {
     "title": "Perfil",

@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/features/sources/domain/source_index.dart';
 
 void main() {
+  _sortingTests();
+
   group('indexLetterOf', () {
     test('uppercases the first Latin letter', () {
       expect(indexLetterOf('animepahe'), 'A');
@@ -40,6 +42,30 @@ void main() {
 
     test('empty in, empty out', () {
       expect(indexLetters(const []), isEmpty);
+    });
+  });
+}
+
+void _sortingTests() {
+  group('compareForIndex', () {
+    test('sorts A–Z, case-insensitively', () {
+      final names = ['Zoro', 'animepahe', 'MangaDex', 'bato'];
+      names.sort(compareForIndex);
+      expect(names, ['animepahe', 'bato', 'MangaDex', 'Zoro']);
+    });
+
+    test('files everything outside A–Z last, as one block', () {
+      final names = ['360资源', 'Zoro', '9kMovies', 'Anime'];
+      names.sort(compareForIndex);
+      expect(names.first, 'Anime');
+      expect(names[1], 'Zoro');
+      expect(names.sublist(2).toSet(), {'360资源', '9kMovies'});
+    });
+
+    test('a sorted list collapses to one chip per letter', () {
+      final names = ['Anime', 'AsilMedia', 'Bato', 'Zoro'];
+      names.sort(compareForIndex);
+      expect(indexLetters(names.map(indexLetterOf)), ['A', 'B', 'Z']);
     });
   });
 }

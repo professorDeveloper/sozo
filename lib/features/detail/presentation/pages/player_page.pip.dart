@@ -118,10 +118,10 @@ extension _PlayerPip on _PlayerPageState {
   }
 
   Future<void> _enterFullscreen() async {
-    if (isDesktopPlatform) {
-      if (_hive.keepScreenOn) await WakelockHolds.acquire(this);
-      return;
-    }
+    // No wakelock here. Entering the player is not watching: resolution can
+    // take half a minute and the viewer may never press play. _syncWakelock
+    // takes the hold when the picture actually starts moving.
+    if (isDesktopPlatform) return;
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     try {
       await AppOrientation.set([
@@ -129,7 +129,6 @@ extension _PlayerPip on _PlayerPageState {
         DeviceOrientation.landscapeRight,
       ]);
     } catch (_) {}
-    if (_hive.keepScreenOn) await WakelockHolds.acquire(this);
   }
 
   Future<void> _toggleFullscreen() async {
@@ -165,6 +164,7 @@ extension _PlayerPip on _PlayerPageState {
       }
       // Only this page's hold: a download on this machine may still need the
       // screen awake after the player closes.
+      _wakelockHeld = false;
       await WakelockHolds.release(this);
       return;
     }
@@ -177,6 +177,7 @@ extension _PlayerPip on _PlayerPageState {
         DeviceOrientation.portraitUp,
       ]);
     } catch (_) {}
+    _wakelockHeld = false;
     await WakelockHolds.release(this);
   }
 

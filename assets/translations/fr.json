@@ -364,7 +364,9 @@
     "alt_unavailable": "Liste des sources inaccessible. Vérifiez la connexion et réessayez.",
     "alt_all_failed": "Aucune source n'a répondu. C'est en général la connexion, pas le titre.",
     "alt_some_failed": "Aucune correspondance, mais {} source(s) n'ont pas répondu.",
-    "resolve_timeout": "La source n'a pas répondu à temps. Essayez un autre serveur ou une autre source."
+    "resolve_timeout": "La source n'a pas répondu à temps. Essayez un autre serveur ou une autre source.",
+    "layout_center": "Autour de lecture",
+    "layout_center_full": "Plus de place autour de lecture"
   },
   "profile": {
     "title": "Profil",

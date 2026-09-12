@@ -364,7 +364,9 @@
     "alt_unavailable": "Quellenliste nicht erreichbar. Verbindung prüfen und erneut versuchen.",
     "alt_all_failed": "Keine Quelle hat geantwortet. Das liegt meist an der Verbindung.",
     "alt_some_failed": "Kein Treffer, {} Quelle(n) haben nicht geantwortet.",
-    "resolve_timeout": "Die Quelle hat nicht rechtzeitig geantwortet. Versuche einen anderen Server oder eine andere Quelle."
+    "resolve_timeout": "Die Quelle hat nicht rechtzeitig geantwortet. Versuche einen anderen Server oder eine andere Quelle.",
+    "layout_center": "Neben Wiedergabe",
+    "layout_center_full": "Neben Wiedergabe ist kein Platz mehr"
   },
   "profile": {
     "title": "Profil",

@@ -336,51 +336,17 @@ extension _PlayerPanels on _PlayerPageState {
                     _openAlternateSources(keepPosition: true);
                   },
                 ),
-              // Speed, server, quality and subtitles sit here only when the
-              // bar is not carrying them. A settings list is where things go
-              // when they have nowhere else, and a copy of a button that is one
-              // tap away is padding on a list already nineteen rows long — but
-              // portrait now shows the seek bar alone, so on that orientation
-              // this sheet IS the only way to reach them.
-              if (_compactBottomBar) ...[
-                _SettingsTile(
-                  icon: Icons.speed_rounded,
-                  label: 'player.speed'.tr(),
-                  value:
-                      '${_playbackSpeed.toStringAsFixed(_playbackSpeed == _playbackSpeed.roundToDouble() ? 0 : 2)}x',
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _openSpeedSheet();
-                  },
-                ),
-                if (a.hasServers)
-                  _SettingsTile(
-                    icon: Icons.dns_outlined,
-                    label: 'player.server'.tr(),
-                    value: _currentServer ?? '',
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _openServerSheet();
-                    },
-                  ),
-                if (a.hasQualities)
-                  _SettingsTile(
-                    icon: Icons.high_quality_rounded,
-                    label: 'player.quality'.tr(),
-                    value: _currentQuality == null
-                        ? ''
-                        : _qualityLabel(_currentQuality!),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _openPanel(_SidePanel.quality);
-                    },
-                  ),
-              ],
+              // Speed, server, quality and subtitles used to sit here as well
+              // as on the bar, calling the very same functions. A settings list
+              // is where things go when they have nowhere else; those all have
+              // a button one tap away, so the copies were padding a list that
+              // was already nineteen rows long. Removed, not moved.
+              //
               // Download is the exception and stays: the bar button for it is
               // in the PHONE branch only, so on desktop this sheet is the only
               // way to start one. Removing it took the feature off Windows,
               // macOS and Linux entirely.
-              if ((isDesktopPlatform || _compactBottomBar) && a.canDownload)
+              if (isDesktopPlatform && a.canDownload)
                 _SettingsTile(
                   icon: Icons.download_rounded,
                   label: 'movie.download'.tr(),

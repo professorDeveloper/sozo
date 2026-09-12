@@ -364,7 +364,9 @@
     "alt_unavailable": "Bronnenlijst niet bereikbaar. Controleer je verbinding en probeer opnieuw.",
     "alt_all_failed": "Geen enkele bron antwoordde. Dat ligt meestal aan de verbinding.",
     "alt_some_failed": "Geen match, maar {} bron(nen) antwoordden niet.",
-    "resolve_timeout": "De bron reageerde niet op tijd. Probeer een andere server of bron."
+    "resolve_timeout": "De bron reageerde niet op tijd. Probeer een andere server of bron.",
+    "layout_center": "Rond afspelen",
+    "layout_center_full": "Geen ruimte meer rond afspelen"
   },
   "profile": {
     "title": "Profiel",

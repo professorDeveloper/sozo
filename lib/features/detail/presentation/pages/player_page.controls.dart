@@ -986,12 +986,53 @@ extension _PlayerControls on _PlayerPageState {
     return Stack(fit: StackFit.expand, children: [gated, spinner]);
   }
 
+  /// One control of the cluster around play, or null when it does not apply.
+  ///
+  /// Transport only. Anything else the viewer drags in here renders nothing
+  /// rather than a bare icon at 32pt beside the skip buttons — the cluster is
+  /// pressed without looking and everything in it has to mean the same kind of
+  /// thing.
+  Widget? _centerControl(String id) {
+    final a = _affordances;
+    switch (id) {
+      case 'previous':
+        if (!a.hasEpisodes || !_hasPrevEpisode) return null;
+        return _CenterIconButton(
+          icon: Icons.skip_previous_rounded,
+          onTap: () => _partyEpisodeNav(_episodeIndex - 1),
+        );
+      case 'next':
+        if (!a.hasEpisodes || !_hasNextEpisode) return null;
+        return _CenterIconButton(
+          icon: Icons.skip_next_rounded,
+          onTap: () => _partyEpisodeNav(_episodeIndex + 1),
+        );
+      default:
+        return null;
+    }
+  }
+
   Widget _buildCenterPlayCluster(PlayerController c) {
     final step = _seekSeconds;
+    // Previous and Next live here, beside the skips, not in the bottom-left
+    // corner — the furthest point on a landscape screen from a thumb that is
+    // already over the middle. See PlayerControlSlot.center.
+    final extras = _layoutDrivesBars
+        ? [
+            for (final id in _layout.of(PlayerControlSlot.center))
+              ?_centerControl(id),
+          ]
+        : <Widget>[
+            ?_centerControl('previous'),
+            ?_centerControl('next'),
+          ];
+    final leading = extras.take(extras.length ~/ 2 + extras.length % 2).toList();
+    final trailing = extras.skip(leading.length).toList();
     return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          for (final w in leading) ...[w, const SizedBox(width: 22)],
           _CenterIconButton(
             icon: _rewindIconFor(step),
             onTap: () {
@@ -1022,6 +1063,7 @@ extension _PlayerControls on _PlayerPageState {
               _showSeekRipple(1);
             },
           ),
+          for (final w in trailing) ...[const SizedBox(width: 22), w],
         ],
       ),
     );
@@ -1316,6 +1358,18 @@ extension _PlayerControls on _PlayerPageState {
     );
   }
 
+  /// How many right-hand controls fit beside [leftCount] transport buttons.
+  ///
+  /// One _IconButton is 38pt of icon inside 3pt of transparent padding a side,
+  /// so 44pt each, and the bar has 16pt of padding on both edges.
+  int _fittingControls(double width, int leftCount) {
+    const double slot = 44;
+    const double edges = 32;
+    final room = width - edges - leftCount * slot;
+    if (room <= 0) return 0;
+    return (room / slot).floor();
+  }
+
   /// Portrait phones render the bottom row icon-only.
   ///
   /// Landscape and desktop have the width for labels, and the value-carrying
@@ -1487,6 +1541,22 @@ extension _PlayerControls on _PlayerPageState {
     final a = _affordances;
     final compact = _compactBottomBar;
     switch (id) {
+      case 'lock':
+        // Landscape only, and not for room: portrait has exactly one way out
+        // of the lock overlay and it is a tap target a D-pad cannot reach.
+        if (isTvPlatform || _isPortrait) return null;
+        return _BottomTextButton(
+          icon: Icons.lock_outline_rounded,
+          label: 'player.lock'.tr(),
+          compact: compact,
+          enabled: true,
+          onTap: () => setState(() {
+            _locked = true;
+            _controlsVisible = false;
+            _controlsAnimation.reverse();
+            _hideTimer?.cancel();
+          }),
+        );
       case 'previous':
         if (!a.hasEpisodes) return null;
         return _BottomTextButton(
@@ -1737,18 +1807,8 @@ extension _PlayerControls on _PlayerPageState {
                   );
                 },
               ),
-              // Portrait shows the seek bar and nothing else.
-              //
-              // The row of icons under it is the least-used half of the player
-              // and it was the half sitting closest to the thumb, under a
-              // picture that occupies a third of the screen. Everything in it
-              // moves into the settings sheet on this orientation — see
-              // _openSettingsSheet, which grows those rows back when the bar
-              // is not carrying them.
-              if (!_compactBottomBar) const SizedBox(height: 4),
-              if (_compactBottomBar)
-                const SizedBox.shrink()
-              else if (isDesktopPlatform)
+              const SizedBox(height: 4),
+              if (isDesktopPlatform)
                 _buildDesktopControlRow(
                     c, hasEpisodes, hasServers, hasQualities, hasPrev, hasNext)
               else
@@ -1769,12 +1829,26 @@ extension _PlayerControls on _PlayerPageState {
                   PlayerControlSlot.bottomLeft,
                   topBar: false,
                 );
-                final right = _controlsFor(
+                final rightAll = _controlsFor(
                   PlayerControlSlot.bottomRight,
                   topBar: false,
                 );
                 return LayoutBuilder(
-                  builder: (context, box) => SingleChildScrollView(
+                  builder: (context, box) {
+                  // Portrait keeps what fits and drops the rest.
+                  //
+                  // Icon-only, the row still wants more than a phone has
+                  // sideways, so its tail lived past the right edge of a scroll
+                  // view with no scrollbar — present, and invisible. The
+                  // controls that do not fit are reachable from the top bar and
+                  // the settings sheet; a row that runs off the screen is not a
+                  // place to put anything.
+                  final right = !_compactBottomBar
+                      ? rightAll
+                      : rightAll
+                            .take(_fittingControls(box.maxWidth, left.length))
+                            .toList();
+                  return SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minWidth: box.maxWidth),
@@ -1797,7 +1871,8 @@ extension _PlayerControls on _PlayerPageState {
                       ],
                     ),
                   ),
-                  ),
+                  );
+                  },
                 );
               }),
             ],

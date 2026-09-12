@@ -364,7 +364,9 @@
     "alt_unavailable": "No se pudo obtener la lista de fuentes. Revisa la conexión e inténtalo de nuevo.",
     "alt_all_failed": "Ninguna fuente respondió. Suele ser la conexión, no el título.",
     "alt_some_failed": "Sin coincidencias, pero {} fuente(s) no respondieron.",
-    "resolve_timeout": "La fuente no respondió a tiempo. Prueba otro servidor u otra fuente."
+    "resolve_timeout": "La fuente no respondió a tiempo. Prueba otro servidor u otra fuente.",
+    "layout_center": "Junto a reproducir",
+    "layout_center_full": "No queda sitio junto a reproducir"
   },
   "profile": {
     "title": "Perfil",

@@ -364,7 +364,9 @@
     "alt_unavailable": "Kaynak listesine ulaşılamadı. Bağlantını kontrol edip tekrar dene.",
     "alt_all_failed": "Hiçbir kaynak yanıt vermedi. Bu genelde bağlantıdır, içerik değil.",
     "alt_some_failed": "Eşleşme yok; ancak {} kaynak yanıt vermedi.",
-    "resolve_timeout": "Kaynak zamanında yanıt vermedi. Başka bir sunucu ya da kaynak deneyin."
+    "resolve_timeout": "Kaynak zamanında yanıt vermedi. Başka bir sunucu ya da kaynak deneyin.",
+    "layout_center": "Oynat'ın yanında",
+    "layout_center_full": "Oynat'ın yanında yer kalmadı"
   },
   "profile": {
     "title": "Profil",

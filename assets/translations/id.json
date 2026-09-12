@@ -364,7 +364,9 @@
     "alt_unavailable": "Tidak bisa memuat daftar sumber. Periksa koneksi lalu coba lagi.",
     "alt_all_failed": "Tidak ada sumber yang menjawab. Biasanya ini koneksi, bukan judulnya.",
     "alt_some_failed": "Tidak ada yang cocok, tetapi {} sumber tidak menjawab.",
-    "resolve_timeout": "Sumber tidak menjawab tepat waktu. Coba server atau sumber lain."
+    "resolve_timeout": "Sumber tidak menjawab tepat waktu. Coba server atau sumber lain.",
+    "layout_center": "Di sekitar putar",
+    "layout_center_full": "Tidak ada ruang lagi di sekitar putar"
   },
   "profile": {
     "title": "Profil",

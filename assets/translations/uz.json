@@ -364,7 +364,9 @@
     "alt_unavailable": "Manbalar ro'yxatiga ulanib bo'lmadi. Aloqani tekshirib, qayta urining.",
     "alt_all_failed": "Hech bir manba javob bermadi. Odatda bu aloqa muammosi, kontent emas.",
     "alt_some_failed": "Moslik topilmadi, lekin {} ta manba javob bermadi.",
-    "resolve_timeout": "Manba vaqtida javob bermadi. Boshqa server yoki boshqa manbani sinab ko'ring."
+    "resolve_timeout": "Manba vaqtida javob bermadi. Boshqa server yoki boshqa manbani sinab ko'ring.",
+    "layout_center": "Play atrofida",
+    "layout_center_full": "Play atrofida joy qolmadi"
   },
   "profile": {
     "title": "Profil",

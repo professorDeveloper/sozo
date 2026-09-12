@@ -35,7 +35,21 @@ library;
 /// row's `spaceBetween`. They are separate slots rather than one list because
 /// the split is the whole point of that row: transport on the left, everything
 /// else on the right. One list would give the viewer no way to express it.
-enum PlayerControlSlot { topBar, bottomLeft, bottomRight, hidden }
+/// Where a control lives.
+///
+/// `center` is the cluster around play/pause. It exists because Previous and
+/// Next belong beside the skip buttons and nowhere else: they are transport,
+/// they are pressed mid-episode without looking, and the bottom-left corner of
+/// a landscape screen is the furthest point on the device from a thumb already
+/// resting over the middle. Putting them there also took two buttons off a
+/// bottom row that had eleven.
+enum PlayerControlSlot { topBar, center, bottomLeft, bottomRight, hidden }
+
+/// How many controls fit beside play/pause.
+///
+/// Five across, and the middle one is play — so two a side. A sixth pushes the
+/// cluster wider than the skip gestures it sits between.
+const int kCenterCapacity = 4;
 
 /// One control the viewer can move.
 class PlayerControlSpec {
@@ -73,12 +87,12 @@ abstract final class PlayerControlCatalogue {
     PlayerControlSpec(
       id: 'previous',
       labelKey: 'player.previous',
-      defaultSlot: PlayerControlSlot.bottomLeft,
+      defaultSlot: PlayerControlSlot.center,
     ),
     PlayerControlSpec(
       id: 'next',
       labelKey: 'general.next',
-      defaultSlot: PlayerControlSlot.bottomLeft,
+      defaultSlot: PlayerControlSlot.center,
     ),
     // ── the bottom row's value-carrying buttons ──────────────────────────
     PlayerControlSpec(
@@ -96,10 +110,13 @@ abstract final class PlayerControlCatalogue {
       labelKey: 'player.quality',
       defaultSlot: PlayerControlSlot.bottomRight,
     ),
+    // Up top, not down in the row of eleven. Picking the next episode is the
+    // most-pressed thing in the player after play itself, and it was sitting
+    // among sleep timers and cast buttons.
     PlayerControlSpec(
       id: 'episodes',
       labelKey: 'player.episodes',
-      defaultSlot: PlayerControlSlot.bottomRight,
+      defaultSlot: PlayerControlSlot.topBar,
     ),
     PlayerControlSpec(
       id: 'shader',
@@ -152,10 +169,14 @@ abstract final class PlayerControlCatalogue {
       labelKey: 'player.rotate',
       defaultSlot: PlayerControlSlot.topBar,
     ),
+    // Down a row to make space for Episodes, which is pressed far more often.
+    // The top bar's ceiling is six and the shipped default deliberately leaves
+    // one free, so something had to come down; locking the screen is a thing
+    // you do once a session, if ever.
     PlayerControlSpec(
       id: 'lock',
       labelKey: 'player.lock',
-      defaultSlot: PlayerControlSlot.topBar,
+      defaultSlot: PlayerControlSlot.bottomRight,
     ),
     PlayerControlSpec(
       id: 'settings',
@@ -264,6 +285,11 @@ class PlayerControlsLayout {
       slots[spec.defaultSlot]!.add(spec.id);
     }
 
+    final centre = slots[PlayerControlSlot.center]!;
+    while (centre.length > kCenterCapacity) {
+      slots[PlayerControlSlot.hidden]!.add(centre.removeLast());
+    }
+
     final top = slots[PlayerControlSlot.topBar]!;
     while (top.length > topBarCapacity) {
       final overflow = top.removeLast();
@@ -295,6 +321,10 @@ class PlayerControlsLayout {
   bool get topBarIsFull =>
       _slots[PlayerControlSlot.topBar]!.length >= topBarCapacity;
 
+  /// Whether the cluster around play/pause has room for one more.
+  bool get centerIsFull =>
+      _slots[PlayerControlSlot.center]!.length >= kCenterCapacity;
+
   int get topBarCount => _slots[PlayerControlSlot.topBar]!.length;
 
   /// Whether [id] may go to [to] — and, when it may not, `moveRefusal` says why.
@@ -310,6 +340,11 @@ class PlayerControlsLayout {
         slotOf(id) != PlayerControlSlot.topBar &&
         topBarIsFull) {
       return 'player.layout_top_bar_full';
+    }
+    if (to == PlayerControlSlot.center &&
+        slotOf(id) != PlayerControlSlot.center &&
+        centerIsFull) {
+      return 'player.layout_center_full';
     }
     return null;
   }

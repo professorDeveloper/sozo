@@ -311,6 +311,7 @@ class _PlayerControlsPageState extends State<PlayerControlsPage> {
 
   static String _slotLabel(PlayerControlSlot slot) => switch (slot) {
         PlayerControlSlot.topBar => 'player.layout_top_bar'.tr(),
+        PlayerControlSlot.center => 'player.layout_center'.tr(),
         PlayerControlSlot.bottomLeft => 'player.layout_bottom_left'.tr(),
         PlayerControlSlot.bottomRight => 'player.layout_bottom_right'.tr(),
         PlayerControlSlot.hidden => 'player.layout_hidden'.tr(),

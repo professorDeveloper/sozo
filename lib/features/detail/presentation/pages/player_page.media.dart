@@ -1244,10 +1244,32 @@ extension _PlayerMedia on _PlayerPageState {
   bool _isRecoverableError(String msg) =>
       RetryPolicy.isRecoverableError(msg);
 
+  /// Keeps the screen awake while the video is running, and only then.
+  ///
+  /// The hold used to be taken when the player opened and dropped when it
+  /// closed, so a paused episode left on screen held the phone awake until the
+  /// battery gave out — pause, put it down, come back to a hot phone. Nothing
+  /// is watching a paused frame.
+  ///
+  /// Idempotent: WakelockHolds is a set, so repeating the same state is free
+  /// and this can be called from a listener that fires on every tick.
+  void _syncWakelock(bool playing) {
+    final want = playing && _hive.keepScreenOn;
+    if (want == _wakelockHeld) return;
+    _wakelockHeld = want;
+    if (want) {
+      WakelockHolds.acquire(this);
+    } else {
+      WakelockHolds.release(this);
+    }
+  }
+
   void _onMajorChange() {
     final c = _controller;
     if (c == null) return;
     final v = c.value;
+
+    _syncWakelock(v.isPlaying);
 
     if (v.hasError) {
       final msg = v.errorDescription;
