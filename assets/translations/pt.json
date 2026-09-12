@@ -360,7 +360,10 @@
     "info_fields_title": "Linhas do painel de informações",
     "logs_title": "Registos do reprodutor ({})",
     "logs_copied": "Registos copiados",
-    "logs_empty": "Ainda não há registos"
+    "logs_empty": "Ainda não há registos",
+    "alt_unavailable": "Não foi possível obter a lista de fontes. Verifica a ligação e tenta de novo.",
+    "alt_all_failed": "Nenhuma fonte respondeu. Normalmente é a ligação, não o título.",
+    "alt_some_failed": "Sem correspondências, mas {} fonte(s) não responderam."
   },
   "profile": {
     "title": "Perfil",

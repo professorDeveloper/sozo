@@ -360,7 +360,10 @@
     "info_fields_title": "Filas del panel de información",
     "logs_title": "Registros del reproductor ({})",
     "logs_copied": "Registros copiados",
-    "logs_empty": "Aún no hay registros"
+    "logs_empty": "Aún no hay registros",
+    "alt_unavailable": "No se pudo obtener la lista de fuentes. Revisa la conexión e inténtalo de nuevo.",
+    "alt_all_failed": "Ninguna fuente respondió. Suele ser la conexión, no el título.",
+    "alt_some_failed": "Sin coincidencias, pero {} fuente(s) no respondieron."
   },
   "profile": {
     "title": "Perfil",

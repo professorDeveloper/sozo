@@ -360,7 +360,10 @@
     "info_fields_title": "Bilgi katmanı satırları",
     "logs_title": "Oynatıcı günlükleri ({})",
     "logs_copied": "Günlükler kopyalandı",
-    "logs_empty": "Henüz günlük yok"
+    "logs_empty": "Henüz günlük yok",
+    "alt_unavailable": "Kaynak listesine ulaşılamadı. Bağlantını kontrol edip tekrar dene.",
+    "alt_all_failed": "Hiçbir kaynak yanıt vermedi. Bu genelde bağlantıdır, içerik değil.",
+    "alt_some_failed": "Eşleşme yok; ancak {} kaynak yanıt vermedi."
   },
   "profile": {
     "title": "Profil",

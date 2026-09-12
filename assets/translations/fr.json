@@ -360,7 +360,10 @@
     "info_fields_title": "Lignes de l’encart d’informations",
     "logs_title": "Journaux du lecteur ({})",
     "logs_copied": "Journaux copiés",
-    "logs_empty": "Aucun journal pour l’instant"
+    "logs_empty": "Aucun journal pour l’instant",
+    "alt_unavailable": "Liste des sources inaccessible. Vérifiez la connexion et réessayez.",
+    "alt_all_failed": "Aucune source n'a répondu. C'est en général la connexion, pas le titre.",
+    "alt_some_failed": "Aucune correspondance, mais {} source(s) n'ont pas répondu."
   },
   "profile": {
     "title": "Profil",

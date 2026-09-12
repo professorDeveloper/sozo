@@ -360,7 +360,10 @@
     "info_fields_title": "Info qatorlari",
     "logs_title": "Pleyer loglari ({})",
     "logs_copied": "Loglar nusxalandi",
-    "logs_empty": "Hozircha log yo‘q"
+    "logs_empty": "Hozircha log yo‘q",
+    "alt_unavailable": "Manbalar ro'yxatiga ulanib bo'lmadi. Aloqani tekshirib, qayta urining.",
+    "alt_all_failed": "Hech bir manba javob bermadi. Odatda bu aloqa muammosi, kontent emas.",
+    "alt_some_failed": "Moslik topilmadi, lekin {} ta manba javob bermadi."
   },
   "profile": {
     "title": "Profil",

@@ -360,7 +360,10 @@
     "info_fields_title": "Baris lapisan info",
     "logs_title": "Log pemutar ({})",
     "logs_copied": "Log disalin",
-    "logs_empty": "Belum ada log"
+    "logs_empty": "Belum ada log",
+    "alt_unavailable": "Tidak bisa memuat daftar sumber. Periksa koneksi lalu coba lagi.",
+    "alt_all_failed": "Tidak ada sumber yang menjawab. Biasanya ini koneksi, bukan judulnya.",
+    "alt_some_failed": "Tidak ada yang cocok, tetapi {} sumber tidak menjawab."
   },
   "profile": {
     "title": "Profil",

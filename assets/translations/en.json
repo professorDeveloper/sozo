@@ -360,7 +360,10 @@
     "info_fields_title": "Info overlay rows",
     "logs_title": "Player logs ({})",
     "logs_copied": "Logs copied",
-    "logs_empty": "No logs yet"
+    "logs_empty": "No logs yet",
+    "alt_unavailable": "Couldn't reach the source list. Check your connection and try again.",
+    "alt_all_failed": "Every source failed to answer. This is usually the connection, not the title.",
+    "alt_some_failed": "No match found, though {} source(s) failed to answer."
   },
   "profile": {
     "title": "Profile",

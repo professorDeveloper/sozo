@@ -72,6 +72,20 @@ class SearchContentView extends StatelessWidget {
       case SearchStatus.loading:
         return [const _SearchSkeletonGrid()];
       case SearchStatus.error:
+        // A failure with results already on screen is a banner, not a takeover.
+        // One flaky response while somebody is still typing used to replace a
+        // perfectly good grid with a full-page error.
+        if (state.items.isNotEmpty) {
+          return [
+            SliverToBoxAdapter(
+              child: _SearchErrorBanner(
+                message: state.errorMessage,
+                onRetry: onRetry,
+              ),
+            ),
+            SearchResultsGrid(items: state.items),
+          ];
+        }
         return [
           SliverFillRemaining(
             hasScrollBody: false,
@@ -143,6 +157,48 @@ class SearchContentView extends StatelessWidget {
             ),
         ];
     }
+  }
+}
+
+/// A failure reported over results that are still worth looking at.
+class _SearchErrorBanner extends StatelessWidget {
+  const _SearchErrorBanner({required this.message, required this.onRetry});
+
+  final String? message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_off_rounded,
+                size: 18, color: AppColors.errorLight),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message ?? 'general.error'.tr(),
+                style: const TextStyle(
+                    color: AppColors.textSecondary, fontSize: 12.5),
+              ),
+            ),
+            if (onRetry != null)
+              TextButton(
+                onPressed: onRetry,
+                child: Text('general.retry'.tr()),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

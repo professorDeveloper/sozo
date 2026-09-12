@@ -118,7 +118,16 @@ class _SearchViewState extends State<_SearchView> {
         genres: bloc.state.genres,
         // Always dispatch: a genre picked or cleared while text is in the box
         // used to change nothing but the button's active dot.
-        onApply: (selection) => bloc.add(SearchGenreSelected(selection.genre)),
+        onApply: (selection) {
+          // The box has to agree with what the screen is about to show.
+          // Picking a genre BROWSES that genre — the server's search takes a
+          // query or nothing, never both — and the bloc drops the pending text
+          // accordingly. It did not touch this controller, so the field went on
+          // reading "naruto" over a grid of the whole genre, which reads as the
+          // filter having ignored the query rather than replaced it.
+          if (selection.genre.trim().isNotEmpty) _controller.clear();
+          bloc.add(SearchGenreSelected(selection.genre));
+        },
       ),
     );
   }

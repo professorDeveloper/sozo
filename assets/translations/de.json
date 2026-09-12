@@ -360,7 +360,10 @@
     "info_fields_title": "Zeilen der Info-Einblendung",
     "logs_title": "Player-Logs ({})",
     "logs_copied": "Logs kopiert",
-    "logs_empty": "Noch keine Logs"
+    "logs_empty": "Noch keine Logs",
+    "alt_unavailable": "Quellenliste nicht erreichbar. Verbindung prüfen und erneut versuchen.",
+    "alt_all_failed": "Keine Quelle hat geantwortet. Das liegt meist an der Verbindung.",
+    "alt_some_failed": "Kein Treffer, {} Quelle(n) haben nicht geantwortet."
   },
   "profile": {
     "title": "Profil",
