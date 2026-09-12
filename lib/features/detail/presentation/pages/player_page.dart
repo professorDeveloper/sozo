@@ -406,6 +406,10 @@ class _PlayerPageState extends State<PlayerPage>
   final ShaderStore _shaders = ShaderStore();
   _PlayerFit _fit = _PlayerFit.contain;
   bool _isPortrait = false;
+
+  /// Whether this page currently holds the screen-awake lock. See
+  /// _syncWakelock: it follows playback, not the page's lifetime.
+  bool _wakelockHeld = false;
   bool _isFullscreen = false;
   double _volumeBeforeMute = 1.0;
 

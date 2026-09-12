@@ -360,7 +360,13 @@
     "info_fields_title": "Rijen van de info-overlay",
     "logs_title": "Spelerlogboek ({})",
     "logs_copied": "Logboek gekopieerd",
-    "logs_empty": "Nog geen logboek"
+    "logs_empty": "Nog geen logboek",
+    "alt_unavailable": "Bronnenlijst niet bereikbaar. Controleer je verbinding en probeer opnieuw.",
+    "alt_all_failed": "Geen enkele bron antwoordde. Dat ligt meestal aan de verbinding.",
+    "alt_some_failed": "Geen match, maar {} bron(nen) antwoordden niet.",
+    "resolve_timeout": "De bron reageerde niet op tijd. Probeer een andere server of bron.",
+    "layout_center": "Rond afspelen",
+    "layout_center_full": "Geen ruimte meer rond afspelen"
   },
   "profile": {
     "title": "Profiel",
@@ -1431,7 +1437,8 @@
     "released_body": "Aflevering {episode} is er",
     "remove_entry": "Uit mijn lijst verwijderen",
     "remove_confirm": "„{}” van je AniList verwijderen? Je voortgang ervoor wordt ook gewist.",
-    "removed": "Verwijderd van AniList"
+    "removed": "Verwijderd van AniList",
+    "retry_in": "Opnieuw over {} s"
   },
   "mal": {
     "connect": "MyAnimeList koppelen",
@@ -1651,7 +1658,9 @@
     "video": "Kijken",
     "manga": "Manga",
     "novel": "Romans",
-    "none_installed": "Nog geen {}-bronnen geïnstalleerd."
+    "none_installed": "Nog geen {}-bronnen geïnstalleerd.",
+    "novels_hint": "Novels zijn tekst, geen plaatjes — light novels en web novels, gelezen in dezelfde reader als manga. Novelbronnen komen uit Mangayomi-repositories: voeg er een toe en alle novelbronnen erin verschijnen hier.",
+    "manga_hint": "Mangabronnen zitten er niet in, je installeert ze. Voeg een repository toe en alle bronnen erin verschijnen hier."
   },
   "home_rails": {
     "title": "Indeling startscherm",
@@ -1811,6 +1820,32 @@
     "continue": "Doorgaan",
     "use_source": "Deze bron gebruiken",
     "in_use": "In gebruik",
-    "now_using": "{} wordt gebruikt"
+    "now_using": "{} wordt gebruikt",
+    "add_or_manage_sources": "Bronnen toevoegen of beheren"
+  },
+  "sources": {
+    "fail_gone": "De site van deze bron bestaat niet meer",
+    "fail_blocked": "De site blokkeert de app",
+    "fail_rate_limited": "De site weigert vanwege zijn verzoeklimiet",
+    "fail_unreachable": "Kon de site niet bereiken",
+    "fail_incompatible": "Deze bron vereist een nieuwere versie van de app",
+    "fail_broken": "Deze bron is op zichzelf vastgelopen",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "Alle"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "Bronadressen via een andere aanbieder opzoeken. Helpt als een site via DNS is geblokkeerd. Geen VPN — je verkeer en IP blijven hetzelfde.",
+    "dns_system": "Systeemstandaard",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (ongefilterd)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "Die resolver was niet bereikbaar, dus die van het systeem blijft in gebruik."
   }
 }

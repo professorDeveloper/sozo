@@ -292,6 +292,18 @@ extension _PlayerMedia on _PlayerPageState {
         -1;
     final useSources = pickedIdx >= 0;
     final url = useSources ? sources[pickedIdx].videoUrl : value.videoUrl;
+    // The picked mirror's OWN headers.
+    //
+    // `value.headers` is the top level, which both on-device hosts hard-code to
+    // source 0's — so the moment the ladder picked anything else (a remembered
+    // quality, or source 0 filtered out as unplayable) the player asked mirror
+    // three for a file with mirror one's Referer and Origin. The CDN answers
+    // 403 and it surfaces as a decoder failure. The manual-switch and
+    // auto-retry paths already pass the source's own headers; only the first
+    // play did not, which is why it looked like "some titles just don't play".
+    final headers = useSources && sources[pickedIdx].headers.isNotEmpty
+        ? sources[pickedIdx].headers
+        : value.headers;
     final subs = value.subtitles;
 
     setState(() {
@@ -313,7 +325,7 @@ extension _PlayerMedia on _PlayerPageState {
     unawaited(_loadThumbnails(value.thumbnails));
     await _initializeWith(
       url: url,
-      headers: value.headers,
+      headers: headers,
       type: useSources ? _typeOf(sources[pickedIdx]) : value.type,
       resumeAt: resumeAt,
     );
@@ -1232,10 +1244,32 @@ extension _PlayerMedia on _PlayerPageState {
   bool _isRecoverableError(String msg) =>
       RetryPolicy.isRecoverableError(msg);
 
+  /// Keeps the screen awake while the video is running, and only then.
+  ///
+  /// The hold used to be taken when the player opened and dropped when it
+  /// closed, so a paused episode left on screen held the phone awake until the
+  /// battery gave out — pause, put it down, come back to a hot phone. Nothing
+  /// is watching a paused frame.
+  ///
+  /// Idempotent: WakelockHolds is a set, so repeating the same state is free
+  /// and this can be called from a listener that fires on every tick.
+  void _syncWakelock(bool playing) {
+    final want = playing && _hive.keepScreenOn;
+    if (want == _wakelockHeld) return;
+    _wakelockHeld = want;
+    if (want) {
+      WakelockHolds.acquire(this);
+    } else {
+      WakelockHolds.release(this);
+    }
+  }
+
   void _onMajorChange() {
     final c = _controller;
     if (c == null) return;
     final v = c.value;
+
+    _syncWakelock(v.isPlaying);
 
     if (v.hasError) {
       final msg = v.errorDescription;

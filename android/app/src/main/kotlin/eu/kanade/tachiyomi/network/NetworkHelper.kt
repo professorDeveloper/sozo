@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.network
 import android.content.Context
 import android.webkit.WebSettings
 import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
-import eu.kanade.tachiyomi.network.interceptor.IgnoreGzipInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
 import okhttp3.Cache
@@ -22,6 +21,10 @@ class NetworkHelper(context: Context) {
 
     val client: OkHttpClient = OkHttpClient.Builder()
         .cookieJar(cookieJar)
+        // Reads the app's DNS setting on every lookup — see ExtensionDns. The
+        // client is built once behind a `lazy`, so a resolver captured here
+        // would only change on the next launch.
+        .dns(com.soplay.sozo.ExtensionDns.dns)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .callTimeout(2, TimeUnit.MINUTES)
@@ -33,7 +36,17 @@ class NetworkHelper(context: Context) {
         )
         .addInterceptor(UncaughtExceptionInterceptor())
         .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
-        .addNetworkInterceptor(IgnoreGzipInterceptor())
+        // No IgnoreGzipInterceptor here, deliberately.
+        //
+        // [IgnoreGzipInterceptor] exists for an EXTENSION to install right
+        // before its own BrotliInterceptor; Mihon's own default client does not
+        // carry it. Ours did, and it cost twice over. MangaDex asserts the
+        // default client is clean — `check(interceptors.none { it is
+        // IgnoreGzipInterceptor })` — so building its client threw
+        // IllegalStateException and the source failed on every call, popular,
+        // latest and search alike. And for every other source it stripped
+        // `Accept-Encoding: gzip` while nothing downstream decoded Brotli, so
+        // each page came back uncompressed.
         .addInterceptor(CloudflareInterceptor(context, cookieJar, ::defaultUserAgentProvider))
         .build()
 

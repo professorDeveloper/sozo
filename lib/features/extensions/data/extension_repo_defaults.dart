@@ -27,13 +27,27 @@ class ExtensionRepoDefaults {
 
   static const List<ExtensionRepoEntity> all = [
     // --- CloudStream ------------------------------------------------------
+    // CloudStream's own, and the only entry marked `verified` in the project's
+    // repo database (recloudstream/cs-repos). Small — five providers — but
+    // every one of them links against what this app ships, which is not true
+    // of the large third-party repos: of 132 plugins sampled across six
+    // authors, 83 reference a `com.lagradost` symbol we do not have. First,
+    // because a source that works is worth more than a long list.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.cloudstream,
+      name: 'CloudStream Official',
+      description: 'Maintained by CloudStream · YouTube, Twitch, Dailymotion',
+      url:
+          'https://raw.githubusercontent.com/recloudstream/extensions/master/repo.json',
+      order: 0,
+    ),
     ExtensionRepoEntity(
       kind: ExtensionRepoKind.cloudstream,
       name: 'Phisher Extensions',
       description: 'Large collection · movies, series & anime',
       url:
           'https://raw.githubusercontent.com/phisher98/cloudstream-extensions-phisher/refs/heads/builds/repo.json',
-      order: 0,
+      order: 1,
     ),
     ExtensionRepoEntity(
       kind: ExtensionRepoKind.cloudstream,
@@ -41,7 +55,7 @@ class ExtensionRepoDefaults {
       description: 'Popular providers · movies & series',
       url:
           'https://raw.githubusercontent.com/redowan99/Redowan-CloudStream/master/repo.json',
-      order: 1,
+      order: 2,
     ),
 
     // --- Aniyomi (anime) --------------------------------------------------

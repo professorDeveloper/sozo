@@ -1,5 +1,7 @@
 package com.soplay.sozo.aniyomi
 
+import com.soplay.sozo.ExtensionFailure
+
 import android.content.Context
 import android.util.Log
 import com.soplay.sozo.extensions.ApkSignature
@@ -29,6 +31,10 @@ class AniyomiHost(private val context: Context) {
         private const val TAG = "AniyomiHost"
         private const val UA =
             "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
+
+        /** Named, not referenced by class: an extension loads its own copy. */
+        private const val SHIM_HTTP_SOURCE =
+            "eu.kanade.tachiyomi.animesource.online.AnimeHttpSource"
     }
 
     private data class SourceMeta(
@@ -195,7 +201,16 @@ class AniyomiHost(private val context: Context) {
         val dir = file.parentFile!!
         if (file.exists() && file.length() > 0) return file
 
-        val tmp = File(dir, "${file.name}.part")
+        // `<name>.part.apk`, not `<name>.apk.part`.
+        //
+        // The signature check runs against this temp file, and
+        // getPackageArchiveInfo is documented against apk paths. It does
+        // dispatch on content rather than extension in current AOSP, so the old
+        // name worked — but if it ever returned null here, `fingerprints` would
+        // come back empty and every apk from a repo that declares a fingerprint
+        // would be rejected. That failure mode is indistinguishable from
+        // "nothing works", and the extension costs nothing.
+        val tmp = File(dir, "${file.nameWithoutExtension}.part.apk")
         return try {
             val conn = (URL(meta.apkUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"; instanceFollowRedirects = true
@@ -254,44 +269,50 @@ class AniyomiHost(private val context: Context) {
     /**
      * Every video for an episode, across both Aniyomi source APIs.
      *
-     * Aniyomi 0.16 split resolution in two: `getHosterList(episode)` returns
-     * the servers, then `getVideoList(hoster)` returns one server's qualities.
-     * The old single call is still there and still what most extensions
-     * implement, so this asks for hosters FIRST and falls back.
+     * extensions-lib 16 split resolution in two: `getHosterList(episode)`
+     * returns the servers, then `getVideoList(hoster)` returns one server's
+     * qualities. The old single call is still there and still what many
+     * extensions implement, so this asks for hosters FIRST and falls back.
      *
      * Order matters. A new-API extension inherits a `getVideoList(episode)`
      * that returns nothing — its real implementation is on the hoster path — so
      * calling the old one first got an empty list and stopped, which on screen
-     * is a source that finds the episode and then offers no servers. Calling
-     * the new one first and falling back covers both, because an old-API
-     * extension has no getHosterList to find.
+     * is a source that finds the episode and then offers no servers.
      *
-     * Resolved reflectively rather than against the type: the shim's
-     * AnimeHttpSource does not declare getHosterList, and a source object comes
-     * from a class loader of its own. A NoSuchMethodException here is the
-     * ordinary case for an old extension, not an error.
+     * [implementsHosterApi] decides which one goes first, because the shim now
+     * declares the whole hoster API itself: without that check every old
+     * extension would spend one wasted request reaching a `hosterListParse`
+     * that only throws.
+     *
+     * Resolved reflectively rather than against the type: a source object comes
+     * from a class loader of its own, and an extension may override the hoster
+     * call without extending our AnimeHttpSource at all.
      */
     private fun fetchVideos(src: Any, episode: SEpisodeImpl, id: String): List<Video> {
-        val viaHosters = try {
-            val method = src.javaClass.methods.firstOrNull {
-                it.name == "getHosterList" && it.parameterTypes.size >= 1
-            }
-            if (method == null) {
-                null
-            } else {
-                @Suppress("UNCHECKED_CAST")
-                val hosters = runBlocking {
-                    suspendCallCompat(method, src, episode) as? List<Hoster>
-                } ?: emptyList()
-                // A hoster that already carries its videos needs no second
-                // call; one that does not is asked for them individually.
-                hosters.flatMap { hoster ->
-                    hoster.videoList ?: fetchHosterVideos(src, hoster)
-                }
-            }
-        } catch (t: Throwable) {
-            Log.e(TAG, "hosters $id: ${t.message}")
+        val viaHosters = if (!implementsHosterApi(src)) {
             null
+        } else {
+            try {
+                val method = src.javaClass.methods.firstOrNull {
+                    it.name == "getHosterList" && it.parameterTypes.size >= 1
+                }
+                if (method == null) {
+                    null
+                } else {
+                    @Suppress("UNCHECKED_CAST")
+                    val hosters = runBlocking {
+                        suspendCallCompat(method, src, episode) as? List<Hoster>
+                    } ?: emptyList()
+                    // A hoster that already carries its videos needs no second
+                    // call; one that does not is asked for them individually.
+                    hosters.flatMap { hoster ->
+                        hoster.videoList ?: fetchHosterVideos(src, hoster)
+                    }
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "hosters $id: ${t.message}")
+                null
+            }
         }
 
         if (!viaHosters.isNullOrEmpty()) return viaHosters
@@ -302,6 +323,31 @@ class AniyomiHost(private val context: Context) {
             Log.e(TAG, "videos $id: ${t.message}")
             emptyList()
         }
+    }
+
+    /**
+     * Whether this source resolves videos the extensions-lib 16 way.
+     *
+     * True only when something BELOW the shim's AnimeHttpSource overrides part
+     * of the hoster API. The shim supplies defaults for all of it so that a
+     * lib-16 extension's own `super.getHosterList(...)` resolves, which means
+     * the method being present says nothing about who implements it.
+     */
+    private fun implementsHosterApi(src: Any): Boolean {
+        var cls: Class<*>? = src.javaClass
+        while (cls != null && cls.name != SHIM_HTTP_SOURCE && cls != Any::class.java) {
+            val declares = cls.declaredMethods.any { m ->
+                when (m.name) {
+                    "getHosterList", "hosterListParse" -> true
+                    "getVideoList", "videoListParse" ->
+                        m.parameterTypes.any { it.name.endsWith(".Hoster") }
+                    else -> false
+                }
+            }
+            if (declares) return true
+            cls = cls.superclass
+        }
+        return false
     }
 
     /** One hoster's qualities, when the hoster list did not carry them. */
@@ -506,20 +552,52 @@ class AniyomiHost(private val context: Context) {
     fun loadJson(id: String, url: String): String {
         val src = sourceFor(id) ?: return "{}"
         val anime = newAnime(url)
+        // Why the failures are carried rather than logged and dropped.
+        //
+        // Both calls below used to catch, Log.e and continue with an empty
+        // result, and nothing put a reason in the payload. A Cloudflare
+        // challenge, a dead domain and a site that redesigned its markup then
+        // arrived at the app as the same blank page, indistinguishable from a
+        // title that genuinely has nothing — which is what "Aniyomi doesn't
+        // work at all" looks like from the outside. CloudStream has always
+        // reported its own reason here (PluginHost.loadJson), and so do this
+        // host's own getMainPageJson and searchJson; only this method did not.
+        var failure: String? = null
         val details = try { runBlocking { src.getAnimeDetails(anime) } }
-        catch (t: Throwable) { Log.e(TAG, "details $id: ${t.message}"); anime }
+        catch (t: Throwable) {
+            Log.e(TAG, "details $id: ${t.message}")
+            failure = "details: ${ExtensionFailure.describe(t)}"
+            anime
+        }
         val eps = try { runBlocking { src.getEpisodeList(anime) } }
-        catch (t: Throwable) { Log.e(TAG, "episodes $id: ${t.message}"); emptyList() }
-        // A single-episode entry is a movie; multiple episodes is a series.
-        val isMovie = eps.size <= 1
+        catch (t: Throwable) {
+            Log.e(TAG, "episodes $id: ${t.message}")
+            failure = "episodes: ${ExtensionFailure.describe(t)}"
+            emptyList()
+        }
+        // One episode is a movie. NO episodes is a failure, and calling it a
+        // movie sent the app down the movie branch, where the "this source has
+        // no episodes" message is not even reachable.
+        val isMovie = eps.size == 1
         val episodes = JSONArray()
         eps.sortedBy { it.episode_number }.forEachIndexed { i, e ->
             val num = if (e.episode_number > 0) e.episode_number.toInt() else (i + 1)
+            // `SEpisode.name` is lateinit. An extension that fills url and
+            // episode_number but not name threw straight out of this method,
+            // and the app showed "details not found" for a source that had
+            // just handed over a perfectly good episode list.
+            val label = if (isMovie) "Play" else {
+                val named = try { e.name } catch (_: Throwable) { "" }
+                named.ifEmpty { "Episode $num" }
+            }
             episodes.put(JSONObject().apply {
                 put("episode", num)
-                put("label", if (isMovie) "Play" else e.name.ifEmpty { "Episode $num" })
+                put("label", label)
                 put("mediaRef", e.url)
             })
+        }
+        if (eps.isEmpty() && failure == null) {
+            failure = "no episodes returned for this title"
         }
         val title = try { details.title } catch (_: Throwable) { "" }
         val author = try { details.author } catch (_: Throwable) { null }
@@ -534,10 +612,15 @@ class AniyomiHost(private val context: Context) {
         }
         // Aniyomi has no "recommendations" API, so derive a "similar" row from a
         // title search (same fallback CloudStream uses).
+        //
+        // Skipped when the page itself did not load. This is a third serial
+        // round trip against a client whose call timeout is two minutes, and
+        // spending it to decorate a page that is already empty is how a failed
+        // detail open turns into a two-minute spinner that reads as a hang.
         val related = JSONArray()
         try {
             val q = title.replace(Regex("\\(.*?\\)"), "").trim()
-            if (q.length >= 2) {
+            if (failure == null && q.length >= 2) {
                 val results = runBlocking { src.getSearchAnime(1, q, AnimeFilterList()) }
                 for (a in results.animes) {
                     if (a.url == url) continue
@@ -561,6 +644,10 @@ class AniyomiHost(private val context: Context) {
             put("cast", JSONArray())
             put("related", related)
             put("episodes", episodes)
+            // Carried to the app so it can say what happened instead of
+            // rendering an empty page. DetailRepositoryImpl already reads this
+            // key for every other host.
+            failure?.let { put("error", "${sources[id]?.name ?: id}: $it") }
         }.toString()
     }
 
@@ -571,9 +658,18 @@ class AniyomiHost(private val context: Context) {
         val subs = JSONArray()
         val seen = HashSet<String>()
         val seenSub = HashSet<String>()
-        if (src != null && meta != null) {
+        var failure: String? = null
+        if (src == null || meta == null) {
+            failure = "source not loaded"
+        } else {
             val episode = SEpisodeImpl().apply { url = data; name = "" }
-            val videos = fetchVideos(src, episode, id)
+            val videos = try {
+                fetchVideos(src, episode, id)
+            } catch (t: Throwable) {
+                Log.e(TAG, "links $id: ${t.message}")
+                failure = ExtensionFailure.describe(t)
+                emptyList()
+            }
             for (v in videos) {
                 val vu = v.videoUrl ?: continue
                 if (vu.isEmpty() || !seen.add(vu)) continue
@@ -597,12 +693,18 @@ class AniyomiHost(private val context: Context) {
             }
         }
         val first = if (videoSources.length() > 0) videoSources.getJSONObject(0) else null
+        if (videoSources.length() == 0 && failure == null) {
+            failure = "the source returned no mirrors for this episode"
+        }
         return JSONObject().apply {
             put("videoUrl", first?.optString("videoUrl"))
             put("type", first?.optString("type"))
             put("headers", first?.optJSONObject("headers") ?: JSONObject())
             put("videoSources", videoSources)
             put("subtitles", subs)
+            // Same reason as loadJson: "the hoster is down", "the episode has
+            // no mirrors" and "the extension threw" were one flat message.
+            failure?.let { put("error", "${meta?.name ?: id}: $it") }
         }.toString()
     }
 }

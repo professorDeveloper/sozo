@@ -969,21 +969,43 @@ class _DetailViewState extends State<_DetailView>
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black54,
-      builder: (dctx) => Center(
-        child: Column(
+      // A card, not a bare spinner over the page. The unwrapped version drew
+      // the indicator and the word Cancel straight onto the hero image, with
+      // nothing behind them and nothing saying what was being waited for —
+      // white text over a bright poster, floating at whatever width the column
+      // happened to take.
+      builder: (dctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        contentPadding: const EdgeInsets.fromLTRB(24, 28, 24, 8),
+        content: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: AppColors.primary),
-            const SizedBox(height: 18),
-            TextButton(
-              onPressed: () => Navigator.of(dctx).pop(),
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Flexible(
               child: Text(
-                'general.cancel'.tr(),
-                style: const TextStyle(color: Colors.white70),
+                'player.extracting_media'.tr(),
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
               ),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dctx).pop(),
+            child: Text(
+              'general.cancel'.tr(),
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+        ],
       ),
     ).whenComplete(() => dialogOpen = false);
 

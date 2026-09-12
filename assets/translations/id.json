@@ -360,7 +360,13 @@
     "info_fields_title": "Baris lapisan info",
     "logs_title": "Log pemutar ({})",
     "logs_copied": "Log disalin",
-    "logs_empty": "Belum ada log"
+    "logs_empty": "Belum ada log",
+    "alt_unavailable": "Tidak bisa memuat daftar sumber. Periksa koneksi lalu coba lagi.",
+    "alt_all_failed": "Tidak ada sumber yang menjawab. Biasanya ini koneksi, bukan judulnya.",
+    "alt_some_failed": "Tidak ada yang cocok, tetapi {} sumber tidak menjawab.",
+    "resolve_timeout": "Sumber tidak menjawab tepat waktu. Coba server atau sumber lain.",
+    "layout_center": "Di sekitar putar",
+    "layout_center_full": "Tidak ada ruang lagi di sekitar putar"
   },
   "profile": {
     "title": "Profil",
@@ -1431,7 +1437,8 @@
     "released_body": "Episode {episode} sudah keluar",
     "remove_entry": "Hapus dari daftar saya",
     "remove_confirm": "Hapus “{}” dari AniList-mu? Progresmu untuk judul itu ikut terhapus.",
-    "removed": "Dihapus dari AniList"
+    "removed": "Dihapus dari AniList",
+    "retry_in": "Coba lagi dalam {} d"
   },
   "mal": {
     "connect": "Hubungkan MyAnimeList",
@@ -1651,7 +1658,9 @@
     "video": "Tonton",
     "manga": "Manga",
     "novel": "Novel",
-    "none_installed": "Belum ada sumber {} yang terpasang."
+    "none_installed": "Belum ada sumber {} yang terpasang.",
+    "novels_hint": "Novel adalah teks, bukan gambar — light novel dan web novel, dibaca di pembaca yang sama dengan manga. Sumber novel berasal dari repositori Mangayomi: tambahkan satu dan semua sumber novelnya muncul di sini.",
+    "manga_hint": "Sumber manga tidak bawaan — dipasang. Tambahkan repositori dan semua sumbernya muncul di sini."
   },
   "home_rails": {
     "title": "Tata letak beranda",
@@ -1811,6 +1820,32 @@
     "continue": "Lanjutkan",
     "use_source": "Gunakan sumber ini",
     "in_use": "Digunakan",
-    "now_using": "Menggunakan {}"
+    "now_using": "Menggunakan {}",
+    "add_or_manage_sources": "Tambah atau kelola sumber"
+  },
+  "sources": {
+    "fail_gone": "Situs sumber ini sudah tidak ada",
+    "fail_blocked": "Situs memblokir aplikasi",
+    "fail_rate_limited": "Situs menolak karena batas permintaan",
+    "fail_unreachable": "Tidak dapat menjangkau situs",
+    "fail_incompatible": "Sumber ini butuh versi aplikasi yang lebih baru",
+    "fail_broken": "Sumber ini gagal dengan sendirinya",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "Semua"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "Selesaikan alamat sumber lewat penyedia lain. Membantu saat situs diblokir lewat DNS. Bukan VPN — tidak menyembunyikan lalu lintas atau mengubah IP Anda.",
+    "dns_system": "Bawaan sistem",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (tanpa filter)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "Resolver itu tidak dapat dijangkau, jadi milik sistem tetap dipakai."
   }
 }

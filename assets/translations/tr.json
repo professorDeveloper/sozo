@@ -360,7 +360,13 @@
     "info_fields_title": "Bilgi katmanı satırları",
     "logs_title": "Oynatıcı günlükleri ({})",
     "logs_copied": "Günlükler kopyalandı",
-    "logs_empty": "Henüz günlük yok"
+    "logs_empty": "Henüz günlük yok",
+    "alt_unavailable": "Kaynak listesine ulaşılamadı. Bağlantını kontrol edip tekrar dene.",
+    "alt_all_failed": "Hiçbir kaynak yanıt vermedi. Bu genelde bağlantıdır, içerik değil.",
+    "alt_some_failed": "Eşleşme yok; ancak {} kaynak yanıt vermedi.",
+    "resolve_timeout": "Kaynak zamanında yanıt vermedi. Başka bir sunucu ya da kaynak deneyin.",
+    "layout_center": "Oynat'ın yanında",
+    "layout_center_full": "Oynat'ın yanında yer kalmadı"
   },
   "profile": {
     "title": "Profil",
@@ -1431,7 +1437,8 @@
     "released_body": "{episode}. bölüm çıktı",
     "remove_entry": "Listemden çıkar",
     "remove_confirm": "“{}” AniList’ten çıkarılsın mı? Ona ait ilerlemen de silinir.",
-    "removed": "AniList’ten çıkarıldı"
+    "removed": "AniList’ten çıkarıldı",
+    "retry_in": "{} sn içinde yeniden denenecek"
   },
   "mal": {
     "connect": "MyAnimeList’i bağla",
@@ -1651,7 +1658,9 @@
     "video": "İzle",
     "manga": "Manga",
     "novel": "Roman",
-    "none_installed": "Henüz {} kaynağı yüklenmedi."
+    "none_installed": "Henüz {} kaynağı yüklenmedi.",
+    "novels_hint": "Roman, resim değil metindir — light novel ve web novel, manga ile aynı okuyucuda okunur. Roman kaynakları Mangayomi depolarından gelir: bir depo ekleyin, içindeki tüm roman kaynakları burada görünür.",
+    "manga_hint": "Manga kaynakları yerleşik değildir, kurulur. Bir depo ekleyin; içindeki tüm kaynaklar burada görünür."
   },
   "home_rails": {
     "title": "Ana sayfa düzeni",
@@ -1811,6 +1820,32 @@
     "continue": "Devam et",
     "use_source": "Bu kaynağı kullan",
     "in_use": "Kullanımda",
-    "now_using": "{} kullanılıyor"
+    "now_using": "{} kullanılıyor",
+    "add_or_manage_sources": "Kaynak ekle veya yönet"
+  },
+  "sources": {
+    "fail_gone": "Bu kaynağın sitesi artık yok",
+    "fail_blocked": "Site uygulamayı engelliyor",
+    "fail_rate_limited": "Site istek sınırı nedeniyle reddediyor",
+    "fail_unreachable": "Siteye ulaşılamadı",
+    "fail_incompatible": "Bu kaynak uygulamanın daha yeni bir sürümünü gerektiriyor",
+    "fail_broken": "Kaynağın kendisinde hata oluştu",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "Tümü"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "Kaynak adreslerini başka bir sağlayıcı üzerinden çöz. Site DNS ile engellendiyse işe yarar. VPN değildir — trafiğinizi gizlemez, IP'nizi değiştirmez.",
+    "dns_system": "Sistem varsayılanı",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (filtresiz)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "O çözümleyiciye ulaşılamadı, sistemdeki kullanılmaya devam ediyor."
   }
 }

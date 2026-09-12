@@ -1,5 +1,7 @@
 package com.soplay.sozo.aniyomi
 
+import com.soplay.sozo.ExtensionFailure
+
 import android.app.Application
 import android.content.Context
 import android.content.pm.PackageManager
@@ -125,7 +127,7 @@ object AniyomiRuntime {
                 val clazz = loader.loadClass(className)
                 clazz.getDeclaredConstructor().newInstance()
             } catch (t: Throwable) {
-                lastError = "instantiate $className: ${t.javaClass.simpleName}: ${t.message}"
+                lastError = "instantiate $className: ${ExtensionFailure.describe(t)}"
                 Log.e(TAG, "instantiate $className failed", t); continue
             }
             val sources = when (instance) {

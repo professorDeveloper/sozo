@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.animesource.online
 import eu.kanade.tachiyomi.animesource.AnimeCatalogueSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
+import eu.kanade.tachiyomi.animesource.model.Hoster
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
@@ -308,7 +309,109 @@ abstract class AnimeHttpSource : AnimeCatalogueSource {
      *
      * @param response the response from the site.
      */
-    protected abstract fun episodeVideoParse(response: Response): SEpisode
+    protected open fun episodeVideoParse(response: Response): SEpisode =
+        throw UnsupportedOperationException()
+
+    /**
+     * Every server offering an episode, cheapest first.
+     *
+     * ## Why this is here and not only [getVideoList]
+     *
+     * extensions-lib 16 split video resolution: the source lists hosters, and
+     * only the chosen one gets scraped for qualities. Extensions built against
+     * it implement [hosterListParse] and `getVideoList(Hoster)` and leave the
+     * old `videoListParse` unimplemented — and the compatibility base class
+     * those extensions inherit calls `super.getHosterList(episode)` from its
+     * own `getVideoList(episode)`.
+     *
+     * The shim did not declare this, so that super call resolved to nothing:
+     * `NoSuchMethodError: No virtual method getHosterList` the moment the user
+     * pressed play. Details and the episode list had already loaded, which is
+     * why the source looked installed and working right up to playback.
+     *
+     * @since extensions-lib 16
+     */
+    override suspend fun getHosterList(episode: SEpisode): List<Hoster> {
+        return client.newCall(hosterListRequest(episode))
+            .awaitSuccess()
+            .let { response -> hosterListParse(response) }
+    }
+
+    /**
+     * Returns the request for getting the hosters. Override only if it's needed to override
+     * the url, send different headers or request method like POST.
+     *
+     * @since extensions-lib 16
+     */
+    protected open fun hosterListRequest(episode: SEpisode): Request {
+        return GET(baseUrl + episode.url, headers)
+    }
+
+    /**
+     * Parses the response from the site and returns a list of hosters.
+     *
+     * @since extensions-lib 16
+     */
+    protected open fun hosterListParse(response: Response): List<Hoster> =
+        throw UnsupportedOperationException()
+
+    /**
+     * One hoster's qualities.
+     *
+     * @since extensions-lib 16
+     */
+    override suspend fun getVideoList(hoster: Hoster): List<Video> {
+        return client.newCall(videoListRequest(hoster))
+            .awaitSuccess()
+            .let { response -> videoListParse(response, hoster) }
+    }
+
+    /**
+     * Returns the request for getting one hoster's videos. Override only if it's needed to
+     * override the url, send different headers or request method like POST.
+     *
+     * @since extensions-lib 16
+     */
+    protected open fun videoListRequest(hoster: Hoster): Request {
+        return GET(hoster.hosterUrl, headers)
+    }
+
+    /**
+     * Parses the response from the hoster and returns a list of videos.
+     *
+     * @since extensions-lib 16
+     */
+    protected open fun videoListParse(
+        response: Response,
+        hoster: Hoster,
+    ): List<Video> = throw UnsupportedOperationException()
+
+    /**
+     * Resolves a video's real link, for sources that defer it until playback.
+     *
+     * @since extensions-lib 16
+     */
+    open suspend fun resolveVideo(video: Video): Video? {
+        return video
+    }
+
+    /**
+     * Sorts the hoster list. Override this according to the user's preference.
+     *
+     * @since extensions-lib 16
+     */
+    open fun List<Hoster>.sortHosters(): List<Hoster> {
+        return this
+    }
+
+    /**
+     * Sorts the video list. Override this according to the user's preference.
+     *
+     * @since extensions-lib 16
+     */
+    open fun List<Video>.sortVideos(): List<Video> {
+        return this
+    }
 
     /**
      * Get the list of videos a episode has. Videos should be returned
@@ -346,7 +449,8 @@ abstract class AnimeHttpSource : AnimeCatalogueSource {
      *
      * @param response the response from the site.
      */
-    protected abstract fun videoListParse(response: Response): List<Video>
+    protected open fun videoListParse(response: Response): List<Video> =
+        throw UnsupportedOperationException()
 
     /**
      * Sorts the video list. Override this according to the user's preference.
@@ -389,7 +493,8 @@ abstract class AnimeHttpSource : AnimeCatalogueSource {
      *
      * @param response the response from the site.
      */
-    protected abstract fun videoUrlParse(response: Response): String
+    protected open fun videoUrlParse(response: Response): String =
+        throw UnsupportedOperationException()
 
     /**
      * Returns the response of the source video.

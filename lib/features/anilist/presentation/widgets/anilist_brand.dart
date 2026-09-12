@@ -214,7 +214,9 @@ class AnilistScrollableMessage extends StatelessWidget {
     this.controller,
   });
 
-  final AnilistStateMessage message;
+  /// Widget, not AnilistStateMessage: the rate-limit state wraps one in a
+  /// ticker so it can count the wait down, and that is still a message.
+  final Widget message;
   final ScrollController? controller;
 
   @override

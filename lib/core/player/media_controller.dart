@@ -455,7 +455,20 @@ class _MediaKitController extends PlayerController {
     // controller built any other way still has to initialise before Player().
     _mediaKitUsable();
     _player = mk.Player();
-    _videoController = mkv.VideoController(_player);
+    _videoController = mkv.VideoController(
+      _player,
+      configuration: const mkv.VideoControllerConfiguration(
+        // Attach the Surface immediately instead of waiting for mpv to report
+        // the video's parameters.
+        //
+        // With the default, the first frame of a stream lands before the
+        // surface is attached and nothing repaints until something forces it —
+        // which is why the picture was black until the first seek and then
+        // perfectly fine. Seeking was not fixing anything; it was the first
+        // event that made the texture redraw.
+        androidAttachSurfaceAfterVideoParameters: false,
+      ),
+    );
   }
 
   final _MediaKitSource _src;

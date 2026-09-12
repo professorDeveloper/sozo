@@ -360,7 +360,13 @@
     "info_fields_title": "صفوف لوحة المعلومات",
     "logs_title": "سجلات المشغّل ({})",
     "logs_copied": "تم نسخ السجلات",
-    "logs_empty": "لا توجد سجلات بعد"
+    "logs_empty": "لا توجد سجلات بعد",
+    "alt_unavailable": "تعذّر جلب قائمة المصادر. تحقّق من الاتصال وحاول مجددًا.",
+    "alt_all_failed": "لم يستجب أي مصدر. عادةً ما يكون هذا بسبب الاتصال وليس المحتوى.",
+    "alt_some_failed": "لا توجد مطابقة، لكن {} مصدرًا لم تستجب.",
+    "resolve_timeout": "لم يستجب المصدر في الوقت المحدد. جرّب خادمًا آخر أو مصدرًا آخر.",
+    "layout_center": "حول زر التشغيل",
+    "layout_center_full": "لم يعد هناك مكان حول زر التشغيل"
   },
   "profile": {
     "title": "حسابي",
@@ -1431,7 +1437,8 @@
     "released_body": "صدرت الحلقة {episode}",
     "remove_entry": "إزالة من قائمتي",
     "remove_confirm": "إزالة \"{}\" من AniList؟ سيُحذف تقدّمك فيه أيضاً.",
-    "removed": "أُزيل من AniList"
+    "removed": "أُزيل من AniList",
+    "retry_in": "إعادة المحاولة خلال {} ث"
   },
   "mal": {
     "connect": "ربط MyAnimeList",
@@ -1655,7 +1662,9 @@
     "video": "المشاهدة",
     "manga": "مانغا",
     "novel": "روايات",
-    "none_installed": "لا توجد مصادر “{}” مثبَّتة بعد."
+    "none_installed": "لا توجد مصادر “{}” مثبَّتة بعد.",
+    "novels_hint": "الروايات نصّ لا صور — لايت نوفل وويب نوفل، تُقرأ في نفس القارئ الذي يقرأ المانغا. مصادر الروايات تأتي من مستودعات Mangayomi: أضِف مستودعًا وستظهر هنا كل مصادر الروايات فيه.",
+    "manga_hint": "مصادر المانغا ليست مدمجة، بل تُثبَّت. أضِف مستودعًا وستظهر هنا كل مصادره."
   },
   "home_rails": {
     "title": "الشاشة الرئيسية",
@@ -1815,6 +1824,32 @@
     "continue": "متابعة",
     "use_source": "استخدام هذا المصدر",
     "in_use": "قيد الاستخدام",
-    "now_using": "يتم استخدام {}"
+    "now_using": "يتم استخدام {}",
+    "add_or_manage_sources": "إضافة المصادر أو إدارتها"
+  },
+  "sources": {
+    "fail_gone": "موقع هذا المصدر لم يعد موجودًا",
+    "fail_blocked": "الموقع يحجب التطبيق",
+    "fail_rate_limited": "الموقع يرفض بسبب حد الطلبات",
+    "fail_unreachable": "تعذّر الوصول إلى الموقع",
+    "fail_incompatible": "يحتاج هذا المصدر إلى إصدار أحدث من التطبيق",
+    "fail_broken": "فشل هذا المصدر من تلقاء نفسه",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "مانغا",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "الكل"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "حلّ عناوين المصادر عبر مزوّد آخر. يفيد عندما يكون الموقع محجوبًا عبر DNS. ليس VPN — لا يخفي حركتك ولا يغيّر عنوان IP.",
+    "dns_system": "إعداد النظام",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (بدون تصفية)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "تعذّر الوصول إلى ذلك المحلّل، لذا لا يزال محلّل النظام قيد الاستخدام."
   }
 }

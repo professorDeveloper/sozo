@@ -5,12 +5,15 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 
 /// "This source is down — here is who else has it."
 ///
@@ -88,14 +91,26 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// list is a network call, and without this a second tap starts a second one.
   String? _preparing;
 
+  /// How the run ended, so the empty state can say which kind of empty.
+  AlternateSearchOutcome? _outcome;
+
   @override
   void initState() {
     super.initState();
+    // Every source the app can reach, not only the ones the backend serves.
+    // The bloc is the only place the installed extension sources exist.
+    final state = context.read<ProviderBloc>().state;
+    final candidates =
+        state is ProviderLoaded ? state.usableProviders : null;
     _sub = getIt<AlternateSourceService>()
         .find(
           title: widget.title,
           excludeProvider: widget.provider,
           category: widget.category,
+          candidates: candidates,
+          onOutcome: (o) {
+            if (mounted) setState(() => _outcome = o);
+          },
         )
         .listen(
           (s) {
@@ -116,6 +131,25 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
             if (mounted) setState(() => _searching = false);
           },
         );
+  }
+
+  /// Which kind of empty this is.
+  ///
+  /// "No other source has it" was shown for three different situations — an
+  /// honest miss, every source timing out, and the provider list failing to
+  /// load at all. The last two are the app's problem and saying they are the
+  /// catalogue's is the worst of the three.
+  String _emptyMessage() {
+    final outcome = _outcome;
+    if (outcome == null) return 'player.alt_none'.tr();
+    if (outcome.unavailable) return 'player.alt_unavailable'.tr();
+    if (outcome.failed > 0 && outcome.failed >= outcome.asked) {
+      return 'player.alt_all_failed'.tr();
+    }
+    if (outcome.failed > 0) {
+      return 'player.alt_some_failed'.tr(args: ['${outcome.failed}']);
+    }
+    return 'player.alt_none'.tr();
   }
 
   @override
@@ -200,7 +234,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
                         Text(
                           _searching
                               ? 'player.alt_searching'.tr()
-                              : 'player.alt_none'.tr(),
+                              : _emptyMessage(),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Colors.white54,

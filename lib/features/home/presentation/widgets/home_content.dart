@@ -286,7 +286,16 @@ class _HomeContentBody extends StatelessWidget {
           // The hero sits under the status bar when it is first. Moved down, it
           // is an ordinary rail and something else needs that clearance —
           // otherwise the top band renders behind the clock.
-          final needsTopPad = rails.first != HomeRail.hero || !showHero;
+          //
+          // The failure strip needs it too, and it is the reason this is not
+          // just about the hero: the strip goes ABOVE the rails, so with the
+          // hero first there was no clearance at all and the strip drew behind
+          // the logo and the source chip — the one band whose whole job is to
+          // be read.
+          final needsTopPad =
+              catalogue is CatalogueFailed ||
+              rails.first != HomeRail.hero ||
+              !showHero;
 
           return CustomScrollView(
             controller: scrollController,

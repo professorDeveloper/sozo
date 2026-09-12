@@ -360,7 +360,13 @@
     "info_fields_title": "Lignes de l’encart d’informations",
     "logs_title": "Journaux du lecteur ({})",
     "logs_copied": "Journaux copiés",
-    "logs_empty": "Aucun journal pour l’instant"
+    "logs_empty": "Aucun journal pour l’instant",
+    "alt_unavailable": "Liste des sources inaccessible. Vérifiez la connexion et réessayez.",
+    "alt_all_failed": "Aucune source n'a répondu. C'est en général la connexion, pas le titre.",
+    "alt_some_failed": "Aucune correspondance, mais {} source(s) n'ont pas répondu.",
+    "resolve_timeout": "La source n'a pas répondu à temps. Essayez un autre serveur ou une autre source.",
+    "layout_center": "Autour de lecture",
+    "layout_center_full": "Plus de place autour de lecture"
   },
   "profile": {
     "title": "Profil",
@@ -1431,7 +1437,8 @@
     "released_body": "L’épisode {episode} est sorti",
     "remove_entry": "Retirer de ma liste",
     "remove_confirm": "Retirer « {} » de ton AniList ? Ta progression dessus est aussi supprimée.",
-    "removed": "Retiré d’AniList"
+    "removed": "Retiré d’AniList",
+    "retry_in": "Nouvel essai dans {} s"
   },
   "mal": {
     "connect": "Connecter MyAnimeList",
@@ -1651,7 +1658,9 @@
     "video": "Regarder",
     "manga": "Manga",
     "novel": "Romans",
-    "none_installed": "Aucune source {} installée pour l’instant."
+    "none_installed": "Aucune source {} installée pour l’instant.",
+    "novels_hint": "Les novels sont du texte, pas des images — light novels et web novels, lus dans le même lecteur que les mangas. Les sources de novels viennent des dépôts Mangayomi : ajoutez-en un et toutes ses sources apparaissent ici.",
+    "manga_hint": "Les sources de manga ne sont pas intégrées, elles s'installent. Ajoutez un dépôt et toutes ses sources apparaissent ici."
   },
   "home_rails": {
     "title": "Disposition de l’accueil",
@@ -1811,6 +1820,32 @@
     "continue": "Continuer",
     "use_source": "Utiliser cette source",
     "in_use": "Utilisée",
-    "now_using": "{} est utilisée"
+    "now_using": "{} est utilisée",
+    "add_or_manage_sources": "Ajouter ou gérer des sources"
+  },
+  "sources": {
+    "fail_gone": "Le site de cette source n'existe plus",
+    "fail_blocked": "Le site bloque l'application",
+    "fail_rate_limited": "Le site refuse à cause de sa limite de requêtes",
+    "fail_unreachable": "Impossible de joindre le site",
+    "fail_incompatible": "Cette source nécessite une version plus récente de l'app",
+    "fail_broken": "Cette source a échoué d'elle-même",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "Toutes"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "Résoudre les adresses des sources via un autre fournisseur. Utile quand un site est bloqué par DNS. Ce n'est pas un VPN : ni votre trafic ni votre IP ne changent.",
+    "dns_system": "Système",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (non filtré)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "Ce résolveur est injoignable ; celui du système reste utilisé."
   }
 }

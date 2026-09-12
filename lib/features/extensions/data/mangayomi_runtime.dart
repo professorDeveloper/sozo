@@ -200,6 +200,10 @@ class MangayomiRuntime {
     'domain_url',
     'overrideBaseUrl',
     'baseUrl',
+    // kolnovel's own spelling. Harmless where it is unused, and the whole point
+    // of this list is that it is the set actually observed in the wild rather
+    // than one canonical name nobody agreed on.
+    'base_url',
     'preferred_domain',
   ];
 

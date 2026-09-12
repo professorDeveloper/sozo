@@ -19,8 +19,12 @@ import com.lagradost.cloudstream3.utils.UiText
  * nothing, while everything it does for playback keeps working.
  */
 
-/** Which service an id belongs to. */
-enum class SyncIdName { Anilist, MyAnimeList, Trakt, Imdb, Tmdb, Simkl }
+// SyncIdName used to be declared here. It is not any more: the bundled
+// CloudStream library ships its own, with a different set of constants
+// (Anilist, Imdb, Kitsu, LocalList, MyAnimeList, Simkl, Trakt — no Tmdb).
+// Two definitions of one class name means ART takes whichever landed in the
+// lower-numbered dex, which was ours — so a plugin naming Kitsu or LocalList
+// would have got NoSuchFieldError against constants the library does have.
 
 /** A signed-in account. Never produced here. */
 data class AuthUser(
@@ -44,7 +48,7 @@ open class SyncAPI {
 /**
  * Reads a service's library. Always empty, because [AuthUser] is always null.
  */
-class SyncRepo(val api: Any? = null) {
+class SyncRepo(val api: SyncAPI? = null) {
 
     fun authUser(): AuthUser? = null
 

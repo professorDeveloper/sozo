@@ -7,6 +7,7 @@ import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
+import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/domain/usecases/get_providers_usecase.dart';
 import 'package:soplay/features/search/domain/entities/cross_search_result.dart';
 import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
@@ -42,6 +43,28 @@ class AlternateSource {
 /// a different subtitle set and sometimes a different cut, so silently moving
 /// someone mid-episode would be a worse surprise than the error it replaced.
 /// The player offers; the viewer picks.
+/// How a search for other sources ended, beyond what it found.
+///
+/// The sheet used to render "no other source has this" for three different
+/// situations: nothing matched, every source timed out, and the provider list
+/// could not be loaded at all. They need different words.
+class AlternateSearchOutcome {
+  const AlternateSearchOutcome({
+    this.asked = 0,
+    this.failed = 0,
+    this.unavailable = false,
+  });
+
+  /// Sources that answered at all.
+  final int asked;
+
+  /// Of those, how many failed rather than honestly having nothing.
+  final int failed;
+
+  /// The list of sources itself could not be loaded — usually the backend.
+  final bool unavailable;
+}
+
 class AlternateSourceService {
   AlternateSourceService({
     required CrossSearchEngine engine,
@@ -67,32 +90,57 @@ class AlternateSourceService {
     required String title,
     required String excludeProvider,
     required String category,
+    List<ProviderEntity>? candidates,
+    void Function(AlternateSearchOutcome outcome)? onOutcome,
   }) async* {
     if (title.trim().isEmpty) return;
 
-    final snapshot = (await _providers()).getOrNull();
-    if (snapshot == null) return;
-    final all = snapshot.providers;
+    // The caller's list when it has one, which is every source the app can
+    // reach. Without it this asked GetProvidersUseCase, and that is the BACKEND
+    // list alone — so a viewer whose library is mostly CloudStream or Aniyomi
+    // was told nothing else had the title while a dozen installed sources did,
+    // and the cross-search screen found them immediately.
+    var all = candidates;
+    if (all == null) {
+      final snapshot = (await _providers()).getOrNull();
+      if (snapshot == null) {
+        // Not "nobody has it" — nobody was asked. The sheet says so rather than
+        // reporting an outage as an answer.
+        onOutcome?.call(const AlternateSearchOutcome(unavailable: true));
+        return;
+      }
+      all = snapshot.providers;
+    }
 
     final targets = all.where((p) {
       if (p.id == excludeProvider) return false;
       if (p.browseOnly) return false;
-      // An empty category on either side means "unknown", and excluding on
-      // unknown would quietly shrink the list for providers the backend has
-      // not classified.
-      if (category.isNotEmpty &&
-          p.category.isNotEmpty &&
-          p.category != category) {
-        return false;
-      }
+      if (!_categoryAllows(category, p.category)) return false;
       return true;
     }).map(ProviderRef.fromEntity).toList();
 
-    if (targets.isEmpty) return;
-    debugPrint('$_tag searching ${targets.length} sources for "$title"');
+    if (targets.isEmpty) {
+      onOutcome?.call(const AlternateSearchOutcome());
+      return;
+    }
 
-    await for (final result in _engine.search(set: targets, query: title)) {
-      if (!result.hasItems) continue;
+    // Capped like every other fan-out. Uncapped this is over an hour of wall
+    // clock; it only stayed tolerable before because the backend-only list was
+    // short by accident.
+    final legs = _engine.planLegs(targets);
+    debugPrint('$_tag searching ${legs.length} of ${targets.length} sources for "$title"');
+
+    var failed = 0;
+    var asked = 0;
+    await for (final result in _engine.search(set: legs, query: title)) {
+      asked++;
+      if (!result.hasItems) {
+        // "Timed out" and "does not have it" were the same `continue`, so the
+        // sheet could not tell a dead source from an honest miss and neither
+        // could the viewer.
+        if (result.status != ProviderSearchStatus.ok) failed++;
+        continue;
+      }
       final best = rank(result.items, title);
       if (best == null) continue;
       yield AlternateSource(
@@ -101,6 +149,23 @@ class AlternateSourceService {
         score: best.$2,
       );
     }
+    onOutcome?.call(AlternateSearchOutcome(asked: asked, failed: failed));
+  }
+
+  /// Whether a provider's category is compatible with the title's.
+  ///
+  /// Only content categories are comparable. Extension providers are stamped
+  /// with their ECOSYSTEM — `cloudstream`, `aniyomi`, `manga`, `mangayomi` —
+  /// and comparing one of those against `anime` excluded every installed source
+  /// on a value that was never a category in the first place.
+  static const Set<String> _ecosystems = {
+    'cloudstream', 'aniyomi', 'manga', 'mangayomi',
+  };
+
+  static bool _categoryAllows(String want, String have) {
+    if (want.isEmpty || have.isEmpty) return true;
+    if (_ecosystems.contains(want) || _ecosystems.contains(have)) return true;
+    return want == have;
   }
 
   /// Best match for [title] among [items], or null when none is close enough.

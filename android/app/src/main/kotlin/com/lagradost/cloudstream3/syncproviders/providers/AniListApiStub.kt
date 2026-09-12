@@ -1,5 +1,7 @@
 package com.lagradost.cloudstream3.syncproviders.providers
 
+import com.lagradost.cloudstream3.syncproviders.SyncAPI
+
 /**
  * A stand-in for CloudStream's AniList client. See
  * `../../utils/CloudStreamAppStubs.kt` for why these stubs exist.
@@ -21,7 +23,7 @@ package com.lagradost.cloudstream3.syncproviders.providers
  * what the plugin destructures. Every field is nullable — the plugin already
  * has to handle a partial response from the real API.
  */
-class AniListApi {
+class AniListApi : SyncAPI() {
 
     data class MediaTitle(
         val romaji: String? = null,

@@ -236,11 +236,13 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     if (result.isError) {
       final raw = result.getErrorOrNull()!.toString();
       _debouncer.forget();
+      // The results stay. This handler goes to lengths to keep them on screen
+      // during a refresh (see `keepItems` above) and then threw them away the
+      // moment one debounced keystroke's request failed — so a single flaky
+      // response mid-typing replaced a good grid with an error page. An error
+      // over the last good results says the same thing without taking them.
       emit(state.copyWith(
         status: SearchStatus.error,
-        items: const [],
-        page: 1,
-        totalPages: 1,
         errorMessage: cleanFailureMessage(raw),
         errorKind: classifySearchFailure(raw),
       ));

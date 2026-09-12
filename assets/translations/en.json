@@ -360,7 +360,13 @@
     "info_fields_title": "Info overlay rows",
     "logs_title": "Player logs ({})",
     "logs_copied": "Logs copied",
-    "logs_empty": "No logs yet"
+    "logs_empty": "No logs yet",
+    "alt_unavailable": "Couldn't reach the source list. Check your connection and try again.",
+    "alt_all_failed": "Every source failed to answer. This is usually the connection, not the title.",
+    "alt_some_failed": "No match found, though {} source(s) failed to answer.",
+    "resolve_timeout": "The source did not answer in time. Try another server or another source.",
+    "layout_center": "Around play",
+    "layout_center_full": "No room left around play"
   },
   "profile": {
     "title": "Profile",
@@ -1431,7 +1437,8 @@
     "released_body": "Episode {episode} is out",
     "remove_entry": "Remove from my list",
     "remove_confirm": "Remove \"{}\" from your AniList? Your progress for it is deleted too.",
-    "removed": "Removed from AniList"
+    "removed": "Removed from AniList",
+    "retry_in": "Try again in {}s"
   },
   "mal": {
     "connect": "Connect MyAnimeList",
@@ -1651,7 +1658,9 @@
     "video": "Watch",
     "manga": "Manga",
     "novel": "Novels",
-    "none_installed": "No {} sources installed yet."
+    "none_installed": "No {} sources installed yet.",
+    "novels_hint": "Novels are text, not pictures — light novels and web novels, read in the same reader as manga. Novel sources come from Mangayomi repositories: add one and every novel source in it appears here.",
+    "manga_hint": "Manga sources are installed, not built in. Add a repository and every source in it appears here."
   },
   "home_rails": {
     "title": "Home layout",
@@ -1811,6 +1820,32 @@
     "continue": "Continue",
     "use_source": "Use this source",
     "in_use": "In use",
-    "now_using": "Now using {}"
+    "now_using": "Now using {}",
+    "add_or_manage_sources": "Add or manage sources"
+  },
+  "sources": {
+    "fail_gone": "This source's site is gone",
+    "fail_blocked": "The site is blocking the app",
+    "fail_rate_limited": "The site is refusing on its request limit",
+    "fail_unreachable": "Could not reach the site",
+    "fail_incompatible": "This source needs a newer version of the app",
+    "fail_broken": "This source failed on its own",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "All"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "Resolve source addresses through another provider. Helps when a site is blocked by DNS. Not a VPN — it does not hide your traffic or change your IP.",
+    "dns_system": "System default",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (unfiltered)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "That resolver could not be reached, so the system one is still in use."
   }
 }

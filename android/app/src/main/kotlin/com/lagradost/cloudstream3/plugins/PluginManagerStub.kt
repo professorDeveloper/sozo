@@ -21,6 +21,10 @@ data class PluginData(
  * plugin cannot see into.
  */
 object PluginManager {
+    // No @JvmStatic: upstream declares these on a plain object, so plugin
+    // bytecode calls them with invoke-virtual on INSTANCE. Marking them static
+    // makes ART reject the call outright — IncompatibleClassChangeError, not a
+    // fallback. See CommonActivity for the same lesson learned the hard way.
 
     /**
      * Filled by [PluginHostBridge] as plugins load.
@@ -31,7 +35,6 @@ object PluginManager {
      */
     private val installed = linkedMapOf<String, PluginData>()
 
-    @JvmStatic
     fun getPluginsOnline(): Array<PluginData> = installed.values.toTypedArray()
 
     /**
@@ -42,19 +45,16 @@ object PluginManager {
      * removed. Honouring this call would let one plugin unload another out from
      * under the source the viewer is currently watching.
      */
-    @JvmStatic
     fun unloadPlugin(internalName: String) {
         // Deliberately empty; see above.
     }
 
     /** Called by the host when a .cs3 finishes loading. */
-    @JvmStatic
     fun record(internalName: String, filePath: String) {
         installed[internalName] = PluginData(internalName, filePath)
     }
 
     /** Called by the host when a plugin's providers are dropped. */
-    @JvmStatic
     fun forget(internalName: String) {
         installed.remove(internalName)
     }

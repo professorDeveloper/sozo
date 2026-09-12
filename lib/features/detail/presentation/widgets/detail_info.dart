@@ -82,31 +82,17 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
             ),
           ],
           const SizedBox(height: 18),
-          if (item != null &&
-              (item.positionMs > 0 || item.episodeNumber != null))
-            _ContinueWatchingCard(
-              item: item,
-              onTap: widget.onPrimaryAction,
-              reader: widget.detail.provider.opensReader,
-            ),
-          if (item != null &&
-              (item.positionMs > 0 || item.episodeNumber != null))
-            const SizedBox(height: 12),
-          Row(
-            children: [
-              if (item == null ||
-                  (item.positionMs <= 0 && item.episodeNumber == null))
-                Expanded(
-                  child: _PlayButton(
-                    key: widget.playButtonKey,
-                    onTap: widget.onPrimaryAction,
-                    // Manga / manhwa / novel sources open the reader, so the
-                    // primary action is "Read", not "Play" — with a book icon
-                    // to match. The wrong verb on a manga title reads as a
-                    // broken source.
-                    reader: widget.detail.provider.opensReader,
-                  ),
-                ),
+          // Download and trailer sit BESIDE the primary button, resuming or
+          // not. They used to be their own row underneath, because Continue
+          // came as a block with its progress bar and caption attached — so
+          // starting a title showed three controls on one line and coming back
+          // to it showed one, with the other two stranded below the caption.
+          _ContinueWatchingCard(
+            item: item,
+            onTap: widget.onPrimaryAction,
+            reader: widget.detail.provider.opensReader,
+            playButtonKey: widget.playButtonKey,
+            trailing: [
               // Offline used to be reachable only from inside the player:
               // open the title, wait for a source to resolve, start playing,
               // then find it in a menu. Four steps and a started stream to
@@ -141,10 +127,20 @@ class _ContinueWatchingCard extends StatelessWidget {
   const _ContinueWatchingCard({
     required this.item,
     required this.onTap,
+    required this.trailing,
     this.reader = false,
+    this.playButtonKey,
   });
-  final HistoryItem item;
+
+  /// null when nothing has been watched yet, in which case this is just the
+  /// play button and its neighbours.
+  final HistoryItem? item;
   final VoidCallback onTap;
+
+  /// Download and trailer, on the same line as the button.
+  final List<Widget> trailing;
+
+  final Key? playButtonKey;
 
   /// A manga or novel title. The reader records a page index (or, for prose,
   /// thousandths of the chapter) in the fields the player uses for
@@ -164,48 +160,72 @@ class _ContinueWatchingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = item.progress;
-    final left = !reader && item.durationMs > 0
+    final item = this.item;
+    final resuming =
+        item != null && (item.positionMs > 0 || item.episodeNumber != null);
+    final progress = resuming ? item.progress : 0.0;
+    final left = resuming && !reader && item.durationMs > 0
         ? Duration(milliseconds: item.durationMs - item.positionMs)
         : null;
 
-    final caption = <String>[
-      if (item.isSerial && item.episodeNumber != null)
-        'detail.episode_n'.tr(args: ['${item.episodeNumber}']),
-      if (left != null && left > const Duration(seconds: 30))
-        'detail.time_left'.tr(args: [_short(left)])
-      else if (!reader && progress > 0)
-        'detail.watched_pct'.tr(args: ['${(progress * 100).round()}']),
-    ].join(' \u00b7 ');
+    final caption = !resuming
+        ? ''
+        : <String>[
+            if (item.isSerial && item.episodeNumber != null)
+              'detail.episode_n'.tr(args: ['${item.episodeNumber}']),
+            if (left != null && left > const Duration(seconds: 30))
+              'detail.time_left'.tr(args: [_short(left)])
+            else if (!reader && progress > 0)
+              'detail.watched_pct'.tr(args: ['${(progress * 100).round()}']),
+          ].join(' \u00b7 ');
 
     return SizedBox(
-      width: isDesktopPlatform ? 360 : double.infinity,
+      width: isDesktopPlatform ? 460 : double.infinity,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            height: 46,
-            child: ElevatedButton.icon(
-              onPressed: onTap,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(kButtonRadius),
-                ),
+          Row(
+            children: [
+              Expanded(
+                child: !resuming
+                    ? _PlayButton(
+                        key: playButtonKey,
+                        onTap: onTap,
+                        // Manga / manhwa / novel sources open the reader, so
+                        // the primary action is "Read", not "Play" — with a
+                        // book icon to match. The wrong verb on a manga title
+                        // reads as a broken source.
+                        reader: reader,
+                      )
+                    : SizedBox(
+                        height: 46,
+                        child: ElevatedButton.icon(
+                          onPressed: onTap,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(kButtonRadius),
+                            ),
+                          ),
+                          icon: const Icon(Icons.play_arrow_rounded, size: 26),
+                          label: Text(
+                            item.isSerial && item.episodeNumber != null
+                                ? 'detail.continue_ep'
+                                      .tr(args: ['${item.episodeNumber}'])
+                                : 'detail.continue_watching'.tr(),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
               ),
-              icon: const Icon(Icons.play_arrow_rounded, size: 26),
-              label: Text(
-                item.isSerial && item.episodeNumber != null
-                    ? 'detail.continue_ep'.tr(args: ['${item.episodeNumber}'])
-                    : 'detail.continue_watching'.tr(),
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
+              ...trailing,
+            ],
           ),
           // A bar is only honest when the player reported a duration; a
           // zero-length track would draw an empty rail that never moves.

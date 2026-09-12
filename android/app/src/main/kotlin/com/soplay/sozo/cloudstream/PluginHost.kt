@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.res.AssetManager
 import android.content.res.Resources
 import android.util.Log
+import com.soplay.sozo.ExtensionDns
 import com.lagradost.cloudstream3.APIHolder
+import com.lagradost.cloudstream3.CloudStreamApp
 import com.lagradost.cloudstream3.AnimeLoadResponse
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.LiveStreamLoadResponse
@@ -43,6 +45,41 @@ import java.io.File
  * my-list / continue-watching keep working.
  */
 class PluginHost(private val appContext: Context) {
+
+    init {
+        // CloudStream plugins call `app`, the library's own HTTP client, which
+        // we do not build and cannot hand a Dns to. Reflection is the only way
+        // in, and it is worth taking: without it the DNS setting would apply to
+        // Aniyomi and Manga sources and silently not to CloudStream ones, with
+        // nothing on screen to say which half it covered.
+        applyDnsToLibraryClient()
+    }
+
+    /**
+     * Points the library's shared client at [ExtensionDns].
+     *
+     * Best effort by design: the field is an implementation detail of a version
+     * we pin but do not own. A failure here costs the setting on cs: sources
+     * and nothing else, so it is logged rather than thrown.
+     */
+    private fun applyDnsToLibraryClient() {
+        try {
+            val appField = Class.forName("com.lagradost.cloudstream3.MainAPIKt")
+                .getDeclaredMethod("getApp")
+            val requests = appField.invoke(null) ?: return
+            val clientField = requests.javaClass.methods
+                .firstOrNull { it.name == "getBaseClient" && it.parameterTypes.isEmpty() }
+                ?: return
+            val client = clientField.invoke(requests) as? okhttp3.OkHttpClient ?: return
+            val setter = requests.javaClass.methods.firstOrNull {
+                it.name == "setBaseClient" && it.parameterTypes.size == 1
+            } ?: return
+            setter.invoke(requests, client.newBuilder().dns(ExtensionDns.dns).build())
+            Log.i(TAG, "dns resolver applied to the library client")
+        } catch (t: Throwable) {
+            Log.w(TAG, "could not apply the dns resolver to the library client: ${t.javaClass.simpleName}")
+        }
+    }
 
     companion object {
         private const val TAG = "CloudStreamHost"
@@ -146,7 +183,17 @@ class PluginHost(private val appContext: Context) {
                     assets, appContext.resources.displayMetrics, appContext.resources.configuration
                 )
             }
-            if (instance is Plugin) instance.load(appContext) else instance.load()
+            // The resumed Activity when there is one, not the Application.
+            //
+            // Upstream hands Plugin.load() an Activity, and four plugins cast
+            // it straight to AppCompatActivity to put up a settings dialog —
+            // Aniworld, Jellyfin, MovieBox and ShowBox all died on
+            // "android.app.Application cannot be cast to AppCompatActivity"
+            // before they had registered anything. Loading is lazy and happens
+            // on first use, so an Activity is normally resumed; the Application
+            // stays as the fallback rather than refusing to load at all.
+            val host = CloudStreamApp.currentActivity ?: appContext
+            if (instance is Plugin) instance.load(host) else instance.load()
             loaded[internalName] = instance
             // So a plugin walking PluginManager.getPluginsOnline() to find its
             // own .cs3 — the usual reason to call it — gets a real answer.
@@ -350,6 +397,9 @@ class PluginHost(private val appContext: Context) {
     suspend fun getSectionJson(providerName: String, data: String, page: Int): String {
         val api = apiByName(providerName)
         val items = JSONArray()
+        var sectionError: String? =
+            if (api == null) (lastError(providerName) ?: "provider not loaded: $providerName")
+            else null
         if (api != null) {
             val mp = api.mainPage.firstOrNull { it.data == data }
             val name = mp?.name ?: data
@@ -358,11 +408,21 @@ class PluginHost(private val appContext: Context) {
                 if (resp != null) {
                     for (list in resp.items) for (sr in list.list) items.put(cardJson(sr, api.name))
                 }
-            } catch (_: Throwable) { }
+            } catch (t: Throwable) {
+                if (sectionError == null) {
+                    sectionError = "${t.javaClass.simpleName}: ${t.message}"
+                }
+                Log.e(TAG, "getMainPage ${api.name}", t)
+            }
         }
         return JSONObject().apply {
             put("provider", providerName)
             put("items", items)
+            // Otherwise "View all" on a plugin that threw looks exactly like a
+            // section that genuinely has nothing in it.
+            if (items.length() == 0) {
+                sectionError?.let { put("error", "${api?.name ?: providerName}: $it") }
+            }
             put("page", page)
             put("totalPages", if (items.length() > 0) page + 1 else page)
         }.toString()
@@ -402,12 +462,31 @@ class PluginHost(private val appContext: Context) {
     }
 
     suspend fun loadJson(providerName: String, url: String): String {
+        // "{}" is what the app reads as "source unavailable". A plugin built
+        // against a CloudStream older or newer than ours fails here with a
+        // NoSuchMethodError that NAMES the missing member, and that was the one
+        // string capable of explaining a dead provider — thrown away on every
+        // detail open. lastErrors has been recorded since plugins loaded and
+        // was never read by anything.
         val api = apiByName(providerName) ?: run {
-            Log.e(TAG, "load: provider '$providerName' not found"); return "{}"
+            Log.e(TAG, "load: provider '$providerName' not found")
+            return JSONObject()
+                .put("error", lastError(providerName) ?: "provider not loaded: $providerName")
+                .toString()
         }
-        val resp = try { api.load(url) } catch (t: Throwable) {
-            Log.e(TAG, "load ${api.name}: ${t.javaClass.simpleName}: ${t.message}"); null
-        } ?: return "{}"
+        val failure: String
+        val resp = try {
+            failure = ""
+            api.load(url)
+        } catch (t: Throwable) {
+            Log.e(TAG, "load ${api.name}", t)
+            return JSONObject()
+                .put("error", "${api.name}: ${t.javaClass.simpleName}: ${t.message ?: "failed"}")
+                .toString()
+        } ?: return JSONObject()
+            .put("error", "${api.name}: details not found")
+            .toString()
+        @Suppress("UNUSED_EXPRESSION") failure
         val episodes = JSONArray()
         var isSerial = false
         var unsupported: String? = null
@@ -418,7 +497,12 @@ class PluginHost(private val appContext: Context) {
             }
             is AnimeLoadResponse -> {
                 isSerial = true
-                val list = resp.episodes.values.firstOrNull() ?: emptyList()
+                // `episodes` is keyed by DubStatus. Taking the first key meant
+                // taking whichever one the map happened to iterate first — for a
+                // dual-audio title that could be a two-entry Dub list standing in
+                // for a full Sub run, with the rest of the season simply absent.
+                // The longest list is the one that represents the season.
+                val list = resp.episodes.values.maxByOrNull { it.size } ?: emptyList()
                 list.forEachIndexed { i, e -> episodes.put(episodeJson(e, i)) }
             }
             is MovieLoadResponse -> {
@@ -503,7 +587,7 @@ class PluginHost(private val appContext: Context) {
             // with zero entries and the detail page just sat there.
             if (episodes.length() == 0) {
                 put("error", unsupported
-                    ?: "${'$'}{api.name}: no playable entry for this title (${'$'}{resp.javaClass.simpleName})")
+                    ?: "${api.name}: no playable entry for this title (${resp.javaClass.simpleName})")
             }
         }.toString()
     }
@@ -519,6 +603,10 @@ class PluginHost(private val appContext: Context) {
         val subs = JSONArray()
         val seenUrls = HashSet<String>()
         val seenSubs = HashSet<String>()
+        var linkError: String? =
+            if (api == null) (lastError(providerName) ?: "provider not loaded: $providerName")
+            else null
+        val startedAt = System.currentTimeMillis()
         if (api != null) {
             try {
                 api.loadLinks(
@@ -605,9 +693,18 @@ class PluginHost(private val appContext: Context) {
                     }
                 )
             } catch (t: Throwable) {
-                Log.e(TAG, "loadLinks ${api.name}: ${t.javaClass.simpleName}: ${t.message}")
+                linkError = "${t.javaClass.simpleName}: ${t.message ?: "failed"}"
+                Log.e(TAG, "loadLinks ${api.name}", t)
             }
-            Log.i(TAG, "loadLinks ${api.name}: ${collected.size} source(s), ${subs.length()} sub(s)")
+            // With the elapsed time, because the two ways of getting zero look
+            // identical in a log and nothing like each other in cause: a fast
+            // empty answer is a title with no mirrors, and a sixty-second one
+            // is WebViewResolver polling out its timeout.
+            Log.i(
+                TAG,
+                "loadLinks ${api.name}: ${collected.size} source(s), " +
+                    "${subs.length()} sub(s) in ${System.currentTimeMillis() - startedAt}ms",
+            )
         }
         // Best first. Extractors call back in whatever order they finish, so the
         // default source used to be a race: a 360p mirror that resolved quickly
@@ -628,6 +725,13 @@ class PluginHost(private val appContext: Context) {
             put("headers", first?.optJSONObject("headers") ?: JSONObject())
             put("videoSources", videoSources)
             put("subtitles", subs)
+            // A plugin that threw and a title with no mirrors both produced an
+            // empty list, so "this provider is broken" reached the player as
+            // "no sources for this episode".
+            if (videoSources.length() == 0) {
+                put("error", "${apiByName(providerName)?.name ?: providerName}: " +
+                    (linkError ?: "the provider returned no mirrors for this episode"))
+            }
         }.toString()
     }
 }

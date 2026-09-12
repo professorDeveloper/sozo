@@ -360,7 +360,13 @@
     "info_fields_title": "Zeilen der Info-Einblendung",
     "logs_title": "Player-Logs ({})",
     "logs_copied": "Logs kopiert",
-    "logs_empty": "Noch keine Logs"
+    "logs_empty": "Noch keine Logs",
+    "alt_unavailable": "Quellenliste nicht erreichbar. Verbindung prüfen und erneut versuchen.",
+    "alt_all_failed": "Keine Quelle hat geantwortet. Das liegt meist an der Verbindung.",
+    "alt_some_failed": "Kein Treffer, {} Quelle(n) haben nicht geantwortet.",
+    "resolve_timeout": "Die Quelle hat nicht rechtzeitig geantwortet. Versuche einen anderen Server oder eine andere Quelle.",
+    "layout_center": "Neben Wiedergabe",
+    "layout_center_full": "Neben Wiedergabe ist kein Platz mehr"
   },
   "profile": {
     "title": "Profil",
@@ -1431,7 +1437,8 @@
     "released_body": "Folge {episode} ist da",
     "remove_entry": "Aus meiner Liste entfernen",
     "remove_confirm": "„{}“ von AniList entfernen? Dein Fortschritt dazu wird ebenfalls gelöscht.",
-    "removed": "Von AniList entfernt"
+    "removed": "Von AniList entfernt",
+    "retry_in": "Erneut in {} s"
   },
   "mal": {
     "connect": "MyAnimeList verbinden",
@@ -1651,7 +1658,9 @@
     "video": "Schauen",
     "manga": "Manga",
     "novel": "Romane",
-    "none_installed": "Noch keine {}-Quellen installiert."
+    "none_installed": "Noch keine {}-Quellen installiert.",
+    "novels_hint": "Novels sind Text statt Bilder – Light Novels und Web Novels, im selben Reader wie Manga. Novel-Quellen kommen aus Mangayomi-Repositories: Füge eines hinzu, und alle Novel-Quellen darin erscheinen hier.",
+    "manga_hint": "Manga-Quellen sind nicht eingebaut, sie werden installiert. Füge ein Repository hinzu, und alle Quellen darin erscheinen hier."
   },
   "home_rails": {
     "title": "Startseiten-Layout",
@@ -1811,6 +1820,32 @@
     "continue": "Weiter",
     "use_source": "Diese Quelle verwenden",
     "in_use": "In Verwendung",
-    "now_using": "{} wird verwendet"
+    "now_using": "{} wird verwendet",
+    "add_or_manage_sources": "Quellen hinzufügen oder verwalten"
+  },
+  "sources": {
+    "fail_gone": "Die Seite dieser Quelle gibt es nicht mehr",
+    "fail_blocked": "Die Seite blockiert die App",
+    "fail_rate_limited": "Die Seite lehnt wegen ihres Anfragelimits ab",
+    "fail_unreachable": "Die Seite war nicht erreichbar",
+    "fail_incompatible": "Diese Quelle braucht eine neuere Version der App",
+    "fail_broken": "Diese Quelle ist an sich selbst gescheitert",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "Alle"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "Quelladressen über einen anderen Anbieter auflösen. Hilft, wenn eine Seite per DNS gesperrt ist. Kein VPN — verbirgt weder deinen Traffic noch deine IP.",
+    "dns_system": "Systemstandard",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (ungefiltert)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "Dieser Resolver war nicht erreichbar, daher bleibt der des Systems aktiv."
   }
 }

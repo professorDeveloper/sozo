@@ -31,6 +31,10 @@ data class PluginWrapper(
 )
 
 object RepositoryManager {
+    // No @JvmStatic: upstream declares these on a plain object, so plugin
+    // bytecode calls them with invoke-virtual on INSTANCE. Marking them static
+    // makes ART reject the call outright — IncompatibleClassChangeError, not a
+    // fallback. See CommonActivity for the same lesson learned the hard way.
     /**
      * Empty, not the viewer's real repositories.
      *
@@ -38,10 +42,8 @@ object RepositoryManager {
      * see the state of — Sozo tracks which repos are enabled per content mode,
      * which CloudStream has no concept of.
      */
-    @JvmStatic
     fun getRepositories(): Array<RepositoryData> = emptyArray()
 
     /** Empty for the same reason. */
-    @JvmStatic
     suspend fun getRepoPlugins(repositoryUrl: String): List<PluginWrapper>? = emptyList()
 }

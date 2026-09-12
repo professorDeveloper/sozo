@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.source.model
 
+import kotlinx.serialization.json.JsonObject
 import java.io.Serializable
 
 interface SChapter : Serializable {
@@ -14,12 +15,16 @@ interface SChapter : Serializable {
 
     var scanlator: String?
 
+    /** See [SManga.memo] — same 1.6 addition, same type, same reason. */
+    var memo: JsonObject
+
     fun copyFrom(other: SChapter) {
         name = other.name
         url = other.url
         date_upload = other.date_upload
         chapter_number = other.chapter_number
         scanlator = other.scanlator
+        memo = other.memo
     }
 
     companion object {

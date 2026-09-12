@@ -360,7 +360,13 @@
     "info_fields_title": "Info qatorlari",
     "logs_title": "Pleyer loglari ({})",
     "logs_copied": "Loglar nusxalandi",
-    "logs_empty": "Hozircha log yo‘q"
+    "logs_empty": "Hozircha log yo‘q",
+    "alt_unavailable": "Manbalar ro'yxatiga ulanib bo'lmadi. Aloqani tekshirib, qayta urining.",
+    "alt_all_failed": "Hech bir manba javob bermadi. Odatda bu aloqa muammosi, kontent emas.",
+    "alt_some_failed": "Moslik topilmadi, lekin {} ta manba javob bermadi.",
+    "resolve_timeout": "Manba vaqtida javob bermadi. Boshqa server yoki boshqa manbani sinab ko'ring.",
+    "layout_center": "Play atrofida",
+    "layout_center_full": "Play atrofida joy qolmadi"
   },
   "profile": {
     "title": "Profil",
@@ -1431,7 +1437,8 @@
     "released_body": "{episode}-qism chiqdi",
     "remove_entry": "Ro'yxatimdan o'chirish",
     "remove_confirm": "\"{}\" AniList ro'yxatingizdan o'chirilsinmi? Undagi progress ham o'chadi.",
-    "removed": "AniList ro'yxatidan o'chirildi"
+    "removed": "AniList ro'yxatidan o'chirildi",
+    "retry_in": "{} s dan keyin qayta urinamiz"
   },
   "mal": {
     "connect": "MyAnimeList ulash",
@@ -1651,7 +1658,9 @@
     "video": "Ko‘rish",
     "manga": "Manga",
     "novel": "Novellalar",
-    "none_installed": "“{}” manbalari hali o‘rnatilmagan."
+    "none_installed": "“{}” manbalari hali o‘rnatilmagan.",
+    "novels_hint": "Novellalar rasm emas, matn — light novel va web novel, manga bilan bir xil o'quvchida o'qiladi. Novel manbalari Mangayomi repolaridan keladi: bittasini qo'shsangiz, undagi barcha novel manbalari shu yerda chiqadi.",
+    "manga_hint": "Manga manbalari ilovaga kiritilmagan — o'rnatiladi. Repo qo'shsangiz, undagi barcha manbalar shu yerda chiqadi."
   },
   "home_rails": {
     "title": "Bosh ekran",
@@ -1811,6 +1820,32 @@
     "continue": "Davom etish",
     "use_source": "Shu manbani ishlatish",
     "in_use": "Ishlatilmoqda",
-    "now_using": "{} ishlatilmoqda"
+    "now_using": "{} ishlatilmoqda",
+    "add_or_manage_sources": "Manba qo'shish yoki boshqarish"
+  },
+  "sources": {
+    "fail_gone": "Bu manbaning sayti yo'q bo'lib ketgan",
+    "fail_blocked": "Sayt ilovani bloklayapti",
+    "fail_rate_limited": "Sayt so'rovlar chegarasi tufayli rad etyapti",
+    "fail_unreachable": "Saytga ulanib bo'lmadi",
+    "fail_incompatible": "Bu manba ilovaning yangiroq versiyasini talab qiladi",
+    "fail_broken": "Bu manbaning o'zida xatolik",
+    "eco_sozo": "Sozo",
+    "eco_cloudstream": "CloudStream",
+    "eco_aniyomi": "Aniyomi",
+    "eco_manga": "Manga",
+    "eco_mangayomi": "Mangayomi",
+    "eco_all": "Hammasi"
+  },
+  "settings": {
+    "dns_title": "DNS",
+    "dns_subtitle": "Manba manzillarini boshqa provayder orqali aniqlaydi. Sayt DNS orqali to'silgan bo'lsa yordam beradi. Bu VPN emas — trafikni yashirmaydi va IP'ni o'zgartirmaydi.",
+    "dns_system": "Tizim sozlamasi",
+    "dns_cloudflare": "Cloudflare (1.1.1.1)",
+    "dns_google": "Google (8.8.8.8)",
+    "dns_adguard": "AdGuard (filtrsiz)",
+    "dns_quad9": "Quad9 (9.9.9.9)",
+    "dns_mullvad": "Mullvad",
+    "dns_fallback": "O'sha resolverga ulanib bo'lmadi, shuning uchun tizimnikisi ishlayapti."
   }
 }

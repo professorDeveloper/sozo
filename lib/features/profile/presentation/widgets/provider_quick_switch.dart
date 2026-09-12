@@ -238,6 +238,23 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   final DraggableScrollableController _sheet = DraggableScrollableController();
   bool _keyboardUp = false;
 
+  /// One source row. Fixed so the sheet can open ON the current source: a
+  /// builder with variable rows can only be scrolled to a position it has
+  /// already laid out, and the current source is usually far below the fold.
+  static const double _tileExtent = 56;
+
+  /// Used on TV and desktop, where there is no sheet to supply one.
+  final ScrollController _flat = ScrollController();
+
+  static const double _pinnedPad = 12;
+
+  bool get _hasFilter => widget.all.length >= _filterThreshold;
+
+
+  /// Opening on the current source is a one-time move. Re-running it after a
+  /// keystroke in the filter would yank the list out from under the typing.
+  bool _aligned = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -260,6 +277,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   void dispose() {
     _filter.dispose();
     _sheet.dispose();
+    _flat.dispose();
     super.dispose();
   }
 
@@ -361,135 +379,230 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
         padding: EdgeInsets.only(bottom: keyboard),
         child: SizedBox(
           height: available * (keyboard > 0 ? 1 : 0.78),
-          child: _body(context, null),
+          child: _body(context, _flat),
         ),
       );
     }
 
     final resting = _restingSize(context);
+    // A long list opens tall.
+    //
+    // A DraggableScrollableSheet grows on a drag only while its scrollable is
+    // at the very top — and this one opens part-way down, on the source in use.
+    // So with hundreds of rows the drag always scrolled the list and the sheet
+    // could never be pulled up, which is exactly how it reads: a window onto a
+    // list, stuck at three quarters of the screen. Starting at full height is
+    // also simply right for a list that long; the grabber still shrinks it.
+    // A long list opens tall.
+    //
+    // A DraggableScrollableSheet grows on a drag only while its scrollable is
+    // at the very top — and this one opens part-way down, on the source in use.
+    // So with hundreds of rows the drag always scrolled the list and the sheet
+    // could never be pulled up: a window onto a list, stuck at three quarters
+    // of the screen. The grabber still shrinks it.
+    final initial = _hasFilter ? _maxSize : resting;
     return Padding(
       padding: EdgeInsets.only(bottom: keyboard),
       child: DraggableScrollableSheet(
         controller: _sheet,
         expand: false,
         snap: true,
-        initialChildSize: resting,
+        initialChildSize: initial,
         minChildSize: _minSize,
         maxChildSize: _maxSize,
         // Resting and full. Without a snap list the sheet stops wherever the
         // finger left it, which is how a sheet ends up permanently at 63%.
-        snapSizes: [resting],
+        snapSizes: <double>{resting, initial}.toList()..sort(),
         builder: (_, controller) =>
-            SafeArea(top: false, child: _body(context, controller)),
+            SafeArea(
+              top: false,
+              child: _body(context, controller, draggable: true),
+            ),
       ),
     );
   }
 
-  Widget _body(BuildContext context, ScrollController? controller) {
+  /// Puts the list where the current source is, not at the top.
+  ///
+  /// Somebody opening this sheet is looking at the source they are on before
+  /// they look for another one, and with a couple of hundred installed sources
+  /// that row was never on screen — the sheet opened on whatever happened to be
+  /// alphabetically first and gave no sign that anything was selected.
+  void _alignToCurrent(ScrollController controller, List<ProviderEntity> items) {
+    if (_aligned || _query.isNotEmpty) return;
+    _aligned = true;
+    final index = items.indexWhere((p) => p.id == widget.currentProviderId);
+    if (index <= 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !controller.hasClients) return;
+      // Two rows of lead-in, so the current source reads as one entry in a
+      // list rather than as the first thing in it. Nothing scrolls above the
+      // rows any more, so the offset is the rows alone.
+      final target = (index - 2) * _tileExtent;
+      controller.jumpTo(
+        target.clamp(0.0, controller.position.maxScrollExtent),
+      );
+    });
+  }
+
+  Widget _body(
+    BuildContext context,
+    ScrollController controller, {
+    bool draggable = false,
+  }) {
     final favorites = _shownFavorites;
     final items = [...favorites, ..._rest];
+    _alignToCurrent(controller, items);
     return Column(
       children: [
-        if (controller != null) _grabber(context),
+        // Pinned by construction: the title, the mode chips and the filter are
+        // Column children, so scrolling the list underneath cannot carry them
+        // away. They were the first rows OF the list, which meant scrolling two
+        // hundred sources past the mode switcher and back up again to change
+        // mode.
+        if (draggable) _grabber(context),
+        // Flexible, and scrollable inside what it gets.
+        //
+        // The block is pinned, which means it takes its height off the list
+        // rather than sharing it. At 200% text the chips wrap to two lines and
+        // the filter grows with them, and an unbounded header pushed the list —
+        // and then the footer — off the bottom of the sheet. This one gives way
+        // instead, and scrolls within itself if the sheet is short enough to
+        // make it.
+        Flexible(
+          child: SingleChildScrollView(child: _header(context, items)),
+        ),
         Expanded(
-          child: ListView.builder(
-            controller: controller,
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            itemCount: items.length + 1,
-            itemBuilder: (context, index) {
-              if (index > 0) {
-                final p = items[index - 1];
-                return _favoriteProviderTile(
-                  context,
-                  p,
-                  widget.currentProviderId,
-                  favorite: index <= favorites.length,
-                );
-              }
-              return Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'ux.change_source'.tr(),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final m in ContentMode.values)
-                          _ModeChip(
-                            label: m.labelKey.tr(),
-                            active: m == widget.mode,
-                            onTap: m == widget.mode
-                                ? null
-                                : () => Navigator.of(
-                                    context,
-                                  ).pop('$_kModePrefix${m.id}'),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (widget.all.length >= _filterThreshold)
-                      TextField(
-                        controller: _filter,
-                        onChanged: (v) => setState(() => _query = v),
-                        decoration: InputDecoration(
-                          hintText: 'profile.search_providers_hint'.tr(),
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: _query.isEmpty
-                              ? null
-                              : IconButton(
-                                  tooltip: 'general.clear'.tr(),
-                                  onPressed: () {
-                                    _filter.clear();
-                                    setState(() => _query = '');
-                                  },
-                                  icon: const Icon(Icons.close),
-                                ),
-                        ),
-                      ),
-                    if (items.isEmpty) ...[
-                      const SizedBox(height: 24),
-                      Text(
-                        (_query.isEmpty
-                                ? 'profile.no_providers_in_category'
-                                : 'ux.no_source_match')
-                            .tr(),
-                        style: const TextStyle(color: AppColors.textSecondary),
-                      ),
-                      if (_query.isNotEmpty)
-                        TextButton(
-                          onPressed: () {
-                            _filter.clear();
-                            setState(() => _query = '');
-                          },
-                          child: Text('general.clear'.tr()),
-                        ),
-                    ],
-                  ],
+          // The note is not a row. Inside a fixed-extent list it had one row's
+          // height and two lines of text, which at large type overflowed by
+          // more than the row was tall.
+          child: items.isEmpty
+              ? SingleChildScrollView(child: _emptyNote(context))
+              : ListView.builder(
+                  controller: controller,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  // Fixed rows are what make the opening jump land on the right
+                  // one.
+                  itemExtent: _tileExtent,
+                  itemCount: items.length,
+                  itemBuilder: (context, index) => _favoriteProviderTile(
+                    context,
+                    items[index],
+                    widget.currentProviderId,
+                    favorite: index < favorites.length,
+                  ),
                 ),
-              );
-            },
-          ),
         ),
         const Divider(height: 1),
         ListTile(
-          leading: const Icon(Icons.tune_rounded),
-          title: Text('ux.manage_sources'.tr()),
+          // "Add" first, because that is what somebody who cannot find their
+          // source is looking for, and the word was nowhere on this sheet.
+          leading: const Icon(Icons.add_rounded),
+          title: Text('ux.add_or_manage_sources'.tr()),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () => Navigator.of(context).pop(_kAllProvidersAction),
         ),
       ],
     );
   }
+
+  /// Mode chips and filter — the part that stays put.
+  ///
+  /// Pinned, because scrolling two hundred sources past a mode switcher that
+  /// has left the screen means scrolling back up to change mode, and the search
+  /// box goes with it for the same reason.
+  Widget _header(BuildContext context, List<ProviderEntity> items) {
+    return Container(
+      color: AppColors.surface,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'ux.change_source'.tr(),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: _pinnedPad),
+          // Wraps rather than scrolls sideways: at 200% text three mode names
+          // do not fit one line, and a row that clips is worse than a row that
+          // takes two.
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final m in ContentMode.values)
+                _ModeChip(
+                  label: m.labelKey.tr(),
+                  active: m == widget.mode,
+                  onTap: m == widget.mode
+                      ? null
+                      : () =>
+                            Navigator.of(context).pop('$_kModePrefix${m.id}'),
+                ),
+            ],
+          ),
+          if (_hasFilter) ...[
+            const SizedBox(height: _pinnedPad),
+            SizedBox(
+              child: TextField(
+                controller: _filter,
+                onChanged: (v) => setState(() => _query = v),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  hintText: 'profile.search_providers_hint'.tr(),
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'general.clear'.tr(),
+                          onPressed: () {
+                            _filter.clear();
+                            setState(() => _query = '');
+                          },
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Said under the list, not inside the pinned block: that block has a fixed
+  /// height, and a message that appears and disappears cannot live in one.
+  Widget _emptyNote(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            (_query.isEmpty
+                    ? 'profile.no_providers_in_category'
+                    : 'ux.no_source_match')
+                .tr(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+          if (_query.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                _filter.clear();
+                setState(() => _query = '');
+              },
+              child: Text('general.clear'.tr()),
+            ),
+        ],
+      ),
+    );
+  }
 }
+
 
 /// One of the three catalogue kinds.
 ///

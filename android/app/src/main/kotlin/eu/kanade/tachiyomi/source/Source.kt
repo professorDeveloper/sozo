@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.source
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.util.lang.awaitSingle
 import rx.Observable
 
@@ -47,6 +48,38 @@ interface Source {
     suspend fun getChapterList(manga: SManga): List<SChapter> {
         return fetchChapterList(manga).awaitSingle()
     }
+
+    /**
+     * Details and chapters in one call.
+     *
+     * extensions-lib 1.6 replaced [getMangaDetails] and [getChapterList] with
+     * this, and extensions built against it implement nothing else — no
+     * `mangaDetailsParse`, no `chapterListParse`. Calling the old pair on one of
+     * them ran our own default implementations straight into an abstract method
+     * the extension never provided: AbstractMethodError, after a wasted request,
+     * on every detail page.
+     *
+     * The default keeps 1.4-era extensions working by doing what the host used
+     * to do — ask for each half separately — so both generations answer through
+     * this one entry point.
+     *
+     * @since extensions-lib 1.6
+     * @param manga the manga to update.
+     * @param chapters the chapters already known, for a source that answers
+     *   incrementally.
+     * @param fetchDetails whether updated metadata is wanted.
+     * @param fetchChapters whether the chapter list is wanted.
+     */
+    @Suppress("DEPRECATION")
+    suspend fun getMangaUpdate(
+        manga: SManga,
+        chapters: List<SChapter>,
+        fetchDetails: Boolean,
+        fetchChapters: Boolean,
+    ): SMangaUpdate = SMangaUpdate(
+        manga = if (fetchDetails) getMangaDetails(manga) else manga,
+        chapters = if (fetchChapters) getChapterList(manga) else chapters,
+    )
 
     /**
      * Get the list of pages a chapter has. Pages should be returned
