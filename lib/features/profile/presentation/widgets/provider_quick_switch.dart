@@ -311,10 +311,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
       final box = available * (keyboard > 0 ? 1 : 0.78);
       return Padding(
         padding: EdgeInsets.only(bottom: keyboard),
-        child: SizedBox(
-          height: box,
-          child: _body(context, _flat, ceiling: box),
-        ),
+        child: SizedBox(height: box, child: _body(context, _flat)),
       );
     }
 
@@ -342,10 +339,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
       padding: EdgeInsets.only(bottom: keyboard),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: ceiling),
-        child: SafeArea(
-          top: false,
-          child: _body(context, _flat, ceiling: ceiling),
-        ),
+        child: SafeArea(top: false, child: _body(context, _flat)),
       ),
     );
   }
@@ -374,11 +368,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
     });
   }
 
-  Widget _body(
-    BuildContext context,
-    ScrollController controller, {
-    required double ceiling,
-  }) {
+  Widget _body(BuildContext context, ScrollController controller) {
     final favorites = _shownFavorites;
     final items = [...favorites, ..._rest];
     _alignToCurrent(controller, items);
@@ -391,50 +381,66 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
         // hundred sources past the mode switcher and back up again to change
         // mode.
         _grabber(context),
-        // Capped at half the sheet, not flexed.
+        // Header and list share one flexible box, and the header's cap comes
+        // from inside it.
         //
-        // Flexible was wrong here: a Column shares its spare room between its
-        // flexible children by flex, so a flexible header and a flexible list
-        // took half each — which is both why a long list stopped halfway down
-        // the screen and why, once the list was sized instead, the header was
-        // squeezed and clipped the bottom of the search field.
+        // Flexible was wrong for the header on its own: a Column shares its
+        // spare room between flexible children by flex, so a flexible header
+        // and a flexible list took half each — which is why a long list used to
+        // stop halfway down the screen. A fixed cap was wrong too: at 200% text
+        // with the keyboard up, the footer alone is taller than half the sheet,
+        // and the header had no room left to be capped into.
         //
-        // It still has to give way somewhere: at 200% text the chips wrap to
-        // two lines and the filter grows with them. Half the sheet is that
-        // limit, and it scrolls within itself past that.
-        ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: ceiling / 2),
-          child: SingleChildScrollView(child: _header(context, items)),
-        ),
-        // The only flexible child, and shrink-wrapped inside it. Those two
-        // together are the whole sizing rule: it takes what the list actually
-        // measures, or the room left in the sheet, whichever is smaller. Eight
-        // sources leave the Column hugging them, fourteen hundred fill to the
-        // ceiling and scroll. No height is estimated anywhere.
-        //
-        // The note is not a row. Inside a fixed-extent list it had one row's
-        // height and two lines of text, which at large type overflowed by more
-        // than the row was tall.
-        if (items.isEmpty)
-          Flexible(child: SingleChildScrollView(child: _emptyNote(context)))
-        else
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              controller: controller,
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              // Fixed rows are what make the opening jump land on the right
-              // one.
-              itemExtent: _tileExtent,
-              itemCount: items.length,
-              itemBuilder: (context, index) => _favoriteProviderTile(
-                context,
-                items[index],
-                widget.currentProviderId,
-                favorite: index < favorites.length,
-              ),
-            ),
+        // The LayoutBuilder reports what is actually left once the grabber,
+        // divider and footer have taken their natural heights, so the cap is
+        // measured rather than guessed. The header takes what it needs up to
+        // most of that, and the list — the one flexible child inside — takes
+        // the rest. Short lists leave the Column hugging them; long ones fill.
+        Flexible(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: constraints.maxHeight * 0.6,
+                    ),
+                    child: SingleChildScrollView(
+                      child: _header(context, items),
+                    ),
+                  ),
+                  // The note is not a row. Inside a fixed-extent list it had
+                  // one row's height and two lines of text, which at large type
+                  // overflowed by more than the row was tall.
+                  if (items.isEmpty)
+                    Flexible(
+                      child: SingleChildScrollView(child: _emptyNote(context)),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        controller: controller,
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        // Fixed rows are what make the opening jump land on the
+                        // right one.
+                        itemExtent: _tileExtent,
+                        itemCount: items.length,
+                        itemBuilder: (context, index) => _favoriteProviderTile(
+                          context,
+                          items[index],
+                          widget.currentProviderId,
+                          favorite: index < favorites.length,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
+        ),
         const Divider(height: 1),
         ListTile(
           // "Add" first, because that is what somebody who cannot find their
