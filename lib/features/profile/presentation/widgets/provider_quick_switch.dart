@@ -236,13 +236,6 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
 
   static const double _pinnedPad = 12;
 
-  /// Everything in the sheet that is not a source row: grabber, title, mode
-  /// chips, the filter when shown, and the footer. Approximate on purpose — it
-  /// only decides whether the content overflows the screen, and being a few
-  /// points out cannot change that answer for any list worth the question.
-  double get _chromeHeight =>
-      16 + 32 + _pinnedPad + 48 + (_hasFilter ? _pinnedPad + 44 : 0) + 24 + 57;
-
   bool get _hasFilter => widget.all.length >= _filterThreshold;
 
   /// Opening on the current source is a one-time move. Re-running it after a
@@ -320,7 +313,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
         padding: EdgeInsets.only(bottom: keyboard),
         child: SizedBox(
           height: box,
-          child: _body(context, _flat, listHeight: _listHeight(box)),
+          child: _body(context, _flat, ceiling: box),
         ),
       );
     }
@@ -333,18 +326,11 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
     // did not fill: a band of dead space under the footer at every size it was
     // asked to open at.
     //
-    // The screen, less the status bar and a margin. A sheet that reaches the
-    // very top loses its rounded corners against the edge and puts its title
-    // level with the clock, which reads as a screen that opened wrong rather
-    // than a sheet that opened fully.
-    //
-    // This inset was blamed once for a long list stopping at three quarters of
-    // the screen, and taken out. That was the wrong culprit — the list was
-    // reporting its own height instead of asking for the room — so it is back.
-    // viewPadding, not padding: a modal route consumes the padding it has
-    // already honoured, so inside the sheet it reads as zero and the reserve
-    // would quietly do nothing. viewPadding reports the status bar whether or
-    // not somebody above has accounted for it.
+    // The ceiling is the screen less the status bar and a margin: a sheet that
+    // reaches the very top loses its rounded corners against the edge and puts
+    // its title level with the clock. viewPadding, not padding — a modal route
+    // consumes the padding it has already honoured, so inside the sheet padding
+    // reads as zero and the reserve would quietly do nothing.
     final ceiling =
         (MediaQuery.sizeOf(context).height -
                 MediaQuery.viewPaddingOf(context).top -
@@ -352,38 +338,16 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                 keyboard)
             .clamp(0.0, double.infinity);
 
-    // The list is given a measured height; nothing else in the sheet is.
-    //
-    // Every previous attempt made something fill: a fraction of the screen, a
-    // tight Flexible, a Column told to take all of its height. Each of them put
-    // a band of dead space under the footer as soon as the list was short,
-    // because a thing that has been told to fill will fill whether or not it
-    // has anything to fill with.
-    //
-    // Rows are a fixed 56, so the height the list wants is arithmetic: that
-    // many rows, or whatever is left of the screen after the rest of the sheet,
-    // whichever is smaller. The Column around it then hugs, and a Column that
-    // hugs cannot leave a gap. Eight sources get a short sheet; fourteen
-    // hundred reach the ceiling and scroll inside it.
     return Padding(
       padding: EdgeInsets.only(bottom: keyboard),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: ceiling),
         child: SafeArea(
           top: false,
-          child: _body(context, _flat, listHeight: _listHeight(ceiling)),
+          child: _body(context, _flat, ceiling: ceiling),
         ),
       ),
     );
-  }
-
-  /// The rows, or what is left of [box] once the rest of the sheet has had its
-  /// share — whichever is smaller.
-  double _listHeight(double box) {
-    final rows = _shownFavorites.length + _rest.length;
-    return (rows * _tileExtent)
-        .clamp(0.0, (box - _chromeHeight).clamp(0.0, double.infinity))
-        .toDouble();
   }
 
   /// Puts the list where the current source is, not at the top.
@@ -413,7 +377,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   Widget _body(
     BuildContext context,
     ScrollController controller, {
-    required double listHeight,
+    required double ceiling,
   }) {
     final favorites = _shownFavorites;
     final items = [...favorites, ..._rest];
@@ -427,18 +391,26 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
         // hundred sources past the mode switcher and back up again to change
         // mode.
         _grabber(context),
-        // Flexible, and scrollable inside what it gets.
+        // Capped at half the sheet, not flexed.
         //
-        // The block is pinned, which means it takes its height off the list
-        // rather than sharing it. At 200% text the chips wrap to two lines and
-        // the filter grows with them, and an unbounded header pushed the list —
-        // and then the footer — off the bottom of the sheet. This one gives way
-        // instead, and scrolls within itself if the sheet is short enough to
-        // make it.
-        Flexible(child: SingleChildScrollView(child: _header(context, items))),
-        // Sized, not flexed. This is the one thing in the sheet whose height is
-        // decided rather than negotiated, and it is what the sheet's own height
-        // comes out of.
+        // Flexible was wrong here: a Column shares its spare room between its
+        // flexible children by flex, so a flexible header and a flexible list
+        // took half each — which is both why a long list stopped halfway down
+        // the screen and why, once the list was sized instead, the header was
+        // squeezed and clipped the bottom of the search field.
+        //
+        // It still has to give way somewhere: at 200% text the chips wrap to
+        // two lines and the filter grows with them. Half the sheet is that
+        // limit, and it scrolls within itself past that.
+        ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: ceiling / 2),
+          child: SingleChildScrollView(child: _header(context, items)),
+        ),
+        // The only flexible child, and shrink-wrapped inside it. Those two
+        // together are the whole sizing rule: it takes what the list actually
+        // measures, or the room left in the sheet, whichever is smaller. Eight
+        // sources leave the Column hugging them, fourteen hundred fill to the
+        // ceiling and scroll. No height is estimated anywhere.
         //
         // The note is not a row. Inside a fixed-extent list it had one row's
         // height and two lines of text, which at large type overflowed by more
@@ -446,9 +418,9 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
         if (items.isEmpty)
           Flexible(child: SingleChildScrollView(child: _emptyNote(context)))
         else
-          SizedBox(
-            height: listHeight,
+          Flexible(
             child: ListView.builder(
+              shrinkWrap: true,
               controller: controller,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               // Fixed rows are what make the opening jump land on the right
