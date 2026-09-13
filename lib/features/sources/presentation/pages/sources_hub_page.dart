@@ -68,6 +68,9 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// and this one is addressed by index.
   final Map<String, int> _restore = {};
 
+  /// See [_tabFor].
+  final Map<String, _TabSources> _tabCache = {};
+
   /// null is "all". Which runtime a source comes from is the axis people
   /// actually filter on here — "the one I added from CloudStream" — and it was
   /// visible only as a word in grey under each of several hundred names.
@@ -236,6 +239,45 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     );
   }
 
+  /// One tab's providers, filtered and sorted, remembered until an input
+  /// changes.
+  ///
+  /// This used to run inside the builder, which meant a full filter and a
+  /// comparator sort of every installed source on EVERY frame — and a
+  /// TabBarView builds all three tabs, so a swipe was doing it three times a
+  /// frame over several hundred providers. That is what made the swipe crawl;
+  /// the work itself is milliseconds, sixty times a second is not.
+  _TabSources _tabFor(ProviderLoaded state, ContentMode mode, String needle) {
+    final key = '${identityHashCode(state.providers)}'
+        '|${state.providers.length}|${mode.id}|$needle';
+    final cached = _tabCache[key];
+    if (cached != null) return cached;
+
+    final all = [
+      for (final p in state.providers)
+        if (state.isUsable(p) &&
+            p.id.contentMode == mode &&
+            (needle.isEmpty || p.name.toLowerCase().contains(needle)))
+          p,
+    ];
+    // Sorted here, not upstream: the quick switcher shows the same providers in
+    // the order the backend sent them, because there the list is short and its
+    // order is the recommendation. This page is the whole catalogue, and an
+    // alphabetical list is the only kind you can find a name in.
+    all.sort((a, b) => compareForIndex(a.name, b.name));
+
+    final built = _TabSources(
+      all: all,
+      present: {for (final p in all) SourceEcosystem.of(p.id)},
+    );
+    // Bounded: three tabs times a few search terms, and a new provider list
+    // changes the key anyway. Cleared wholesale rather than aged out, because
+    // the cost of a miss is one sort.
+    if (_tabCache.length > 12) _tabCache.clear();
+    _tabCache[key] = built;
+    return built;
+  }
+
   Widget _list() {
     return BlocBuilder<ProviderBloc, ProviderState>(
       builder: (context, state) {
@@ -247,29 +289,15 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         }
         final mode = ContentMode.values[_tabs.index];
         final needle = _search.text.trim().toLowerCase();
-        // Everything this tab holds, before the ecosystem filter — the chips
-        // are built from it so a chip only appears when it has something in it.
-        final inMode = [
-          for (final p in state.providers)
-            if (state.isUsable(p) &&
-                p.id.contentMode == mode &&
-                (needle.isEmpty || p.name.toLowerCase().contains(needle)))
-              p,
-        ];
-        final present = <SourceEcosystem>{
-          for (final p in inMode) SourceEcosystem.of(p.id),
-        };
+        final tab = _tabFor(state, mode, needle);
+        final present = tab.present;
         final eco = present.contains(_eco) ? _eco : null;
         final sources = eco == null
-            ? inMode
-            : [for (final p in inMode) if (SourceEcosystem.of(p.id) == eco) p];
-        // Sorted here, not upstream: the quick switcher shows the same
-        // providers in the order the backend sent them, because there the list
-        // is short and its order is the recommendation. This page is the whole
-        // catalogue with an A–Z strip over it, and the strip was being drawn
-        // over an unsorted list — one chip per run of the same letter, which
-        // over backend order is no runs at all and reads as random letters.
-        sources.sort((a, b) => compareForIndex(a.name, b.name));
+            ? tab.all
+            : [
+                for (final p in tab.all)
+                  if (SourceEcosystem.of(p.id) == eco) p,
+              ];
 
         return Column(
           children: [
@@ -686,4 +714,13 @@ class _EcosystemFilter extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// One tab's sources, and which ecosystems are in them.
+class _TabSources {
+  const _TabSources({required this.all, required this.present});
+
+  final List<ProviderEntity> all;
+  final Set<SourceEcosystem> present;
 }

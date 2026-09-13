@@ -21,7 +21,15 @@ class SourceFailure {
   final String? detail;
 
   static SourceFailure of(String? raw) {
-    final text = (raw ?? '').trim();
+    // "Exception: " is Dart's own toString talking, not the source. It was
+    // reaching the screen twice — once in the headline and once in the line
+    // under it.
+    var text = (raw ?? '').trim();
+    for (final prefix in const ['Exception: ', 'PlatformException: ']) {
+      while (text.startsWith(prefix)) {
+        text = text.substring(prefix.length).trim();
+      }
+    }
     if (text.isEmpty) return SourceFailure(headline: 'search.source_failed'.tr());
     final lower = text.toLowerCase();
 

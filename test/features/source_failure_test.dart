@@ -10,6 +10,8 @@ void main() {
     await EasyLocalization.ensureInitialized();
   });
 
+  _prefixTests();
+
   group('SourceFailure', () {
     test('a 404 is a site that is gone, and keeps the original underneath', () {
       final f = SourceFailure.of('Aniyomi: getPopular: HttpException: HTTP error 404');
@@ -49,6 +51,28 @@ void main() {
     test('nothing at all still says something', () {
       expect(SourceFailure.of(null).headline, isNotEmpty);
       expect(SourceFailure.of('   ').headline, isNotEmpty);
+    });
+  });
+}
+
+void _prefixTests() {
+  group('SourceFailure prefixes', () {
+    test("Dart's own Exception: prefix is not part of the message", () {
+      final f = SourceFailure.of('Exception: Manga: source unavailable: mn:497');
+      expect(f.headline, 'Manga: source unavailable: mn:497');
+      expect(f.headline, isNot(contains('Exception:')));
+    });
+
+    test('an unrecognised failure is not repeated underneath itself', () {
+      final f = SourceFailure.of('Exception: Manga: source unavailable: mn:497');
+      expect(f.detail, isNull);
+    });
+
+    test('a doubled prefix is stripped too', () {
+      expect(
+        SourceFailure.of('Exception: Exception: boom').headline,
+        'boom',
+      );
     });
   });
 }
