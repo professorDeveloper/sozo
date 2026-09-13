@@ -236,7 +236,10 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// Used on TV and desktop, where there is no sheet to supply one.
   final ScrollController _flat = ScrollController();
 
+
   static const double _pinnedPad = 12;
+
+
 
 
   bool get _hasFilter => widget.all.length >= _filterThreshold;
@@ -257,10 +260,9 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
 
   /// The bar at the top.
   ///
-  /// Decoration now rather than a handle: the sheet is sized to its content and
-  /// there is nothing to drag it to. Kept because its absence reads as a panel
-  /// that appeared from nowhere, and because every other sheet in the app has
-  /// one.
+  /// Decoration: the sheet is as tall as its content and there is nowhere to
+  /// drag it to. Kept because a sheet without one reads as a panel that
+  /// appeared from nowhere, and every other sheet in the app has one.
   Widget _grabber(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -324,23 +326,26 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
       );
     }
 
-    // A plain sheet, sized to its content up to a ceiling.
+    // A plain bounded Column, not a DraggableScrollableSheet.
     //
-    // This was a DraggableScrollableSheet, and it caused the same bug twice.
-    // That widget wants a height as a FRACTION of the screen decided before
-    // anything is laid out, so the fraction is always a guess: too small and a
-    // long list could never be pulled up — it only grows on a drag while its
-    // scrollable is at the top, and this one opens part-way down on the source
-    // in use — too large and eight installed sources got three quarters of the
-    // screen with the bottom half empty.
+    // That widget assumes its child IS the scrollable it was given a controller
+    // for. This sheet is a Column — pinned header, list, pinned footer — so the
+    // assumption does not hold, and the sheet reserved a height the Column then
+    // did not fill: a band of dead space under the footer, at every size it was
+    // asked to open at. Three different opening heights were tried against that
+    // symptom and none of them could fix it, because the height was never the
+    // problem.
     //
-    // A Column that takes only what it needs has no fraction to get wrong. The
-    // list scrolls inside whatever is left, which is the behaviour the drag was
-    // being used to reach anyway.
-    final screen = MediaQuery.sizeOf(context).height;
+    // A Column bounded by a ceiling takes exactly what its content needs. Eight
+    // sources get a short sheet; four hundred get one that reaches the ceiling
+    // and scrolls inside. Nothing to drag, and nothing left over.
     final ceiling =
-        (screen - keyboard - MediaQuery.paddingOf(context).top - 24)
+        (MediaQuery.sizeOf(context).height -
+                keyboard -
+                MediaQuery.paddingOf(context).top -
+                24)
             .clamp(0.0, double.infinity);
+
     return Padding(
       padding: EdgeInsets.only(bottom: keyboard),
       child: ConstrainedBox(
@@ -400,7 +405,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
         ),
         Flexible(
           // Flexible, not Expanded: in a Column that hugs its content, Expanded
-          // would force the list to fill a height the Column does not have.
+          // would demand a height the Column has not got.
           //
           // The note is not a row. Inside a fixed-extent list it had one row's
           // height and two lines of text, which at large type overflowed by
@@ -408,6 +413,8 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
           child: items.isEmpty
               ? SingleChildScrollView(child: _emptyNote(context))
               : ListView.builder(
+                  // Lets the list report its own height when it is shorter than
+                  // the ceiling, which is what keeps a short sheet short.
                   shrinkWrap: true,
                   controller: controller,
                   keyboardDismissBehavior:
