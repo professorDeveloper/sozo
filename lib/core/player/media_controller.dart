@@ -455,20 +455,20 @@ class _MediaKitController extends PlayerController {
     // controller built any other way still has to initialise before Player().
     _mediaKitUsable();
     _player = mk.Player();
-    _videoController = mkv.VideoController(
-      _player,
-      configuration: const mkv.VideoControllerConfiguration(
-        // Attach the Surface immediately instead of waiting for mpv to report
-        // the video's parameters.
-        //
-        // With the default, the first frame of a stream lands before the
-        // surface is attached and nothing repaints until something forces it —
-        // which is why the picture was black until the first seek and then
-        // perfectly fine. Seeking was not fixing anything; it was the first
-        // event that made the texture redraw.
-        androidAttachSurfaceAfterVideoParameters: false,
-      ),
-    );
+    // No androidAttachSurfaceAfterVideoParameters here, deliberately.
+    //
+    // Setting it to false does fix the black first frame — the picture was
+    // black until the first seek because the surface was attached only after
+    // mpv reported the video's parameters, and seeking was simply the first
+    // event that forced a redraw. But it also moves when mpv's render context
+    // is created relative to the Dart callbacks media_kit registers, and the
+    // app started aborting on teardown: SIGABRT on the mpv core thread,
+    // "Callback invoked after it has been deleted".
+    //
+    // A black first frame is an annoyance. A crash is not, so this stays on the
+    // library's default until the black frame has a fix that does not touch
+    // native lifetimes.
+    _videoController = mkv.VideoController(_player);
   }
 
   final _MediaKitSource _src;
