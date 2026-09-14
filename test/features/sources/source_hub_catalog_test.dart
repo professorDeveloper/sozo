@@ -205,6 +205,41 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
+  testWidgets('tabs and categories remain together after search scrolls away', (
+    tester,
+  ) async {
+    final bloc = _Providers(
+      ProviderLoaded(
+        providers: [
+          for (var i = 0; i < 35; i++) provider('cs:source$i', 'Source $i'),
+          provider('ay:fixture', 'Another source'),
+        ],
+        currentProviderId: 'cs:source0',
+      ),
+    );
+    addTearDown(bloc.close);
+    await pump(tester, const SourcesHubPage(), bloc);
+    expect(find.byType(FlexibleSpaceBar), findsNothing);
+    final tabs = find.byType(TabBar);
+    final categories = find.text('All');
+    final tabsTop = tester.getTopLeft(tabs).dy;
+    expect(
+      tester.getTopLeft(categories).dy,
+      greaterThan(tester.getBottomLeft(tabs).dy + 50),
+    );
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -480));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(tester.getTopLeft(tabs).dy, closeTo(tabsTop, 1));
+    expect(
+      tester.getTopLeft(categories).dy,
+      inInclusiveRange(
+        tester.getBottomLeft(tabs).dy,
+        tester.getBottomLeft(tabs).dy + 22,
+      ),
+    );
+  });
+
   testWidgets('HUB-01 Manga tab must replace video sources immediately', (
     tester,
   ) async {
@@ -268,8 +303,11 @@ void main() {
       addTearDown(bloc.close);
       final loaded = bloc.stream.firstWhere((s) => s is ProviderLoaded);
       bloc.add(const ProviderLoad());
+      // Ten seconds, not two. The bound is here to fail a bloc that never
+      // emits, not to time a CI runner — and two seconds was close enough to
+      // the real thing that a loaded shared runner tripped it.
       final state =
-          await loaded.timeout(const Duration(seconds: 2)) as ProviderLoaded;
+          await loaded.timeout(const Duration(seconds: 10)) as ProviderLoaded;
       expect(state.providers.single.id, 'my:123');
       expect(
         state.providers.single.lang,
@@ -298,8 +336,14 @@ void main() {
         matching: find.byType(TextButton),
       );
       await tester.tap(buttons.first);
+      // Pumped until the install lands rather than for a fixed 500ms. The
+      // install is asynchronous, and a single pump long enough on a laptop is
+      // not long enough on a busy runner — which is exactly how this passed
+      // here and failed in CI.
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
+      for (var i = 0; i < 40 && store.installs == 0; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
       expect(store.installs, 1);
       expect(
         bloc.events.whereType<ProviderLoad>(),
