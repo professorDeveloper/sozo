@@ -117,6 +117,10 @@ class DownloadForegroundService : Service() {
         val kind = intent.getStringExtra(EXTRA_KIND).takeUnless { it.isNullOrBlank() } ?: KIND_VIDEO
         val url = intent.getStringExtra(EXTRA_URL).orEmpty()
         val pageUrls = parseStringArray(intent.getStringExtra(EXTRA_PAGE_URLS_JSON).orEmpty())
+        val imageHeaders = runCatching {
+            val entries = JSONArray(intent.getStringExtra(EXTRA_IMAGE_HEADERS_JSON) ?: "[]")
+            (0 until entries.length()).map { parseHeaders(entries.optJSONObject(it)?.toString() ?: "{}") }
+        }.getOrDefault(emptyList())
         val wifiOnly = intent.getBooleanExtra(EXTRA_WIFI_ONLY, false)
 
         if (id.isEmpty() || artefactPath.isEmpty()) return
@@ -179,7 +183,7 @@ class DownloadForegroundService : Service() {
                 }
                 updateState(id, title, url, artefactPath, STATUS_DOWNLOADING, 0, 0, 0, null)
                 val result = when (kind) {
-                    KIND_MANGA -> downloadPages(id, title, artefactPath, pageUrls, headers, token)
+                    KIND_MANGA -> downloadPages(id, title, artefactPath, pageUrls, headers, imageHeaders, token)
                     KIND_HLS -> downloadHls(id, title, url, artefactPath, headers, token)
                     else -> downloadFile(id, title, url, artefactPath, headers, token)
                 }
@@ -367,6 +371,7 @@ class DownloadForegroundService : Service() {
         folderPath: String,
         pageUrls: List<String>,
         headers: Map<String, String>,
+        imageHeaders: List<Map<String, String>>,
         token: AtomicBoolean
     ): Transferred {
         val folder = File(folderPath)
@@ -378,7 +383,12 @@ class DownloadForegroundService : Service() {
             if (token.get()) return Transferred(i.toLong(), pageUrls.size.toLong(), bytes)
             val page = File(folder, "p_${i.toString().padStart(3, '0')}${imageExtensionFrom(pageUrls[i])}")
             if (!page.exists() || page.length() == 0L) {
-                fetchPart(pageUrls[i], page, headers, token)
+                val perImage = imageHeaders.getOrNull(i).orEmpty()
+                // HTTP header names are case-insensitive; the page's override wins.
+                val requestHeaders = headers.filterKeys { key ->
+                    perImage.keys.none { it.equals(key, ignoreCase = true) }
+                } + perImage
+                fetchPart(pageUrls[i], page, requestHeaders, token)
             }
             bytes += page.length()
             updateState(
@@ -919,6 +929,7 @@ class DownloadForegroundService : Service() {
         const val EXTRA_HEADERS_JSON = "headers_json"
         const val EXTRA_KIND = "kind"
         const val EXTRA_PAGE_URLS_JSON = "page_urls_json"
+        const val EXTRA_IMAGE_HEADERS_JSON = "image_headers_json"
         const val EXTRA_WIFI_ONLY = "wifi_only"
 
         // Kinds, matching DownloadKind on the Dart side byte for byte.

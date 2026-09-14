@@ -966,7 +966,8 @@
     "typeface_mono": "Mono",
     "alignment": "Alignement",
     "align_left": "À gauche",
-    "align_justify": "Justifié"
+    "align_justify": "Justifié",
+    "novel_download_unavailable": "Le téléchargement hors ligne des romans n’est pas encore disponible."
   },
   "cloudflare": {
     "title": "Confirme que tu es humain",
@@ -1847,5 +1848,14 @@
     "dns_quad9": "Quad9 (9.9.9.9)",
     "dns_mullvad": "Mullvad",
     "dns_fallback": "Ce résolveur est injoignable ; celui du système reste utilisé."
+  },
+  "source_manager": {
+    "profile_hint": "Choisir, ajouter et gérer les sources",
+    "manage_repositories": "Gérer les dépôts",
+    "browse": "Explorer",
+    "selection_hint": "Touchez une source pour la choisir. Explorer affiche son contenu.",
+    "recommended_repositories": "Dépôts recommandés",
+    "load_more": "Charger plus",
+    "added": "Ajoutée"
   }
 }

@@ -54,9 +54,11 @@ extension _PlayerMedia on _PlayerPageState {
       _videoSources = List.of(widget.args.videoSources);
       _resetLadder();
       _currentSourceIndex =
-          _ladder(_videoSources, hasDirective: widget.args.extractor != null)
-                  .initialPick() ??
-              -1;
+          _ladder(
+            _videoSources,
+            hasDirective: widget.args.extractor != null,
+          ).initialPick() ??
+          -1;
       // A serial re-resolves inside _loadEpisode and picks the directive up
       // there. A movie was resolved back on the detail page, so the only copy
       // of it is the one that travelled in the args — and without it
@@ -93,6 +95,7 @@ extension _PlayerMedia on _PlayerPageState {
     int absoluteIndex, {
     Duration resumeAt = Duration.zero,
   }) async {
+    final generation = ++_mediaGeneration;
     final size = widget.args.pageSize;
     final contentUrl = widget.args.contentUrl;
     if (size <= 0 || contentUrl == null || contentUrl.isEmpty) return;
@@ -111,7 +114,7 @@ extension _PlayerMedia on _PlayerPageState {
       sort: widget.args.sort,
       provider: widget.args.provider,
     );
-    if (!mounted) return;
+    if (!mounted || generation != _mediaGeneration) return;
 
     switch (result) {
       case Success(:final value):
@@ -156,17 +159,26 @@ extension _PlayerMedia on _PlayerPageState {
     Duration resumeAt = Duration.zero,
     bool keepRetryCount = false,
   }) async {
-    if (await _pageAcrossIfNeeded(index, resumeAt: resumeAt)) return;
+    if (!_window.contains(index)) {
+      await _pageAcrossIfNeeded(index, resumeAt: resumeAt);
+      return;
+    }
 
     _resetForEpisode(index, keepRetryCount: keepRetryCount);
-    await _tearDownForEpisode();
-    if (!mounted) return;
+    final generation = await _tearDownForEpisode();
+    if (!mounted || generation != _mediaGeneration) return;
 
     final ep = _episodes[index];
-    final resolved = await _resolveEpisode(ep);
-    if (!mounted || resolved == null) return;
+    final resolved = await _resolveEpisode(ep, generation);
+    if (!mounted || generation != _mediaGeneration || resolved == null) return;
 
-    await _startPlayback(ep, resolved.value, lang: resolved.lang, resumeAt: resumeAt);
+    await _startPlayback(
+      ep,
+      resolved.value,
+      generation: generation,
+      lang: resolved.lang,
+      resumeAt: resumeAt,
+    );
   }
 
   /// Handles an index outside the loaded window.
@@ -229,18 +241,20 @@ extension _PlayerMedia on _PlayerPageState {
   ///
   /// The delay is not decoration: disposing and immediately re-initialising a
   /// native surface is how a black frame survives into the next episode.
-  Future<void> _tearDownForEpisode() async {
+  Future<int> _tearDownForEpisode() async {
     // Sync is per-episode: a shift/rate tuned for the previous episode is wrong
     // here, so drop it and load whatever was saved for this one (0 / 1.0 when
     // nothing was).
     _restoreSubtitleSync();
-    await _disposeController();
+    final generation = await _disposeController();
     await Future<void>.delayed(const Duration(milliseconds: 200));
+    return generation;
   }
 
   /// Resolves [ep], or reports why it could not be played and returns null.
   Future<({MediaResolveEntity value, String? lang})?> _resolveEpisode(
     EpisodeEntity ep,
+    int generation,
   ) async {
     if (ep.mediaRef.isEmpty) {
       setState(() {
@@ -259,7 +273,7 @@ extension _PlayerMedia on _PlayerPageState {
       lang: lang,
     );
     _plog('resolve completed in ${resolveSw.elapsedMilliseconds}ms');
-    if (!mounted) return null;
+    if (!mounted || generation != _mediaGeneration) return null;
 
     switch (result) {
       case Success(:final value):
@@ -277,18 +291,18 @@ extension _PlayerMedia on _PlayerPageState {
   Future<void> _startPlayback(
     EpisodeEntity ep,
     MediaResolveEntity value, {
+    required int generation,
     required String? lang,
     required Duration resumeAt,
   }) async {
+    if (!mounted || generation != _mediaGeneration) return;
     final sources = value.videoSources;
     // `sources[0]` was taken outright here, so the remembered quality was
     // honoured on a movie and ignored on every episode of a serial — and an
     // iframe entry, which some providers put first, went straight to the
     // decoder as if it were a stream.
-    final pickedIdx = _ladder(
-          sources,
-          hasDirective: value.extractor != null,
-        ).initialPick() ??
+    final pickedIdx =
+        _ladder(sources, hasDirective: value.extractor != null).initialPick() ??
         -1;
     final useSources = pickedIdx >= 0;
     final url = useSources ? sources[pickedIdx].videoUrl : value.videoUrl;
@@ -324,11 +338,13 @@ extension _PlayerMedia on _PlayerPageState {
 
     unawaited(_loadThumbnails(value.thumbnails));
     await _initializeWith(
+      intentGeneration: generation,
       url: url,
       headers: headers,
       type: useSources ? _typeOf(sources[pickedIdx]) : value.type,
       resumeAt: resumeAt,
     );
+    if (!mounted || generation != _mediaGeneration) return;
     // Host announces the new episode identity (never a video URL).
     if (_errorMessage == null) _partyEmitContent(ep, _currentLang);
     if (subs.isNotEmpty) {
@@ -350,18 +366,17 @@ extension _PlayerMedia on _PlayerPageState {
   SourceLadder _ladder(
     List<VideoSourceEntity> sources, {
     required bool hasDirective,
-  }) =>
-      SourceLadder(
-        sources: sources,
-        hasDirective: hasDirective,
-        rememberedQuality: SourceLadder.rememberedQualityFor(
-          _titlePrefs,
-          provider: widget.args.provider,
-          contentUrl: widget.args.contentUrl ?? '',
-        ),
-        avoidCodec: _decoderAvoidCodec,
-        triedUrls: _triedSourceUrls,
-      );
+  }) => SourceLadder(
+    sources: sources,
+    hasDirective: hasDirective,
+    rememberedQuality: SourceLadder.rememberedQualityFor(
+      _titlePrefs,
+      provider: widget.args.provider,
+      contentUrl: widget.args.contentUrl ?? '',
+    ),
+    avoidCodec: _decoderAvoidCodec,
+    triedUrls: _triedSourceUrls,
+  );
 
   /// Starts a fresh walk. Called wherever what is playing genuinely changes —
   /// a new episode, a new movie, an explicit pick — never on a retry, which is
@@ -379,7 +394,8 @@ extension _PlayerMedia on _PlayerPageState {
 
   /// Marks what is on screen as attempted, so the ladder moves past it.
   void _markCurrentTried() {
-    if (_currentSourceIndex >= 0 && _currentSourceIndex < _videoSources.length) {
+    if (_currentSourceIndex >= 0 &&
+        _currentSourceIndex < _videoSources.length) {
       _triedSourceUrls.add(_videoSources[_currentSourceIndex].videoUrl);
     }
   }
@@ -479,10 +495,11 @@ extension _PlayerMedia on _PlayerPageState {
       _currentSourceIndex = idx >= 0 ? idx : _currentSourceIndex;
       _panel = _SidePanel.none;
     });
-    await _disposeController();
+    final generation = await _disposeController();
     await Future<void>.delayed(const Duration(milliseconds: 200));
-    if (!mounted) return;
+    if (!mounted || generation != _mediaGeneration) return;
     await _initializeWith(
+      intentGeneration: generation,
       url: source.videoUrl,
       // The new mirror's own headers when it has any: the previous one's
       // Referer and cookies belong to a different host.
@@ -529,7 +546,9 @@ extension _PlayerMedia on _PlayerPageState {
       );
       return null;
     }
-    final upstreamHeaders = source.headers.isNotEmpty ? source.headers : headers;
+    final upstreamHeaders = source.headers.isNotEmpty
+        ? source.headers
+        : headers;
     try {
       final proxied = await getIt<LocalHlsProxy>().register(
         upstreamUrl: url,
@@ -540,8 +559,10 @@ extension _PlayerMedia on _PlayerPageState {
       _plog('routing through local HLS proxy: $proxied');
       return _ProxiedTarget(url: proxied, headers: const {});
     } catch (e) {
-      _plog('local proxy register failed: $e — using direct url',
-          level: LogLevel.warn);
+      _plog(
+        'local proxy register failed: $e — using direct url',
+        level: LogLevel.warn,
+      );
       return null;
     }
   }
@@ -593,8 +614,10 @@ extension _PlayerMedia on _PlayerPageState {
         level: LogLevel.warn,
       );
     } catch (e) {
-      _plog('rewrite check failed: $e — playing the sniffed url',
-          level: LogLevel.warn);
+      _plog(
+        'rewrite check failed: $e — playing the sniffed url',
+        level: LogLevel.warn,
+      );
     }
     return url;
   }
@@ -659,8 +682,10 @@ extension _PlayerMedia on _PlayerPageState {
           ),
     ];
 
-    _plog('master playlist -> ${expanded.length - 1} qualities '
-        '(${expanded.skip(1).map((e) => e.quality).join(", ")})');
+    _plog(
+      'master playlist -> ${expanded.length - 1} qualities '
+      '(${expanded.skip(1).map((e) => e.quality).join(", ")})',
+    );
     if (!mounted) return;
     setState(() {
       _videoSources = expanded;
@@ -680,7 +705,10 @@ extension _PlayerMedia on _PlayerPageState {
     required String? type,
     Duration resumeAt = Duration.zero,
     PartyPlayback? party,
+    int? intentGeneration,
   }) async {
+    final generation = intentGeneration ?? ++_mediaGeneration;
+    if (!mounted || generation != _mediaGeneration) return;
     var effUrl = url;
     var effHeaders = headers;
     var effType = type;
@@ -689,14 +717,16 @@ extension _PlayerMedia on _PlayerPageState {
     // pattern-matching. See `_extractorConfig`.
     final cfg = _extractorConfig;
     if (cfg != null && url.isNotEmpty) {
-      _plog('webview sniff: host=${cfg.hostPattern} patterns=${cfg.urlPatterns}');
+      _plog(
+        'webview sniff: host=${cfg.hostPattern} patterns=${cfg.urlPatterns}',
+      );
       final sw = Stopwatch()..start();
       final sniffed = await getIt<WebViewStreamExtractor>().extract(
         pageUrl: url,
         config: cfg,
         pageHeaders: headers,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _mediaGeneration) return;
       if (sniffed != null) {
         effUrl = sniffed.url;
         // Sniffed headers win: they are the ones the page actually sent, and
@@ -705,14 +735,17 @@ extension _PlayerMedia on _PlayerPageState {
         effType = sniffed.playType;
         _plog('sniff ok in ${sw.elapsedMilliseconds}ms -> $effUrl');
         effUrl = await _applyRewrite(cfg.rewrite, effUrl, effHeaders);
+        if (!mounted || generation != _mediaGeneration) return;
       } else {
         // The url in hand is the embed PAGE. Handing that to the player used to
         // cost two doomed retries and a minute of spinner before an error that
         // blamed the format — the page is HTML, so of course no extractor reads
         // it. Say what actually happened, and offer the browser, which is where
         // a player this protected does work.
-        _plog('sniff found no stream in ${sw.elapsedMilliseconds}ms',
-            level: LogLevel.warn);
+        _plog(
+          'sniff found no stream in ${sw.elapsedMilliseconds}ms',
+          level: LogLevel.warn,
+        );
         // One embed page that hid its stream used to end playback outright,
         // with every sibling mirror untried. It is one failed candidate: mark
         // it and walk on. The error below is what happens once the ladder is
@@ -735,9 +768,11 @@ extension _PlayerMedia on _PlayerPageState {
     // Before playback, not after: the sheet is built from `_videoSources`, and
     // a viewer who opens it during the first ten seconds should already find
     // the renditions there.
-    await _maybeExpandQualities(effUrl, effHeaders, effType);
+    await _maybeExpandQualities(effUrl, effHeaders, effType, generation);
+    if (!mounted || generation != _mediaGeneration) return;
 
     await _initializeResolved(
+      generation: generation,
       url: effUrl,
       headers: effHeaders,
       type: effType,
@@ -769,6 +804,7 @@ extension _PlayerMedia on _PlayerPageState {
     String url,
     Map<String, String> headers,
     String? type,
+    int generation,
   ) async {
     final idx = _currentSourceIndex;
     if (idx < 0 || idx >= _videoSources.length) return;
@@ -839,9 +875,11 @@ extension _PlayerMedia on _PlayerPageState {
     // engine track list follows.
     if (rows.length < 2) return;
 
-    _plog('master playlist -> ${rows.length} qualities for '
-        '"${parent.quality}" (${rows.map((e) => e.height).join(", ")})');
-    if (!mounted) return;
+    _plog(
+      'master playlist -> ${rows.length} qualities for '
+      '"${parent.quality}" (${rows.map((e) => e.height).join(", ")})',
+    );
+    if (!mounted || generation != _mediaGeneration) return;
     setState(() {
       _videoSources = [
         ..._videoSources.take(idx + 1),
@@ -852,12 +890,14 @@ extension _PlayerMedia on _PlayerPageState {
   }
 
   Future<void> _initializeResolved({
+    required int generation,
     required String url,
     required Map<String, String> headers,
     required String? type,
     Duration resumeAt = Duration.zero,
     PartyPlayback? party,
   }) async {
+    if (!mounted || generation != _mediaGeneration) return;
     if (url.isEmpty) {
       setState(() {
         _initializing = false;
@@ -878,7 +918,7 @@ extension _PlayerMedia on _PlayerPageState {
         engine: _torrentEngine,
         title: widget.args.title,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _mediaGeneration) return;
       // Null means the user declined the privacy warning, cancelled, or the
       // swarm never answered — all of which prepareLink has already reported.
       // Closing is the honest response; an error screen would be a second
@@ -900,21 +940,23 @@ extension _PlayerMedia on _PlayerPageState {
     final isFileUri = url.startsWith('file://');
     final isLocal = url.startsWith('/') || isFileUri;
     final isHls = _isHlsType(type) || url.toLowerCase().contains('.m3u8');
-    final isDash = type?.trim().toLowerCase() == 'dash' ||
+    final isDash =
+        type?.trim().toLowerCase() == 'dash' ||
         url.toLowerCase().contains('.mpd');
     _isHls = isHls;
 
     final proxied = !isLocal && isHls
         ? await _maybeRouteThroughLocalProxy(url: url, headers: headers)
         : null;
+    if (!mounted || generation != _mediaGeneration) return;
     final effectiveUrl = proxied?.url ?? url;
     final effectiveHeaders = proxied?.headers ?? headers;
 
     final fmt = isHls
         ? 'hls'
         : isDash
-            ? 'dash'
-            : (type ?? 'progressive');
+        ? 'dash'
+        : (type ?? 'progressive');
     PlayerLog.instance.setContext({
       'url': effectiveUrl,
       'type': fmt,
@@ -952,7 +994,9 @@ extension _PlayerMedia on _PlayerPageState {
 
     PlayerController controller;
     if (isLocal && isHls) {
-      final fileUri = isFileUri ? Uri.parse(effectiveUrl) : Uri.file(effectiveUrl);
+      final fileUri = isFileUri
+          ? Uri.parse(effectiveUrl)
+          : Uri.file(effectiveUrl);
       controller = PlayerController.networkUrl(
         fileUri,
         formatHint: VideoFormat.hls,
@@ -982,8 +1026,8 @@ extension _PlayerMedia on _PlayerPageState {
       // it is read here rather than carried on the page: switching quality or
       // mirror can move between an encrypted rendition and a clear one, and the
       // backend has to follow.
-      final drm = _currentSourceIndex >= 0 &&
-              _currentSourceIndex < _videoSources.length
+      final drm =
+          _currentSourceIndex >= 0 && _currentSourceIndex < _videoSources.length
           ? _videoSources[_currentSourceIndex].drm
           : null;
       if (drm != null) _plog('drm: $drm');
@@ -994,11 +1038,9 @@ extension _PlayerMedia on _PlayerPageState {
         formatHint: isHls
             ? VideoFormat.hls
             : isDash
-                ? VideoFormat.dash
-                : null,
-        videoPlayerOptions: VideoPlayerOptions(
-          allowBackgroundPlayback: false,
-        ),
+            ? VideoFormat.dash
+            : null,
+        videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
         drm: drm,
       );
       _headers = mergedHeaders;
@@ -1016,7 +1058,9 @@ extension _PlayerMedia on _PlayerPageState {
     try {
       await controller.initialize();
       _plog('initialize completed in ${stopwatch.elapsedMilliseconds}ms');
-      if (!mounted) {
+      if (!mounted ||
+          generation != _mediaGeneration ||
+          !identical(_controller, controller)) {
         await controller.dispose();
         return;
       }
@@ -1046,7 +1090,8 @@ extension _PlayerMedia on _PlayerPageState {
       // What the caller said, OR what the duration implies. The declared type is
       // the reliable half: a live channel with a DVR window reports a perfectly
       // finite duration and would otherwise be treated as a file.
-      _isLive = _mediaType == 'live' ||
+      _isLive =
+          _mediaType == 'live' ||
           widget.args.type == 'live' ||
           dur <= Duration.zero ||
           dur.inHours >= 12;
@@ -1069,15 +1114,11 @@ extension _PlayerMedia on _PlayerPageState {
         },
       );
 
-      if (_canGeneratePreview && !_isLive) {
-        FramePreviewService.open(
-          _videoUrl!,
-          _headers,
-          warmMs: resumeAt.inMilliseconds,
-        );
-      }
+      // Preview decoding starts only when the viewer scrubs. Eager warming
+      // opens a second video decoder while a high-resolution stream starts.
       controller.addListener(_onMajorChange);
       await controller.setLooping(false);
+      if (!mounted || generation != _mediaGeneration) return;
       if (party != null) {
         // Watch2Gether: ignore the local resume point and align to the party.
         //
@@ -1089,6 +1130,7 @@ extension _PlayerMedia on _PlayerPageState {
           _playbackSpeed = party.rate;
         }
         await controller.setPlaybackSpeed(_playbackSpeed);
+        if (!mounted || generation != _mediaGeneration) return;
         if (!_isLive) {
           final expected = party.expectedPositionAt(DateTime.now());
           if (expected > 0) {
@@ -1097,14 +1139,17 @@ extension _PlayerMedia on _PlayerPageState {
             );
           }
         }
+        if (!mounted || generation != _mediaGeneration) return;
         if (party.isPlaying) {
           await controller.play();
         }
       } else {
         await controller.setPlaybackSpeed(_playbackSpeed);
+        if (!mounted || generation != _mediaGeneration) return;
         if (resumeAt > Duration.zero && !_isLive) {
           await controller.seekTo(resumeAt);
         }
+        if (!mounted || generation != _mediaGeneration) return;
         await controller.play();
       }
       _plog('play started — total ${stopwatch.elapsedMilliseconds}ms');
@@ -1112,7 +1157,7 @@ extension _PlayerMedia on _PlayerPageState {
       // a seek, a speed change, the play itself — and a slow source spends
       // seconds in that stretch. Seconds spent staring at a spinner is exactly
       // when someone backs out, and coming back to a disposed State throws.
-      if (!mounted) return;
+      if (!mounted || generation != _mediaGeneration) return;
       // After play, not before: mpv rejects equalizer properties until a video
       // output exists, so applying it any earlier silently does nothing and the
       // profile appears not to work on the first episode of a session.
@@ -1140,9 +1185,11 @@ extension _PlayerMedia on _PlayerPageState {
       // silent unless it finds something: playback must never wait on it.
       unawaited(_maybeAutoTranslate());
     } on PlatformException catch (e) {
-      _plog('platform exception ${e.code}: ${e.message}',
-          level: LogLevel.error);
-      if (!mounted) return;
+      _plog(
+        'platform exception ${e.code}: ${e.message}',
+        level: LogLevel.error,
+      );
+      if (!mounted || generation != _mediaGeneration) return;
       final raw = e.message ?? '';
       String msg;
       if (e.code == 'channel-error') {
@@ -1150,7 +1197,8 @@ extension _PlayerMedia on _PlayerPageState {
       } else if (_isDecoderError(raw)) {
         // The codec is the likeliest culprit, so siblings encoded the same way
         // go to the back of the ladder rather than being tried in turn.
-        _decoderAvoidCodec = _currentSourceIndex >= 0 &&
+        _decoderAvoidCodec =
+            _currentSourceIndex >= 0 &&
                 _currentSourceIndex < _videoSources.length
             ? _videoSources[_currentSourceIndex].codec
             : null;
@@ -1181,8 +1229,10 @@ extension _PlayerMedia on _PlayerPageState {
       } else if (_isRecoverableError(raw) &&
           _retryAttempts < 2 &&
           _lifetimeRetries < _kMaxLifetimeRetries) {
-        _plog('recoverable error, retrying (attempt ${_retryAttempts + 1})',
-            level: LogLevel.warn);
+        _plog(
+          'recoverable error, retrying (attempt ${_retryAttempts + 1})',
+          level: LogLevel.warn,
+        );
         _retryAttempts++;
         _lifetimeRetries++;
         _autoRetrying = true;
@@ -1199,7 +1249,7 @@ extension _PlayerMedia on _PlayerPageState {
       });
     } catch (e) {
       _plog('init threw: $e', level: LogLevel.error);
-      if (!mounted) return;
+      if (!mounted || generation != _mediaGeneration) return;
       setState(() {
         _initializing = false;
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -1241,8 +1291,7 @@ extension _PlayerMedia on _PlayerPageState {
   /// change in the same commit.
   static bool _isDecoderError(String raw) => RetryPolicy.isDecoderError(raw);
 
-  bool _isRecoverableError(String msg) =>
-      RetryPolicy.isRecoverableError(msg);
+  bool _isRecoverableError(String msg) => RetryPolicy.isRecoverableError(msg);
 
   /// Keeps the screen awake while the video is running, and only then.
   ///
@@ -1303,7 +1352,8 @@ extension _PlayerMedia on _PlayerPageState {
         // here with untried mirrors left and the viewer had to open Quality and
         // pick one by hand.
         if (!_autoRetrying && _isDecoderError(msg)) {
-          _decoderAvoidCodec = _currentSourceIndex >= 0 &&
+          _decoderAvoidCodec =
+              _currentSourceIndex >= 0 &&
                   _currentSourceIndex < _videoSources.length
               ? _videoSources[_currentSourceIndex].codec
               : null;
@@ -1433,6 +1483,7 @@ extension _PlayerMedia on _PlayerPageState {
   /// whose stream will be back in two seconds.
   Future<void> _liveReconnect() async {
     if (!mounted) return;
+    final intent = ++_mediaGeneration;
     final attempt = _lifetimeRetries;
     _plog('live stream dropped — reconnecting (attempt $attempt)');
 
@@ -1443,17 +1494,22 @@ extension _PlayerMedia on _PlayerPageState {
     });
 
     await Future<void>.delayed(_liveRetryBackoff(attempt - 1));
-    if (!mounted) return;
+    if (!mounted || intent != _mediaGeneration) return;
 
     final url = _videoUrl;
     if (url == null) {
       _autoRetrying = false;
       return;
     }
-    await _disposeController();
-    if (!mounted) return;
-    await _initializeWith(url: url, headers: _headers, type: _mediaType);
-    _autoRetrying = false;
+    final generation = await _disposeController();
+    if (!mounted || generation != _mediaGeneration) return;
+    await _initializeWith(
+      intentGeneration: generation,
+      url: url,
+      headers: _headers,
+      type: _mediaType,
+    );
+    if (mounted && generation == _mediaGeneration) _autoRetrying = false;
   }
 
   Future<void> _autoRetry() async {
@@ -1461,40 +1517,42 @@ extension _PlayerMedia on _PlayerPageState {
 
     // Every remaining mirror, in ladder order — not `+ 1` once and done.
     _markCurrentTried();
-    final nextIdx =
-        _ladder(_videoSources, hasDirective: _extractorConfig != null).next();
+    final nextIdx = _ladder(
+      _videoSources,
+      hasDirective: _extractorConfig != null,
+    ).next();
     if (nextIdx != null) {
       final next = _videoSources[nextIdx];
       setState(() {
         _initializing = true;
         _stage = _LoadingStage.loading;
         _errorMessage = null;
-      _isCodecError = false;
+        _isCodecError = false;
         _currentSourceIndex = nextIdx;
         _currentQuality = next.quality;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content:
-                Text('player.switching_to'.tr(args: [next.quality])),
+            content: Text('player.switching_to'.tr(args: [next.quality])),
             backgroundColor: Colors.black87,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
           ),
         );
       }
-      await _disposeController();
+      final generation = await _disposeController();
       await Future<void>.delayed(const Duration(milliseconds: 350));
-      if (!mounted) return;
+      if (!mounted || generation != _mediaGeneration) return;
       await _initializeWith(
+        intentGeneration: generation,
         url: next.videoUrl,
         headers: next.headers.isNotEmpty
             ? next.headers
             : (_headers.isNotEmpty ? _headers : widget.args.headers),
         type: _typeOf(next),
       );
-      _autoRetrying = false;
+      if (mounted && generation == _mediaGeneration) _autoRetrying = false;
       return;
     }
 
@@ -1506,26 +1564,35 @@ extension _PlayerMedia on _PlayerPageState {
       _errorMessage = null;
       _isCodecError = false;
     });
-    await _disposeController();
+    final generation = await _disposeController();
     await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!mounted) return;
+    if (!mounted || generation != _mediaGeneration) return;
     if (widget.args.isSerial) {
+      _autoRetrying = false;
       await _loadEpisode(_episodeIndex, keepRetryCount: true);
+      return;
     } else if (_videoUrl != null) {
+      if (!mounted || generation != _mediaGeneration) return;
       await _initializeWith(
+        intentGeneration: generation,
         url: _videoUrl!,
         headers: _headers,
         type: _mediaType,
       );
     } else {
+      _autoRetrying = false;
       await _bootstrap();
+      return;
     }
-    _autoRetrying = false;
+    if (mounted && generation == _mediaGeneration) _autoRetrying = false;
   }
 
-  Future<void> _disposeController() async {
+  Future<int> _disposeController() async {
+    final generation = ++_mediaGeneration;
     _hideTimer?.cancel();
     final c = _controller;
+    _controller = null;
+    unawaited(FramePreviewService.close());
     if (c != null) {
       c.removeListener(_onMajorChange);
       try {
@@ -1533,11 +1600,12 @@ extension _PlayerMedia on _PlayerPageState {
       } catch (_) {}
       await c.dispose();
     }
-    _controller = null;
+    if (generation != _mediaGeneration) return generation;
     _wasPlaying = false;
     _wasBuffering = false;
     _wasInitialized = false;
     _lastError = null;
+    return generation;
   }
 
   String _episodeTitle() {
@@ -1561,10 +1629,12 @@ extension _PlayerMedia on _PlayerPageState {
         _initializing = true;
         _stage = _LoadingStage.loading;
         _errorMessage = null;
-      _isCodecError = false;
+        _isCodecError = false;
       });
-      await _disposeController();
+      final generation = await _disposeController();
+      if (!mounted || generation != _mediaGeneration) return;
       await _initializeWith(
+        intentGeneration: generation,
         url: _videoUrl!,
         headers: _headers,
         type: _mediaType,
@@ -1618,8 +1688,7 @@ extension _PlayerMedia on _PlayerPageState {
     }
   }
 
-  bool get _hasThumbnails =>
-      _vttThumbnails.isNotEmpty || _storyboard != null;
+  bool get _hasThumbnails => _vttThumbnails.isNotEmpty || _storyboard != null;
 
   _VttThumbnail? _thumbnailAt(Duration position) {
     final sb = _storyboard;
@@ -1633,9 +1702,7 @@ extension _PlayerMedia on _PlayerPageState {
       final rows = sb.rows!;
       final totalCells = cols * rows;
       final ratio = position.inMilliseconds / durMs;
-      final idx = (ratio * totalCells)
-          .clamp(0, totalCells - 1)
-          .floor();
+      final idx = (ratio * totalCells).clamp(0, totalCells - 1).floor();
       final col = idx % cols;
       final row = idx ~/ cols;
       final cellW = (sb.width! / cols).round();

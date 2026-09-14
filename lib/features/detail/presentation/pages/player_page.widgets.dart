@@ -284,8 +284,9 @@ class _IconButton extends StatelessWidget {
     final fill = color != null
         ? color!.withValues(alpha: 0.22)
         : Colors.black.withValues(alpha: 0.35);
-    final tint = (color ?? Colors.white)
-        .withValues(alpha: enabled ? 1.0 : 0.38);
+    final tint = (color ?? Colors.white).withValues(
+      alpha: enabled ? 1.0 : 0.38,
+    );
 
     // The disc stays 38 and the TAP TARGET is 44 — Apple's minimum, and near
     // Material's 48. It used to be 38 both ways, which is under every
@@ -341,8 +342,8 @@ class _DesktopVolumeControl extends StatelessWidget {
   IconData get _icon => volume <= 0.001
       ? Icons.volume_off_rounded
       : volume < 0.5
-          ? Icons.volume_down_rounded
-          : Icons.volume_up_rounded;
+      ? Icons.volume_down_rounded
+      : Icons.volume_up_rounded;
 
   @override
   Widget build(BuildContext context) {
@@ -392,35 +393,35 @@ class _LangPill extends StatelessWidget {
     return _tvRing(
       radius: 20,
       Material(
-      color: Colors.black.withValues(alpha: 0.35),
-      shape: const StadiumBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const StadiumBorder(),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.translate_rounded,
-                color: Colors.white,
-                size: 14,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: const TextStyle(
+        color: Colors.black.withValues(alpha: 0.35),
+        shape: const StadiumBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const StadiumBorder(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.translate_rounded,
                   color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
+                  size: 14,
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -431,12 +432,16 @@ class _CenterIconButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.large = false,
+    this.enabled = true,
+    this.label,
     this.busy = false,
     this.focusNode,
   });
   final IconData icon;
   final VoidCallback onTap;
   final bool large;
+  final bool enabled;
+  final String? label;
 
   /// Draws the buffering ring on the button's own rim. Swapping the whole
   /// cluster out for a spinner made the controls jump on every micro-stall and,
@@ -452,37 +457,42 @@ class _CenterIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = large ? 72.0 : 52.0;
     final iconSize = large ? 42.0 : 28.0;
-    return _tvRing(
-      circle: true,
-      Material(
-        // These buttons sit at the vertical centre, where the scrim is fully
-        // transparent — 32% black left a white glyph invisible on a bright shot.
-        color: Colors.black.withValues(alpha: 0.45),
-        shape: const CircleBorder(),
-        child: InkWell(
-          onTap: onTap,
-          focusNode: focusNode,
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: size,
-            height: size,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  icon,
-                  color: Colors.white,
-                  size: iconSize,
-                  shadows: _kControlShadow,
-                ),
-                if (busy)
-                  const Positioned.fill(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: Colors.white70,
-                    ),
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      child: _tvRing(
+        circle: true,
+        Material(
+          // These buttons sit at the vertical centre, where the scrim is fully
+          // transparent — 32% black left a white glyph invisible on a bright shot.
+          color: Colors.black.withValues(alpha: 0.45),
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: enabled ? onTap : null,
+            focusNode: focusNode,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    color: enabled ? Colors.white : Colors.white38,
+                    size: iconSize,
+                    shadows: _kControlShadow,
                   ),
-              ],
+                  if (busy)
+                    const Positioned.fill(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white70,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -521,31 +531,31 @@ class _BottomTextButton extends StatelessWidget {
       child: _tvRing(
         radius: 6,
         InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          // 18pt glyph + 13 above and below = a 44pt row, Apple's minimum.
-          // It was 10, i.e. 38 — the same miss as _IconButton above.
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: color, size: 18, shadows: _kControlShadow),
-              if (!compact) ...[
-                const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    shadows: _kControlShadow,
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(6),
+          child: Padding(
+            // 18pt glyph + 13 above and below = a 44pt row, Apple's minimum.
+            // It was 10, i.e. 38 — the same miss as _IconButton above.
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: color, size: 18, shadows: _kControlShadow),
+                if (!compact) ...[
+                  const SizedBox(width: 4),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      shadows: _kControlShadow,
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -839,8 +849,11 @@ class _PlayerInfoOverlay extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                       child: const Padding(
                         padding: EdgeInsets.all(6),
-                        child: Icon(Icons.close_rounded,
-                            size: 15, color: Colors.white70),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 15,
+                          color: Colors.white70,
+                        ),
                       ),
                     ),
                   ],
@@ -863,7 +876,9 @@ class _PlayerInfoOverlay extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                                color: Colors.white54, fontSize: 11),
+                              color: Colors.white54,
+                              fontSize: 11,
+                            ),
                           ),
                         ),
                         Expanded(
@@ -1070,8 +1085,9 @@ class _FontChip extends StatelessWidget {
       button: true,
       selected: selected,
       child: Material(
-        color:
-            selected ? AppColors.primary : Colors.white.withValues(alpha: 0.07),
+        color: selected
+            ? AppColors.primary
+            : Colors.white.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(10),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -1171,7 +1187,7 @@ class _SubtitlePreview extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: style.fontSize,
-        fontFamily: style.font.family,
+              fontFamily: style.font.family,
               fontWeight: weight,
               height: 1.3,
               foreground: strokePaint,
@@ -1204,11 +1220,7 @@ class _SubtitlePreview extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF1F2A44),
-              Color(0xFF2D1B36),
-              Color(0xFF1A1A1A),
-            ],
+            colors: [Color(0xFF1F2A44), Color(0xFF2D1B36), Color(0xFF1A1A1A)],
           ),
         ),
         alignment: Alignment.bottomCenter,
@@ -1233,25 +1245,25 @@ class _ColorDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dot = AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color,
-          border: Border.all(
-            color: selected ? AppColors.primary : Colors.white24,
-            width: selected ? 3 : 1.5,
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.4),
-                    blurRadius: 8,
-                  ),
-                ]
-              : null,
+      duration: const Duration(milliseconds: 160),
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        border: Border.all(
+          color: selected ? AppColors.primary : Colors.white24,
+          width: selected ? 3 : 1.5,
         ),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.4),
+                  blurRadius: 8,
+                ),
+              ]
+            : null,
+      ),
     );
     if (!isTvPlatform) return GestureDetector(onTap: onTap, child: dot);
     // A bare GestureDetector cannot take focus, which would make the subtitle
@@ -1388,7 +1400,10 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
 
   Future<void> _fetch() async {
     final bytes = await FramePreviewService.previewFrame(
-        widget.url, widget.headers, widget.positionMs);
+      widget.url,
+      widget.headers,
+      widget.positionMs,
+    );
     if (!mounted) return;
     if (bytes != null) {
       setState(() {

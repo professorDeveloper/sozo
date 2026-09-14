@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:soplay/core/network/http_headers.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/extensions/source_language.dart' as srclang;
 import 'package:soplay/core/storage/hive_service.dart';
@@ -33,14 +34,16 @@ class MangayomiBridge {
   final Map<String, String> _titleByLink = <String, String>{};
   static const int _titleCacheMax = 500;
 
-  void _rememberTitle(String link, String title) {
+  String _titleKey(String sourceId, String link) => '$sourceId\u0000$link';
+
+  void _rememberTitle(String sourceId, String link, String title) {
     if (link.isEmpty || title.isEmpty) return;
     if (_titleByLink.length >= _titleCacheMax) {
       // Cheap eviction: drop the oldest insertion. LinkedHashMap preserves
       // insertion order, so the first key is the least recently added.
       _titleByLink.remove(_titleByLink.keys.first);
     }
-    _titleByLink[link] = title;
+    _titleByLink[_titleKey(sourceId, link)] = title;
   }
 
   static bool get isSupported => MangayomiRuntime.isSupported;
@@ -79,8 +82,8 @@ class MangayomiBridge {
       // MangaDex from filling the list with forty-five identical rows.
       final langPart =
           srclang.langMatches(s.lang, preferred) && preferred.isNotEmpty
-              ? '|${srclang.normalizeLang(s.lang)}'
-              : '';
+          ? '|${srclang.normalizeLang(s.lang)}'
+          : '';
       final key = '${s.name.trim().toLowerCase()}|${s.itemType.code}$langPart';
       if (key.startsWith('|')) continue;
       final current = picked[key];
@@ -109,7 +112,9 @@ class MangayomiBridge {
   }
 
   static String _repoLabel(String url) {
-    final gh = RegExp(r'github(?:usercontent)?\.com/([^/]+)/([^/]+)').firstMatch(url);
+    final gh = RegExp(
+      r'github(?:usercontent)?\.com/([^/]+)/([^/]+)',
+    ).firstMatch(url);
     if (gh != null) return '${gh.group(1)}/${gh.group(2)}';
     return Uri.tryParse(url)?.host ?? 'Mangayomi';
   }
@@ -119,6 +124,20 @@ class MangayomiBridge {
   // --- list shapes ---------------------------------------------------------
 
   /// `{list:[{name,link,imageUrl}], hasNextPage}` → the app's card array.
+  /// Why a call produced no cards, told apart from the call failing.
+  ///
+  /// A source can hand back a shape this app does not read — a bare object, a
+  /// list of strings, entries with no link — and every one of those arrives
+  /// here as an empty list, indistinguishable from a site that simply had
+  /// nothing to say.
+  String _emptyReason(String call, dynamic raw) {
+    final list = (raw is Map ? raw['list'] : raw);
+    if (raw == null) return '$call: returned nothing';
+    if (list is! List) return '$call: unexpected shape (${raw.runtimeType})';
+    if (list.isEmpty) return '$call: returned an empty list';
+    return '$call: ${list.length} entries, none with a link';
+  }
+
   List<Map<String, dynamic>> _cards(dynamic raw, MangayomiSource src) {
     final list = (raw is Map ? raw['list'] : raw);
     if (list is! List) return const [];
@@ -128,7 +147,7 @@ class MangayomiBridge {
       final link = (e['link'] ?? e['url'])?.toString() ?? '';
       if (link.isEmpty) continue;
       final title = (e['name'] ?? e['title'])?.toString() ?? '';
-      _rememberTitle(link, title);
+      _rememberTitle(src.id, link, title);
       out.add({
         'provider': src.providerId,
         'externalId': link,
@@ -166,6 +185,11 @@ class MangayomiBridge {
     final sections = <Map<String, dynamic>>[];
     final banner = <Map<String, dynamic>>[];
     String? error;
+    // What each call actually did, for the case where neither produced rows.
+    // "Nothing came back" and "the call blew up" look identical on a blank
+    // screen, and a blank screen with no explanation was what a source landing
+    // on this path gave people.
+    final outcomes = <String>[];
     runtime.dartFetch.clearBlock();
 
     // Popular and latest are independent calls, but the runtime serialises them
@@ -174,6 +198,7 @@ class MangayomiBridge {
     try {
       final popular = await runtime.call(id, 'getPopular', args: [page]);
       final items = _cards(popular, src);
+      if (items.isEmpty) outcomes.add(_emptyReason('popular', popular));
       if (items.isNotEmpty) {
         banner.addAll(items.take(12));
         sections.add({
@@ -187,11 +212,15 @@ class MangayomiBridge {
       // A source that simply doesn't implement getPopular is a real
       // configuration, not a failure — only report it if nothing else works.
       error = _isNotImplemented(e) ? null : 'getPopular: $e';
+      outcomes.add(
+        _isNotImplemented(e) ? 'popular: not implemented' : 'popular: $e',
+      );
     }
 
     try {
       final latest = await runtime.call(id, 'getLatestUpdates', args: [page]);
       final items = _cards(latest, src);
+      if (items.isEmpty) outcomes.add(_emptyReason('latest', latest));
       if (items.isNotEmpty) {
         sections.add({
           'key': 'latest',
@@ -204,9 +233,21 @@ class MangayomiBridge {
       // Plenty of sources don't implement latest at all. Treating that as an
       // error turned a perfectly usable source into a red "home failed" screen.
       if (!_isNotImplemented(e)) error ??= 'getLatestUpdates: $e';
+      outcomes.add(
+        _isNotImplemented(e) ? 'latest: not implemented' : 'latest: $e',
+      );
     }
 
-    if (sections.isEmpty) error ??= runtime.dartFetch.takeBlock();
+    if (sections.isEmpty) {
+      error ??= runtime.dartFetch.takeBlock();
+      // Last resort, and the important one: two calls that each came back
+      // empty used to leave error null, so the home screen rendered a source
+      // with no rows, no message and nothing to retry. Whatever happened, say
+      // it — "returned nothing" is still an answer.
+      error ??= outcomes.isEmpty
+          ? 'the source returned nothing'
+          : outcomes.join('; ');
+    }
 
     return {
       'provider': src.providerId,
@@ -243,12 +284,20 @@ class MangayomiBridge {
   }) async {
     final src = _source(id);
     if (src == null) {
-      return {'provider': 'my:$id', 'items': const [], 'error': 'source not installed'};
+      return {
+        'provider': 'my:$id',
+        'items': const [],
+        'error': 'source not installed',
+      };
     }
     runtime.dartFetch.clearBlock();
     try {
       // Third arg is the filter list; every extension accepts an empty one.
-      final raw = await runtime.call(id, 'search', args: [query, page, const []]);
+      final raw = await runtime.call(
+        id,
+        'search',
+        args: [query, page, const []],
+      );
       final items = _cards(raw, src);
       // An extension parses whatever body it gets, so a blocked request comes
       // back as an empty list and not as a throw. Empty because nothing matched
@@ -325,7 +374,9 @@ class MangayomiBridge {
       // source that lists oldest-first came out with chapter 1 last.
       final listed = chapters.whereType<Map>().toList();
       final ordered =
-          listedAscending(listed) ? listed : listed.reversed.toList();
+          raw['chapterOrder'] == 'ascending' || listedAscending(listed)
+          ? listed
+          : listed.reversed.toList();
       for (var i = 0; i < ordered.length; i++) {
         final c = ordered[i];
         final ref = (c['url'] ?? c['link'])?.toString() ?? '';
@@ -344,7 +395,7 @@ class MangayomiBridge {
     final rawName = (raw['name'] ?? raw['title'])?.toString().trim() ?? '';
     final title = rawName.isNotEmpty
         ? rawName
-        : (_titleByLink[url] ?? _titleFromUrl(url));
+        : (_titleByLink[_titleKey(src.id, url)] ?? _titleFromUrl(url));
 
     final isAnime = src.itemType == MangayomiItemType.anime;
     final status = _statusLabel((raw['status'] as num?)?.toInt());
@@ -397,12 +448,12 @@ class MangayomiBridge {
   }
 
   static String? _statusLabel(int? status) => switch (status) {
-        0 => 'Ongoing',
-        1 => 'Completed',
-        2 => 'On hiatus',
-        3 => 'Cancelled',
-        _ => null,
-      };
+    0 => 'Ongoing',
+    1 => 'Completed',
+    2 => 'On hiatus',
+    3 => 'Cancelled',
+    _ => null,
+  };
 
   // --- manga pages ---------------------------------------------------------
 
@@ -448,7 +499,7 @@ class MangayomiBridge {
 
     final raw = await runtime.call(id, 'getPageList', args: [chapterUrl]);
     final pages = <Map<String, dynamic>>[];
-    Map<String, String> headers = {
+    final headers = <String, String>{
       if (src.baseUrl.isNotEmpty) 'Referer': src.baseUrl,
     };
     if (raw is List) {
@@ -460,15 +511,47 @@ class MangayomiBridge {
         } else if (e is Map) {
           final u = (e['url'] ?? e['imageUrl'])?.toString() ?? '';
           if (u.isEmpty) continue;
-          pages.add({'index': i, 'imageUrl': u});
+          final page = <String, dynamic>{'index': i, 'imageUrl': u};
           final h = e['headers'];
           if (h is Map && h.isNotEmpty) {
-            headers = {
+            page['headers'] = <String, String>{
               for (final entry in h.entries)
                 entry.key.toString(): entry.value.toString(),
             };
           }
+          if (e['cookie'] != null) page['cookie'] = e['cookie'].toString();
+          pages.add(page);
         }
+      }
+    }
+    if (pages.isNotEmpty) {
+      final custom = await runtime.call(
+        id,
+        '__sozoImageHeaders',
+        args: [pages.map((page) => page['imageUrl']).toList()],
+      );
+      for (var i = 0; i < pages.length; i++) {
+        final own = pages[i]['headers'];
+        final providerHeaders = custom is List && i < custom.length
+            ? custom[i]
+            : null;
+        final merged = mergeHttpHeaders([
+          <String, String>{
+            if (providerHeaders is Map)
+              for (final entry in providerHeaders.entries)
+                if (entry.value != null)
+                  entry.key.toString(): entry.value.toString(),
+          },
+          <String, String>{
+            if (own is Map)
+              for (final entry in own.entries)
+                entry.key.toString(): entry.value.toString(),
+          },
+        ]);
+        pages[i]['headers'] = await runtime.dartFetch.headersForImage(
+          pages[i]['imageUrl'] as String,
+          merged,
+        );
       }
     }
     return {'provider': src.providerId, 'headers': headers, 'pages': pages};
@@ -506,8 +589,8 @@ class MangayomiBridge {
           'type': url.contains('.m3u8')
               ? 'hls'
               : url.contains('.mpd')
-                  ? 'dash'
-                  : 'mp4',
+              ? 'dash'
+              : 'mp4',
           'host': src.name,
           'isDefault': videoSources.isEmpty,
           'accessible': true,

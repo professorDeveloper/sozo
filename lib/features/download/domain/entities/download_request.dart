@@ -24,6 +24,7 @@ class DownloadRequest {
     this.episodeNumber,
     this.episodeLabel,
     this.pageUrls = const [],
+    this.imageHeaders = const [],
     this.chapterRef,
     this.chapterIndex,
   });
@@ -68,6 +69,7 @@ class DownloadRequest {
     String? thumbnailUrl,
     Map<String, String> headers = const {},
     List<String> pageUrls = const [],
+    List<Map<String, String>> imageHeaders = const [],
     required String chapterRef,
     int? chapterIndex,
     int? episodeNumber,
@@ -89,6 +91,7 @@ class DownloadRequest {
     episodeNumber: episodeNumber,
     episodeLabel: episodeLabel,
     pageUrls: pageUrls,
+    imageHeaders: imageHeaders,
     chapterRef: chapterRef,
     chapterIndex: chapterIndex,
   );
@@ -110,6 +113,7 @@ class DownloadRequest {
   final int? episodeNumber;
   final String? episodeLabel;
   final List<String> pageUrls;
+  final List<Map<String, String>> imageHeaders;
   final String? chapterRef;
   final int? chapterIndex;
 

@@ -10,12 +10,12 @@ enum CatalogItemType {
   other;
 
   static CatalogItemType parse(String? raw) => switch (raw?.trim()) {
-        'anime' => CatalogItemType.anime,
-        'manga' => CatalogItemType.manga,
-        'novel' => CatalogItemType.novel,
-        'video' => CatalogItemType.video,
-        _ => CatalogItemType.other,
-      };
+    'anime' => CatalogItemType.anime,
+    'manga' => CatalogItemType.manga,
+    'novel' => CatalogItemType.novel,
+    'video' => CatalogItemType.video,
+    _ => CatalogItemType.other,
+  };
 
   String get wire => name;
 }
@@ -36,6 +36,8 @@ class CatalogSourceEntity {
     required this.kind,
     required this.name,
     required this.repoUrl,
+    this.externalId = '',
+    this.sourceIndexUrl = '',
     this.lang = '',
     this.itemType = CatalogItemType.other,
     this.baseUrl = '',
@@ -48,6 +50,8 @@ class CatalogSourceEntity {
   });
 
   final String id;
+  final String externalId;
+  final String sourceIndexUrl;
   final ExtensionRepoKind kind;
   final String name;
   final String lang;
@@ -87,6 +91,8 @@ class CatalogSourceEntity {
     return CatalogSourceEntity(
       id: (json['id'] ?? '').toString(),
       kind: kind,
+      externalId: (json['externalId'] ?? '').toString(),
+      sourceIndexUrl: (json['sourceIndexUrl'] as String?)?.trim() ?? '',
       name: name,
       lang: (json['lang'] as String?)?.trim() ?? '',
       itemType: CatalogItemType.parse(json['itemType'] as String?),

@@ -966,7 +966,8 @@
     "typeface_mono": "أحادي",
     "alignment": "المحاذاة",
     "align_left": "لليمين",
-    "align_justify": "ضبط"
+    "align_justify": "ضبط",
+    "novel_download_unavailable": "تنزيل الروايات دون اتصال غير مدعوم بعد."
   },
   "cloudflare": {
     "title": "تأكيد أنك لست روبوتاً",
@@ -1851,5 +1852,14 @@
     "dns_quad9": "Quad9 (9.9.9.9)",
     "dns_mullvad": "Mullvad",
     "dns_fallback": "تعذّر الوصول إلى ذلك المحلّل، لذا لا يزال محلّل النظام قيد الاستخدام."
+  },
+  "source_manager": {
+    "profile_hint": "اختيار المصادر وإضافتها وإدارتها",
+    "manage_repositories": "إدارة المستودعات",
+    "browse": "تصفح",
+    "selection_hint": "اضغط على مصدر لاستخدامه. التصفح يعرض محتواه.",
+    "recommended_repositories": "مستودعات مقترحة",
+    "load_more": "تحميل المزيد",
+    "added": "تمت الإضافة"
   }
 }

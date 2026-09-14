@@ -64,8 +64,12 @@ object AniyomiRuntime {
      * Forgets the given sources so the next lookup re-loads them from disk.
      * Used after an extension update — see `MangaRuntime.evictSources`.
      */
-    fun evictSources(sourceIds: List<String>) {
-        synchronized(this) { sourceIds.forEach { sourceCache.remove(it) } }
+    fun evictSources(sourceIds: List<String>, apkPaths: List<String> = emptyList()) {
+        synchronized(this) {
+            sourceIds.forEach { sourceCache.remove(it) }
+            loadedApks.removeAll(apkPaths.toSet())
+            lastError = null
+        }
     }
 
     /**

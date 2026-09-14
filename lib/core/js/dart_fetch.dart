@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:soplay/core/network/private_address.dart';
 import 'package:soplay/core/network/user_agent.dart';
+import 'package:soplay/core/network/http_headers.dart';
 
 import '../network/cf_bypass_service.dart';
 import 'js_log.dart';
@@ -16,6 +18,116 @@ class DartFetch {
   final Dio? _backendDio;
 
   final Map<String, String> _savedCookies = {};
+
+  /// The image widget uses a different HTTP client. Export only cookies whose
+  /// domain/path match this image, retaining the clearance cookie's user agent.
+  Future<Map<String, String>> headersForImage(
+    String url,
+    Map<String, String> provided,
+  ) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !['http', 'https'].contains(uri.scheme)) return provided;
+    final cookies = <String, String>{};
+    for (final manager in _dio.interceptors.whereType<SafeCookieManager>()) {
+      for (final cookie in await manager.cookieJar.loadForRequest(uri)) {
+        cookies[cookie.name] = cookie.value;
+      }
+    }
+    final clearance = _savedCookies[uri.host];
+    final explicit = provided.entries
+        .where((entry) => entry.key.toLowerCase() == 'cookie')
+        .map((entry) => entry.value);
+    for (final header in [?clearance, ...explicit]) {
+      for (final part in header.split(';')) {
+        final index = part.indexOf('=');
+        if (index > 0) {
+          cookies[part.substring(0, index).trim()] = part
+              .substring(index + 1)
+              .trim();
+        }
+      }
+    }
+    return mergeHttpHeaders([
+      provided,
+      {
+        if (cookies.isNotEmpty)
+          'Cookie': cookies.entries
+              .map((e) => '${e.key}=${e.value}')
+              .join('; '),
+        if (clearance != null) 'User-Agent': kSozoUserAgent,
+      },
+    ]);
+  }
+
+  /// Bounded binary downloads for EPUB host helpers; uses the same cookie jar.
+  Future<Uint8List> fetchBytes(
+    String url,
+    Map<String, String> headers, {
+    int maxBytes = 32 * 1024 * 1024,
+  }) async {
+    final target = Uri.tryParse(url);
+    if (target == null ||
+        !['https', 'http'].contains(target.scheme) ||
+        PrivateAddress.isObviouslyPrivate(target) ||
+        await PrivateAddress.resolvesPrivate(target.host)) {
+      throw StateError('EPUB URL is not a public HTTP address');
+    }
+    final requestHeaders = Map<String, String>.from(headers);
+    final clearance = _savedCookies[target.host];
+    if (clearance != null) {
+      requestHeaders.removeWhere((key, _) => key.toLowerCase() == 'user-agent');
+      requestHeaders['User-Agent'] = kSozoUserAgent;
+      final cookieKey = requestHeaders.keys
+          .where((k) => k.toLowerCase() == 'cookie')
+          .firstOrNull;
+      final existing = cookieKey == null
+          ? null
+          : requestHeaders.remove(cookieKey);
+      requestHeaders['Cookie'] = existing == null
+          ? clearance
+          : '$clearance; $existing';
+    }
+    final cancel = CancelToken();
+    Future<Uint8List> download() async {
+      final response = await _dio.get<ResponseBody>(
+        url,
+        cancelToken: cancel,
+        options: Options(
+          headers: requestHeaders,
+          responseType: ResponseType.stream,
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
+          receiveDataWhenStatusError: false,
+        ),
+      );
+      final body = response.data!;
+      final length = int.tryParse(
+        body.headers['content-length']?.firstOrNull ?? '',
+      );
+      if (length != null && length > maxBytes) {
+        cancel.cancel('EPUB exceeds size limit');
+        throw StateError('EPUB is larger than ${maxBytes ~/ (1024 * 1024)} MB');
+      }
+      final bytes = BytesBuilder(copy: false);
+      await for (final chunk in body.stream) {
+        if (bytes.length + chunk.length > maxBytes) {
+          cancel.cancel('EPUB exceeds size limit');
+          throw StateError(
+            'EPUB is larger than ${maxBytes ~/ (1024 * 1024)} MB',
+          );
+        }
+        bytes.add(chunk);
+      }
+      return bytes.takeBytes();
+    }
+
+    try {
+      return await download().timeout(const Duration(seconds: 55));
+    } on TimeoutException {
+      cancel.cancel('EPUB download timed out');
+      rethrow;
+    }
+  }
 
   /// The last request the network refused outright.
   ///
@@ -84,10 +196,10 @@ class DartFetch {
   /// Hosts that answered with a Cloudflare challenge after [mark] and are
   /// still unsolved.
   Set<String> cfHostsSince(int mark) => {
-        for (final e in _events)
-          if (e.seq > mark && e.cf && e.host != null && _pendingCf.contains(e.host))
-            e.host!,
-      };
+    for (final e in _events)
+      if (e.seq > mark && e.cf && e.host != null && _pendingCf.contains(e.host))
+        e.host!,
+  };
 
   /// Solves each of [hosts] once — joining a solve already in progress for
   /// the same host. True when at least one clearance was obtained.
@@ -223,7 +335,10 @@ class DartFetch {
         PrivateAddress.isObviouslyPrivate(target) ||
         await PrivateAddress.resolvesPrivate(target.host)) {
       JsLog.err('fetch', 'refused private address ${_shortUrl(req.url)}');
-      _record(host, '${host ?? 'address'} is on the local network and was not fetched');
+      _record(
+        host,
+        '${host ?? 'address'} is on the local network and was not fetched',
+      );
       return const {'status': 0, 'data': null, 'headers': {}};
     }
     final extraHeaders = Map<String, String>.from(req.headers);
@@ -231,8 +346,9 @@ class DartFetch {
       final cached = _savedCookies[host];
       if (cached != null) {
         final existing = extraHeaders['Cookie'] ?? extraHeaders['cookie'];
-        extraHeaders['Cookie'] =
-            existing != null ? '$cached; $existing' : cached;
+        extraHeaders['Cookie'] = existing != null
+            ? '$cached; $existing'
+            : cached;
         // cf_clearance is bound to the agent that earned it, and it was earned
         // under the app's own. Letting the extractor's agent ride along with
         // the cookie made Cloudflare reissue the challenge on every request
@@ -272,7 +388,11 @@ class DartFetch {
       }
 
       if (_looksLikeCfChallenge(status, headers, response.data)) {
-        _record(host, '${host ?? 'server'} is behind a Cloudflare challenge', cf: true);
+        _record(
+          host,
+          '${host ?? 'server'} is behind a Cloudflare challenge',
+          cf: true,
+        );
       } else if (status >= 400) {
         _record(host, '${host ?? 'server'} refused the request ($status)');
       }
@@ -309,7 +429,11 @@ class DartFetch {
     return '$e';
   }
 
-  bool _looksLikeCfChallenge(int status, Map<String, String> headers, String? body) {
+  bool _looksLikeCfChallenge(
+    int status,
+    Map<String, String> headers,
+    String? body,
+  ) {
     if (status == 428 && body != null && body.contains('cfChallenge')) {
       return true;
     }
@@ -348,15 +472,10 @@ class DartFetch {
     try {
       await dio.post(
         '/cf-cookies',
-        data: {
-          'host': host,
-          'cookies': cookies,
-          'userAgent': kSozoUserAgent,
-        },
+        data: {'host': host, 'cookies': cookies, 'userAgent': kSozoUserAgent},
         options: Options(extra: const {'skipCfBypassInterceptor': true}),
       );
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   String? _hostOf(String url) {
@@ -385,17 +504,13 @@ class DartFetch {
       });
     }
     final body = raw['body'];
-    return _Request(
-      method: method,
-      url: url,
-      headers: headers,
-      body: body,
-    );
+    return _Request(method: method, url: url, headers: headers, body: body);
   }
 
   dynamic _decodeBody(String? data, String? contentType) {
     if (data == null || data.isEmpty) return data;
-    if (contentType != null && contentType.toLowerCase().contains('application/json')) {
+    if (contentType != null &&
+        contentType.toLowerCase().contains('application/json')) {
       try {
         return jsonDecode(data);
       } catch (_) {

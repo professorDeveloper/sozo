@@ -9,7 +9,8 @@ class ReaderArgs {
   final List<EpisodeEntity> chapters;
   final int initialChapterIndex;
 
-  final int resumePage;
+  /// Null restores this chapter from history; zero explicitly starts over.
+  final int? resumePage;
 
   const ReaderArgs({
     required this.title,
@@ -18,6 +19,6 @@ class ReaderArgs {
     required this.chapters,
     this.thumbnail,
     this.initialChapterIndex = 0,
-    this.resumePage = 0,
+    this.resumePage,
   });
 }

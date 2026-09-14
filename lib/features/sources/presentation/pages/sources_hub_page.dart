@@ -2,8 +2,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
+import 'package:soplay/features/manga/presentation/pages/manga_source_settings_page.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:soplay/core/content/content_mode.dart';
+import 'package:soplay/core/extensions/source_language.dart' as srclang;
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
@@ -16,26 +19,15 @@ import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
-import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
+import 'package:soplay/features/extensions/presentation/pages/source_catalog_page.dart';
+import 'package:soplay/features/extensions/domain/entities/catalog_source_entity.dart';
 import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
 import 'package:soplay/features/sources/domain/source_ecosystem.dart';
 import 'package:soplay/features/sources/domain/source_failure.dart';
 import 'package:soplay/features/sources/domain/source_index.dart';
 
-/// Every source in one place, grouped by what it carries, browsable in place.
-///
-/// The screen this replaces was a settings list: an "Active source" row that
-/// opened a picker, and below it a row per extension ecosystem that pushed you
-/// somewhere else. Choosing a source there meant becoming that source and
-/// landing back on Home, so there was no way to look at what a source has
-/// without committing to it — the reported shape of that was having to go to
-/// settings every time.
-///
-/// Here the three kinds are tabs, because [ContentMode] already knows which
-/// source is which, and tapping one opens its catalogue inside this page. The
-/// app's active source does not move: cards carry their own provider to
-/// `/detail`, the way cross-search already does.
+/// Select an installed source with one tap, or preview it without switching.
 class SourcesHubPage extends StatefulWidget {
   const SourcesHubPage({super.key});
 
@@ -47,6 +39,9 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(
     length: ContentMode.values.length,
+    initialIndex: ContentMode.fromId(
+      getIt<HiveService>().getContentMode(),
+    ).index,
     vsync: this,
   );
   final TextEditingController _search = TextEditingController();
@@ -75,6 +70,19 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// actually filter on here — "the one I added from CloudStream" — and it was
   /// visible only as a word in grey under each of several hundred names.
   SourceEcosystem? _eco;
+  List<String> get _languages => getIt<HiveService>().getProviderLanguages();
+
+  Future<void> _filterLanguage(String code) async {
+    await getIt<HiveService>().setProviderLanguages(
+      code == '*' ? const [] : [code],
+    );
+    if (!mounted) return;
+    setState(() {
+      _tabCache.clear();
+      _restore.clear();
+    });
+    context.read<ProviderBloc>().add(const ProviderLoad(localOnly: true));
+  }
 
   @override
   void initState() {
@@ -117,24 +125,29 @@ class _SourcesHubPageState extends State<SourcesHubPage>
 
   /// Installing and removing extensions is a different job from browsing them,
   /// and it keeps its own screen.
-  void _openExtensions() => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const SourcesPage()),
-      );
+  void _openExtensions() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const SourcesPage()));
 
-  /// Where an empty tab sends somebody who wants to fill it.
-  ///
-  /// Manga and novels come from one ecosystem — the JavaScript extensions —
-  /// and its screen is the one carrying the recommended repos that actually
-  /// publish a novel index. Sending them to the generic list instead would be
-  /// one more hop to the same place.
-  void _openInstaller(ContentMode mode) {
-    if (mode == ContentMode.video) {
-      _openExtensions();
-      return;
-    }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const MangayomiSourcesPage()),
+  Future<void> _openInstaller(ContentMode mode) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SourceCatalogPage(
+          initialItemType: switch (mode) {
+            ContentMode.manga => CatalogItemType.manga,
+            ContentMode.novel => CatalogItemType.novel,
+            ContentMode.video => null,
+          },
+        ),
+      ),
     );
+    if (!mounted) return;
+    // "Use this source" can choose a different content type in the catalog.
+    // Return to its tab so the newly selected source is actually visible.
+    _tabs.index = ContentMode.fromId(
+      getIt<HiveService>().getContentMode(),
+    ).index;
+    setState(() => _eco = null);
   }
 
   @override
@@ -170,14 +183,24 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         Padding(
           padding: const EdgeInsets.only(right: 6),
           child: TextButton.icon(
-            onPressed: _openExtensions,
+            onPressed: () => _openInstaller(ContentMode.values[_tabs.index]),
             icon: const Icon(Icons.add_rounded, size: 20),
             label: Text('manga.add_source'.tr()),
           ),
         ),
+        PopupMenuButton<String>(
+          onSelected: (_) => _openExtensions(),
+          itemBuilder: (_) => [
+            PopupMenuItem(
+              value: 'manage',
+              child: Text('source_manager.manage_repositories'.tr()),
+            ),
+          ],
+        ),
       ],
       bottom: AppTabBar(
         controller: _tabs,
+        onChanged: (_) => setState(() => _eco = null),
         isScrollable: false,
         labels: [for (final m in ContentMode.values) m.labelKey.tr()],
       ),
@@ -193,25 +216,41 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         children: [
           _SourceMark(url: source.image, size: 24),
           const SizedBox(width: 10),
-          Expanded(
-            child: Text(source.name, overflow: TextOverflow.ellipsis),
-          ),
+          Expanded(child: Text(source.name, overflow: TextOverflow.ellipsis)),
         ],
       ),
       actions: [
-        // Here, and not on the list row: this is the moment the decision gets
-        // made, with what the source actually carries on the screen behind it.
+        if (source.id.startsWith('mn:'))
+          IconButton(
+            tooltip: 'general.settings'.tr(),
+            icon: const Icon(Icons.tune),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => MangaSourceSettingsPage(
+                  sourceId: source.id.substring(3),
+                  name: source.name,
+                ),
+              ),
+            ),
+          ),
+        IconButton(
+          tooltip: 'general.search'.tr(),
+          icon: const Icon(Icons.search),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => CrossSearchPage(initialProviderIds: {source.id}),
+            ),
+          ),
+        ),
         BlocBuilder<ProviderBloc, ProviderState>(
           builder: (context, state) {
-            final current = state is ProviderLoaded &&
-                state.currentProviderId == source.id;
+            final current =
+                state is ProviderLoaded && state.currentProviderId == source.id;
             return Padding(
               padding: const EdgeInsetsDirectional.only(end: 8),
               child: TextButton(
                 onPressed: current ? null : () => _use(source),
-                child: Text(
-                  current ? 'ux.in_use'.tr() : 'ux.use_source'.tr(),
-                ),
+                child: Text(current ? 'ux.in_use'.tr() : 'ux.use_source'.tr()),
               ),
             );
           },
@@ -248,8 +287,10 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// frame over several hundred providers. That is what made the swipe crawl;
   /// the work itself is milliseconds, sixty times a second is not.
   _TabSources _tabFor(ProviderLoaded state, ContentMode mode, String needle) {
-    final key = '${identityHashCode(state.providers)}'
-        '|${state.providers.length}|${mode.id}|$needle';
+    final languages = _languages;
+    final key =
+        '${identityHashCode(state.providers)}'
+        '|${state.providers.length}|${state.offline}|${mode.id}|$needle|${languages.join(',')}';
     final cached = _tabCache[key];
     if (cached != null) return cached;
 
@@ -257,6 +298,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       for (final p in state.providers)
         if (state.isUsable(p) &&
             p.id.contentMode == mode &&
+            srclang.langMatches(p.lang, languages) &&
             (needle.isEmpty || p.name.toLowerCase().contains(needle)))
           p,
     ];
@@ -282,7 +324,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     return BlocBuilder<ProviderBloc, ProviderState>(
       builder: (context, state) {
         if (state is ProviderError) {
-          return _Message(text: 'profile.providers_error'.tr());
+          return _Message(
+            text: 'profile.providers_error'.tr(),
+            actionLabel: 'general.retry'.tr(),
+            onAction: () =>
+                context.read<ProviderBloc>().add(const ProviderLoad()),
+          );
         }
         if (state is! ProviderLoaded) {
           return const Center(child: CircularProgressIndicator());
@@ -302,6 +349,19 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         return Column(
           children: [
             Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  'source_manager.selection_hint'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: TextField(
                 controller: _search,
@@ -309,6 +369,34 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                 decoration: InputDecoration(
                   isDense: true,
                   prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                  suffixIcon: PopupMenuButton<String>(
+                    tooltip: 'profile.all_languages'.tr(),
+                    icon: Icon(
+                      Icons.translate,
+                      color: _languages.isEmpty ? null : AppColors.primary,
+                    ),
+                    onSelected: _filterLanguage,
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: '*',
+                        child: Text('profile.all_languages'.tr()),
+                      ),
+                      for (final language
+                          in srclang
+                              .orderedLanguages(
+                                state.providers
+                                    .where((p) => p.id.contentMode == mode)
+                                    .map((p) => p.lang),
+                                _languages,
+                              )
+                              .where((language) => language != 'all'))
+                        CheckedPopupMenuItem(
+                          value: language,
+                          checked: _languages.contains(language),
+                          child: Text(srclang.labelFor(language)),
+                        ),
+                    ],
+                  ),
                   hintText: 'profile.search_providers_hint'.tr(),
                   filled: true,
                   fillColor: AppColors.card,
@@ -328,7 +416,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
             Expanded(
               child: sources.isEmpty
                   ? _Message(
-                      text: needle.isEmpty
+                      text: needle.isEmpty && _languages.isEmpty
                           ? 'mode.none_installed'.tr(args: [mode.labelKey.tr()])
                           : 'profile.no_providers_in_category'.tr(),
                       hint: needle.isEmpty ? _modeHint(mode) : null,
@@ -336,22 +424,31 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                       // novels are both extension ecosystems, so a fresh
                       // install has nothing in either tab and the only way out
                       // is a gear icon the message never mentions.
-                      actionLabel: needle.isEmpty ? 'manga.add_source'.tr() : null,
-                      onAction: needle.isEmpty ? () => _openInstaller(mode) : null,
+                      actionLabel: needle.isEmpty
+                          ? 'manga.add_source'.tr()
+                          : null,
+                      onAction: needle.isEmpty
+                          ? () => _openInstaller(mode)
+                          : null,
                     )
                   : ScrollablePositionedList.separated(
+                      key: ValueKey('${mode.id}|$needle|$eco'),
                       itemScrollController: _listCtl,
                       itemPositionsListener: _listPos,
                       // Going into a source and back rebuilt this list from
                       // nothing, so a tap forty rows down returned to the top.
-                      initialScrollIndex: _restore[mode.id] ?? 0,
+                      initialScrollIndex: (_restore[mode.id] ?? 0).clamp(
+                        0,
+                        sources.length - 1,
+                      ),
                       padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                       itemCount: sources.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (_, i) => _SourceTile(
                         source: sources[i],
                         current: sources[i].id == state.currentProviderId,
-                        onTap: () => setState(() => _open = sources[i]),
+                        onTap: () => _use(sources[i]),
+                        onBrowse: () => setState(() => _open = sources[i]),
                       ),
                     ),
             ),
@@ -366,15 +463,16 @@ class _SourceTile extends StatelessWidget {
   const _SourceTile({
     required this.source,
     required this.onTap,
+    required this.onBrowse,
     this.current = false,
   });
 
   final ProviderEntity source;
 
-  /// The app's source right now. Marked, not made un-tappable: tapping still
-  /// browses, which is what every other row here does.
+  /// Whether this is the currently selected source.
   final bool current;
   final VoidCallback onTap;
+  final VoidCallback onBrowse;
 
   @override
   Widget build(BuildContext context) {
@@ -416,8 +514,11 @@ class _SourceTile extends StatelessWidget {
                       ),
                       if (current) ...[
                         const SizedBox(width: 6),
-                        Icon(Icons.check_rounded,
-                            size: 16, color: AppColors.primary),
+                        Icon(
+                          Icons.check_rounded,
+                          size: 16,
+                          color: AppColors.primary,
+                        ),
                       ],
                     ],
                   ),
@@ -436,9 +537,9 @@ class _SourceTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textSecondary,
+            TextButton(
+              onPressed: onBrowse,
+              child: Text('source_manager.browse'.tr()),
             ),
           ],
         ),
@@ -496,7 +597,8 @@ class _SourceBrowseViewState extends State<_SourceBrowseView> {
         }
         final data = snap.data;
         final sections = [
-          for (final s in data?.sections ?? const []) if (s.items.isNotEmpty) s,
+          for (final s in data?.sections ?? const [])
+            if (s.items.isNotEmpty) s,
         ];
         if (sections.isEmpty) {
           return _Message(
@@ -654,7 +756,6 @@ class _Message extends StatelessWidget {
   }
 }
 
-
 /// Which runtime a source comes from, as a row of chips.
 ///
 /// Only the ecosystems this tab actually contains: a fresh install has no
@@ -696,8 +797,10 @@ class _EcosystemFilter extends StatelessWidget {
               child: InkWell(
                 onTap: () => onPick(e),
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   child: Text(
                     e?.label ?? 'sources.eco_all'.tr(),
                     style: TextStyle(
@@ -715,7 +818,6 @@ class _EcosystemFilter extends StatelessWidget {
     );
   }
 }
-
 
 /// One tab's sources, and which ecosystems are in them.
 class _TabSources {

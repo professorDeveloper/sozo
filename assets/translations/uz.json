@@ -966,7 +966,8 @@
     "typeface_mono": "Mono",
     "alignment": "Tekislash",
     "align_left": "Chapdan",
-    "align_justify": "Ikki chetga"
+    "align_justify": "Ikki chetga",
+    "novel_download_unavailable": "Hozircha novellarni oflayn yuklab bo‘lmaydi."
   },
   "cloudflare": {
     "title": "Siz odam ekanligingizni tasdiqlang",
@@ -1847,5 +1848,14 @@
     "dns_quad9": "Quad9 (9.9.9.9)",
     "dns_mullvad": "Mullvad",
     "dns_fallback": "O'sha resolverga ulanib bo'lmadi, shuning uchun tizimnikisi ishlayapti."
+  },
+  "source_manager": {
+    "profile_hint": "Manbani tanlash, qo‘shish va boshqarish",
+    "manage_repositories": "Repo boshqaruvi",
+    "browse": "Ko‘rish",
+    "selection_hint": "Manbani ishlatish uchun bosing. “Ko‘rish” orqali tarkibini tekshiring.",
+    "recommended_repositories": "Tavsiya etilgan repolar",
+    "load_more": "Yana yuklash",
+    "added": "Qo‘shildi"
   }
 }

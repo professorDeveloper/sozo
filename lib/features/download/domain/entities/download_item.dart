@@ -33,6 +33,7 @@ class DownloadItem {
     this.episodeNumber,
     this.episodeLabel,
     this.pageUrls = const [],
+    this.imageHeaders = const [],
     this.chapterRef,
     this.chapterIndex,
     this.failure,
@@ -105,6 +106,7 @@ class DownloadItem {
 
   /// Manga only: the pages to fetch. Empty until resolved.
   final List<String> pageUrls;
+  final List<Map<String, String>> imageHeaders;
   final String? chapterRef;
   final int? chapterIndex;
 
@@ -171,6 +173,7 @@ class DownloadItem {
     int? totalUnits,
     int? sizeBytes,
     List<String>? pageUrls,
+    List<Map<String, String>>? imageHeaders,
     Object? failure = _unset,
     String? failureDetail,
     int? attempts,
@@ -198,6 +201,7 @@ class DownloadItem {
     episodeNumber: episodeNumber,
     episodeLabel: episodeLabel,
     pageUrls: pageUrls ?? this.pageUrls,
+    imageHeaders: imageHeaders ?? this.imageHeaders,
     chapterRef: chapterRef,
     chapterIndex: chapterIndex,
     // `null` is a real value here — clearing the failure is what a retry

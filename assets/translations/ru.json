@@ -966,7 +966,8 @@
     "typeface_mono": "Моно",
     "alignment": "Выравнивание",
     "align_left": "По левому",
-    "align_justify": "По ширине"
+    "align_justify": "По ширине",
+    "novel_download_unavailable": "Офлайн-загрузка новелл пока не поддерживается."
   },
   "cloudflare": {
     "title": "Подтвердите, что вы человек",
@@ -1848,5 +1849,14 @@
     "dns_quad9": "Quad9 (9.9.9.9)",
     "dns_mullvad": "Mullvad",
     "dns_fallback": "К этому резолверу не удалось подключиться — используется системный."
+  },
+  "source_manager": {
+    "profile_hint": "Выбор, добавление и управление источниками",
+    "manage_repositories": "Управление репозиториями",
+    "browse": "Обзор",
+    "selection_hint": "Нажмите на источник, чтобы выбрать его. «Обзор» открывает содержимое.",
+    "recommended_repositories": "Рекомендуемые репозитории",
+    "load_more": "Загрузить ещё",
+    "added": "Добавлено"
   }
 }

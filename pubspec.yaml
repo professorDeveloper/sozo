@@ -134,6 +134,7 @@ dependencies:
   # instead: they are Nuxt apps whose class names are utility soup, and an
   # anchor on `href="magnet:"` survives a redesign that CSS selectors do not.
   xml: ^6.6.1
+  archive: ^4.0.9
   # Trailer playback without a YouTube iframe. TrailerService resolves a title
   # to a YouTube video id, then this resolves that id to a direct muxed
   # (video+audio) URL the app's own player can open. Pure Dart, no API key and

@@ -999,6 +999,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
         thumbnailUrl: widget.args.thumbnail,
         headers: pages.headers,
         pageUrls: pages.pages.map((p) => p.imageUrl).toList(),
+        imageHeaders: pages.pages.map((p) => <String, String>{...p.headers, if (p.cookie != null) 'Cookie': p.cookie!}).toList(),
         chapterRef: ch.mediaRef,
         chapterIndex: _runPositionOf(index),
         episodeNumber: ch.episode,

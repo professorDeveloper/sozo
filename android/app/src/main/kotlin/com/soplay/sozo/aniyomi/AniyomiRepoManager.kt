@@ -19,6 +19,21 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
 
     @Volatile private var ensured = false
 
+    init {
+        host.refreshMissingApk = { sourceId ->
+            synchronized(this) {
+                val metadata = loadMeta()
+                val repo = savedRepos().firstOrNull { key ->
+                    val entries = metadata.optJSONArray(key) ?: JSONArray()
+                    !key.startsWith("file:") && (0 until entries.length()).any {
+                        entries.optJSONObject(it)?.optString("id") == sourceId
+                    }
+                }
+                if (repo != null) addRepoInternal(repo)
+            }
+        }
+    }
+
     private fun isManga(name: String) = mangaRegex.containsMatchIn(name)
 
     private fun savedRepos(): MutableList<String> {
@@ -48,6 +63,7 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
         prefs.edit().putString("names", o.toString()).apply()
     }
 
+    @Synchronized
     fun ensureLoaded() {
         if (ensured) return
         ensured = true
@@ -75,6 +91,7 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
         return arr.toString()
     }
 
+    @Synchronized
     fun removeRepo(input: String): String {
         val key = input.trim()
         val meta = loadMeta()
@@ -91,6 +108,7 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
         return JSONObject().apply { put("repos", JSONArray(repos)) }.toString()
     }
 
+    @Synchronized
     fun addRepo(input: String, progress: ((Int, Int) -> Unit)? = null): JSONObject {
         val result = addRepoInternal(input, progress)
         if (result.optInt("sourceCount") > 0) {
@@ -106,18 +124,14 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
      * Keyed on a synthetic `file:<name>` id — the cache copy is transient, so a
      * real path would break `removeRepo` once the cache is cleared.
      */
+    @Synchronized
     fun addRepoFile(
         path: String,
         displayName: String,
         progress: ((Int, Int) -> Unit)? = null,
     ): JSONObject {
         val key = "file:" + (displayName.ifEmpty { path.substringAfterLast('/') })
-        val packages = try {
-            ExtensionIndex.parseFile(path)
-        } catch (t: Throwable) {
-            Log.e(TAG, "index file parse failed for $path: ${t.message}")
-            JSONArray()
-        }
+        val packages = ExtensionIndex.parseFile(path)
         val result = install(key, key.removePrefix("file:"), packages, "", progress)
         if (result.optInt("sourceCount") > 0) {
             val repos = savedRepos()
@@ -129,12 +143,7 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
     private fun addRepoInternal(input: String, progress: ((Int, Int) -> Unit)? = null): JSONObject {
         val repoUrl = input.trim()
         // Accepts `index.min.json` and the gzipped-protobuf `index.pb` alike.
-        val packages = try {
-            ExtensionIndex.fetch(repoUrl)
-        } catch (t: Throwable) {
-            Log.e(TAG, "index fetch failed for $repoUrl: ${t.message}")
-            JSONArray()
-        }
+        val packages = ExtensionIndex.fetch(repoUrl)
         return install(repoUrl, fallbackName(repoUrl), packages, iconBaseFor(repoUrl), progress)
     }
 
@@ -193,6 +202,7 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
             progress?.invoke(i + 1, total)
         }
 
+        require(sourceCount > 0) { "Repository contains no usable sources; existing sources were kept" }
         val meta = loadMeta(); meta.put(repoKey, metaEntries); saveMeta(meta)
         if (sourceCount > 0) {
             val names = loadNames(); names.put(repoKey, repoName); saveNames(names)
@@ -212,6 +222,7 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
      * changed url means the cached apk is stale by definition — no need to parse
      * four upstream version conventions.
      */
+    @Synchronized
     fun checkUpdates(
         apply: Boolean = true,
         progress: ((Int, Int) -> Unit)? = null,
@@ -246,12 +257,12 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
             for (i in 0 until packages.length()) {
                 val pkg = packages.optJSONObject(i) ?: continue
                 val pkgName = pkg.optString("pkg")
-                val existing = installedByPkg[pkgName] ?: continue
+                val existing = installedByPkg[pkgName]
                 val apkRemote = pkg.optString("apkUrl").ifEmpty {
                     val n = pkg.optString("apk")
                     if (n.isEmpty()) "" else apkUrl(repo, n)
                 }
-                if (apkRemote.isEmpty() || apkRemote == existing.optString("apkUrl")) continue
+                if (apkRemote.isEmpty() || apkRemote == existing?.optString("apkUrl")) continue
 
                 updated.put(JSONObject().apply {
                     put("pkg", pkgName)
@@ -260,7 +271,7 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
                     put("repo", repo)
                 })
                 if (apply) {
-                    host.dropCachedApk(existing.optString("apkUrl"))
+                    existing?.optString("apkUrl")?.let(host::dropCachedApk)
                     val iconRemote = pkg.optString("iconUrl").ifEmpty {
                         if (pkgName.isEmpty()) "" else "$iconBase/icon/$pkgName.png"
                     }
@@ -281,10 +292,10 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
                             put("nsfw", pkg.optBoolean("nsfw", false))
                         }
                         host.registerMeta(entry, repoName)
-                        for (k in 0 until entries.length()) {
-                            val e = entries.optJSONObject(k) ?: continue
-                            if (e.optString("id") == src.optString("id")) entries.put(k, entry)
+                        val oldIndex = (0 until entries.length()).firstOrNull {
+                            entries.optJSONObject(it)?.optString("id") == src.optString("id")
                         }
+                        if (oldIndex == null) entries.put(entry) else entries.put(oldIndex, entry)
                     }
                     meta.put(repo, entries); saveMeta(meta)
                 }

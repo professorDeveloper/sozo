@@ -1,0 +1,115 @@
+{
+  "fetchedAt": "2026-09-13T22:48:51.544Z",
+  "evidence": [
+    {
+      "url": "https://raw.githubusercontent.com/yuzono/manga-repo/repo/index.min.json",
+      "status": 200,
+      "bytes": 765,
+      "magic": "5b0a2020",
+      "rows": 2,
+      "sample": [
+        {
+          "name": "Outdated App",
+          "pkg": "eu.kanade.tachiyomi.extension.all.keiyoushi",
+          "sources": [
+            {
+              "name": "Outdated App",
+              "lang": "all",
+              "id": "1",
+              "baseUrl": "https://keiyoushi.github.io"
+            }
+          ]
+        },
+        {
+          "name": "Update to Mihon 0.20.1+",
+          "pkg": "eu.kanade.tachiyomi.extension.all.mihon",
+          "sources": [
+            {
+              "name": "Update to Mihon 0.20.1+",
+              "lang": "all",
+              "id": "1",
+              "baseUrl": "https://mihon.app"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/yuzono/manga-repo/repo/index.pb",
+      "status": 404,
+      "bytes": 14,
+      "magic": "3430343a",
+      "rows": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json",
+      "status": 200,
+      "bytes": 765,
+      "magic": "5b0a2020",
+      "rows": 2,
+      "sample": [
+        {
+          "name": "Outdated App",
+          "pkg": "eu.kanade.tachiyomi.extension.all.keiyoushi",
+          "sources": [
+            {
+              "name": "Outdated App",
+              "lang": "all",
+              "id": "1",
+              "baseUrl": "https://keiyoushi.github.io"
+            }
+          ]
+        },
+        {
+          "name": "Update to Mihon 0.20.1+",
+          "pkg": "eu.kanade.tachiyomi.extension.all.mihon",
+          "sources": [
+            {
+              "name": "Update to Mihon 0.20.1+",
+              "lang": "all",
+              "id": "1",
+              "baseUrl": "https://mihon.app"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb",
+      "status": 200,
+      "bytes": 106364,
+      "magic": "1f8b0800",
+      "rows": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/novel_index.json",
+      "status": 200,
+      "bytes": 3062,
+      "magic": "5b7b226e",
+      "rows": 5,
+      "sample": [
+        {
+          "id": 756554088,
+          "name": "ملوك الروايات",
+          "itemType": 2,
+          "sourceCodeLanguage": 1,
+          "sourceCodeUrl": "https://raw.githubusercontent.com/entityJY/mangayomi-extensions-eJ/main/javascript/novel/src/ar/kolnovel.js"
+        },
+        {
+          "id": 114216145,
+          "name": "Annas Archive",
+          "itemType": 2,
+          "sourceCodeLanguage": 1,
+          "sourceCodeUrl": "https://raw.githubusercontent.com/entityJY/mangayomi-extensions-eJ/main/javascript/novel/src/all/annasarchive.js"
+        },
+        {
+          "id": 422341482,
+          "name": "Wordrain69",
+          "itemType": 2,
+          "sourceCodeLanguage": 1,
+          "sourceCodeUrl": "https://raw.githubusercontent.com/entityJY/mangayomi-extensions-eJ/main/javascript/novel/src/en/wordrain69.js"
+        }
+      ]
+    }
+  ]
+}

@@ -39,6 +39,7 @@ abstract final class DownloadItemModel {
     'episodeNumber': item.episodeNumber,
     'episodeLabel': item.episodeLabel,
     'pageUrls': item.pageUrls,
+    'imageHeaders': item.imageHeaders,
     'chapterRef': item.chapterRef,
     'chapterIndex': item.chapterIndex,
     'failure': item.failure?.id,
@@ -135,6 +136,18 @@ abstract final class DownloadItemModel {
           (json['pageUrls'] as List?)
               ?.map((e) => e.toString())
               .where((e) => e.isNotEmpty)
+              .toList() ??
+          const [],
+      imageHeaders:
+          (json['imageHeaders'] as List?)
+              ?.map(
+                (h) => <String, String>{
+                  if (h is Map)
+                    for (final entry in h.entries)
+                      if (entry.value != null)
+                        entry.key.toString(): entry.value.toString(),
+                },
+              )
               .toList() ??
           const [],
       chapterRef: _stringOrNull(json['chapterRef']),

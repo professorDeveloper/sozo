@@ -138,6 +138,25 @@ void main() {
   });
 
   group('surviving an upgrade', () {
+    test('legacy bottom-left episode controls migrate beside the seek buttons', () {
+      final layout = PlayerControlsLayout.fromStored({
+        'bottomLeft': ['previous', 'next'],
+        'hidden': ['stats'],
+      });
+      expect(layout.slotOf('previous'), PlayerControlSlot.center);
+      expect(layout.slotOf('next'), PlayerControlSlot.center);
+      expect(layout.of(PlayerControlSlot.bottomLeft), isNot(contains('previous')));
+    });
+    test('modern explicit layout and hidden episode controls survive', () {
+      final layout = PlayerControlsLayout.fromStored({
+        'center': <String>[],
+        'bottomLeft': ['previous'],
+        'hidden': ['next'],
+      });
+      expect(layout.slotOf('previous'), PlayerControlSlot.bottomLeft);
+      expect(layout.slotOf('next'), PlayerControlSlot.hidden);
+    });
+
     test('a control added since the layout was saved appears in its default '
         'slot', () {
       // Absent from storage means NEW — hiding writes the id into the hidden

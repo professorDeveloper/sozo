@@ -249,49 +249,27 @@ class _ConnectionsHubTileState extends State<_ConnectionsHubTile> {
   }
 }
 
-/// Two rows, because they are two jobs.
-///
-/// One row showing the current source and leading to the extension-management
-/// screen made the everyday act — switching source — three screens deep:
-/// Sources, then Active source, then the full providers page, which is really
-/// for installing repos. Changing source is the most repeated thing anyone does
-/// here, so it gets the row that names it and opens the switcher directly.
+/// One entry point for selecting and adding sources.
 class _SourcesHubTile extends StatelessWidget {
   const _SourcesHubTile();
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        BlocBuilder<ProviderBloc, ProviderState>(
-          builder: (context, state) {
-            final loaded = state is ProviderLoaded ? state : null;
-            final current = loaded?.currentProvider;
-            return SettingsNavTile(
-              icon: Icons.swap_horiz_rounded,
-              // "Source" and "Extension sources" differed by one word and led
-              // to two unrelated places — a sheet and a full screen. The names
-              // say which is which now.
-              title: 'profile.choose_provider'.tr(),
-              valueLeading: current != null && current.image.isNotEmpty
-                  ? ProviderMark(url: current.image)
-                  : null,
-              value: current?.name ?? loaded?.currentProviderId,
-              // The same sheet the home screen's chip opens — one decision, one
-              // control, wherever it is reached from.
-              onTap: () => openProviderQuickSwitch(context),
-            );
-          },
-        ),
-        const SettingsDivider(),
-        SettingsNavTile(
+    return BlocBuilder<ProviderBloc, ProviderState>(
+      builder: (context, state) {
+        final loaded = state is ProviderLoaded ? state : null;
+        final current = loaded?.currentProvider;
+        return SettingsNavTile(
           icon: Icons.extension_outlined,
-          title: 'profile.all_providers'.tr(),
-          subtitle: 'profile.sources_row_subtitle'.tr(),
+          title: 'profile.sources_title'.tr(),
+          subtitle: 'source_manager.profile_hint'.tr(),
+          valueLeading: current != null && current.image.isNotEmpty
+              ? ProviderMark(url: current.image)
+              : null,
+          value: current?.name ?? loaded?.currentProviderId,
           onTap: () => context.push('/sources'),
-        ),
-      ],
+        );
+      },
     );
   }
 }

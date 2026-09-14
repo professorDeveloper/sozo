@@ -64,7 +64,7 @@ class PluginHost(private val appContext: Context) {
      */
     private fun applyDnsToLibraryClient() {
         try {
-            val appField = Class.forName("com.lagradost.cloudstream3.MainAPIKt")
+            val appField = Class.forName("com.lagradost.cloudstream3.MainActivityKt")
                 .getDeclaredMethod("getApp")
             val requests = appField.invoke(null) ?: return
             val clientField = requests.javaClass.methods

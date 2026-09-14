@@ -208,6 +208,7 @@ class MainActivity : FlutterFragmentActivity() {
                     val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
                     val kind = call.argument<String>("kind").orEmpty().ifBlank { "video" }
                     val pageUrls = call.argument<List<String>>("pageUrls") ?: emptyList()
+                    val imageHeaders = call.argument<List<Map<String, String>>>("imageHeaders") ?: emptyList()
                     val isManga = kind == "manga"
                     // Manga has no single url; require the destination folder + page urls instead.
                     val missingArgs = if (isManga) {
@@ -237,6 +238,10 @@ class MainActivity : FlutterFragmentActivity() {
                         .putExtra(
                             DownloadForegroundService.EXTRA_HEADERS_JSON,
                             JSONObject(headers).toString()
+                        )
+                        .putExtra(
+                            DownloadForegroundService.EXTRA_IMAGE_HEADERS_JSON,
+                            JSONArray(imageHeaders).toString()
                         )
                     // Android 12+ throws when a foreground service is started
                     // from the background. Reported as `false` rather than left
@@ -708,14 +713,18 @@ class MainActivity : FlutterFragmentActivity() {
                     val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
                     val warmMs = (call.argument<Number>("warmMs") ?: -1).toLong()
                     cloudstreamScope.launch {
-                        FramePreview.open(url, headers, warmMs)
-                        withContext(Dispatchers.Main) { result.success(true) }
+                        val token = call.argument<Number>("generation")?.toLong()
+                        val opened = if (token != null) FramePreview.open(url, headers, warmMs, token)
+                            else FramePreview.open(url, headers, warmMs)
+                        withContext(Dispatchers.Main) { result.success(opened) }
                     }
                 }
                 "frame" -> {
                     val posMs = (call.argument<Number>("posMs") ?: 0).toLong()
                     cloudstreamScope.launch {
-                        val bytes = FramePreview.frame(posMs)
+                        val token = call.argument<Number>("generation")?.toLong()
+                        val bytes = if (token != null) FramePreview.frame(posMs, sessionId = token)
+                            else FramePreview.frame(posMs)
                         withContext(Dispatchers.Main) { result.success(bytes) }
                     }
                 }
@@ -723,7 +732,8 @@ class MainActivity : FlutterFragmentActivity() {
                 // still-running open(), and blocking here would freeze the whole UI.
                 "close" -> {
                     cloudstreamScope.launch {
-                        FramePreview.close()
+                        val token = call.argument<Number>("generation")?.toLong()
+                        if (token != null) FramePreview.close(token) else FramePreview.close()
                         withContext(Dispatchers.Main) { result.success(true) }
                     }
                 }

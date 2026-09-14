@@ -114,8 +114,20 @@
         headers: normaliseHeaders(headers),
       };
       if (body !== undefined && body !== null) {
-        payload.body = (typeof body === 'string') ? body : JSON.stringify(body);
-        if (!payload.headers['Content-Type'] && typeof body !== 'string') {
+        const contentTypeKey = Object.keys(payload.headers).find(k => k.toLowerCase() === 'content-type');
+        const contentType = contentTypeKey ? payload.headers[contentTypeKey].toLowerCase() : '';
+        if (typeof body !== 'string' && contentType.includes('application/x-www-form-urlencoded')) {
+          const form = new URLSearchParams();
+          for (const [key, value] of Object.entries(body)) {
+            for (const item of (Array.isArray(value) ? value : [value])) {
+              if (item != null) form.append(key, String(item));
+            }
+          }
+          payload.body = form.toString();
+        } else {
+          payload.body = typeof body === 'string' ? body : JSON.stringify(body);
+        }
+        if (!contentTypeKey && typeof body !== 'string') {
           payload.headers['Content-Type'] = 'application/json';
         }
       }
@@ -623,6 +635,36 @@
     globalThis.__sozoSource = instance.source || globalThis.__sozoSource;
     return true;
   };
+
+  // One WebView round trip per chapter, even when headers depend on each URL.
+  globalThis.__sozoImageHeaders = async function (urls) {
+    const provider = globalThis.__sozoProvider;
+    const result = [];
+    for (const url of urls) {
+      try {
+        result.push(normaliseHeaders(await provider.getHeaders(url)));
+      } catch (error) {
+        if (!/not implemented|does not implement|is not a function/i.test(String(error))) throw error;
+        result.push({});
+      }
+    }
+    return result;
+  };
+
+  async function epubCall(method, name, url, headers, chapter) {
+    const result = await window.flutter_inappwebview.callHandler('mangayomiEpub', {
+      method, name, url, headers: normaliseHeaders(headers), chapter,
+    });
+    if (result && result.error) throw new Error(result.error);
+    return result ? result.value : null;
+  }
+  globalThis.parseEpub = async (name, url, headers) => {
+    const provider = globalThis.__sozoProvider;
+    const book = await epubCall('book', name, url, headers);
+    if (provider && book) provider.__sozoEpubTitles = book.chapters;
+    return book;
+  };
+  globalThis.parseEpubChapter = (name, url, headers, chapter) => epubCall('chapter', name, url, headers, chapter);
 
   globalThis.__sozoMangayomiReady = true;
 })();

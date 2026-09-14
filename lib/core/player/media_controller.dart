@@ -10,6 +10,7 @@ import 'package:soplay/core/player/drm_config.dart';
 import 'package:soplay/core/player/player_video_track.dart';
 import 'package:soplay/core/player/drm_controller.dart';
 import 'package:soplay/core/player/player_engine.dart';
+import 'package:soplay/core/player/playback_readiness.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:video_player/video_player.dart' as vp;
 
@@ -382,6 +383,7 @@ class _NativeController extends PlayerController {
 
   final vp.VideoPlayerController _inner;
   bool _disposed = false;
+  Future<void>? _disposal;
 
   void _sync() {
     if (!_disposed) value = _inner.value;
@@ -390,7 +392,7 @@ class _NativeController extends PlayerController {
   @override
   Future<void> initialize() async {
     await _inner.initialize();
-    value = _inner.value;
+    if (!_disposed) value = _inner.value;
   }
 
   @override
@@ -419,11 +421,17 @@ class _NativeController extends PlayerController {
   Widget buildView({BoxFit fit = BoxFit.contain}) => vp.VideoPlayer(_inner);
 
   @override
-  Future<void> dispose() async {
+  Future<void> dispose() {
+    final pending = _disposal;
+    if (pending != null) return pending;
     _disposed = true;
+    super.dispose();
+    return _disposal = _disposeOnce();
+  }
+
+  Future<void> _disposeOnce() async {
     _inner.removeListener(_sync);
     await _inner.dispose();
-    super.dispose();
   }
 }
 
@@ -489,7 +497,9 @@ class _MediaKitController extends PlayerController {
   String? _activeVideoTrackId;
   final List<StreamSubscription<dynamic>> _subs = <StreamSubscription<dynamic>>[];
   bool _disposed = false;
-  bool _mpvGone = false;
+  Future<void>? _mpvDisposal;
+  Future<void>? _disposal;
+  final _closed = Completer<void>();
   String? _error;
 
   @override
@@ -502,7 +512,17 @@ class _MediaKitController extends PlayerController {
       ),
       play: false,
     );
-    await _awaitReady();
+    try {
+      await _awaitReady();
+    } on TimeoutException {
+      if (_disposed) return;
+      if (!kIsWeb && Platform.isAndroid) {
+        debugPrint('[player] libmpv never produced video parameters; trying platform playback');
+        await _swapToPlatformBackend();
+        return;
+      }
+      rethrow;
+    }
     if (_disposed) return;
     final w = _player.state.width ?? 0;
     final h = _player.state.height ?? 0;
@@ -521,9 +541,13 @@ class _MediaKitController extends PlayerController {
     // remaining step is local work and a few seconds is generous; the cost is
     // paid once, by a device that was going to show nothing anyway.
     if (w > 0 && h > 0 && !await _firstFrameArrives()) {
-      markMediaKitUnavailable();
-      debugPrint('[player] libmpv played without a picture — using the '
-          'platform player for this device');
+      if (_disposed) return;
+      // A codec/stream can fail while other MediaKit videos still work. Do not
+      // silently change the user's engine for every later title in the session.
+      if (kIsWeb || !Platform.isAndroid) {
+        throw StateError(kVideoOutputUnavailable);
+      }
+      debugPrint('[player] libmpv played without a picture — trying platform playback for this stream');
       await _swapToPlatformBackend();
       return;
     }
@@ -707,40 +731,24 @@ class _MediaKitController extends PlayerController {
     value = v;
   }
 
-  Future<void> _awaitReady() async {
-    final completer = Completer<void>();
-    void finish() {
-      if (!completer.isCompleted) completer.complete();
-    }
-
-    final subs = <StreamSubscription<dynamic>>[
-      _player.stream.duration.listen((d) {
-        if (d > Duration.zero) finish();
-      }),
-      _player.stream.width.listen((w) {
-        if ((w ?? 0) > 0) finish();
-      }),
-      _player.stream.playing.listen((p) {
-        if (p) finish();
-      }),
-      _player.stream.error.listen((e) {
-        _error = e;
-        finish();
-      }),
-    ];
-
-    if (_player.state.duration > Duration.zero ||
-        (_player.state.width ?? 0) > 0) {
-      finish();
-    }
-    final timer = Timer(const Duration(seconds: 30), finish);
-
-    await completer.future;
-    timer.cancel();
-    for (final s in subs) {
-      await s.cancel();
-    }
-  }
+  Future<void> _awaitReady() => awaitPlaybackReadiness(
+    read: () => PlaybackReadiness(
+      width: _player.state.width ?? 0,
+      height: _player.state.height ?? 0,
+      hasVideo: _player.state.tracks.video.any((t) => t.id != 'no' && t.id != 'auto'),
+      hasAudio: _player.state.tracks.audio.any((t) => t.id != 'no' && t.id != 'auto'),
+      duration: _player.state.duration,
+      error: _error,
+    ),
+    signals: [
+      _player.stream.duration,
+      _player.stream.width,
+      _player.stream.height,
+      _player.stream.tracks,
+      _player.stream.error,
+    ],
+    canceled: _closed.future,
+  );
 
   @override
   Future<void> play() => _fallback?.play() ?? _player.play();
@@ -905,11 +913,18 @@ class _MediaKitController extends PlayerController {
 
 
   @override
-  Future<void> dispose() async {
+  Future<void> dispose() {
+    final pending = _disposal;
+    if (pending != null) return pending;
     _disposed = true;
+    super.dispose();
+    return _disposal = _disposeOnce();
+  }
+
+  Future<void> _disposeOnce() async {
+    if (!_closed.isCompleted) _closed.complete();
     await _teardownMpv();
     await _fallback?.dispose();
-    super.dispose();
   }
 
   /// Release libmpv without ending this controller.
@@ -917,9 +932,9 @@ class _MediaKitController extends PlayerController {
   /// Shared with [dispose] because the swap has to leave nothing of the old
   /// backend behind: an undisposed Player keeps decoding, and two backends on
   /// one stream is audio playing twice.
-  Future<void> _teardownMpv() async {
-    if (_mpvGone) return;
-    _mpvGone = true;
+  Future<void> _teardownMpv() => _mpvDisposal ??= _releaseMpv();
+
+  Future<void> _releaseMpv() async {
     for (final s in _subs) {
       await s.cancel();
     }

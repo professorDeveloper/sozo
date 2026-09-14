@@ -223,6 +223,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
       episodeNumber: request.episodeNumber,
       episodeLabel: request.episodeLabel,
       pageUrls: request.pageUrls,
+      imageHeaders: request.imageHeaders,
       chapterRef: request.chapterRef,
       chapterIndex: request.chapterIndex,
     );
@@ -467,6 +468,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
       headers: item.headers,
       kind: item.kind.id,
       pageUrls: item.pageUrls,
+      imageHeaders: item.imageHeaders,
       wifiOnly: _hive.downloadWifiOnly,
     );
     if (!started) {
@@ -500,6 +502,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
         sourceUrl: item.sourceUrl,
         headers: item.headers,
         pageUrls: item.pageUrls,
+        imageHeaders: item.imageHeaders,
         cancel: cancel,
         onProgress: (p) {
           latest = latest.copyWith(
@@ -1026,6 +1029,14 @@ class DownloadRepositoryImpl implements DownloadRepository {
       if (result is Success<MangaPagesEntity>) {
         return item.copyWith(
           pageUrls: result.value.pages.map((p) => p.imageUrl).toList(),
+          imageHeaders: result.value.pages
+              .map(
+                (p) => <String, String>{
+                  ...p.headers,
+                  if (p.cookie != null) 'Cookie': p.cookie!,
+                },
+              )
+              .toList(),
           headers: result.value.headers.isEmpty
               ? item.headers
               : result.value.headers,
@@ -1054,7 +1065,8 @@ class DownloadRepositoryImpl implements DownloadRepository {
       // The video's headers — a Referer, often a cookie or a token — belong to
       // the video's host. A poster usually sits on a different CDN, and handing
       // it the stream's credentials is a leak with nothing gained.
-      final sameHost = Uri.tryParse(url)?.host.toLowerCase() ==
+      final sameHost =
+          Uri.tryParse(url)?.host.toLowerCase() ==
           Uri.tryParse(item.sourceUrl)?.host.toLowerCase();
       final response = await ExternalDio.instance.get<List<int>>(
         url,

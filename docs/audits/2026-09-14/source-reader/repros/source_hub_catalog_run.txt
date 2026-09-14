@@ -1,0 +1,183 @@
+00:00 +0: loading /Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart
+00:00 +0: (setUpAll)
+[90m[🌎 Easy Localization] [DEBUG] Localization initialized[0m
+00:00 +0: HUB-01 Manga tab must replace video sources immediately
+[90m[🌎 Easy Localization] [DEBUG] Start[0m
+[90m[🌎 Easy Localization] [DEBUG] Init state[0m
+[32m[🌎 Easy Localization] [INFO] Start locale loaded en[0m
+[90m[🌎 Easy Localization] [DEBUG] Build[0m
+[90m[🌎 Easy Localization] [DEBUG] Init Localization Delegate[0m
+[90m[🌎 Easy Localization] [DEBUG] Init provider[0m
+[90m[🌎 Easy Localization] [DEBUG] Load Localization Delegate[0m
+[90m[🌎 Easy Localization] [DEBUG] Build[0m
+[90m[🌎 Easy Localization] [DEBUG] Init Localization Delegate[0m
+[90m[🌎 Easy Localization] [DEBUG] Init provider[0m
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "Manga Fixture": []>
+   Which: means none were found but one was expected
+Changing tabs must rebuild the body without typing or another Bloc event.
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart:180:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1952:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart line 180
+The test description was:
+  HUB-01 Manga tab must replace video sources immediately
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:00 +0 -1: HUB-01 Manga tab must replace video sources immediately [E]
+  Test failed. See exception logs above.
+  The test description was: HUB-01 Manga tab must replace video sources immediately
+
+00:00 +0 -1: OFFLINE-01 Installed JS novel must remain usable during Sozo backend outage
+00:00 +0 -2: OFFLINE-01 Installed JS novel must remain usable during Sozo backend outage [E]
+  Expected: true
+    Actual: <false>
+  Mangayomi downloads/executes directly and does not require the Sozo API.
+
+  package:matcher                                                                       expect
+  package:flutter_test/src/widget_tester.dart 473:18                                    expect
+  docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart 189:5  main.<fn>
+
+00:00 +0 -2: LANG-01 Native/JS provider language must survive ProviderBloc mapping
+00:00 +0 -3: LANG-01 Native/JS provider language must survive ProviderBloc mapping [E]
+  Expected: 'fr'
+    Actual: ''
+     Which: is different. Both strings start the same, but the actual value is missing the following trailing characters: fr
+  An extension already reports its language; picker must not lose it.
+
+  package:matcher                                                                       expect
+  package:flutter_test/src/widget_tester.dart 473:18                                    expect
+  docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart 203:5  main.<fn>
+
+00:00 +0 -3: CAT-01 Successful repo installation must notify provider registry
+[90m[🌎 Easy Localization] [DEBUG] Start[0m
+[90m[🌎 Easy Localization] [DEBUG] Init state[0m
+[32m[🌎 Easy Localization] [INFO] Start locale loaded en[0m
+[90m[🌎 Easy Localization] [DEBUG] Build[0m
+[90m[🌎 Easy Localization] [DEBUG] Init Localization Delegate[0m
+[90m[🌎 Easy Localization] [DEBUG] Init provider[0m
+[90m[🌎 Easy Localization] [DEBUG] Load Localization Delegate[0m
+[90m[🌎 Easy Localization] [DEBUG] Build[0m
+[90m[🌎 Easy Localization] [DEBUG] Init Localization Delegate[0m
+[90m[🌎 Easy Localization] [DEBUG] Init provider[0m
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: non-empty
+  Actual: WhereTypeIterable<ProviderLoad>:[]
+Otherwise SourcesHub and the picker keep their old provider list after success.
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart:221:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1952:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart line 221
+The test description was:
+  CAT-01 Successful repo installation must notify provider registry
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:01 +0 -4: CAT-01 Successful repo installation must notify provider registry [E]
+  Test failed. See exception logs above.
+  The test description was: CAT-01 Successful repo installation must notify provider registry
+
+00:01 +0 -4: CAT-02 Language-facet failure must not discard a successful source page
+[90m[🌎 Easy Localization] [DEBUG] Start[0m
+[90m[🌎 Easy Localization] [DEBUG] Init state[0m
+[32m[🌎 Easy Localization] [INFO] Start locale loaded en[0m
+[90m[🌎 Easy Localization] [DEBUG] Build[0m
+[90m[🌎 Easy Localization] [DEBUG] Init Localization Delegate[0m
+[90m[🌎 Easy Localization] [DEBUG] Init provider[0m
+[90m[🌎 Easy Localization] [DEBUG] Load Localization Delegate[0m
+[90m[🌎 Easy Localization] [DEBUG] Build[0m
+[90m[🌎 Easy Localization] [DEBUG] Init Localization Delegate[0m
+[90m[🌎 Easy Localization] [DEBUG] Init provider[0m
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "Readable Novel 0": []>
+   Which: means none were found but one was expected
+The actual source list request succeeded; auxiliary filter failure should degrade independently.
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart:230:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1952:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart line 230
+The test description was:
+  CAT-02 Language-facet failure must not discard a successful source page
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:01 +0 -5: CAT-02 Language-facet failure must not discard a successful source page [E]
+  Test failed. See exception logs above.
+  The test description was: CAT-02 Language-facet failure must not discard a successful source page
+
+00:01 +0 -5: CAT-03 Failed next page must stop spinner and offer retry
+[90m[🌎 Easy Localization] [DEBUG] Start[0m
+[90m[🌎 Easy Localization] [DEBUG] Init state[0m
+[32m[🌎 Easy Localization] [INFO] Start locale loaded en[0m
+[90m[🌎 Easy Localization] [DEBUG] Build[0m
+[90m[🌎 Easy Localization] [DEBUG] Init Localization Delegate[0m
+[90m[🌎 Easy Localization] [DEBUG] Init provider[0m
+[90m[🌎 Easy Localization] [DEBUG] Load Localization Delegate[0m
+[90m[🌎 Easy Localization] [DEBUG] Build[0m
+[90m[🌎 Easy Localization] [DEBUG] Init Localization Delegate[0m
+[90m[🌎 Easy Localization] [DEBUG] Init provider[0m
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: no matching candidates
+  Actual: _TypeWidgetFinder:<Found 1 widget with type "CircularProgressIndicator": [
+            CircularProgressIndicator(<indeterminate>, state:
+_CircularProgressIndicatorState#47acd(ticker active)),
+          ]>
+   Which: means one was found but none were expected
+Failed page requests are complete, but _hasMore leaves a permanent spinner.
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart:247:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1952:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart line 247
+The test description was:
+  CAT-03 Failed next page must stop spinner and offer retry
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:01 +0 -6: CAT-03 Failed next page must stop spinner and offer retry [E]
+  Test failed. See exception logs above.
+  The test description was: CAT-03 Failed next page must stop spinner and offer retry
+
+00:01 +0 -6: (tearDownAll)
+00:01 +0 -6: Some tests failed.
+
+Failing tests:
+  /Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart: CAT-01 Successful repo installation must notify provider registry
+  /Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart: CAT-02 Language-facet failure must not discard a successful source page
+  /Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart: CAT-03 Failed next page must stop spinner and offer retry
+  /Users/azamov/Sozo-Full/sozo/docs/audits/2026-09-14/source-reader/repros/source_hub_catalog_audit_test.dart: HUB-01 Manga tab must replace video sources immediately
+  ... and 2 more
