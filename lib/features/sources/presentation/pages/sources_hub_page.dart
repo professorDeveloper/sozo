@@ -84,6 +84,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
 
   @override
   void dispose() {
+    _scroll.dispose();
     _tabs.dispose();
     _search.dispose();
     super.dispose();
@@ -96,6 +97,48 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   void _openExtensions() => Navigator.of(
     context,
   ).push(MaterialPageRoute<void>(builder: (_) => const SourcesPage()));
+
+  final ScrollController _scroll = ScrollController();
+
+  /// The row for the source in use, so the list can be corrected onto it once
+  /// it has actually been built.
+  final GlobalKey _currentRow = GlobalKey();
+
+  /// Opening on the source in use is a one-time move, per tab. Re-running it
+  /// after a keystroke in the search field would drag the list out from under
+  /// the typing.
+  final Set<ContentMode> _aligned = {};
+
+  /// Puts the list on the source in use rather than at the alphabetical top.
+  ///
+  /// Two steps, because the rows are cards whose height follows the text
+  /// scale and the list is lazy — a row far down has not been built, so
+  /// `ensureVisible` alone has nothing to aim at. The estimate gets close
+  /// enough to build it, and the second pass corrects whatever the estimate
+  /// got wrong. Neither step animates: this is where the list opens, not a
+  /// journey the user should watch.
+  void _alignToCurrent(ContentMode mode, List<ProviderEntity> rows, String id) {
+    if (_aligned.contains(mode)) return;
+    if (_search.text.trim().isNotEmpty) return;
+    final index = rows.indexWhere((p) => p.id == id);
+    if (index < 0) return;
+    _aligned.add(mode);
+    if (index < 3) return; // already on screen; moving would be noise
+    final extent = 74 * MediaQuery.textScalerOf(context).scale(1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      // Two rows of lead-in, so it reads as one entry in a list rather than as
+      // the first thing in it.
+      _scroll.jumpTo(
+        ((index - 2) * extent).clamp(0.0, _scroll.position.maxScrollExtent),
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = _currentRow.currentContext;
+        if (ctx == null) return;
+        Scrollable.ensureVisible(ctx, alignment: 0.18);
+      });
+    });
+  }
 
   Future<void> _openInstaller(ContentMode mode) async {
     await Navigator.of(context).push(
@@ -333,7 +376,9 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                   if (SourceEcosystem.of(p.id) == eco) p,
               ];
 
+        _alignToCurrent(mode, sources, state.currentProviderId);
         return CustomScrollView(
+          controller: _scroll,
           key: PageStorageKey(
             'sources|${mode.id}|$needle|$eco|${_languages.join(",")}',
           ),
@@ -443,6 +488,9 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                   itemCount: sources.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (_, i) => _SourceTile(
+                    key: sources[i].id == state.currentProviderId
+                        ? _currentRow
+                        : null,
                     source: sources[i],
                     current: sources[i].id == state.currentProviderId,
                     onTap: () => _use(sources[i]),
@@ -490,6 +538,7 @@ class _SourceCategoriesHeader extends SliverPersistentHeaderDelegate {
 
 class _SourceTile extends StatelessWidget {
   const _SourceTile({
+    super.key,
     required this.source,
     required this.onTap,
     required this.onBrowse,
@@ -519,6 +568,11 @@ class _SourceTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(14),
+          // The list opens on this row, and a row you were scrolled to but
+          // cannot pick out is the same as not having been scrolled at all.
+          border: current
+              ? Border.all(color: AppColors.primary.withValues(alpha: 0.55))
+              : null,
         ),
         child: Row(
           children: [

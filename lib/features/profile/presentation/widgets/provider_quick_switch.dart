@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/content/content_mode.dart';
+import 'package:soplay/core/content/content_mode_style.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
@@ -81,8 +82,9 @@ Future<void> _switchMode(
   BuildContext context,
   ProviderBloc bloc,
   ProviderLoaded state,
-  ContentMode mode,
-) async {
+  ContentMode mode, {
+  Rect? origin,
+}) async {
   final hive = getIt<HiveService>();
   final candidates = [
     for (final p in state.providers)
@@ -123,7 +125,7 @@ Future<void> _switchMode(
   // Selected BEFORE the animation, so the reload runs underneath the cover
   // rather than starting when it lifts onto an empty screen.
   bloc.add(ProviderSelect(pick.id));
-  await ModeSwitchOverlay.play(context, mode, until: loaded);
+  await ModeSwitchOverlay.play(context, mode, until: loaded, origin: origin);
 }
 
 Future<void> _openSwitcher(
@@ -148,6 +150,11 @@ Future<void> _openSwitcher(
     for (final p in state.providers)
       if (state.isUsable(p) && p.id.contentMode == mode) p,
   ];
+  // Where the chip was when it was pressed, so the cover can open from it.
+  // Read here rather than carried in the pop result: the result is a string
+  // channel shared by three kinds of answer, and widening it to a record for
+  // one of them would touch every caller.
+  Rect? tapped;
   final result = await showAdaptiveModal<String>(
     context: context,
     backgroundColor: AppColors.surface,
@@ -156,6 +163,7 @@ Future<void> _openSwitcher(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (_) => ProviderQuickSwitchSheet(
+      onModeTap: (rect) => tapped = rect,
       favorites: [
         for (final f in favorites)
           if (f.id.contentMode == mode) f,
@@ -174,7 +182,7 @@ Future<void> _openSwitcher(
       .where((m) => result == '$_kModePrefix${m.id}')
       .firstOrNull;
   if (switched != null) {
-    await _switchMode(context, bloc, state, switched);
+    await _switchMode(context, bloc, state, switched, origin: tapped);
     return;
   }
   bloc.add(ProviderSelect(result));
@@ -201,7 +209,12 @@ class ProviderQuickSwitchSheet extends StatefulWidget {
     required this.all,
     required this.mode,
     required this.currentProviderId,
+    this.onModeTap,
   });
+
+  /// Reports where a mode chip was on screen when it was pressed, so the
+  /// switch can open from there instead of from nowhere.
+  final ValueChanged<Rect>? onModeTap;
 
   final List<ProviderEntity> favorites;
   final List<ProviderEntity> all;
@@ -223,6 +236,11 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   final TextEditingController _filter = TextEditingController();
   String _query = '';
 
+  /// One per chip, so the chip that was pressed can say where it was.
+  final Map<ContentMode, GlobalKey> _chipKeys = {
+    for (final m in ContentMode.values) m: GlobalKey(),
+  };
+
   /// Below this the filter is chrome over a list that already fits.
   static const int _filterThreshold = 8;
 
@@ -237,6 +255,14 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   static const double _pinnedPad = 12;
 
   bool get _hasFilter => widget.all.length >= _filterThreshold;
+
+  /// Where a chip is on screen. Zero when it has not been laid out, which the
+  /// cover reads as "no visible cause" and opens from the middle instead.
+  Rect _rectOf(GlobalKey? key) {
+    final box = key?.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return Rect.zero;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
 
   /// Opening on the current source is a one-time move. Re-running it after a
   /// keystroke in the filter would yank the list out from under the typing.
@@ -481,11 +507,16 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
             children: [
               for (final m in ContentMode.values)
                 _ModeChip(
+                  key: _chipKeys[m],
                   label: m.labelKey.tr(),
+                  accent: m.accent,
                   active: m == widget.mode,
                   onTap: m == widget.mode
                       ? null
-                      : () => Navigator.of(context).pop('$_kModePrefix${m.id}'),
+                      : () {
+                          widget.onModeTap?.call(_rectOf(_chipKeys[m]));
+                          Navigator.of(context).pop('$_kModePrefix${m.id}');
+                        },
                 ),
             ],
           ),
@@ -555,10 +586,21 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
 /// would replay the animation and reload the screen for no change, which reads
 /// as the app stuttering.
 class _ModeChip extends StatelessWidget {
-  const _ModeChip({required this.label, required this.active, this.onTap});
+  const _ModeChip({
+    super.key,
+    required this.label,
+    required this.active,
+    required this.accent,
+    this.onTap,
+  });
 
   final String label;
   final bool active;
+
+  /// The mode's own colour, and the only place outside the switch animation
+  /// where it is used: the chip that starts the switch should be the colour
+  /// the switch will be.
+  final Color accent;
   final VoidCallback? onTap;
 
   @override
@@ -567,7 +609,7 @@ class _ModeChip extends StatelessWidget {
       button: true,
       selected: active,
       child: Material(
-        color: active ? AppColors.primary : AppColors.surfaceVariant,
+        color: active ? accent : AppColors.surfaceVariant,
         borderRadius: BorderRadius.circular(10),
         clipBehavior: Clip.antiAlias,
         child: InkWell(

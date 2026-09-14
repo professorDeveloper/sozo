@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:soplay/core/content/content_mode.dart';
+import 'package:soplay/core/content/content_mode_style.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/widgets/sozo_mark.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -21,13 +24,20 @@ import 'package:easy_localization/easy_localization.dart';
 /// is the honest reason the timing works out: the new mode's first request is
 /// in flight underneath.
 ///
-/// ## Why the mark and not a spinner
+/// ## Why it grows from the chip
 ///
-/// A spinner says "wait". This says "you switched, and here is what to" — the
-/// name of the mode is the payload, the mark is what makes it Sozo's rather
-/// than a generic loading screen. It is also the one moment in the app where
-/// showing the logo is not decoration: something has to fill the gap, and the
-/// alternative is a blank screen.
+/// The first version filled the screen from nowhere, in the app's own
+/// background colour, and read as a flash rather than a move — nothing tied
+/// what appeared to the thing that had just been pressed. It opens from the
+/// chip now, so the cause is visible: you touched there, and the screen opened
+/// from there.
+///
+/// ## Why the mark hands off to a glyph
+///
+/// A spinner says "wait". The mark says "Sozo", which the viewer already knows.
+/// The mode's glyph says which way they went, and it is *drawn* rather than
+/// faded in — a single pen along every stroke. That is the difference between
+/// an image appearing and something making it.
 ///
 /// ## Why it is wrapped in a [Material]
 ///
@@ -39,27 +49,37 @@ import 'package:easy_localization/easy_localization.dart';
 /// drew a yellow line under the mode name. A `Material` replaces that default
 /// with the theme's own, which is what every other screen in the app gets.
 class ModeSwitchOverlay extends StatefulWidget {
-  const ModeSwitchOverlay({super.key, required this.mode, this.release});
+  const ModeSwitchOverlay({
+    super.key,
+    required this.mode,
+    this.release,
+    this.origin,
+  });
 
   final ContentMode mode;
+
+  /// Where on screen the switch was asked for, in global coordinates — the
+  /// chip that was pressed. Null opens from the middle, which is what a switch
+  /// with no visible cause (a deep link, a restored session) should look like.
+  final Rect? origin;
 
   /// Flipped to true by [play] when the cover should lift. Null keeps the
   /// cover up indefinitely, which only a test does.
   final ValueListenable<bool>? release;
 
-  /// The cover arriving, and the mark landing under it.
-  static const Duration enterDuration = Duration(milliseconds: 220);
+  /// The cover arriving, and the glyph being drawn under it.
+  static const Duration enterDuration = Duration(milliseconds: 260);
 
   /// The shortest time the cover stays once it has arrived. Below this the eye
   /// catches a flash and reads it as a glitch rather than a transition.
   static const Duration holdDuration = Duration(milliseconds: 140);
 
   /// The cover lifting off the new content.
-  static const Duration exitDuration = Duration(milliseconds: 240);
+  static const Duration exitDuration = Duration(milliseconds: 260);
 
-  /// The floor on the whole thing: 600ms, long enough to read the word, short
-  /// enough that nobody waits through it twice.
-  static const Duration minimumBeat = Duration(milliseconds: 600);
+  /// The floor on the whole thing: long enough to read the word and watch the
+  /// glyph finish, short enough that nobody waits through it twice.
+  static const Duration minimumBeat = Duration(milliseconds: 660);
 
   /// How long the cover will wait for the new mode's first load before lifting
   /// anyway. A reload that takes longer than this is not going to be saved by
@@ -68,25 +88,18 @@ class ModeSwitchOverlay extends StatefulWidget {
   static const Duration maxWait = Duration(seconds: 2);
 
   /// Plays the overlay over whatever is on screen and returns when it is gone.
-  ///
-  /// [until] is the work the cover exists to hide — the new mode's first load.
-  /// The cover holds for [minimumBeat] and then for as long as that takes, up
-  /// to [maxWait]. Without it the animation ran for a fixed 620ms and, on a
-  /// slow source, lifted onto a screen that was still empty: the switch looked
-  /// like it had failed and the content arrived a second later as if unrelated.
-  ///
-  /// Pass nothing when there is no reload to wait for — the cover then just
-  /// plays its beat.
   static Future<void> play(
     BuildContext context,
     ContentMode mode, {
     Future<void>? until,
+    Rect? origin,
   }) async {
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
     if (overlay == null) return;
     final release = ValueNotifier<bool>(false);
     final entry = OverlayEntry(
-      builder: (_) => ModeSwitchOverlay(mode: mode, release: release),
+      builder: (_) =>
+          ModeSwitchOverlay(mode: mode, release: release, origin: origin),
     );
     overlay.insert(entry);
     try {
@@ -125,8 +138,15 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
     duration: ModeSwitchOverlay.exitDuration,
   );
 
-  /// The cover arrives ahead of the mark, so the old screen is gone before
-  /// anything is asked of the eye.
+  /// The reveal. Fast out of the gate and settling at the edge, so it reads as
+  /// something released rather than something driven.
+  late final Animation<double> _open = CurvedAnimation(
+    parent: _enter,
+    curve: Curves.easeOutCubic,
+  );
+
+  /// Used only when the viewer has asked for less motion — then there is no
+  /// reveal and the cover simply arrives.
   late final Animation<double> _coverIn = CurvedAnimation(
     parent: _enter,
     curve: const Interval(0, 0.6, curve: Curves.easeOutCubic),
@@ -137,25 +157,31 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
     end: 0,
   ).animate(CurvedAnimation(parent: _exit, curve: Curves.easeInCubic));
 
-  /// The mark settles rather than bouncing: it arrives slightly large and
-  /// eases down, which reads as landing.
-  late final Animation<double> _markIn = Tween<double>(
-    begin: 1.16,
-    end: 1,
-  ).animate(CurvedAnimation(parent: _enter, curve: Curves.easeOutCubic));
-
-  /// …and on the way out it drifts open rather than blinking off, so the lift
-  /// reads as the cover receding from the new content rather than a cut.
-  late final Animation<double> _markOut = Tween<double>(
+  /// The cover widens as it leaves, so the lift reads as it receding from the
+  /// new screen rather than blinking off it.
+  late final Animation<double> _coverGrow = Tween<double>(
     begin: 1,
-    end: 1.07,
+    end: 1.06,
   ).animate(CurvedAnimation(parent: _exit, curve: Curves.easeIn));
 
-  /// Fades in behind the mark, so the eye lands on the shape first and reads
+  /// The mark is what is already there; it steps back as the glyph is drawn.
+  late final Animation<double> _markOut = CurvedAnimation(
+    parent: _enter,
+    curve: const Interval(0.22, 0.58, curve: Curves.easeIn),
+  );
+
+  /// The pen. Starts once the cover has most of the screen, so nothing is
+  /// drawn where the old screen can still be seen.
+  late final Animation<double> _draw = CurvedAnimation(
+    parent: _enter,
+    curve: const Interval(0.34, 1, curve: Curves.easeOutCubic),
+  );
+
+  /// Fades in behind the glyph, so the eye lands on the shape first and reads
   /// the word second.
   late final Animation<double> _labelIn = CurvedAnimation(
     parent: _enter,
-    curve: const Interval(0.4, 1, curve: Curves.easeOut),
+    curve: const Interval(0.45, 1, curve: Curves.easeOut),
   );
 
   late final Animation<Offset> _labelRise = Tween<Offset>(
@@ -163,10 +189,37 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
     end: Offset.zero,
   ).animate(_labelIn);
 
+  /// Tracking settles as the word lands: it arrives spread out and closes up,
+  /// which reads as the name being set rather than typed.
+  late final Animation<double> _labelTrack = Tween<double>(
+    begin: 6.4,
+    end: 3.2,
+  ).animate(_labelIn);
+
+  bool _reduceMotion = false;
+  bool _tapped = false;
+
   @override
   void initState() {
     super.initState();
     widget.release?.addListener(_onRelease);
+    _enter.addListener(_maybeHaptic);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+  }
+
+  /// One light tap at the moment the cover owns the screen.
+  ///
+  /// Not at the start: a tap that lands with the finger still down is felt as
+  /// part of the press, not as a consequence of it.
+  void _maybeHaptic() {
+    if (_tapped || _reduceMotion || _open.value < 0.82) return;
+    _tapped = true;
+    HapticFeedback.lightImpact();
   }
 
   @override
@@ -185,6 +238,7 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
   @override
   void dispose() {
     widget.release?.removeListener(_onRelease);
+    _enter.removeListener(_maybeHaptic);
     _enter.dispose();
     _exit.dispose();
     super.dispose();
@@ -192,29 +246,79 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
 
   @override
   Widget build(BuildContext context) {
+    final accent = widget.mode.accent;
+    final size = MediaQuery.sizeOf(context);
+    final center = widget.origin?.center ?? size.center(Offset.zero);
+    // Far enough to cover the corner furthest from where it started, or the
+    // reveal leaves a wedge of the old screen showing at one edge.
+    final reach = _farthestCorner(center, size);
+
     return AbsorbPointer(
       // Not IgnorePointer: taps used to fall through the cover onto whatever
       // happened to be under it, which the user could not see and had not
       // aimed at.
-      child: FadeTransition(
-        opacity: _coverIn,
-        // Nested rather than combined into one value: the two never overlap —
-        // the exit cannot start before the enter has finished — so whichever
-        // is idle sits at 1.0, where RenderAnimatedOpacity paints straight
-        // through without a layer.
-        child: FadeTransition(
-          opacity: _coverOut,
-          child: Material(
-            color: AppColors.background,
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_enter, _exit]),
+        builder: (context, child) {
+          final cover = Opacity(
+            opacity: _coverOut.value,
+            child: Transform.scale(scale: _coverGrow.value, child: child),
+          );
+          if (_reduceMotion) {
+            return Opacity(opacity: _coverIn.value, child: cover);
+          }
+          return ClipPath(
+            clipper: _RevealClipper(
+              center: center,
+              radius: reach * _open.value,
+            ),
+            child: cover,
+          );
+        },
+        child: Material(
+          // The app's own ground, with the mode's colour pooled where the
+          // glyph lands. A flat wash of the accent would be a different app
+          // for half a second; this is the same app, lit.
+          color: AppColors.background,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(0, -0.12),
+                radius: 0.9,
+                colors: [
+                  accent.withValues(alpha: 0.22),
+                  accent.withValues(alpha: 0.06),
+                  Colors.transparent,
+                ],
+                stops: const [0, 0.45, 1],
+              ),
+            ),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ScaleTransition(
-                    scale: _markIn,
-                    child: ScaleTransition(
-                      scale: _markOut,
-                      child: SozoMark(size: 76, color: AppColors.primary),
+                  SizedBox.square(
+                    dimension: 88,
+                    child: AnimatedBuilder(
+                      animation: _enter,
+                      builder: (context, _) => Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Opacity(
+                            opacity: 1 - _markOut.value,
+                            child: Transform.scale(
+                              scale: 1 - (_markOut.value * 0.28),
+                              child: SozoMark(size: 72, color: accent),
+                            ),
+                          ),
+                          ModeGlyph(
+                            mode: widget.mode,
+                            color: accent,
+                            size: 76,
+                            progress: _reduceMotion ? 1 : _draw.value,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -222,18 +326,24 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
                     opacity: _labelIn,
                     child: SlideTransition(
                       position: _labelRise,
-                      child: Padding(
-                        // Letter spacing is added after the last letter too,
-                        // so a tracked-out word sits half a space left of
-                        // centre under a mark that is exactly centred.
-                        padding: const EdgeInsetsDirectional.only(start: 3.2),
-                        child: Text(
-                          widget.mode.labelKey.tr().toUpperCase(),
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 3.2,
+                      child: AnimatedBuilder(
+                        animation: _labelTrack,
+                        builder: (context, _) => Padding(
+                          // Letter spacing is added after the last letter too,
+                          // so a tracked-out word sits half a space left of
+                          // centre under a mark that is exactly centred.
+                          padding: EdgeInsetsDirectional.only(
+                            start: _labelTrack.value,
+                          ),
+                          child: Text(
+                            widget.mode.labelKey.tr().toUpperCase(),
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: _labelTrack.value,
+                              decoration: TextDecoration.none,
+                            ),
                           ),
                         ),
                       ),
@@ -247,4 +357,28 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
       ),
     );
   }
+
+  static double _farthestCorner(Offset from, Size size) {
+    double d(double x, double y) => (Offset(x, y) - from).distance;
+    return math.max(
+      math.max(d(0, 0), d(size.width, 0)),
+      math.max(d(0, size.height), d(size.width, size.height)),
+    );
+  }
+}
+
+/// A circle that opens from where the switch was asked for.
+class _RevealClipper extends CustomClipper<Path> {
+  const _RevealClipper({required this.center, required this.radius});
+
+  final Offset center;
+  final double radius;
+
+  @override
+  Path getClip(Size size) =>
+      Path()..addOval(Rect.fromCircle(center: center, radius: radius));
+
+  @override
+  bool shouldReclip(_RevealClipper old) =>
+      old.radius != radius || old.center != center;
 }
