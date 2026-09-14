@@ -313,17 +313,11 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
   }
 
   final UserListSync _listSync = UserListSync();
-  late bool _following = widget.isFollowing;
 
   @override
   void dispose() {
     _listSync.dispose();
     super.dispose();
-  }
-
-  void _toggleFollow() {
-    setState(() => _following = !_following);
-    widget.onToggleFollow();
   }
 
   void _run(VoidCallback action) {
@@ -410,12 +404,16 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                             placeholder: (_, _) => SizedBox(
                               width: 38,
                               height: 54,
-                              child: ColoredBox(color: AppColors.surfaceVariant),
+                              child: ColoredBox(
+                                color: AppColors.surfaceVariant,
+                              ),
                             ),
                             errorWidget: (_, _, _) => SizedBox(
                               width: 38,
                               height: 54,
-                              child: ColoredBox(color: AppColors.surfaceVariant),
+                              child: ColoredBox(
+                                color: AppColors.surfaceVariant,
+                              ),
                             ),
                           ),
                         ),
@@ -471,57 +469,14 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        UserListToggle(
-                          kind: UserListKind.watchLater,
-                          entity: widget.entity,
-                          sync: _listSync,
-                          builder: (_, active, toggle) => _MenuRow(
-                            icon: active
-                                ? Icons.watch_later_rounded
-                                : Icons.watch_later_outlined,
-                            label: 'detail.watch_later'.tr(),
-                            active: active,
-                            onTap: toggle,
-                          ),
-                        ),
-                        UserListToggle(
-                          kind: UserListKind.watched,
-                          entity: widget.entity,
-                          sync: _listSync,
-                          builder: (_, active, toggle) => _MenuRow(
-                            icon: active
-                                ? Icons.visibility_rounded
-                                : Icons.visibility_outlined,
-                            label: 'detail.watched'.tr(),
-                            active: active,
-                            onTap: toggle,
-                          ),
-                        ),
-                        if (widget.showFollow)
-                          _MenuRow(
-                            icon: _following
-                                ? Icons.notifications_active_rounded
-                                : Icons.notifications_none_rounded,
-                            label: 'detail.follow_series'.tr(),
-                            active: _following,
-                            onTap: _toggleFollow,
-                          ),
+                        // Watch Later, Watched, Follow and Private used to
+                        // be the first four rows here. They are the app bar's
+                        // tick now — see detail_save_sheet.dart — because
+                        // "where does this go" and "what do I do with this"
+                        // are different questions and this menu was answering
+                        // both in one list of eleven.
                         if (anilistReady) _AnilistRow(entity: widget.entity),
                         if (malReady) _MalRow(entity: widget.entity),
-                        _MenuRow(
-                          icon: widget.inPrivate
-                              ? Icons.lock_rounded
-                              : Icons.lock_outline_rounded,
-                          label: widget.inPrivate
-                              ? 'app_lock.private_list'.tr()
-                              : 'app_lock.move_to_private'.tr(),
-                          active: widget.inPrivate,
-                          onTap: () => _run(
-                            widget.inPrivate
-                                ? widget.onPrivateActions
-                                : widget.onMoveToPrivate,
-                          ),
-                        ),
                         Divider(
                           color: AppColors.divider,
                           height: 13,

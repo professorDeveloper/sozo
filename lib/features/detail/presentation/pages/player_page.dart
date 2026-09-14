@@ -185,6 +185,7 @@ class _PlayerPageState extends State<PlayerPage>
   bool _lastPipPlaying = false;
 
   PlayerController? _controller;
+  bool _preferPlatformPlayer = false;
   String? _currentQuality;
   String? _videoUrl;
   String? _mediaType;

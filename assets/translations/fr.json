@@ -1094,7 +1094,9 @@
     "add_to_my_list_action": "Ajouter à Ma liste",
     "remove_from_my_list_action": "Retirer de Ma liste",
     "trailer_mute": "Couper le son de la bande-annonce",
-    "trailer_unmute": "Activer le son de la bande-annonce"
+    "trailer_unmute": "Activer le son de la bande-annonce",
+    "my_list": "Ma liste",
+    "save_action": "Enregistrer"
   },
   "episodes": {
     "filter_hint": "Numéro ou titre de l’épisode",

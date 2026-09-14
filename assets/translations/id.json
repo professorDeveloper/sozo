@@ -1094,7 +1094,9 @@
     "add_to_my_list_action": "Tambahkan ke Daftar saya",
     "remove_from_my_list_action": "Hapus dari Daftar saya",
     "trailer_mute": "Bisukan trailer",
-    "trailer_unmute": "Nyalakan suara trailer"
+    "trailer_unmute": "Nyalakan suara trailer",
+    "my_list": "Daftar saya",
+    "save_action": "Simpan"
   },
   "episodes": {
     "filter_hint": "Nomor atau judul episode",

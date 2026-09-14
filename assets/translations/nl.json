@@ -1094,7 +1094,9 @@
     "add_to_my_list_action": "Aan Mijn lijst toevoegen",
     "remove_from_my_list_action": "Uit Mijn lijst verwijderen",
     "trailer_mute": "Trailer dempen",
-    "trailer_unmute": "Geluid trailer aan"
+    "trailer_unmute": "Geluid trailer aan",
+    "my_list": "Mijn lijst",
+    "save_action": "Bewaren"
   },
   "episodes": {
     "filter_hint": "Afleveringsnummer of titel",

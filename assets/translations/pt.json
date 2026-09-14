@@ -1094,7 +1094,9 @@
     "add_to_my_list_action": "Adicionar a Minha lista",
     "remove_from_my_list_action": "Remover de Minha lista",
     "trailer_mute": "Silenciar o trailer",
-    "trailer_unmute": "Ativar o som do trailer"
+    "trailer_unmute": "Ativar o som do trailer",
+    "my_list": "Minha lista",
+    "save_action": "Salvar"
   },
   "episodes": {
     "filter_hint": "Número ou título do episódio",

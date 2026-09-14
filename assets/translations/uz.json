@@ -1094,7 +1094,9 @@
     "add_to_my_list_action": "Ro'yxatga qo'shish",
     "remove_from_my_list_action": "Ro'yxatdan olib tashlash",
     "trailer_mute": "Ovozni o'chirish",
-    "trailer_unmute": "Ovozni yoqish"
+    "trailer_unmute": "Ovozni yoqish",
+    "my_list": "Mening ro‘yxatim",
+    "save_action": "Saqlash"
   },
   "episodes": {
     "filter_hint": "Epizod raqami yoki nomi",

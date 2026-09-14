@@ -1094,7 +1094,9 @@
     "add_to_my_list_action": "Добавить в список",
     "remove_from_my_list_action": "Убрать из списка",
     "trailer_mute": "Выключить звук",
-    "trailer_unmute": "Включить звук"
+    "trailer_unmute": "Включить звук",
+    "my_list": "Мой список",
+    "save_action": "Сохранить"
   },
   "episodes": {
     "filter_hint": "Номер или название серии",

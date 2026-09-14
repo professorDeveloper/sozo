@@ -22,12 +22,14 @@ extension _PlayerPanels on _PlayerPageState {
   /// back through a result, because the page saves on every edit and a viewer
   /// who backs out has still made those edits.
   Future<void> _openControlsLayoutPage() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => const PlayerControlsPage()),
-    );
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => const PlayerControlsPage()));
     if (!mounted) return;
     setState(() {
-      _layout = PlayerControlsLayout.fromStored(_hive.getPlayerControlsLayout());
+      _layout = PlayerControlsLayout.fromStored(
+        _hive.getPlayerControlsLayout(),
+      );
     });
   }
 
@@ -118,16 +120,16 @@ extension _PlayerPanels on _PlayerPageState {
   /// settings sheet. See [PlayerAffordances] for what the two copies of this
   /// used to disagree about.
   PlayerAffordances get _affordances => PlayerAffordances(
-        isSerial: widget.args.isSerial,
-        episodeCount: _episodes.length,
-        serverCount: _sourceServers.length,
-        serverSourceCount: _currentServerSources.length,
-        engineTrackCount: _engineVideoTracks.length,
-        langCount: _availableLangsForCurrentEpisode().length,
-        showDownloadAction: widget.args.showDownloadAction,
-        provider: widget.args.provider,
-        hasResolvedUrl: _videoUrl != null,
-      );
+    isSerial: widget.args.isSerial,
+    episodeCount: _episodes.length,
+    serverCount: _sourceServers.length,
+    serverSourceCount: _currentServerSources.length,
+    engineTrackCount: _engineVideoTracks.length,
+    langCount: _availableLangsForCurrentEpisode().length,
+    showDownloadAction: widget.args.showDownloadAction,
+    provider: widget.args.provider,
+    hasResolvedUrl: _videoUrl != null,
+  );
 
   /// The qualities of the host currently playing.
   ///
@@ -239,8 +241,10 @@ extension _PlayerPanels on _PlayerPageState {
               for (final server in servers)
                 _ServerTile(
                   label: server,
-                  qualities: VideoOptionGroups.qualitiesFor(labels, server)
-                      .join(' · '),
+                  qualities: VideoOptionGroups.qualitiesFor(
+                    labels,
+                    server,
+                  ).join(' · '),
                   selected: server == _currentServer,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
@@ -259,8 +263,8 @@ extension _PlayerPanels on _PlayerPageState {
     final labels = _sourceLabels;
     // The row playing, not the first row wearing its label — see
     // _switchQuality.
-    final current = _currentSourceIndex >= 0 &&
-            _currentSourceIndex < labels.length
+    final current =
+        _currentSourceIndex >= 0 && _currentSourceIndex < labels.length
         ? _currentSourceIndex
         : (_currentQuality == null ? -1 : labels.indexOf(_currentQuality!));
     final target = VideoOptionGroups.switchTo(labels, current, server);
@@ -365,6 +369,18 @@ extension _PlayerPanels on _PlayerPageState {
                   _openFitSheet();
                 },
               ),
+              if (!isDesktopPlatform &&
+                  !_preferPlatformPlayer &&
+                  (_controller?.supportsVideoTracks ?? false))
+                _SettingsTile(
+                  icon: Icons.play_circle_outline,
+                  label: 'profile.player_engine_native'.tr(),
+                  value: '',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _playWithSystemPlayer();
+                  },
+                ),
               // Absent on the platform player, which has no runtime picture
               // control at all. Offering a menu that silently does nothing
               // teaches people the app is broken rather than that the feature
@@ -610,8 +626,9 @@ extension _PlayerPanels on _PlayerPageState {
   /// business reaching for the locale. So do that one case here.
   String _audioTrackLabel(PlayerAudioTrack t) {
     if (t.hasMetadata) return t.label;
-    return 'player.audio_track_numbered'
-        .tr(args: <String>[t.ordinal.toString()]);
+    return 'player.audio_track_numbered'.tr(
+      args: <String>[t.ordinal.toString()],
+    );
   }
 
   String _activeAudioTrackLabel() {
@@ -764,8 +781,11 @@ extension _PlayerPanels on _PlayerPageState {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.speed_rounded,
-                        color: Colors.white, size: 18),
+                    const Icon(
+                      Icons.speed_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                     const SizedBox(width: 10),
                     Text(
                       'player.speed'.tr(),
@@ -1167,42 +1187,42 @@ extension _PlayerPanels on _PlayerPageState {
     final tracks = _engineVideoTracks;
     final list = isQuality
         ? (tracks.isNotEmpty
-            // Renditions of the stream that is playing. Preferred over the
-            // mirror list because switching between them is instant and keeps
-            // the position, where switching mirror is a reload.
-            ? ListView.separated(
-                controller: _tvPanelScroll,
-                shrinkWrap: asSheet,
-                padding: EdgeInsets.zero,
-                itemCount: tracks.length,
-                separatorBuilder: (_, _) => Divider(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  height: 1,
-                ),
-                itemBuilder: (_, i) => _VideoTrackRow(
-                  track: tracks[i],
-                  isActive: tracks[i].id == (_controller?.activeVideoTrackId),
-                  onTap: () => _switchVideoTrack(tracks[i]),
-                ),
-              )
-            : ListView.separated(
-            controller: _tvPanelScroll,
-            shrinkWrap: asSheet,
-            padding: EdgeInsets.zero,
-            itemCount: sources.length,
-            separatorBuilder: (_, _) => Divider(
-              color: Colors.white.withValues(alpha: 0.06),
-              height: 1,
-            ),
-            itemBuilder: (_, i) {
-              final src = _videoSources[sources[i]];
-              return _QualityRow(
-                source: _resolutionOnly(src),
-                isActive: sources[i] == _currentSourceIndex,
-                onTap: () => _switchQuality(src),
-              );
-            },
-          ))
+              // Renditions of the stream that is playing. Preferred over the
+              // mirror list because switching between them is instant and keeps
+              // the position, where switching mirror is a reload.
+              ? ListView.separated(
+                  controller: _tvPanelScroll,
+                  shrinkWrap: asSheet,
+                  padding: EdgeInsets.zero,
+                  itemCount: tracks.length,
+                  separatorBuilder: (_, _) => Divider(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    height: 1,
+                  ),
+                  itemBuilder: (_, i) => _VideoTrackRow(
+                    track: tracks[i],
+                    isActive: tracks[i].id == (_controller?.activeVideoTrackId),
+                    onTap: () => _switchVideoTrack(tracks[i]),
+                  ),
+                )
+              : ListView.separated(
+                  controller: _tvPanelScroll,
+                  shrinkWrap: asSheet,
+                  padding: EdgeInsets.zero,
+                  itemCount: sources.length,
+                  separatorBuilder: (_, _) => Divider(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    height: 1,
+                  ),
+                  itemBuilder: (_, i) {
+                    final src = _videoSources[sources[i]];
+                    return _QualityRow(
+                      source: _resolutionOnly(src),
+                      isActive: sources[i] == _currentSourceIndex,
+                      onTap: () => _switchQuality(src),
+                    );
+                  },
+                ))
         : ListView.separated(
             // Non-null only on TV (see _openPanel), where it opens
             // the list near the episode being watched.
@@ -1210,10 +1230,8 @@ extension _PlayerPanels on _PlayerPageState {
             shrinkWrap: asSheet,
             padding: EdgeInsets.zero,
             itemCount: _episodes.length,
-            separatorBuilder: (_, _) => Divider(
-              color: Colors.white.withValues(alpha: 0.06),
-              height: 1,
-            ),
+            separatorBuilder: (_, _) =>
+                Divider(color: Colors.white.withValues(alpha: 0.06), height: 1),
             itemBuilder: (_, i) => _EpisodeRow(
               episode: _episodes[i],
               isActive: i == _episodeIndex,

@@ -1094,7 +1094,9 @@
     "add_to_my_list_action": "أضف إلى قائمتي",
     "remove_from_my_list_action": "إزالة من قائمتي",
     "trailer_mute": "كتم صوت الإعلان",
-    "trailer_unmute": "تشغيل صوت الإعلان"
+    "trailer_unmute": "تشغيل صوت الإعلان",
+    "my_list": "قائمتي",
+    "save_action": "حفظ"
   },
   "episodes": {
     "filter_hint": "رقم الحلقة أو عنوانها",

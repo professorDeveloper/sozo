@@ -1094,7 +1094,9 @@
     "add_to_my_list_action": "Add to My List",
     "remove_from_my_list_action": "Remove from My List",
     "trailer_mute": "Mute trailer",
-    "trailer_unmute": "Unmute trailer"
+    "trailer_unmute": "Unmute trailer",
+    "my_list": "My List",
+    "save_action": "Save"
   },
   "episodes": {
     "filter_hint": "Episode number or title",

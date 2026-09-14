@@ -999,6 +999,7 @@ extension _PlayerMedia on _PlayerPageState {
           : Uri.file(effectiveUrl);
       controller = PlayerController.networkUrl(
         fileUri,
+        preferPlatform: _preferPlatformPlayer,
         formatHint: VideoFormat.hls,
         videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
       );
@@ -1009,6 +1010,7 @@ extension _PlayerMedia on _PlayerPageState {
           : File(effectiveUrl);
       controller = PlayerController.file(
         file,
+        preferPlatform: _preferPlatformPlayer,
         videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
       );
       _headers = const {};
@@ -1035,6 +1037,7 @@ extension _PlayerMedia on _PlayerPageState {
       controller = PlayerController.networkUrl(
         uri,
         httpHeaders: mergedHeaders,
+        preferPlatform: _preferPlatformPlayer,
         formatHint: isHls
             ? VideoFormat.hls
             : isDash
@@ -1619,6 +1622,30 @@ extension _PlayerMedia on _PlayerPageState {
     final fallback = 'Episode ${ep.episode}';
     final label = ep.label.trim().isEmpty ? fallback : ep.label;
     return '${widget.args.title} · $label';
+  }
+
+  Future<void> _playWithSystemPlayer() async {
+    final url = _videoUrl;
+    if (url == null || _preferPlatformPlayer) return;
+    final headers = Map<String, String>.of(_headers);
+    final type = _mediaType;
+    final position = _controller?.value.position ?? Duration.zero;
+    setState(() {
+      _preferPlatformPlayer = true;
+      _initializing = true;
+      _stage = _LoadingStage.loading;
+      _errorMessage = null;
+      _isCodecError = false;
+    });
+    final generation = await _disposeController();
+    if (!mounted || generation != _mediaGeneration) return;
+    await _initializeWith(
+      url: url,
+      headers: headers,
+      type: type,
+      resumeAt: position,
+      intentGeneration: generation,
+    );
   }
 
   Future<void> _retry() async {

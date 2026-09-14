@@ -44,6 +44,7 @@ import 'package:soplay/features/detail/presentation/widgets/detail_comments_tab.
 import 'package:soplay/features/detail/presentation/widgets/detail_hero.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_info.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_more_menu.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_save_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_related.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_screenshots.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_skeleton.dart';
@@ -284,7 +285,8 @@ class _DetailViewState extends State<_DetailView>
   /// episode history points at. True only for the auto-play that Continue
   /// Watching starts, and spent by the first list it opens: a later Play from
   /// this page is somebody choosing to browse.
-  late bool _resumeOnOpen = widget.autoPlay && widget.resumeEpisodeIndex != null;
+  late bool _resumeOnOpen =
+      widget.autoPlay && widget.resumeEpisodeIndex != null;
 
   @override
   void initState() {
@@ -813,6 +815,30 @@ class _DetailViewState extends State<_DetailView>
     Share.share('${widget.detail.title}\n$_shareLink');
   }
 
+  /// Everything this title could be saved into, from the tick that already
+  /// means "keep this".
+  void _openSaveSheet() {
+    final detail = widget.detail;
+    final favState = context.read<FavoriteBloc>().state;
+    showDetailSaveSheet(
+      context,
+      entity: FavoriteEntity(
+        provider: detail.provider,
+        contentUrl: detail.contentUrl,
+        title: detail.title,
+        thumbnail: detail.thumbnail ?? '',
+      ),
+      isInList: favState is FavoriteReady && favState.isInList,
+      inPrivate: favState is FavoriteReady && favState.inPrivate,
+      showFollow: detail.isSerial,
+      following: _isFollowing,
+      onToggleMyList: _toggleMyList,
+      onToggleFollow: _toggleFollow,
+      onMoveToPrivate: _onMoveToPrivate,
+      onPrivateActions: _showPrivateActions,
+    );
+  }
+
   void _showMoreMenu() {
     final detail = widget.detail;
     final favState = context.read<FavoriteBloc>().state;
@@ -1304,7 +1330,7 @@ class _DetailViewState extends State<_DetailView>
                             showcaseScope: _showcaseScope,
                             onBack: _goBack,
                             onPrimaryAction: _onPrimaryAction,
-                            onAddToList: _toggleMyList,
+                            onSave: _openSaveSheet,
                             onMoveToPrivate: _onMoveToPrivate,
                             onPrivateActions: _showPrivateActions,
                             moreButtonKey: _moreButtonKey,
@@ -1369,7 +1395,7 @@ class _AnimatedTopBar extends StatelessWidget {
     required this.moreButtonKey,
     required this.onBack,
     required this.onPrimaryAction,
-    required this.onAddToList,
+    required this.onSave,
     required this.onMoveToPrivate,
     required this.onPrivateActions,
     required this.onMore,
@@ -1391,7 +1417,7 @@ class _AnimatedTopBar extends StatelessWidget {
   final GlobalKey moreButtonKey;
   final VoidCallback onBack;
   final VoidCallback onPrimaryAction;
-  final VoidCallback onAddToList;
+  final VoidCallback onSave;
   final VoidCallback onMoveToPrivate;
   final VoidCallback onPrivateActions;
   final VoidCallback onMore;
@@ -1506,16 +1532,18 @@ class _AnimatedTopBar extends StatelessWidget {
                       // The icon has four states and the label follows it —
                       // "Add to list" announced on a button that would in fact
                       // remove it is worse than no label.
+                      // One label, because the tap now opens the lists
+                      // rather than committing to one of them. It used to
+                      // announce "Remove from My List" on a button that, after
+                      // the sheet, might do nothing of the sort.
                       semanticLabel: inPrivate
                           ? 'detail.in_private_list'.tr()
-                          : isInList
-                          ? 'detail.remove_from_my_list_action'.tr()
-                          : 'detail.add_to_my_list_action'.tr(),
+                          : 'detail.save_action'.tr(),
                       onTap: isListActionLoading
                           ? null
                           : inPrivate
                           ? onPrivateActions
-                          : onAddToList,
+                          : onSave,
                       onLongPress: isListActionLoading || inPrivate
                           ? null
                           : onMoveToPrivate,

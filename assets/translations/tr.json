@@ -1094,7 +1094,9 @@
     "add_to_my_list_action": "Listeme ekle",
     "remove_from_my_list_action": "Listemden çıkar",
     "trailer_mute": "Fragmanı sessize al",
-    "trailer_unmute": "Fragmanın sesini aç"
+    "trailer_unmute": "Fragmanın sesini aç",
+    "my_list": "Listem",
+    "save_action": "Kaydet"
   },
   "episodes": {
     "filter_hint": "Bölüm numarası veya adı",
