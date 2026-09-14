@@ -1840,7 +1840,8 @@
     "eco_aniyomi": "Aniyomi",
     "eco_manga": "مانغا",
     "eco_mangayomi": "Mangayomi",
-    "eco_all": "الكل"
+    "eco_all": "الكل",
+    "language_not_stated": "اللغة غير محددة · {}"
   },
   "settings": {
     "dns_title": "DNS",

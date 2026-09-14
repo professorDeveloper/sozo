@@ -1836,7 +1836,8 @@
     "eco_aniyomi": "Aniyomi",
     "eco_manga": "Manga",
     "eco_mangayomi": "Mangayomi",
-    "eco_all": "Semua"
+    "eco_all": "Semua",
+    "language_not_stated": "Bahasa tidak disebutkan · {}"
   },
   "settings": {
     "dns_title": "DNS",

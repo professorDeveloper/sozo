@@ -144,3 +144,100 @@ String labelFor(String lang) {
 
 /// Short form for the chip drawn on a source's row — `FR`, `PT-BR`, `ALL`.
 String shortLabelFor(String lang) => normalizeLang(lang).toUpperCase();
+
+/// The language a source is in, when it did not say.
+///
+/// Roughly half the sources in a Watch tab declare nothing: CloudStream's lazy
+/// metadata carries no language, and Sozo's own backend providers have never
+/// needed one. Filtering by language was letting all of those through, so
+/// picking English barely shortened the list — the filter looked broken because
+/// it had nothing to match against.
+///
+/// Most of them do say, just not in the field: `HindiSubAnime`, `animefr`,
+/// `.ru`, `.com.tr`. This reads the name, the id and the host. It returns null
+/// when there is genuinely nothing to go on, and null is an answer — those
+/// sources are grouped rather than hidden, because guessing wrong and hiding is
+/// worse than admitting the gap.
+String? inferLang({
+  required String lang,
+  required String name,
+  required String id,
+  required String url,
+}) {
+  final declared = normalizeLang(lang);
+  if (declared.isNotEmpty && declared != kAllLanguages) return declared;
+
+  final haystack = '$name $id'.toLowerCase();
+  for (final entry in _nameHints.entries) {
+    if (haystack.contains(entry.key)) return entry.value;
+  }
+
+  final host = Uri.tryParse(url)?.host.toLowerCase() ?? '';
+  for (final entry in _tldHints.entries) {
+    if (host.endsWith(entry.key)) return entry.value;
+  }
+  return null;
+}
+
+/// Words that appear in source names and mean a language. Ordered longest-first
+/// where one contains another, so `hindisub` is not read as `hi`.
+const Map<String, String> _nameHints = {
+  'portugu': 'pt',
+  'brasil': 'pt',
+  'espanol': 'es',
+  'español': 'es',
+  'spanish': 'es',
+  'castellano': 'es',
+  'latino': 'es',
+  'french': 'fr',
+  'francais': 'fr',
+  'français': 'fr',
+  'german': 'de',
+  'deutsch': 'de',
+  'italian': 'it',
+  'italiano': 'it',
+  'russian': 'ru',
+  'russkij': 'ru',
+  'turkce': 'tr',
+  'türkçe': 'tr',
+  'turkish': 'tr',
+  'arabic': 'ar',
+  'عربي': 'ar',
+  'hindi': 'hi',
+  'indone': 'id',
+  'vietnam': 'vi',
+  'thai': 'th',
+  'chinese': 'zh',
+  'japan': 'ja',
+  'korean': 'ko',
+  'polski': 'pl',
+  'polish': 'pl',
+  'persian': 'fa',
+  'farsi': 'fa',
+  'uzbek': 'uz',
+};
+
+/// A host that ends in one of these is almost always in that language. Only
+/// codes where the mapping is unambiguous: `.tv` and `.io` say nothing, and
+/// `.ar` is Argentina rather than Arabic.
+const Map<String, String> _tldHints = {
+  '.ru': 'ru',
+  '.ua': 'ru',
+  '.tr': 'tr',
+  '.fr': 'fr',
+  '.es': 'es',
+  '.mx': 'es',
+  '.it': 'it',
+  '.de': 'de',
+  '.br': 'pt',
+  '.pt': 'pt',
+  '.pl': 'pl',
+  '.uz': 'uz',
+  '.id': 'id',
+  '.vn': 'vi',
+  '.th': 'th',
+  '.cn': 'zh',
+  '.jp': 'ja',
+  '.kr': 'ko',
+  '.ir': 'fa',
+};

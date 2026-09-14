@@ -1836,7 +1836,8 @@
     "eco_aniyomi": "Aniyomi",
     "eco_manga": "Manga",
     "eco_mangayomi": "Mangayomi",
-    "eco_all": "Hammasi"
+    "eco_all": "Hammasi",
+    "language_not_stated": "Til ko‘rsatilmagan · {}"
   },
   "settings": {
     "dns_title": "DNS",
