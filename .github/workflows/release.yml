@@ -338,7 +338,22 @@ jobs:
       # of it, every release. Ubuntu minutes are the cheap ones, so this buys
       # wall-clock rather than money; a release that lands sooner is still worth
       # the four lines.
+      #
+      # GitHub-hosted only, and that condition is not a preference — it is the
+      # fix for a release that failed with every APK already built. A
+      # self-hosted runner keeps ~/.gradle and the Flutter SDK on its own disk
+      # between runs, so there is nothing to warm; what these steps did there
+      # was upload gigabytes back to GitHub over a home connection AFTER the
+      # work was done. In run 34835090440 the build finished at 10:57 and the
+      # job was still packing tarballs eleven minutes later when it was
+      # cancelled — so android went red, publish found no assets, and a good
+      # build was thrown away.
+      #
+      # It also ends a collision: the macOS job caches Flutter under the same
+      # macos-arm64 key, and the two raced — "another job may be creating this
+      # cache" is in the same log.
       - name: Cache Gradle
+        if: runner.environment == 'github-hosted'
         uses: actions/cache@v4
         with:
           path: |
@@ -349,7 +364,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
+          cache: ${{ runner.environment == 'github-hosted' }}
       - name: Create .env (declared as a pubspec asset — the build fails without it)
         run: printf '%s' "${{ secrets.DOTENV }}" > .env
       # Restore the release signing key. android/app/key.properties is
