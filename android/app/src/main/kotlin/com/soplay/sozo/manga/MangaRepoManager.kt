@@ -23,6 +23,21 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
 
     @Volatile private var ensured = false
 
+    init {
+        host.refreshMissingApk = { sourceId ->
+            synchronized(this) {
+                val metadata = loadMeta()
+                val repo = savedRepos().firstOrNull { key ->
+                    val entries = metadata.optJSONArray(key) ?: JSONArray()
+                    !key.startsWith("file:") && (0 until entries.length()).any {
+                        entries.optJSONObject(it)?.optString("id") == sourceId
+                    }
+                }
+                if (repo != null) addRepoInternal(repo)
+            }
+        }
+    }
+
     private fun savedRepos(): MutableList<String> {
         val raw = prefs.getString("repos", "[]") ?: "[]"
         return try {
@@ -50,6 +65,7 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
         prefs.edit().putString("names", o.toString()).apply()
     }
 
+    @Synchronized
     fun ensureLoaded() {
         if (ensured) return
         ensured = true
@@ -77,6 +93,7 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
         return arr.toString()
     }
 
+    @Synchronized
     fun removeRepo(input: String): String {
         val key = input.trim()
         val meta = loadMeta()
@@ -93,6 +110,7 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
         return JSONObject().apply { put("repos", JSONArray(repos)) }.toString()
     }
 
+    @Synchronized
     fun addRepo(input: String, progress: ((Int, Int) -> Unit)? = null): JSONObject {
         val result = addRepoInternal(input, progress)
         if (result.optInt("sourceCount") > 0) {
@@ -110,18 +128,14 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
      * transient, so a real path would break `removeRepo` the moment the cache is
      * cleared, and would also let the same import land twice under two paths.
      */
+    @Synchronized
     fun addRepoFile(
         path: String,
         displayName: String,
         progress: ((Int, Int) -> Unit)? = null,
     ): JSONObject {
         val key = "file:" + (displayName.ifEmpty { path.substringAfterLast('/') })
-        val packages = try {
-            ExtensionIndex.parseFile(path)
-        } catch (t: Throwable) {
-            Log.e(TAG, "index file parse failed for $path: ${t.message}")
-            JSONArray()
-        }
+        val packages = ExtensionIndex.parseFile(path)
         val result = install(key, key.removePrefix("file:"), packages, iconBaseFor(""), progress)
         if (result.optInt("sourceCount") > 0) {
             val repos = savedRepos()
@@ -135,12 +149,7 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
         // Handles both `index.min.json` and the gzipped-protobuf `index.pb` that
         // Keiyoushi / yuzono-manga now publish, and falls back to whichever
         // sibling the repo actually has.
-        val packages = try {
-            ExtensionIndex.fetch(repoUrl)
-        } catch (t: Throwable) {
-            Log.e(TAG, "index fetch failed for $repoUrl: ${t.message}")
-            JSONArray()
-        }
+        val packages = ExtensionIndex.fetch(repoUrl)
         return install(repoUrl, fallbackName(repoUrl), packages, iconBaseFor(repoUrl), progress)
     }
 
@@ -199,6 +208,7 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
             progress?.invoke(i + 1, total)
         }
 
+        require(sourceCount > 0) { "Repository contains no usable sources; existing sources were kept" }
         val meta = loadMeta(); meta.put(repoKey, metaEntries); saveMeta(meta)
         if (sourceCount > 0) {
             val names = loadNames(); names.put(repoKey, repoName); saveNames(names)
@@ -222,6 +232,7 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
      * dropping the stale apk — the new one is fetched lazily on next use, exactly
      * like a first install.
      */
+    @Synchronized
     fun checkUpdates(
         apply: Boolean = true,
         progress: ((Int, Int) -> Unit)? = null,
@@ -255,12 +266,12 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
             for (i in 0 until packages.length()) {
                 val pkg = packages.optJSONObject(i) ?: continue
                 val pkgName = pkg.optString("pkg")
-                val existing = installedByPkg[pkgName] ?: continue
+                val existing = installedByPkg[pkgName]
                 val apkRemote = pkg.optString("apkUrl").ifEmpty {
                     val n = pkg.optString("apk")
                     if (n.isEmpty()) "" else apkUrl(repo, n)
                 }
-                if (apkRemote.isEmpty() || apkRemote == existing.optString("apkUrl")) continue
+                if (apkRemote.isEmpty() || apkRemote == existing?.optString("apkUrl")) continue
 
                 updated.put(JSONObject().apply {
                     put("pkg", pkgName)
@@ -269,7 +280,7 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
                     put("repo", repo)
                 })
                 if (apply) {
-                    host.dropCachedApk(existing.optString("apkUrl"))
+                    existing?.optString("apkUrl")?.let(host::dropCachedApk)
                     val iconRemote = pkg.optString("iconUrl").ifEmpty {
                         if (pkgName.isEmpty()) "" else "$iconBase/icon/$pkgName.png"
                     }
@@ -291,10 +302,10 @@ class MangaRepoManager(private val context: Context, private val host: MangaHost
                         }
                         host.registerMeta(entry, repoName)
                         // Persist so the new url survives a restart.
-                        for (k in 0 until entries.length()) {
-                            val e = entries.optJSONObject(k) ?: continue
-                            if (e.optString("id") == src.optString("id")) entries.put(k, entry)
+                        val oldIndex = (0 until entries.length()).firstOrNull {
+                            entries.optJSONObject(it)?.optString("id") == src.optString("id")
                         }
+                        if (oldIndex == null) entries.put(entry) else entries.put(oldIndex, entry)
                     }
                     meta.put(repo, entries); saveMeta(meta)
                 }

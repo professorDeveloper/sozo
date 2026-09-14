@@ -46,8 +46,12 @@ object MangaRuntime {
      * version), so it gets a fresh loader — this just stops the stale instances
      * from shadowing it.
      */
-    fun evictSources(sourceIds: List<String>) {
-        synchronized(this) { sourceIds.forEach { sourceCache.remove(it) } }
+    fun evictSources(sourceIds: List<String>, apkPaths: List<String> = emptyList()) {
+        synchronized(this) {
+            sourceIds.forEach { sourceCache.remove(it) }
+            loadedApks.removeAll(apkPaths.toSet())
+            lastError = null
+        }
     }
 
     /**

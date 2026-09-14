@@ -285,6 +285,17 @@ class PlayerControlsLayout {
       slots[spec.defaultSlot]!.add(spec.id);
     }
 
+    // Layouts saved before the centre slot existed used bottom-left for
+    // episode navigation. Migrate only that legacy arrangement; modern
+    // custom layouts and deliberately hidden controls retain their choices.
+    if (!stored.containsKey('center')) {
+      for (final id in const ['previous', 'next']) {
+        if (slots[PlayerControlSlot.bottomLeft]!.remove(id)) {
+          slots[PlayerControlSlot.center]!.add(id);
+        }
+      }
+    }
+
     final centre = slots[PlayerControlSlot.center]!;
     while (centre.length > kCenterCapacity) {
       slots[PlayerControlSlot.hidden]!.add(centre.removeLast());
@@ -304,8 +315,8 @@ class PlayerControlsLayout {
   }
 
   Map<String, List<String>> toStored() => {
-        for (final e in _slots.entries) e.key.name: List<String>.of(e.value),
-      };
+    for (final e in _slots.entries) e.key.name: List<String>.of(e.value),
+  };
 
   List<String> of(PlayerControlSlot slot) =>
       List<String>.unmodifiable(_slots[slot] ?? const <String>[]);
@@ -393,6 +404,6 @@ class PlayerControlsLayout {
   }
 
   Map<PlayerControlSlot, List<String>> _copy() => {
-        for (final e in _slots.entries) e.key: List<String>.of(e.value),
-      };
+    for (final e in _slots.entries) e.key: List<String>.of(e.value),
+  };
 }

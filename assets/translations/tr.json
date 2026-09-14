@@ -966,7 +966,8 @@
     "typeface_mono": "Mono",
     "alignment": "Hizalama",
     "align_left": "Sola",
-    "align_justify": "İki yana"
+    "align_justify": "İki yana",
+    "novel_download_unavailable": "Romanlar için çevrimdışı indirme henüz desteklenmiyor."
   },
   "cloudflare": {
     "title": "İnsan olduğunu doğrula",
@@ -1847,5 +1848,14 @@
     "dns_quad9": "Quad9 (9.9.9.9)",
     "dns_mullvad": "Mullvad",
     "dns_fallback": "O çözümleyiciye ulaşılamadı, sistemdeki kullanılmaya devam ediyor."
+  },
+  "source_manager": {
+    "profile_hint": "Kaynak seç, ekle ve yönet",
+    "manage_repositories": "Depoları yönet",
+    "browse": "Göz at",
+    "selection_hint": "Kullanmak için kaynağa dokunun. Göz at içeriği gösterir.",
+    "recommended_repositories": "Önerilen depolar",
+    "load_more": "Daha fazla yükle",
+    "added": "Eklendi"
   }
 }

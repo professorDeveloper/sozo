@@ -966,7 +966,8 @@
     "typeface_mono": "Mono",
     "alignment": "Perataan",
     "align_left": "Rata kiri",
-    "align_justify": "Rata kanan-kiri"
+    "align_justify": "Rata kanan-kiri",
+    "novel_download_unavailable": "Unduhan novel offline belum didukung."
   },
   "cloudflare": {
     "title": "Verifikasi bahwa kamu manusia",
@@ -1847,5 +1848,14 @@
     "dns_quad9": "Quad9 (9.9.9.9)",
     "dns_mullvad": "Mullvad",
     "dns_fallback": "Resolver itu tidak dapat dijangkau, jadi milik sistem tetap dipakai."
+  },
+  "source_manager": {
+    "profile_hint": "Pilih, tambah, dan kelola sumber",
+    "manage_repositories": "Kelola repositori",
+    "browse": "Jelajahi",
+    "selection_hint": "Ketuk sumber untuk memakainya. Jelajahi menampilkan isinya.",
+    "recommended_repositories": "Repositori rekomendasi",
+    "load_more": "Muat lagi",
+    "added": "Ditambahkan"
   }
 }

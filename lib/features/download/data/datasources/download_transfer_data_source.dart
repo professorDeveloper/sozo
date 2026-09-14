@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:soplay/core/player/hls_variants.dart';
+import 'package:soplay/core/network/http_headers.dart';
 import 'package:soplay/features/download/domain/download_layout.dart';
 import 'package:soplay/features/download/domain/entities/download_failure.dart';
 import 'package:soplay/features/download/domain/entities/download_kind.dart';
@@ -30,14 +31,14 @@ class TransferResult {
     required this.completedUnits,
     required this.totalUnits,
     required this.sizeBytes,
-  })  : failure = null,
-        detail = '';
+  }) : failure = null,
+       detail = '';
 
   const TransferResult.failed(this.failure, this.detail)
-      : artefactPath = '',
-        completedUnits = 0,
-        totalUnits = 0,
-        sizeBytes = 0;
+    : artefactPath = '',
+      completedUnits = 0,
+      totalUnits = 0,
+      sizeBytes = 0;
 
   /// Absolute path of what was written. Empty on failure.
   final String artefactPath;
@@ -77,16 +78,17 @@ class _NotMediaException implements Exception {
 ///   HTML error page saved under a video's extension.
 class DownloadTransferDataSource {
   DownloadTransferDataSource({Dio? dio})
-      : _dio = dio ??
-            Dio(
-              BaseOptions(
-                connectTimeout: const Duration(seconds: 20),
-                receiveTimeout: const Duration(minutes: 5),
-                followRedirects: true,
-                maxRedirects: 5,
-                validateStatus: (s) => s != null && s < 400,
-              ),
-            );
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 20),
+              receiveTimeout: const Duration(minutes: 5),
+              followRedirects: true,
+              maxRedirects: 5,
+              validateStatus: (s) => s != null && s < 400,
+            ),
+          );
 
   final Dio _dio;
 
@@ -107,6 +109,7 @@ class DownloadTransferDataSource {
     required String sourceUrl,
     required Map<String, String> headers,
     required List<String> pageUrls,
+    List<Map<String, String>> imageHeaders = const [],
     required CancelToken cancel,
     required void Function(TransferProgress) onProgress,
   }) async {
@@ -114,32 +117,36 @@ class DownloadTransferDataSource {
       await Directory(dirPath).create(recursive: true);
       return switch (kind) {
         DownloadKind.video => await _direct(
-            dirPath: dirPath,
-            url: sourceUrl,
-            headers: headers,
-            cancel: cancel,
-            onProgress: onProgress,
-          ),
+          dirPath: dirPath,
+          url: sourceUrl,
+          headers: headers,
+          cancel: cancel,
+          onProgress: onProgress,
+        ),
         DownloadKind.hls => await _hls(
-            dirPath: dirPath,
-            url: sourceUrl,
-            headers: headers,
-            cancel: cancel,
-            onProgress: onProgress,
-          ),
+          dirPath: dirPath,
+          url: sourceUrl,
+          headers: headers,
+          cancel: cancel,
+          onProgress: onProgress,
+        ),
         DownloadKind.manga => await _pages(
-            dirPath: dirPath,
-            pageUrls: pageUrls,
-            headers: headers,
-            cancel: cancel,
-            onProgress: onProgress,
-          ),
+          dirPath: dirPath,
+          pageUrls: pageUrls,
+          imageHeaders: imageHeaders,
+          headers: headers,
+          cancel: cancel,
+          onProgress: onProgress,
+        ),
       };
     } on _NotMediaException catch (e) {
       return TransferResult.failed(DownloadFailureKind.notMedia, e.message);
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) {
-        return const TransferResult.failed(DownloadFailureKind.unknown, 'cancelled');
+        return const TransferResult.failed(
+          DownloadFailureKind.unknown,
+          'cancelled',
+        );
       }
       final status = e.response?.statusCode;
       final detail = status == null ? (e.message ?? '$e') : 'HTTP $status';
@@ -180,10 +187,7 @@ class DownloadTransferDataSource {
       url,
       cancelToken: cancel,
       options: Options(
-        headers: {
-          ...headers,
-          if (existing > 0) 'Range': 'bytes=$existing-',
-        },
+        headers: {...headers, if (existing > 0) 'Range': 'bytes=$existing-'},
         responseType: ResponseType.stream,
       ),
     );
@@ -213,11 +217,13 @@ class DownloadTransferDataSource {
         }
         sink.add(chunk);
         written += chunk.length;
-        onProgress(TransferProgress(
-          completedUnits: written,
-          totalUnits: total,
-          sizeBytes: written,
-        ));
+        onProgress(
+          TransferProgress(
+            completedUnits: written,
+            totalUnits: total,
+            sizeBytes: written,
+          ),
+        );
       }
       await sink.flush();
     } finally {
@@ -346,11 +352,13 @@ class DownloadTransferDataSource {
         );
       }
       bytes += await file.length();
-      onProgress(TransferProgress(
-        completedUnits: i + 1,
-        totalUnits: segments.length,
-        sizeBytes: bytes,
-      ));
+      onProgress(
+        TransferProgress(
+          completedUnits: i + 1,
+          totalUnits: segments.length,
+          sizeBytes: bytes,
+        ),
+      );
     }
 
     // The manifest first, then the playlist. The playlist is what the verifier
@@ -363,8 +371,9 @@ class DownloadTransferDataSource {
       parts: segments.length,
       bytes: bytes,
     );
-    await File('$dirPath/${DownloadLayout.hlsIndexName}')
-        .writeAsString(localPlaylist(playlist, auxNames));
+    await File(
+      '$dirPath/${DownloadLayout.hlsIndexName}',
+    ).writeAsString(localPlaylist(playlist, auxNames));
 
     return TransferResult.success(
       artefactPath: '$dirPath/${DownloadLayout.hlsIndexName}',
@@ -379,6 +388,7 @@ class DownloadTransferDataSource {
   Future<TransferResult> _pages({
     required String dirPath,
     required List<String> pageUrls,
+    List<Map<String, String>> imageHeaders = const [],
     required Map<String, String> headers,
     required CancelToken cancel,
     required void Function(TransferProgress) onProgress,
@@ -407,17 +417,22 @@ class DownloadTransferDataSource {
         await _fetchToFile(
           url: pageUrls[i],
           file: file,
-          headers: headers,
+          headers: mergeHttpHeaders([
+            headers,
+            if (i < imageHeaders.length) imageHeaders[i],
+          ]),
           cancel: cancel,
           attempts: _segmentAttempts,
         );
       }
       bytes += await file.length();
-      onProgress(TransferProgress(
-        completedUnits: i + 1,
-        totalUnits: pageUrls.length,
-        sizeBytes: bytes,
-      ));
+      onProgress(
+        TransferProgress(
+          completedUnits: i + 1,
+          totalUnits: pageUrls.length,
+          sizeBytes: bytes,
+        ),
+      );
     }
 
     await _writeManifest(
@@ -459,10 +474,7 @@ class DownloadTransferDataSource {
         final response = await _dio.get<ResponseBody>(
           url,
           cancelToken: cancel,
-          options: Options(
-            headers: headers,
-            responseType: ResponseType.stream,
-          ),
+          options: Options(headers: headers, responseType: ResponseType.stream),
         );
         if (checkMedia) {
           _rejectNonMedia(response.headers.value('content-type'));
@@ -523,12 +535,14 @@ class DownloadTransferDataSource {
     required int bytes,
   }) async {
     final file = File('$dirPath/${DownloadLayout.manifestName}');
-    await file.writeAsString(jsonEncode({
-      'kind': kind.id,
-      'parts': parts,
-      'bytes': bytes,
-      'writtenAt': DateTime.now().millisecondsSinceEpoch,
-    }));
+    await file.writeAsString(
+      jsonEncode({
+        'kind': kind.id,
+        'parts': parts,
+        'bytes': bytes,
+        'writtenAt': DateTime.now().millisecondsSinceEpoch,
+      }),
+    );
   }
 
   void _rejectNonMedia(String? contentType) {
@@ -600,10 +614,10 @@ class DownloadTransferDataSource {
   }
 
   List<String> _segmentUrls(String playlist, String base) => [
-        for (final line in playlist.split('\n'))
-          if (line.trim().isNotEmpty && !line.trim().startsWith('#'))
-            _resolve(line.trim(), base),
-      ];
+    for (final line in playlist.split('\n'))
+      if (line.trim().isNotEmpty && !line.trim().startsWith('#'))
+        _resolve(line.trim(), base),
+  ];
 
   static final RegExp _uriAttribute = RegExp(r'URI="([^"]*)"');
 

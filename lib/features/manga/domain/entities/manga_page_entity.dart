@@ -18,11 +18,13 @@ class MangaPageEntity {
   /// by url would miss on every launch and fill the disk with duplicates. The
   /// source's own image url is the thing that does not change.
   final String? cacheKey;
+  final Map<String, String> headers;
 
   const MangaPageEntity({
     required this.index,
     required this.imageUrl,
     this.cookie,
     this.cacheKey,
+    this.headers = const {},
   });
 }

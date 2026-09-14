@@ -1,10 +1,17 @@
 import 'dart:async';
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/content/content_mode.dart';
+import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
+import 'package:soplay/features/extensions/data/source_installer.dart';
+import 'package:soplay/features/extensions/data/extension_repo_defaults.dart';
+import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
+import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
 
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
@@ -18,30 +25,15 @@ import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
 import 'package:soplay/features/extensions/domain/entities/catalog_source_entity.dart';
 import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
 
-/// Browse every source the harvester has seen, across all four ecosystems, by
-/// language.
-///
-/// ## The question this exists to answer
-///
-/// The sources pages let a user add a *repo*. What was in one could only be
-/// learned by adding it: a French user was told to install a 300-source anime
-/// repo on the chance that some of it was French. Fifteen entries were. Nothing
-/// in the app could say so before the install, because saying so means parsing
-/// every index of every repo — which is what the backend now does on a schedule.
-///
-/// ## One tap installs a repo, not a source
-///
-/// There is no such thing as installing one source: every ecosystem's unit of
-/// installation is the repo. Tapping a row adds the repo that carries it, and
-/// the source then shows up in the provider picker with everything else that
-/// arrived alongside. The sheet says so rather than letting the extra hundred
-/// sources be a surprise.
+/// Find a source by content and language, then install its required extension.
 class SourceCatalogPage extends StatefulWidget {
-  const SourceCatalogPage({super.key});
+  const SourceCatalogPage({super.key, this.initialItemType});
 
-  static Future<void> open(BuildContext context) => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const SourceCatalogPage()),
-      );
+  final CatalogItemType? initialItemType;
+
+  static Future<void> open(BuildContext context) => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const SourceCatalogPage()));
 
   @override
   State<SourceCatalogPage> createState() => _SourceCatalogPageState();
@@ -53,6 +45,8 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
 
   late List<String> _languages;
   List<CatalogLanguage> _facets = const [];
+  final Map<CatalogItemType?, Future<List<CatalogLanguage>>> _facetRequests =
+      {};
   final List<CatalogSourceEntity> _items = [];
 
   CatalogItemType? _itemType;
@@ -65,16 +59,55 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
   bool _loadingMore = false;
   String? _error;
   String? _installing;
+  bool _pageFailed = false;
+  final Set<String> _added = {};
 
-  /// Only ever true on Android, where the three Kotlin hosts exist. Off it, a
-  /// row that cannot be installed is still worth *seeing* — it is why the app
-  /// has fewer sources on iOS, and hiding it makes that look like an empty
-  /// catalog instead of a platform limit.
-  bool get _android => !kIsWeb && Platform.isAndroid;
+  bool _supported(CatalogSourceEntity source) => switch (source.kind) {
+    ExtensionRepoKind.cloudstream => CloudStreamChannel.isSupported,
+    ExtensionRepoKind.aniyomi => AniyomiChannel.isSupported,
+    ExtensionRepoKind.manga => MangaChannel.isSupported,
+    ExtensionRepoKind.mangayomi =>
+      source.jsRuntime && MangayomiRuntime.isSupported,
+  };
+
+  ProviderEntity? _installed(CatalogSourceEntity source) {
+    final state = context.read<ProviderBloc>().state;
+    if (state is! ProviderLoaded) return null;
+    final prefix = switch (source.kind) {
+      ExtensionRepoKind.cloudstream => 'cs:',
+      ExtensionRepoKind.aniyomi => 'an:',
+      ExtensionRepoKind.manga => 'mn:',
+      ExtensionRepoKind.mangayomi => 'my:',
+    };
+    for (final provider in state.providers) {
+      if (!provider.id.startsWith(prefix)) continue;
+      if (source.externalId.isNotEmpty &&
+          provider.id == '$prefix${source.externalId}') {
+        return provider;
+      }
+      if (provider.name == source.name &&
+          provider.lang.toLowerCase() == source.lang.toLowerCase()) {
+        return provider;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _use(ProviderEntity source) async {
+    await getIt<HiveService>().setContentMode(source.id.contentMode.id);
+    if (!mounted) return;
+    context.read<ProviderBloc>().add(ProviderSelect(source.id));
+    Navigator.of(context).pop();
+  }
+
+  void _manage() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const SourcesPage()));
 
   @override
   void initState() {
     super.initState();
+    _itemType = widget.initialItemType;
     _languages = getIt<HiveService>().getProviderLanguages();
     _scrollController.addListener(_onScroll);
     _load();
@@ -89,7 +122,7 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
   }
 
   void _onScroll() {
-    if (!_hasMore || _loadingMore || _loading) return;
+    if (!_hasMore || _loadingMore || _loading || _pageFailed) return;
     final pos = _scrollController.position;
     if (pos.pixels >= pos.maxScrollExtent - 600) _loadMore();
   }
@@ -109,32 +142,28 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
       _loadingMore = false;
       _error = null;
       _page = 1;
+      _pageFailed = false;
     });
     try {
-      final results = await Future.wait([
-        _repo.sources(
-          languages: _languages,
-          itemType: _itemType,
-          query: _query,
-          page: 1,
-        ),
-        _repo.languages(itemType: _itemType),
-      ]);
+      // Facets are auxiliary: a slow language request must not block reading.
+      unawaited(_loadFacets());
+      final page = await _repo.sources(
+        languages: _languages,
+        itemType: _itemType,
+        query: _query,
+        runnableOnly: true,
+        page: 1,
+      );
       if (!mounted || generation != _generation) return;
-      final page = results[0] as CatalogPage;
       setState(() {
         _items
           ..clear()
           ..addAll(page.items);
         _hasMore = page.hasMore;
-        _facets = results[1] as List<CatalogLanguage>;
         _loading = false;
       });
     } catch (e) {
       if (!mounted || generation != _generation) return;
-      // No compiled-in fallback on purpose: the catalog IS the backend's
-      // answer, and a stale snapshot of somebody else's repos presented as
-      // current is worse than saying the server could not be reached.
       setState(() {
         _loading = false;
         _error = '$e';
@@ -142,15 +171,34 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
     }
   }
 
+  Future<void> _loadFacets() async {
+    final type = _itemType;
+    final request = _facetRequests.putIfAbsent(
+      type,
+      () => _repo.languages(itemType: type, runnableOnly: true),
+    );
+    try {
+      final facets = await request;
+      if (mounted && type == _itemType) setState(() => _facets = facets);
+    } catch (_) {
+      _facetRequests.remove(type);
+      if (mounted && type == _itemType) setState(() => _facets = const []);
+    }
+  }
+
   Future<void> _loadMore() async {
     if (_loadingMore || _loading) return;
     final generation = _generation;
-    setState(() => _loadingMore = true);
+    setState(() {
+      _loadingMore = true;
+      _pageFailed = false;
+    });
     try {
       final next = await _repo.sources(
         languages: _languages,
         itemType: _itemType,
         query: _query,
+        runnableOnly: true,
         page: _page + 1,
       );
       // A page of the previous filter's results must not land under the new
@@ -165,13 +213,16 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
     } catch (_) {
       if (!mounted || generation != _generation) return;
       // A failed page is not a failed screen — what already loaded stays.
-      setState(() => _loadingMore = false);
+      setState(() {
+        _loadingMore = false;
+        _pageFailed = true;
+      });
     }
   }
 
   Future<void> _toggleLanguage(String code) async {
-    final next = List<String>.from(_languages);
-    if (next.remove(code) == false) next.add(code);
+    final next = code == 'all' ? <String>[] : List<String>.from(_languages);
+    if (code != 'all' && next.remove(code) == false) next.add(code);
     // Shared with the provider picker's own row. Picking French here means
     // French there too — it is one statement about the user, not two settings
     // that can disagree.
@@ -186,17 +237,14 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
     setState(() => _installing = source.id);
     String message;
     try {
-      final added = switch (source.kind) {
-        ExtensionRepoKind.cloudstream =>
-          (await CloudStreamChannel.addRepo(source.repoUrl))['pluginCount'],
-        ExtensionRepoKind.aniyomi =>
-          (await AniyomiChannel.addRepo(source.repoUrl))['sourceCount'],
-        ExtensionRepoKind.manga =>
-          (await MangaChannel.addRepo(source.repoUrl))['sourceCount'],
-        ExtensionRepoKind.mangayomi =>
-          (await getIt<MangayomiRepoStore>().addRepo(source.repoUrl))['added'],
-      };
-      final count = (added as num?)?.toInt() ?? 0;
+      final count = await installCatalogSource(
+        source,
+        getIt<MangayomiRepoStore>(),
+      );
+      if (count > 0 && mounted) {
+        _added.add(source.id);
+        context.read<ProviderBloc>().add(const ProviderLoad(localOnly: true));
+      }
       message = count > 0
           ? 'catalog.installed'.tr(args: ['$count', source.repoName])
           : 'catalog.install_empty'.tr();
@@ -223,7 +271,14 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
-        title: Text('catalog.title'.tr()),
+        title: Text('manga.add_source'.tr()),
+        actions: [
+          IconButton(
+            onPressed: _manage,
+            icon: const Icon(Icons.more_horiz),
+            tooltip: 'source_manager.manage_repositories'.tr(),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -233,14 +288,11 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
               controller: _searchController,
               onChanged: (v) {
                 _searchDebounce?.cancel();
-                _searchDebounce = Timer(
-                  const Duration(milliseconds: 350),
-                  () {
-                    if (!mounted) return;
-                    setState(() => _query = v.trim());
-                    _load();
-                  },
-                );
+                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                  if (!mounted) return;
+                  setState(() => _query = v.trim());
+                  _load();
+                });
               },
               style: const TextStyle(color: AppColors.textPrimary),
               decoration: InputDecoration(
@@ -272,9 +324,80 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
               onToggle: _toggleLanguage,
             ),
           const SizedBox(height: 4),
-          Expanded(child: _body()),
+          Expanded(
+            child: BlocBuilder<ProviderBloc, ProviderState>(
+              builder: (_, _) => _body(),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _recommended() {
+    final sources = <CatalogSourceEntity>[];
+    for (final repo in ExtensionRepoDefaults.all) {
+      if (repo.kind == ExtensionRepoKind.cloudstream) continue;
+      final type = _itemType;
+      if (type == CatalogItemType.novel && repo.novelUrl == null) continue;
+      if (type == CatalogItemType.manga &&
+          repo.kind == ExtensionRepoKind.aniyomi) {
+        continue;
+      }
+      if ((type == CatalogItemType.anime || type == CatalogItemType.video) &&
+          (repo.kind == ExtensionRepoKind.manga ||
+              (repo.kind == ExtensionRepoKind.mangayomi &&
+                  repo.animeUrl == null))) {
+        continue;
+      }
+      final source = CatalogSourceEntity(
+        id: '${repo.kind.name}:${repo.url}:${type?.name}',
+        kind: repo.kind,
+        name: repo.name,
+        repoName: repo.name,
+        repoUrl: repo.url,
+        itemType: type == CatalogItemType.video
+            ? CatalogItemType.anime
+            : type ?? CatalogItemType.manga,
+      );
+      if (_supported(source)) sources.add(source);
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: sources.length + 1,
+      itemBuilder: (_, i) {
+        if (i == 0) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text('source_manager.recommended_repositories'.tr()),
+          );
+        }
+        final source = sources[i - 1];
+        return ListTile(
+          title: Text(source.name),
+          subtitle: Text(
+            source.kind == ExtensionRepoKind.mangayomi
+                ? 'Mangayomi'
+                : source.kind.name,
+          ),
+          trailing: _installing == source.id
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : TextButton(
+                  onPressed: _installing != null || _added.contains(source.id)
+                      ? null
+                      : () => _install(source),
+                  child: Text(
+                    _added.contains(source.id)
+                        ? 'source_manager.added'.tr()
+                        : 'manga.add_source'.tr(),
+                  ),
+                ),
+        );
+      },
     );
   }
 
@@ -283,18 +406,35 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
       return Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
     if (_error != null) {
-      return _CatalogError(message: _error!, onRetry: _load);
+      return Column(
+        children: [
+          SizedBox(
+            height: 190,
+            child: _CatalogError(message: _error!, onRetry: _load),
+          ),
+          Expanded(child: _recommended()),
+          TextButton.icon(
+            onPressed: _manage,
+            icon: const Icon(Icons.add),
+            label: Text('source_manager.manage_repositories'.tr()),
+          ),
+          const SizedBox(height: 24),
+        ],
+      );
     }
     if (_items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(
-            'catalog.empty'.tr(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textHint, fontSize: 13),
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'catalog.empty'.tr(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textHint, fontSize: 13),
+            ),
           ),
-        ),
+          Expanded(child: _recommended()),
+        ],
       );
     }
     return ListView.separated(
@@ -304,23 +444,43 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
       separatorBuilder: (_, _) => const SizedBox(height: 6),
       itemBuilder: (context, i) {
         if (i >= _items.length) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 18),
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              child: _loadingMore
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : TextButton(
+                      onPressed: _loadMore,
+                      child: Text(
+                        _pageFailed
+                            ? 'general.retry'.tr()
+                            : 'source_manager.load_more'.tr(),
+                      ),
+                    ),
             ),
           );
         }
         final s = _items[i];
+        final installed = _installed(s);
         return _CatalogTile(
           source: s,
-          installable: s.installableOn(android: _android),
+          installable:
+              _supported(s) && (_installing == null || _installing == s.id),
+          label: installed != null
+              ? 'ux.use_source'.tr()
+              : _added.contains(s.id)
+              ? 'source_manager.added'.tr()
+              : 'manga.add_source'.tr(),
           busy: _installing == s.id,
-          onInstall: () => _install(s),
+          onInstall: installed != null
+              ? () => _use(installed)
+              : _added.contains(s.id)
+              ? null
+              : () => _install(s),
         );
       },
     );
@@ -346,7 +506,7 @@ class _TypeFilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 34,
+      height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -374,7 +534,9 @@ class _TypeFilterRow extends StatelessWidget {
               child: Text(
                 key.tr(),
                 style: TextStyle(
-                  color: active ? AppColors.primaryLight : AppColors.textSecondary,
+                  color: active
+                      ? AppColors.primaryLight
+                      : AppColors.textSecondary,
                   fontSize: 12.5,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w600,
                 ),
@@ -411,7 +573,7 @@ class _CatalogLanguageRow extends StatelessWidget {
     );
     final byCode = {for (final f in facets) f.lang: f};
     return SizedBox(
-      height: 34,
+      height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -420,8 +582,7 @@ class _CatalogLanguageRow extends StatelessWidget {
         itemBuilder: (context, i) {
           final code = ordered[i];
           final facet = byCode[code];
-          final active =
-              selected.any((c) => srclang.normalizeLang(c) == code);
+          final active = selected.any((c) => srclang.normalizeLang(c) == code);
           return GestureDetector(
             onTap: () => onToggle(code),
             child: Container(
@@ -480,12 +641,14 @@ class _CatalogTile extends StatelessWidget {
     required this.installable,
     required this.busy,
     required this.onInstall,
+    required this.label,
   });
 
   final CatalogSourceEntity source;
   final bool installable;
   final bool busy;
-  final VoidCallback onInstall;
+  final VoidCallback? onInstall;
+  final String label;
 
   static const _kindLabels = {
     ExtensionRepoKind.cloudstream: 'CloudStream',
@@ -572,11 +735,11 @@ class _CatalogTile extends StatelessWidget {
               TextButton(
                 onPressed: installable ? onInstall : null,
                 style: TextButton.styleFrom(
-                  minimumSize: const Size(0, 32),
+                  minimumSize: const Size(0, 44),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   foregroundColor: AppColors.primaryLight,
                 ),
-                child: Text('catalog.add_repo'.tr()),
+                child: Text(label),
               ),
           ],
         ),
@@ -617,10 +780,7 @@ class _CatalogError extends StatelessWidget {
               style: const TextStyle(color: AppColors.textHint, fontSize: 11.5),
             ),
             const SizedBox(height: 14),
-            TextButton(
-              onPressed: onRetry,
-              child: Text('general.retry'.tr()),
-            ),
+            TextButton(onPressed: onRetry, child: Text('general.retry'.tr())),
           ],
         ),
       ),

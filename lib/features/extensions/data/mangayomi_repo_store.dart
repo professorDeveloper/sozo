@@ -29,6 +29,29 @@ class MangayomiRepoStore {
   static const _prefsPrefix = 'mangayomi_prefs:';
 
   Box get _box => Hive.box(AppConstants.settingsBox);
+  Object? _sourcesRaw;
+  Map<String, MangayomiSource> _sourcesById = {};
+  final _codeRequests = <String, Future<String>>{};
+
+  void _readSources() {
+    final raw = _box.get(_sourcesKey);
+    if (identical(raw, _sourcesRaw) || raw == _sourcesRaw) return;
+    _sourcesRaw = raw;
+    _sourcesById = {};
+    if (raw is! String || raw.isEmpty) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+      for (final entry in decoded.whereType<Map>()) {
+        final source = MangayomiSource.fromJson(
+          Map<String, dynamic>.from(entry),
+        );
+        _sourcesById[source.id] = source;
+      }
+    } catch (_) {
+      _sourcesById = {};
+    }
+  }
 
   /// A dedicated Dio: the app's shared instance is pinned to our own API with a
   /// baseUrl, auth interceptors and certificate pinning, none of which apply to
@@ -38,9 +61,7 @@ class MangayomiRepoStore {
       connectTimeout: const Duration(seconds: 20),
       receiveTimeout: const Duration(seconds: 30),
       responseType: ResponseType.plain,
-      headers: {
-        'User-Agent': kSozoUserAgent,
-      },
+      headers: {'User-Agent': kSozoUserAgent},
       // GitHub raw serves 404s for missing sibling indexes; treat any status as
       // a response so a missing anime_index.json isn't an exception.
       validateStatus: (_) => true,
@@ -54,9 +75,7 @@ class MangayomiRepoStore {
     if (raw is! String || raw.isEmpty) return <String>[];
     try {
       final list = jsonDecode(raw);
-      return list is List
-          ? list.map((e) => e.toString()).toList()
-          : <String>[];
+      return list is List ? list.map((e) => e.toString()).toList() : <String>[];
     } catch (_) {
       return <String>[];
     }
@@ -70,18 +89,8 @@ class MangayomiRepoStore {
   /// Installed sources. Always a **growable** list: callers sort and filter it,
   /// and `List.sort` throws on an unmodifiable list even when it is empty.
   List<MangayomiSource> sources() {
-    final raw = _box.get(_sourcesKey);
-    if (raw is! String || raw.isEmpty) return <MangayomiSource>[];
-    try {
-      final list = jsonDecode(raw);
-      if (list is! List) return <MangayomiSource>[];
-      return list
-          .whereType<Map>()
-          .map((e) => MangayomiSource.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
-    } catch (_) {
-      return <MangayomiSource>[];
-    }
+    _readSources();
+    return _sourcesById.values.toList();
   }
 
   Future<void> _saveSources(List<MangayomiSource> list) =>
@@ -89,10 +98,8 @@ class MangayomiRepoStore {
 
   MangayomiSource? sourceById(String id) {
     final bare = id.startsWith('my:') ? id.substring(3) : id;
-    for (final s in sources()) {
-      if (s.id == bare) return s;
-    }
-    return null;
+    _readSources();
+    return _sourcesById[bare];
   }
 
   // --- install / remove ----------------------------------------------------
@@ -113,13 +120,23 @@ class MangayomiRepoStore {
       throw Exception('HTTP ${resp.statusCode} for $url');
     }
 
-    final decoded = jsonDecode(resp.data ?? '[]');
+    final body = resp.data;
+    if (body == null || body.trim().isEmpty) {
+      throw const FormatException('Repository returned an empty response');
+    }
+    final decoded = jsonDecode(body);
     if (decoded is! List) throw Exception('Unexpected index format');
 
     final existing = sources();
-    final byId = {for (final s in existing) s.id: s};
+    // Replace this repository's snapshot; a successful refresh can retire IDs.
+    // Keep other repositories until their own index has been fetched successfully.
+    final byId = {
+      for (final s in existing.where((s) => s.repoUrl != url)) s.id: s,
+    };
+    final oldIds = existing.map((s) => s.id).toSet();
     var added = 0;
     var skippedDart = 0;
+    var validEntries = 0;
 
     for (final entry in decoded.whereType<Map>()) {
       final src = MangayomiSource.fromIndexJson(
@@ -127,12 +144,19 @@ class MangayomiRepoStore {
         repoUrl: url,
       );
       if (src == null) continue;
+      validEntries++;
       if (!src.isJavaScript) {
         skippedDart++;
         continue;
       }
-      if (!byId.containsKey(src.id)) added++;
+      if (!oldIds.contains(src.id)) added++;
       byId[src.id] = src;
+    }
+
+    if (decoded.isNotEmpty && validEntries == 0) {
+      throw const FormatException(
+        'Repository contains no valid source entries',
+      );
     }
 
     await _saveSources(byId.values.toList());
@@ -161,7 +185,7 @@ class MangayomiRepoStore {
   /// dropping cached code for sources whose version changed. Returns how many
   /// sources were updated.
   Future<int> checkUpdates() async {
-    final before = {for (final s in sources()) s.id: s.version};
+    final before = {for (final s in sources()) s.id: s.runtimeIdentity};
     for (final repo in repos()) {
       try {
         await addRepo(repo);
@@ -172,7 +196,7 @@ class MangayomiRepoStore {
     var updated = 0;
     for (final s in sources()) {
       final old = before[s.id];
-      if (old != null && old != s.version) {
+      if (old != null && old != s.runtimeIdentity) {
         updated++;
         await _box.delete('$_codePrefix${s.id}');
       }
@@ -190,10 +214,21 @@ class MangayomiRepoStore {
   Future<String> code(MangayomiSource source) async {
     final key = '$_codePrefix${source.id}';
     final cached = _box.get(key);
-    if (cached is Map && cached['version'] == source.version) {
+    if (cached is Map && cached['identity'] == source.runtimeIdentity) {
       final js = cached['code'];
       if (js is String && js.isNotEmpty) return js;
     }
+    final identity = '${source.id}\u0000${source.runtimeIdentity}';
+    return _codeRequests.putIfAbsent(identity, () async {
+      try {
+        return await _downloadCode(source, key);
+      } finally {
+        _codeRequests.remove(identity);
+      }
+    });
+  }
+
+  Future<String> _downloadCode(MangayomiSource source, String key) async {
     final resp = await _net.get<String>(source.sourceCodeUrl);
     final body = resp.data ?? '';
     if (resp.statusCode == null ||
@@ -201,13 +236,15 @@ class MangayomiRepoStore {
         resp.statusCode! >= 300 ||
         body.isEmpty) {
       throw Exception(
-          'Could not download ${source.name} (HTTP ${resp.statusCode})');
+        'Could not download ${source.name} (HTTP ${resp.statusCode})',
+      );
     }
-    await _box.put(key, {'version': source.version, 'code': body});
+    await _box.put(key, {'identity': source.runtimeIdentity, 'code': body});
     return body;
   }
 
-  Future<void> clearCode(String sourceId) => _box.delete('$_codePrefix$sourceId');
+  Future<void> clearCode(String sourceId) =>
+      _box.delete('$_codePrefix$sourceId');
 
   // --- per-source preferences ---------------------------------------------
 

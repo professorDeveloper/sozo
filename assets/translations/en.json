@@ -966,7 +966,8 @@
     "typeface_mono": "Mono",
     "alignment": "Alignment",
     "align_left": "Ragged",
-    "align_justify": "Justified"
+    "align_justify": "Justified",
+    "novel_download_unavailable": "Offline downloads for novels are not supported yet."
   },
   "cloudflare": {
     "title": "Verify you're human",
@@ -1847,5 +1848,14 @@
     "dns_quad9": "Quad9 (9.9.9.9)",
     "dns_mullvad": "Mullvad",
     "dns_fallback": "That resolver could not be reached, so the system one is still in use."
+  },
+  "source_manager": {
+    "profile_hint": "Choose, add and manage sources",
+    "manage_repositories": "Manage repositories",
+    "browse": "Browse",
+    "selection_hint": "Tap a source to use it. Browse previews its content.",
+    "recommended_repositories": "Recommended repositories",
+    "load_more": "Load more",
+    "added": "Added"
   }
 }

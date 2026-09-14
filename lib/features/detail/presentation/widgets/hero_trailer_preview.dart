@@ -77,6 +77,16 @@ class _HeroTrailerPreviewState extends State<HeroTrailerPreview>
   Timer? _startTimer;
   bool _visible = false;
   bool _muted = true;
+  bool _routeActive = false;
+  bool _foreground = true;
+  bool _starting = false;
+
+  bool get _canPlay =>
+      mounted &&
+      widget.active &&
+      _routeActive &&
+      _foreground &&
+      _hive.heroTrailerAutoplay;
 
   /// Guards against a resolve finishing after this page is gone, and against
   /// two starts racing when `active` flickers during a scroll.
@@ -89,48 +99,49 @@ class _HeroTrailerPreviewState extends State<HeroTrailerPreview>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _hive.heroTrailerAutoplayChanged.addListener(_onSettingChanged);
-    _maybeSchedule();
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Detail stays mounted behind the reader/player and on shell tabs.
+    // Muting does not stop its decoder: release the preview when covered.
+    _routeActive =
+        (ModalRoute.isCurrentOf(context) ?? true) &&
+        TickerMode.valuesOf(context).enabled;
+    _syncPlayback();
   }
 
   @override
   void didUpdateWidget(covariant HeroTrailerPreview old) {
     super.didUpdateWidget(old);
-    if (old.query != widget.query) {
-      _teardown();
-      _maybeSchedule();
-      return;
-    }
-    if (old.active == widget.active) return;
-    if (widget.active) {
-      // Scrolled back to the header. Resume rather than start over: somebody
-      // who scrolled down and back has already waited once.
-      _controller?.play();
-      _maybeSchedule();
-    } else {
-      _startTimer?.cancel();
-      _controller?.pause();
-    }
+    if (old.query != widget.query) _teardown();
+    _syncPlayback();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      if (widget.active && _visible) _controller?.play();
-    } else {
-      _controller?.pause();
-    }
+    _foreground = state == AppLifecycleState.resumed;
+    _syncPlayback();
   }
 
-  void _onSettingChanged() {
-    if (_hive.heroTrailerAutoplay) {
+  void _onSettingChanged() => _syncPlayback();
+
+  void _syncPlayback() {
+    if (_canPlay) {
       _maybeSchedule();
     } else {
+      // Invalidates pending resolution/initialization as well as an active codec.
       _teardown();
     }
   }
 
   void _maybeSchedule() {
-    if (_controller != null || _startTimer != null) return;
+    if (!_canPlay || _starting || _controller != null || _startTimer != null) {
+      return;
+    }
     // Named, because "the trailer never appears" has four possible causes and
     // three of them are silent gates. Without this the only way to tell a
     // switched-off setting from a scrolled-away header from a title TMDB does
@@ -151,47 +162,37 @@ class _HeroTrailerPreviewState extends State<HeroTrailerPreview>
   }
 
   Future<void> _start() async {
-    if (!mounted || !widget.active) return;
-
+    if (!_canPlay || _starting) return;
     final token = ++_token;
-    final trailer = await getIt<TrailerService>().resolveFor(widget.query);
-    if (trailer == null) {
-      // The fourth cause: TMDB has no trailer for this title, or has no record
-      // of the title at all — which is the normal answer for the Uzbek
-      // catalogues, whose names TMDB has never heard.
-      debugPrint('[trailer] no trailer for "${widget.query.title}"');
-      return;
-    }
-    if (!mounted || token != _token || !widget.active) return;
-
+    _starting = true;
     PlayerController? controller;
     try {
+      final trailer = await getIt<TrailerService>().resolveFor(widget.query);
+      if (trailer == null || !_canPlay || token != _token) return;
       controller = PlayerController.networkUrl(Uri.parse(trailer.streamUrl));
       await controller.initialize();
-      if (!mounted || token != _token || !widget.active) {
-        await controller.dispose();
-        return;
-      }
+      if (!_canPlay || token != _token) return;
       await controller.setVolume(0);
       await controller.setLooping(true);
+      if (!_canPlay || token != _token) return;
       await controller.play();
+      if (!_canPlay || token != _token) return;
       _controller = controller;
-      // Painted only now: the frames before this are black, and a black
-      // rectangle appearing over the poster is worse than no preview.
+      controller = null; // Ownership transferred to this widget's teardown.
+      _muted = true;
       setState(() => _visible = true);
     } catch (e) {
-      // Still nothing shown: the poster is there and nothing was promised. But
-      // the reason is written down now. A resolved, fetchable stream that will
-      // not initialise is the signature of a device that cannot render video
-      // at all — which is what an emulator without a GPU path looks like, and
-      // it is indistinguishable from a broken feature without this line.
       debugPrint('[trailer] resolved but would not play: $e');
+    } finally {
+      // A late future releases its own codec, never overwrites a newer one.
       await controller?.dispose();
+      if (token == _token) _starting = false;
     }
   }
 
   void _teardown() {
     _token++;
+    _starting = false;
     _startTimer?.cancel();
     _startTimer = null;
     final c = _controller;

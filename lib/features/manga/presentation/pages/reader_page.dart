@@ -10,6 +10,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/network/http_headers.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/system/system_controls.dart';
@@ -19,6 +20,7 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/entities/download_status.dart';
+import 'package:soplay/features/download/presentation/download_messages.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
 import 'package:soplay/features/history/data/history_service.dart';
@@ -63,7 +65,8 @@ class _ReaderPageState extends State<ReaderPage> {
   late bool _spreadPref;
 
   /// The spread reader counts slots where the single-page one counts pages.
-  final PageController _spreadController = PageController();
+  PageController _spreadController = PageController(keepPage: false);
+  bool _spreadLayout = false;
   late bool _rtl;
   late String _bgPref;
   double _brightness = 0.5;
@@ -75,10 +78,10 @@ class _ReaderPageState extends State<ReaderPage> {
   late bool _novelJustify;
 
   Color get _backgroundColor => switch (_bgPref) {
-        'white' => const Color(0xFFFAFAFA),
-        'gray' => const Color(0xFF2A2A2A),
-        _ => const Color(0xFF0A0A0A),
-      };
+    'white' => const Color(0xFFFAFAFA),
+    'gray' => const Color(0xFF2A2A2A),
+    _ => const Color(0xFF0A0A0A),
+  };
 
   final ValueNotifier<int> _page = ValueNotifier<int>(0);
   final ValueNotifier<int?> _dragging = ValueNotifier<int?>(null);
@@ -107,7 +110,9 @@ class _ReaderPageState extends State<ReaderPage> {
   /// Prose has no page index, so the history row carries this where a comic
   /// carries its page: position out of a duration of 1000. It is what brings a
   /// reader back to the middle of a long chapter instead of its first line.
-  int _novelPermille = 0;
+  final ValueNotifier<int> _novelProgress = ValueNotifier<int>(0);
+  int get _novelPermille => _novelProgress.value;
+  set _novelPermille(int value) => _novelProgress.value = value;
 
   int get _currentPage => _page.value;
   int get _pageCount => _pages.length;
@@ -116,8 +121,10 @@ class _ReaderPageState extends State<ReaderPage> {
   @override
   void initState() {
     super.initState();
-    _chapterIndex = widget.args.initialChapterIndex
-        .clamp(0, widget.args.chapters.length - 1);
+    _chapterIndex = widget.args.initialChapterIndex.clamp(
+      0,
+      widget.args.chapters.length - 1,
+    );
     _mode = _hive.getReaderMode(widget.args.contentUrl);
     _spreadPref = _hive.readerSpread;
     _rtl = _hive.getReaderRtl(widget.args.contentUrl);
@@ -135,7 +142,61 @@ class _ReaderPageState extends State<ReaderPage> {
     SystemControls.getBrightness().then((v) {
       if (mounted) setState(() => _brightness = v);
     });
-    _loadChapter(_chapterIndex, startPage: widget.args.resumePage);
+    _loadChapter(
+      _chapterIndex,
+      startPage: widget.args.resumePage ?? _savedPosition(_chapterIndex),
+    );
+  }
+
+  int _savedPosition(int index) {
+    final chapter = widget.args.chapters[index];
+    final history = getIt<HistoryService>().get(
+      widget.args.contentUrl,
+      episodeIndex: index,
+      episodeNumber: chapter.episode,
+    );
+    return history?.provider == widget.args.provider ? history!.positionMs : 0;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncSpreadLayout();
+  }
+
+  int _slotForPage(int page) => page == 0 ? 0 : (page + 1) ~/ 2;
+  int _pageForSlot(int slot) => slot == 0 ? 0 : slot * 2 - 1;
+
+  // Recreate only the controller whose layout is becoming visible. PageStorage
+  // can otherwise bring back an old offset after rotating or toggling spreads.
+  void _syncSpreadLayout() {
+    final spread = _spread;
+    if (spread == _spreadLayout) return;
+    _spreadLayout = spread;
+    if (spread) {
+      _spreadController.dispose();
+      _spreadController = PageController(
+        initialPage: _slotForPage(_currentPage),
+      );
+    } else {
+      _pageController?.dispose();
+      _pageController = PageController(
+        keepPage: false,
+        initialPage: _currentPage,
+      );
+    }
+  }
+
+  void _resetPageControllers(int page) {
+    _pageController?.dispose();
+    _pageController = PageController(keepPage: false, initialPage: page);
+    _spreadController.dispose();
+    _spreadController = PageController(
+      keepPage: false,
+      initialPage: _slotForPage(page),
+    );
+    _page.value = page;
+    _initialIndex = page;
   }
 
   @override
@@ -148,6 +209,7 @@ class _ReaderPageState extends State<ReaderPage> {
     _itemPositionsListener.itemPositions.removeListener(_onItemPositions);
     _pageController?.dispose();
     _page.dispose();
+    _novelProgress.dispose();
     _dragging.dispose();
     _setWakelock(false);
     SystemControls.resetBrightness();
@@ -169,11 +231,14 @@ class _ReaderPageState extends State<ReaderPage> {
 
   Future<void> _loadChapter(int index, {int startPage = 0}) async {
     if (index < 0 || index >= _chapters.length) return;
+    _saveDebounce?.cancel();
+    _saveProgress();
     final token = ++_loadToken;
     setState(() {
       _chapterIndex = index;
       _loading = true;
       _error = null;
+      _localChapter = false;
       _pages = const [];
       _html = null;
     });
@@ -190,10 +255,7 @@ class _ReaderPageState extends State<ReaderPage> {
     if (!mounted || token != _loadToken) return;
     if (local.isNotEmpty) {
       final start = startPage.clamp(0, local.length - 1);
-      _pageController?.dispose();
-      _pageController = PageController(initialPage: start);
-      _page.value = start;
-      _initialIndex = start;
+      _resetPageControllers(start);
       setState(() {
         _localChapter = true;
         _pages = local;
@@ -215,10 +277,7 @@ class _ReaderPageState extends State<ReaderPage> {
         final start = value.pages.isEmpty
             ? 0
             : startPage.clamp(0, value.pages.length - 1);
-        _pageController?.dispose();
-        _pageController = PageController(initialPage: start);
-        _page.value = start;
-        _initialIndex = start;
+        _resetPageControllers(start);
         final isText = value.isText;
         _novelPermille = isText ? startPage.clamp(0, 1000) : 0;
         setState(() {
@@ -237,19 +296,22 @@ class _ReaderPageState extends State<ReaderPage> {
     }
   }
 
-
   void _onItemPositions() {
     if (_mode != 'vertical' || _pageCount == 0) return;
-    final positions = _itemPositionsListener.itemPositions.value
-        .where((p) => p.index < _pageCount && p.itemTrailingEdge > 0);
+    final positions = _itemPositionsListener.itemPositions.value.where(
+      (p) => p.index < _pageCount && p.itemTrailingEdge > 0,
+    );
     if (positions.isEmpty) return;
     final straddling = positions.where((p) => p.itemLeadingEdge <= 0);
-    final page = (straddling.isNotEmpty
-            ? straddling.reduce(
-                (a, b) => a.itemLeadingEdge >= b.itemLeadingEdge ? a : b)
-            : positions.reduce(
-                (a, b) => a.itemLeadingEdge <= b.itemLeadingEdge ? a : b))
-        .index;
+    final page =
+        (straddling.isNotEmpty
+                ? straddling.reduce(
+                    (a, b) => a.itemLeadingEdge >= b.itemLeadingEdge ? a : b,
+                  )
+                : positions.reduce(
+                    (a, b) => a.itemLeadingEdge <= b.itemLeadingEdge ? a : b,
+                  ))
+            .index;
     if (page != _page.value) {
       _page.value = page;
       _scheduleSave();
@@ -267,8 +329,13 @@ class _ReaderPageState extends State<ReaderPage> {
   /// until it has been laid out — and always, even to the top, because the
   /// scroll view can otherwise come back holding the previous chapter's offset.
   void _restoreNovelPosition(int permille) {
+    final token = _loadToken;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_novelScrollController.hasClients) return;
+      if (!mounted ||
+          token != _loadToken ||
+          !_novelScrollController.hasClients) {
+        return;
+      }
       final max = _novelScrollController.position.maxScrollExtent;
       _novelScrollController.jumpTo(max * permille / 1000);
     });
@@ -278,8 +345,10 @@ class _ReaderPageState extends State<ReaderPage> {
     if (_html == null || !_novelScrollController.hasClients) return;
     final max = _novelScrollController.position.maxScrollExtent;
     if (max <= 0) return;
-    final permille =
-        (_novelScrollController.offset / max * 1000).round().clamp(0, 1000);
+    final permille = (_novelScrollController.offset / max * 1000).round().clamp(
+      0,
+      1000,
+    );
     // Every scrolled pixel would otherwise restart the save timer; a change
     // of half a percent is the smallest one worth recording.
     if ((permille - _novelPermille).abs() < 5 && permille != 1000) return;
@@ -298,29 +367,66 @@ class _ReaderPageState extends State<ReaderPage> {
     final isNovel = _html != null;
     if (!isNovel && _pageCount == 0) return;
     final ch = widget.args.chapters[_chapterIndex];
-    getIt<HistoryService>().save(HistoryItem(
-      contentUrl: widget.args.contentUrl,
-      provider: widget.args.provider,
-      title: widget.args.title,
-      thumbnail: widget.args.thumbnail,
-      isSerial: true,
-      episodeIndex: _chapterIndex,
-      episodeNumber: ch.episode,
-      episodeLabel: ch.label,
-      positionMs: isNovel ? _novelPermille : _currentPage,
-      durationMs: isNovel ? 1000 : (_pageCount > 1 ? _pageCount - 1 : 0),
-      watchedAt: DateTime.now().millisecondsSinceEpoch,
-    ));
+    getIt<HistoryService>().save(
+      HistoryItem(
+        contentUrl: widget.args.contentUrl,
+        provider: widget.args.provider,
+        title: widget.args.title,
+        thumbnail: widget.args.thumbnail,
+        isSerial: true,
+        episodeIndex: _chapterIndex,
+        episodeNumber: ch.episode,
+        episodeLabel: ch.label,
+        positionMs: isNovel ? _novelPermille : _currentPage,
+        durationMs: isNovel ? 1000 : (_pageCount > 1 ? _pageCount - 1 : 0),
+        watchedAt: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
   }
-
 
   void _toggleOverlay() => setState(() => _showOverlay = !_showOverlay);
 
+  void _seekNovel(int permille) {
+    if (!_novelScrollController.hasClients) return;
+    final position = _novelScrollController.position;
+    _novelScrollController.jumpTo(
+      position.maxScrollExtent * permille.clamp(0, 1000) / 1000,
+    );
+  }
+
+  void _scrollNovel(int direction) {
+    if (!_novelScrollController.hasClients) return;
+    final position = _novelScrollController.position;
+    _novelScrollController.animateTo(
+      (position.pixels + direction * position.viewportDimension * 0.85).clamp(
+        0.0,
+        position.maxScrollExtent,
+      ),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
   void _goToPage(int page) {
-    if (_pageCount == 0) return; // clamp(0, -1) throws ArgumentError (Home/End key while loading)
+    if (_html != null) {
+      _seekNovel(page);
+      return;
+    }
+    // Home/End can arrive before a chapter has loaded.
+    if (_pageCount == 0) return;
     final clamped = page.clamp(0, _pageCount - 1);
-    if (_mode == 'horizontal') {
-      _pageController?.animateToPage(
+    if (_spread) {
+      final slot = _slotForPage(clamped);
+      if (!_spreadController.hasClients) return;
+      _spreadController.animateToPage(
+        slot,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
+      _page.value = _pageForSlot(slot);
+    } else if (_mode == 'horizontal') {
+      if (_pageController?.hasClients != true) return;
+      _pageController!.animateToPage(
         clamped,
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
@@ -328,14 +434,41 @@ class _ReaderPageState extends State<ReaderPage> {
     } else {
       _jumpVerticalTo(clamped);
     }
-    _page.value = clamped;
+    if (!_spread) _page.value = clamped;
+    _scheduleSave();
   }
 
-  void _goNextPage() =>
-      _currentPage < _pageCount - 1 ? _goToPage(_currentPage + 1) : _nextChapter();
+  void _goNextPage() {
+    if (_loading) return;
+    if (_html != null) {
+      _scrollNovel(1);
+      return;
+    }
+    if (_spread) {
+      final slot = _slotForPage(_currentPage) + 1;
+      slot < _spreadSlots.length
+          ? _goToPage(_pageForSlot(slot))
+          : _nextChapter();
+      return;
+    }
+    _currentPage < _pageCount - 1
+        ? _goToPage(_currentPage + 1)
+        : _nextChapter();
+  }
 
-  void _goPrevPage() =>
-      _currentPage > 0 ? _goToPage(_currentPage - 1) : _prevChapter();
+  void _goPrevPage() {
+    if (_loading) return;
+    if (_html != null) {
+      _scrollNovel(-1);
+      return;
+    }
+    if (_spread) {
+      final slot = _slotForPage(_currentPage) - 1;
+      slot >= 0 ? _goToPage(_pageForSlot(slot)) : _prevChapter();
+      return;
+    }
+    _currentPage > 0 ? _goToPage(_currentPage - 1) : _prevChapter();
+  }
 
   void _nextChapter() {
     if (_chapterIndex < _chapters.length - 1) {
@@ -359,11 +492,14 @@ class _ReaderPageState extends State<ReaderPage> {
     _hive.saveReaderMode(widget.args.contentUrl, mode);
     if (mode == 'horizontal') {
       _pageController?.dispose();
-      _pageController = PageController(initialPage: page);
+      _pageController = PageController(keepPage: false, initialPage: page);
     } else {
       _initialIndex = page;
     }
-    setState(() => _mode = mode);
+    setState(() {
+      _mode = mode;
+      _syncSpreadLayout();
+    });
   }
 
   void _toggleRtl() {
@@ -380,7 +516,7 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _handleTapZone(TapUpDetails d) {
-    if (_mode == 'vertical') {
+    if (_html != null || _mode == 'vertical') {
       _toggleOverlay();
       return;
     }
@@ -394,7 +530,6 @@ class _ReaderPageState extends State<ReaderPage> {
       _toggleOverlay();
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -445,7 +580,7 @@ class _ReaderPageState extends State<ReaderPage> {
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.end) {
-      _goToPage(_pageCount - 1);
+      _goToPage(_html != null ? 1000 : _pageCount - 1);
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -453,7 +588,9 @@ class _ReaderPageState extends State<ReaderPage> {
 
   Widget _pageArrow({required bool left}) {
     return Align(
-      alignment: left ? AlignmentDirectional.centerStart : AlignmentDirectional.centerEnd,
+      alignment: left
+          ? AlignmentDirectional.centerStart
+          : AlignmentDirectional.centerEnd,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Material(
@@ -461,8 +598,10 @@ class _ReaderPageState extends State<ReaderPage> {
           shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: IconButton(
-            icon: Icon(left ? Icons.chevron_left : Icons.chevron_right,
-                color: Colors.white),
+            icon: Icon(
+              left ? Icons.chevron_left : Icons.chevron_right,
+              color: Colors.white,
+            ),
             onPressed: left ? _goPrevPage : _goNextPage,
           ),
         ),
@@ -500,12 +639,17 @@ class _ReaderPageState extends State<ReaderPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.broken_image_outlined,
-                  color: Colors.white38, size: 44),
+              const Icon(
+                Icons.broken_image_outlined,
+                color: Colors.white38,
+                size: 44,
+              ),
               const SizedBox(height: 12),
-              Text(_error!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70)),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70),
+              ),
               const SizedBox(height: 16),
               FilledButton(
                 style: FilledButton.styleFrom(backgroundColor: _accent),
@@ -525,8 +669,10 @@ class _ReaderPageState extends State<ReaderPage> {
 
     if (_pages.isEmpty) {
       return Center(
-        child: Text('manga.no_pages'.tr(),
-            style: const TextStyle(color: Colors.white54)),
+        child: Text(
+          'manga.no_pages'.tr(),
+          style: const TextStyle(color: Colors.white54),
+        ),
       );
     }
     return _mode == 'horizontal' ? _horizontalReader() : _verticalReader();
@@ -615,10 +761,7 @@ class _ReaderPageState extends State<ReaderPage> {
     if (_pages.isEmpty) return slots;
     slots.add([0]);
     for (var i = 1; i < _pages.length; i += 2) {
-      slots.add([
-        i,
-        if (i + 1 < _pages.length) i + 1,
-      ]);
+      slots.add([i, if (i + 1 < _pages.length) i + 1]);
     }
     return slots;
   }
@@ -628,6 +771,7 @@ class _ReaderPageState extends State<ReaderPage> {
     return Stack(
       children: [
         PageView.builder(
+          key: ValueKey('horizontal_$_chapterIndex'),
           controller: _pageController,
           reverse: _rtl,
           itemCount: _pages.length,
@@ -664,6 +808,7 @@ class _ReaderPageState extends State<ReaderPage> {
     return Stack(
       children: [
         PageView.builder(
+          key: ValueKey('spread_$_chapterIndex'),
           // Its own controller: the page-per-screen one counts pages and this
           // counts slots, so sharing it would put the reader at slot 40 of 20.
           controller: _spreadController,
@@ -708,8 +853,9 @@ class _ReaderPageState extends State<ReaderPage> {
 
   Widget _chapterFooter() {
     final hasNext = _chapterIndex < _chapters.length - 1;
-    final nextLabel =
-        hasNext ? widget.args.chapters[_chapterIndex + 1].label : null;
+    final nextLabel = hasNext
+        ? widget.args.chapters[_chapterIndex + 1].label
+        : null;
     final onWhite = _bgPref == 'white';
     final muted = onWhite ? Colors.black54 : Colors.white54;
     return Padding(
@@ -735,8 +881,10 @@ class _ReaderPageState extends State<ReaderPage> {
               child: InkWell(
                 onTap: _nextChapter,
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -772,8 +920,11 @@ class _ReaderPageState extends State<ReaderPage> {
                         ),
                       ),
                       const SizedBox(width: 14),
-                      const Icon(Icons.arrow_forward_rounded,
-                          color: Colors.white, size: 20),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ],
                   ),
                 ),
@@ -815,18 +966,25 @@ class _ReaderPageState extends State<ReaderPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.args.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600)),
-                  Text(ch.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Colors.white60, fontSize: 11.5)),
+                  Text(
+                    widget.args.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    ch.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 11.5,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -858,6 +1016,15 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   Widget _downloadButton(EpisodeEntity ch) {
+    if (_html != null) {
+      return Tooltip(
+        message: 'manga.novel_download_unavailable'.tr(),
+        child: const IconButton(
+          icon: Icon(Icons.download_outlined, color: Colors.white38),
+          onPressed: null,
+        ),
+      );
+    }
     final id = DownloadRequest.mangaChapterId(
       contentUrl: widget.args.contentUrl,
       provider: widget.args.provider,
@@ -904,7 +1071,7 @@ class _ReaderPageState extends State<ReaderPage> {
     // request rather than being fetched again — a chapter's page urls are
     // short-lived, and re-resolving one that is open is a round trip for an
     // answer we are looking at.
-    await _enqueue(
+    final outcome = await _enqueue(
       DownloadRequest.mangaChapter(
         contentUrl: widget.args.contentUrl,
         provider: widget.args.provider,
@@ -912,6 +1079,13 @@ class _ReaderPageState extends State<ReaderPage> {
         thumbnailUrl: widget.args.thumbnail,
         headers: _headers,
         pageUrls: _pages.map((p) => p.imageUrl).toList(),
+        imageHeaders: [
+          for (final page in _pages)
+            {
+              ...page.headers,
+              if (page.cookie?.isNotEmpty == true) 'Cookie': page.cookie!,
+            },
+        ],
         chapterRef: ch.mediaRef,
         chapterIndex: _chapterIndex,
         episodeNumber: ch.episode,
@@ -919,9 +1093,8 @@ class _ReaderPageState extends State<ReaderPage> {
       ),
     );
     if (!mounted) return;
-    _snack('manga.download_started'.tr());
+    _snack(downloadOutcomeMessage(outcome));
   }
-
 
   void _openChapterList() {
     Widget tile(int i) {
@@ -936,11 +1109,15 @@ class _ReaderPageState extends State<ReaderPage> {
           color: selected ? _accent : Colors.white38,
           size: 20,
         ),
-        title: Text(ch.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                color: selected ? _accent : Colors.white, fontSize: 13.5)),
+        title: Text(
+          ch.label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: selected ? _accent : Colors.white,
+            fontSize: 13.5,
+          ),
+        ),
         onTap: () {
           Navigator.of(context).pop();
           if (i != _chapterIndex) _loadChapter(i);
@@ -962,11 +1139,14 @@ class _ReaderPageState extends State<ReaderPage> {
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Text('manga.chapters'.tr(),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'manga.chapters'.tr(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
                 Expanded(
                   child: ListView.builder(
@@ -986,11 +1166,14 @@ class _ReaderPageState extends State<ReaderPage> {
             children: [
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text('manga.chapters'.tr(),
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600)),
+                child: Text(
+                  'manga.chapters'.tr(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
               Expanded(
                 child: ListView.builder(
@@ -1012,186 +1195,211 @@ class _ReaderPageState extends State<ReaderPage> {
       backgroundColor: const Color(0xFF161616),
       showDragHandle: true,
       builder: (_) => StatefulBuilder(
-        builder: (context, setSheet) => Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('manga.reading_mode'.tr(),
-                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
-              const SizedBox(height: 8),
-              _segmented(
-                options: {
-                  'vertical': 'manga.mode_continuous'.tr(),
-                  'horizontal': 'manga.mode_paged'.tr(),
-                },
-                value: _mode,
-                onChanged: (v) {
-                  _setMode(v);
-                  setSheet(() {});
-                },
-              ),
-              if (_mode == 'horizontal') ...[
-                const SizedBox(height: 18),
-                Text('manga.direction'.tr(),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                const SizedBox(height: 8),
-                _segmented(
-                  options: {
-                    'ltr': 'manga.dir_ltr'.tr(),
-                    'rtl': 'manga.dir_rtl'.tr(),
-                  },
-                  value: _rtl ? 'rtl' : 'ltr',
-                  onChanged: (v) {
-                    final wantRtl = v == 'rtl';
-                    if (wantRtl != _rtl) _toggleRtl();
-                    setSheet(() {});
-                  },
-                ),
-                const SizedBox(height: 18),
-                Text('manga.spread'.tr(),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                const SizedBox(height: 4),
-                // Said plainly rather than discovered: the switch does nothing
-                // in portrait, and a control that appears to do nothing is one
-                // people conclude is broken.
-                Text('manga.spread_desc'.tr(),
-                    style: const TextStyle(color: Colors.white38, fontSize: 11)),
-                const SizedBox(height: 8),
-                _segmented(
-                  options: {
-                    'off': 'general.off'.tr(),
-                    'on': 'general.on'.tr(),
-                  },
-                  value: _spreadPref ? 'on' : 'off',
-                  onChanged: (v) {
-                    final want = v == 'on';
-                    if (want == _spreadPref) return;
-                    setState(() => _spreadPref = want);
-                    _hive.setReaderSpread(want);
-                    // Land on the page being read, not on the slot that
-                    // happens to share its index.
-                    final page = _page.value;
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) return;
-                      if (want && _spreadController.hasClients) {
-                        final slot = page == 0 ? 0 : ((page - 1) ~/ 2) + 1;
-                        _spreadController.jumpToPage(slot);
-                      } else if (!want && _pageController?.hasClients == true) {
-                        _pageController!.jumpToPage(page);
-                      }
-                    });
-                    setSheet(() {});
-                  },
-                ),
-              ],
-              if (_html != null) ...[
-                const SizedBox(height: 18),
-                Text('manga.text_size'.tr(),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                _novelSlider(
-                  value: _novelSize,
-                  min: 13,
-                  max: 26,
-                  divisions: 13,
-                  label: _novelSize.round().toString(),
-                  onChanged: (v) {
-                    setSheet(() {});
-                    setState(() => _novelSize = v);
-                    _hive.saveNovelFontSize(v);
-                  },
-                ),
-                Text('manga.line_height'.tr(),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                _novelSlider(
-                  value: _novelLeading,
-                  min: 1.2,
-                  max: 2.2,
-                  divisions: 10,
-                  label: _novelLeading.toStringAsFixed(2),
-                  onChanged: (v) {
-                    setSheet(() {});
-                    setState(() => _novelLeading = v);
-                    _hive.saveNovelLineHeight(v);
-                  },
-                ),
-                const SizedBox(height: 6),
-                Text('manga.typeface'.tr(),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                const SizedBox(height: 8),
-                _segmented(
-                  options: {
-                    '': 'manga.typeface_default'.tr(),
-                    'serif': 'manga.typeface_serif'.tr(),
-                    'monospace': 'manga.typeface_mono'.tr(),
-                  },
-                  value: _novelFamily,
-                  onChanged: (v) {
-                    _hive.saveNovelFontFamily(v);
-                    setState(() => _novelFamily = v);
-                    setSheet(() {});
-                  },
-                ),
-                const SizedBox(height: 18),
-                Text('manga.alignment'.tr(),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                const SizedBox(height: 8),
-                _segmented(
-                  options: {
-                    'left': 'manga.align_left'.tr(),
-                    'justify': 'manga.align_justify'.tr(),
-                  },
-                  value: _novelJustify ? 'justify' : 'left',
-                  onChanged: (v) {
-                    final want = v == 'justify';
-                    _hive.saveNovelJustify(want);
-                    setState(() => _novelJustify = want);
-                    setSheet(() {});
-                  },
-                ),
-              ],
-              const SizedBox(height: 18),
-              Text('manga.background'.tr(),
-                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
-              const SizedBox(height: 8),
-              _segmented(
-                options: {
-                  'black': 'manga.bg_black'.tr(),
-                  'gray': 'manga.bg_gray'.tr(),
-                  'white': 'manga.bg_white'.tr(),
-                },
-                value: _bgPref,
-                onChanged: (v) {
-                  _hive.saveReaderBackground(v);
-                  setState(() => _bgPref = v);
-                  setSheet(() {});
-                },
-              ),
-              if (!isDesktopPlatform) ...[
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    const Icon(Icons.brightness_6_outlined,
-                        color: Colors.white54, size: 18),
-                    Expanded(
-                      child: Slider(
-                        activeColor: _accent,
-                        inactiveColor: Colors.white24,
-                        min: 0.05,
-                        max: 1.0,
-                        value: _brightness.clamp(0.05, 1.0),
-                        onChanged: (v) {
-                          setSheet(() => _brightness = v);
-                          setState(() => _brightness = v);
-                          SystemControls.setBrightness(v);
-                        },
+        builder: (context, setSheet) => SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_html == null) ...[
+                  Text(
+                    'manga.reading_mode'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  _segmented(
+                    options: {
+                      'vertical': 'manga.mode_continuous'.tr(),
+                      'horizontal': 'manga.mode_paged'.tr(),
+                    },
+                    value: _mode,
+                    onChanged: (v) {
+                      _setMode(v);
+                      setSheet(() {});
+                    },
+                  ),
+                  if (_mode == 'horizontal') ...[
+                    const SizedBox(height: 18),
+                    Text(
+                      'manga.direction'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    _segmented(
+                      options: {
+                        'ltr': 'manga.dir_ltr'.tr(),
+                        'rtl': 'manga.dir_rtl'.tr(),
+                      },
+                      value: _rtl ? 'rtl' : 'ltr',
+                      onChanged: (v) {
+                        final wantRtl = v == 'rtl';
+                        if (wantRtl != _rtl) _toggleRtl();
+                        setSheet(() {});
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'manga.spread'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Said plainly rather than discovered: the switch does nothing
+                    // in portrait, and a control that appears to do nothing is one
+                    // people conclude is broken.
+                    Text(
+                      'manga.spread_desc'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _segmented(
+                      options: {
+                        'off': 'general.off'.tr(),
+                        'on': 'general.on'.tr(),
+                      },
+                      value: _spreadPref ? 'on' : 'off',
+                      onChanged: (v) {
+                        final want = v == 'on';
+                        if (want == _spreadPref) return;
+                        setState(() {
+                          _spreadPref = want;
+                          _syncSpreadLayout();
+                        });
+                        _hive.setReaderSpread(want);
+                        setSheet(() {});
+                      },
+                    ),
                   ],
+                ],
+                if (_html != null) ...[
+                  const SizedBox(height: 18),
+                  Text(
+                    'manga.text_size'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  _novelSlider(
+                    value: _novelSize,
+                    min: 13,
+                    max: 26,
+                    divisions: 13,
+                    label: _novelSize.round().toString(),
+                    onChanged: (v) {
+                      setSheet(() {});
+                      setState(() => _novelSize = v);
+                      _hive.saveNovelFontSize(v);
+                    },
+                  ),
+                  Text(
+                    'manga.line_height'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  _novelSlider(
+                    value: _novelLeading,
+                    min: 1.2,
+                    max: 2.2,
+                    divisions: 10,
+                    label: _novelLeading.toStringAsFixed(2),
+                    onChanged: (v) {
+                      setSheet(() {});
+                      setState(() => _novelLeading = v);
+                      _hive.saveNovelLineHeight(v);
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'manga.typeface'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  _segmented(
+                    options: {
+                      '': 'manga.typeface_default'.tr(),
+                      'serif': 'manga.typeface_serif'.tr(),
+                      'monospace': 'manga.typeface_mono'.tr(),
+                    },
+                    value: _novelFamily,
+                    onChanged: (v) {
+                      _hive.saveNovelFontFamily(v);
+                      setState(() => _novelFamily = v);
+                      setSheet(() {});
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'manga.alignment'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  _segmented(
+                    options: {
+                      'left': 'manga.align_left'.tr(),
+                      'justify': 'manga.align_justify'.tr(),
+                    },
+                    value: _novelJustify ? 'justify' : 'left',
+                    onChanged: (v) {
+                      final want = v == 'justify';
+                      _hive.saveNovelJustify(want);
+                      setState(() => _novelJustify = want);
+                      setSheet(() {});
+                    },
+                  ),
+                ],
+                const SizedBox(height: 18),
+                Text(
+                  'manga.background'.tr(),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
+                const SizedBox(height: 8),
+                _segmented(
+                  options: {
+                    'black': 'manga.bg_black'.tr(),
+                    'gray': 'manga.bg_gray'.tr(),
+                    'white': 'manga.bg_white'.tr(),
+                  },
+                  value: _bgPref,
+                  onChanged: (v) {
+                    _hive.saveReaderBackground(v);
+                    setState(() => _bgPref = v);
+                    setSheet(() {});
+                  },
+                ),
+                if (!isDesktopPlatform) ...[
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.brightness_6_outlined,
+                        color: Colors.white54,
+                        size: 18,
+                      ),
+                      Expanded(
+                        child: Slider(
+                          activeColor: _accent,
+                          inactiveColor: Colors.white24,
+                          min: 0.05,
+                          max: 1.0,
+                          value: _brightness.clamp(0.05, 1.0),
+                          onChanged: (v) {
+                            setSheet(() => _brightness = v);
+                            setState(() => _brightness = v);
+                            SystemControls.setBrightness(v);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -1275,7 +1483,10 @@ class _ReaderPageState extends State<ReaderPage> {
   Widget _bottomBar() {
     final hasPrevChapter = _chapterIndex > 0;
     final hasNextChapter = _chapterIndex < _chapters.length - 1;
-    final maxPage = (_pageCount - 1).clamp(0, 9999).toDouble();
+    final isNovel = _html != null;
+    final maxPage = isNovel
+        ? 1000.0
+        : (_pageCount - 1).clamp(0, 9999).toDouble();
     return Positioned(
       bottom: 0,
       left: 0,
@@ -1297,15 +1508,17 @@ class _ReaderPageState extends State<ReaderPage> {
         child: Row(
           children: [
             IconButton(
-              icon: Icon(Icons.skip_previous_rounded,
-                  color: hasPrevChapter ? Colors.white : Colors.white24),
+              icon: Icon(
+                Icons.skip_previous_rounded,
+                color: hasPrevChapter ? Colors.white : Colors.white24,
+              ),
               onPressed: hasPrevChapter ? _prevChapter : null,
             ),
             Expanded(
               child: ValueListenableBuilder<int?>(
                 valueListenable: _dragging,
                 builder: (context, drag, _) => ValueListenableBuilder<int>(
-                  valueListenable: _page,
+                  valueListenable: isNovel ? _novelProgress : _page,
                   builder: (context, page, _) {
                     final display = (drag ?? page).clamp(0, maxPage.toInt());
                     return Row(
@@ -1318,13 +1531,14 @@ class _ReaderPageState extends State<ReaderPage> {
                               inactiveTrackColor: Colors.white24,
                               thumbColor: _accent,
                               overlayShape: const RoundSliderOverlayShape(
-                                  overlayRadius: 14),
+                                overlayRadius: 14,
+                              ),
                             ),
                             child: Slider(
                               min: 0,
                               max: maxPage,
                               value: display.toDouble(),
-                              onChanged: _pageCount > 1
+                              onChanged: isNovel || _pageCount > 1
                                   ? (v) => _dragging.value = v.round()
                                   : null,
                               onChangeEnd: (v) {
@@ -1337,9 +1551,13 @@ class _ReaderPageState extends State<ReaderPage> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '${display + 1}/$_pageCount',
+                          isNovel
+                              ? '${(display / 10).round()}%'
+                              : '${display + 1}/$_pageCount',
                           style: const TextStyle(
-                              color: Colors.white70, fontSize: 12),
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     );
@@ -1348,8 +1566,10 @@ class _ReaderPageState extends State<ReaderPage> {
               ),
             ),
             IconButton(
-              icon: Icon(Icons.skip_next_rounded,
-                  color: hasNextChapter ? Colors.white : Colors.white24),
+              icon: Icon(
+                Icons.skip_next_rounded,
+                color: hasNextChapter ? Colors.white : Colors.white24,
+              ),
               onPressed: hasNextChapter ? _nextChapter : null,
             ),
           ],
@@ -1384,78 +1604,94 @@ class _PageImageState extends State<_PageImage> {
   /// Chapter headers plus this page's host-scoped cookies, if it has any.
   Map<String, String> get _imageHeaders {
     final cookie = widget.page.cookie;
-    if (cookie == null || cookie.isEmpty) return widget.headers;
-    return <String, String>{...widget.headers, 'Cookie': cookie};
+    return mergeHttpHeaders([
+      widget.headers,
+      widget.page.headers,
+      if (cookie != null && cookie.isNotEmpty) {'Cookie': cookie},
+    ]);
   }
 
   @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final dpr = MediaQuery.devicePixelRatioOf(context);
-    final cacheW = (width * dpr).round();
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      // Decode to the page's actual column width; two-page spreads should not
+      // allocate two full-screen decoded images.
+      final width = constraints.maxWidth.isFinite
+          ? constraints.maxWidth
+          : MediaQuery.sizeOf(context).width;
+      final dpr = MediaQuery.devicePixelRatioOf(context);
+      final cacheW = (width * dpr).round();
 
-    final url = widget.page.imageUrl;
-    final isLocal = !url.startsWith('http');
+      final url = widget.page.imageUrl;
+      final isLocal = !url.startsWith('http');
 
-    final Widget img = isLocal
-        ? Image.file(
-            File(url),
-            key: ValueKey('$url#$_retry'),
-            fit: BoxFit.fitWidth,
-            width: width,
-            cacheWidth: cacheW,
-            errorBuilder: (_, _, _) => _errorTile(width),
-          )
-        : CachedNetworkImage(
-            key: ValueKey('$url#$_retry'),
-            imageUrl: url,
-            cacheKey: widget.page.cacheKey,
-            // The page's own cookies win over anything in the chapter headers:
-            // they are scoped to this image's host, which the shared headers
-            // are not. Without them a Cloudflare-gated source serves the page
-            // list fine and then 403s every image.
-            httpHeaders: _imageHeaders,
-            fit: BoxFit.fitWidth,
-            width: width,
-            memCacheWidth: cacheW,
-            fadeInDuration: const Duration(milliseconds: 120),
-            placeholder: (_, _) => Container(
+      final Widget img = isLocal
+          ? Image.file(
+              File(url),
+              key: ValueKey('$url#$_retry'),
+              fit: BoxFit.fitWidth,
               width: width,
-              height: width * 1.4,
-              color: Colors.white.withValues(alpha: 0.02),
-              child: Center(
-                child:
-                    CircularProgressIndicator(color: _accent, strokeWidth: 1.8),
+              cacheWidth: cacheW,
+              errorBuilder: (_, _, _) => _errorTile(width),
+            )
+          : CachedNetworkImage(
+              key: ValueKey('$url#$_retry'),
+              imageUrl: url,
+              cacheKey: widget.page.cacheKey,
+              // The page's own cookies win over anything in the chapter headers:
+              // they are scoped to this image's host, which the shared headers
+              // are not. Without them a Cloudflare-gated source serves the page
+              // list fine and then 403s every image.
+              httpHeaders: _imageHeaders,
+              fit: BoxFit.fitWidth,
+              width: width,
+              memCacheWidth: cacheW,
+              fadeInDuration: const Duration(milliseconds: 120),
+              placeholder: (_, _) => Container(
+                width: width,
+                height: width * 1.4,
+                color: Colors.white.withValues(alpha: 0.02),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: _accent,
+                    strokeWidth: 1.8,
+                  ),
+                ),
               ),
-            ),
-            errorWidget: (_, _, _) => _errorTile(width),
-          );
+              errorWidget: (_, _, _) => _errorTile(width),
+            );
 
-    if (!widget.zoomable) return img;
-    return InteractiveViewer(
-      maxScale: 4,
-      child: SizedBox(width: width, child: img),
-    );
-  }
+      if (!widget.zoomable) return img;
+      return InteractiveViewer(
+        maxScale: 4,
+        child: SizedBox(width: width, child: img),
+      );
+    },
+  );
 
   Widget _errorTile(double width) => HoverTap(
-        onTap: () async {
-          await CachedNetworkImage.evictFromCache(widget.page.imageUrl);
-          if (mounted) setState(() => _retry++);
-        },
-        child: Container(
-          width: width,
-          height: 220,
-          color: Colors.white.withValues(alpha: 0.03),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.refresh_rounded, color: Colors.white38, size: 30),
-              const SizedBox(height: 8),
-              Text('manga.tap_to_reload'.tr(),
-                  style: const TextStyle(color: Colors.white38, fontSize: 12)),
-            ],
-          ),
-        ),
+    onTap: () async {
+      await CachedNetworkImage.evictFromCache(
+        widget.page.imageUrl,
+        cacheKey: widget.page.cacheKey,
       );
+      if (mounted) setState(() => _retry++);
+    },
+    child: Container(
+      width: width,
+      height: 220,
+      color: Colors.white.withValues(alpha: 0.03),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.refresh_rounded, color: Colors.white38, size: 30),
+          const SizedBox(height: 8),
+          Text(
+            'manga.tap_to_reload'.tr(),
+            style: const TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+        ],
+      ),
+    ),
+  );
 }

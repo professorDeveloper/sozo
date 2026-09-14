@@ -51,6 +51,7 @@ extension _PlayerGestures on _PlayerPageState {
   }
 
   void _onHDragEnd(DragEndDetails _) {
+    unawaited(FramePreviewService.endScrub());
     final state = _scrub.value;
     final c = _controller;
     _scrub.value = null;
@@ -66,6 +67,7 @@ extension _PlayerGestures on _PlayerPageState {
   }
 
   void _onHDragCancel() {
+    unawaited(FramePreviewService.endScrub());
     _scrub.value = null;
     _scheduleHide();
   }
@@ -142,8 +144,9 @@ extension _PlayerGestures on _PlayerPageState {
       // A pinch cancels whatever the single-finger path had begun, so a
       // brightness slide does not keep running under the zoom.
       if (_dragStart != null) _onPanCancel();
-      final next =
-          (_zoomAtPinchStart * d.scale).clamp(_kMinZoom, _kMaxZoom).toDouble();
+      final next = (_zoomAtPinchStart * d.scale)
+          .clamp(_kMinZoom, _kMaxZoom)
+          .toDouble();
       if (next != _videoZoom) {
         setState(() => _videoZoom = next);
         _swipeIndicator.value = _SwipeIndicator(_SwipeType.zoom, next);

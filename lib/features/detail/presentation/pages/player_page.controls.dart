@@ -130,6 +130,7 @@ extension _PlayerControls on _PlayerPageState {
         _sliderDragValue.value = null;
       }
     }
+
     _controller?.addListener(listener);
     Future.delayed(const Duration(seconds: 1), () {
       // The user can pop the player within this second — _sliderDragValue is
@@ -358,9 +359,7 @@ extension _PlayerControls on _PlayerPageState {
                 const SizedBox(height: 10),
                 TextButton.icon(
                   onPressed: () => LogViewerSheet.show(context),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white60,
-                  ),
+                  style: TextButton.styleFrom(foregroundColor: Colors.white60),
                   icon: const Icon(Icons.bug_report_outlined, size: 18),
                   label: Text('player.view_logs'.tr()),
                 ),
@@ -541,16 +540,13 @@ extension _PlayerControls on _PlayerPageState {
             maxHeight: double.infinity,
             child: Transform(
               transform: Matrix4.diagonal3Values(sx, sy, 1.0)
-                ..setTranslationRaw(
-                    -thumb.x * sx, -thumb.y * sy, 0.0),
+                ..setTranslationRaw(-thumb.x * sx, -thumb.y * sy, 0.0),
               child: Image.network(
                 thumb.imageUrl,
                 filterQuality: FilterQuality.low,
                 gaplessPlayback: true,
-                errorBuilder: (_, _, _) => SizedBox(
-                  width: displayWidth,
-                  height: displayHeight,
-                ),
+                errorBuilder: (_, _, _) =>
+                    SizedBox(width: displayWidth, height: displayHeight),
               ),
             ),
           ),
@@ -565,10 +561,8 @@ extension _PlayerControls on _PlayerPageState {
       fit: BoxFit.cover,
       filterQuality: FilterQuality.low,
       gaplessPlayback: true,
-      errorBuilder: (_, _, _) => const SizedBox(
-        width: displayWidth,
-        height: displayHeight,
-      ),
+      errorBuilder: (_, _, _) =>
+          const SizedBox(width: displayWidth, height: displayHeight),
     );
   }
 
@@ -639,8 +633,10 @@ extension _PlayerControls on _PlayerPageState {
             child: IgnorePointer(
               child: Center(
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 9,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.72),
                     borderRadius: BorderRadius.circular(10),
@@ -648,8 +644,11 @@ extension _PlayerControls on _PlayerPageState {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.zoom_out_map_rounded,
-                          color: Colors.white, size: 16),
+                      const Icon(
+                        Icons.zoom_out_map_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         '${(indicator.value * 100).round()}%',
@@ -754,8 +753,11 @@ extension _PlayerControls on _PlayerPageState {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.lock_rounded,
-                        color: Colors.white, size: 16),
+                    const Icon(
+                      Icons.lock_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'player.tap_to_unlock'.tr(),
@@ -818,15 +820,15 @@ extension _PlayerControls on _PlayerPageState {
                         // else on the dimmed video hides the controls.
                         child: IgnorePointer(
                           child: Text(
-                          _episodeTitle(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            shadows: _kControlShadow,
-                          ),
+                            _episodeTitle(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              shadows: _kControlShadow,
+                            ),
                           ),
                         ),
                       ),
@@ -846,7 +848,8 @@ extension _PlayerControls on _PlayerPageState {
                             children: [
                               if (hasLangSwitcher) ...[
                                 _LangPill(
-                                  label: (_currentLang ?? _kSubLang).toUpperCase(),
+                                  label: (_currentLang ?? _kSubLang)
+                                      .toUpperCase(),
                                   onTap: _openLangSheet,
                                 ),
                                 const SizedBox(width: 5),
@@ -856,7 +859,9 @@ extension _PlayerControls on _PlayerPageState {
                               //
                               if ((isTvPlatform || isDesktopPlatform) &&
                                   (_inParty ||
-                                      !widget.args.provider.startsWith('cs:'))) ...[
+                                      !widget.args.provider.startsWith(
+                                        'cs:',
+                                      ))) ...[
                                 _IconButton(
                                   icon: _inParty
                                       ? Icons.groups_rounded
@@ -907,7 +912,8 @@ extension _PlayerControls on _PlayerPageState {
                                   const SizedBox(width: 2),
                                   _IconButton(
                                     icon: Icons.video_library_rounded,
-                                    onTap: () => _openPanel(_SidePanel.episodes),
+                                    onTap: () =>
+                                        _openPanel(_SidePanel.episodes),
                                   ),
                                 ],
                               ] else if (!isDesktopPlatform) ...[
@@ -996,15 +1002,19 @@ extension _PlayerControls on _PlayerPageState {
     final a = _affordances;
     switch (id) {
       case 'previous':
-        if (!a.hasEpisodes || !_hasPrevEpisode) return null;
+        if (!a.hasEpisodes) return null;
         return _CenterIconButton(
           icon: Icons.skip_previous_rounded,
+          enabled: _hasPrevEpisode,
+          label: 'player.previous'.tr(),
           onTap: () => _partyEpisodeNav(_episodeIndex - 1),
         );
       case 'next':
-        if (!a.hasEpisodes || !_hasNextEpisode) return null;
+        if (!a.hasEpisodes) return null;
         return _CenterIconButton(
           icon: Icons.skip_next_rounded,
+          enabled: _hasNextEpisode,
+          label: 'general.next'.tr(),
           onTap: () => _partyEpisodeNav(_episodeIndex + 1),
         );
       default:
@@ -1014,57 +1024,39 @@ extension _PlayerControls on _PlayerPageState {
 
   Widget _buildCenterPlayCluster(PlayerController c) {
     final step = _seekSeconds;
-    // Previous and Next live here, beside the skips, not in the bottom-left
-    // corner — the furthest point on a landscape screen from a thumb that is
-    // already over the middle. See PlayerControlSlot.center.
-    final extras = _layoutDrivesBars
-        ? [
-            for (final id in _layout.of(PlayerControlSlot.center))
-              ?_centerControl(id),
-          ]
-        : <Widget>[
-            ?_centerControl('previous'),
-            ?_centerControl('next'),
-          ];
-    final leading = extras.take(extras.length ~/ 2 + extras.length % 2).toList();
-    final trailing = extras.skip(leading.length).toList();
-    return Center(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final w in leading) ...[w, const SizedBox(width: 22)],
-          _CenterIconButton(
-            icon: _rewindIconFor(step),
-            onTap: () {
-              _seekRelative(Duration(seconds: -step));
-              _showSeekRipple(-1);
-            },
-          ),
-          const SizedBox(width: 28),
-          ValueListenableBuilder<VideoPlayerValue>(
-            valueListenable: c,
-            builder: (_, value, _) => _CenterIconButton(
-              icon: value.isPlaying
-                  ? Icons.pause_rounded
-                  : Icons.play_arrow_rounded,
-              onTap: _togglePlay,
-              large: true,
-              busy: value.isBuffering,
-              // Named so the remote can be parked here whenever the overlay
-              // reappears; null off TV, i.e. the node is never even created.
-              focusNode: isTvPlatform ? _tvPlayFocus : null,
-            ),
-          ),
-          const SizedBox(width: 28),
-          _CenterIconButton(
-            icon: _forwardIconFor(step),
-            onTap: () {
-              _seekRelative(Duration(seconds: step));
-              _showSeekRipple(1);
-            },
-          ),
-          for (final w in trailing) ...[const SizedBox(width: 22), w],
-        ],
+    final centered = _layout.of(PlayerControlSlot.center);
+    return PlayerTransportRow(
+      previous: !_layoutDrivesBars || centered.contains('previous')
+          ? _centerControl('previous')
+          : null,
+      next: !_layoutDrivesBars || centered.contains('next')
+          ? _centerControl('next')
+          : null,
+      rewind: _CenterIconButton(
+        icon: _rewindIconFor(step),
+        onTap: () {
+          _seekRelative(Duration(seconds: -step));
+          _showSeekRipple(-1);
+        },
+      ),
+      playPause: ValueListenableBuilder<VideoPlayerValue>(
+        valueListenable: c,
+        builder: (_, value, _) => _CenterIconButton(
+          icon: value.isPlaying
+              ? Icons.pause_rounded
+              : Icons.play_arrow_rounded,
+          onTap: _togglePlay,
+          large: true,
+          busy: value.isBuffering,
+          focusNode: isTvPlatform ? _tvPlayFocus : null,
+        ),
+      ),
+      forward: _CenterIconButton(
+        icon: _forwardIconFor(step),
+        onTap: () {
+          _seekRelative(Duration(seconds: step));
+          _showSeekRipple(1);
+        },
       ),
     );
   }
@@ -1210,8 +1202,8 @@ extension _PlayerControls on _PlayerPageState {
   /// sideways the moment playback crosses an hour.
   String _positionLabel(Duration position, Duration total) =>
       total.inHours > 0 && position.inHours == 0
-          ? '00:${_formatDuration(position)}'
-          : _formatDuration(position);
+      ? '00:${_formatDuration(position)}'
+      : _formatDuration(position);
 
   /// End of the buffered range covering the playhead, or null when the engine
   /// reports no ranges (media_kit does not publish them).
@@ -1232,12 +1224,12 @@ extension _PlayerControls on _PlayerPageState {
     final Widget? image = thumb != null
         ? _buildThumbnailImage(thumb)
         : _canGeneratePreview
-            ? _GeneratedFramePreview(
-                url: _videoUrl!,
-                headers: _headers,
-                positionMs: position.inMilliseconds,
-              )
-            : null;
+        ? _GeneratedFramePreview(
+            url: _videoUrl!,
+            headers: _headers,
+            positionMs: position.inMilliseconds,
+          )
+        : null;
     if (image == null) return null;
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1277,11 +1269,11 @@ extension _PlayerControls on _PlayerPageState {
   ///
   /// deferToChild, so the slider keeps its own hit area exactly.
   Widget _absorbAncestorGestures(Widget child) => GestureDetector(
-        behavior: HitTestBehavior.deferToChild,
-        onLongPressStart: (_) {},
-        onLongPressEnd: (_) {},
-        child: child,
-      );
+    behavior: HitTestBehavior.deferToChild,
+    onLongPressStart: (_) {},
+    onLongPressEnd: (_) {},
+    child: child,
+  );
 
   Widget _buildSeekBar({
     required VideoPlayerValue value,
@@ -1297,37 +1289,40 @@ extension _PlayerControls on _PlayerPageState {
             durationMs: maxMs,
             scrubbing: scrubbing,
           )
-        : _absorbAncestorGestures(SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-              activeTrackColor: AppColors.primary,
-              inactiveTrackColor: Colors.white24,
-              secondaryActiveTrackColor: Colors.white38,
-              thumbColor: Colors.white,
-              overlayColor: AppColors.primary.withValues(alpha: 0.2),
+        : _absorbAncestorGestures(
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 4,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                activeTrackColor: AppColors.primary,
+                inactiveTrackColor: Colors.white24,
+                secondaryActiveTrackColor: Colors.white38,
+                thumbColor: Colors.white,
+                overlayColor: AppColors.primary.withValues(alpha: 0.2),
+              ),
+              child: Slider(
+                value: sliderVal,
+                min: 0,
+                max: maxMs,
+                secondaryTrackValue: _bufferedMs(value, maxMs),
+                onChangeStart: (v) {
+                  _sliderDragValue.value = v;
+                  _hideTimer?.cancel();
+                },
+                onChanged: (v) {
+                  _sliderDragValue.value = v;
+                  _hideTimer?.cancel();
+                },
+                onChangeEnd: (v) {
+                  unawaited(FramePreviewService.endScrub());
+                  final target = Duration(milliseconds: v.toInt());
+                  _seekTo(target);
+                  _clearDragAfterSeek(target);
+                },
+              ),
             ),
-            child: Slider(
-              value: sliderVal,
-              min: 0,
-              max: maxMs,
-              secondaryTrackValue: _bufferedMs(value, maxMs),
-              onChangeStart: (v) {
-                _sliderDragValue.value = v;
-                _hideTimer?.cancel();
-              },
-              onChanged: (v) {
-                _sliderDragValue.value = v;
-                _hideTimer?.cancel();
-              },
-              onChangeEnd: (v) {
-                final target = Duration(milliseconds: v.toInt());
-                _seekTo(target);
-                _clearDragAfterSeek(target);
-              },
-            ),
-          ));
+          );
 
     final preview = scrubbing && (_hasThumbnails || _canGeneratePreview)
         ? _buildScrubPreviewCard(previewPosition)
@@ -1495,7 +1490,10 @@ extension _PlayerControls on _PlayerPageState {
         );
       case 'sleep':
         if (_isLive) return null;
-        return _IconButton(icon: Icons.bedtime_outlined, onTap: _openSleepSheet);
+        return _IconButton(
+          icon: Icons.bedtime_outlined,
+          onTap: _openSleepSheet,
+        );
       case 'cast':
         if (!_canCast) return null;
         return _IconButton(
@@ -1523,10 +1521,7 @@ extension _PlayerControls on _PlayerPageState {
         );
       case 'download':
         if (!a.canDownload) return null;
-        return _IconButton(
-          icon: Icons.download_rounded,
-          onTap: _startDownload,
-        );
+        return _IconButton(icon: Icons.download_rounded, onTap: _startDownload);
     }
     return null;
   }
@@ -1657,16 +1652,14 @@ extension _PlayerControls on _PlayerPageState {
 
   /// The controls for [slot], in the viewer's order, minus the ones that cannot
   /// exist right now.
-  List<Widget> _controlsFor(
-    PlayerControlSlot slot, {
-    required bool topBar,
-  }) {
+  List<Widget> _controlsFor(PlayerControlSlot slot, {required bool topBar}) {
     // A television's top bar is where the D-pad lands first and a desktop
     // window has its own row; the editor is a phone screen and must not govern
     // either. They render the shipped arrangement instead — which is also why
     // the defaults are worth keeping correct rather than treating as a seed.
-    final layout =
-        _layoutDrivesBars ? _layout : PlayerControlsLayout.defaults();
+    final layout = _layoutDrivesBars
+        ? _layout
+        : PlayerControlsLayout.defaults();
     final out = <Widget>[];
     for (final id in layout.of(slot)) {
       final w = topBar ? _topBarControl(id) : _bottomControl(id);
@@ -1696,9 +1689,10 @@ extension _PlayerControls on _PlayerPageState {
       valueListenable: c,
       builder: (_, value, _) {
         final source =
-            _currentSourceIndex >= 0 && _currentSourceIndex < _videoSources.length
-                ? _videoSources[_currentSourceIndex]
-                : null;
+            _currentSourceIndex >= 0 &&
+                _currentSourceIndex < _videoSources.length
+            ? _videoSources[_currentSourceIndex]
+            : null;
         final buffered = value.buffered.isEmpty
             ? Duration.zero
             : value.buffered.last.end;
@@ -1732,8 +1726,7 @@ extension _PlayerControls on _PlayerPageState {
     bool hasServers,
     bool hasQualities,
   ) {
-    final hasNext =
-        hasEpisodes && _hasNextEpisode;
+    final hasNext = hasEpisodes && _hasNextEpisode;
     final hasPrev = hasEpisodes && _hasPrevEpisode;
 
     return Positioned(
@@ -1757,10 +1750,12 @@ extension _PlayerControls on _PlayerPageState {
                       final duration = value.duration.inMilliseconds == 0
                           ? Duration.zero
                           : value.duration;
-                      final maxMs = duration.inMilliseconds
-                          .toDouble()
-                          .clamp(1.0, double.infinity);
-                      final sliderVal = dragVal ??
+                      final maxMs = duration.inMilliseconds.toDouble().clamp(
+                        1.0,
+                        double.infinity,
+                      );
+                      final sliderVal =
+                          dragVal ??
                           (duration.inMilliseconds == 0
                               ? 0.0
                               : value.position.inMilliseconds
@@ -1810,71 +1805,87 @@ extension _PlayerControls on _PlayerPageState {
               const SizedBox(height: 4),
               if (isDesktopPlatform)
                 _buildDesktopControlRow(
-                    c, hasEpisodes, hasServers, hasQualities, hasPrev, hasNext)
+                  c,
+                  hasEpisodes,
+                  hasServers,
+                  hasQualities,
+                  hasPrev,
+                  hasNext,
+                )
               else
-              // Transport left, everything else right — the split
-              // _buildDesktopControlRow has always had. This row used to be a
-              // bare Row in a horizontal scroll view, so on a 844pt landscape
-              // phone six buttons sat in the leftmost 540pt and the remaining
-              // third of the bar was empty; on a 1280pt television three
-              // buttons used a fifth of it. The ConstrainedBox is what makes
-              // the split possible without giving up the scroll: it floors the
-              // row at the viewport width so spaceBetween has slack to
-              // distribute, while maxWidth stays unbounded so a narrow screen
-              // with long labels still scrolls instead of overflowing. Spacer
-              // and Expanded cannot be used here for exactly that reason —
-              // they throw against an unbounded main axis.
-              Builder(builder: (context) {
-                final left = _controlsFor(
-                  PlayerControlSlot.bottomLeft,
-                  topBar: false,
-                );
-                final rightAll = _controlsFor(
-                  PlayerControlSlot.bottomRight,
-                  topBar: false,
-                );
-                return LayoutBuilder(
-                  builder: (context, box) {
-                  // Portrait keeps what fits and drops the rest.
-                  //
-                  // Icon-only, the row still wants more than a phone has
-                  // sideways, so its tail lived past the right edge of a scroll
-                  // view with no scrollbar — present, and invisible. The
-                  // controls that do not fit are reachable from the top bar and
-                  // the settings sheet; a row that runs off the screen is not a
-                  // place to put anything.
-                  final right = !_compactBottomBar
-                      ? rightAll
-                      : rightAll
-                            .take(_fittingControls(box.maxWidth, left.length))
-                            .toList();
-                  return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minWidth: box.maxWidth),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      // spaceBetween only makes sense with something on BOTH
-                      // sides. The left group is the transport pair and it
-                      // exists only on a serial, so on a film it was empty and
-                      // every remaining control ended up pinned to the right
-                      // edge with the whole width blank beside it. Emptiness is
-                      // now read off the built widgets rather than guessed from
-                      // hasEpisodes: the viewer can move Previous and Next out
-                      // of that group entirely, and can move other controls in.
-                      mainAxisAlignment: left.isEmpty
-                          ? MainAxisAlignment.start
-                          : MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(mainAxisSize: MainAxisSize.min, children: left),
-                        Row(mainAxisSize: MainAxisSize.min, children: right),
-                      ],
-                    ),
-                  ),
-                  );
+                // Transport left, everything else right — the split
+                // _buildDesktopControlRow has always had. This row used to be a
+                // bare Row in a horizontal scroll view, so on a 844pt landscape
+                // phone six buttons sat in the leftmost 540pt and the remaining
+                // third of the bar was empty; on a 1280pt television three
+                // buttons used a fifth of it. The ConstrainedBox is what makes
+                // the split possible without giving up the scroll: it floors the
+                // row at the viewport width so spaceBetween has slack to
+                // distribute, while maxWidth stays unbounded so a narrow screen
+                // with long labels still scrolls instead of overflowing. Spacer
+                // and Expanded cannot be used here for exactly that reason —
+                // they throw against an unbounded main axis.
+                Builder(
+                  builder: (context) {
+                    final left = _controlsFor(
+                      PlayerControlSlot.bottomLeft,
+                      topBar: false,
+                    );
+                    final rightAll = _controlsFor(
+                      PlayerControlSlot.bottomRight,
+                      topBar: false,
+                    );
+                    return LayoutBuilder(
+                      builder: (context, box) {
+                        // Portrait keeps what fits and drops the rest.
+                        //
+                        // Icon-only, the row still wants more than a phone has
+                        // sideways, so its tail lived past the right edge of a scroll
+                        // view with no scrollbar — present, and invisible. The
+                        // controls that do not fit are reachable from the top bar and
+                        // the settings sheet; a row that runs off the screen is not a
+                        // place to put anything.
+                        final right = !_compactBottomBar
+                            ? rightAll
+                            : rightAll
+                                  .take(
+                                    _fittingControls(box.maxWidth, left.length),
+                                  )
+                                  .toList();
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minWidth: box.maxWidth),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              // spaceBetween only makes sense with something on BOTH
+                              // sides. The left group is the transport pair and it
+                              // exists only on a serial, so on a film it was empty and
+                              // every remaining control ended up pinned to the right
+                              // edge with the whole width blank beside it. Emptiness is
+                              // now read off the built widgets rather than guessed from
+                              // hasEpisodes: the viewer can move Previous and Next out
+                              // of that group entirely, and can move other controls in.
+                              mainAxisAlignment: left.isEmpty
+                                  ? MainAxisAlignment.start
+                                  : MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: left,
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: right,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
                   },
-                );
-              }),
+                ),
             ],
           ),
         ),

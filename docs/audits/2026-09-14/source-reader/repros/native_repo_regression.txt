@@ -1,0 +1,2 @@
+PASS Manga: failed/empty reinstallation preserves metadata; added source ID survives restart; expired APK URL refresh updates owning repo
+PASS Aniyomi: failed/empty reinstallation preserves metadata; added source ID survives restart; expired APK URL refresh updates owning repo

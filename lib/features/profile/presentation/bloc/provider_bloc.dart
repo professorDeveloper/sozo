@@ -45,7 +45,10 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     required this.providerManager,
     required this.providerRegistry,
   }) : super(ProviderInitial()) {
-    on<ProviderLoad>(_onLoad);
+    on<ProviderLoad>(
+      _onLoad,
+      transformer: (events, mapper) => events.asyncExpand(mapper),
+    );
     on<ProviderSelect>(_onSelect);
   }
 
@@ -77,10 +80,23 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     // Bounded so a black-holed connection (SYN accepted, nothing returned)
     // can't outlast the local legs. A timeout degrades to "offline", which is
     // exactly the right reading.
-    final Future<Result<ProvidersSnapshot>?> backend = useCase()
-        .timeout(_backendBudget)
-        .then<Result<ProvidersSnapshot>?>((r) => r)
-        .catchError((Object _) => null);
+    final Future<Result<ProvidersSnapshot>?> backend =
+        event.localOnly && previous is ProviderLoaded
+        ? Future.value(
+            Success(
+              ProvidersSnapshot(
+                providers: previous.providers
+                    .where((p) => !p.isServerIndependent)
+                    .toList(),
+                fromCache: previous.offline,
+                cachedAt: previous.cachedAt,
+              ),
+            ),
+          )
+        : useCase()
+              .timeout(_backendBudget)
+              .then<Result<ProvidersSnapshot>?>((r) => r)
+              .catchError((Object _) => null);
 
     final locals = Future.wait<void>([
       _appendCloudStreamProviders(localCloudStream),
@@ -182,6 +198,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             domains: const [],
             mode: 'client',
             category: 'cloudstream',
+            lang: (m['lang'] as String?)?.trim() ?? '',
             nsfw: m['nsfw'] == true,
           ),
         );
@@ -212,6 +229,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             domains: const [],
             mode: 'client',
             category: 'aniyomi',
+            lang: (m['lang'] as String?)?.trim() ?? '',
             nsfw: m['nsfw'] == true,
           ),
         );
@@ -250,6 +268,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             domains: const [],
             mode: 'client',
             category: 'manga',
+            lang: (m['lang'] as String?)?.trim() ?? '',
             nsfw: m['nsfw'] == true,
           ),
         );
@@ -287,6 +306,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             domains: const [],
             mode: 'client',
             category: 'mangayomi',
+            lang: (m['lang'] as String?)?.trim() ?? '',
             nsfw: m['nsfw'] == true,
           ),
         );

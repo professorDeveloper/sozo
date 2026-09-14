@@ -13,7 +13,11 @@ class NoInternetInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    if (_looksOffline(err)) {
+    // A background API request must never replace a local reader, player or
+    // source manager. Their own error/retry states can preserve useful content.
+    // Whole-screen redirection is reserved for an explicitly opted-in request.
+    if (err.requestOptions.extra['redirectOnOffline'] == true &&
+        _looksOffline(err)) {
       unawaited(_maybeRedirect());
     }
     handler.next(err);
@@ -93,9 +97,9 @@ class NoInternetInterceptor extends Interceptor {
     bool online = false;
     try {
       final lookups = _probeHosts.map(
-        (host) => InternetAddress.lookup(host).then(
-          (r) => r.isNotEmpty && r.first.rawAddress.isNotEmpty,
-        ),
+        (host) => InternetAddress.lookup(
+          host,
+        ).then((r) => r.isNotEmpty && r.first.rawAddress.isNotEmpty),
       );
       final results = await Future.wait(
         lookups.map((f) => f.catchError((Object _) => false)),

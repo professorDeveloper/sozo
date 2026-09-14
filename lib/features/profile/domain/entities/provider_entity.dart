@@ -81,7 +81,10 @@ class ProviderEntity {
   /// also JS `hybrid`/`client` providers, because [ExtractorRunner] fetches
   /// `/extractors/runtime` from our backend before it can run any extractor.
   bool get isServerIndependent =>
-      id.startsWith('cs:') || id.startsWith('an:') || id.startsWith('mn:');
+      id.startsWith('cs:') ||
+      id.startsWith('an:') ||
+      id.startsWith('mn:') ||
+      id.startsWith('my:');
 
   bool get scopesResolveMedia =>
       extractor != null &&

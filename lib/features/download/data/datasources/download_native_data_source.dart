@@ -37,10 +37,12 @@ class NativeDownloadState {
         id: json['id']?.toString() ?? '',
         status: json['status']?.toString() ?? '',
         artefactPath: json['localPath']?.toString() ?? '',
-        completedUnits: (json['completedUnits'] as num?)?.toInt() ??
+        completedUnits:
+            (json['completedUnits'] as num?)?.toInt() ??
             (json['downloadedBytes'] as num?)?.toInt() ??
             0,
-        totalUnits: (json['totalUnits'] as num?)?.toInt() ??
+        totalUnits:
+            (json['totalUnits'] as num?)?.toInt() ??
             (json['totalBytes'] as num?)?.toInt() ??
             0,
         sizeBytes: (json['sizeBytes'] as num?)?.toInt() ?? 0,
@@ -96,6 +98,7 @@ class DownloadNativeDataSource {
     required Map<String, String> headers,
     required String kind,
     required List<String> pageUrls,
+    List<Map<String, String>> imageHeaders = const [],
     required bool wifiOnly,
   }) async {
     if (!isSupported) return false;
@@ -108,6 +111,7 @@ class DownloadNativeDataSource {
             'headers': headers,
             'kind': kind,
             'pageUrls': pageUrls,
+            'imageHeaders': imageHeaders,
             'wifiOnly': wifiOnly,
           }) ??
           false;
@@ -142,8 +146,7 @@ class DownloadNativeDataSource {
 
   Future<void> cancelAll() => _invoke('cancelAllDownloads');
 
-  Future<void> forget(String id) =>
-      _invoke('removeDownloadState', {'id': id});
+  Future<void> forget(String id) => _invoke('removeDownloadState', {'id': id});
 
   /// Free bytes on the volume the app's files live on, or null when the
   /// platform did not answer.
@@ -170,7 +173,8 @@ class DownloadNativeDataSource {
   Future<List<Map<String, dynamic>>> volumes() async {
     if (!isSupported) return const [];
     try {
-      final raw = await _channel.invokeMethod<String>('downloadVolumes') ?? '[]';
+      final raw =
+          await _channel.invokeMethod<String>('downloadVolumes') ?? '[]';
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const [];
       return [

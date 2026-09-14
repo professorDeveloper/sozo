@@ -18,12 +18,21 @@ class MangaPagesModel extends MangaPagesEntity {
         if (img.isEmpty) continue;
         final cookie = (e['cookie'] as String?)?.trim();
         final cacheKey = (e['cacheKey'] as String?)?.trim();
-        pages.add(MangaPageEntity(
-          index: (e['index'] as num?)?.toInt() ?? pages.length,
-          imageUrl: img,
-          cookie: (cookie == null || cookie.isEmpty) ? null : cookie,
-          cacheKey: (cacheKey == null || cacheKey.isEmpty) ? null : cacheKey,
-        ));
+        pages.add(
+          MangaPageEntity(
+            index: (e['index'] as num?)?.toInt() ?? pages.length,
+            imageUrl: img,
+            cookie: (cookie == null || cookie.isEmpty) ? null : cookie,
+            cacheKey: (cacheKey == null || cacheKey.isEmpty) ? null : cacheKey,
+            headers: e['headers'] is Map
+                ? {
+                    for (final entry in (e['headers'] as Map).entries)
+                      if (entry.value != null)
+                        entry.key.toString(): entry.value.toString(),
+                  }
+                : const {},
+          ),
+        );
       }
     }
     final headers = <String, String>{};

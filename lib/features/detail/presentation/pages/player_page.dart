@@ -76,6 +76,7 @@ import 'package:soplay/features/detail/domain/video_option_groups.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/detail/data/aniskip_service.dart';
 import 'package:soplay/features/detail/presentation/pages/player_controls_page.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_transport_row.dart';
 import 'package:soplay/features/detail/presentation/widgets/alternate_source_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_info_fields_sheet.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
@@ -145,6 +146,8 @@ class PlayerPage extends StatefulWidget {
 
 class _PlayerPageState extends State<PlayerPage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  int _mediaGeneration = 0;
+
   final ResolveMediaUseCase _resolve = getIt<ResolveMediaUseCase>();
   final HiveService _hive = getIt<HiveService>();
   final HistoryService _history = getIt<HistoryService>();
@@ -624,6 +627,7 @@ class _PlayerPageState extends State<PlayerPage>
 
   @override
   void dispose() {
+    _mediaGeneration++;
     // Discord first, and unconditionally.
     //
     // Leaving a profile saying somebody is watching a film they closed an hour

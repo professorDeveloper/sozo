@@ -966,7 +966,8 @@
     "typeface_mono": "Mono",
     "alignment": "Uitlijning",
     "align_left": "Links",
-    "align_justify": "Uitgevuld"
+    "align_justify": "Uitgevuld",
+    "novel_download_unavailable": "Offline downloaden van romans wordt nog niet ondersteund."
   },
   "cloudflare": {
     "title": "Bevestig dat je een mens bent",
@@ -1847,5 +1848,14 @@
     "dns_quad9": "Quad9 (9.9.9.9)",
     "dns_mullvad": "Mullvad",
     "dns_fallback": "Die resolver was niet bereikbaar, dus die van het systeem blijft in gebruik."
+  },
+  "source_manager": {
+    "profile_hint": "Bronnen kiezen, toevoegen en beheren",
+    "manage_repositories": "Repository’s beheren",
+    "browse": "Bekijken",
+    "selection_hint": "Tik op een bron om deze te gebruiken. Bekijken toont de inhoud.",
+    "recommended_repositories": "Aanbevolen repository’s",
+    "load_more": "Meer laden",
+    "added": "Toegevoegd"
   }
 }

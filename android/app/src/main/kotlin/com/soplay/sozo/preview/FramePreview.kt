@@ -5,149 +5,124 @@ import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.util.Log
 import java.io.ByteArrayOutputStream
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * On-device seek-preview frame generator (like CloudStream's PreviewGenerator).
- *
- * Many providers (all CloudStream ones) don't ship VTT/storyboard thumbnails, so
- * we sample frames straight from the video with MediaMetadataRetriever and hand
- * single JPEG frames to the Flutter player to show while scrubbing. Works well
- * for progressive MP4 (most HubCloud/DriveSeed links); HLS frame extraction is
- * best-effort and may return null (the player then shows no preview — graceful).
- *
- * Speed: `open()` warms the decoder up front (extracts one frame so codec-init is
- * paid off the user's scrub path), `getScaledFrameAtTime` decodes straight to the
- * preview size instead of decoding full-res then downscaling, and a small cache
- * holds the warm frame plus any frames the Dart side prefetches around the scrub
- * head — so repeated/neighbouring scrubs return instantly.
- *
- * Concurrency: `setDataSource` is a network fetch with NO timeout, so `open()`
- * runs it OUTSIDE [lock] and only swaps the finished retriever in under the lock.
- * That way `close()` — which the player calls from dispose() when the user hits
- * back — never waits on a still-opening source. [generation] invalidates a slow
- * open() that finished after a close()/newer open(), so it releases its retriever
- * instead of installing a stale one. `frame()` uses tryLock and bails out (null)
- * rather than blocking. The cache has its own monitor.
+ * A single, demand-driven seek-preview decoder. Never warms or prefetches frames.
+ * A blocked setDataSource must not create a growing collection of retrievers as
+ * the user scrubs. All native work shares one try-lock; close only invalidates
+ * the generation and schedules release, so it never waits on a network/codec call.
  */
 object FramePreview {
     private const val TAG = "FramePreview"
     private const val MAX_W = 240
-    private const val CACHE_CAP = 64
-
-    private val lock = ReentrantLock()
-
-    @Volatile private var retriever: MediaMetadataRetriever? = null
-    @Volatile private var openUrl: String? = null
-
-    /** Bumped by every [open] and [close]; a slow open() whose generation is stale
-     *  when it finishes throws its retriever away instead of installing it. */
-    private val generation = AtomicInteger(0)
-
-    // Bounded LRU of bucketed-position -> JPEG bytes. Guarded by its own monitor
-    // (not [lock]) so a scrub can read a cached frame while an open() is running.
-    // access-order = true → least-recently-used is evicted first.
-    private val cache = object : LinkedHashMap<Long, ByteArray>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: Map.Entry<Long, ByteArray>): Boolean =
-            size > CACHE_CAP
+    private val work = ReentrantLock()
+    private val state = Any()
+    private val generation = AtomicLong(0)
+    private data class Session(
+        val generation: Long,
+        val url: String,
+        val headers: Map<String, String>,
+        val retriever: MediaMetadataRetriever,
+    )
+    private var active: Session? = null
+    private val retired = ArrayList<MediaMetadataRetriever>()
+    private val cleanupScheduled = AtomicBoolean(false)
+    private val cleanup = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "preview-release").apply { isDaemon = true }
     }
 
-    private fun cacheGet(key: Long): ByteArray? = synchronized(cache) { cache[key] }
-    private fun cachePut(key: Long, value: ByteArray) = synchronized(cache) { cache[key] = value }
+    private fun accept(sessionId: Long): Boolean = synchronized(state) {
+        if (sessionId < generation.get()) false else {
+            generation.set(sessionId)
+            true
+        }
+    }
 
-    /**
-     * Open [url] for frame extraction. When [warmMs] >= 0, immediately extract the
-     * frame at that position: this pays the one-time decoder/codec init cost here
-     * (during the backgrounded open, not on the user's first scrub) and caches the
-     * result so the first scrub at the start position is instant.
-     */
-    fun open(url: String, headers: Map<String, String>, warmMs: Long = -1L) {
-        if (openUrl == url && retriever != null) return
-
-        val myGen = generation.incrementAndGet()
-        // Free whatever was open before (fast — no network under the lock).
-        lock.withLock { closeLocked() }
-
-        // The slow part runs OUTSIDE [lock] so close() can never wait on it.
-        val r = MediaMetadataRetriever()
+    @Suppress("UNUSED_PARAMETER")
+    fun open(url: String, headers: Map<String, String>, warmMs: Long = -1L,
+             sessionId: Long = generation.get() + 1): Boolean {
+        if (!accept(sessionId) || !work.tryLock()) return false
         try {
-            if (headers.isEmpty()) r.setDataSource(url) else r.setDataSource(url, headers)
-        } catch (t: Throwable) {
-            Log.e(TAG, "open failed: ${t.message}")
-            releaseQuietly(r)
-            return
-        }
-
-        // Superseded while we were opening (player closed, or a newer source)?
-        if (generation.get() != myGen) {
-            releaseQuietly(r)
-            return
-        }
-
-        // [r] is still private to us here, so warming needs no lock either.
-        val warm = if (warmMs >= 0) {
-            try { extract(r, warmMs) } catch (t: Throwable) {
-                Log.e(TAG, "warm failed: ${t.message}"); null
+            val existing = synchronized(state) { active }
+            if (existing?.generation == sessionId && existing.url == url && existing.headers == headers) return true
+            synchronized(state) {
+                active?.let { retired.add(it.retriever) }
+                active = null
             }
-        } else {
-            null
-        }
-
-        val installed = lock.withLock {
-            if (generation.get() != myGen) {
-                false
-            } else {
-                retriever = r
-                openUrl = url
-                true
+            releaseRetired()
+            if (generation.get() != sessionId) return false
+            val retriever = MediaMetadataRetriever()
+            try {
+                if (headers.isEmpty()) retriever.setDataSource(url)
+                else retriever.setDataSource(url, headers)
+                val installed = synchronized(state) {
+                    if (generation.get() != sessionId) false else {
+                        active = Session(sessionId, url, headers.toMap(), retriever)
+                        true
+                    }
+                }
+                if (!installed) releaseQuietly(retriever)
+                return installed
+            } catch (error: Throwable) {
+                Log.w(TAG, "preview unavailable: ${error.javaClass.simpleName}")
+                releaseQuietly(retriever)
+                return false
             }
-        }
-        if (!installed) {
-            releaseQuietly(r)
-            return
-        }
-        if (warm != null) cachePut(warmMs, warm)
-    }
-
-    /** JPEG bytes of the frame nearest [positionMs], scaled to ~ [maxW]px wide. */
-    fun frame(positionMs: Long, maxW: Int = MAX_W): ByteArray? {
-        cacheGet(positionMs)?.let { return it }
-        // Don't block while another op holds the lock — return null so the channel
-        // call returns immediately and the UI shows its fallback.
-        if (!lock.tryLock()) return null
-        return try {
-            val r = retriever ?: return null
-            val bytes = extract(r, positionMs, maxW)
-            if (bytes != null) cachePut(positionMs, bytes)
-            bytes
-        } catch (t: Throwable) {
-            Log.e(TAG, "frame failed: ${t.message}"); null
         } finally {
-            lock.unlock()
+            work.unlock()
         }
     }
 
-    /**
-     * Release the source. Invalidates any in-flight [open] (it will drop its own
-     * retriever when it finishes) so this never has to wait on a network fetch.
-     */
-    fun close() {
-        generation.incrementAndGet()
-        synchronized(cache) { cache.clear() }
-        lock.withLock { closeLocked() }
+    fun frame(positionMs: Long, maxW: Int = MAX_W,
+              sessionId: Long = generation.get()): ByteArray? {
+        if (sessionId != generation.get() || !work.tryLock()) return null
+        return try {
+            val current = synchronized(state) { active } ?: return null
+            if (current.generation != sessionId) return null
+            val bytes = extract(current.retriever, positionMs.coerceAtLeast(0L), maxW.coerceIn(1, MAX_W))
+            if (sessionId == generation.get()) bytes else null
+        } catch (error: Throwable) {
+            Log.w(TAG, "preview frame unavailable: ${error.javaClass.simpleName}")
+            null
+        } finally {
+            work.unlock()
+        }
     }
 
-    private fun closeLocked() {
-        releaseQuietly(retriever)
-        retriever = null
-        openUrl = null
-        synchronized(cache) { cache.clear() }
+    fun close(sessionId: Long = generation.get() + 1) {
+        synchronized(state) {
+            if (sessionId < generation.get()) return
+            generation.set(sessionId)
+            active?.let { retired.add(it.retriever) }
+            active = null
+        }
+        scheduleCleanup()
     }
 
-    private fun releaseQuietly(r: MediaMetadataRetriever?) {
-        try { r?.release() } catch (_: Throwable) {}
+    private fun scheduleCleanup() {
+        if (synchronized(state) { retired.isEmpty() } || !cleanupScheduled.compareAndSet(false, true)) return
+        cleanup.execute {
+            try { work.withLock { releaseRetired() } }
+            finally {
+                cleanupScheduled.set(false)
+                if (synchronized(state) { retired.isNotEmpty() }) scheduleCleanup()
+            }
+        }
+    }
+
+    /** Called only while owning [work], including before a replacement opens. */
+    private fun releaseRetired() {
+        val pending = synchronized(state) { retired.toList().also { retired.clear() } }
+        pending.forEach { releaseQuietly(it) }
+    }
+
+    private fun releaseQuietly(retriever: MediaMetadataRetriever?) {
+        try { retriever?.release() } catch (_: Throwable) {}
     }
 
     /** Extract + JPEG-encode one frame from [r]. */
@@ -157,8 +132,8 @@ object FramePreview {
         maxW: Int = MAX_W,
     ): ByteArray? {
         val timeUs = positionMs * 1000L
-        // getScaledFrameAtTime (API 27+) decodes directly at the target size — far
-        // cheaper than decoding a full 1080p frame then downscaling it ourselves.
+        // Request a small output bitmap. The platform still controls the internal
+        // decoder resolution; demand-driven lifetime avoids competing during playback.
         val bmp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             r.getScaledFrameAtTime(
                 timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, maxW, maxW,

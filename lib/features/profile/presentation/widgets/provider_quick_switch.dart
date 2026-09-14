@@ -226,18 +226,6 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// Below this the filter is chrome over a list that already fits.
   static const int _filterThreshold = 8;
 
-  /// How far the sheet can be pulled.
-  ///
-  /// It opened at one fixed height and stayed there, which is fine for the four
-  /// readers somebody has and wrong for the twenty-odd video sources — the list
-  /// scrolled inside a window showing seven of them. Pulling it up is the
-  /// gesture people already try on a sheet this shape.
-  static const double _minSize = 0.40;
-  static const double _maxSize = 0.96;
-
-  final DraggableScrollableController _sheet = DraggableScrollableController();
-  bool _keyboardUp = false;
-
   /// One source row. Fixed so the sheet can open ON the current source: a
   /// builder with variable rows can only be scrolled to a position it has
   /// already laid out, and the current source is usually far below the fold.
@@ -250,88 +238,33 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
 
   bool get _hasFilter => widget.all.length >= _filterThreshold;
 
-
   /// Opening on the current source is a one-time move. Re-running it after a
   /// keystroke in the filter would yank the list out from under the typing.
   bool _aligned = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // The filter field is at the top of the list, so a half-height sheet with
-    // the keyboard up leaves almost nothing of the results visible. Going to
-    // full height on focus is what the fixed layout did too.
-    final up = MediaQuery.viewInsetsOf(context).bottom > 0;
-    if (up == _keyboardUp) return;
-    _keyboardUp = up;
-    if (up && _sheet.isAttached) {
-      _sheet.animateTo(
-        _maxSize,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
-    }
-  }
-
-  @override
   void dispose() {
     _filter.dispose();
-    _sheet.dispose();
     _flat.dispose();
     super.dispose();
   }
 
-  /// Resting height, as a fraction of the screen.
+  /// The bar at the top.
   ///
-  /// Computed rather than written as a constant so the sheet still opens at
-  /// exactly the height it always has. The drag is a new capability, not a new
-  /// layout.
-  double _restingSize(BuildContext context) {
-    final screen = MediaQuery.sizeOf(context).height;
-    final top = MediaQuery.paddingOf(context).top;
-    if (screen <= 0) return _maxSize;
-    return (((screen - top - 24) * 0.78) / screen).clamp(_minSize, _maxSize);
-  }
-
-  /// The bar at the top, and the only part of the sheet that is not a list.
-  ///
-  /// A DraggableScrollableSheet resizes from its scrollable, so without this
-  /// the handle would be decoration that does not do the thing it depicts.
+  /// Decoration: the sheet is as tall as its content and there is nowhere to
+  /// drag it to. Kept because a sheet without one reads as a panel that
+  /// appeared from nowhere, and every other sheet in the app has one.
   Widget _grabber(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onVerticalDragUpdate: (d) {
-        if (!_sheet.isAttached) return;
-        final screen = MediaQuery.sizeOf(context).height;
-        if (screen <= 0) return;
-        _sheet.jumpTo(
-          (_sheet.size - d.delta.dy / screen).clamp(_minSize, _maxSize),
-        );
-      },
-      onVerticalDragEnd: (_) {
-        if (!_sheet.isAttached) return;
-        final resting = _restingSize(context);
-        final size = _sheet.size;
-        final target = (resting - size).abs() <= (_maxSize - size).abs()
-            ? resting
-            : _maxSize;
-        _sheet.animateTo(
-          target,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-        );
-      },
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(top: 10, bottom: 2),
+      alignment: Alignment.center,
       child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.only(top: 10, bottom: 2),
-        alignment: Alignment.center,
-        child: Container(
-          width: 36,
-          height: 4,
-          decoration: BoxDecoration(
-            color: AppColors.textSecondary.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(2),
-          ),
+        width: 36,
+        height: 4,
+        decoration: BoxDecoration(
+          color: AppColors.textSecondary.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(2),
         ),
       ),
     );
@@ -375,49 +308,38 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                   MediaQuery.paddingOf(context).top -
                   24)
               .clamp(0.0, double.infinity);
+      final box = available * (keyboard > 0 ? 1 : 0.78);
       return Padding(
         padding: EdgeInsets.only(bottom: keyboard),
-        child: SizedBox(
-          height: available * (keyboard > 0 ? 1 : 0.78),
-          child: _body(context, _flat),
-        ),
+        child: SizedBox(height: box, child: _body(context, _flat)),
       );
     }
 
-    final resting = _restingSize(context);
-    // A long list opens tall.
+    // A plain bounded Column, not a DraggableScrollableSheet.
     //
-    // A DraggableScrollableSheet grows on a drag only while its scrollable is
-    // at the very top — and this one opens part-way down, on the source in use.
-    // So with hundreds of rows the drag always scrolled the list and the sheet
-    // could never be pulled up, which is exactly how it reads: a window onto a
-    // list, stuck at three quarters of the screen. Starting at full height is
-    // also simply right for a list that long; the grabber still shrinks it.
-    // A long list opens tall.
+    // That widget assumes its child IS the scrollable it was given a controller
+    // for. This sheet is a Column — pinned header, list, pinned footer — so the
+    // assumption does not hold, and the sheet reserved a height the Column then
+    // did not fill: a band of dead space under the footer at every size it was
+    // asked to open at.
     //
-    // A DraggableScrollableSheet grows on a drag only while its scrollable is
-    // at the very top — and this one opens part-way down, on the source in use.
-    // So with hundreds of rows the drag always scrolled the list and the sheet
-    // could never be pulled up: a window onto a list, stuck at three quarters
-    // of the screen. The grabber still shrinks it.
-    final initial = _hasFilter ? _maxSize : resting;
+    // The ceiling is the screen less the status bar and a margin: a sheet that
+    // reaches the very top loses its rounded corners against the edge and puts
+    // its title level with the clock. viewPadding, not padding — a modal route
+    // consumes the padding it has already honoured, so inside the sheet padding
+    // reads as zero and the reserve would quietly do nothing.
+    final ceiling =
+        (MediaQuery.sizeOf(context).height -
+                MediaQuery.viewPaddingOf(context).top -
+                24 -
+                keyboard)
+            .clamp(0.0, double.infinity);
+
     return Padding(
       padding: EdgeInsets.only(bottom: keyboard),
-      child: DraggableScrollableSheet(
-        controller: _sheet,
-        expand: false,
-        snap: true,
-        initialChildSize: initial,
-        minChildSize: _minSize,
-        maxChildSize: _maxSize,
-        // Resting and full. Without a snap list the sheet stops wherever the
-        // finger left it, which is how a sheet ends up permanently at 63%.
-        snapSizes: <double>{resting, initial}.toList()..sort(),
-        builder: (_, controller) =>
-            SafeArea(
-              top: false,
-              child: _body(context, controller, draggable: true),
-            ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: ceiling),
+        child: SafeArea(top: false, child: _body(context, _flat)),
       ),
     );
   }
@@ -428,7 +350,10 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// they look for another one, and with a couple of hundred installed sources
   /// that row was never on screen — the sheet opened on whatever happened to be
   /// alphabetically first and gave no sign that anything was selected.
-  void _alignToCurrent(ScrollController controller, List<ProviderEntity> items) {
+  void _alignToCurrent(
+    ScrollController controller,
+    List<ProviderEntity> items,
+  ) {
     if (_aligned || _query.isNotEmpty) return;
     _aligned = true;
     final index = items.indexWhere((p) => p.id == widget.currentProviderId);
@@ -439,60 +364,82 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
       // list rather than as the first thing in it. Nothing scrolls above the
       // rows any more, so the offset is the rows alone.
       final target = (index - 2) * _tileExtent;
-      controller.jumpTo(
-        target.clamp(0.0, controller.position.maxScrollExtent),
-      );
+      controller.jumpTo(target.clamp(0.0, controller.position.maxScrollExtent));
     });
   }
 
-  Widget _body(
-    BuildContext context,
-    ScrollController controller, {
-    bool draggable = false,
-  }) {
+  Widget _body(BuildContext context, ScrollController controller) {
     final favorites = _shownFavorites;
     final items = [...favorites, ..._rest];
     _alignToCurrent(controller, items);
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         // Pinned by construction: the title, the mode chips and the filter are
         // Column children, so scrolling the list underneath cannot carry them
         // away. They were the first rows OF the list, which meant scrolling two
         // hundred sources past the mode switcher and back up again to change
         // mode.
-        if (draggable) _grabber(context),
-        // Flexible, and scrollable inside what it gets.
+        _grabber(context),
+        // Header and list share one flexible box, and the header's cap comes
+        // from inside it.
         //
-        // The block is pinned, which means it takes its height off the list
-        // rather than sharing it. At 200% text the chips wrap to two lines and
-        // the filter grows with them, and an unbounded header pushed the list —
-        // and then the footer — off the bottom of the sheet. This one gives way
-        // instead, and scrolls within itself if the sheet is short enough to
-        // make it.
+        // Flexible was wrong for the header on its own: a Column shares its
+        // spare room between flexible children by flex, so a flexible header
+        // and a flexible list took half each — which is why a long list used to
+        // stop halfway down the screen. A fixed cap was wrong too: at 200% text
+        // with the keyboard up, the footer alone is taller than half the sheet,
+        // and the header had no room left to be capped into.
+        //
+        // The LayoutBuilder reports what is actually left once the grabber,
+        // divider and footer have taken their natural heights, so the cap is
+        // measured rather than guessed. The header takes what it needs up to
+        // most of that, and the list — the one flexible child inside — takes
+        // the rest. Short lists leave the Column hugging them; long ones fill.
         Flexible(
-          child: SingleChildScrollView(child: _header(context, items)),
-        ),
-        Expanded(
-          // The note is not a row. Inside a fixed-extent list it had one row's
-          // height and two lines of text, which at large type overflowed by
-          // more than the row was tall.
-          child: items.isEmpty
-              ? SingleChildScrollView(child: _emptyNote(context))
-              : ListView.builder(
-                  controller: controller,
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  // Fixed rows are what make the opening jump land on the right
-                  // one.
-                  itemExtent: _tileExtent,
-                  itemCount: items.length,
-                  itemBuilder: (context, index) => _favoriteProviderTile(
-                    context,
-                    items[index],
-                    widget.currentProviderId,
-                    favorite: index < favorites.length,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: constraints.maxHeight * 0.6,
+                    ),
+                    child: SingleChildScrollView(
+                      child: _header(context, items),
+                    ),
                   ),
-                ),
+                  // The note is not a row. Inside a fixed-extent list it had
+                  // one row's height and two lines of text, which at large type
+                  // overflowed by more than the row was tall.
+                  if (items.isEmpty)
+                    Flexible(
+                      child: SingleChildScrollView(child: _emptyNote(context)),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        controller: controller,
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        // Fixed rows are what make the opening jump land on the
+                        // right one.
+                        itemExtent: _tileExtent,
+                        itemCount: items.length,
+                        itemBuilder: (context, index) => _favoriteProviderTile(
+                          context,
+                          items[index],
+                          widget.currentProviderId,
+                          favorite: index < favorites.length,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ),
         const Divider(height: 1),
         ListTile(
@@ -538,8 +485,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                   active: m == widget.mode,
                   onTap: m == widget.mode
                       ? null
-                      : () =>
-                            Navigator.of(context).pop('$_kModePrefix${m.id}'),
+                      : () => Navigator.of(context).pop('$_kModePrefix${m.id}'),
                 ),
             ],
           ),
@@ -602,7 +548,6 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
     );
   }
 }
-
 
 /// One of the three catalogue kinds.
 ///

@@ -3,7 +3,10 @@ abstract class ProviderEvent {
 }
 
 class ProviderLoad extends ProviderEvent {
-  const ProviderLoad();
+  const ProviderLoad({this.localOnly = false});
+
+  /// Refresh installed extensions without waiting on an unchanged server list.
+  final bool localOnly;
 }
 
 class ProviderSelect extends ProviderEvent {

@@ -5,16 +5,16 @@ enum MangayomiItemType {
   novel;
 
   static MangayomiItemType fromCode(int? code) => switch (code) {
-        1 => MangayomiItemType.anime,
-        2 => MangayomiItemType.novel,
-        _ => MangayomiItemType.manga,
-      };
+    1 => MangayomiItemType.anime,
+    2 => MangayomiItemType.novel,
+    _ => MangayomiItemType.manga,
+  };
 
   int get code => switch (this) {
-        MangayomiItemType.manga => 0,
-        MangayomiItemType.anime => 1,
-        MangayomiItemType.novel => 2,
-      };
+    MangayomiItemType.manga => 0,
+    MangayomiItemType.anime => 1,
+    MangayomiItemType.novel => 2,
+  };
 }
 
 /// One entry from a Mangayomi repository index.
@@ -68,37 +68,42 @@ class MangayomiSource {
   /// hosts (`cs:` / `an:` / `mn:`) so dispatch stays a prefix check.
   String get providerId => 'my:$id';
 
+  /// Code and constructor inputs must move together when changing repositories.
+  String get runtimeIdentity =>
+      '$version\u0000$sourceCodeUrl\u0000$repoUrl\u0000'
+      '$baseUrl\u0000$apiUrl\u0000$lang\u0000${itemType.code}';
+
   /// The metadata object handed to the extension as `this.source`. Field names
   /// are upstream's — extensions read `this.source.baseUrl` and friends.
   Map<String, dynamic> toJs() => {
-        'id': id,
-        'name': name,
-        'baseUrl': baseUrl,
-        'apiUrl': apiUrl,
-        'lang': lang,
-        'typeSource': typeSource,
-        'itemType': itemType.code,
-        'isNsfw': isNsfw,
-        'version': version,
-        'iconUrl': iconUrl,
-      };
+    'id': id,
+    'name': name,
+    'baseUrl': baseUrl,
+    'apiUrl': apiUrl,
+    'lang': lang,
+    'typeSource': typeSource,
+    'itemType': itemType.code,
+    'isNsfw': isNsfw,
+    'version': version,
+    'iconUrl': iconUrl,
+  };
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'baseUrl': baseUrl,
-        'apiUrl': apiUrl,
-        'lang': lang,
-        'iconUrl': iconUrl,
-        'typeSource': typeSource,
-        'sourceCodeUrl': sourceCodeUrl,
-        'version': version,
-        'itemType': itemType.code,
-        'isNsfw': isNsfw,
-        'hasCloudflare': hasCloudflare,
-        'isJavaScript': isJavaScript,
-        'repoUrl': repoUrl,
-      };
+    'id': id,
+    'name': name,
+    'baseUrl': baseUrl,
+    'apiUrl': apiUrl,
+    'lang': lang,
+    'iconUrl': iconUrl,
+    'typeSource': typeSource,
+    'sourceCodeUrl': sourceCodeUrl,
+    'version': version,
+    'itemType': itemType.code,
+    'isNsfw': isNsfw,
+    'hasCloudflare': hasCloudflare,
+    'isJavaScript': isJavaScript,
+    'repoUrl': repoUrl,
+  };
 
   static MangayomiSource? fromIndexJson(
     Map<String, dynamic> json, {
@@ -130,20 +135,19 @@ class MangayomiSource {
   }
 
   static MangayomiSource fromJson(Map<String, dynamic> json) => MangayomiSource(
-        id: json['id']?.toString() ?? '',
-        name: json['name'] as String? ?? '',
-        baseUrl: json['baseUrl'] as String? ?? '',
-        apiUrl: json['apiUrl'] as String? ?? '',
-        lang: json['lang'] as String? ?? 'all',
-        iconUrl: json['iconUrl'] as String? ?? '',
-        typeSource: json['typeSource'] as String? ?? '',
-        sourceCodeUrl: json['sourceCodeUrl'] as String? ?? '',
-        version: json['version'] as String? ?? '0.0.0',
-        itemType:
-            MangayomiItemType.fromCode((json['itemType'] as num?)?.toInt()),
-        isNsfw: json['isNsfw'] == true,
-        hasCloudflare: json['hasCloudflare'] == true,
-        isJavaScript: json['isJavaScript'] != false,
-        repoUrl: json['repoUrl'] as String? ?? '',
-      );
+    id: json['id']?.toString() ?? '',
+    name: json['name'] as String? ?? '',
+    baseUrl: json['baseUrl'] as String? ?? '',
+    apiUrl: json['apiUrl'] as String? ?? '',
+    lang: json['lang'] as String? ?? 'all',
+    iconUrl: json['iconUrl'] as String? ?? '',
+    typeSource: json['typeSource'] as String? ?? '',
+    sourceCodeUrl: json['sourceCodeUrl'] as String? ?? '',
+    version: json['version'] as String? ?? '0.0.0',
+    itemType: MangayomiItemType.fromCode((json['itemType'] as num?)?.toInt()),
+    isNsfw: json['isNsfw'] == true,
+    hasCloudflare: json['hasCloudflare'] == true,
+    isJavaScript: json['isJavaScript'] != false,
+    repoUrl: json['repoUrl'] as String? ?? '',
+  );
 }

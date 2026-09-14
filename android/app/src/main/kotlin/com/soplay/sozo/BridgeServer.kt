@@ -131,6 +131,10 @@ class BridgeServer(
                 "listProviders" -> filterProviders(cs().providersJson())
                 "ensureLoaded" -> { csRepo().ensureLoaded(); filterProviders(cs().providersJson()) }
                 "listRepos" -> csRepo().listReposJson()
+                "listRepoPlugins" -> csRepo().listRepoPluginsJson(p("url"))
+                "installPlugin" -> csRepo().installPlugin(p("url"), p("internalName")).toString()
+                "uninstallPlugin" -> csRepo().uninstallPlugin(p("url"), p("internalName")).toString()
+                "checkUpdates" -> csRepo().checkUpdates().toString()
                 "addRepo" -> csRepo().addRepo(p("url")) { _, _ -> }.toString()
                 "removeRepo" -> csRepo().removeRepo(p("url"))
                 "getGenres" -> cs().getGenresJson(p("provider"))

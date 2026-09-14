@@ -11,7 +11,6 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/stats/presentation/watch_stats_page.dart';
-import 'package:soplay/features/profile/presentation/widgets/provider_quick_switch.dart';
 import 'package:soplay/features/profile/presentation/widgets/home_rail_customizer_sheet.dart';
 import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
 import 'package:soplay/core/bridge/bridge_control.dart';
@@ -36,7 +35,6 @@ import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:soplay/features/profile/presentation/pages/about_page.dart';
-import 'package:soplay/features/profile/presentation/pages/providers_page.dart';
 import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 import 'package:soplay/features/stats/data/watch_stats_store.dart';
@@ -236,7 +234,12 @@ class _ProfileViewState extends State<_ProfileView> {
                   ),
                 );
                 final content = Container(
-                  padding: EdgeInsetsDirectional.fromSTEB(20, topPad + 14, 16, 14),
+                  padding: EdgeInsetsDirectional.fromSTEB(
+                    20,
+                    topPad + 14,
+                    16,
+                    14,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.navBackground.withValues(
                       alpha: 0.78 * progress,
@@ -257,7 +260,9 @@ class _ProfileViewState extends State<_ProfileView> {
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 760),
                             child: Padding(
-                              padding: const EdgeInsetsDirectional.only(start: 16),
+                              padding: const EdgeInsetsDirectional.only(
+                                start: 16,
+                              ),
                               child: Align(
                                 alignment: AlignmentDirectional.centerStart,
                                 child: title,

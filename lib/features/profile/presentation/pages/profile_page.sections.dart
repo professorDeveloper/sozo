@@ -21,7 +21,7 @@ class _ProvidersSection extends StatelessWidget {
 }
 
 void openProviderPicker(BuildContext context, ProviderBloc bloc) {
-  ProvidersPage.open(context, bloc);
+  context.push('/sources');
 }
 
 class _WatchHistorySection extends StatefulWidget {
@@ -250,8 +250,9 @@ class _ConnectionsTileState extends State<_ConnectionsTile> {
                       style: TextStyle(
                         color: anyConnected ? kAnilistBlue : AppColors.textHint,
                         fontSize: 12.5,
-                        fontWeight:
-                            anyConnected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: anyConnected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                       ),
                     ),
                   ],

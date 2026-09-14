@@ -966,7 +966,8 @@
     "typeface_mono": "Mono",
     "alignment": "Alinhamento",
     "align_left": "À esquerda",
-    "align_justify": "Justificado"
+    "align_justify": "Justificado",
+    "novel_download_unavailable": "O download offline de romances ainda não é suportado."
   },
   "cloudflare": {
     "title": "Confirme que você é humano",
@@ -1847,5 +1848,14 @@
     "dns_quad9": "Quad9 (9.9.9.9)",
     "dns_mullvad": "Mullvad",
     "dns_fallback": "Não foi possível alcançar esse resolvedor; o do sistema continua em uso."
+  },
+  "source_manager": {
+    "profile_hint": "Escolher, adicionar e gerir fontes",
+    "manage_repositories": "Gerir repositórios",
+    "browse": "Explorar",
+    "selection_hint": "Toque numa fonte para a usar. Explorar mostra o seu conteúdo.",
+    "recommended_repositories": "Repositórios recomendados",
+    "load_more": "Carregar mais",
+    "added": "Adicionada"
   }
 }

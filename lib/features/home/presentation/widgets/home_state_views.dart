@@ -171,7 +171,10 @@ class HomeErrorStrip extends StatelessWidget {
     // same question. SourceFailure tells a site that shut down from a phone
     // with no signal, and keeps the original as the detail line.
     final failure = SourceFailure.of(message);
-    final detail = failure.detail?.trim() ?? message?.trim();
+    // Only when it says something the headline does not. An unrecognised
+    // failure IS its own headline, and repeating it underneath printed the
+    // same sentence twice.
+    final detail = failure.detail?.trim();
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),

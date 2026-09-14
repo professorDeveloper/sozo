@@ -52,7 +52,7 @@ class AniyomiHost(private val context: Context) {
         val fingerprint: String = "",
     )
 
-    private val sources = LinkedHashMap<String, SourceMeta>()
+    private val sources = java.util.concurrent.ConcurrentHashMap<String, SourceMeta>()
 
     /**
      * Why the last apk fetch failed, surfaced into `getMainPage`'s `error` field.
@@ -62,9 +62,18 @@ class AniyomiHost(private val context: Context) {
     @Volatile
     private var lastError: String? = null
 
+    /** Refresh only the owning repository when an upstream release URL expires. */
+    var refreshMissingApk: ((String) -> Unit)? = null
+    private val missingApkUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val refreshAttempts = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
     fun registerMeta(entry: JSONObject, repoName: String) {
         val id = entry.optString("id")
         if (id.isEmpty()) return
+        val previous = sources[id]
+        if (previous != null && previous.apkUrl != entry.optString("apkUrl")) {
+            AniyomiRuntime.evictSources(listOf(id), listOf(cachedApkFile(previous).absolutePath))
+        }
         sources[id] = SourceMeta(
             id = id,
             name = entry.optString("name"),
@@ -94,7 +103,7 @@ class AniyomiHost(private val context: Context) {
         if (apkUrl.isEmpty()) return
         val affected = sources.values.filter { it.apkUrl == apkUrl }
         if (affected.isEmpty()) return
-        AniyomiRuntime.evictSources(affected.map { it.id })
+        AniyomiRuntime.evictSources(affected.map { it.id }, affected.map { cachedApkFile(it).absolutePath })
         for (meta in affected) {
             val f = cachedApkFile(meta)
             if (f.exists()) {
@@ -192,6 +201,8 @@ class AniyomiHost(private val context: Context) {
         return File(dir, if (remoteName != null) "$base-$remoteName" else "$base.apk")
     }
 
+    // Popular/latest arrive concurrently; they must not overwrite the same .part.apk.
+    @Synchronized
     private fun ensureApk(meta: SourceMeta): File? {
         if (meta.apkUrl.isEmpty()) {
             lastError = "no apk url for ${meta.name}"
@@ -200,6 +211,8 @@ class AniyomiHost(private val context: Context) {
         val file = cachedApkFile(meta)
         val dir = file.parentFile!!
         if (file.exists() && file.length() > 0) return file
+        if (meta.apkUrl in missingApkUrls &&
+            System.currentTimeMillis() - (refreshAttempts[meta.apkUrl] ?: 0L) < 60_000) return null
 
         // `<name>.part.apk`, not `<name>.apk.part`.
         //
@@ -218,6 +231,7 @@ class AniyomiHost(private val context: Context) {
                 setRequestProperty("User-Agent", UA)
             }
             if (conn.responseCode !in 200..299) {
+                if (conn.responseCode == 404 || conn.responseCode == 410) missingApkUrls.add(meta.apkUrl)
                 lastError = "apk download ${conn.responseCode} for ${meta.name}"
                 Log.e(TAG, "apk ${meta.apkUrl} -> ${conn.responseCode}"); return null
             }
@@ -383,13 +397,32 @@ class AniyomiHost(private val context: Context) {
         }
     }
 
+    @Synchronized
     private fun sourceFor(id: String): AnimeCatalogueSource? {
         val meta = sources[id] ?: run {
             lastError = "source not installed: an:$id"
             return null
         }
-        val apk = ensureApk(meta) ?: return null
-        return AniyomiRuntime.source(context, apk.absolutePath, meta.pkg, meta.id)
+        var current = meta
+        var apk = ensureApk(current)
+        if (apk == null && current.apkUrl in missingApkUrls) {
+            val now = System.currentTimeMillis()
+            val previous = refreshAttempts.putIfAbsent(current.apkUrl, now)
+            if (previous == null || (now - previous > 60_000 &&
+                    refreshAttempts.replace(current.apkUrl, previous, now))) {
+                try {
+                    refreshMissingApk?.invoke(id)
+                    current = sources[id] ?: current
+                    if (current.apkUrl != meta.apkUrl) apk = ensureApk(current)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not refresh expired APK URL for $id: ${e.message}")
+                }
+            } else {
+                current = sources[id] ?: current
+                if (current.apkUrl != meta.apkUrl) apk = ensureApk(current)
+            }
+        }
+        return apk?.let { AniyomiRuntime.source(context, it.absolutePath, current.pkg, current.id) }
     }
 
     /** Best available explanation for an empty result, or null when there is none. */

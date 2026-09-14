@@ -966,7 +966,8 @@
     "typeface_mono": "Mono",
     "alignment": "Alineación",
     "align_left": "A la izquierda",
-    "align_justify": "Justificado"
+    "align_justify": "Justificado",
+    "novel_download_unavailable": "Las descargas sin conexión de novelas aún no están disponibles."
   },
   "cloudflare": {
     "title": "Verifica que eres humano",
@@ -1847,5 +1848,14 @@
     "dns_quad9": "Quad9 (9.9.9.9)",
     "dns_mullvad": "Mullvad",
     "dns_fallback": "No se pudo contactar ese resolutor, así que sigue el del sistema."
+  },
+  "source_manager": {
+    "profile_hint": "Elegir, añadir y gestionar fuentes",
+    "manage_repositories": "Gestionar repositorios",
+    "browse": "Explorar",
+    "selection_hint": "Toca una fuente para usarla. Explorar muestra su contenido.",
+    "recommended_repositories": "Repositorios recomendados",
+    "load_more": "Cargar más",
+    "added": "Añadida"
   }
 }

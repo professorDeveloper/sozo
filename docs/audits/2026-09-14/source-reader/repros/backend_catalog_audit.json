@@ -1,0 +1,68 @@
+{
+  "generatedAt": "2026-09-13T22:48:25.061Z",
+  "productionModule": "/Users/azamov/Sozo-Full/sozo-backend/src/services/catalogIngest.service.js",
+  "tests": [
+    {
+      "case": "novel_install_targets_manga_index",
+      "actual": "https://fixture/index.json",
+      "expected": "https://fixture/novel_index.json",
+      "confirmed": true
+    },
+    {
+      "case": "failed_novel_index_still_marks_unseen_repo_rows_dead",
+      "report": [
+        {
+          "repo": "Fixture",
+          "kind": "mangayomi",
+          "url": "https://fixture/index.json",
+          "found": 1,
+          "upserted": 1,
+          "markedDead": 1
+        }
+      ],
+      "deathFilter": {
+        "kind": "mangayomi",
+        "repoUrl": "https://fixture/index.json",
+        "lastSeenAt": {
+          "$lt": "2026-09-13T22:48:25.060Z"
+        },
+        "dead": false
+      },
+      "confirmed": true
+    },
+    {
+      "case": "malformed_200_index_marks_entire_catalog_repo_dead",
+      "requests": [
+        "https://fixture/index.min.json"
+      ],
+      "confirmed": true
+    },
+    {
+      "case": "cloudstream_direct_plugin_array_ignored",
+      "count": 0,
+      "confirmed": true
+    },
+    {
+      "case": "cloudstream_status_down_listed",
+      "rows": [
+        {
+          "externalId": "down",
+          "name": "Down",
+          "lang": "en",
+          "itemType": "other",
+          "baseUrl": "",
+          "iconUrl": null,
+          "version": "",
+          "nsfw": false,
+          "jsRuntime": true
+        }
+      ],
+      "confirmed": true
+    },
+    {
+      "case": "missing_language_flag_not_runnable_server_but_client_defaults_js",
+      "jsRuntime": false,
+      "confirmed": true
+    }
+  ]
+}

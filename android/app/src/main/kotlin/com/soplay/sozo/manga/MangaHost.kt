@@ -56,17 +56,27 @@ class MangaHost(private val context: Context) {
         val fingerprint: String = "",
     )
 
-    private val sources = LinkedHashMap<String, SourceMeta>()
+    private val sources = java.util.concurrent.ConcurrentHashMap<String, SourceMeta>()
 
     // Home pages are expensive (network scrape + HTML parse). Cache the built
     // JSON briefly so navigating away and back is instant instead of re-scraping.
     private data class CacheEntry(val ts: Long, val json: String)
-    private val pageCache = HashMap<String, CacheEntry>()
+    private val pageCache = java.util.concurrent.ConcurrentHashMap<String, CacheEntry>()
     private val cacheTtlMs = 5 * 60 * 1000L
+
+    /** Refresh only the owning repository when an upstream release URL expires. */
+    var refreshMissingApk: ((String) -> Unit)? = null
+    private val missingApkUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val refreshAttempts = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     fun registerMeta(entry: JSONObject, repoName: String) {
         val id = entry.optString("id")
         if (id.isEmpty()) return
+        val previous = sources[id]
+        if (previous != null && previous.apkUrl != entry.optString("apkUrl")) {
+            MangaRuntime.evictSources(listOf(id), listOf(cachedApkFile(previous).absolutePath))
+            pageCache.clear()
+        }
         sources[id] = SourceMeta(
             id = id,
             name = entry.optString("name"),
@@ -98,7 +108,7 @@ class MangaHost(private val context: Context) {
         if (apkUrl.isEmpty()) return
         val affected = sources.values.filter { it.apkUrl == apkUrl }
         if (affected.isEmpty()) return
-        MangaRuntime.evictSources(affected.map { it.id })
+        MangaRuntime.evictSources(affected.map { it.id }, affected.map { cachedApkFile(it).absolutePath })
         for (meta in affected) {
             val f = cachedApkFile(meta)
             if (f.exists()) {
@@ -194,11 +204,15 @@ class MangaHost(private val context: Context) {
         return File(dir, if (remoteName != null) "$base-$remoteName" else "$base.apk")
     }
 
+    // Popular/latest arrive concurrently; they must not overwrite the same .part.apk.
+    @Synchronized
     private fun ensureApk(meta: SourceMeta): File? {
         if (meta.apkUrl.isEmpty()) return null
         val file = cachedApkFile(meta)
         val dir = file.parentFile!!
         if (file.exists() && file.length() > 0) return file
+        if (meta.apkUrl in missingApkUrls &&
+            System.currentTimeMillis() - (refreshAttempts[meta.apkUrl] ?: 0L) < 60_000) return null
 
         // `<name>.part.apk`, not `<name>.apk.part`.
         //
@@ -217,6 +231,7 @@ class MangaHost(private val context: Context) {
                 setRequestProperty("User-Agent", UA)
             }
             if (conn.responseCode !in 200..299) {
+                if (conn.responseCode == 404 || conn.responseCode == 410) missingApkUrls.add(meta.apkUrl)
                 Log.e(TAG, "apk ${meta.apkUrl} -> ${conn.responseCode}"); return null
             }
             val expected = conn.contentLengthLong
@@ -260,10 +275,29 @@ class MangaHost(private val context: Context) {
         }
     }
 
+    @Synchronized
     private fun sourceFor(id: String): CatalogueSource? {
         val meta = sources[id] ?: return null
-        val apk = ensureApk(meta) ?: return null
-        return MangaRuntime.source(context, apk.absolutePath, meta.pkg, meta.id)
+        var current = meta
+        var apk = ensureApk(current)
+        if (apk == null && current.apkUrl in missingApkUrls) {
+            val now = System.currentTimeMillis()
+            val previous = refreshAttempts.putIfAbsent(current.apkUrl, now)
+            if (previous == null || (now - previous > 60_000 &&
+                    refreshAttempts.replace(current.apkUrl, previous, now))) {
+                try {
+                    refreshMissingApk?.invoke(id)
+                    current = sources[id] ?: current
+                    if (current.apkUrl != meta.apkUrl) apk = ensureApk(current)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not refresh expired APK URL for $id: ${e.message}")
+                }
+            } else {
+                current = sources[id] ?: current
+                if (current.apkUrl != meta.apkUrl) apk = ensureApk(current)
+            }
+        }
+        return apk?.let { MangaRuntime.source(context, it.absolutePath, current.pkg, current.id) }
     }
 
     private fun cardJson(m: SManga, id: String) = JSONObject().apply {

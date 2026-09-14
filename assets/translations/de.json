@@ -966,7 +966,8 @@
     "typeface_mono": "Mono",
     "alignment": "Ausrichtung",
     "align_left": "Flattersatz",
-    "align_justify": "Blocksatz"
+    "align_justify": "Blocksatz",
+    "novel_download_unavailable": "Offline-Downloads für Romane werden noch nicht unterstützt."
   },
   "cloudflare": {
     "title": "Bestätige, dass du ein Mensch bist",
@@ -1847,5 +1848,14 @@
     "dns_quad9": "Quad9 (9.9.9.9)",
     "dns_mullvad": "Mullvad",
     "dns_fallback": "Dieser Resolver war nicht erreichbar, daher bleibt der des Systems aktiv."
+  },
+  "source_manager": {
+    "profile_hint": "Quellen auswählen, hinzufügen und verwalten",
+    "manage_repositories": "Repositorys verwalten",
+    "browse": "Ansehen",
+    "selection_hint": "Tippe zum Auswählen auf eine Quelle. „Ansehen“ zeigt ihre Inhalte.",
+    "recommended_repositories": "Empfohlene Repositorys",
+    "load_more": "Mehr laden",
+    "added": "Hinzugefügt"
   }
 }
