@@ -134,6 +134,13 @@ class _SourcesHubPageState extends State<SourcesHubPage>
 
   int _lastTab = -1;
 
+  /// Which half of the screen you are in: what you have, or what you could
+  /// have. They were two screens with the same name and a button between
+  /// them — "Sources" listing what was installed, "Add source" listing what
+  /// could be, and a third page behind that for the repositories both came
+  /// from.
+  bool _adding = false;
+
   /// Opening on the source in use is a one-time move, per tab. Re-running it
   /// after a keystroke in the search field would drag the list out from under
   /// the typing.
@@ -172,27 +179,6 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     });
   }
 
-  Future<void> _openInstaller(ContentMode mode) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SourceCatalogPage(
-          initialItemType: switch (mode) {
-            ContentMode.manga => CatalogItemType.manga,
-            ContentMode.novel => CatalogItemType.novel,
-            ContentMode.video => null,
-          },
-        ),
-      ),
-    );
-    if (!mounted) return;
-    // "Use this source" can choose a different content type in the catalog.
-    // Return to its tab so the newly selected source is actually visible.
-    _tabs.index = ContentMode.fromId(
-      getIt<HiveService>().getContentMode(),
-    ).index;
-    setState(() => _eco = null);
-  }
-
   @override
   Widget build(BuildContext context) {
     final open = _open;
@@ -206,9 +192,11 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         appBar: open == null ? _hubBar() : _browseBar(open),
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 180),
-          child: open == null
-              ? _hub()
-              : _SourceBrowseView(key: ValueKey(open.id), source: open),
+          child: open != null
+              ? _SourceBrowseView(key: ValueKey(open.id), source: open)
+              : _adding
+              ? _addLevel()
+              : _hub(),
         ),
       ),
     );
@@ -227,18 +215,6 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       title: Text('profile.sources_title'.tr()),
       backgroundColor: AppColors.background,
       actions: [
-        // Labelled, not a sliders icon with a tooltip nobody long-presses.
-        // Installing a source is the reason most people open this screen, and
-        // it was the one thing on it with no words — indistinguishable from a
-        // settings button, which is what a tune icon means everywhere else.
-        Padding(
-          padding: const EdgeInsets.only(right: 6),
-          child: TextButton.icon(
-            onPressed: () => _openInstaller(ContentMode.values[_tabs.index]),
-            icon: const Icon(Icons.add_rounded, size: 20),
-            label: Text('manga.add_source'.tr()),
-          ),
-        ),
         PopupMenuButton<String>(
           onSelected: (_) => _openExtensions(),
           itemBuilder: (_) => [
@@ -249,12 +225,68 @@ class _SourcesHubPageState extends State<SourcesHubPage>
           ],
         ),
       ],
-      bottom: AppTabBar(
-        controller: _tabs,
-        onChanged: (_) => setState(() => _eco = null),
-        isScrollable: false,
-        labels: [for (final m in ContentMode.values) m.labelKey.tr()],
+      // Two pills rather than a second row of tabs. Tabs below tabs read as
+      // one navigation four levels deep; these two are a switch between what
+      // you have and what you could have, and they should not look the same
+      // as the modes inside one of them.
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(46),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _LevelPill(
+                  label: 'sources.installed'.tr(),
+                  active: !_adding,
+                  onTap: () => setState(() => _adding = false),
+                ),
+                const SizedBox(width: 6),
+                _LevelPill(
+                  label: 'manga.add_source'.tr(),
+                  active: _adding,
+                  onTap: () => setState(() => _adding = true),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
+    );
+  }
+
+  /// Everything you could install, and the repositories it comes from.
+  ///
+  /// The catalogue is the same screen it always was, minus its app bar: this
+  /// one already has a title, and two stacked app bars is not a screen. The
+  /// repositories are a row under it rather than a page behind a ⋯ button in
+  /// a corner of it.
+  Widget _addLevel() {
+    return Column(
+      children: [
+        Expanded(
+          child: SourceCatalogPage(
+            embedded: true,
+            initialItemType: switch (ContentMode.values[_tabs.index]) {
+              ContentMode.manga => CatalogItemType.manga,
+              ContentMode.novel => CatalogItemType.novel,
+              ContentMode.video => null,
+            },
+          ),
+        ),
+        const Divider(height: 1),
+        SafeArea(
+          top: false,
+          child: ListTile(
+            leading: const Icon(Icons.folder_copy_outlined),
+            title: Text('source_manager.manage_repositories'.tr()),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: _openExtensions,
+          ),
+        ),
+      ],
     );
   }
 
@@ -434,6 +466,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
 
         return Column(
           children: [
+            AppTabBar(
+              controller: _tabs,
+              onChanged: (_) => setState(() => _eco = null),
+              isScrollable: false,
+              labels: [for (final m in ContentMode.values) m.labelKey.tr()],
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Align(
@@ -540,7 +578,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         // extension ecosystems, so a fresh install has nothing in either tab
         // and the only way out is a gear icon the message never mentions.
         actionLabel: needle.isEmpty ? 'manga.add_source'.tr() : null,
-        onAction: needle.isEmpty ? () => _openInstaller(mode) : null,
+        onAction: needle.isEmpty ? () => setState(() => _adding = true) : null,
       );
     }
 
@@ -1004,4 +1042,45 @@ class _TabSources {
   final List<ProviderEntity> unstated;
 
   final Map<SourceEcosystem, int> counts;
+}
+
+/// One of the two things this screen is: what you have, or what you could
+/// have.
+class _LevelPill extends StatelessWidget {
+  const _LevelPill({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: active,
+      child: Material(
+        color: active ? AppColors.primary : AppColors.card,
+        borderRadius: BorderRadius.circular(999),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: active ? null : onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: active ? Colors.white : AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

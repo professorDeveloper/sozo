@@ -1841,7 +1841,8 @@
     "eco_manga": "مانغا",
     "eco_mangayomi": "Mangayomi",
     "eco_all": "الكل",
-    "language_not_stated": "اللغة غير محددة · {}"
+    "language_not_stated": "اللغة غير محددة · {}",
+    "installed": "المثبتة"
   },
   "settings": {
     "dns_title": "DNS",

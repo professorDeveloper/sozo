@@ -27,9 +27,21 @@ import 'package:soplay/features/extensions/domain/entities/extension_repo_entity
 
 /// Find a source by content and language, then install its required extension.
 class SourceCatalogPage extends StatefulWidget {
-  const SourceCatalogPage({super.key, this.initialItemType});
+  const SourceCatalogPage({
+    super.key,
+    this.initialItemType,
+    this.embedded = false,
+  });
 
   final CatalogItemType? initialItemType;
+
+  /// Drops the Scaffold and the app bar, leaving the body to be placed inside
+  /// something else.
+  ///
+  /// The source hub shows this as its "Add" level rather than pushing it as a
+  /// route, and two app bars stacked inside one screen is not a screen. Its
+  /// own title and its repositories button are the hub's when it is embedded.
+  final bool embedded;
 
   static Future<void> open(BuildContext context) => Navigator.of(
     context,
@@ -226,10 +238,17 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
     // Shared with the provider picker's own row. Picking French here means
     // French there too — it is one statement about the user, not two settings
     // that can disagree.
-    await getIt<HiveService>().setProviderLanguages(next);
-    if (!mounted) return;
+    // Paint the choice immediately; disk/network latency is not tap feedback.
     setState(() => _languages = next);
-    await _load();
+    unawaited(_load());
+    try {
+      await getIt<HiveService>().setProviderLanguages(next);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('general.error'.tr())));
+    }
   }
 
   Future<void> _install(CatalogSourceEntity source) async {
@@ -264,6 +283,7 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) return _catalogBody();
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -280,57 +300,63 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (v) {
-                _searchDebounce?.cancel();
-                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                  if (!mounted) return;
-                  setState(() => _query = v.trim());
-                  _load();
-                });
-              },
-              style: const TextStyle(color: AppColors.textPrimary),
-              decoration: InputDecoration(
-                hintText: 'general.search'.tr(),
-                hintStyle: const TextStyle(color: AppColors.textHint),
-                prefixIcon: const Icon(Icons.search, color: AppColors.textHint),
-                isDense: true,
-                filled: true,
-                fillColor: AppColors.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
+      body: _catalogBody(),
+    );
+  }
+
+  /// Everything below the app bar, so the hub can host it without one.
+  Widget _catalogBody() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+          child: TextField(
+            controller: _searchController,
+            onChanged: (v) {
+              _searchDebounce?.cancel();
+              _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                if (!mounted) return;
+                setState(() => _query = v.trim());
+                _load();
+              });
+            },
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'general.search'.tr(),
+              hintStyle: const TextStyle(color: AppColors.textHint),
+              prefixIcon: const Icon(Icons.search, color: AppColors.textHint),
+              isDense: true,
+              filled: true,
+              fillColor: AppColors.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
               ),
             ),
           ),
-          _TypeFilterRow(
-            selected: _itemType,
-            onSelected: (t) {
-              setState(() => _itemType = t);
-              _load();
-            },
+        ),
+        _TypeFilterRow(
+          selected: _itemType,
+          onSelected: (t) {
+            if (_itemType == t) return;
+            setState(() => _itemType = t);
+            _load();
+          },
+        ),
+        const SizedBox(height: 6),
+        if (_facets.isNotEmpty)
+          _CatalogLanguageRow(
+            facets: _facets,
+            selected: _languages,
+            onToggle: _toggleLanguage,
           ),
-          const SizedBox(height: 6),
-          if (_facets.isNotEmpty)
-            _CatalogLanguageRow(
-              facets: _facets,
-              selected: _languages,
-              onToggle: _toggleLanguage,
-            ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: BlocBuilder<ProviderBloc, ProviderState>(
-              builder: (_, _) => _body(),
-            ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: BlocBuilder<ProviderBloc, ProviderState>(
+            builder: (_, _) => _body(),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -517,13 +543,15 @@ class _TypeFilterRow extends StatelessWidget {
           final active = type == selected;
           return GestureDetector(
             onTap: () => onSelected(type),
-            child: Container(
+            child: AnimatedContainer(
+              duration: Duration(
+                milliseconds: MediaQuery.disableAnimationsOf(context) ? 0 : 120,
+              ),
+              curve: Curves.easeOutCubic,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: active
-                    ? AppColors.primary.withValues(alpha: 0.18)
-                    : AppColors.surface,
+                color: active ? AppColors.primary : AppColors.surface,
                 borderRadius: BorderRadius.circular(17),
                 border: Border.all(
                   color: active
@@ -534,9 +562,7 @@ class _TypeFilterRow extends StatelessWidget {
               child: Text(
                 key.tr(),
                 style: TextStyle(
-                  color: active
-                      ? AppColors.primaryLight
-                      : AppColors.textSecondary,
+                  color: active ? Colors.white : AppColors.textSecondary,
                   fontSize: 12.5,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w600,
                 ),
@@ -582,16 +608,20 @@ class _CatalogLanguageRow extends StatelessWidget {
         itemBuilder: (context, i) {
           final code = ordered[i];
           final facet = byCode[code];
-          final active = selected.any((c) => srclang.normalizeLang(c) == code);
+          final active = code == 'all'
+              ? selected.isEmpty
+              : selected.any((c) => srclang.normalizeLang(c) == code);
           return GestureDetector(
             onTap: () => onToggle(code),
-            child: Container(
+            child: AnimatedContainer(
+              duration: Duration(
+                milliseconds: MediaQuery.disableAnimationsOf(context) ? 0 : 120,
+              ),
+              curve: Curves.easeOutCubic,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: active
-                    ? AppColors.primary.withValues(alpha: 0.18)
-                    : AppColors.surface,
+                color: active ? AppColors.primary : AppColors.surface,
                 borderRadius: BorderRadius.circular(17),
                 border: Border.all(
                   color: active
@@ -605,9 +635,7 @@ class _CatalogLanguageRow extends StatelessWidget {
                   Text(
                     srclang.labelFor(code),
                     style: TextStyle(
-                      color: active
-                          ? AppColors.primaryLight
-                          : AppColors.textSecondary,
+                      color: active ? Colors.white : AppColors.textSecondary,
                       fontSize: 12.5,
                       fontWeight: active ? FontWeight.w700 : FontWeight.w600,
                     ),
