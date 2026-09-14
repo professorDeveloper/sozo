@@ -995,6 +995,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.version.outputs.tag }}
           V: ${{ needs.version.outputs.name }}
+          SHA: ${{ needs.version.outputs.sha }}
         run: |
           set -euo pipefail
           # `--clobber` so re-running a failed publish replaces the assets
@@ -1003,10 +1004,24 @@ jobs:
             gh release edit "${TAG}" --title "Sozo v${V}" --notes-file RELEASE_NOTES.md
             gh release upload "${TAG}" rel/* --clobber
           else
+            # --target, not --verify-tag.
+            #
+            # The version job is allowed to fail to push: when the default
+            # branch is protected and no RELEASE_PAT is set, the bump commit
+            # and its tag are rejected with a 403, the job deletes the local
+            # tag, warns, and lets the run continue — the builds still carry
+            # the right version because they stamp it themselves. Publish then
+            # asked for a tag nobody had created and died on --verify-tag, so
+            # a patch release ended with four good builds and no release.
+            #
+            # --verify-tag was guarding a tag name that is computed and never
+            # typed. The tag is created here instead, at the exact commit the
+            # builds checked out — which the version job already resolves to
+            # something the remote has.
             gh release create "${TAG}" rel/* \
               --title "Sozo v${V}" \
               --notes-file RELEASE_NOTES.md \
-              --verify-tag
+              --target "${SHA}"
           fi
           gh release view "${TAG}" --json url --jq .url >> "$GITHUB_STEP_SUMMARY"
 
