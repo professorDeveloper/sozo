@@ -59,6 +59,14 @@ on:
           - all            # android + ios + macos + windows + linux
           - mobile         # android + ios only — skips the desktop builds
           - android        # android only; no macOS runner is started at all
+      release:
+        description: 'What to do with the GitHub Release'
+        type: choice
+        default: draft
+        options:
+          - draft          # attach the builds, leave it unpublished to write
+          - publish        # publish immediately, as it used to
+          - skip           # build only; artifacts stay on the run
   push:
     tags: ['v*']
 
@@ -854,7 +862,14 @@ jobs:
     # Publish whatever succeeded. A Windows build that failed should not hold
     # back the Android release people are waiting on — the notes say which
     # platforms are in the box.
-    if: ${{ always() && !cancelled() && needs.version.result == 'success' }}
+    #
+    # `release: skip` leaves the builds as run artifacts and touches nothing
+    # public. A tag push has no inputs at all and still publishes: pushing a
+    # version tag is already the deliberate act this dropdown exists to ask
+    # about.
+    if: >-
+      ${{ always() && !cancelled() && needs.version.result == 'success'
+          && (inputs.release || 'publish') != 'skip' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -996,10 +1011,26 @@ jobs:
           TAG: ${{ needs.version.outputs.tag }}
           V: ${{ needs.version.outputs.name }}
           SHA: ${{ needs.version.outputs.sha }}
+          MODE: ${{ inputs.release || 'publish' }}
         run: |
           set -euo pipefail
+          # A draft is the default for a dispatched release: the builds are
+          # attached and named, and the release itself stays invisible until
+          # somebody has written it and pressed Publish. The generated notes
+          # below are a starting point, not the announcement — and a draft
+          # does not create the tag either, so an abandoned draft leaves
+          # nothing behind.
+          # Expanded as ${DRAFT[@]+…} because `set -u` treats an empty array
+          # as unbound in bash 3.2, and this step should not depend on which
+          # bash the runner happens to ship.
+          DRAFT=()
+          if [ "${MODE}" = "draft" ]; then DRAFT=(--draft); fi
+
           # `--clobber` so re-running a failed publish replaces the assets
-          # rather than erroring on the ones that already uploaded.
+          # rather than erroring on the ones that already uploaded. An existing
+          # release is left at whatever state it already has: re-running must
+          # not publish a draft somebody is still writing, nor un-publish one
+          # that is already out.
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release edit "${TAG}" --title "Sozo v${V}" --notes-file RELEASE_NOTES.md
             gh release upload "${TAG}" rel/* --clobber
@@ -1021,9 +1052,17 @@ jobs:
             gh release create "${TAG}" rel/* \
               --title "Sozo v${V}" \
               --notes-file RELEASE_NOTES.md \
-              --target "${SHA}"
+              --target "${SHA}" \
+              ${DRAFT[@]+"${DRAFT[@]}"}
           fi
-          gh release view "${TAG}" --json url --jq .url >> "$GITHUB_STEP_SUMMARY"
+          {
+            if [ "${MODE}" = "draft" ]; then
+              echo "### Draft release — not published"
+              echo ""
+              echo "The builds are attached. Write the notes and press **Publish release**; the \`${TAG}\` tag is created at that point."
+            fi
+            gh release view "${TAG}" --json url --jq .url
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ------------------------------------------------- Deliver (Telegram) --------
   deliver:
