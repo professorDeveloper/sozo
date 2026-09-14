@@ -16,6 +16,7 @@ import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/extensions/data/catalog_repository.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
+import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/extensions/domain/entities/catalog_source_entity.dart';
 import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
 import 'package:soplay/features/extensions/presentation/pages/source_catalog_page.dart';
@@ -173,8 +174,15 @@ void main() {
   setUp(() async {
     await getIt.reset();
     getIt.registerSingleton<HiveService>(_Hive());
+    // The host is not under test. Without this these run one way on a Mac and
+    // another on the Linux CI runner, where the JS runtime reports itself
+    // unavailable and the extension paths below are never entered at all.
+    MangayomiRuntime.debugSupportedSet = true;
   });
-  tearDown(() async => getIt.reset());
+  tearDown(() async {
+    MangayomiRuntime.debugSupportedSet = null;
+    await getIt.reset();
+  });
 
   Future<void> pump(WidgetTester tester, Widget child, _Providers bloc) async {
     tester.view.physicalSize = const Size(390, 844);

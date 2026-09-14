@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart' show PlatformException, rootBundle;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
@@ -54,7 +55,16 @@ class MangayomiRuntime {
 
   /// `flutter_inappwebview` has no Linux implementation, so JS extensions can't
   /// run there. Everywhere else — including iOS — they can.
-  static bool get isSupported => !Platform.isLinux;
+  ///
+  /// Tests set [debugSupportedSet] because this reads the host they happen to
+  /// run on. The suites that exercise the extension paths use fakes and never
+  /// touch the runtime itself, but they were silently skipped on the Linux CI
+  /// runner and exercised on a Mac — so they passed for one of us and failed
+  /// for the other, over a platform neither was testing.
+  static bool get isSupported => debugSupportedSet ?? !Platform.isLinux;
+
+  @visibleForTesting
+  static bool? debugSupportedSet;
 
   Future<void> ensureReady() {
     if (!isSupported) return Future<void>.value();
