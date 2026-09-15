@@ -1097,7 +1097,16 @@
     "trailer_unmute": "Ovozni yoqish",
     "my_list": "Mening ro‘yxatim",
     "save_action": "Saqlash",
-    "next_episode_in": "{}-qism {} dan keyin"
+    "next_episode_in": "{}-qism {} dan keyin",
+    "about": "Haqida",
+    "about_studio": "Studiya",
+    "about_source": "Manba",
+    "about_episodes": "Qismlar",
+    "about_rank": "Reyting",
+    "about_status": "Holat",
+    "about_format": "Format",
+    "not_on_list": "Ro‘yxatingizda yo‘q",
+    "add_to_list": "Ro‘yxatga qo‘shish"
   },
   "episodes": {
     "filter_hint": "Epizod raqami yoki nomi",

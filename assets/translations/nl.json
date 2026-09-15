@@ -1097,7 +1097,16 @@
     "trailer_unmute": "Geluid trailer aan",
     "my_list": "Mijn lijst",
     "save_action": "Bewaren",
-    "next_episode_in": "Ep {} in {}"
+    "next_episode_in": "Ep {} in {}",
+    "about": "About",
+    "about_studio": "Studio",
+    "about_source": "Source",
+    "about_episodes": "Episodes",
+    "about_rank": "Rank",
+    "about_status": "Status",
+    "about_format": "Format",
+    "not_on_list": "Not on your list",
+    "add_to_list": "Add to list"
   },
   "episodes": {
     "filter_hint": "Afleveringsnummer of titel",

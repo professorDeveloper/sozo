@@ -1097,7 +1097,16 @@
     "trailer_unmute": "Включить звук",
     "my_list": "Мой список",
     "save_action": "Сохранить",
-    "next_episode_in": "Эп. {} через {}"
+    "next_episode_in": "Эп. {} через {}",
+    "about": "О тайтле",
+    "about_studio": "Студия",
+    "about_source": "Первоисточник",
+    "about_episodes": "Эпизоды",
+    "about_rank": "Рейтинг",
+    "about_status": "Статус",
+    "about_format": "Формат",
+    "not_on_list": "Нет в вашем списке",
+    "add_to_list": "В список"
   },
   "episodes": {
     "filter_hint": "Номер или название серии",

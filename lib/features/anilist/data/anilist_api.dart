@@ -652,8 +652,12 @@ class AnilistApi {
     required int mediaId,
     AnilistStatus status = AnilistStatus.planning,
   }) async {
+    // `entryState` answers for every title AniList knows, on the list or
+    // not — `onList` is the flag. Testing the object for null here meant a
+    // title not yet on the list was read as already there, and nothing was
+    // ever written.
     final existing = await entryState(token: token, mediaId: mediaId);
-    if (existing != null) return null;
+    if (existing?.onList ?? false) return null;
     return saveProgress(token: token, mediaId: mediaId, status: status.value);
   }
 

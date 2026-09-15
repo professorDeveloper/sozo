@@ -1,3 +1,4 @@
+import 'package:soplay/features/detail/presentation/widgets/detail_about_tab.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
@@ -314,6 +315,9 @@ class _DetailViewState extends State<_DetailView>
     _hasShots = widget.detail.screenshots.isNotEmpty;
     _isFollowing = getIt<FollowService>().isFollowed(widget.detail.contentUrl);
     _tabs = [
+      // First for a title that came with a record: the record is the point
+      // of a catalogue page. A source's page has no such tab.
+      if (widget.detail.ani != null) 'About',
       'Similar',
       // Always offered, because whether there is anything to show cannot be
       // known without asking AniList — and asking on every detail load would
@@ -456,6 +460,7 @@ class _DetailViewState extends State<_DetailView>
   }
 
   String _tabLabel(String tab) => switch (tab) {
+    'About' => 'detail.about'.tr(),
     'Similar' => 'detail.similar'.tr(),
     'Relations' => 'detail.relations'.tr(),
     'Cast' => 'movie.cast'.tr(),
@@ -481,6 +486,7 @@ class _DetailViewState extends State<_DetailView>
       child: KeyedSubtree(
         key: ValueKey('detail-tab-$tab'),
         child: switch (tab) {
+          'About' => DetailAboutTab(ani: detail.ani!),
           'Similar' => DetailRelatedSection(related: detail.related),
           'Relations' => DetailRelationsTab(
             provider: detail.provider,

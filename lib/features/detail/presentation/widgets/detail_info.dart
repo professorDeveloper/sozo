@@ -1,4 +1,5 @@
 import 'package:soplay/features/detail/domain/entities/ani_info.dart';
+import 'package:soplay/features/detail/presentation/widgets/tracking_row.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/catalogue_logo.dart';
 import 'package:soplay/features/profile/presentation/widgets/provider_quick_switch.dart'
@@ -84,10 +85,6 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _MetaLine(detail: widget.detail),
-          if (widget.detail.ani != null) ...[
-            const SizedBox(height: 8),
-            _AniFacts(ani: widget.detail.ani!),
-          ],
           if (widget.detail.genres.isNotEmpty) ...[
             const SizedBox(height: 10),
             _GenresRow(genres: widget.detail.genres),
@@ -117,6 +114,10 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
           // came as a block with its progress bar and caption attached — so
           // starting a title showed three controls on one line and coming back
           // to it showed one, with the other two stranded below the caption.
+          if (widget.detail.ani?.nextAiringAt != null) ...[
+            _NextEpisode(ani: widget.detail.ani!),
+            const SizedBox(height: 12),
+          ],
           if (Catalogue.isId(widget.detail.provider))
             // A catalogue title nothing installed carries. Not a Play that
             // fails; the honest button is the one that goes and looks.
@@ -167,6 +168,8 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
                 TrailerAction(detail: widget.detail),
               ],
             ),
+          const SizedBox(height: 12),
+          TrackingRow(detail: widget.detail),
         ],
       ),
     );
@@ -323,6 +326,8 @@ class _MetaLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parts = <String>[
+      if (detail.ani?.score != null)
+        '\u2605 ${detail.ani!.score!.toStringAsFixed(1)}',
       if (detail.year != null) detail.year.toString(),
       if (detail.duration != null && detail.duration!.trim().isNotEmpty)
         detail.duration!.trim(),
@@ -730,69 +735,32 @@ class _ViaRow extends StatelessWidget {
   }
 }
 
-/// What AniList knows and a source does not: the score and where it ranks,
-/// who made it and from what, how long it runs, and when the next episode
-/// lands. One line of small caps, wrapping when it must.
-class _AniFacts extends StatelessWidget {
-  const _AniFacts({required this.ani});
+/// The next episode, alone. It is the one fact on the page with a date on
+/// it, and the one worth glancing back for.
+class _NextEpisode extends StatelessWidget {
+  const _NextEpisode({required this.ani});
 
   final AniInfo ani;
 
   @override
   Widget build(BuildContext context) {
-    final parts = <Widget>[];
-    if (ani.score != null) {
-      parts.add(
-        _Fact(
-          icon: Icons.star_rounded,
-          iconColor: AppColors.rating,
-          text: ani.score!.toStringAsFixed(1),
-          strong: true,
-        ),
-      );
-    }
-    if (ani.rankText != null) {
-      parts.add(_Fact(icon: Icons.leaderboard_rounded, text: ani.rankText!));
-    }
-    if (ani.studio != null) {
-      parts.add(_Fact(icon: Icons.movie_creation_outlined, text: ani.studio!));
-    }
-    if (ani.source != null) {
-      parts.add(
-        _Fact(
-          icon: Icons.auto_stories_outlined,
-          text: _sourceLabel(ani.source!),
-        ),
-      );
-    }
-    if (ani.episodes != null) {
-      parts.add(
-        _Fact(
-          icon: Icons.format_list_numbered_rounded,
-          text: 'detail.episodes_count'.tr(args: ['${ani.episodes}']),
-        ),
-      );
-    }
-    final next = ani.nextAiringAt;
-    if (next != null && ani.nextEpisode != null) {
-      parts.add(
-        _Fact(
-          icon: Icons.schedule_rounded,
-          iconColor: AppColors.primary,
-          text: 'detail.next_episode_in'.tr(
-            args: ['${ani.nextEpisode}', _untilText(next)],
+    final at = ani.nextAiringAt!;
+    return Row(
+      children: [
+        Icon(Icons.schedule_rounded, size: 16, color: AppColors.primary),
+        const SizedBox(width: 6),
+        Text(
+          'detail.next_episode_in'.tr(
+            args: ['${ani.nextEpisode}', _untilText(at)],
           ),
-          strong: true,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-      );
-    }
-    if (parts.isEmpty) return const SizedBox.shrink();
-    return Wrap(spacing: 14, runSpacing: 6, children: parts);
-  }
-
-  static String _sourceLabel(String raw) {
-    final word = raw.toLowerCase().replaceAll('_', ' ');
-    return word.isEmpty ? raw : word[0].toUpperCase() + word.substring(1);
+      ],
+    );
   }
 
   /// "3d 4h", "6h", "42m" — what fits in a line.
@@ -802,38 +770,5 @@ class _AniFacts extends StatelessWidget {
     if (d.inDays >= 1) return '${d.inDays}d ${d.inHours % 24}h';
     if (d.inHours >= 1) return '${d.inHours}h';
     return '${d.inMinutes}m';
-  }
-}
-
-class _Fact extends StatelessWidget {
-  const _Fact({
-    required this.icon,
-    required this.text,
-    this.iconColor,
-    this.strong = false,
-  });
-
-  final IconData icon;
-  final String text;
-  final Color? iconColor;
-  final bool strong;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 15, color: iconColor ?? AppColors.textSecondary),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: TextStyle(
-            color: strong ? AppColors.textPrimary : AppColors.textSecondary,
-            fontSize: 12.5,
-            fontWeight: strong ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
-      ],
-    );
   }
 }

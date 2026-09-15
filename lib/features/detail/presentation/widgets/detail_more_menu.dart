@@ -8,14 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:soplay/features/remote/data/remote_control_service.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/anilist/data/anilist_link_store.dart';
-import 'package:soplay/features/anilist/data/anilist_service.dart';
-import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
-import 'package:soplay/features/anilist/presentation/widgets/anilist_link_sheet.dart';
-import 'package:soplay/features/mal/data/mal_link_store.dart';
-import 'package:soplay/features/mal/data/mal_service.dart';
-import 'package:soplay/features/mal/presentation/widgets/mal_brand.dart';
-import 'package:soplay/features/mal/presentation/widgets/mal_link_sheet.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 import 'package:soplay/features/reports/presentation/widgets/report_sheet.dart';
 import 'package:soplay/features/user_lists/domain/entities/user_list_kind.dart';
@@ -353,10 +345,6 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
 
   @override
   Widget build(BuildContext context) {
-    final hasUrl = widget.entity.contentUrl.isNotEmpty;
-    final anilistReady = getIt<AnilistService>().isConnected && hasUrl;
-    final malReady = getIt<MalService>().isConnected && hasUrl;
-
     // Material, not a bare DecoratedBox: every row in here is an InkWell, and
     // the sheet this replaced was quietly providing the surface they ink onto.
     return DecoratedBox(
@@ -470,13 +458,14 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Watch Later, Watched, Follow and Private used to
-                        // be the first four rows here. They are the app bar's
-                        // tick now — see detail_save_sheet.dart — because
-                        // "where does this go" and "what do I do with this"
-                        // are different questions and this menu was answering
-                        // both in one list of eleven.
-                        if (anilistReady) _AnilistRow(entity: widget.entity),
-                        if (malReady) _MalRow(entity: widget.entity),
+                        // be the first four rows here, and AniList and
+                        // MyAnimeList the next two. The four are the app
+                        // bar's tick now (detail_save_sheet.dart) and the
+                        // trackers are a row on the page with the real
+                        // progress on it (tracking_row.dart). "Where does
+                        // this go" and "what do I do with this" are different
+                        // questions, and this menu was answering both in one
+                        // list of eleven.
                         Divider(
                           color: AppColors.divider,
                           height: 13,
@@ -642,117 +631,17 @@ class _UserListToggleState extends State<UserListToggle> {
       widget.builder(context, _active, _toggle);
 }
 
-class _AnilistRow extends StatefulWidget {
-  const _AnilistRow({required this.entity});
-
-  final FavoriteEntity entity;
-
-  @override
-  State<_AnilistRow> createState() => _AnilistRowState();
-}
-
-class _MalRow extends StatefulWidget {
-  const _MalRow({required this.entity});
-
-  final FavoriteEntity entity;
-
-  @override
-  State<_MalRow> createState() => _MalRowState();
-}
-
-/// The MyAnimeList twin of [_AnilistRow].
-///
-/// Shown only when MAL is connected, so a user of one tracker never sees the
-/// other's row. Most MAL links are made automatically through AniList's
-/// `idMal`; this is how a wrong one gets corrected, and how a title AniList has
-/// no MAL counterpart for gets linked at all.
-class _MalRowState extends State<_MalRow> {
-  late MalLink? _link = getIt<MalLinkStore>().get(
-    widget.entity.provider,
-    widget.entity.contentUrl,
-  );
-
-  Future<void> _open() async {
-    await MalLinkSheet.show(
-      context,
-      provider: widget.entity.provider,
-      contentUrl: widget.entity.contentUrl,
-      title: widget.entity.title,
-    );
-    if (!mounted) return;
-    setState(
-      () => _link = getIt<MalLinkStore>().get(
-        widget.entity.provider,
-        widget.entity.contentUrl,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final linked = _link != null;
-    return _MenuRow(
-      icon: linked ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
-      label: linked ? 'mal.tracked'.tr() : 'mal.track'.tr(),
-      active: linked,
-      accent: kMalBlue,
-      onTap: _open,
-    );
-  }
-}
-
-class _AnilistRowState extends State<_AnilistRow> {
-  late AnilistLink? _link = getIt<AnilistLinkStore>().get(
-    widget.entity.provider,
-    widget.entity.contentUrl,
-  );
-
-  Future<void> _open() async {
-    await AnilistLinkSheet.show(
-      context,
-      provider: widget.entity.provider,
-      contentUrl: widget.entity.contentUrl,
-      title: widget.entity.title,
-    );
-    if (!mounted) return;
-    setState(
-      () => _link = getIt<AnilistLinkStore>().get(
-        widget.entity.provider,
-        widget.entity.contentUrl,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final linked = _link != null;
-    return _MenuRow(
-      icon: linked ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
-      label: linked
-          ? 'detail.anilist_tracked'.tr()
-          : 'detail.anilist_track'.tr(),
-      active: linked,
-      accent: kAnilistBlue,
-      onTap: _open,
-    );
-  }
-}
-
 class _MenuRow extends StatelessWidget {
   const _MenuRow({
     required this.icon,
     required this.label,
     required this.onTap,
-    this.active = false,
-    this.accent = AppColors.rating,
     this.trailing,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final bool active;
-  final Color accent;
   final Widget? trailing;
 
   @override
@@ -769,16 +658,10 @@ class _MenuRow extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: active
-                      ? accent.withValues(alpha: 0.16)
-                      : Colors.white.withValues(alpha: 0.06),
+                  color: Colors.white.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color: active ? accent : AppColors.textPrimary,
-                ),
+                child: Icon(icon, size: 18, color: AppColors.textPrimary),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -793,11 +676,7 @@ class _MenuRow extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
-              trailing ??
-                  (active
-                      ? Icon(Icons.check_rounded, size: 20, color: accent)
-                      : const SizedBox.shrink()),
+              if (trailing != null) ...[const SizedBox(width: 6), trailing!],
             ],
           ),
         ),

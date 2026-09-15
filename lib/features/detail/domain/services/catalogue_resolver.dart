@@ -245,7 +245,10 @@ class CatalogueResolver {
       providerName: pick.provider.name,
       contentUrl: pick.item.url,
       catalogueId: catalogueId,
-      providerImage: pick.provider.image ?? '',
+      // From the provider list rather than the search result: the engine's
+      // result refs do not always carry the image, and a blank mark next to
+      // the catalogue's own is worse than none.
+      providerImage: pick.provider.image ?? byId[pick.provider.id]?.image ?? '',
     );
     debugPrint(
       '$_tag "${hint.title}" → ${link.providerName} '
