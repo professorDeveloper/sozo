@@ -5,6 +5,7 @@ import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
+import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/search/domain/entities/cross_search_result.dart';
 
 class _Hive implements HiveService {
@@ -39,6 +40,16 @@ MovieEntity _movie(String title, {int? year, String category = 'anime'}) =>
       category: category,
     );
 
+ProviderEntity _provider(String id) => ProviderEntity(
+  id: id,
+  name: id,
+  image: '',
+  url: '',
+  description: '',
+  domains: const [],
+  category: 'anime',
+);
+
 AlternateSource _found(
   String provider,
   String title,
@@ -60,7 +71,8 @@ void main() {
       final hive = _Hive();
       final resolver = CatalogueResolver(
         hive: hive,
-        finder: ({required title, required category}) => Stream.fromIterable([
+        providers: () async => [_provider('an:x')],
+        finder: ({required title, required candidates}) => Stream.fromIterable([
           _found('an:weak', 'Frieren Season 9', 0.62),
           _found('an:best', 'Frieren', 0.97),
         ]),
@@ -85,7 +97,8 @@ void main() {
       var searched = false;
       final resolver = CatalogueResolver(
         hive: hive,
-        finder: ({required title, required category}) {
+        providers: () async => [_provider('an:x')],
+        finder: ({required title, required candidates}) {
           searched = true;
           return const Stream.empty();
         },
@@ -110,7 +123,8 @@ void main() {
     test('the year breaks a tie between a title and its remake', () async {
       final resolver = CatalogueResolver(
         hive: _Hive(),
-        finder: ({required title, required category}) => Stream.fromIterable([
+        providers: () async => [_provider('an:x')],
+        finder: ({required title, required candidates}) => Stream.fromIterable([
           _found('an:remake', 'Hunter x Hunter', 0.9, year: 2011),
           _found('an:original', 'Hunter x Hunter', 0.9, year: 1999),
         ]),
@@ -127,7 +141,8 @@ void main() {
       final hive = _Hive();
       final resolver = CatalogueResolver(
         hive: hive,
-        finder: ({required title, required category}) =>
+        providers: () async => [_provider('an:x')],
+        finder: ({required title, required candidates}) =>
             Stream.fromIterable([_found('an:meh', 'Something Else', 0.4)]),
       );
       final link = await resolver.resolve(
@@ -144,7 +159,8 @@ void main() {
       () async {
         final resolver = CatalogueResolver(
           hive: _Hive(),
-          finder: ({required title, required category}) =>
+          providers: () async => [_provider('an:x')],
+          finder: ({required title, required candidates}) =>
               Stream<AlternateSource>.error(StateError('boom')),
         );
         expect(
@@ -157,6 +173,28 @@ void main() {
         );
       },
     );
+
+    test('only video sources are asked, never readers', () async {
+      List<ProviderEntity>? asked;
+      final resolver = CatalogueResolver(
+        hive: _Hive(),
+        providers: () async => [
+          _provider('an:anime'),
+          _provider('mn:manga'),
+          _provider('cs:cloud'),
+        ],
+        finder: ({required title, required candidates}) {
+          asked = candidates;
+          return const Stream.empty();
+        },
+      );
+      await resolver.resolve(
+        catalogueId: 'cat:tmdb',
+        contentUrl: 'u',
+        hint: _movie('Dune', category: 'movie'),
+      );
+      expect(asked?.map((p) => p.id), ['an:anime', 'cs:cloud']);
+    });
 
     test('a link survives a round trip through storage', () {
       const link = CatalogueLink(

@@ -744,6 +744,7 @@ Future<void> configureDependencies() async {
     () => CatalogueResolver.using(
       getIt<AlternateSourceService>(),
       getIt<HiveService>(),
+      getIt<GetProvidersUseCase>(),
     ),
   );
   getIt.registerFactory(

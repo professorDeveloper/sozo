@@ -4,9 +4,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
+import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
+import 'package:soplay/features/profile/domain/usecases/get_providers_usecase.dart';
 
 /// Where a catalogue title was found.
 class CatalogueLink {
@@ -62,28 +65,44 @@ class CatalogueLink {
 typedef AlternateFinder =
     Stream<AlternateSource> Function({
       required String title,
-      required String category,
+      required List<ProviderEntity> candidates,
     });
 
 class CatalogueResolver {
   CatalogueResolver({
     required AlternateFinder finder,
     required HiveService hive,
+    required Future<List<ProviderEntity>> Function() providers,
   }) : _find = finder,
-       _hive = hive;
+       _hive = hive,
+       _providers = providers;
 
-  /// The production finder: every installed source, nothing excluded.
+  /// The production wiring: the alternate-source search over the sources the
+  /// resolver picks, and the provider list from the same use case the picker
+  /// reads.
   factory CatalogueResolver.using(
     AlternateSourceService alternates,
     HiveService hive,
+    GetProvidersUseCase providers,
   ) => CatalogueResolver(
-    finder: ({required title, required category}) =>
-        alternates.find(title: title, excludeProvider: '', category: category),
+    // Category is left blank on purpose. A TMDB card says `movie` and the
+    // providers say `movies` (or `tmdb`, or `anime`), and one letter of
+    // difference silently excluded every source there was. Which sources to
+    // ask is decided in [resolve], by mode, where the vocabulary is one enum.
+    finder: ({required title, required candidates}) => alternates.find(
+      title: title,
+      excludeProvider: '',
+      category: '',
+      candidates: candidates,
+    ),
     hive: hive,
+    providers: () async =>
+        (await providers()).getOrNull()?.providers ?? const [],
   );
 
   final AlternateFinder _find;
   final HiveService _hive;
+  final Future<List<ProviderEntity>> Function() _providers;
 
   static const String _tag = '[catalogue]';
 
@@ -123,11 +142,20 @@ class CatalogueResolver {
     if (hint == null || hint.title.trim().isEmpty) return null;
     if (Catalogue.fromId(catalogueId) == null) return null;
 
+    // Every source that plays video and is not browse-only. Both catalogues
+    // are anime and film; a manga source cannot have the title, and a leg
+    // spent asking it is a leg not spent on one that might.
+    final candidates = [
+      for (final p in await _providers())
+        if (!p.browseOnly && p.id.contentMode == ContentMode.video) p,
+    ];
+    if (candidates.isEmpty) return null;
+
     AlternateSource? best;
     var bestScore = 0.0;
     final done = Completer<void>();
     late final StreamSubscription<AlternateSource> sub;
-    sub = _find(title: hint.title, category: hint.category).listen(
+    sub = _find(title: hint.title, candidates: candidates).listen(
       (found) {
         // The year is the cheapest disambiguator there is: a remake and
         // its original share a title and nothing else.
