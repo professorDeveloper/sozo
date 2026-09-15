@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_detail.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
+import 'package:soplay/features/detail/presentation/widgets/tracking_row.dart';
 
 void main() {
   group('detailFromAnilist', () {
@@ -183,6 +184,34 @@ void main() {
     expect(format('OVA'), 'OVA');
     expect(format('MOVIE'), 'Movie');
     expect(format('NOT_YET_RELEASED'), 'Not yet released');
+  });
+
+  group('TrackingRow.applies', () {
+    final tmdb = <String, dynamic>{
+      'contentId': '1',
+      'contentUrl': '/tv/1',
+      'title': 'T',
+      'genres': ['Drama'],
+      'extra': {'about': {}},
+    };
+
+    test('anime trackers stay off a live-action TMDB page', () {
+      expect(TrackingRow.applies(detailFromTmdb(tmdb)), isFalse);
+    });
+
+    test('but stay on for animation, and for every AniList page', () {
+      final animated = Map<String, dynamic>.from(tmdb)
+        ..['genres'] = ['Animation'];
+      expect(TrackingRow.applies(detailFromTmdb(animated)), isTrue);
+      expect(
+        TrackingRow.applies(
+          detailFromAnilist(
+            const AnilistMediaDetail(media: AnilistMedia(id: 1)),
+          ),
+        ),
+        isTrue,
+      );
+    });
   });
 
   group('anilistIdFrom', () {

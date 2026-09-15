@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/content/catalogue_logo.dart';
 import 'package:soplay/core/content/content_mode.dart';
 
 /// How a mode looks: the colour it is recognised by and the glyph that stands
@@ -38,6 +39,10 @@ extension ContentModeStyle on ContentMode {
 /// the shape is written rather than faded in. That is the difference the eye
 /// reads as craft: a fade says an image appeared, a stroke says something drew
 /// it.
+///
+/// A catalogue has a mark of its own that cannot be traced as strokes, so for
+/// one the pen draws a ring and the logo is wiped in behind it, clockwise from
+/// the top — the same beat, with the actual mark in it.
 class ModeGlyph extends StatelessWidget {
   const ModeGlyph({
     super.key,
@@ -57,18 +62,100 @@ class ModeGlyph extends StatelessWidget {
   final double progress;
 
   @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: size,
-    child: CustomPaint(
-      painter: _GlyphPainter(
-        mode: mode,
-        catalogue: catalogue,
-        color: color,
-        progress: progress,
+  Widget build(BuildContext context) {
+    final c = catalogue;
+    if (c == null) {
+      return SizedBox.square(
+        dimension: size,
+        child: CustomPaint(
+          painter: _GlyphPainter(mode: mode, color: color, progress: progress),
+          isComplex: false,
+        ),
+      );
+    }
+    final t = progress.clamp(0.0, 1.0);
+    return SizedBox.square(
+      dimension: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: Size.square(size),
+            painter: _RingPainter(color: color, progress: t),
+          ),
+          ClipPath(
+            clipper: _SweepClipper(t),
+            child: CatalogueLogo(catalogue: c, size: size * 0.58),
+          ),
+        ],
       ),
-      isComplex: false,
-    ),
-  );
+    );
+  }
+}
+
+/// The ring the pen draws round a catalogue's mark: the glyph strokes' three
+/// passes on one circle, from the top.
+class _RingPainter extends CustomPainter {
+  const _RingPainter({required this.color, required this.progress});
+
+  final Color color;
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0) return;
+    final inset = size.width * 0.08;
+    final ring = Path()
+      ..addArc(
+        Rect.fromLTWH(
+          inset,
+          inset,
+          size.width - 2 * inset,
+          size.height - 2 * inset,
+        ),
+        -math.pi / 2,
+        2 * math.pi,
+      );
+    _GlyphPainter.strokes(
+      canvas,
+      ring,
+      progress,
+      color,
+      scale: size.width / _GlyphPainter._box,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) =>
+      old.progress != progress || old.color != color;
+}
+
+/// A pie wedge from the top, clockwise: what the pen has passed is shown.
+class _SweepClipper extends CustomClipper<Path> {
+  const _SweepClipper(this.progress);
+
+  final double progress;
+
+  @override
+  Path getClip(Size size) {
+    if (progress >= 1) return Path()..addRect(Offset.zero & size);
+    if (progress <= 0) return Path();
+    final c = size.center(Offset.zero);
+    final r = size.longestSide;
+    return Path()
+      ..moveTo(c.dx, c.dy)
+      ..lineTo(c.dx, c.dy - r)
+      ..arcTo(
+        Rect.fromCircle(center: c, radius: r),
+        -math.pi / 2,
+        2 * math.pi * progress,
+        false,
+      )
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(_SweepClipper old) => old.progress != progress;
 }
 
 class _GlyphPainter extends CustomPainter {
@@ -76,11 +163,9 @@ class _GlyphPainter extends CustomPainter {
     required this.mode,
     required this.color,
     required this.progress,
-    this.catalogue,
   });
 
   final ContentMode mode;
-  final Catalogue? catalogue;
   final Color color;
   final double progress;
 
@@ -94,32 +179,42 @@ class _GlyphPainter extends CustomPainter {
     final scale = size.width / _box;
     canvas.save();
     canvas.scale(scale);
+    strokes(canvas, _pathFor(mode), progress.clamp(0.0, 1.0), color);
+    canvas.restore();
+  }
 
-    final t = progress.clamp(0.0, 1.0);
-    final path = catalogue != null ? _cataloguePath() : _pathFor(mode);
+  /// Three passes over [path] up to [t]. A soft wide stroke underneath is
+  /// what makes a line on a dark ground read as lit rather than printed; the
+  /// crisp stroke is the line itself; and while the pen is still moving, a
+  /// bright dot sits at its tip, so the eye follows the drawing rather than
+  /// watching a shape fill in.
+  ///
+  /// Widths are in glyph-box units; [scale] converts them when the path is
+  /// already in pixels.
+  static void strokes(
+    Canvas canvas,
+    Path path,
+    double t,
+    Color color, {
+    double scale = 1,
+  }) {
     final drawn = _trim(path, t);
-
-    // Three passes. A soft wide stroke underneath is what makes a line on a
-    // dark ground read as lit rather than printed; the crisp stroke is the
-    // line itself; and while the pen is still moving, a bright dot sits at
-    // its tip, so the eye follows the drawing rather than watching a shape
-    // fill in.
     canvas.drawPath(
       drawn,
       Paint()
         ..color = color.withValues(alpha: 0.35)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 5.5
+        ..strokeWidth = 5.5 * scale
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2),
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2.2 * scale),
     );
     canvas.drawPath(
       drawn,
       Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
+        ..strokeWidth = 2.0 * scale
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
@@ -128,12 +223,11 @@ class _GlyphPainter extends CustomPainter {
       if (tip != null) {
         canvas.drawCircle(
           tip,
-          1.9,
+          1.9 * scale,
           Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.95),
         );
       }
     }
-    canvas.restore();
   }
 
   /// Where the pen is at [t] along the combined length.
@@ -224,20 +318,7 @@ class _GlyphPainter extends CustomPainter {
         ..lineTo(18, 12.5),
   };
 
-  /// A four-pointed star — the same sign the catalogue chips carry, drawn as
-  /// one continuous stroke so the pen runs round it.
-  static Path _cataloguePath() => Path()
-    ..moveTo(12, 3.5)
-    ..quadraticBezierTo(13.2, 10.8, 20.5, 12)
-    ..quadraticBezierTo(13.2, 13.2, 12, 20.5)
-    ..quadraticBezierTo(10.8, 13.2, 3.5, 12)
-    ..quadraticBezierTo(10.8, 10.8, 12, 3.5)
-    ..close();
-
   @override
   bool shouldRepaint(_GlyphPainter old) =>
-      old.progress != progress ||
-      old.color != color ||
-      old.mode != mode ||
-      old.catalogue != catalogue;
+      old.progress != progress || old.color != color || old.mode != mode;
 }

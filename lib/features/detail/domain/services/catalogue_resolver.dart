@@ -38,8 +38,12 @@ class CatalogueLink {
     providerImage: providerImage,
   );
 
-  String encode() =>
-      jsonEncode({'p': providerId, 'n': providerName, 'u': contentUrl});
+  String encode() => jsonEncode({
+    'p': providerId,
+    'n': providerName,
+    'u': contentUrl,
+    if (providerImage.isNotEmpty) 'i': providerImage,
+  });
 
   static CatalogueLink? decode(String? raw) {
     if (raw == null || raw.isEmpty) return null;

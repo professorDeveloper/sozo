@@ -168,7 +168,8 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
                 TrailerAction(detail: widget.detail),
               ],
             ),
-          const SizedBox(height: 12),
+          // Brings its own gap, so a page with nothing to track has no
+          // blank band under the buttons.
           TrackingRow(detail: widget.detail),
         ],
       ),

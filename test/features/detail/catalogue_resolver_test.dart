@@ -242,11 +242,15 @@ void main() {
         providerId: 'cs:Anikage',
         providerName: 'Anikage (Uzbek tilida)',
         contentUrl: 'https://a/b?c=d&e=f',
+        providerImage: 'https://a/logo.png',
       );
       final back = CatalogueLink.decode(link.encode());
       expect(back?.providerId, link.providerId);
       expect(back?.providerName, link.providerName);
       expect(back?.contentUrl, link.contentUrl);
+      // The mark next to the catalogue's is drawn from this on the second
+      // open, when there is no search to take it from.
+      expect(back?.providerImage, link.providerImage);
       expect(CatalogueLink.decode('not json'), isNull);
     });
   });

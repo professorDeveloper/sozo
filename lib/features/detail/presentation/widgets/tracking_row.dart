@@ -28,10 +28,21 @@ import 'package:soplay/features/mal/presentation/widgets/mal_link_sheet.dart';
 ///
 /// Shown only for a tracker that is connected. A title the tracker does not
 /// know yet (no link) offers to link it, through the same sheet as before.
+///
+/// Not shown on a TMDB page unless the title is animation: both trackers are
+/// anime lists, and "Track on AniList" under a live-action series is a row
+/// that can only ever fail.
 class TrackingRow extends StatefulWidget {
   const TrackingRow({super.key, required this.detail});
 
   final DetailEntity detail;
+
+  static bool applies(DetailEntity detail) {
+    final record = detail.record;
+    if (record == null || record.tmdbId == null) return true;
+    if (record.anilistId != null || record.malId != null) return true;
+    return detail.genres.any((g) => g.toLowerCase().contains('animation'));
+  }
 
   @override
   State<TrackingRow> createState() => _TrackingRowState();
@@ -42,18 +53,22 @@ class _TrackingRowState extends State<TrackingRow> {
   Widget build(BuildContext context) {
     final anilist = getIt<AnilistService>();
     final mal = getIt<MalService>();
-    if (!anilist.isConnected && !mal.isConnected) {
+    if (!TrackingRow.applies(widget.detail) ||
+        (!anilist.isConnected && !mal.isConnected)) {
       return const SizedBox.shrink();
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (anilist.isConnected) _AnilistLine(detail: widget.detail),
-        if (mal.isConnected) ...[
-          if (anilist.isConnected) const SizedBox(height: 8),
-          _MalLine(detail: widget.detail),
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (anilist.isConnected) _AnilistLine(detail: widget.detail),
+          if (mal.isConnected) ...[
+            if (anilist.isConnected) const SizedBox(height: 8),
+            _MalLine(detail: widget.detail),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

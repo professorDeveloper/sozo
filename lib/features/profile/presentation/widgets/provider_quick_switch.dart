@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/content/catalogue_logo.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/content/content_mode_style.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -586,7 +587,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                   _ModeChip(
                     key: _catalogueKeys[c],
                     label: c.labelKey.tr(),
-                    icon: Icons.auto_awesome_rounded,
+                    leading: CatalogueLogo(catalogue: c, size: 20),
                     accent: c.accent,
                     active: widget.currentProviderId == c.id,
                     onTap: widget.currentProviderId == c.id
@@ -673,16 +674,16 @@ class _ModeChip extends StatelessWidget {
     required this.active,
     required this.accent,
     this.onTap,
-    this.icon,
+    this.leading,
   });
 
   final String label;
   final bool active;
 
-  /// A catalogue chip carries a sign, so the two rows read as one family
-  /// with one difference rather than two components that happen to be near
-  /// each other.
-  final IconData? icon;
+  /// A catalogue chip carries the catalogue's own mark — the same one the
+  /// detail page shows above Play — so the chip and the hand-off row read as
+  /// the same thing in two places.
+  final Widget? leading;
 
   /// The mode's own colour, and the only place outside the switch animation
   /// where it is used: the chip that starts the switch should be the colour
@@ -710,10 +711,7 @@ class _ModeChip extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 15, color: active ? Colors.white : accent),
-                    const SizedBox(width: 6),
-                  ],
+                  if (leading != null) ...[leading!, const SizedBox(width: 8)],
                   Text(
                     label,
                     style: TextStyle(

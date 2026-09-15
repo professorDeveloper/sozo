@@ -1,4 +1,5 @@
 import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/content/catalogue_logo.dart';
 import 'dart:async';
 import 'dart:ui';
 
@@ -161,11 +162,7 @@ class _ProviderSwitcher extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (catalogue != null)
-                      Icon(
-                        Icons.auto_awesome_rounded,
-                        size: 18,
-                        color: catalogue.accent,
-                      )
+                      CatalogueLogo(catalogue: catalogue, size: 22)
                     else
                       ProviderLogo(image: current?.image ?? '', size: 22),
                     const SizedBox(width: 6),
