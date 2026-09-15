@@ -2,7 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/detail/domain/entities/ani_info.dart';
+import 'package:soplay/features/detail/domain/entities/record_info.dart';
 
 /// What the catalogue knows and a source does not, as its own tab.
 ///
@@ -12,22 +12,14 @@ import 'package:soplay/features/detail/domain/entities/ani_info.dart';
 /// from, how many episodes, where it ranks, its status — each in its own
 /// cell, so the eye can find one without reading the others.
 class DetailAboutTab extends StatelessWidget {
-  const DetailAboutTab({super.key, required this.ani});
+  const DetailAboutTab({super.key, required this.record});
 
-  final AniInfo ani;
+  final RecordInfo record;
 
   @override
   Widget build(BuildContext context) {
-    final cells = <(String, String)>[
-      if (ani.studio != null) ('detail.about_studio'.tr(), ani.studio!),
-      if (ani.source != null) ('detail.about_source'.tr(), _word(ani.source!)),
-      if (ani.episodes != null)
-        ('detail.about_episodes'.tr(), '${ani.episodes}'),
-      if (ani.rankText != null) ('detail.about_rank'.tr(), ani.rankText!),
-      if (ani.status != null) ('detail.about_status'.tr(), _word(ani.status!)),
-      if (ani.format != null) ('detail.about_format'.tr(), _word(ani.format!)),
-    ];
-    if (cells.isEmpty && ani.tags.isEmpty) return const SizedBox.shrink();
+    final cells = [for (final f in record.facts) (f.labelKey.tr(), f.value)];
+    if (cells.isEmpty && record.tags.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Column(
@@ -81,13 +73,13 @@ class DetailAboutTab extends StatelessWidget {
               );
             },
           ),
-          if (ani.tags.isNotEmpty) ...[
+          if (record.tags.isNotEmpty) ...[
             const SizedBox(height: 12),
             Wrap(
               spacing: 6,
               runSpacing: 6,
               children: [
-                for (final t in ani.tags)
+                for (final t in record.tags)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -114,11 +106,5 @@ class DetailAboutTab extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  /// LIGHT_NOVEL → Light novel; RELEASING → Releasing.
-  static String _word(String raw) {
-    final w = raw.toLowerCase().replaceAll('_', ' ');
-    return w.isEmpty ? raw : w[0].toUpperCase() + w.substring(1);
   }
 }

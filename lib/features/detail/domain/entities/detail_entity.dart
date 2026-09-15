@@ -1,5 +1,5 @@
 import 'package:soplay/core/trailer/trailer_query.dart';
-import 'ani_info.dart';
+import 'record_info.dart';
 
 import 'cast_entity.dart';
 import 'screenshot_entity.dart';
@@ -34,8 +34,8 @@ class DetailEntity {
   /// YouTube's app, with its ads and its own fullscreen, from inside ours.
   final String? trailerYoutubeId;
 
-  /// See [AniInfo]. Null unless the page was built from AniList.
-  final AniInfo? ani;
+  /// See [RecordInfo]. Null unless the page was built from a catalogue.
+  final RecordInfo? record;
 
   const DetailEntity({
     required this.provider,
@@ -57,7 +57,7 @@ class DetailEntity {
     required this.screenshots,
     required this.related,
     this.trailerYoutubeId,
-    this.ani,
+    this.record,
   });
 
   /// What the trailer lookup has to go on for this title.

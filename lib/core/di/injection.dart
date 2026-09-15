@@ -752,6 +752,8 @@ Future<void> configureDependencies() async {
       useCase: getIt<GetDetailUseCase>(),
       resolver: getIt<CatalogueResolver>(),
       anilist: getIt<AnilistService>().api,
+      tmdbDetail: (url) =>
+          getIt<DetailDataSource>().getCatalogueDetail('tmdb', url),
     ),
   );
   getIt.registerFactory(

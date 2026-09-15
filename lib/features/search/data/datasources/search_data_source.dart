@@ -34,6 +34,19 @@ class SearchDataSource {
   /// [provider] overrides the interceptor's "current provider", which is what
   /// lets cross-search treat each selected server provider as its own leg
   /// instead of collapsing them into one.
+  /// Search inside a catalogue rather than a source. Same shape back.
+  Future<SearchModel> searchCatalogue(
+    String kind,
+    String query, {
+    int page = 1,
+  }) async {
+    final response = await dio.get(
+      '/catalogue/$kind/search',
+      queryParameters: {'q': query, 'page': page},
+    );
+    return SearchModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<SearchModel> searchMovies(
     String query, {
     int page = 1,

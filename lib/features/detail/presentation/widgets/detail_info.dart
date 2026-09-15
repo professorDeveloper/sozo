@@ -1,4 +1,4 @@
-import 'package:soplay/features/detail/domain/entities/ani_info.dart';
+import 'package:soplay/features/detail/domain/entities/record_info.dart';
 import 'package:soplay/features/detail/presentation/widgets/tracking_row.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/catalogue_logo.dart';
@@ -114,8 +114,8 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
           // came as a block with its progress bar and caption attached — so
           // starting a title showed three controls on one line and coming back
           // to it showed one, with the other two stranded below the caption.
-          if (widget.detail.ani?.nextAiringAt != null) ...[
-            _NextEpisode(ani: widget.detail.ani!),
+          if (widget.detail.record?.nextAiringAt != null) ...[
+            _NextEpisode(record: widget.detail.record!),
             const SizedBox(height: 12),
           ],
           if (Catalogue.isId(widget.detail.provider))
@@ -326,8 +326,8 @@ class _MetaLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parts = <String>[
-      if (detail.ani?.score != null)
-        '\u2605 ${detail.ani!.score!.toStringAsFixed(1)}',
+      if (detail.record?.score != null)
+        '\u2605 ${detail.record!.score!.toStringAsFixed(1)}',
       if (detail.year != null) detail.year.toString(),
       if (detail.duration != null && detail.duration!.trim().isNotEmpty)
         detail.duration!.trim(),
@@ -738,20 +738,20 @@ class _ViaRow extends StatelessWidget {
 /// The next episode, alone. It is the one fact on the page with a date on
 /// it, and the one worth glancing back for.
 class _NextEpisode extends StatelessWidget {
-  const _NextEpisode({required this.ani});
+  const _NextEpisode({required this.record});
 
-  final AniInfo ani;
+  final RecordInfo record;
 
   @override
   Widget build(BuildContext context) {
-    final at = ani.nextAiringAt!;
+    final at = record.nextAiringAt!;
     return Row(
       children: [
         Icon(Icons.schedule_rounded, size: 16, color: AppColors.primary),
         const SizedBox(width: 6),
         Text(
           'detail.next_episode_in'.tr(
-            args: ['${ani.nextEpisode}', _untilText(at)],
+            args: ['${record.nextEpisode}', _untilText(at)],
           ),
           style: const TextStyle(
             color: AppColors.textPrimary,

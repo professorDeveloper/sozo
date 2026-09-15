@@ -1106,7 +1106,12 @@
     "about_status": "Статус",
     "about_format": "Формат",
     "not_on_list": "Нет в вашем списке",
-    "add_to_list": "В список"
+    "add_to_list": "В список",
+    "about_network": "Канал",
+    "about_seasons": "Сезоны",
+    "about_budget": "Бюджет",
+    "about_box_office": "Сборы",
+    "about_collection": "Коллекция"
   },
   "episodes": {
     "filter_hint": "Номер или название серии",

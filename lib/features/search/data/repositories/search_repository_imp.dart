@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
@@ -91,9 +93,30 @@ class SearchRepositoryImp extends SearchRepository {
   }) async {
     final js = jsRuntime;
     final provider = _currentProvider;
+    // A catalogue is searched on the backend, in the provider search's shape.
+    // Before this, a search with AniList or TMDB as the "source" went to the
+    // provider route with an id it had never heard of.
+    final catalogue = Catalogue.fromId(provider);
+    if (catalogue != null) {
+      try {
+        return Success(
+          await dataSource.searchCatalogue(catalogue.kind, query, page: page),
+        );
+      } on DioException catch (e) {
+        final raw = e.response?.data;
+        final message = (raw is Map ? raw['message'] : null) ?? e.message;
+        return Failure(Exception(message.toString()));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (provider != null && provider.startsWith('cs:')) {
       try {
-        final map = await CloudStreamChannel.search(provider.substring(3), query, page: page);
+        final map = await CloudStreamChannel.search(
+          provider.substring(3),
+          query,
+          page: page,
+        );
         return _fromChannel(map, 'CloudStream');
       } catch (e) {
         return Failure(Exception(e.toString()));
@@ -101,7 +124,11 @@ class SearchRepositoryImp extends SearchRepository {
     }
     if (provider != null && provider.startsWith('an:')) {
       try {
-        final map = await AniyomiChannel.search(provider.substring(3), query, page: page);
+        final map = await AniyomiChannel.search(
+          provider.substring(3),
+          query,
+          page: page,
+        );
         return _fromChannel(map, 'Aniyomi');
       } catch (e) {
         return Failure(Exception(e.toString()));
@@ -109,7 +136,11 @@ class SearchRepositoryImp extends SearchRepository {
     }
     if (provider != null && provider.startsWith('mn:')) {
       try {
-        final map = await MangaChannel.search(provider.substring(3), query, page: page);
+        final map = await MangaChannel.search(
+          provider.substring(3),
+          query,
+          page: page,
+        );
         return _fromChannel(map, 'Manga');
       } catch (e) {
         return Failure(Exception(e.toString()));
@@ -117,7 +148,11 @@ class SearchRepositoryImp extends SearchRepository {
     }
     if (provider != null && provider.startsWith('my:')) {
       try {
-        final map = await mangayomi.search(provider.substring(3), query, page: page);
+        final map = await mangayomi.search(
+          provider.substring(3),
+          query,
+          page: page,
+        );
         return _fromChannel(map, 'Mangayomi');
       } catch (e) {
         return Failure(Exception(e.toString()));

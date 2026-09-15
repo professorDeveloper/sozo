@@ -73,7 +73,7 @@ class _AnilistLineState extends State<_AnilistLine> {
   bool _failed = false;
 
   int? get _mediaId =>
-      widget.detail.ani?.anilistId ??
+      widget.detail.record?.anilistId ??
       getIt<AnilistLinkStore>().mediaIdFor(
         widget.detail.provider,
         widget.detail.contentUrl,
@@ -230,7 +230,7 @@ class _MalLineState extends State<_MalLine> {
   bool _failed = false;
 
   int? get _animeId =>
-      widget.detail.ani?.malId ??
+      widget.detail.record?.malId ??
       getIt<MalLinkStore>().mediaIdFor(
         widget.detail.provider,
         widget.detail.contentUrl,

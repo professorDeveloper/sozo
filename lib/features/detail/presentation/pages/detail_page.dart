@@ -317,7 +317,7 @@ class _DetailViewState extends State<_DetailView>
     _tabs = [
       // First for a title that came with a record: the record is the point
       // of a catalogue page. A source's page has no such tab.
-      if (widget.detail.ani != null) 'About',
+      if (widget.detail.record != null) 'About',
       'Similar',
       // Always offered, because whether there is anything to show cannot be
       // known without asking AniList — and asking on every detail load would
@@ -486,7 +486,7 @@ class _DetailViewState extends State<_DetailView>
       child: KeyedSubtree(
         key: ValueKey('detail-tab-$tab'),
         child: switch (tab) {
-          'About' => DetailAboutTab(ani: detail.ani!),
+          'About' => DetailAboutTab(record: detail.record!),
           'Similar' => DetailRelatedSection(related: detail.related),
           'Relations' => DetailRelationsTab(
             provider: detail.provider,

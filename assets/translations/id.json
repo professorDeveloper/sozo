@@ -1106,7 +1106,12 @@
     "about_status": "Status",
     "about_format": "Format",
     "not_on_list": "Not on your list",
-    "add_to_list": "Add to list"
+    "add_to_list": "Add to list",
+    "about_network": "Network",
+    "about_seasons": "Seasons",
+    "about_budget": "Budget",
+    "about_box_office": "Box office",
+    "about_collection": "Collection"
   },
   "episodes": {
     "filter_hint": "Nomor atau judul episode",

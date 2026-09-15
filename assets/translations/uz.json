@@ -1106,7 +1106,12 @@
     "about_status": "Holat",
     "about_format": "Format",
     "not_on_list": "Ro‘yxatingizda yo‘q",
-    "add_to_list": "Ro‘yxatga qo‘shish"
+    "add_to_list": "Ro‘yxatga qo‘shish",
+    "about_network": "Telekanal",
+    "about_seasons": "Mavsumlar",
+    "about_budget": "Byudjet",
+    "about_box_office": "Kassa",
+    "about_collection": "Kolleksiya"
   },
   "episodes": {
     "filter_hint": "Epizod raqami yoki nomi",

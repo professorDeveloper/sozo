@@ -18,8 +18,15 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
   final CatalogueResolver? resolver;
   final AnilistApi? anilist;
 
-  DetailBloc({required this.useCase, this.resolver, this.anilist})
-    : super(const DetailInitial()) {
+  /// Fetches TMDB's record for a catalogue url. Null in tests.
+  final Future<Map<String, dynamic>> Function(String contentUrl)? tmdbDetail;
+
+  DetailBloc({
+    required this.useCase,
+    this.resolver,
+    this.anilist,
+    this.tmdbDetail,
+  }) : super(const DetailInitial()) {
     on<DetailLoad>(_onLoad);
   }
 
@@ -57,9 +64,6 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
   /// Play: a title you cannot play yet is still a title you can read about,
   /// save, and track.
   ///
-  /// TMDB titles keep the source's own page for now: every TMDB-backed
-  /// provider here already renders TMDB's record, so the catalogue's would
-  /// say the same things.
   Future<void> _loadFromCatalogue(
     Catalogue catalogue,
     DetailLoad event,
@@ -89,6 +93,23 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
       }
       // AniList did not answer; fall through to the source's page, if there
       // is a source.
+      await _loadFromSource(event, resolver, via, emit);
+      return;
+    }
+
+    if (catalogue == Catalogue.tmdb && tmdbDetail != null) {
+      final results = await Future.wait<dynamic>([
+        linkFuture,
+        tmdbDetail!(
+          event.contentUrl,
+        ).then<Map<String, dynamic>?>((m) => m).catchError((Object _) => null),
+      ]);
+      final via = results[0] as CatalogueLink?;
+      final record = results[1];
+      if (record is Map<String, dynamic>) {
+        emit(DetailLoaded(detailFromTmdb(record, via: via), via: via));
+        return;
+      }
       await _loadFromSource(event, resolver, via, emit);
       return;
     }
