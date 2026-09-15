@@ -218,6 +218,14 @@ class HomeRepositoryImp implements HomeRepository {
   @override
   Future<Result<List<GenreEntity>>> loadGenres() async {
     final provider = _currentProvider;
+    final catalogue = Catalogue.fromId(provider);
+    if (catalogue != null) {
+      try {
+        return Success(await dataSource.loadCatalogueGenres(catalogue.kind));
+      } catch (_) {
+        return const Success(<GenreEntity>[]);
+      }
+    }
     if (provider != null && provider.startsWith('cs:')) {
       try {
         final list = await CloudStreamChannel.getGenres(provider.substring(3));

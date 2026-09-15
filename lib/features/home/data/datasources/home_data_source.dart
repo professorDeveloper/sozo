@@ -21,6 +21,13 @@ class HomeDataSource {
     return HomeDataModel.fromJson(results.data as Map<String, dynamic>);
   }
 
+  Future<List<GenreModel>> loadCatalogueGenres(String kind) async {
+    final result = await dio.get('/catalogue/$kind/genres');
+    return (result.data['items'] as List)
+        .map((e) => GenreModel.fromJson(e))
+        .toList();
+  }
+
   Future<List<GenreModel>> loadGenres() async {
     final result = await dio.get("/contents/genres");
     return (result.data['items'] as List)

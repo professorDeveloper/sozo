@@ -7,8 +7,8 @@ import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
-import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
+import 'package:soplay/features/search/presentation/widgets/search_landing.dart';
 import 'package:soplay/features/search/presentation/widgets/search_result_card.dart';
 
 class SearchContentView extends StatelessWidget {
@@ -112,7 +112,7 @@ class SearchContentView extends StatelessWidget {
       case SearchStatus.idle:
         return [
           SliverToBoxAdapter(
-            child: _SearchIdleView(
+            child: SearchLanding(
               recent: state.recent,
               genres: state.genres,
               genresLoading: state.genresLoading,
@@ -180,21 +180,23 @@ class _SearchErrorBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.cloud_off_rounded,
-                size: 18, color: AppColors.errorLight),
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 18,
+              color: AppColors.errorLight,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message ?? 'general.error'.tr(),
                 style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 12.5),
+                  color: AppColors.textSecondary,
+                  fontSize: 12.5,
+                ),
               ),
             ),
             if (onRetry != null)
-              TextButton(
-                onPressed: onRetry,
-                child: Text('general.retry'.tr()),
-              ),
+              TextButton(onPressed: onRetry, child: Text('general.retry'.tr())),
           ],
         ),
       ),
@@ -213,13 +215,12 @@ class SearchResultsGrid extends StatelessWidget {
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       sliver: SliverGrid(
-        delegate: SliverChildBuilderDelegate(
-          (context, i) {
-            final movie = items[i];
-            return ItemAppear(
-              index: i,
-              columns: searchGridColumns(MediaQuery.sizeOf(context).width),
-              child: SearchResultCard(
+        delegate: SliverChildBuilderDelegate((context, i) {
+          final movie = items[i];
+          return ItemAppear(
+            index: i,
+            columns: searchGridColumns(MediaQuery.sizeOf(context).width),
+            child: SearchResultCard(
               movie: movie,
               // Position, not url: cross-search merges several sources, so the
               // same title legitimately appears more than once in one grid.
@@ -240,11 +241,9 @@ class SearchResultsGrid extends StatelessWidget {
                   ),
                 );
               },
-              ),
-            );
-          },
-          childCount: items.length,
-        ),
+            ),
+          );
+        }, childCount: items.length),
         gridDelegate: searchGridDelegate(context),
       ),
     );
@@ -272,119 +271,6 @@ class _SearchSkeletonGrid extends StatelessWidget {
           childCount: columns * 3,
         ),
         gridDelegate: searchGridDelegate(context),
-      ),
-    );
-  }
-}
-
-class _SearchIdleView extends StatelessWidget {
-  const _SearchIdleView({
-    required this.recent,
-    required this.genres,
-    required this.genresLoading,
-    required this.onSuggestion,
-    required this.onGenre,
-    required this.onRemoveRecent,
-    required this.onClearRecents,
-  });
-
-  final List<String> recent;
-  final List<GenreEntity> genres;
-  final bool genresLoading;
-  final ValueChanged<String> onSuggestion;
-  final ValueChanged<String> onGenre;
-  final ValueChanged<String> onRemoveRecent;
-  final VoidCallback onClearRecents;
-
-  @override
-  Widget build(BuildContext context) {
-    if (recent.isEmpty && genres.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 80),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.search_rounded,
-                color: AppColors.textHint.withValues(alpha: 0.45),
-                size: 68,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'search.hint'.tr(),
-                style: const TextStyle(
-                  color: AppColors.textHint,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (recent.isNotEmpty) ...[
-            Row(
-              children: [
-                Expanded(child: _SectionTitle('search.recent'.tr())),
-                _TextAction(
-                  label: 'search.clear_filter'.tr(),
-                  onTap: onClearRecents,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final q in recent)
-                  _Chip(
-                    label: q,
-                    icon: Icons.history_rounded,
-                    onTap: () => onSuggestion(q),
-                    onRemove: () => onRemoveRecent(q),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 26),
-          ],
-          if (genres.isNotEmpty) ...[
-            _SectionTitle('search.categories'.tr()),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final g in genres)
-                  _Chip(
-                    label: g.name.isNotEmpty ? g.name : g.slug,
-                    onTap: () => onGenre(g.slug),
-                  ),
-              ],
-            ),
-          ] else if (genresLoading)
-            const ShimmerWrapper(
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  HomeSkeletonBox(width: 92, height: 34, radius: 10),
-                  HomeSkeletonBox(width: 68, height: 34, radius: 10),
-                  HomeSkeletonBox(width: 110, height: 34, radius: 10),
-                  HomeSkeletonBox(width: 80, height: 34, radius: 10),
-                ],
-              ),
-            ),
-        ],
       ),
     );
   }
@@ -420,7 +306,10 @@ class _SearchEmptyView extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             'search.no_results_for'.tr(namedArgs: {'query': criteria.label}),
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 15,
+            ),
             textAlign: TextAlign.center,
           ),
           // Titles that exist, before the sources that might carry them. A
@@ -609,17 +498,17 @@ class _SearchErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     final (icon, title) = switch (kind) {
       SearchFailureKind.network => (
-          Icons.wifi_off_rounded,
-          'errors.network'.tr(),
-        ),
+        Icons.wifi_off_rounded,
+        'errors.network'.tr(),
+      ),
       SearchFailureKind.source => (
-          Icons.extension_off_rounded,
-          'search.source_failed'.tr(),
-        ),
+        Icons.extension_off_rounded,
+        'search.source_failed'.tr(),
+      ),
       SearchFailureKind.unknown => (
-          Icons.error_outline_rounded,
-          'search.search_failed'.tr(),
-        ),
+        Icons.error_outline_rounded,
+        'search.search_failed'.tr(),
+      ),
     };
 
     return Padding(
@@ -631,7 +520,10 @@ class _SearchErrorView extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             title,
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 15,
+            ),
             textAlign: TextAlign.center,
           ),
           if (message.isNotEmpty && kind != SearchFailureKind.network) ...[
@@ -654,113 +546,6 @@ class _SearchErrorView extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Text(
-        text.toUpperCase(),
-        style: const TextStyle(
-          color: AppColors.textHint,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
-        ),
-      );
-}
-
-class _TextAction extends StatelessWidget {
-  const _TextAction({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 12.5,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-    if (isTvPlatform) {
-      return TvFocusable(onPressed: onTap, borderRadius: 8, child: child);
-    }
-    return GestureDetector(onTap: onTap, child: child);
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.onTap,
-    this.icon,
-    this.onRemove,
-  });
-
-  final String label;
-  final VoidCallback onTap;
-  final IconData? icon;
-  final VoidCallback? onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 13, color: AppColors.textHint),
-            const SizedBox(width: 6),
-          ],
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 180),
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          if (onRemove != null) ...[
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: onRemove,
-              child: const Icon(
-                Icons.close_rounded,
-                size: 13,
-                color: AppColors.textHint,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-
-    if (isTvPlatform) {
-      return TvFocusable(onPressed: onTap, borderRadius: 10, child: chip);
-    }
-    return GestureDetector(onTap: onTap, child: chip);
   }
 }
 
