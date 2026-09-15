@@ -1031,7 +1031,7 @@
     "added_to_my_list": "أُضيف إلى قائمتي",
     "removed_from_my_list": "أُزيل من قائمتي",
     "failed_resolve_pages": "تعذّر جلب الصفحات",
-    "episodes_count": "{} حلقة",
+    "episodes_count": "{} ep",
     "episodes_count_of": "{} من أصل {} حلقة",
     "episode_n": "الحلقة {}",
     "no_films": "لم يُعثر على أفلام",
@@ -1096,7 +1096,8 @@
     "trailer_mute": "كتم صوت الإعلان",
     "trailer_unmute": "تشغيل صوت الإعلان",
     "my_list": "قائمتي",
-    "save_action": "حفظ"
+    "save_action": "حفظ",
+    "next_episode_in": "Ep {} in {}"
   },
   "episodes": {
     "filter_hint": "رقم الحلقة أو عنوانها",
@@ -1873,6 +1874,7 @@
     "found_on": "Found on {}",
     "change_source": "Change",
     "no_source": "None of your sources has this title. Add a source that carries it, or search the others.",
-    "no_resolver": "Catalogue titles cannot be opened here."
+    "no_resolver": "Catalogue titles cannot be opened here.",
+    "find_source": "Find a source"
   }
 }

@@ -1031,7 +1031,7 @@
     "added_to_my_list": "Ajouté à Ma liste",
     "removed_from_my_list": "Retiré de Ma liste",
     "failed_resolve_pages": "Impossible de résoudre les pages",
-    "episodes_count": "{} épisodes",
+    "episodes_count": "{} ep",
     "episodes_count_of": "{} épisodes sur {}",
     "episode_n": "Épisode {}",
     "no_films": "Aucun film trouvé",
@@ -1096,7 +1096,8 @@
     "trailer_mute": "Couper le son de la bande-annonce",
     "trailer_unmute": "Activer le son de la bande-annonce",
     "my_list": "Ma liste",
-    "save_action": "Enregistrer"
+    "save_action": "Enregistrer",
+    "next_episode_in": "Ep {} in {}"
   },
   "episodes": {
     "filter_hint": "Numéro ou titre de l’épisode",
@@ -1869,6 +1870,7 @@
     "found_on": "Found on {}",
     "change_source": "Change",
     "no_source": "None of your sources has this title. Add a source that carries it, or search the others.",
-    "no_resolver": "Catalogue titles cannot be opened here."
+    "no_resolver": "Catalogue titles cannot be opened here.",
+    "find_source": "Find a source"
   }
 }

@@ -40,15 +40,16 @@ MovieEntity _movie(String title, {int? year, String category = 'anime'}) =>
       category: category,
     );
 
-ProviderEntity _provider(String id) => ProviderEntity(
-  id: id,
-  name: id,
-  image: '',
-  url: '',
-  description: '',
-  domains: const [],
-  category: 'anime',
-);
+ProviderEntity _provider(String id, {String category = 'anime'}) =>
+    ProviderEntity(
+      id: id,
+      name: id,
+      image: '',
+      url: '',
+      description: '',
+      domains: const [],
+      category: category,
+    );
 
 AlternateSource _found(
   String provider,
@@ -135,6 +136,46 @@ void main() {
         hint: _movie('Hunter x Hunter', year: 1999),
       );
       expect(link?.providerId, 'an:original');
+    });
+
+    test('the 2023 live-action does not beat the 1999 anime', () async {
+      final resolver = CatalogueResolver(
+        hive: _Hive(),
+        providers: () async => [
+          _provider('vidapi', category: 'tmdb'),
+          _provider('an:anime'),
+        ],
+        finder: ({required title, required candidates}) => Stream.fromIterable([
+          _found('vidapi', 'One Piece', 1.0, year: 2023),
+          _found('an:anime', 'One Piece', 0.95, year: 1999),
+        ]),
+      );
+      final link = await resolver.resolve(
+        catalogueId: 'cat:anilist',
+        contentUrl: 'u',
+        hint: _movie('One Piece', year: 1999),
+      );
+      expect(link?.providerId, 'an:anime');
+    });
+
+    test('a film catalogue prefers a film source over an anime one', () async {
+      final resolver = CatalogueResolver(
+        hive: _Hive(),
+        providers: () async => [
+          _provider('an:anime'),
+          _provider('asilmedia', category: 'movies'),
+        ],
+        finder: ({required title, required candidates}) => Stream.fromIterable([
+          _found('an:anime', 'Dune', 0.9),
+          _found('asilmedia', 'Dune', 0.9),
+        ]),
+      );
+      final link = await resolver.resolve(
+        catalogueId: 'cat:tmdb',
+        contentUrl: 'u',
+        hint: _movie('Dune', category: 'movie'),
+      );
+      expect(link?.providerId, 'asilmedia');
     });
 
     test('a weak match opens once but is not remembered', () async {

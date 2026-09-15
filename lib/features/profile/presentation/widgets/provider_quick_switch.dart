@@ -13,6 +13,7 @@ import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/core/widgets/mode_switch_overlay.dart';
+import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_state.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
@@ -486,11 +487,14 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                         // right one.
                         itemExtent: _tileExtent,
                         itemCount: items.length,
-                        itemBuilder: (context, index) => _favoriteProviderTile(
-                          context,
-                          items[index],
-                          widget.currentProviderId,
-                          favorite: index < favorites.length,
+                        itemBuilder: (context, index) => ItemAppear(
+                          index: index,
+                          child: _favoriteProviderTile(
+                            context,
+                            items[index],
+                            widget.currentProviderId,
+                            favorite: index < favorites.length,
+                          ),
                         ),
                       ),
                     ),

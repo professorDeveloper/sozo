@@ -751,6 +751,7 @@ Future<void> configureDependencies() async {
     () => DetailBloc(
       useCase: getIt<GetDetailUseCase>(),
       resolver: getIt<CatalogueResolver>(),
+      anilist: getIt<AnilistService>().api,
     ),
   );
   getIt.registerFactory(

@@ -1031,7 +1031,7 @@
     "added_to_my_list": "Listeme eklendi",
     "removed_from_my_list": "Listemden çıkarıldı",
     "failed_resolve_pages": "Sayfalar çözümlenemedi",
-    "episodes_count": "{} bölüm",
+    "episodes_count": "{} ep",
     "episodes_count_of": "{} / {} bölüm",
     "episode_n": "{}. bölüm",
     "no_films": "Film bulunamadı",
@@ -1096,7 +1096,8 @@
     "trailer_mute": "Fragmanı sessize al",
     "trailer_unmute": "Fragmanın sesini aç",
     "my_list": "Listem",
-    "save_action": "Kaydet"
+    "save_action": "Kaydet",
+    "next_episode_in": "Ep {} in {}"
   },
   "episodes": {
     "filter_hint": "Bölüm numarası veya adı",
@@ -1869,6 +1870,7 @@
     "found_on": "Found on {}",
     "change_source": "Change",
     "no_source": "None of your sources has this title. Add a source that carries it, or search the others.",
-    "no_resolver": "Catalogue titles cannot be opened here."
+    "no_resolver": "Catalogue titles cannot be opened here.",
+    "find_source": "Find a source"
   }
 }

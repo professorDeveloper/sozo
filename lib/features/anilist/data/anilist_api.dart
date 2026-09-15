@@ -221,7 +221,8 @@ class AnilistApi {
     required String token,
     required int userId,
   }) async {
-    final query = '''
+    final query =
+        '''
       query (\$userId: Int) {
         MediaListCollection(userId: \$userId, type: ANIME) {
           lists {
@@ -274,7 +275,8 @@ class AnilistApi {
     int page = 1,
     int perPage = 30,
   }) async {
-    final gql = '''
+    final gql =
+        '''
       query (\$sort: [MediaSort], \$season: MediaSeason, \$seasonYear: Int,
              \$status: MediaStatus, \$page: Int, \$perPage: Int) {
         Page(page: \$page, perPage: \$perPage) {
@@ -317,9 +319,13 @@ class AnilistApi {
 
   /// Public title search — used to attach an AniList id to something the user
   /// is watching from a source that knows nothing about AniList.
-  Future<List<AnilistMedia>> searchMedia(String query, {int perPage = 20}) async {
+  Future<List<AnilistMedia>> searchMedia(
+    String query, {
+    int perPage = 20,
+  }) async {
     if (query.trim().isEmpty) return const [];
-    final gql = '''
+    final gql =
+        '''
       query (\$search: String, \$perPage: Int) {
         Page(page: 1, perPage: \$perPage) {
           media(search: \$search, type: ANIME, sort: SEARCH_MATCH) {
@@ -349,6 +355,122 @@ class AnilistApi {
   ///
   /// Empty on any failure. A missing relations list costs a tab that says
   /// nothing was found; a thrown one would take the detail page with it.
+  /// The page for one title. See [AnilistMediaDetail] for what and why.
+  Future<AnilistMediaDetail?> mediaDetail(int id) async {
+    const gql =
+        '''
+      query (\$id: Int) {
+        Media(id: \$id, type: ANIME) {
+          $_mediaFields
+          meanScore
+          popularity
+          duration
+          countryOfOrigin
+          source
+          genres
+          rankings { rank type context allTime year season }
+          studios(isMain: true) { nodes { name } }
+          tags { name rank isMediaSpoiler }
+          trailer { id site }
+          characters(sort: [ROLE, RELEVANCE], perPage: 12) {
+            edges {
+              node { name { full } image { large } }
+              voiceActors(language: JAPANESE, sort: RELEVANCE) {
+                name { full }
+                image { large }
+              }
+            }
+          }
+          recommendations(sort: RATING_DESC, perPage: 12) {
+            nodes { mediaRecommendation { $_mediaFields } }
+          }
+        }
+      }
+    ''';
+    final data = await _run(gql, variables: {'id': id});
+    final raw = data['Media'];
+    if (raw is! Map) return null;
+    final m = raw.cast<String, dynamic>();
+
+    // The ranking worth one line: this season's, if AniList has one, else
+    // the all-time one. "#2 most popular this season" beats "#1043 all time".
+    String? rankText;
+    final rankings = (m['rankings'] as List?)?.whereType<Map>().toList() ?? [];
+    Map? pick;
+    for (final r in rankings) {
+      if (r['allTime'] != true && r['season'] != null) {
+        pick = r;
+        break;
+      }
+    }
+    pick ??= rankings.where((r) => r['allTime'] == true).firstOrNull;
+    if (pick != null && pick['rank'] != null && pick['context'] != null) {
+      rankText = '#${pick['rank']} ${pick['context']}';
+    }
+
+    final studios = (m['studios'] as Map?)?['nodes'] as List?;
+    final studio = studios != null && studios.isNotEmpty
+        ? (studios.first as Map)['name']?.toString()
+        : null;
+
+    final tags = <String>[
+      for (final t in (m['tags'] as List?)?.whereType<Map>() ?? const <Map>[])
+        if (t['isMediaSpoiler'] != true && (t['rank'] as num? ?? 0) >= 40)
+          t['name'].toString(),
+    ].take(8).toList();
+
+    final characters = <AnilistCharacter>[
+      for (final e
+          in ((m['characters'] as Map?)?['edges'] as List?)?.whereType<Map>() ??
+              const <Map>[])
+        AnilistCharacter(
+          name:
+              ((e['node'] as Map?)?['name'] as Map?)?['full']?.toString() ?? '',
+          image: ((e['node'] as Map?)?['image'] as Map?)?['large']?.toString(),
+          voiceActor:
+              (((e['voiceActors'] as List?)?.firstOrNull as Map?)?['name']
+                      as Map?)?['full']
+                  ?.toString(),
+          voiceActorImage:
+              (((e['voiceActors'] as List?)?.firstOrNull as Map?)?['image']
+                      as Map?)?['large']
+                  ?.toString(),
+        ),
+    ];
+
+    final recs = <AnilistMedia>[
+      for (final n
+          in ((m['recommendations'] as Map?)?['nodes'] as List?)
+                  ?.whereType<Map>() ??
+              const <Map>[])
+        if (n['mediaRecommendation'] is Map)
+          AnilistMedia.fromJson(
+            (n['mediaRecommendation'] as Map).cast<String, dynamic>(),
+          ),
+    ];
+
+    final trailer = m['trailer'] as Map?;
+    return AnilistMediaDetail(
+      media: AnilistMedia.fromJson(m),
+      meanScore: m['meanScore'] as int?,
+      popularity: m['popularity'] as int?,
+      rankText: rankText,
+      studio: studio,
+      source: m['source']?.toString(),
+      durationMinutes: m['duration'] as int?,
+      countryOfOrigin: m['countryOfOrigin']?.toString(),
+      genres: [
+        for (final g in (m['genres'] as List?) ?? const []) g.toString(),
+      ],
+      tags: tags,
+      characters: characters,
+      recommendations: recs,
+      trailerYoutubeId: trailer != null && trailer['site'] == 'youtube'
+          ? trailer['id']?.toString()
+          : null,
+    );
+  }
+
   Future<List<AnilistRelation>> relations(int mediaId) async {
     if (mediaId <= 0) return const [];
     const gql = """
@@ -429,7 +551,8 @@ class AnilistApi {
     required DateTime to,
     bool includeAdult = false,
   }) async {
-    final gql = '''
+    final gql =
+        '''
       query (\$start: Int, \$end: Int, \$page: Int) {
         Page(page: \$page, perPage: 50) {
           pageInfo { hasNextPage }
@@ -465,8 +588,9 @@ class AnilistApi {
       final schedules = pageData['airingSchedules'];
       if (schedules is List) {
         for (final raw in schedules.whereType<Map>()) {
-          final airing =
-              AnilistScheduledAiring.fromJson(raw.cast<String, dynamic>());
+          final airing = AnilistScheduledAiring.fromJson(
+            raw.cast<String, dynamic>(),
+          );
           if (airing == null) continue;
           if (!includeAdult && airing.media.isAdult) continue;
           out.add(airing);
@@ -497,7 +621,11 @@ class AnilistApi {
         }
       }
     ''';
-    final data = await _run(query, variables: {'mediaId': mediaId}, token: token);
+    final data = await _run(
+      query,
+      variables: {'mediaId': mediaId},
+      token: token,
+    );
     final media = data['Media'];
     if (media is! Map) return null;
     final entry = media['mediaListEntry'];
@@ -547,11 +675,7 @@ class AnilistApi {
         }
       }
     ''';
-    final data = await _run(
-      mutation,
-      variables: {'id': entryId},
-      token: token,
-    );
+    final data = await _run(mutation, variables: {'id': entryId}, token: token);
     final result = data['DeleteMediaListEntry'];
     if (result is Map && result['deleted'] == false) {
       throw const AnilistException('AniList did not remove the entry');
@@ -588,11 +712,7 @@ class AnilistApi {
     ''';
     final data = await _run(
       mutation,
-      variables: {
-        'mediaId': mediaId,
-        'progress': ?progress,
-        'status': ?status,
-      },
+      variables: {'mediaId': mediaId, 'progress': ?progress, 'status': ?status},
       token: token,
     );
     final saved = data['SaveMediaListEntry'];
@@ -601,7 +721,8 @@ class AnilistApi {
     }
     return AnilistSaveResult(
       progress: (saved['progress'] as num?)?.toInt() ?? progress ?? 0,
-      status: saved['status'] as String? ?? status ?? AnilistStatus.current.value,
+      status:
+          saved['status'] as String? ?? status ?? AnilistStatus.current.value,
     );
   }
 }

@@ -1031,7 +1031,7 @@
     "added_to_my_list": "Ro'yxatimga qo'shildi",
     "removed_from_my_list": "Ro'yxatimdan olib tashlandi",
     "failed_resolve_pages": "Sahifalarni yuklab bo'lmadi",
-    "episodes_count": "{} epizod",
+    "episodes_count": "{} qism",
     "episodes_count_of": "{} / {} epizod",
     "episode_n": "{}-epizod",
     "no_films": "Filmlar topilmadi",
@@ -1096,7 +1096,8 @@
     "trailer_mute": "Ovozni o'chirish",
     "trailer_unmute": "Ovozni yoqish",
     "my_list": "Mening ro‘yxatim",
-    "save_action": "Saqlash"
+    "save_action": "Saqlash",
+    "next_episode_in": "{}-qism {} dan keyin"
   },
   "episodes": {
     "filter_hint": "Epizod raqami yoki nomi",
@@ -1869,6 +1870,7 @@
     "found_on": "{} da topildi",
     "change_source": "O‘zgartirish",
     "no_source": "Manbalaringizning birortasida bu nom yo‘q. Uni tarqatadigan manba qo‘shing yoki boshqalaridan qidiring.",
-    "no_resolver": "Katalog nomlarini bu yerda ochib bo‘lmaydi."
+    "no_resolver": "Katalog nomlarini bu yerda ochib bo‘lmaydi.",
+    "find_source": "Manba topish"
   }
 }

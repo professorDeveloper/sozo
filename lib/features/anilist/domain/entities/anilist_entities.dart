@@ -38,8 +38,10 @@ class AnilistAiring {
   final int episode;
   final int airingAt;
 
-  DateTime get airsAt =>
-      DateTime.fromMillisecondsSinceEpoch(airingAt * 1000, isUtc: true).toLocal();
+  DateTime get airsAt => DateTime.fromMillisecondsSinceEpoch(
+    airingAt * 1000,
+    isUtc: true,
+  ).toLocal();
 
   /// Time left, recomputed from the clock on every read.
   ///
@@ -79,8 +81,10 @@ class AnilistScheduledAiring {
   final int episode;
   final int airingAt;
 
-  DateTime get airsAt =>
-      DateTime.fromMillisecondsSinceEpoch(airingAt * 1000, isUtc: true).toLocal();
+  DateTime get airsAt => DateTime.fromMillisecondsSinceEpoch(
+    airingAt * 1000,
+    isUtc: true,
+  ).toLocal();
 
   bool get hasAired => airsAt.isBefore(DateTime.now());
 
@@ -157,8 +161,7 @@ class AnilistMedia {
   ///
   /// English first: source sites are indexed under the title people actually
   /// type, and a romaji-only search misses far more than it finds.
-  String get displayTitle =>
-      (englishTitle?.trim().isNotEmpty ?? false)
+  String get displayTitle => (englishTitle?.trim().isNotEmpty ?? false)
       ? englishTitle!
       : (romajiTitle?.trim().isNotEmpty ?? false)
       ? romajiTitle!
@@ -295,7 +298,6 @@ enum AnilistStatus {
   }
 }
 
-
 /// One title that AniList says is related to another, and how.
 ///
 /// The relation TYPE is the whole value here. "There is another Naruto" is
@@ -374,4 +376,62 @@ class AnilistRelation {
               as String?,
     );
   }
+}
+
+/// One character and who voices them, as AniList lists them on a title.
+class AnilistCharacter {
+  const AnilistCharacter({
+    required this.name,
+    required this.image,
+    this.voiceActor,
+    this.voiceActorImage,
+  });
+
+  final String name;
+  final String? image;
+  final String? voiceActor;
+  final String? voiceActorImage;
+}
+
+/// Everything AniList knows about one title that a detail page can use.
+///
+/// [AnilistMedia] is the card: enough to list and to search. This is the page:
+/// the score and where it ranks, who made it and from what, who is in it, what
+/// AniList thinks you would watch next, and when the next episode lands. One
+/// request per title, and only when the title is opened.
+class AnilistMediaDetail {
+  const AnilistMediaDetail({
+    required this.media,
+    this.meanScore,
+    this.popularity,
+    this.rankText,
+    this.studio,
+    this.source,
+    this.durationMinutes,
+    this.countryOfOrigin,
+    this.genres = const [],
+    this.tags = const [],
+    this.characters = const [],
+    this.recommendations = const [],
+    this.trailerYoutubeId,
+  });
+
+  final AnilistMedia media;
+  final int? meanScore;
+  final int? popularity;
+
+  /// "#2 most popular this season", already worded, or null when AniList
+  /// has no ranking for it.
+  final String? rankText;
+  final String? studio;
+
+  /// MANGA, LIGHT_NOVEL, ORIGINAL… what the anime was adapted from.
+  final String? source;
+  final int? durationMinutes;
+  final String? countryOfOrigin;
+  final List<String> genres;
+  final List<String> tags;
+  final List<AnilistCharacter> characters;
+  final List<AnilistMedia> recommendations;
+  final String? trailerYoutubeId;
 }

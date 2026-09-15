@@ -17,11 +17,26 @@ class CatalogueLink {
     required this.providerId,
     required this.providerName,
     required this.contentUrl,
+    this.catalogueId = '',
+    this.providerImage = '',
   });
 
   final String providerId;
   final String providerName;
   final String contentUrl;
+
+  /// Which catalogue the title came from — the page shows its mark next to
+  /// the source's, so the hand-off is visible: "TMDB › VidAPI".
+  final String catalogueId;
+  final String providerImage;
+
+  CatalogueLink withCatalogue(String id) => CatalogueLink(
+    providerId: providerId,
+    providerName: providerName,
+    contentUrl: contentUrl,
+    catalogueId: id,
+    providerImage: providerImage,
+  );
 
   String encode() =>
       jsonEncode({'p': providerId, 'n': providerName, 'u': contentUrl});
@@ -38,6 +53,7 @@ class CatalogueLink {
         providerId: p,
         providerName: m['n']?.toString() ?? p,
         contentUrl: u,
+        providerImage: m['i']?.toString() ?? '',
       );
     } catch (_) {
       return null;
@@ -126,10 +142,23 @@ class CatalogueResolver {
   CatalogueLink? remembered(String catalogueId, String contentUrl) =>
       CatalogueLink.decode(
         _hive.getCatalogueLink(_key(catalogueId, contentUrl)),
-      );
+      )?.withCatalogue(catalogueId);
 
   Future<void> forget(String catalogueId, String contentUrl) =>
       _hive.setCatalogueLink(_key(catalogueId, contentUrl), null);
+
+  /// How well a source's kind suits a catalogue's. Positive helps, negative
+  /// hurts, zero is "cannot tell" — an on-device plugin whose category is
+  /// its ecosystem's name says nothing about what it carries.
+  static double _fit(Catalogue? catalogue, ProviderEntity? p) {
+    if (catalogue == null || p == null) return 0;
+    final anime = p.category == 'anime' || p.id.startsWith('an:');
+    final film = p.category == 'movies' || p.category == 'tmdb';
+    return switch (catalogue) {
+      Catalogue.anilist => anime ? 0.15 : (film ? -0.2 : 0),
+      Catalogue.tmdb => film ? 0.15 : (anime ? -0.2 : 0),
+    };
+  }
 
   /// The source to open [hint] on, or null when nothing installed has it.
   Future<CatalogueLink?> resolve({
@@ -150,6 +179,8 @@ class CatalogueResolver {
         if (!p.browseOnly && p.id.contentMode == ContentMode.video) p,
     ];
     if (candidates.isEmpty) return null;
+    final byId = {for (final p in candidates) p.id: p};
+    final catalogue = Catalogue.fromId(catalogueId);
 
     AlternateSource? best;
     var bestScore = 0.0;
@@ -157,17 +188,42 @@ class CatalogueResolver {
     late final StreamSubscription<AlternateSource> sub;
     sub = _find(title: hint.title, candidates: candidates).listen(
       (found) {
-        // The year is the cheapest disambiguator there is: a remake and
-        // its original share a title and nothing else.
         var score = found.score;
-        if (hint.year != null && found.item.year == hint.year) {
-          score += 0.05;
-        }
+
+        // The kind of source has to fit the kind of catalogue. An AniList
+        // title is an anime; a film-and-series provider that happens to
+        // carry the live-action of the same name is a worse answer than an
+        // anime source that answers a little later, whatever the title
+        // similarity says. The first live run picked exactly that: VidAPI's
+        // 2023 ONE PIECE for AniList's 1999 one.
+        final fit = _fit(catalogue, byId[found.provider.id]);
+        score += fit;
+
+        // The year is the cheapest disambiguator there is, and decisive. A
+        // matching year lifts the score; a year known on both sides that
+        // differs pulls it down hard enough that a same-title, right-year
+        // answer beats it.
+        final sameYear = hint.year != null && found.item.year == hint.year;
+        final wrongYear =
+            hint.year != null &&
+            found.item.year != null &&
+            found.item.year != hint.year;
+        if (sameYear) score += 0.05;
+        if (wrongYear) score -= 0.25;
+
         if (score > bestScore) {
           bestScore = score;
           best = found;
         }
-        if (bestScore >= _confident && !done.isCompleted) done.complete();
+        // Stop early only on an answer nothing argues with: right kind of
+        // source, and the year not against it. A perfect title from the
+        // wrong kind of source is exactly the case worth waiting on.
+        if (bestScore >= _confident &&
+            fit >= 0 &&
+            !wrongYear &&
+            !done.isCompleted) {
+          done.complete();
+        }
       },
       onError: (Object _) {
         if (!done.isCompleted) done.complete();
@@ -188,6 +244,8 @@ class CatalogueResolver {
       providerId: pick.provider.id,
       providerName: pick.provider.name,
       contentUrl: pick.item.url,
+      catalogueId: catalogueId,
+      providerImage: pick.provider.image ?? '',
     );
     debugPrint(
       '$_tag "${hint.title}" → ${link.providerName} '

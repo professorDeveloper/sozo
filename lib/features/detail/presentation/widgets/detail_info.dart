@@ -1,3 +1,8 @@
+import 'package:soplay/features/detail/domain/entities/ani_info.dart';
+import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/content/catalogue_logo.dart';
+import 'package:soplay/features/profile/presentation/widgets/provider_quick_switch.dart'
+    show ProviderLogo;
 import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:soplay/core/extensions/provider_media_kind.dart';
@@ -23,6 +28,7 @@ class DetailContentHeader extends StatefulWidget {
     this.onDownload,
     this.via,
     this.onChangeSource,
+    this.onFindSource,
   });
 
   final DetailEntity detail;
@@ -34,6 +40,9 @@ class DetailContentHeader extends StatefulWidget {
   /// question — and the pick is a guess, however good.
   final CatalogueLink? via;
   final VoidCallback? onChangeSource;
+
+  /// For a catalogue title with no source yet: opens the search.
+  final VoidCallback? onFindSource;
 
   /// Queues the title for offline viewing, or opens the episode list when
   /// "which episodes" is a question only the user can answer.
@@ -75,6 +84,10 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _MetaLine(detail: widget.detail),
+          if (widget.detail.ani != null) ...[
+            const SizedBox(height: 8),
+            _AniFacts(ani: widget.detail.ani!),
+          ],
           if (widget.detail.genres.isNotEmpty) ...[
             const SizedBox(height: 10),
             _GenresRow(genres: widget.detail.genres),
@@ -91,39 +104,69 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
             ),
           ],
           const SizedBox(height: 18),
+          // Where this title came from and where it was found, ABOVE the
+          // button that will play it. Below, it read as a footnote to a
+          // decision already made; above, it is the decision, and the marks
+          // say who made it: "TMDB › VidAPI".
+          if (widget.via != null) ...[
+            _ViaRow(via: widget.via!, onChange: widget.onChangeSource),
+            const SizedBox(height: 12),
+          ],
           // Download and trailer sit BESIDE the primary button, resuming or
           // not. They used to be their own row underneath, because Continue
           // came as a block with its progress bar and caption attached — so
           // starting a title showed three controls on one line and coming back
           // to it showed one, with the other two stranded below the caption.
-          _ContinueWatchingCard(
-            item: item,
-            onTap: widget.onPrimaryAction,
-            reader: widget.detail.provider.opensReader,
-            playButtonKey: widget.playButtonKey,
-            trailing: [
-              // Offline used to be reachable only from inside the player:
-              // open the title, wait for a source to resolve, start playing,
-              // then find it in a menu. Four steps and a started stream to
-              // save something for the train.
-              if (widget.onDownload != null) ...[
-                const SizedBox(width: 10),
-                _SquareAction(
-                  icon: Icons.download_rounded,
-                  tooltip: 'detail.download_action'.tr(),
-                  onTap: widget.onDownload!,
+          if (Catalogue.isId(widget.detail.provider))
+            // A catalogue title nothing installed carries. Not a Play that
+            // fails; the honest button is the one that goes and looks.
+            SizedBox(
+              width: isDesktopPlatform ? 360 : double.infinity,
+              height: 46,
+              child: OutlinedButton.icon(
+                onPressed: widget.onFindSource,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(kButtonRadius),
+                  ),
                 ),
+                icon: const Icon(Icons.travel_explore_rounded, size: 22),
+                label: Text(
+                  'catalogue.find_source'.tr(),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            )
+          else
+            _ContinueWatchingCard(
+              item: item,
+              onTap: widget.onPrimaryAction,
+              reader: widget.detail.provider.opensReader,
+              playButtonKey: widget.playButtonKey,
+              trailing: [
+                // Offline used to be reachable only from inside the player:
+                // open the title, wait for a source to resolve, start playing,
+                // then find it in a menu. Four steps and a started stream to
+                // save something for the train.
+                if (widget.onDownload != null) ...[
+                  const SizedBox(width: 10),
+                  _SquareAction(
+                    icon: Icons.download_rounded,
+                    tooltip: 'detail.download_action'.tr(),
+                    onTap: widget.onDownload!,
+                  ),
+                ],
+                // Appears on its own once a trailer has been found, and takes
+                // no space at all when there is none — so a title without one
+                // never shows a button that cannot do anything.
+                TrailerAction(detail: widget.detail),
               ],
-              // Appears on its own once a trailer has been found, and takes
-              // no space at all when there is none — so a title without one
-              // never shows a button that cannot do anything.
-              TrailerAction(detail: widget.detail),
-            ],
-          ),
-          if (widget.via != null) ...[
-            const SizedBox(height: 8),
-            _FoundOn(via: widget.via!, onChange: widget.onChangeSource),
-          ],
+            ),
         ],
       ),
     );
@@ -608,50 +651,188 @@ class _PlayButton extends StatelessWidget {
   }
 }
 
-/// "Found on AnimeKAI · Change". The one line that keeps an automatic pick
-/// honest.
-class _FoundOn extends StatelessWidget {
-  const _FoundOn({required this.via, this.onChange});
+/// "TMDB › VidAPI · Change" — the hand-off, with both marks.
+///
+/// The catalogue's own logo and the source's own logo, so the line reads at
+/// a glance without a word being read: this came from there, and it plays
+/// from here. Change is the one control, because the pick is a guess.
+class _ViaRow extends StatelessWidget {
+  const _ViaRow({required this.via, this.onChange});
 
   final CatalogueLink via;
   final VoidCallback? onChange;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          Icons.travel_explore_rounded,
-          size: 14,
-          color: AppColors.textSecondary,
-        ),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            'catalogue.found_on'.tr(args: [via.providerName]),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
+    final catalogue = Catalogue.fromId(via.catalogueId);
+    return Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(10, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      child: Row(
+        children: [
+          if (catalogue != null) ...[
+            CatalogueLogo(catalogue: catalogue, size: 22),
+            const SizedBox(width: 7),
+            Text(
+              catalogue.labelKey.tr(),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ),
-        if (onChange != null) ...[
-          const SizedBox(width: 4),
-          TextButton(
-            onPressed: onChange,
-            style: TextButton.styleFrom(
-              minimumSize: const Size(0, 28),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 16,
+                color: AppColors.textHint,
+              ),
             ),
+          ],
+          ProviderLogo(image: via.providerImage, size: 22),
+          const SizedBox(width: 7),
+          Expanded(
             child: Text(
-              'catalogue.change_source'.tr(),
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              via.providerName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
+          if (onChange != null)
+            TextButton(
+              onPressed: onChange,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 30),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'catalogue.change_source'.tr(),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+/// What AniList knows and a source does not: the score and where it ranks,
+/// who made it and from what, how long it runs, and when the next episode
+/// lands. One line of small caps, wrapping when it must.
+class _AniFacts extends StatelessWidget {
+  const _AniFacts({required this.ani});
+
+  final AniInfo ani;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = <Widget>[];
+    if (ani.score != null) {
+      parts.add(
+        _Fact(
+          icon: Icons.star_rounded,
+          iconColor: AppColors.rating,
+          text: ani.score!.toStringAsFixed(1),
+          strong: true,
+        ),
+      );
+    }
+    if (ani.rankText != null) {
+      parts.add(_Fact(icon: Icons.leaderboard_rounded, text: ani.rankText!));
+    }
+    if (ani.studio != null) {
+      parts.add(_Fact(icon: Icons.movie_creation_outlined, text: ani.studio!));
+    }
+    if (ani.source != null) {
+      parts.add(
+        _Fact(
+          icon: Icons.auto_stories_outlined,
+          text: _sourceLabel(ani.source!),
+        ),
+      );
+    }
+    if (ani.episodes != null) {
+      parts.add(
+        _Fact(
+          icon: Icons.format_list_numbered_rounded,
+          text: 'detail.episodes_count'.tr(args: ['${ani.episodes}']),
+        ),
+      );
+    }
+    final next = ani.nextAiringAt;
+    if (next != null && ani.nextEpisode != null) {
+      parts.add(
+        _Fact(
+          icon: Icons.schedule_rounded,
+          iconColor: AppColors.primary,
+          text: 'detail.next_episode_in'.tr(
+            args: ['${ani.nextEpisode}', _untilText(next)],
+          ),
+          strong: true,
+        ),
+      );
+    }
+    if (parts.isEmpty) return const SizedBox.shrink();
+    return Wrap(spacing: 14, runSpacing: 6, children: parts);
+  }
+
+  static String _sourceLabel(String raw) {
+    final word = raw.toLowerCase().replaceAll('_', ' ');
+    return word.isEmpty ? raw : word[0].toUpperCase() + word.substring(1);
+  }
+
+  /// "3d 4h", "6h", "42m" — what fits in a line.
+  static String _untilText(DateTime at) {
+    final d = at.difference(DateTime.now());
+    if (d.isNegative) return '0m';
+    if (d.inDays >= 1) return '${d.inDays}d ${d.inHours % 24}h';
+    if (d.inHours >= 1) return '${d.inHours}h';
+    return '${d.inMinutes}m';
+  }
+}
+
+class _Fact extends StatelessWidget {
+  const _Fact({
+    required this.icon,
+    required this.text,
+    this.iconColor,
+    this.strong = false,
+  });
+
+  final IconData icon;
+  final String text;
+  final Color? iconColor;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: iconColor ?? AppColors.textSecondary),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(
+            color: strong ? AppColors.textPrimary : AppColors.textSecondary,
+            fontSize: 12.5,
+            fontWeight: strong ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
       ],
     );
   }

@@ -1,3 +1,4 @@
+import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -626,12 +627,17 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     return SliverList.separated(
       itemCount: rows.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (_, i) => _SourceTile(
-        key: rows[i].id == state.currentProviderId ? _currentRows[mode] : null,
-        source: rows[i],
-        current: rows[i].id == state.currentProviderId,
-        onTap: () => _use(rows[i]),
-        onBrowse: () => setState(() => _open = rows[i]),
+      itemBuilder: (_, i) => ItemAppear(
+        index: i,
+        child: _SourceTile(
+          key: rows[i].id == state.currentProviderId
+              ? _currentRows[mode]
+              : null,
+          source: rows[i],
+          current: rows[i].id == state.currentProviderId,
+          onTap: () => _use(rows[i]),
+          onBrowse: () => setState(() => _open = rows[i]),
+        ),
       ),
     );
   }

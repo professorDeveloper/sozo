@@ -1031,7 +1031,7 @@
     "added_to_my_list": "Zu Meine Liste hinzugefügt",
     "removed_from_my_list": "Aus Meine Liste entfernt",
     "failed_resolve_pages": "Seiten konnten nicht aufgelöst werden",
-    "episodes_count": "{} Folgen",
+    "episodes_count": "{} ep",
     "episodes_count_of": "{} von {} Folgen",
     "episode_n": "Folge {}",
     "no_films": "Keine Filme gefunden",
@@ -1096,7 +1096,8 @@
     "trailer_mute": "Trailer stummschalten",
     "trailer_unmute": "Trailer-Ton an",
     "my_list": "Meine Liste",
-    "save_action": "Speichern"
+    "save_action": "Speichern",
+    "next_episode_in": "Ep {} in {}"
   },
   "episodes": {
     "filter_hint": "Folgennummer oder Titel",
@@ -1869,6 +1870,7 @@
     "found_on": "Found on {}",
     "change_source": "Change",
     "no_source": "None of your sources has this title. Add a source that carries it, or search the others.",
-    "no_resolver": "Catalogue titles cannot be opened here."
+    "no_resolver": "Catalogue titles cannot be opened here.",
+    "find_source": "Find a source"
   }
 }

@@ -521,6 +521,13 @@ class _DetailViewState extends State<_DetailView>
   }
 
   void _onPrimaryAction() {
+    // A catalogue title with no source has nothing to play yet. The app bar
+    // pill reaches here too, so the redirect lives here rather than only on
+    // the body's button.
+    if (Catalogue.isId(widget.detail.provider)) {
+      _onFindOtherSources();
+      return;
+    }
     final state = context.read<EpisodesBloc>().state;
     if (state is EpisodesLoading) return;
     _pendingDownload = false;
@@ -536,6 +543,10 @@ class _DetailViewState extends State<_DetailView>
   bool _pendingDownload = false;
 
   void _onDownloadAction() {
+    if (Catalogue.isId(widget.detail.provider)) {
+      _onFindOtherSources();
+      return;
+    }
     final state = context.read<EpisodesBloc>().state;
     if (state is EpisodesLoading) return;
     _pendingDownload = true;
@@ -1262,6 +1273,7 @@ class _DetailViewState extends State<_DetailView>
                   playButtonKey: _bodyPlayKey,
                   via: widget.via,
                   onChangeSource: widget.via == null ? null : _changeSource,
+                  onFindSource: _onFindOtherSources,
                 ),
               ),
               // Sponsor/CMS banner (detail_top placement). Opt-in: self-collapses
