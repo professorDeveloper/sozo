@@ -290,6 +290,21 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
     for (final c in Catalogue.values) c: GlobalKey(),
   };
 
+  /// The mode whose segment was just tapped. The thumb slides onto it for
+  /// one beat before the sheet closes and the switch plays from there, so
+  /// the tap is answered on the sheet itself rather than by the sheet
+  /// vanishing.
+  ContentMode? _pendingMode;
+
+  Future<void> _pickMode(ContentMode m) async {
+    if (m == widget.mode || _pendingMode != null) return;
+    setState(() => _pendingMode = m);
+    await Future<void>.delayed(_ModeSegments.slide);
+    if (!mounted) return;
+    widget.onModeTap?.call(_rectOf(_chipKeys[m]));
+    Navigator.of(context).pop('$_kModePrefix${m.id}');
+  }
+
   /// Below this the filter is chrome over a list that already fits.
   static const int _filterThreshold = 8;
 
@@ -550,27 +565,11 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: _pinnedPad),
-          // Wraps rather than scrolls sideways: at 200% text three mode names
-          // do not fit one line, and a row that clips is worse than a row that
-          // takes two.
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final m in ContentMode.values)
-                _ModeChip(
-                  key: _chipKeys[m],
-                  label: m.labelKey.tr(),
-                  accent: m.accent,
-                  active: m == widget.mode,
-                  onTap: m == widget.mode
-                      ? null
-                      : () {
-                          widget.onModeTap?.call(_rectOf(_chipKeys[m]));
-                          Navigator.of(context).pop('$_kModePrefix${m.id}');
-                        },
-                ),
-            ],
+          _ModeSegments(
+            keys: _chipKeys,
+            active: widget.mode,
+            pending: _pendingMode,
+            onTap: _pickMode,
           ),
           // Catalogues before the sources. A catalogue is what to browse when
           // no single source is the point — AniList's or TMDB's view of what
@@ -579,41 +578,43 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
           // AniList's manga and light-novel shelves for the readers.
           if (Catalogue.forMode(widget.mode).isNotEmpty) ...[
             const SizedBox(height: _pinnedPad),
-            // Wraps like the mode chips above it: at 200% text the label and
-            // two pills do not fit one line on a narrow phone.
-            Wrap(
-              spacing: 6,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            Text(
+              'catalogue.section'.tr().toUpperCase(),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.1,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Two cards side by side where there are two; a lone card takes
+            // the width. At 200% text a card's two lines still fit, because
+            // the hint is the line that gives way.
+            Row(
               children: [
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 4),
-                  child: Text(
-                    'catalogue.section'.tr().toUpperCase(),
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.1,
+                for (final (i, c) in Catalogue.forMode(
+                  widget.mode,
+                ).indexed) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: _CatalogueCard(
+                      key: _catalogueKeys[c],
+                      catalogue: c,
+                      active: widget.currentProviderId == c.id,
+                      onTap: widget.currentProviderId == c.id
+                          ? null
+                          : () {
+                              widget.onModeTap?.call(
+                                _rectOf(_catalogueKeys[c]),
+                              );
+                              Navigator.of(
+                                context,
+                              ).pop('$_kCataloguePrefix${c.id}');
+                            },
                     ),
                   ),
-                ),
-                for (final c in Catalogue.forMode(widget.mode))
-                  _ModeChip(
-                    key: _catalogueKeys[c],
-                    label: c.labelKey.tr(),
-                    leading: CatalogueLogo(catalogue: c, size: 20),
-                    accent: c.accent,
-                    active: widget.currentProviderId == c.id,
-                    onTap: widget.currentProviderId == c.id
-                        ? null
-                        : () {
-                            widget.onModeTap?.call(_rectOf(_catalogueKeys[c]));
-                            Navigator.of(
-                              context,
-                            ).pop('$_kCataloguePrefix${c.id}');
-                          },
-                  ),
+                ],
               ],
             ),
           ],
@@ -682,59 +683,220 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
 /// The active one is not tappable: switching to the mode you are already in
 /// would replay the animation and reload the screen for no change, which reads
 /// as the app stuttering.
-class _ModeChip extends StatelessWidget {
-  const _ModeChip({
-    super.key,
-    required this.label,
+/// The three modes as one control: a track with a thumb that sits on the
+/// current mode and slides to the one tapped.
+///
+/// Three loose chips said "here are three buttons"; one track says "you are
+/// in one of three places". The glyph on each segment is the same one the
+/// switch animation draws, so the thing tapped and the thing that then
+/// fills the screen are recognisably the same.
+class _ModeSegments extends StatelessWidget {
+  const _ModeSegments({
+    required this.keys,
     required this.active,
-    required this.accent,
-    this.onTap,
-    this.leading,
+    required this.pending,
+    required this.onTap,
   });
 
-  final String label;
+  final Map<ContentMode, GlobalKey> keys;
+  final ContentMode active;
+  final ContentMode? pending;
+  final ValueChanged<ContentMode> onTap;
+
+  static const Duration slide = Duration(milliseconds: 220);
+  static const double _height = 54;
+
+  @override
+  Widget build(BuildContext context) {
+    final modes = ContentMode.values;
+    final shown = pending ?? active;
+    final accent = shown.accent;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final segment = constraints.maxWidth / modes.length;
+        return Container(
+          height: _height,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceVariant,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              AnimatedPositionedDirectional(
+                duration: slide,
+                curve: const Cubic(0.05, 0.7, 0.1, 1.0),
+                start: segment * modes.indexOf(shown),
+                top: 0,
+                bottom: 0,
+                width: segment,
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: AnimatedContainer(
+                    duration: slide,
+                    decoration: BoxDecoration(
+                      color: accent,
+                      borderRadius: BorderRadius.circular(11),
+                      boxShadow: [
+                        BoxShadow(
+                          color: accent.withValues(alpha: 0.45),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  for (final m in modes)
+                    Expanded(
+                      child: Semantics(
+                        button: true,
+                        selected: m == shown,
+                        child: InkWell(
+                          key: keys[m],
+                          onTap: () => onTap(m),
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ModeGlyph(
+                                  mode: m,
+                                  color: m == shown
+                                      ? Colors.white
+                                      : m.accent.withValues(alpha: 0.85),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 7),
+                                Flexible(
+                                  child: AnimatedDefaultTextStyle(
+                                    duration: slide,
+                                    style: TextStyle(
+                                      color: m == shown
+                                          ? Colors.white
+                                          : AppColors.textSecondary,
+                                      fontSize: 13.5,
+                                      fontWeight: m == shown
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
+                                    ),
+                                    child: Text(
+                                      m.labelKey.tr(),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A catalogue as a card: its mark, its name, one line on what it holds.
+///
+/// A chip with a name assumes the name means something; "TMDB" to somebody
+/// who has never used it is three letters. The hint is what makes it a
+/// choice — "Movies & series" against "Anime" — and the mark is what makes
+/// it the same thing as the row above Play on a title's page.
+class _CatalogueCard extends StatelessWidget {
+  const _CatalogueCard({
+    super.key,
+    required this.catalogue,
+    required this.active,
+    required this.onTap,
+  });
+
+  final Catalogue catalogue;
   final bool active;
-
-  /// A catalogue chip carries the catalogue's own mark — the same one the
-  /// detail page shows above Play — so the chip and the hand-off row read as
-  /// the same thing in two places.
-  final Widget? leading;
-
-  /// The mode's own colour, and the only place outside the switch animation
-  /// where it is used: the chip that starts the switch should be the colour
-  /// the switch will be.
-  final Color accent;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final accent = catalogue.accent;
     return Semantics(
       button: true,
       selected: active,
-      child: Material(
-        color: active ? accent : AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(10),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 48),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Center(
-              widthFactor: 1,
-              heightFactor: 1,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: active
+              ? accent.withValues(alpha: 0.16)
+              : AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: active ? accent : Colors.white.withValues(alpha: 0.05),
+            width: active ? 1.5 : 1,
+          ),
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.25),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : const [],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 10, 10),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (leading != null) ...[leading!, const SizedBox(width: 8)],
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: active ? Colors.white : AppColors.textSecondary,
-                      fontSize: 13,
-                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  CatalogueLogo(catalogue: catalogue, size: 30),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          catalogue.labelKey.tr(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: active
+                                ? AppColors.textPrimary
+                                : AppColors.textPrimary.withValues(alpha: 0.92),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          catalogue.hintKey.tr(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: active ? accent : AppColors.textSecondary,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  if (active) ...[
+                    const SizedBox(width: 6),
+                    Icon(Icons.check_circle_rounded, size: 18, color: accent),
+                  ],
                 ],
               ),
             ),

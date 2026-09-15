@@ -1898,6 +1898,10 @@
     "change_source": "O‘zgartirish",
     "no_source": "Manbalaringizning birortasida bu nom yo‘q. Uni tarqatadigan manba qo‘shing yoki boshqalaridan qidiring.",
     "no_resolver": "Katalog nomlarini bu yerda ochib bo‘lmaydi.",
-    "find_source": "Manba topish"
+    "find_source": "Manba topish",
+    "hint_anilist": "Anime katalogi",
+    "hint_tmdb": "Kino va seriallar",
+    "hint_anilist_manga": "Manga katalogi",
+    "hint_anilist_novel": "Ranobelar"
   }
 }

@@ -24,28 +24,41 @@ enum Catalogue {
   anilist(
     'cat:anilist',
     'catalogue.anilist',
+    'catalogue.hint_anilist',
     Color(0xFF3DB4F2),
     ContentMode.video,
   ),
-  tmdb('cat:tmdb', 'catalogue.tmdb', Color(0xFF01B4E4), ContentMode.video),
+  tmdb(
+    'cat:tmdb',
+    'catalogue.tmdb',
+    'catalogue.hint_tmdb',
+    Color(0xFF01B4E4),
+    ContentMode.video,
+  ),
   anilistManga(
     'cat:anilist-manga',
     'catalogue.anilist',
+    'catalogue.hint_anilist_manga',
     Color(0xFF3DB4F2),
     ContentMode.manga,
   ),
   anilistNovel(
     'cat:anilist-novel',
     'catalogue.anilist',
+    'catalogue.hint_anilist_novel',
     Color(0xFF3DB4F2),
     ContentMode.novel,
   );
 
-  const Catalogue(this.id, this.labelKey, this.accent, this.mode);
+  const Catalogue(this.id, this.labelKey, this.hintKey, this.accent, this.mode);
 
   /// Persisted as the current provider id. Never rename one.
   final String id;
   final String labelKey;
+
+  /// One line on what the catalogue holds — "Movies & series" — for the
+  /// card that offers it.
+  final String hintKey;
   final Color accent;
 
   /// Which mode's home this catalogue builds, and which kind of source a
