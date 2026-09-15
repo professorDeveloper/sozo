@@ -34,6 +34,16 @@ class SearchDataSource {
   /// [provider] overrides the interceptor's "current provider", which is what
   /// lets cross-search treat each selected server provider as its own leg
   /// instead of collapsing them into one.
+  /// The server's last provider health report: `{checkedAt, sources: {id:
+  /// {ok, failedAt, hint}}}`. Empty, not an error, before the first report.
+  Future<Map<String, dynamic>> providerHealth() async {
+    final response = await dio.get(
+      '/contents/providers/health',
+      options: Options(extra: const {'skipAuthInterceptor': true}),
+    );
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
   /// Search inside a catalogue rather than a source. Same shape back.
   Future<SearchModel> searchCatalogue(
     String kind,

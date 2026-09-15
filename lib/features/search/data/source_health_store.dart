@@ -36,10 +36,31 @@ enum SourceHealth {
 /// gets [brokenBudget] instead of the full one, which is enough for a source
 /// that has recovered to prove it, and not enough to hold up the batch.
 ///
+/// ## Two witnesses
+///
+/// This device is one. The server is the other: the provider harness runs
+/// against every server provider three times a week and the API keeps its
+/// verdicts, which [refreshRemote] pulls at most once every
+/// [remoteRefreshEvery]. A source the harness found dead starts at the back
+/// with the short budget before this device has ever tried it — the case the
+/// local record can never cover, because a mark is only made after a wait.
+///
+/// The device's own fresh observation wins over the server's. "It worked from
+/// here, ten minutes ago" is better evidence about the next ten minutes than
+/// a run from another network two days ago, and it is the only way a source
+/// that recovered gets its place back before the next scheduled run.
+///
 /// Every operation is best-effort. Search has to keep working when the box is
 /// unavailable, which is every widget test and the first run before Hive opens.
 class SourceHealthStore {
+  SourceHealthStore({this.remote});
+
+  /// The server's verdicts: `{checkedAt, sources: {id: {ok}}}`. Null where
+  /// there is no server to ask, which is every test.
+  final Future<Map<String, dynamic>> Function()? remote;
+
   static const String _key = 'search_source_health';
+  static const String _remoteKey = 'search_source_health_remote';
 
   /// Below this fraction of its budget, a source is simply fine.
   static const double slowFraction = 0.6;
@@ -54,6 +75,15 @@ class SourceHealthStore {
   /// networks change; a mark from last week would keep punishing a source that
   /// has been healthy for six days.
   static const Duration ttl = Duration(hours: 6);
+
+  /// How often the server is asked again. The report behind it is made three
+  /// times a week, so anything tighter is requests for the same answer.
+  static const Duration remoteRefreshEvery = Duration(hours: 6);
+
+  /// A server verdict older than this is forgotten. Runs are two or three
+  /// days apart; four covers one that was missed without letting a stalled
+  /// workflow keep sources at the back for good.
+  static const Duration remoteTtl = Duration(days: 4);
 
   Box? get _box {
     try {
@@ -71,19 +101,73 @@ class SourceHealthStore {
 
   /// The remembered health of one source, or [SourceHealth.ok] when there is
   /// nothing to remember.
-  SourceHealth statusOf(String id) {
+  SourceHealth statusOf(String id) => _local(id) ?? _remote(id);
+
+  /// This device's own fresh mark, or null when there is none.
+  SourceHealth? _local(String id) {
     final row = _load()[id];
-    if (row is! Map) return SourceHealth.ok;
+    if (row is! Map) return null;
     final at = row['at'];
     if (at is! int ||
         DateTime.now().millisecondsSinceEpoch - at > ttl.inMilliseconds) {
-      return SourceHealth.ok;
+      return null;
     }
     return switch (row['state']) {
       'slow' => SourceHealth.slow,
       'broken' => SourceHealth.broken,
       _ => SourceHealth.ok,
     };
+  }
+
+  /// What the server last said, or [SourceHealth.ok] when it said nothing
+  /// about this source or said it too long ago.
+  SourceHealth _remote(String id) {
+    final raw = _box?.get(_remoteKey);
+    if (raw is! Map) return SourceHealth.ok;
+    final checkedAt = raw['checkedAt'];
+    if (checkedAt is! int ||
+        DateTime.now().millisecondsSinceEpoch - checkedAt >
+            remoteTtl.inMilliseconds) {
+      return SourceHealth.ok;
+    }
+    final down = raw['down'];
+    return down is List && down.contains(id)
+        ? SourceHealth.broken
+        : SourceHealth.ok;
+  }
+
+  /// Pulls the server's verdicts if it has been [remoteRefreshEvery] since
+  /// the last pull. Never throws, never blocks a search: the run that
+  /// triggers it orders by what was known, and the next run knows more.
+  Future<void> refreshRemote() async {
+    final fetch = remote;
+    final box = _box;
+    if (fetch == null || box == null) return;
+    final raw = box.get(_remoteKey);
+    final fetchedAt = raw is Map ? raw['fetchedAt'] : null;
+    if (fetchedAt is int &&
+        DateTime.now().millisecondsSinceEpoch - fetchedAt <
+            remoteRefreshEvery.inMilliseconds) {
+      return;
+    }
+    try {
+      final report = await fetch();
+      final sources = report['sources'];
+      final checkedAt = DateTime.tryParse('${report['checkedAt']}');
+      await box.put(_remoteKey, {
+        'fetchedAt': DateTime.now().millisecondsSinceEpoch,
+        // The report's own date, not the fetch's: a fetch that brings back
+        // last month's report should not make it look fresh.
+        'checkedAt': checkedAt?.millisecondsSinceEpoch,
+        'down': [
+          if (sources is Map)
+            for (final e in sources.entries)
+              if (e.value is Map && e.value['ok'] == false) e.key.toString(),
+        ],
+      });
+    } catch (_) {
+      // Whatever the server said last time stands until it answers again.
+    }
   }
 
   /// Records one leg's outcome.
@@ -100,9 +184,9 @@ class SourceHealthStore {
     final state = !succeeded
         ? 'broken'
         : (budget.inMilliseconds > 0 &&
-                elapsed.inMilliseconds > budget.inMilliseconds * slowFraction)
-            ? 'slow'
-            : 'ok';
+              elapsed.inMilliseconds > budget.inMilliseconds * slowFraction)
+        ? 'slow'
+        : 'ok';
     final map = Map<String, dynamic>.of(_load());
     map[id] = {'state': state, 'at': DateTime.now().millisecondsSinceEpoch};
     try {
@@ -113,8 +197,8 @@ class SourceHealthStore {
   /// The budget one source gets on this run.
   Duration budgetFor(String id, Duration base) =>
       statusOf(id) == SourceHealth.broken && base > brokenBudget
-          ? brokenBudget
-          : base;
+      ? brokenBudget
+      : base;
 
   /// Reorders a source set healthiest-first, stably.
   ///
@@ -143,6 +227,7 @@ class SourceHealthStore {
   Future<void> clear() async {
     try {
       await _box?.delete(_key);
+      await _box?.delete(_remoteKey);
     } catch (_) {}
   }
 }

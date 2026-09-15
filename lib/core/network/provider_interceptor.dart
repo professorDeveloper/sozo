@@ -9,6 +9,7 @@ class ProviderInterceptor extends Interceptor {
   static const Set<String> _excludedContentsPaths = {
     '/contents/media',
     '/contents/providers',
+    '/contents/providers/health',
   };
 
   @override

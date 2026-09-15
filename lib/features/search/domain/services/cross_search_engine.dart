@@ -113,7 +113,10 @@ class CrossSearchEngine implements SearchFanOut {
   @override
   List<ProviderRef> planLegs(List<ProviderRef> set, {int limit = maxLegs}) {
     if (set.length <= limit) return set;
-    return health.order(List<ProviderRef>.of(set), (r) => r.id).take(limit).toList();
+    return health
+        .order(List<ProviderRef>.of(set), (r) => r.id)
+        .take(limit)
+        .toList();
   }
 
   @override
@@ -128,6 +131,8 @@ class CrossSearchEngine implements SearchFanOut {
     // dead source at the head of the queue occupies a worker for its full
     // budget while results that were ready in 400ms wait behind it.
     final tasks = health.order(List<ProviderRef>.of(set), (r) => r.id);
+    // For the next run, not this one — see [SourceHealthStore.refreshRemote].
+    unawaited(health.refreshRemote());
     final controller = StreamController<ProviderSearchResult>();
     var cancelled = false;
     controller.onCancel = () => cancelled = true;
@@ -176,11 +181,11 @@ class CrossSearchEngine implements SearchFanOut {
     final effective = health.budgetFor(ref.id, full);
     final started = DateTime.now();
     Future<void> mark(bool succeeded) => health.record(
-          ref.id,
-          succeeded: succeeded,
-          elapsed: DateTime.now().difference(started),
-          budget: effective,
-        );
+      ref.id,
+      succeeded: succeeded,
+      elapsed: DateTime.now().difference(started),
+      budget: effective,
+    );
     try {
       final leg = await _dispatch(ref, query, page).timeout(effective);
       unawaited(mark(true));

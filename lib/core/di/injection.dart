@@ -121,6 +121,7 @@ import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/search/data/datasources/search_data_source.dart';
 import 'package:soplay/features/search/data/title_suggestion_service.dart';
 import 'package:soplay/features/search/data/repositories/search_repository_imp.dart';
+import 'package:soplay/features/search/data/source_health_store.dart';
 import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
 import 'package:soplay/features/search/domain/repositories/search_repository.dart';
@@ -505,6 +506,9 @@ Future<void> configureDependencies() async {
       jsRuntime: getIt<JsRuntimeService>(),
       dataSource: getIt<SearchDataSource>(),
       mangayomi: getIt<MangayomiBridge>(),
+      health: SourceHealthStore(
+        remote: getIt<SearchDataSource>().providerHealth,
+      ),
     ),
   );
   getIt.registerSingleton<WebViewStreamExtractor>(WebViewStreamExtractor());
