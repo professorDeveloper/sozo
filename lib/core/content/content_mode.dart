@@ -2,6 +2,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/extensions/provider_media_kind.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
 import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
+import 'package:soplay/core/content/catalogue.dart';
 
 /// What kind of thing the app is showing right now.
 ///
@@ -63,6 +64,9 @@ extension ContentModeX on String {
   /// else that reads is manga, because the manga index dwarfs the novel one and
   /// an unlabelled reader is far more likely to be one.
   ContentMode get contentMode {
+    if (Catalogue.isId(this)) {
+      return Catalogue.fromId(this)?.mode ?? ContentMode.video;
+    }
     if (mediaKind == ProviderMediaKind.video) return ContentMode.video;
     if (startsWith('my:')) {
       final source = _source(this);

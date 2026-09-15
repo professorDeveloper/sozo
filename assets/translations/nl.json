@@ -1111,7 +1111,18 @@
     "about_seasons": "Seasons",
     "about_budget": "Budget",
     "about_box_office": "Box office",
-    "about_collection": "Collection"
+    "about_collection": "Collection",
+    "about_chapters": "Hoofdstukken",
+    "about_volumes": "Delen",
+    "tracking_score": "Score",
+    "tracking_progress": "Voortgang",
+    "tracking_status": "Status",
+    "tracking_remove": "Van lijst verwijderen",
+    "tracking_removed": "Verwijderd van {}",
+    "tracking_saved": "Opgeslagen op {}",
+    "tracking_not_scored": "Geen score",
+    "tracking_chapters_read": "Gelezen hoofdstukken",
+    "tracking_episodes_watched": "Bekeken afleveringen"
   },
   "episodes": {
     "filter_hint": "Afleveringsnummer of titel",

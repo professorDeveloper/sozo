@@ -1111,7 +1111,18 @@
     "about_seasons": "Seasons",
     "about_budget": "Budget",
     "about_box_office": "Box office",
-    "about_collection": "Collection"
+    "about_collection": "Collection",
+    "about_chapters": "Bölümler",
+    "about_volumes": "Ciltler",
+    "tracking_score": "Puan",
+    "tracking_progress": "İlerleme",
+    "tracking_status": "Durum",
+    "tracking_remove": "Listeden kaldır",
+    "tracking_removed": "{} listesinden kaldırıldı",
+    "tracking_saved": "{} listesine kaydedildi",
+    "tracking_not_scored": "Puanlanmadı",
+    "tracking_chapters_read": "Okunan bölümler",
+    "tracking_episodes_watched": "İzlenen bölümler"
   },
   "episodes": {
     "filter_hint": "Bölüm numarası veya adı",

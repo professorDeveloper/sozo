@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'package:soplay/core/content/content_mode.dart';
+
 /// A catalogue: a home screen with nothing to play.
 ///
 /// Home has always been built from whichever source is current, which means
@@ -14,16 +16,50 @@ import 'package:flutter/widgets.dart';
 /// reads "the current source" had to learn a second concept. What it must
 /// never be mistaken for is a source: it is not in the provider list, it has
 /// no episodes, and asking it for a stream is a bug.
+///
+/// One per mode where there is one worth having. AniList is three shelves —
+/// anime, manga, light novels — so Manga and Novels get a catalogue the way
+/// Watch does, and a mode whose every source is down still has a home.
 enum Catalogue {
-  anilist('cat:anilist', 'catalogue.anilist', Color(0xFF3DB4F2)),
-  tmdb('cat:tmdb', 'catalogue.tmdb', Color(0xFF01B4E4));
+  anilist(
+    'cat:anilist',
+    'catalogue.anilist',
+    Color(0xFF3DB4F2),
+    ContentMode.video,
+  ),
+  tmdb('cat:tmdb', 'catalogue.tmdb', Color(0xFF01B4E4), ContentMode.video),
+  anilistManga(
+    'cat:anilist-manga',
+    'catalogue.anilist',
+    Color(0xFF3DB4F2),
+    ContentMode.manga,
+  ),
+  anilistNovel(
+    'cat:anilist-novel',
+    'catalogue.anilist',
+    Color(0xFF3DB4F2),
+    ContentMode.novel,
+  );
 
-  const Catalogue(this.id, this.labelKey, this.accent);
+  const Catalogue(this.id, this.labelKey, this.accent, this.mode);
 
   /// Persisted as the current provider id. Never rename one.
   final String id;
   final String labelKey;
   final Color accent;
+
+  /// Which mode's home this catalogue builds, and which kind of source a
+  /// title from it is looked for on.
+  final ContentMode mode;
+
+  static List<Catalogue> forMode(ContentMode mode) => [
+    for (final c in values)
+      if (c.mode == mode) c,
+  ];
+
+  /// Whether AniList is behind it: the three AniList shelves share a logo, a
+  /// detail query and a tracker.
+  bool get isAnilist => this != tmdb;
 
   static const String prefix = 'cat:';
 

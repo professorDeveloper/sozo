@@ -14,7 +14,7 @@ class GenreModel extends GenreEntity {
     slug: json['slug'] as String? ?? '',
     url: json['url'] as String? ?? '',
     image: json['image'] as String? ?? '',
-    name: json['name'] as String? ?? '',
+    name: json['name'] as String? ?? json['label'] as String? ?? '',
   );
 
   Map<String, dynamic> toJson() => {

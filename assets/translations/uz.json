@@ -1111,7 +1111,18 @@
     "about_seasons": "Mavsumlar",
     "about_budget": "Byudjet",
     "about_box_office": "Kassa",
-    "about_collection": "Kolleksiya"
+    "about_collection": "Kolleksiya",
+    "about_chapters": "Boblar",
+    "about_volumes": "Jildlar",
+    "tracking_score": "Baho",
+    "tracking_progress": "Jarayon",
+    "tracking_status": "Holat",
+    "tracking_remove": "Ro‘yxatdan olib tashlash",
+    "tracking_removed": "{} dan olib tashlandi",
+    "tracking_saved": "{} ga saqlandi",
+    "tracking_not_scored": "Baholanmagan",
+    "tracking_chapters_read": "O‘qilgan boblar",
+    "tracking_episodes_watched": "Ko‘rilgan epizodlar"
   },
   "episodes": {
     "filter_hint": "Epizod raqami yoki nomi",

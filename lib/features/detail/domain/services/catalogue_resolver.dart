@@ -161,6 +161,8 @@ class CatalogueResolver {
     return switch (catalogue) {
       Catalogue.anilist => anime ? 0.15 : (film ? -0.2 : 0),
       Catalogue.tmdb => film ? 0.15 : (anime ? -0.2 : 0),
+      // The readers have no anime-versus-film split to weigh.
+      Catalogue.anilistManga || Catalogue.anilistNovel => 0,
     };
   }
 
@@ -173,18 +175,19 @@ class CatalogueResolver {
     final known = remembered(catalogueId, contentUrl);
     if (known != null) return known;
     if (hint == null || hint.title.trim().isEmpty) return null;
-    if (Catalogue.fromId(catalogueId) == null) return null;
+    final catalogue = Catalogue.fromId(catalogueId);
+    if (catalogue == null) return null;
 
-    // Every source that plays video and is not browse-only. Both catalogues
-    // are anime and film; a manga source cannot have the title, and a leg
-    // spent asking it is a leg not spent on one that might.
+    // Every source of the catalogue's own kind that is not browse-only: an
+    // anime title is looked for on video sources, a manga title on manga
+    // sources. A leg spent asking a reader for an anime is a leg not spent
+    // on a source that might have it.
     final candidates = [
       for (final p in await _providers())
-        if (!p.browseOnly && p.id.contentMode == ContentMode.video) p,
+        if (!p.browseOnly && p.id.contentMode == catalogue.mode) p,
     ];
     if (candidates.isEmpty) return null;
     final byId = {for (final p in candidates) p.id: p};
-    final catalogue = Catalogue.fromId(catalogueId);
 
     AlternateSource? best;
     var bestScore = 0.0;

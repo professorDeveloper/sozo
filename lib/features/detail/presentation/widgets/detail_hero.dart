@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -42,10 +44,12 @@ class DetailHeroBackground extends StatelessWidget {
         // Only the image travels; the gradients and the title stay with the
         // page. A gradient in flight is a dark rectangle sliding across the
         // screen, and a title in flight is text scaling from 9pt to 26pt.
-        PosterHero(
-          tag: heroTag,
-          url: thumbnail,
-          child: _ThumbnailImage(url: thumbnail),
+        _Bloom(
+          child: PosterHero(
+            tag: heroTag,
+            url: thumbnail,
+            child: _ThumbnailImage(url: thumbnail),
+          ),
         ),
         // Between the poster and the furniture: the gradients and the title
         // have to sit over the trailer exactly as they sit over the artwork,
@@ -55,10 +59,7 @@ class DetailHeroBackground extends StatelessWidget {
         // interpolated from a grid tile, and it has no business travelling —
         // what flies is the poster the viewer tapped.
         if (trailer != null)
-          HeroTrailerPreview(
-            query: trailer,
-            active: trailerActive,
-          ),
+          HeroTrailerPreview(query: trailer, active: trailerActive),
         // Everything else fades in WITH the route rather than being painted at
         // full strength from the first frame.
         //
@@ -70,67 +71,70 @@ class DetailHeroBackground extends StatelessWidget {
         // around it as it settles.
         _HeroOverlayFade(
           hasFlight: heroTag != null,
-          child: Stack(fit: StackFit.expand, children: [
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment(0, 0.4),
-              colors: [Color(0xCC000000), Color(0x00000000)],
-            ),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: SizedBox(
-            height: 220,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  // All three stops are the page background at falling
-                  // opacity — that is what makes the poster dissolve INTO the
-                  // page. The middle one used to be the literal #181818, which
-                  // left a grey band hanging in mid-air under AMOLED.
-                  colors: [
-                    AppColors.background,
-                    AppColors.background.withValues(alpha: 0.933),
-                    AppColors.background.withValues(alpha: 0.0),
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment(0, 0.4),
+                    colors: [Color(0xCC000000), Color(0x00000000)],
+                  ),
                 ),
               ),
-            ),
-          ),
-        ),
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 20,
-          child: Text(
-            title.trim(),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              height: 1.15,
-              letterSpacing: -0.3,
-              shadows: [
-                Shadow(
-                  color: Colors.black87,
-                  blurRadius: 20,
-                  offset: Offset(0, 2),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SizedBox(
+                  height: 220,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        // All three stops are the page background at falling
+                        // opacity — that is what makes the poster dissolve INTO the
+                        // page. The middle one used to be the literal #181818, which
+                        // left a grey band hanging in mid-air under AMOLED.
+                        colors: [
+                          AppColors.background,
+                          AppColors.background.withValues(alpha: 0.933),
+                          AppColors.background.withValues(alpha: 0.0),
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      ),
+                    ),
+                  ),
                 ),
-              ],
-            ),
+              ),
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 20,
+                child: Text(
+                  title.trim(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    height: 1.15,
+                    letterSpacing: -0.3,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black87,
+                        blurRadius: 20,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-          ]),
         ),
       ],
     );
@@ -265,3 +269,80 @@ class _HeroOverlayFadeState extends State<_HeroOverlayFade> {
   }
 }
 
+/// The artwork sharpens into place as the page arrives.
+///
+/// Along the incoming route's animation the image starts blurred and a little
+/// larger, and resolves to sharp at full size — a photograph pulling into
+/// focus, the same beat as the page rising under it. Nothing once the route
+/// has settled: the filter is only in the tree for the run, so a page being
+/// scrolled or revisited paints a plain image.
+class _Bloom extends StatefulWidget {
+  const _Bloom({required this.child});
+
+  final Widget child;
+
+  static const double _blur = 18;
+  static const double _grow = 0.10;
+
+  @override
+  State<_Bloom> createState() => _BloomState();
+}
+
+class _BloomState extends State<_Bloom> {
+  Animation<double>? _parent;
+  CurvedAnimation? _curve;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animation = ModalRoute.of(context)?.animation;
+    if (identical(animation, _parent)) return;
+    _curve?.dispose();
+    _parent = animation;
+    _curve = animation == null
+        ? null
+        : CurvedAnimation(
+            parent: animation,
+            curve: const Cubic(0.05, 0.7, 0.1, 1.0),
+          );
+  }
+
+  @override
+  void dispose() {
+    _curve?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final curve = _curve;
+    if (curve == null || MediaQuery.disableAnimationsOf(context)) {
+      return widget.child;
+    }
+    // The same tree before, during and after the run — only the numbers
+    // change. Swapping the filter out at the end would remount the image
+    // under it, and a poster that blinks as it lands undoes the landing.
+    return AnimatedBuilder(
+      animation: curve,
+      child: widget.child,
+      builder: (context, child) {
+        final t = curve.value;
+        final sigma = _Bloom._blur * (1 - t);
+        return ClipRect(
+          child: Transform.scale(
+            scale: 1 + _Bloom._grow * (1 - t),
+            child: ImageFiltered(
+              enabled: sigma > 0.1,
+              imageFilter: ImageFilter.blur(
+                sigmaX: sigma,
+                sigmaY: sigma,
+                tileMode: TileMode.clamp,
+              ),
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

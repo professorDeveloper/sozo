@@ -1111,7 +1111,18 @@
     "about_seasons": "Seasons",
     "about_budget": "Budget",
     "about_box_office": "Box office",
-    "about_collection": "Collection"
+    "about_collection": "Collection",
+    "about_chapters": "الفصول",
+    "about_volumes": "المجلدات",
+    "tracking_score": "التقييم",
+    "tracking_progress": "التقدم",
+    "tracking_status": "الحالة",
+    "tracking_remove": "إزالة من القائمة",
+    "tracking_removed": "تمت الإزالة من {}",
+    "tracking_saved": "تم الحفظ في {}",
+    "tracking_not_scored": "بدون تقييم",
+    "tracking_chapters_read": "الفصول المقروءة",
+    "tracking_episodes_watched": "الحلقات المشاهدة"
   },
   "episodes": {
     "filter_hint": "رقم الحلقة أو عنوانها",

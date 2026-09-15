@@ -111,6 +111,9 @@ class AnilistMedia {
     this.bannerImage,
     this.description,
     this.episodes,
+    this.chapters,
+    this.volumes,
+    this.type,
     this.averageScore,
     this.seasonYear,
     this.format,
@@ -121,6 +124,15 @@ class AnilistMedia {
   });
 
   final int id;
+
+  /// Chapters and volumes for a manga or light novel, null for an anime.
+  final int? chapters;
+  final int? volumes;
+
+  /// `ANIME` or `MANGA` — AniList's own split, where a light novel is MANGA.
+  final String? type;
+
+  bool get isManga => type == 'MANGA';
 
   /// The same show's id on MyAnimeList, when AniList knows one.
   ///
@@ -190,6 +202,9 @@ class AnilistMedia {
       bannerImage: json['bannerImage'] as String?,
       description: json['description'] as String?,
       episodes: (json['episodes'] as num?)?.toInt(),
+      chapters: (json['chapters'] as num?)?.toInt(),
+      volumes: (json['volumes'] as num?)?.toInt(),
+      type: json['type'] as String?,
       averageScore: (json['averageScore'] as num?)?.toInt(),
       seasonYear: (json['seasonYear'] as num?)?.toInt(),
       format: json['format'] as String?,

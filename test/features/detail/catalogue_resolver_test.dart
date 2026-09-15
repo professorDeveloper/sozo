@@ -237,6 +237,28 @@ void main() {
       expect(asked?.map((p) => p.id), ['an:anime', 'cs:cloud']);
     });
 
+    test('a manga title is asked of the readers, never the players', () async {
+      List<ProviderEntity>? asked;
+      final resolver = CatalogueResolver(
+        hive: _Hive(),
+        providers: () async => [
+          _provider('an:anime'),
+          _provider('mn:manga'),
+          _provider('cs:cloud'),
+        ],
+        finder: ({required title, required candidates}) {
+          asked = candidates;
+          return const Stream.empty();
+        },
+      );
+      await resolver.resolve(
+        catalogueId: 'cat:anilist-manga',
+        contentUrl: 'https://anilist.co/manga/30002',
+        hint: _movie('Berserk', category: 'manga'),
+      );
+      expect(asked?.map((p) => p.id), ['mn:manga']);
+    });
+
     test('a link survives a round trip through storage', () {
       const link = CatalogueLink(
         providerId: 'cs:Anikage',

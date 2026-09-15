@@ -44,6 +44,27 @@ class SearchDataSource {
     return Map<String, dynamic>.from(response.data as Map);
   }
 
+  /// A catalogue's genres, each with an image. Same shape as [getGenres].
+  Future<List<GenreModel>> getCatalogueGenres(String kind) async {
+    final response = await dio.get('/catalogue/$kind/genres');
+    return (response.data['items'] as List)
+        .map((e) => GenreModel.fromJson(e))
+        .toList();
+  }
+
+  /// A page of one of a catalogue's genres. Same shape as [getMoviesByGenre].
+  Future<SearchModel> getCatalogueGenre(
+    String kind,
+    String genre, {
+    int page = 1,
+  }) async {
+    final response = await dio.get(
+      '/catalogue/$kind/genre/$genre',
+      queryParameters: {'page': page},
+    );
+    return SearchModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
   /// Search inside a catalogue rather than a source. Same shape back.
   Future<SearchModel> searchCatalogue(
     String kind,

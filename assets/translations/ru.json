@@ -1111,7 +1111,18 @@
     "about_seasons": "Сезоны",
     "about_budget": "Бюджет",
     "about_box_office": "Сборы",
-    "about_collection": "Коллекция"
+    "about_collection": "Коллекция",
+    "about_chapters": "Главы",
+    "about_volumes": "Тома",
+    "tracking_score": "Оценка",
+    "tracking_progress": "Прогресс",
+    "tracking_status": "Статус",
+    "tracking_remove": "Убрать из списка",
+    "tracking_removed": "Убрано из {}",
+    "tracking_saved": "Сохранено в {}",
+    "tracking_not_scored": "Без оценки",
+    "tracking_chapters_read": "Прочитано глав",
+    "tracking_episodes_watched": "Просмотрено серий"
   },
   "episodes": {
     "filter_hint": "Номер или название серии",

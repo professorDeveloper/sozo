@@ -191,26 +191,61 @@ void main() {
       'contentId': '1',
       'contentUrl': '/tv/1',
       'title': 'T',
-      'genres': ['Drama'],
+      'genres': ['Animation'],
       'extra': {'about': {}},
     };
 
-    test('anime trackers stay off a live-action TMDB page', () {
+    test('the trackers are for AniList pages only', () {
       expect(TrackingRow.applies(detailFromTmdb(tmdb)), isFalse);
+      final anime = detailFromAnilist(
+        const AnilistMediaDetail(media: AnilistMedia(id: 1)),
+      );
+      expect(TrackingRow.applies(anime), isTrue);
+      expect(TrackingRow.malApplies(anime), isTrue);
     });
 
-    test('but stay on for animation, and for every AniList page', () {
-      final animated = Map<String, dynamic>.from(tmdb)
-        ..['genres'] = ['Animation'];
-      expect(TrackingRow.applies(detailFromTmdb(animated)), isTrue);
-      expect(
-        TrackingRow.applies(
-          detailFromAnilist(
-            const AnilistMediaDetail(media: AnilistMedia(id: 1)),
+    test('MyAnimeList stays off a manga page', () {
+      final manga = detailFromAnilist(
+        const AnilistMediaDetail(
+          media: AnilistMedia(id: 30002, type: 'MANGA', chapters: 380),
+        ),
+      );
+      expect(TrackingRow.applies(manga), isTrue);
+      expect(TrackingRow.malApplies(manga), isFalse);
+    });
+  });
+
+  group('a manga from AniList', () {
+    test('is a manga page: manga url, chapters, the manga shelf', () {
+      final d = detailFromAnilist(
+        const AnilistMediaDetail(
+          media: AnilistMedia(
+            id: 30002,
+            type: 'MANGA',
+            romajiTitle: 'Berserk',
+            chapters: 380,
+            volumes: 41,
+            format: 'MANGA',
           ),
         ),
-        isTrue,
       );
+      expect(d.provider, 'cat:anilist-manga');
+      expect(d.contentUrl, 'https://anilist.co/manga/30002');
+      expect(d.isSerial, isTrue);
+      expect(d.record!.isManga, isTrue);
+      final facts = {for (final f in d.record!.facts) f.labelKey: f.value};
+      expect(facts['detail.about_chapters'], '380');
+      expect(facts['detail.about_volumes'], '41');
+      expect(facts.containsKey('detail.about_episodes'), isFalse);
+    });
+
+    test('a light novel is the novel shelf', () {
+      final d = detailFromAnilist(
+        const AnilistMediaDetail(
+          media: AnilistMedia(id: 1, type: 'MANGA', format: 'NOVEL'),
+        ),
+      );
+      expect(d.provider, 'cat:anilist-novel');
     });
   });
 
@@ -218,6 +253,7 @@ void main() {
     test('prefers the card id, falls back to the url', () {
       expect(anilistIdFrom('https://anilist.co/anime/1', externalId: '7'), 7);
       expect(anilistIdFrom('https://anilist.co/anime/154587'), 154587);
+      expect(anilistIdFrom('https://anilist.co/manga/30002'), 30002);
       expect(anilistIdFrom('/tv/1399'), isNull);
     });
   });

@@ -1111,7 +1111,18 @@
     "about_seasons": "Seasons",
     "about_budget": "Budget",
     "about_box_office": "Box office",
-    "about_collection": "Collection"
+    "about_collection": "Collection",
+    "about_chapters": "Capítulos",
+    "about_volumes": "Volumes",
+    "tracking_score": "Nota",
+    "tracking_progress": "Progresso",
+    "tracking_status": "Estado",
+    "tracking_remove": "Remover da lista",
+    "tracking_removed": "Removido de {}",
+    "tracking_saved": "Guardado em {}",
+    "tracking_not_scored": "Sem nota",
+    "tracking_chapters_read": "Capítulos lidos",
+    "tracking_episodes_watched": "Episódios vistos"
   },
   "episodes": {
     "filter_hint": "Número ou título do episódio",

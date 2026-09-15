@@ -68,7 +68,10 @@ class AnilistApi {
   static const String _mediaFields = '''
     id
     idMal
+    type
     episodes
+    chapters
+    volumes
     averageScore
     seasonYear
     format
@@ -360,7 +363,7 @@ class AnilistApi {
     const gql =
         '''
       query (\$id: Int) {
-        Media(id: \$id, type: ANIME) {
+        Media(id: \$id) {
           $_mediaFields
           meanScore
           popularity
@@ -613,11 +616,14 @@ class AnilistApi {
     required String token,
     required int mediaId,
   }) async {
+    // No type: the id is enough, and a manga id under `type: ANIME` is a
+    // null Media — which read as "not on the list" for every manga title.
     const query = '''
       query (\$mediaId: Int) {
-        Media(id: \$mediaId, type: ANIME) {
+        Media(id: \$mediaId) {
           episodes
-          mediaListEntry { progress status }
+          chapters
+          mediaListEntry { id progress status score(format: POINT_10) }
         }
       }
     ''';
@@ -631,9 +637,14 @@ class AnilistApi {
     final entry = media['mediaListEntry'];
     return AnilistEntryState(
       onList: entry is Map,
+      entryId: entry is Map ? (entry['id'] as num?)?.toInt() : null,
       progress: entry is Map ? (entry['progress'] as num?)?.toInt() ?? 0 : 0,
       status: entry is Map ? entry['status'] as String? : null,
-      totalEpisodes: (media['episodes'] as num?)?.toInt(),
+      score: entry is Map ? (entry['score'] as num?)?.toInt() : null,
+      // Chapters for a manga: "progress" counts whichever the title has.
+      totalEpisodes:
+          (media['episodes'] as num?)?.toInt() ??
+          (media['chapters'] as num?)?.toInt(),
     );
   }
 
@@ -704,19 +715,28 @@ class AnilistApi {
     // AniList would take as "set it to nothing".
     int? progress,
     String? status,
+    // Out of 10, the way the page shows it; AniList converts to whatever
+    // scale the account uses.
+    int? score,
   }) async {
     const mutation = '''
-      mutation (\$mediaId: Int, \$progress: Int, \$status: MediaListStatus) {
-        SaveMediaListEntry(mediaId: \$mediaId, progress: \$progress, status: \$status) {
+      mutation (\$mediaId: Int, \$progress: Int, \$status: MediaListStatus, \$score: Float) {
+        SaveMediaListEntry(mediaId: \$mediaId, progress: \$progress, status: \$status, score: \$score) {
           id
           progress
           status
+          score(format: POINT_10)
         }
       }
     ''';
     final data = await _run(
       mutation,
-      variables: {'mediaId': mediaId, 'progress': ?progress, 'status': ?status},
+      variables: {
+        'mediaId': mediaId,
+        'progress': ?progress,
+        'status': ?status,
+        'score': ?score?.toDouble(),
+      },
       token: token,
     );
     final saved = data['SaveMediaListEntry'];
@@ -724,18 +744,27 @@ class AnilistApi {
       throw const AnilistException('AniList did not save the change');
     }
     return AnilistSaveResult(
+      entryId: (saved['id'] as num?)?.toInt(),
       progress: (saved['progress'] as num?)?.toInt() ?? progress ?? 0,
       status:
           saved['status'] as String? ?? status ?? AnilistStatus.current.value,
+      score: (saved['score'] as num?)?.toInt() ?? score,
     );
   }
 }
 
 /// What AniList actually stored after a write.
 class AnilistSaveResult {
-  const AnilistSaveResult({required this.progress, required this.status});
+  const AnilistSaveResult({
+    required this.progress,
+    required this.status,
+    this.entryId,
+    this.score,
+  });
   final int progress;
   final String status;
+  final int? entryId;
+  final int? score;
 }
 
 /// The viewer's current position on one title, as AniList holds it.
@@ -745,12 +774,22 @@ class AnilistEntryState {
     required this.progress,
     this.status,
     this.totalEpisodes,
+    this.entryId,
+    this.score,
   });
 
   final bool onList;
   final int progress;
   final String? status;
+
+  /// Episodes for an anime, chapters for a manga — whatever progress counts.
   final int? totalEpisodes;
+
+  /// The list row's own id, which is what a delete takes.
+  final int? entryId;
+
+  /// Out of 10. Null or 0 when unscored.
+  final int? score;
 }
 
 class AnilistException implements Exception {

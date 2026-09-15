@@ -1,6 +1,7 @@
 import 'package:soplay/features/detail/domain/entities/record_info.dart';
 import 'package:soplay/features/detail/presentation/widgets/tracking_row.dart';
 import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/content/catalogue_logo.dart';
 import 'package:soplay/features/profile/presentation/widgets/provider_quick_switch.dart'
     show ProviderLogo;
@@ -81,22 +82,30 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
     final item = _item;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      // Each block lands a beat after the one above it, top to bottom, so
+      // the page assembles under the poster rather than appearing whole.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _MetaLine(detail: widget.detail),
+          ItemAppear(index: 0, child: _MetaLine(detail: widget.detail)),
           if (widget.detail.genres.isNotEmpty) ...[
             const SizedBox(height: 10),
-            _GenresRow(genres: widget.detail.genres),
+            ItemAppear(
+              index: 1,
+              child: _GenresRow(genres: widget.detail.genres),
+            ),
           ],
           if (widget.detail.description.trim().isNotEmpty) ...[
             const SizedBox(height: 14),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: isDesktopPlatform ? 900 : double.infinity,
-              ),
-              child: _ExpandableDescription(
-                text: widget.detail.description.trim(),
+            ItemAppear(
+              index: 2,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isDesktopPlatform ? 900 : double.infinity,
+                ),
+                child: _ExpandableDescription(
+                  text: widget.detail.description.trim(),
+                ),
               ),
             ),
           ],
@@ -106,7 +115,10 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
           // decision already made; above, it is the decision, and the marks
           // say who made it: "TMDB › VidAPI".
           if (widget.via != null) ...[
-            _ViaRow(via: widget.via!, onChange: widget.onChangeSource),
+            ItemAppear(
+              index: 3,
+              child: _ViaRow(via: widget.via!, onChange: widget.onChangeSource),
+            ),
             const SizedBox(height: 12),
           ],
           // Download and trailer sit BESIDE the primary button, resuming or
@@ -115,62 +127,73 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
           // starting a title showed three controls on one line and coming back
           // to it showed one, with the other two stranded below the caption.
           if (widget.detail.record?.nextAiringAt != null) ...[
-            _NextEpisode(record: widget.detail.record!),
+            ItemAppear(
+              index: 4,
+              child: _NextEpisode(record: widget.detail.record!),
+            ),
             const SizedBox(height: 12),
           ],
           if (Catalogue.isId(widget.detail.provider))
             // A catalogue title nothing installed carries. Not a Play that
             // fails; the honest button is the one that goes and looks.
-            SizedBox(
-              width: isDesktopPlatform ? 360 : double.infinity,
-              height: 46,
-              child: OutlinedButton.icon(
-                onPressed: widget.onFindSource,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(kButtonRadius),
+            ItemAppear(
+              index: 5,
+              child: SizedBox(
+                width: isDesktopPlatform ? 360 : double.infinity,
+                height: 46,
+                child: OutlinedButton.icon(
+                  onPressed: widget.onFindSource,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.35),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(kButtonRadius),
+                    ),
                   ),
-                ),
-                icon: const Icon(Icons.travel_explore_rounded, size: 22),
-                label: Text(
-                  'catalogue.find_source'.tr(),
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                  icon: const Icon(Icons.travel_explore_rounded, size: 22),
+                  label: Text(
+                    'catalogue.find_source'.tr(),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ),
             )
           else
-            _ContinueWatchingCard(
-              item: item,
-              onTap: widget.onPrimaryAction,
-              reader: widget.detail.provider.opensReader,
-              playButtonKey: widget.playButtonKey,
-              trailing: [
-                // Offline used to be reachable only from inside the player:
-                // open the title, wait for a source to resolve, start playing,
-                // then find it in a menu. Four steps and a started stream to
-                // save something for the train.
-                if (widget.onDownload != null) ...[
-                  const SizedBox(width: 10),
-                  _SquareAction(
-                    icon: Icons.download_rounded,
-                    tooltip: 'detail.download_action'.tr(),
-                    onTap: widget.onDownload!,
-                  ),
+            ItemAppear(
+              index: 5,
+              child: _ContinueWatchingCard(
+                item: item,
+                onTap: widget.onPrimaryAction,
+                reader: widget.detail.provider.opensReader,
+                playButtonKey: widget.playButtonKey,
+                trailing: [
+                  // Offline used to be reachable only from inside the player:
+                  // open the title, wait for a source to resolve, start playing,
+                  // then find it in a menu. Four steps and a started stream to
+                  // save something for the train.
+                  if (widget.onDownload != null) ...[
+                    const SizedBox(width: 10),
+                    _SquareAction(
+                      icon: Icons.download_rounded,
+                      tooltip: 'detail.download_action'.tr(),
+                      onTap: widget.onDownload!,
+                    ),
+                  ],
+                  // Appears on its own once a trailer has been found, and takes
+                  // no space at all when there is none — so a title without one
+                  // never shows a button that cannot do anything.
+                  TrailerAction(detail: widget.detail),
                 ],
-                // Appears on its own once a trailer has been found, and takes
-                // no space at all when there is none — so a title without one
-                // never shows a button that cannot do anything.
-                TrailerAction(detail: widget.detail),
-              ],
+              ),
             ),
           // Brings its own gap, so a page with nothing to track has no
           // blank band under the buttons.
-          TrackingRow(detail: widget.detail),
+          ItemAppear(index: 6, child: TrackingRow(detail: widget.detail)),
         ],
       ),
     );

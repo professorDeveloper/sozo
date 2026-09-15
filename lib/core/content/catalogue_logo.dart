@@ -16,7 +16,6 @@ class CatalogueLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => switch (catalogue) {
-    Catalogue.anilist => AnilistLogo(size: size, radius: size * 0.22),
     Catalogue.tmdb => ClipRRect(
       borderRadius: BorderRadius.circular(size * 0.22),
       child: SvgPicture.asset(
@@ -25,5 +24,6 @@ class CatalogueLogo extends StatelessWidget {
         height: size,
       ),
     ),
+    _ => AnilistLogo(size: size, radius: size * 0.22),
   };
 }

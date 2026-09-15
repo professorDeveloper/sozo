@@ -1111,7 +1111,18 @@
     "about_seasons": "Seasons",
     "about_budget": "Budget",
     "about_box_office": "Box office",
-    "about_collection": "Collection"
+    "about_collection": "Collection",
+    "about_chapters": "Bab",
+    "about_volumes": "Volume",
+    "tracking_score": "Skor",
+    "tracking_progress": "Progres",
+    "tracking_status": "Status",
+    "tracking_remove": "Hapus dari daftar",
+    "tracking_removed": "Dihapus dari {}",
+    "tracking_saved": "Disimpan ke {}",
+    "tracking_not_scored": "Belum dinilai",
+    "tracking_chapters_read": "Bab dibaca",
+    "tracking_episodes_watched": "Episode ditonton"
   },
   "episodes": {
     "filter_hint": "Nomor atau judul episode",

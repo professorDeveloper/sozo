@@ -6,6 +6,7 @@ import 'package:soplay/features/profile/presentation/pages/discord_web_login_pag
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/widgets/bloom_page_transition.dart';
 import 'package:soplay/features/link_tv/presentation/pages/link_tv_page.dart';
 import 'package:soplay/features/app_lock/presentation/pages/app_lock_settings_page.dart';
 import 'package:soplay/features/app_lock/presentation/pages/pin_setup_page.dart';
@@ -138,18 +139,21 @@ class AppRouter {
                   );
                 }();
 
-          // MaterialPage, plainly.
-          //
-          // This used to swap in a fade whenever `heroTag` was set, to keep the
-          // platform's page transition from fighting a poster flying in the
-          // navigator's overlay. There is no flight to protect any more —
-          // PosterHero.flightEnabled has been false app-wide since the glide
-          // turned out to arrive as a stall and a jump — so all this did was
-          // give the detail page a different, flatter transition than every
-          // other route, depending on which card was tapped.
-          return MaterialPage<void>(
+          // The page blooms in rather than sliding: no poster flies any more
+          // (PosterHero.flightEnabled has been false since the glide arrived
+          // as a stall and a jump), so the arrival is the whole page rising
+          // and sharpening — see BloomPageTransition and the header's bloom.
+          return CustomTransitionPage<void>(
             key: state.pageKey,
             child: DetailPage(args: args),
+            transitionDuration: BloomPageTransition.duration,
+            reverseTransitionDuration: BloomPageTransition.reverseDuration,
+            transitionsBuilder: (context, animation, secondary, child) =>
+                BloomPageTransition(
+                  animation: animation,
+                  secondaryAnimation: secondary,
+                  child: child,
+                ),
           );
         },
       ),
@@ -276,10 +280,7 @@ class AppRouter {
         path: '/appearance',
         builder: (context, state) => const AppearancePage(),
       ),
-      GoRoute(
-        path: '/navbar',
-        builder: (context, state) => const NavbarPage(),
-      ),
+      GoRoute(path: '/navbar', builder: (context, state) => const NavbarPage()),
       GoRoute(
         path: '/player-settings',
         builder: (context, state) => const PlayerSettingsPage(),
@@ -292,7 +293,7 @@ class AppRouter {
         path: '/discord/login',
         builder: (context, state) => const DiscordWebLoginPage(),
       ),
-            GoRoute(
+      GoRoute(
         path: '/providers',
         builder: (context, state) => const ProvidersPage(),
       ),
@@ -308,10 +309,7 @@ class AppRouter {
         path: '/activity',
         builder: (context, state) => const ActivityPage(),
       ),
-      GoRoute(
-        path: '/backup',
-        builder: (context, state) => const BackupPage(),
-      ),
+      GoRoute(path: '/backup', builder: (context, state) => const BackupPage()),
       GoRoute(
         path: '/sources',
         builder: (context, state) => const SourcesHubPage(),
@@ -320,18 +318,12 @@ class AppRouter {
         path: '/profile/connections',
         builder: (context, state) => const ProfileConnectionsPage(),
       ),
-      GoRoute(
-        path: '/about',
-        builder: (context, state) => const AboutPage(),
-      ),
+      GoRoute(path: '/about', builder: (context, state) => const AboutPage()),
       GoRoute(
         path: '/notifications',
         builder: (context, state) => const NotificationsPage(),
       ),
-      GoRoute(
-        path: '/streak',
-        builder: (context, state) => const StreakPage(),
-      ),
+      GoRoute(path: '/streak', builder: (context, state) => const StreakPage()),
       GoRoute(
         path: '/watch-party',
         builder: (context, state) {

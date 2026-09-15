@@ -93,7 +93,8 @@ Future<void> _switchMode(
     for (final p in state.providers)
       if (state.isUsable(p) && p.id.contentMode == mode) p,
   ];
-  if (candidates.isEmpty) {
+  final catalogues = Catalogue.forMode(mode);
+  if (candidates.isEmpty && catalogues.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('mode.none_installed'.tr(args: [mode.labelKey.tr()])),
@@ -101,11 +102,23 @@ Future<void> _switchMode(
     );
     return;
   }
+  // Somebody browsing a catalogue stays on a catalogue across modes: they
+  // chose the wide view over one site, and the new mode has the same. With
+  // no source installed for the mode the catalogue is the landing anyway —
+  // an empty mode used to be a dead end, and now it is AniList's shelf.
   final favIds = hive.getFavoriteProviders().toSet();
-  final pick = candidates.firstWhere(
-    (p) => favIds.contains(p.id),
-    orElse: () => candidates.first,
-  );
+  final String pickId;
+  if ((Catalogue.isId(state.currentProviderId) || candidates.isEmpty) &&
+      catalogues.isNotEmpty) {
+    pickId = catalogues.first.id;
+  } else {
+    pickId = candidates
+        .firstWhere(
+          (p) => favIds.contains(p.id),
+          orElse: () => candidates.first,
+        )
+        .id;
+  }
 
   await hive.setContentMode(mode.id);
   if (!context.mounted) return;
@@ -117,7 +130,7 @@ Future<void> _switchMode(
   // Only when the provider actually changes: MainPage reloads Home off the
   // provider id moving, so an unchanged id means no reload to wait for and
   // this would be a future that never completes.
-  final Future<void>? loaded = pick.id == state.currentProviderId
+  final Future<void>? loaded = pickId == state.currentProviderId
       ? null
       : context
             .read<HomeBloc>()
@@ -127,7 +140,9 @@ Future<void> _switchMode(
 
   // Selected BEFORE the animation, so the reload runs underneath the cover
   // rather than starting when it lifts onto an empty screen.
-  bloc.add(ProviderSelect(pick.id));
+  bloc.add(ProviderSelect(pickId));
+  // The mode's own glyph even when the landing is a catalogue: the viewer
+  // changed MODE, and that is what the cover should say.
   await ModeSwitchOverlay.play(context, mode, until: loaded, origin: origin);
 }
 
@@ -198,7 +213,7 @@ Future<void> _openSwitcher(
     bloc.add(ProviderSelect(id));
     await ModeSwitchOverlay.play(
       context,
-      ContentMode.video,
+      catalogue.mode,
       catalogue: catalogue,
       until: loaded,
       origin: tapped,
@@ -560,9 +575,9 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
           // Catalogues before the sources. A catalogue is what to browse when
           // no single source is the point — AniList's or TMDB's view of what
           // exists, with the app finding a source for whatever you open.
-          // Video only: the two catalogues here are anime and film, and a
-          // manga catalogue would be a promise the tap cannot keep yet.
-          if (widget.mode == ContentMode.video) ...[
+          // Each mode has its own: AniList's anime shelf and TMDB for Watch,
+          // AniList's manga and light-novel shelves for the readers.
+          if (Catalogue.forMode(widget.mode).isNotEmpty) ...[
             const SizedBox(height: _pinnedPad),
             // Wraps like the mode chips above it: at 200% text the label and
             // two pills do not fit one line on a narrow phone.
@@ -583,7 +598,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                     ),
                   ),
                 ),
-                for (final c in Catalogue.values)
+                for (final c in Catalogue.forMode(widget.mode))
                   _ModeChip(
                     key: _catalogueKeys[c],
                     label: c.labelKey.tr(),

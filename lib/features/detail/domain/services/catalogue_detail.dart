@@ -1,4 +1,5 @@
 import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/detail/data/models/detail_model.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
 import 'package:soplay/features/detail/domain/entities/record_info.dart';
@@ -17,11 +18,17 @@ import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 DetailEntity detailFromAnilist(AnilistMediaDetail d, {CatalogueLink? via}) {
   final m = d.media;
   final title = m.englishTitle ?? m.romajiTitle ?? m.nativeTitle ?? '';
+  // Which shelf the page belongs to: a manga id is a manga page whichever
+  // catalogue it was opened from, and a light novel is the novel shelf.
+  final catalogue = !m.isManga
+      ? Catalogue.anilist
+      : (m.format == 'NOVEL' ? Catalogue.anilistNovel : Catalogue.anilistManga);
+  final path = m.isManga ? 'manga' : 'anime';
   return DetailEntity(
-    provider: via?.providerId ?? Catalogue.anilist.id,
+    provider: via?.providerId ?? catalogue.id,
     contentId: '${m.id}',
     contentUrl:
-        via?.contentUrl ?? (m.siteUrl ?? 'https://anilist.co/anime/${m.id}'),
+        via?.contentUrl ?? (m.siteUrl ?? 'https://anilist.co/$path/${m.id}'),
     title: title,
     description: _plain(m.description ?? ''),
     thumbnail: m.coverImage,
@@ -44,7 +51,7 @@ DetailEntity detailFromAnilist(AnilistMediaDetail d, {CatalogueLink? via}) {
     ],
     likes: 0,
     dislikes: 0,
-    isSerial: m.format != 'MOVIE',
+    isSerial: m.isManga || m.format != 'MOVIE',
     isFavorited: null,
     screenshots: const [],
     // AniList's recommendations, as catalogue cards: opening one resolves a
@@ -52,23 +59,24 @@ DetailEntity detailFromAnilist(AnilistMediaDetail d, {CatalogueLink? via}) {
     related: [
       for (final r in d.recommendations)
         RelatedEntity(
-          provider: Catalogue.anilist.id,
+          provider: catalogue.id,
           externalId: '${r.id}',
           title: r.englishTitle ?? r.romajiTitle ?? r.nativeTitle ?? '',
           description: '',
           slug: '${r.id}',
-          contentUrl: r.siteUrl ?? 'https://anilist.co/anime/${r.id}',
+          contentUrl: r.siteUrl ?? 'https://anilist.co/$path/${r.id}',
           thumbnail: r.coverImage,
           year: r.seasonYear,
           rating: r.averageScore != null ? (r.averageScore! / 10).round() : 0,
           qualities: const [],
-          category: 'anime',
+          category: catalogue.mode == ContentMode.video ? 'anime' : 'manga',
         ),
     ],
     trailerYoutubeId: d.trailerYoutubeId,
     record: RecordInfo(
       anilistId: m.id,
       malId: m.idMal,
+      isManga: m.isManga,
       score: d.meanScore != null ? d.meanScore! / 10 : null,
       nextEpisode: m.nextAiring?.episode,
       nextAiringAt: m.nextAiring?.airsAt,
@@ -79,6 +87,10 @@ DetailEntity detailFromAnilist(AnilistMediaDetail d, {CatalogueLink? via}) {
           RecordFact('detail.about_source', _word(d.source!)),
         if (m.episodes != null)
           RecordFact('detail.about_episodes', '${m.episodes}'),
+        if (m.chapters != null)
+          RecordFact('detail.about_chapters', '${m.chapters}'),
+        if (m.volumes != null)
+          RecordFact('detail.about_volumes', '${m.volumes}'),
         if (d.rankText != null) RecordFact('detail.about_rank', d.rankText!),
         if (m.status != null)
           RecordFact('detail.about_status', _word(m.status!)),
@@ -93,7 +105,7 @@ DetailEntity detailFromAnilist(AnilistMediaDetail d, {CatalogueLink? via}) {
 int? anilistIdFrom(String contentUrl, {String? externalId}) {
   final fromId = int.tryParse(externalId ?? '');
   if (fromId != null) return fromId;
-  final m = RegExp(r'anilist\.co/anime/(\d+)').firstMatch(contentUrl);
+  final m = RegExp(r'anilist\.co/(?:anime|manga)/(\d+)').firstMatch(contentUrl);
   return m == null ? null : int.tryParse(m.group(1)!);
 }
 

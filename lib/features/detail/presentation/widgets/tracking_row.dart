@@ -29,20 +29,22 @@ import 'package:soplay/features/mal/presentation/widgets/mal_link_sheet.dart';
 /// Shown only for a tracker that is connected. A title the tracker does not
 /// know yet (no link) offers to link it, through the same sheet as before.
 ///
-/// Not shown on a TMDB page unless the title is animation: both trackers are
-/// anime lists, and "Track on AniList" under a live-action series is a row
-/// that can only ever fail.
+/// Only on a page built from AniList's catalogue. That is where the ids the
+/// trackers key on are certain, and where the viewer is browsing the wide
+/// view a list belongs to; a provider page or a TMDB series has neither, and
+/// "Track on AniList" under one was a row that could only ever fail.
+///
+/// MyAnimeList only for anime: the MAL client here writes to the anime list,
+/// and a manga's chapters sent there would land on nothing.
 class TrackingRow extends StatefulWidget {
   const TrackingRow({super.key, required this.detail});
 
   final DetailEntity detail;
 
-  static bool applies(DetailEntity detail) {
-    final record = detail.record;
-    if (record == null || record.tmdbId == null) return true;
-    if (record.anilistId != null || record.malId != null) return true;
-    return detail.genres.any((g) => g.toLowerCase().contains('animation'));
-  }
+  static bool applies(DetailEntity detail) => detail.record?.anilistId != null;
+
+  static bool malApplies(DetailEntity detail) =>
+      applies(detail) && detail.record?.isManga != true;
 
   @override
   State<TrackingRow> createState() => _TrackingRowState();
@@ -63,7 +65,7 @@ class _TrackingRowState extends State<TrackingRow> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (anilist.isConnected) _AnilistLine(detail: widget.detail),
-          if (mal.isConnected) ...[
+          if (mal.isConnected && TrackingRow.malApplies(widget.detail)) ...[
             if (anilist.isConnected) const SizedBox(height: 8),
             _MalLine(detail: widget.detail),
           ],

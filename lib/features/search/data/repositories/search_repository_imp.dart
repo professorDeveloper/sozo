@@ -35,6 +35,14 @@ class SearchRepositoryImp extends SearchRepository {
   @override
   Future<Result<List<GenreModel>>> getGenres() async {
     final provider = _currentProvider;
+    final catalogue = Catalogue.fromId(provider);
+    if (catalogue != null) {
+      try {
+        return Success(await dataSource.getCatalogueGenres(catalogue.kind));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (provider != null &&
         (provider.startsWith('cs:') ||
             provider.startsWith('an:') ||
@@ -56,7 +64,14 @@ class SearchRepositoryImp extends SearchRepository {
     int page = 1,
   }) async {
     try {
-      final result = await dataSource.getMoviesByGenre(genre, page: page);
+      final catalogue = Catalogue.fromId(_currentProvider);
+      final result = catalogue != null
+          ? await dataSource.getCatalogueGenre(
+              catalogue.kind,
+              genre,
+              page: page,
+            )
+          : await dataSource.getMoviesByGenre(genre, page: page);
       return Success(result);
     } catch (e) {
       return Failure(Exception(e.toString()));

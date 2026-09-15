@@ -18,6 +18,7 @@ class RecordInfo {
     this.score,
     this.nextEpisode,
     this.nextAiringAt,
+    this.isManga = false,
     this.facts = const [],
     this.tags = const [],
   });
@@ -25,6 +26,10 @@ class RecordInfo {
   final int? anilistId;
   final int? malId;
   final int? tmdbId;
+
+  /// A manga or light novel: progress is chapters, and the anime-only
+  /// tracker stays off the page.
+  final bool isManga;
 
   /// Out of 10, one decimal.
   final double? score;
