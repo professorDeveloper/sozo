@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/content/content_mode_style.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -54,9 +55,15 @@ class ModeSwitchOverlay extends StatefulWidget {
     required this.mode,
     this.release,
     this.origin,
+    this.catalogue,
   });
 
   final ContentMode mode;
+
+  /// Set when the switch is to a catalogue rather than to a mode. Same beat,
+  /// the catalogue's colour and sign: it replaces the whole home just as a
+  /// mode does, and a change that big with no transition looks like a hang.
+  final Catalogue? catalogue;
 
   /// Where on screen the switch was asked for, in global coordinates — the
   /// chip that was pressed. Null opens from the middle, which is what a switch
@@ -93,13 +100,18 @@ class ModeSwitchOverlay extends StatefulWidget {
     ContentMode mode, {
     Future<void>? until,
     Rect? origin,
+    Catalogue? catalogue,
   }) async {
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
     if (overlay == null) return;
     final release = ValueNotifier<bool>(false);
     final entry = OverlayEntry(
-      builder: (_) =>
-          ModeSwitchOverlay(mode: mode, release: release, origin: origin),
+      builder: (_) => ModeSwitchOverlay(
+        mode: mode,
+        release: release,
+        origin: origin,
+        catalogue: catalogue,
+      ),
     );
     overlay.insert(entry);
     try {
@@ -246,7 +258,7 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.mode.accent;
+    final accent = widget.catalogue?.accent ?? widget.mode.accent;
     final size = MediaQuery.sizeOf(context);
     final center = widget.origin?.center ?? size.center(Offset.zero);
     // Far enough to cover the corner furthest from where it started, or the
@@ -313,6 +325,7 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
                           ),
                           ModeGlyph(
                             mode: widget.mode,
+                            catalogue: widget.catalogue,
                             color: accent,
                             size: 76,
                             progress: _reduceMotion ? 1 : _draw.value,
@@ -336,7 +349,9 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
                             start: _labelTrack.value,
                           ),
                           child: Text(
-                            widget.mode.labelKey.tr().toUpperCase(),
+                            (widget.catalogue?.labelKey ?? widget.mode.labelKey)
+                                .tr()
+                                .toUpperCase(),
                             style: TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 12,

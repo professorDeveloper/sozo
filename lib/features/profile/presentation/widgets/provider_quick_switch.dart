@@ -180,7 +180,27 @@ Future<void> _openSwitcher(
     return;
   }
   if (result.startsWith(_kCataloguePrefix)) {
-    bloc.add(ProviderSelect(result.substring(_kCataloguePrefix.length)));
+    final id = result.substring(_kCataloguePrefix.length);
+    final catalogue = Catalogue.fromId(id);
+    if (catalogue == null) return;
+    // The same beat as a mode switch, and for the same reason: the whole
+    // home is replaced underneath, and doing that with no transition reads
+    // as the app hanging while the catalogue loads.
+    final Future<void>? loaded = id == state.currentProviderId
+        ? null
+        : context
+              .read<HomeBloc>()
+              .stream
+              .firstWhere((s) => s is HomeLoaded || s is HomeError)
+              .then((_) {});
+    bloc.add(ProviderSelect(id));
+    await ModeSwitchOverlay.play(
+      context,
+      ContentMode.video,
+      catalogue: catalogue,
+      until: loaded,
+      origin: tapped,
+    );
     return;
   }
   final switched = ContentMode.values
@@ -248,6 +268,9 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// One per chip, so the chip that was pressed can say where it was.
   final Map<ContentMode, GlobalKey> _chipKeys = {
     for (final m in ContentMode.values) m: GlobalKey(),
+  };
+  final Map<Catalogue, GlobalKey> _catalogueKeys = {
+    for (final c in Catalogue.values) c: GlobalKey(),
   };
 
   /// Below this the filter is chrome over a list that already fits.
@@ -556,14 +579,20 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                   ),
                 ),
                 for (final c in Catalogue.values)
-                  _CatalogueChip(
-                    catalogue: c,
+                  _ModeChip(
+                    key: _catalogueKeys[c],
+                    label: c.labelKey.tr(),
+                    icon: Icons.auto_awesome_rounded,
+                    accent: c.accent,
                     active: widget.currentProviderId == c.id,
                     onTap: widget.currentProviderId == c.id
                         ? null
-                        : () => Navigator.of(
-                            context,
-                          ).pop('$_kCataloguePrefix${c.id}'),
+                        : () {
+                            widget.onModeTap?.call(_rectOf(_catalogueKeys[c]));
+                            Navigator.of(
+                              context,
+                            ).pop('$_kCataloguePrefix${c.id}');
+                          },
                   ),
               ],
             ),
@@ -640,10 +669,16 @@ class _ModeChip extends StatelessWidget {
     required this.active,
     required this.accent,
     this.onTap,
+    this.icon,
   });
 
   final String label;
   final bool active;
+
+  /// A catalogue chip carries a sign, so the two rows read as one family
+  /// with one difference rather than two components that happen to be near
+  /// each other.
+  final IconData? icon;
 
   /// The mode's own colour, and the only place outside the switch animation
   /// where it is used: the chip that starts the switch should be the colour
@@ -668,13 +703,22 @@ class _ModeChip extends StatelessWidget {
             child: Center(
               widthFactor: 1,
               heightFactor: 1,
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: active ? Colors.white : AppColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: 15, color: active ? Colors.white : accent),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: active ? Colors.white : AppColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -744,61 +788,6 @@ class ProviderLogo extends StatelessWidget {
               loadingBuilder: (_, child, chunk) =>
                   chunk == null ? child : fallback,
             ),
-    );
-  }
-}
-
-/// One catalogue, as a small pill. Its own colour so it does not read as a
-/// fourth mode: the modes are what KIND of thing you are looking at, this is
-/// WHOSE list of them.
-class _CatalogueChip extends StatelessWidget {
-  const _CatalogueChip({
-    required this.catalogue,
-    required this.active,
-    this.onTap,
-  });
-
-  final Catalogue catalogue;
-  final bool active;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: active,
-      child: Material(
-        color: active
-            ? catalogue.accent
-            : catalogue.accent.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 13,
-                  color: active ? Colors.white : catalogue.accent,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  catalogue.labelKey.tr(),
-                  style: TextStyle(
-                    color: active ? Colors.white : AppColors.textPrimary,
-                    fontSize: 12,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

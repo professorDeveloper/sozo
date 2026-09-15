@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/content_mode.dart';
 
 /// How a mode looks: the colour it is recognised by and the glyph that stands
@@ -42,11 +43,15 @@ class ModeGlyph extends StatelessWidget {
     super.key,
     required this.mode,
     required this.color,
+    this.catalogue,
     this.size = 64,
     this.progress = 1,
   });
 
   final ContentMode mode;
+
+  /// Drawn instead of the mode's glyph when the switch is to a catalogue.
+  final Catalogue? catalogue;
   final Color color;
   final double size;
   final double progress;
@@ -55,7 +60,12 @@ class ModeGlyph extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox.square(
     dimension: size,
     child: CustomPaint(
-      painter: _GlyphPainter(mode: mode, color: color, progress: progress),
+      painter: _GlyphPainter(
+        mode: mode,
+        catalogue: catalogue,
+        color: color,
+        progress: progress,
+      ),
       isComplex: false,
     ),
   );
@@ -66,9 +76,11 @@ class _GlyphPainter extends CustomPainter {
     required this.mode,
     required this.color,
     required this.progress,
+    this.catalogue,
   });
 
   final ContentMode mode;
+  final Catalogue? catalogue;
   final Color color;
   final double progress;
 
@@ -90,7 +102,7 @@ class _GlyphPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    final path = _pathFor(mode);
+    final path = catalogue != null ? _cataloguePath() : _pathFor(mode);
     canvas.drawPath(_trim(path, progress.clamp(0, 1)), paint);
     canvas.restore();
   }
@@ -118,42 +130,52 @@ class _GlyphPainter extends CustomPainter {
 
   static Path _pathFor(ContentMode mode) => switch (mode) {
     // A play triangle, drawn as three strokes from its point of rest.
-    ContentMode.video => Path()
-      ..moveTo(7.5, 4.5)
-      ..lineTo(19, 12)
-      ..lineTo(7.5, 19.5)
-      ..close(),
+    ContentMode.video =>
+      Path()
+        ..moveTo(7.5, 4.5)
+        ..lineTo(19, 12)
+        ..lineTo(7.5, 19.5)
+        ..close(),
 
     // Four panels in the arrangement a comic page actually uses — one tall on
     // the left, two stacked on the right, one wide underneath.
-    ContentMode.manga => Path()
-      ..addRRect(
-        RRect.fromLTRBR(4, 4, 11, 14, const Radius.circular(1.4)),
-      )
-      ..addRRect(
-        RRect.fromLTRBR(13, 4, 20, 9.5, const Radius.circular(1.4)),
-      )
-      ..addRRect(
-        RRect.fromLTRBR(13, 11.5, 20, 20, const Radius.circular(1.4)),
-      )
-      ..addRRect(
-        RRect.fromLTRBR(4, 16, 11, 20, const Radius.circular(1.4)),
-      ),
+    ContentMode.manga =>
+      Path()
+        ..addRRect(RRect.fromLTRBR(4, 4, 11, 14, const Radius.circular(1.4)))
+        ..addRRect(RRect.fromLTRBR(13, 4, 20, 9.5, const Radius.circular(1.4)))
+        ..addRRect(
+          RRect.fromLTRBR(13, 11.5, 20, 20, const Radius.circular(1.4)),
+        )
+        ..addRRect(RRect.fromLTRBR(4, 16, 11, 20, const Radius.circular(1.4))),
 
     // Lines of text, left to right, the last one short the way a paragraph
     // ends.
-    ContentMode.novel => Path()
-      ..moveTo(4.5, 6)
-      ..lineTo(19.5, 6)
-      ..moveTo(4.5, 10.5)
-      ..lineTo(19.5, 10.5)
-      ..moveTo(4.5, 15)
-      ..lineTo(17, 15)
-      ..moveTo(4.5, 19.5)
-      ..lineTo(12, 19.5),
+    ContentMode.novel =>
+      Path()
+        ..moveTo(4.5, 6)
+        ..lineTo(19.5, 6)
+        ..moveTo(4.5, 10.5)
+        ..lineTo(19.5, 10.5)
+        ..moveTo(4.5, 15)
+        ..lineTo(17, 15)
+        ..moveTo(4.5, 19.5)
+        ..lineTo(12, 19.5),
   };
+
+  /// A four-pointed star — the same sign the catalogue chips carry, drawn as
+  /// one continuous stroke so the pen runs round it.
+  static Path _cataloguePath() => Path()
+    ..moveTo(12, 3.5)
+    ..quadraticBezierTo(13.2, 10.8, 20.5, 12)
+    ..quadraticBezierTo(13.2, 13.2, 12, 20.5)
+    ..quadraticBezierTo(10.8, 13.2, 3.5, 12)
+    ..quadraticBezierTo(10.8, 10.8, 12, 3.5)
+    ..close();
 
   @override
   bool shouldRepaint(_GlyphPainter old) =>
-      old.progress != progress || old.color != color || old.mode != mode;
+      old.progress != progress ||
+      old.color != color ||
+      old.mode != mode ||
+      old.catalogue != catalogue;
 }
