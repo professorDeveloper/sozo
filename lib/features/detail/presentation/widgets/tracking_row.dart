@@ -11,6 +11,7 @@ import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart'
 import 'package:soplay/features/anilist/presentation/widgets/anilist_link_sheet.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
+import 'package:soplay/features/detail/presentation/widgets/tracking_sheet.dart';
 import 'package:soplay/features/mal/data/mal_link_store.dart';
 import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
@@ -206,7 +207,10 @@ class _AnilistLineState extends State<_AnilistLine> {
           ? (_failed ? '—' : '…')
           : !s.onList
           ? 'detail.not_on_list'.tr()
-          : _statusLabel(s.status),
+          : _statusLabel(
+              s.status,
+              manga: widget.detail.record?.isManga ?? false,
+            ),
       progress: s != null && s.onList ? s.progress : null,
       total: s?.totalEpisodes,
       busy: _busy,
@@ -217,18 +221,127 @@ class _AnilistLineState extends State<_AnilistLine> {
               (s.totalEpisodes == null || s.progress < s.totalEpisodes!)
           ? () => _move(1)
           : null,
-      onTap: !linked ? _link : (s != null && !s.onList ? _add : _link),
+      onTap: !linked ? _link : (s != null && !s.onList ? _add : _edit),
       action: !linked
           ? 'detail.anilist_track'.tr()
           : (s != null && !s.onList ? 'detail.add_to_list'.tr() : null),
     );
   }
 
-  static String _statusLabel(String? raw) {
+  /// The whole entry — status, score, a bigger jump, the way off the list.
+  Future<void> _edit() async {
+    final s = _state;
+    final id = _mediaId;
+    final token = getIt<AnilistService>().token;
+    if (s == null || !s.onList || id == null || token == null) return;
+    await TrackingSheet.show(
+      context,
+      editor: _AnilistEditor(
+        mediaId: id,
+        token: token,
+        isManga: widget.detail.record?.isManga ?? false,
+      ),
+      title: widget.detail.title,
+      entry: TrackerEntry(
+        status: s.status,
+        progress: s.progress,
+        total: s.totalEpisodes,
+        score: s.score,
+      ),
+    );
+    if (mounted) _load();
+  }
+
+  static String _statusLabel(String? raw, {bool manga = false}) {
     for (final st in AnilistStatus.values) {
-      if (st.value == raw) return st.labelKey.tr();
+      if (st.value == raw) return _anilistLabel(st, manga: manga);
     }
     return raw ?? '';
+  }
+}
+
+/// "Reading" where a manga is concerned: AniList's CURRENT is one status
+/// for both, and the verb is the only thing that differs.
+String _anilistLabel(AnilistStatus st, {required bool manga}) {
+  if (!manga) return st.labelKey.tr();
+  return switch (st) {
+    AnilistStatus.current => 'detail.status_reading'.tr(),
+    AnilistStatus.repeating => 'detail.status_rereading'.tr(),
+    _ => st.labelKey.tr(),
+  };
+}
+
+class _AnilistEditor implements TrackerEditor {
+  const _AnilistEditor({
+    required this.mediaId,
+    required this.token,
+    required this.isManga,
+  });
+
+  final int mediaId;
+  final String token;
+  @override
+  final bool isManga;
+
+  AnilistApi get _api => getIt<AnilistService>().api;
+
+  @override
+  String get name => 'AniList';
+  @override
+  Widget get logo => const AnilistLogo(size: 28, radius: 8);
+  @override
+  Color get accent => kAnilistBlue;
+  @override
+  String get saveFailed => 'anilist.save_failed'.tr();
+
+  @override
+  List<TrackerStatus> get statuses => [
+    for (final st in AnilistStatus.values)
+      TrackerStatus(st.value, _anilistLabel(st, manga: isManga)),
+  ];
+
+  @override
+  Future<TrackerEntry?> load() async {
+    final s = await _api.entryState(token: token, mediaId: mediaId);
+    if (s == null) return null;
+    return TrackerEntry(
+      status: s.status,
+      progress: s.progress,
+      total: s.totalEpisodes,
+      score: s.score,
+    );
+  }
+
+  @override
+  Future<TrackerEntry> save(
+    TrackerEntry current, {
+    String? status,
+    int? progress,
+    int? score,
+  }) async {
+    final saved = await _api.saveProgress(
+      token: token,
+      mediaId: mediaId,
+      progress: progress,
+      status: status,
+      score: score,
+    );
+    return TrackerEntry(
+      status: saved.status,
+      progress: saved.progress,
+      total: current.total,
+      score: saved.score ?? current.score,
+    );
+  }
+
+  @override
+  Future<void> remove(TrackerEntry current) async {
+    // Deleting takes the row's id, which the page's state may not carry;
+    // one read gets it.
+    final s = await _api.entryState(token: token, mediaId: mediaId);
+    final entryId = s?.entryId;
+    if (entryId == null) return;
+    await _api.deleteEntry(token: token, entryId: entryId);
   }
 }
 
@@ -372,21 +485,114 @@ class _MalLineState extends State<_MalLine> {
               (s.totalEpisodes == null || s.watchedEpisodes < s.totalEpisodes!)
           ? () => _move(1)
           : null,
-      onTap: !linked ? _link : (s != null && !onList ? () => _move(1) : _link),
+      onTap: !linked ? _link : (s != null && !onList ? () => _move(1) : _edit),
       action: !linked
           ? 'mal.track'.tr()
           : (s != null && !onList ? 'detail.add_to_list'.tr() : null),
     );
   }
 
-  static String _statusLabel(String raw) => switch (raw) {
-    MalStatus.watching => 'anilist.status_current'.tr(),
-    MalStatus.completed => 'anilist.status_completed'.tr(),
-    MalStatus.onHold => 'anilist.status_paused'.tr(),
-    MalStatus.dropped => 'anilist.status_dropped'.tr(),
-    MalStatus.planToWatch => 'anilist.status_planning'.tr(),
-    _ => raw,
-  };
+  Future<void> _edit() async {
+    final s = _state;
+    final id = _animeId;
+    final token = getIt<MalService>().token;
+    if (s == null || s.isNew || id == null || token == null) return;
+    await TrackingSheet.show(
+      context,
+      editor: _MalEditor(animeId: id, token: token),
+      title: widget.detail.title,
+      entry: TrackerEntry(
+        status: s.status,
+        progress: s.watchedEpisodes,
+        total: s.totalEpisodes,
+        score: s.score,
+      ),
+    );
+    if (mounted) _load();
+  }
+
+  static String _statusLabel(String raw) => _malLabel(raw);
+}
+
+String _malLabel(String raw) => switch (raw) {
+  MalStatus.watching => 'anilist.status_current'.tr(),
+  MalStatus.completed => 'anilist.status_completed'.tr(),
+  MalStatus.onHold => 'anilist.status_paused'.tr(),
+  MalStatus.dropped => 'anilist.status_dropped'.tr(),
+  MalStatus.planToWatch => 'anilist.status_planning'.tr(),
+  _ => raw,
+};
+
+class _MalEditor implements TrackerEditor {
+  const _MalEditor({required this.animeId, required this.token});
+
+  final int animeId;
+  final String token;
+
+  @override
+  bool get isManga => false;
+  @override
+  String get name => 'MyAnimeList';
+  @override
+  Widget get logo => const MalLogo(size: 28, radius: 8);
+  @override
+  Color get accent => kMalBlue;
+  @override
+  String get saveFailed => 'mal.save_failed'.tr();
+
+  @override
+  List<TrackerStatus> get statuses => [
+    for (final v in const [
+      MalStatus.watching,
+      MalStatus.planToWatch,
+      MalStatus.completed,
+      MalStatus.onHold,
+      MalStatus.dropped,
+    ])
+      TrackerStatus(v, _malLabel(v)),
+  ];
+
+  @override
+  Future<TrackerEntry?> load() async {
+    final s = await getIt<MalService>().api.entryState(
+      token: token,
+      animeId: animeId,
+    );
+    if (s == null) return null;
+    return TrackerEntry(
+      status: s.status,
+      progress: s.watchedEpisodes,
+      total: s.totalEpisodes,
+      score: s.score,
+    );
+  }
+
+  @override
+  Future<TrackerEntry> save(
+    TrackerEntry current, {
+    String? status,
+    int? progress,
+    int? score,
+  }) async {
+    final saved = await getIt<MalService>().api.updateListStatus(
+      token: token,
+      animeId: animeId,
+      status: status,
+      episodes: progress,
+      score: score,
+      totalEpisodes: current.total,
+    );
+    return TrackerEntry(
+      status: saved.status ?? current.status,
+      progress: saved.watchedEpisodes,
+      total: current.total,
+      score: saved.score ?? current.score,
+    );
+  }
+
+  @override
+  Future<void> remove(TrackerEntry current) =>
+      getIt<MalService>().api.deleteEntry(token: token, animeId: animeId);
 }
 
 /// One tracker, one line: logo, name, status, progress, − +.

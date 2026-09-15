@@ -1122,7 +1122,9 @@
     "tracking_saved": "Сохранено в {}",
     "tracking_not_scored": "Без оценки",
     "tracking_chapters_read": "Прочитано глав",
-    "tracking_episodes_watched": "Просмотрено серий"
+    "tracking_episodes_watched": "Просмотрено серий",
+    "status_reading": "Читаю",
+    "status_rereading": "Перечитываю"
   },
   "episodes": {
     "filter_hint": "Номер или название серии",

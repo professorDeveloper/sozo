@@ -1122,7 +1122,9 @@
     "tracking_saved": "In {} gespeichert",
     "tracking_not_scored": "Nicht bewertet",
     "tracking_chapters_read": "Gelesene Kapitel",
-    "tracking_episodes_watched": "Gesehene Folgen"
+    "tracking_episodes_watched": "Gesehene Folgen",
+    "status_reading": "Lese ich",
+    "status_rereading": "Lese ich erneut"
   },
   "episodes": {
     "filter_hint": "Folgennummer oder Titel",

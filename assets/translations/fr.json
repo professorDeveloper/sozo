@@ -1122,7 +1122,9 @@
     "tracking_saved": "Enregistré sur {}",
     "tracking_not_scored": "Non noté",
     "tracking_chapters_read": "Chapitres lus",
-    "tracking_episodes_watched": "Épisodes vus"
+    "tracking_episodes_watched": "Épisodes vus",
+    "status_reading": "En lecture",
+    "status_rereading": "En relecture"
   },
   "episodes": {
     "filter_hint": "Numéro ou titre de l’épisode",

@@ -1122,7 +1122,9 @@
     "tracking_saved": "Opgeslagen op {}",
     "tracking_not_scored": "Geen score",
     "tracking_chapters_read": "Gelezen hoofdstukken",
-    "tracking_episodes_watched": "Bekeken afleveringen"
+    "tracking_episodes_watched": "Bekeken afleveringen",
+    "status_reading": "Aan het lezen",
+    "status_rereading": "Aan het herlezen"
   },
   "episodes": {
     "filter_hint": "Afleveringsnummer of titel",

@@ -1122,7 +1122,9 @@
     "tracking_saved": "{} ga saqlandi",
     "tracking_not_scored": "Baholanmagan",
     "tracking_chapters_read": "O‘qilgan boblar",
-    "tracking_episodes_watched": "Ko‘rilgan epizodlar"
+    "tracking_episodes_watched": "Ko‘rilgan epizodlar",
+    "status_reading": "O‘qilmoqda",
+    "status_rereading": "Qayta o‘qilmoqda"
   },
   "episodes": {
     "filter_hint": "Epizod raqami yoki nomi",

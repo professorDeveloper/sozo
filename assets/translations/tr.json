@@ -1122,7 +1122,9 @@
     "tracking_saved": "{} listesine kaydedildi",
     "tracking_not_scored": "Puanlanmadı",
     "tracking_chapters_read": "Okunan bölümler",
-    "tracking_episodes_watched": "İzlenen bölümler"
+    "tracking_episodes_watched": "İzlenen bölümler",
+    "status_reading": "Okunuyor",
+    "status_rereading": "Yeniden okunuyor"
   },
   "episodes": {
     "filter_hint": "Bölüm numarası veya adı",

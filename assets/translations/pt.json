@@ -1122,7 +1122,9 @@
     "tracking_saved": "Guardado em {}",
     "tracking_not_scored": "Sem nota",
     "tracking_chapters_read": "Capítulos lidos",
-    "tracking_episodes_watched": "Episódios vistos"
+    "tracking_episodes_watched": "Episódios vistos",
+    "status_reading": "A ler",
+    "status_rereading": "A reler"
   },
   "episodes": {
     "filter_hint": "Número ou título do episódio",

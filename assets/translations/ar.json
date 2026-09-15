@@ -1122,7 +1122,9 @@
     "tracking_saved": "تم الحفظ في {}",
     "tracking_not_scored": "بدون تقييم",
     "tracking_chapters_read": "الفصول المقروءة",
-    "tracking_episodes_watched": "الحلقات المشاهدة"
+    "tracking_episodes_watched": "الحلقات المشاهدة",
+    "status_reading": "قيد القراءة",
+    "status_rereading": "إعادة القراءة"
   },
   "episodes": {
     "filter_hint": "رقم الحلقة أو عنوانها",
