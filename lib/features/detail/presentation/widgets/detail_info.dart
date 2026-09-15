@@ -1,3 +1,4 @@
+import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:soplay/core/extensions/provider_media_kind.dart';
 import 'package:flutter/material.dart';
@@ -20,11 +21,19 @@ class DetailContentHeader extends StatefulWidget {
     required this.onPrimaryAction,
     required this.playButtonKey,
     this.onDownload,
+    this.via,
+    this.onChangeSource,
   });
 
   final DetailEntity detail;
   final VoidCallback onPrimaryAction;
   final Key playButtonKey;
+
+  /// The source a catalogue title was found on. Named under the button,
+  /// because a Play that silently picked a source is a Play the viewer cannot
+  /// question — and the pick is a guess, however good.
+  final CatalogueLink? via;
+  final VoidCallback? onChangeSource;
 
   /// Queues the title for offline viewing, or opens the episode list when
   /// "which episodes" is a question only the user can answer.
@@ -111,6 +120,10 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
               TrailerAction(detail: widget.detail),
             ],
           ),
+          if (widget.via != null) ...[
+            const SizedBox(height: 8),
+            _FoundOn(via: widget.via!, onChange: widget.onChangeSource),
+          ],
         ],
       ),
     );
@@ -206,15 +219,17 @@ class _ContinueWatchingCard extends StatelessWidget {
                             foregroundColor: Colors.black,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(kButtonRadius),
+                              borderRadius: BorderRadius.circular(
+                                kButtonRadius,
+                              ),
                             ),
                           ),
                           icon: const Icon(Icons.play_arrow_rounded, size: 26),
                           label: Text(
                             item.isSerial && item.episodeNumber != null
-                                ? 'detail.continue_ep'
-                                      .tr(args: ['${item.episodeNumber}'])
+                                ? 'detail.continue_ep'.tr(
+                                    args: ['${item.episodeNumber}'],
+                                  )
                                 : 'detail.continue_watching'.tr(),
                             style: const TextStyle(
                               fontSize: 15,
@@ -589,6 +604,55 @@ class _PlayButton extends StatelessWidget {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
         ),
       ),
+    );
+  }
+}
+
+/// "Found on AnimeKAI · Change". The one line that keeps an automatic pick
+/// honest.
+class _FoundOn extends StatelessWidget {
+  const _FoundOn({required this.via, this.onChange});
+
+  final CatalogueLink via;
+  final VoidCallback? onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          Icons.travel_explore_rounded,
+          size: 14,
+          color: AppColors.textSecondary,
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            'catalogue.found_on'.tr(args: [via.providerName]),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        if (onChange != null) ...[
+          const SizedBox(width: 4),
+          TextButton(
+            onPressed: onChange,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 28),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              'catalogue.change_source'.tr(),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

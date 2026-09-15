@@ -1,3 +1,4 @@
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
@@ -328,6 +329,11 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     required bool offline,
   }) async {
     final savedId = hiveService.getCurrentProvider();
+    // A catalogue is not in the provider list and never will be — it is the
+    // backend's view of what exists, not a source. Left alone here, or every
+    // reload would fall through to "first provider" and quietly undo the
+    // choice.
+    if (Catalogue.isId(savedId)) return savedId;
     final saved = providers.where((p) => p.id == savedId).firstOrNull;
 
     if (!offline) {

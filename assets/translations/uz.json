@@ -1861,5 +1861,14 @@
     "recommended_repositories": "Tavsiya etilgan repolar",
     "load_more": "Yana yuklash",
     "added": "Qo‘shildi"
+  },
+  "catalogue": {
+    "section": "Katalog",
+    "anilist": "AniList",
+    "tmdb": "TMDB",
+    "found_on": "{} da topildi",
+    "change_source": "O‘zgartirish",
+    "no_source": "Manbalaringizning birortasida bu nom yo‘q. Uni tarqatadigan manba qo‘shing yoki boshqalaridan qidiring.",
+    "no_resolver": "Katalog nomlarini bu yerda ochib bo‘lmaydi."
   }
 }

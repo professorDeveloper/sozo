@@ -29,7 +29,8 @@ class FavoriteBloc extends Bloc<FavoriteEvent, FavoriteState> {
 
   Future<void> _onLoad(FavoriteLoad event, Emitter<FavoriteState> emit) async {
     final inPrivate = getIt<PrivateListService>().contains(event.contentUrl);
-    final isIn = _local.isFavorite(event.provider, event.contentUrl) ||
+    final isIn =
+        _local.isFavorite(event.provider, event.contentUrl) ||
         (event.isFavorited ?? false);
     emit(FavoriteReady(isInList: isIn || inPrivate, inPrivate: inPrivate));
   }

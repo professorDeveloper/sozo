@@ -14,9 +14,18 @@ class HomeDataSource {
     return HomeDataModel.fromJson((results).data as Map<String, dynamic>);
   }
 
+  /// A catalogue's home, in the provider home's shape. The backend caches it
+  /// and nulls every rail's viewAll, since there is nothing to page into.
+  Future<HomeDataModel> loadCatalogueHome(String kind) async {
+    final results = await dio.get('/catalogue/$kind/home');
+    return HomeDataModel.fromJson(results.data as Map<String, dynamic>);
+  }
+
   Future<List<GenreModel>> loadGenres() async {
     final result = await dio.get("/contents/genres");
-    return (result.data['items'] as List).map((e) => GenreModel.fromJson(e)).toList();
+    return (result.data['items'] as List)
+        .map((e) => GenreModel.fromJson(e))
+        .toList();
   }
 
   Future<ViewAllPagingModel> loadViewAll({

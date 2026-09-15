@@ -203,6 +203,30 @@ class HiveService {
     await _settingsBox.put('cross_search_providers', ids);
   }
 
+  /// Which source a catalogue title was found on, keyed by catalogue id and
+  /// the title's id there. Local on purpose: what somebody looks up stays on
+  /// their phone.
+  String? getCatalogueLink(String key) {
+    final raw = _settingsBox.get('catalogue_links');
+    if (raw is! Map) return null;
+    final v = raw[key];
+    return v is String && v.isNotEmpty ? v : null;
+  }
+
+  Future<void> setCatalogueLink(String key, String? value) async {
+    final raw = _settingsBox.get('catalogue_links');
+    final map = <String, String>{
+      if (raw is Map)
+        for (final e in raw.entries) e.key.toString(): e.value.toString(),
+    };
+    if (value == null) {
+      map.remove(key);
+    } else {
+      map[key] = value;
+    }
+    await _settingsBox.put('catalogue_links', map);
+  }
+
   List<Map<String, dynamic>> getFollowedRaw() {
     final raw = _settingsBox.get('followed_titles');
     if (raw is String && raw.isNotEmpty) {

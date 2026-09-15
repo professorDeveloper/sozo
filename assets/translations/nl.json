@@ -1861,5 +1861,14 @@
     "recommended_repositories": "Aanbevolen repository’s",
     "load_more": "Meer laden",
     "added": "Toegevoegd"
+  },
+  "catalogue": {
+    "section": "Catalogus",
+    "anilist": "AniList",
+    "tmdb": "TMDB",
+    "found_on": "Found on {}",
+    "change_source": "Change",
+    "no_source": "None of your sources has this title. Add a source that carries it, or search the others.",
+    "no_resolver": "Catalogue titles cannot be opened here."
   }
 }

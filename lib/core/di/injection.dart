@@ -1,3 +1,4 @@
+import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
@@ -384,14 +385,14 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<ProviderRegistry>(
     ProviderRegistry(source: getIt<ProviderDataSource>()),
   );
-  getIt.registerSingleton<ExtractorRemote>(
-    ExtractorRemote(dio: getIt<Dio>()),
-  );
+  getIt.registerSingleton<ExtractorRemote>(ExtractorRemote(dio: getIt<Dio>()));
   getIt.registerSingleton<ExtractorCache>(ExtractorCache());
-  getIt.registerSingleton<DartFetch>(DartFetch.create(
-    cfService:  getIt<CfBypassService>(),
-    backendDio: getIt<Dio>(),
-  ));
+  getIt.registerSingleton<DartFetch>(
+    DartFetch.create(
+      cfService: getIt<CfBypassService>(),
+      backendDio: getIt<Dio>(),
+    ),
+  );
   getIt.registerSingleton<StreakRemoteDataSource>(
     StreakRemoteDataSource(dio: getIt<Dio>()),
   );
@@ -572,9 +573,7 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<MyListRemoteDataSource>(
     MyListRemoteDataSource(dio: getIt<Dio>()),
   );
-  getIt.registerSingleton<MyListLocalDataSource>(
-    MyListLocalDataSource(),
-  );
+  getIt.registerSingleton<MyListLocalDataSource>(MyListLocalDataSource());
   getIt.registerSingleton<PrivateListService>(PrivateListService());
   getIt.registerSingleton<MyListRepository>(
     MyListRepositoryImpl(
@@ -741,7 +740,18 @@ Future<void> configureDependencies() async {
   getIt.registerFactory(
     () => BannersBloc(repository: getIt<BannersRepository>()),
   );
-  getIt.registerFactory(() => DetailBloc(useCase: getIt<GetDetailUseCase>()));
+  getIt.registerLazySingleton<CatalogueResolver>(
+    () => CatalogueResolver.using(
+      getIt<AlternateSourceService>(),
+      getIt<HiveService>(),
+    ),
+  );
+  getIt.registerFactory(
+    () => DetailBloc(
+      useCase: getIt<GetDetailUseCase>(),
+      resolver: getIt<CatalogueResolver>(),
+    ),
+  );
   getIt.registerFactory(
     () => FavoriteBloc(
       addFavorite: getIt<AddFavoriteUseCase>(),
@@ -822,9 +832,7 @@ Future<void> configureDependencies() async {
       wipeProtected: () => getIt<PrivateListService>().clearAll(),
     ),
   );
-  getIt.registerSingleton<AppLockGate>(
-    AppLockGate(getIt<AppLockRepository>()),
-  );
+  getIt.registerSingleton<AppLockGate>(AppLockGate(getIt<AppLockRepository>()));
 
   getIt.registerLazySingleton<NavController>(() => NavController());
 }

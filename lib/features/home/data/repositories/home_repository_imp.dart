@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
 import 'package:soplay/core/error/result.dart';
@@ -67,6 +68,21 @@ class HomeRepositoryImp implements HomeRepository {
     // can act — re-add the repo, update the extension — and one who just sees a
     // blank screen. None of these paths touch our backend, so they must keep
     // working during an outage.
+    // A catalogue before any host: it is the one "provider" that no host
+    // serves and the backend does, and asking a host for `cat:anilist` would
+    // get an honest-looking "source not installed".
+    final catalogue = Catalogue.fromId(provider);
+    if (catalogue != null) {
+      try {
+        return Success(await dataSource.loadCatalogueHome(catalogue.kind));
+      } on DioException catch (e) {
+        final raw = e.response?.data;
+        final message = (raw is Map ? raw['message'] : null) ?? e.message;
+        return Failure(Exception(message.toString()));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (provider != null && provider.startsWith('cs:')) {
       return _fromHost(
         () => CloudStreamChannel.getMainPage(provider.substring(3)),

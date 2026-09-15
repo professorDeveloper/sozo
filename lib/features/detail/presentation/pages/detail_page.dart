@@ -1,3 +1,5 @@
+import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
@@ -68,9 +70,14 @@ class DetailPage extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) =>
-              getIt<DetailBloc>()
-                ..add(DetailLoad(args.contentUrl, provider: args.provider)),
+          create: (_) => getIt<DetailBloc>()
+            ..add(
+              DetailLoad(
+                args.contentUrl,
+                provider: args.provider,
+                hint: args.preview,
+              ),
+            ),
         ),
         BlocProvider(create: (_) => getIt<EpisodesBloc>()),
         BlocProvider(create: (_) => getIt<FavoriteBloc>()),
@@ -166,11 +173,15 @@ class _DetailScaffold extends StatelessWidget {
                 // showListAction. It also removes a latent lock-up — a silent
                 // DetailLoaded refresh that skips DetailLoading would strand
                 // the page on the skeleton for good.
-                DetailLoaded(:final detail) => Builder(
+                DetailLoaded(:final detail, :final via) => Builder(
                   builder: (context) {
                     return _DetailView(
                       detail: detail,
-                      provider: provider,
+                      // A catalogue title was loaded from the source found
+                      // for it, and everything downstream — episodes, play,
+                      // download — must ask that source, not the catalogue.
+                      provider: via?.providerId ?? provider,
+                      via: via,
                       autoPlay: autoPlay,
                       resumeEpisodeIndex: resumeEpisodeIndex,
                       heroTag: heroTag,
@@ -178,9 +189,11 @@ class _DetailScaffold extends StatelessWidget {
                   },
                 ),
                 DetailError(:final message) => _ErrorView(
-                  message: message,
+                  message: message.startsWith('catalogue.')
+                      ? message.tr()
+                      : message,
                   onRetry: () => context.read<DetailBloc>().add(
-                    DetailLoad(contentUrl, provider: provider),
+                    DetailLoad(contentUrl, provider: provider, hint: preview),
                   ),
                   onSolveCloudflare: isCloudflareError(message)
                       ? () async {
@@ -223,12 +236,16 @@ class _DetailView extends StatefulWidget {
   const _DetailView({
     required this.detail,
     this.provider,
+    this.via,
     this.autoPlay = false,
     this.resumeEpisodeIndex,
     this.heroTag,
   });
   final DetailEntity detail;
   final String? provider;
+
+  /// The source this title was found on, when it came from a catalogue.
+  final CatalogueLink? via;
   final bool autoPlay;
   final int? resumeEpisodeIndex;
   final String? heroTag;
@@ -762,6 +779,26 @@ class _DetailViewState extends State<_DetailView>
   ///
   /// Falls back to the old screen when nothing matched, rather than leaving a
   /// dead end: cross-search casts a wider net and lets them look by hand.
+  /// The viewer disagrees with the source that was picked for a catalogue
+  /// title. Forget the pick, so it is not repeated, and let them choose.
+  Future<void> _changeSource() async {
+    final via = widget.via;
+    if (via != null) {
+      // The catalogue id and the title's id in it are what the link was
+      // remembered under; the page only knows the source it landed on, so the
+      // key is rebuilt from the route it was opened with.
+      final args = GoRouterState.of(context).extra;
+      if (args is DetailArgs && Catalogue.isId(args.provider)) {
+        await getIt<CatalogueResolver>().forget(
+          args.provider!,
+          args.contentUrl,
+        );
+      }
+    }
+    if (!mounted) return;
+    await _onFindOtherSources();
+  }
+
   Future<void> _onFindOtherSources() async {
     final detail = widget.detail;
     final history = getIt<HistoryService>().get(detail.contentUrl);
@@ -1223,6 +1260,8 @@ class _DetailViewState extends State<_DetailView>
                   onPrimaryAction: _onPrimaryAction,
                   onDownload: _onDownloadAction,
                   playButtonKey: _bodyPlayKey,
+                  via: widget.via,
+                  onChangeSource: widget.via == null ? null : _changeSource,
                 ),
               ),
               // Sponsor/CMS banner (detail_top placement). Opt-in: self-collapses

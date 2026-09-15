@@ -4,6 +4,9 @@ class ViewAllModel extends ViewAllEntity {
   ViewAllModel({required super.slug, required super.type});
 
   factory ViewAllModel.fromJson(Map<String, dynamic> json) {
-    return ViewAllModel(slug: json['slug'] as String? ?? '', type: json['type'] as String? ?? '');
+    return ViewAllModel(
+      slug: json['slug'] as String? ?? '',
+      type: json['type'] as String? ?? '',
+    );
   }
 }

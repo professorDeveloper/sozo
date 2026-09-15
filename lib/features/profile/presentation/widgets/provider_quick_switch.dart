@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/content/content_mode_style.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -178,6 +179,10 @@ Future<void> _openSwitcher(
     openProviderPicker(context, bloc);
     return;
   }
+  if (result.startsWith(_kCataloguePrefix)) {
+    bloc.add(ProviderSelect(result.substring(_kCataloguePrefix.length)));
+    return;
+  }
   final switched = ContentMode.values
       .where((m) => result == '$_kModePrefix${m.id}')
       .firstOrNull;
@@ -189,6 +194,10 @@ Future<void> _openSwitcher(
 }
 
 const String _kAllProvidersAction = '__all_providers__';
+
+/// Marks a sheet result as "make this catalogue the home", the same way
+/// [_kModePrefix] marks a mode. Three kinds of answer share one string channel.
+const String _kCataloguePrefix = '__cat__:';
 
 /// Prefix that marks a sheet result as "switch to this mode" rather than
 /// "select this provider". They share one return channel because the sheet is
@@ -520,6 +529,45 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                 ),
             ],
           ),
+          // Catalogues before the sources. A catalogue is what to browse when
+          // no single source is the point — AniList's or TMDB's view of what
+          // exists, with the app finding a source for whatever you open.
+          // Video only: the two catalogues here are anime and film, and a
+          // manga catalogue would be a promise the tap cannot keep yet.
+          if (widget.mode == ContentMode.video) ...[
+            const SizedBox(height: _pinnedPad),
+            // Wraps like the mode chips above it: at 200% text the label and
+            // two pills do not fit one line on a narrow phone.
+            Wrap(
+              spacing: 6,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 4),
+                  child: Text(
+                    'catalogue.section'.tr().toUpperCase(),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ),
+                for (final c in Catalogue.values)
+                  _CatalogueChip(
+                    catalogue: c,
+                    active: widget.currentProviderId == c.id,
+                    onTap: widget.currentProviderId == c.id
+                        ? null
+                        : () => Navigator.of(
+                            context,
+                          ).pop('$_kCataloguePrefix${c.id}'),
+                  ),
+              ],
+            ),
+          ],
           if (_hasFilter) ...[
             const SizedBox(height: _pinnedPad),
             SizedBox(
@@ -696,6 +744,61 @@ class ProviderLogo extends StatelessWidget {
               loadingBuilder: (_, child, chunk) =>
                   chunk == null ? child : fallback,
             ),
+    );
+  }
+}
+
+/// One catalogue, as a small pill. Its own colour so it does not read as a
+/// fourth mode: the modes are what KIND of thing you are looking at, this is
+/// WHOSE list of them.
+class _CatalogueChip extends StatelessWidget {
+  const _CatalogueChip({
+    required this.catalogue,
+    required this.active,
+    this.onTap,
+  });
+
+  final Catalogue catalogue;
+  final bool active;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: active,
+      child: Material(
+        color: active
+            ? catalogue.accent
+            : catalogue.accent.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 13,
+                  color: active ? Colors.white : catalogue.accent,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  catalogue.labelKey.tr(),
+                  style: TextStyle(
+                    color: active ? Colors.white : AppColors.textPrimary,
+                    fontSize: 12,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
