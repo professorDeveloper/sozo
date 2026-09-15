@@ -1872,7 +1872,8 @@
     "eco_mangayomi": "Mangayomi",
     "eco_all": "الكل",
     "language_not_stated": "اللغة غير محددة · {}",
-    "installed": "المثبتة"
+    "installed": "المثبتة",
+    "section": "المصادر"
   },
   "settings": {
     "dns_title": "DNS",

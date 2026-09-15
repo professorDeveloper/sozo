@@ -1868,7 +1868,8 @@
     "eco_mangayomi": "Mangayomi",
     "eco_all": "Tümü",
     "language_not_stated": "Dil belirtilmemiş · {}",
-    "installed": "Yüklü"
+    "installed": "Yüklü",
+    "section": "Kaynaklar"
   },
   "settings": {
     "dns_title": "DNS",

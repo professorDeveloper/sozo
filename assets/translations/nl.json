@@ -1868,7 +1868,8 @@
     "eco_mangayomi": "Mangayomi",
     "eco_all": "Alle",
     "language_not_stated": "Taal niet vermeld · {}",
-    "installed": "Geïnstalleerd"
+    "installed": "Geïnstalleerd",
+    "section": "Bronnen"
   },
   "settings": {
     "dns_title": "DNS",

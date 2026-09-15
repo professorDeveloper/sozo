@@ -1869,7 +1869,8 @@
     "eco_mangayomi": "Mangayomi",
     "eco_all": "Все",
     "language_not_stated": "Язык не указан · {}",
-    "installed": "Установленные"
+    "installed": "Установленные",
+    "section": "Источники"
   },
   "settings": {
     "dns_title": "DNS",

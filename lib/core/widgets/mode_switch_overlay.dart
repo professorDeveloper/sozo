@@ -150,6 +150,15 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
     duration: ModeSwitchOverlay.exitDuration,
   );
 
+  /// The hold. Runs in a loop from the moment the glyph is drawn until the
+  /// cover lifts: the glyph breathes and a ring leaves it each cycle, so a
+  /// wait on a slow reload is a thing that is alive rather than a thing
+  /// that has stopped.
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  );
+
   /// The reveal. Fast out of the gate and settling at the edge, so it reads as
   /// something released rather than something driven.
   late final Animation<double> _open = CurvedAnimation(
@@ -216,6 +225,16 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
     super.initState();
     widget.release?.addListener(_onRelease);
     _enter.addListener(_maybeHaptic);
+    _enter.addStatusListener(_onEntered);
+  }
+
+  void _onEntered(AnimationStatus status) {
+    // Only while there is a release to wait for: a cover with none is a
+    // still frame, and a still frame should not tick.
+    final waiting = widget.release != null && !(widget.release!.value);
+    if (status == AnimationStatus.completed && !_reduceMotion && waiting) {
+      _pulse.repeat();
+    }
   }
 
   @override
@@ -244,15 +263,20 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
   }
 
   void _onRelease() {
-    if (widget.release?.value ?? false) _exit.forward();
+    if (widget.release?.value ?? false) {
+      _pulse.stop();
+      _exit.forward();
+    }
   }
 
   @override
   void dispose() {
     widget.release?.removeListener(_onRelease);
     _enter.removeListener(_maybeHaptic);
+    _enter.removeStatusListener(_onEntered);
     _enter.dispose();
     _exit.dispose();
+    _pulse.dispose();
     super.dispose();
   }
 
@@ -279,12 +303,37 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
           if (_reduceMotion) {
             return Opacity(opacity: _coverIn.value, child: cover);
           }
-          return ClipPath(
-            clipper: _RevealClipper(
-              center: center,
-              radius: reach * _open.value,
-            ),
-            child: cover,
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              ClipPath(
+                clipper: _RevealClipper(
+                  center: center,
+                  radius: reach * _open.value,
+                ),
+                child: cover,
+              ),
+              // Above the cover and unclipped: the rings run ahead of the
+              // reveal over the old screen, the rim glows at its edge, and
+              // the wave at the end crosses the new one.
+              IgnorePointer(
+                child: CustomPaint(
+                  painter: _RipplePainter(
+                    origin: center,
+                    reach: reach,
+                    // The glyph box sits 16px above the centre of the column it
+                    // shares with the label.
+                    glyphCenter: size.center(const Offset(0, -16)),
+                    accent: accent,
+                    open: _open.value,
+                    exit: _exit.value,
+                    pulse: _pulse,
+                  ),
+                  isComplex: true,
+                  willChange: true,
+                ),
+              ),
+            ],
           );
         },
         child: Material(
@@ -312,25 +361,35 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
                   SizedBox.square(
                     dimension: 88,
                     child: AnimatedBuilder(
-                      animation: _enter,
-                      builder: (context, _) => Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Opacity(
-                            opacity: 1 - _markOut.value,
-                            child: Transform.scale(
-                              scale: 1 - (_markOut.value * 0.28),
-                              child: SozoMark(size: 72, color: accent),
+                      animation: Listenable.merge([_enter, _pulse]),
+                      builder: (context, _) => Transform.scale(
+                        // A breath: in over the first half of the cycle,
+                        // out over the second. Small enough to be felt
+                        // rather than seen.
+                        scale:
+                            1 +
+                            0.035 *
+                                math.sin(_pulse.value * math.pi) *
+                                (_pulse.isAnimating ? 1 : 0),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Opacity(
+                              opacity: 1 - _markOut.value,
+                              child: Transform.scale(
+                                scale: 1 - (_markOut.value * 0.28),
+                                child: SozoMark(size: 72, color: accent),
+                              ),
                             ),
-                          ),
-                          ModeGlyph(
-                            mode: widget.mode,
-                            catalogue: widget.catalogue,
-                            color: accent,
-                            size: 76,
-                            progress: _reduceMotion ? 1 : _draw.value,
-                          ),
-                        ],
+                            ModeGlyph(
+                              mode: widget.mode,
+                              catalogue: widget.catalogue,
+                              color: accent,
+                              size: 76,
+                              progress: _reduceMotion ? 1 : _draw.value,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -380,6 +439,128 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
       math.max(d(0, size.height), d(size.width, size.height)),
     );
   }
+}
+
+/// The water in the switch: what leaves the tap and what leaves the glyph.
+///
+/// Three things, all rings in the mode's colour. As the cover opens, rings
+/// run ahead of its edge over the old screen, so the reveal reads as a drop
+/// landing rather than a hole growing; the edge itself carries a soft rim so
+/// it is lit rather than cut. While the cover holds, a ring leaves the glyph
+/// each breath. And as the cover lifts, one last wave crosses the new screen
+/// from where the glyph was.
+class _RipplePainter extends CustomPainter {
+  _RipplePainter({
+    required this.origin,
+    required this.reach,
+    required this.glyphCenter,
+    required this.accent,
+    required this.open,
+    required this.exit,
+    required this.pulse,
+  }) : super(repaint: pulse);
+
+  final Offset origin;
+  final double reach;
+  final Offset glyphCenter;
+  final Color accent;
+  final double open;
+  final double exit;
+  final Animation<double> pulse;
+
+  static const Curve _ease = Curves.easeOutCubic;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (open < 1) {
+      _rim(canvas);
+      _leadRings(canvas);
+    }
+    if (open >= 1 && exit == 0 && pulse.isAnimating) _pulseRing(canvas);
+    if (exit > 0) _wave(canvas);
+  }
+
+  /// A soft band on the reveal's edge.
+  void _rim(Canvas canvas) {
+    final r = reach * open;
+    if (r <= 0) return;
+    canvas.drawCircle(
+      origin,
+      r,
+      Paint()
+        ..color = accent.withValues(alpha: 0.45 * (1 - open))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 18
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
+    );
+  }
+
+  /// Three rings, each released a little after the last, running out past
+  /// the edge and thinning as they go.
+  void _leadRings(Canvas canvas) {
+    for (var i = 0; i < 3; i++) {
+      final start = 0.05 * i;
+      if (open <= start) continue;
+      final t = _ease.transform(((open - start) / (1 - start)).clamp(0, 1));
+      final r = reach * (0.18 + 1.0 * t);
+      final alpha = (0.55 - 0.15 * i) * (1 - t);
+      if (alpha <= 0.01) continue;
+      canvas.drawCircle(
+        origin,
+        r,
+        Paint()
+          ..color = accent.withValues(alpha: alpha)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5 - 1.5 * t,
+      );
+    }
+  }
+
+  /// One ring per breath, leaving the glyph and fading before the next.
+  void _pulseRing(Canvas canvas) {
+    final t = _ease.transform(pulse.value);
+    final r = 44 + 140 * t;
+    final alpha = 0.35 * (1 - t);
+    canvas.drawCircle(
+      glyphCenter,
+      r,
+      Paint()
+        ..color = accent.withValues(alpha: alpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2 - 1.2 * t,
+    );
+  }
+
+  /// The last wave: from the glyph out to the corners as the cover lifts.
+  void _wave(Canvas canvas) {
+    final t = _ease.transform(exit);
+    final r = 44 + reach * t;
+    final alpha = 0.5 * (1 - t);
+    canvas.drawCircle(
+      glyphCenter,
+      r,
+      Paint()
+        ..color = accent.withValues(alpha: alpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3 - 2 * t
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
+    );
+    canvas.drawCircle(
+      glyphCenter,
+      r * 0.72,
+      Paint()
+        ..color = accent.withValues(alpha: alpha * 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RipplePainter old) =>
+      old.open != open ||
+      old.exit != exit ||
+      old.origin != origin ||
+      old.accent != accent;
 }
 
 /// A circle that opens from where the switch was asked for.

@@ -1868,7 +1868,8 @@
     "eco_mangayomi": "Mangayomi",
     "eco_all": "Semua",
     "language_not_stated": "Bahasa tidak disebutkan · {}",
-    "installed": "Terpasang"
+    "installed": "Terpasang",
+    "section": "Sumber"
   },
   "settings": {
     "dns_title": "DNS",

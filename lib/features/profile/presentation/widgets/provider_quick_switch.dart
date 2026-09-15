@@ -1,5 +1,13 @@
+import 'dart:ui' as ui;
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:soplay/features/home/data/datasources/home_data_source.dart';
+import 'package:soplay/features/sources/domain/source_ecosystem.dart';
+import 'package:soplay/core/extensions/source_language.dart';
+import 'package:soplay/core/network/image_headers.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/catalogue_logo.dart';
@@ -298,6 +306,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
 
   Future<void> _pickMode(ContentMode m) async {
     if (m == widget.mode || _pendingMode != null) return;
+    HapticFeedback.selectionClick();
     setState(() => _pendingMode = m);
     await Future<void>.delayed(_ModeSegments.slide);
     if (!mounted) return;
@@ -311,7 +320,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// One source row. Fixed so the sheet can open ON the current source: a
   /// builder with variable rows can only be scrolled to a position it has
   /// already laid out, and the current source is usually far below the fold.
-  static const double _tileExtent = 56;
+  static const double _tileExtent = 64;
 
   /// Used on TV and desktop, where there is no sheet to supply one.
   final ScrollController _flat = ScrollController();
@@ -553,6 +562,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// has left the screen means scrolling back up to change mode, and the search
   /// box goes with it for the same reason.
   Widget _header(BuildContext context, List<ProviderEntity> items) {
+    final catalogues = Catalogue.forMode(widget.mode);
     return Container(
       color: AppColors.surface,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -576,26 +586,16 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
           // exists, with the app finding a source for whatever you open.
           // Each mode has its own: AniList's anime shelf and TMDB for Watch,
           // AniList's manga and light-novel shelves for the readers.
-          if (Catalogue.forMode(widget.mode).isNotEmpty) ...[
+          if (catalogues.isNotEmpty) ...[
             const SizedBox(height: _pinnedPad),
-            Text(
-              'catalogue.section'.tr().toUpperCase(),
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.1,
-              ),
-            ),
+            _SectionLabel('catalogue.section'.tr()),
             const SizedBox(height: 8),
             // Two cards side by side where there are two; a lone card takes
             // the width. At 200% text a card's two lines still fit, because
             // the hint is the line that gives way.
             Row(
               children: [
-                for (final (i, c) in Catalogue.forMode(
-                  widget.mode,
-                ).indexed) ...[
+                for (final (i, c) in catalogues.indexed) ...[
                   if (i > 0) const SizedBox(width: 8),
                   Expanded(
                     child: _CatalogueCard(
@@ -605,6 +605,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                       onTap: widget.currentProviderId == c.id
                           ? null
                           : () {
+                              HapticFeedback.selectionClick();
                               widget.onModeTap?.call(
                                 _rectOf(_catalogueKeys[c]),
                               );
@@ -618,8 +619,10 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
               ],
             ),
           ],
+          const SizedBox(height: _pinnedPad),
+          _SectionLabel('${'sources.section'.tr()} · ${widget.all.length}'),
           if (_hasFilter) ...[
-            const SizedBox(height: _pinnedPad),
+            const SizedBox(height: 8),
             SizedBox(
               child: TextField(
                 controller: _filter,
@@ -762,13 +765,29 @@ class _ModeSegments extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                ModeGlyph(
-                                  mode: m,
-                                  color: m == shown
-                                      ? Colors.white
-                                      : m.accent.withValues(alpha: 0.85),
-                                  size: 20,
-                                ),
+                                // The glyph on the segment the thumb has
+                                // just reached draws itself, the way it
+                                // will on the cover a moment later.
+                                m == shown
+                                    ? TweenAnimationBuilder<double>(
+                                        key: ValueKey(m),
+                                        tween: Tween(begin: 0, end: 1),
+                                        duration: const Duration(
+                                          milliseconds: 520,
+                                        ),
+                                        curve: Curves.easeOutCubic,
+                                        builder: (_, t, _) => ModeGlyph(
+                                          mode: m,
+                                          color: Colors.white,
+                                          size: 20,
+                                          progress: t,
+                                        ),
+                                      )
+                                    : ModeGlyph(
+                                        mode: m,
+                                        color: m.accent.withValues(alpha: 0.85),
+                                        size: 20,
+                                      ),
                                 const SizedBox(width: 7),
                                 Flexible(
                                   child: AnimatedDefaultTextStyle(
@@ -823,18 +842,22 @@ class _CatalogueCard extends StatelessWidget {
   final bool active;
   final VoidCallback? onTap;
 
+  static const double _height = 68;
+
   @override
   Widget build(BuildContext context) {
     final accent = catalogue.accent;
+    final base = active
+        ? Color.alphaBlend(accent.withValues(alpha: 0.16), AppColors.surface)
+        : AppColors.surfaceVariant;
     return Semantics(
       button: true,
       selected: active,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
+        height: _height,
         decoration: BoxDecoration(
-          color: active
-              ? accent.withValues(alpha: 0.16)
-              : AppColors.surfaceVariant,
+          color: base,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: active ? accent : Colors.white.withValues(alpha: 0.05),
@@ -850,61 +873,211 @@ class _CatalogueCard extends StatelessWidget {
                 ]
               : const [],
         ),
+        clipBehavior: Clip.antiAlias,
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-          clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 10, 10),
-              child: Row(
-                children: [
-                  CatalogueLogo(catalogue: catalogue, size: 30),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          catalogue.labelKey.tr(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: active
-                                ? AppColors.textPrimary
-                                : AppColors.textPrimary.withValues(alpha: 0.92),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // What is inside, along the far edge and fading into the
+                // card, so the name never has to fight it for room.
+                PositionedDirectional(
+                  end: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: _CataloguePeek(catalogue: catalogue),
+                ),
+                Padding(
+                  // Room on the end for the covers, so the hint gives way
+                  // to them instead of running under them.
+                  padding: const EdgeInsetsDirectional.fromSTEB(12, 0, 44, 0),
+                  child: Row(
+                    children: [
+                      CatalogueLogo(catalogue: catalogue, size: 30),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    catalogue.labelKey.tr(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                if (active) ...[
+                                  const SizedBox(width: 5),
+                                  Icon(
+                                    Icons.check_circle_rounded,
+                                    size: 15,
+                                    color: accent,
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              catalogue.hintKey.tr(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: active
+                                    ? accent
+                                    : AppColors.textSecondary,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          catalogue.hintKey.tr(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: active ? accent : AppColors.textSecondary,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  if (active) ...[
-                    const SizedBox(width: 6),
-                    Icon(Icons.check_circle_rounded, size: 18, color: accent),
-                  ],
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
   }
+}
+
+/// Three covers from the catalogue's front page, fanned at the end of its
+/// card — what is inside, before it is chosen. The front page is cached on
+/// the server and here, so the sheet costs one small request per catalogue
+/// per half hour and nothing at all the rest of the time.
+class _CataloguePeek extends StatefulWidget {
+  const _CataloguePeek({required this.catalogue});
+
+  final Catalogue catalogue;
+
+  static final Map<Catalogue, (DateTime, List<String>)> _cache = {};
+  static const Duration _fresh = Duration(minutes: 30);
+
+  static Future<List<String>> covers(Catalogue c) async {
+    final hit = _cache[c];
+    if (hit != null && DateTime.now().difference(hit.$1) < _fresh) {
+      return hit.$2;
+    }
+    try {
+      final home = await getIt<HomeDataSource>().loadCatalogueHome(c.kind);
+      final items = home.sections
+          .expand((s) => s.items)
+          .map((m) => m.thumbnail ?? '')
+          .where((t) => t.isNotEmpty)
+          .take(3)
+          .toList();
+      _cache[c] = (DateTime.now(), items);
+      return items;
+    } catch (_) {
+      return hit?.$2 ?? const [];
+    }
+  }
+
+  @override
+  State<_CataloguePeek> createState() => _CataloguePeekState();
+}
+
+class _CataloguePeekState extends State<_CataloguePeek> {
+  late final Future<List<String>> _covers = _CataloguePeek.covers(
+    widget.catalogue,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    // Three leaning covers, each a little behind the last, on a strip a
+    // third of the card wide.
+    const w = 26.0, h = 38.0, step = 13.0, lean = -0.18;
+    final rtl = Directionality.of(context) == ui.TextDirection.rtl;
+    return FutureBuilder<List<String>>(
+      future: _covers,
+      builder: (context, snap) {
+        final covers = snap.data ?? const [];
+        if (covers.isEmpty) return const SizedBox.shrink();
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 420),
+          curve: Curves.easeOutCubic,
+          builder: (context, t, child) => Opacity(opacity: t, child: child),
+          child: ShaderMask(
+            // A directional alignment needs a text direction to resolve,
+            // and a shader callback has no context to read one from.
+            shaderCallback: (rect) => LinearGradient(
+              begin: rtl ? Alignment.centerRight : Alignment.centerLeft,
+              end: rtl ? Alignment.centerLeft : Alignment.centerRight,
+              colors: const [Color(0x00000000), Color(0xFF000000)],
+              stops: const [0, 0.55],
+            ).createShader(rect),
+            blendMode: BlendMode.dstIn,
+            child: SizedBox(
+              width: 22 + w + step * (covers.length - 1),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  for (final (i, url) in covers.indexed)
+                    PositionedDirectional(
+                      start: 22 + step * i,
+                      top:
+                          (_CatalogueCard._height - h) / 2 + (i.isOdd ? 4 : -2),
+                      child: Transform.rotate(
+                        angle: lean + i * 0.06,
+                        child: Container(
+                          width: w,
+                          height: h,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(4),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black54, blurRadius: 6),
+                            ],
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: CachedNetworkImage(
+                            imageUrl: url,
+                            httpHeaders: posterImageHeaders(url),
+                            fit: BoxFit.cover,
+                            fadeInDuration: const Duration(milliseconds: 200),
+                            errorWidget: (_, _, _) => const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text.toUpperCase(),
+    style: const TextStyle(
+      color: AppColors.textSecondary,
+      fontSize: 11,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 1.1,
+    ),
+  );
 }
 
 Widget _favoriteProviderTile(
@@ -914,24 +1087,62 @@ Widget _favoriteProviderTile(
   bool favorite = false,
 }) {
   final selected = p.id == currentProviderId;
-  return ListTile(
-    leading: ProviderLogo(image: p.image, size: 36),
-    title: Text(
-      p.name,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: selected ? AppColors.textPrimary : AppColors.textSecondary,
-        fontSize: 14,
-        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+  final eco = SourceEcosystem.of(p.id);
+  final lang = inferLang(lang: p.lang, name: p.name, id: p.id, url: p.url);
+  // Where it comes from and what language it speaks, in one small line:
+  // the two things that tell "AnimeKAI" apart from "AnimeKAI" one row down.
+  final meta = [
+    eco.label,
+    if (lang != null && lang.isNotEmpty) lang.toUpperCase(),
+  ].join(' · ');
+  return Material(
+    color: selected
+        ? AppColors.primary.withValues(alpha: 0.08)
+        : Colors.transparent,
+    child: ListTile(
+      leading: Container(
+        decoration: selected
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                  ),
+                ],
+              )
+            : null,
+        child: ProviderLogo(image: p.image, size: 36),
       ),
+      title: Text(
+        p.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+          fontSize: 14,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+      subtitle: Text(
+        meta,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: AppColors.textHint,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.3,
+        ),
+      ),
+      dense: true,
+      trailing: selected
+          ? Icon(Icons.check_rounded, color: AppColors.primary, size: 20)
+          : favorite
+          ? const Icon(Icons.star_rounded, color: Colors.amber, size: 20)
+          : null,
+      onTap: () => Navigator.of(context).pop(p.id),
     ),
-    trailing: selected
-        ? Icon(Icons.check_rounded, color: AppColors.primary, size: 20)
-        : favorite
-        ? const Icon(Icons.star_rounded, color: Colors.amber, size: 20)
-        : null,
-    onTap: () => Navigator.of(context).pop(p.id),
   );
 }
 
