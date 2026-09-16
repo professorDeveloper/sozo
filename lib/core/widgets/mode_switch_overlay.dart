@@ -442,16 +442,12 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
               IgnorePointer(
                 child: RepaintBoundary(
                   child: CustomPaint(
-                    painter: _RipplePainter(
+                    painter: _EdgePainter(
                       origin: center,
                       reach: reach,
-                      // The glyph box sits 16px above the centre of the column
-                      // it shares with the label.
-                      glyphCenter: size.center(const Offset(0, -16)),
                       accent: accent,
                       open: open,
-                      exit: _exit.value,
-                      pulse: _pulse,
+                      mode: widget.mode,
                     ),
                     willChange: true,
                   ),
@@ -476,20 +472,19 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
               color: AppColors.background.withValues(alpha: out),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    // The pool leans hardest towards the press: it is the
-                    // layer furthest back, so it moves most.
-                    center: Alignment(
-                      (lean.dx * 1.1).clamp(-0.8, 0.8),
-                      (-0.12 + lean.dy * 1.1).clamp(-0.9, 0.9),
-                    ),
-                    radius: 0.9,
+                  // A wash rather than a bloom. At 0.22 with a radial falloff
+                  // this was a glow behind the mark, which is the same neon
+                  // vocabulary as the rings that used to run out of it. A flat
+                  // tint leaning the way the press came from says the same
+                  // thing — this screen belongs to that mode — without the
+                  // screen appearing to be lit from inside.
+                  gradient: LinearGradient(
+                    begin: Alignment(lean.dx.clamp(-1.0, 1.0), -1),
+                    end: Alignment(-lean.dx.clamp(-1.0, 1.0), 1),
                     colors: [
-                      accent.withValues(alpha: 0.22 * out),
-                      accent.withValues(alpha: 0.06 * out),
-                      Colors.transparent,
+                      accent.withValues(alpha: 0.10 * out),
+                      accent.withValues(alpha: 0.03 * out),
                     ],
-                    stops: const [0, 0.45, 1],
                   ),
                 ),
                 child: inner,
@@ -595,133 +590,58 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
   }
 }
 
-/// The water in the switch: what leaves the tap and what leaves the glyph.
+/// The edge of the thing that is opening.
 ///
-/// Three things, all rings in the mode's colour. As the cover opens, rings
-/// run ahead of its edge over the old screen, so the reveal reads as a drop
-/// landing rather than a hole growing; the edge itself carries a soft rim so
-/// it is lit rather than cut. While the cover holds, a ring leaves the glyph
-/// each breath. And as the cover lifts, one last wave crosses the new screen
-/// from where the glyph was.
+/// This was three concentric rings running out from the tap, a blurred rim on
+/// the reveal, a ring leaving the mark on every breath and a last wave on the
+/// way out. It read as generated rather than designed — radiating neon rings
+/// are the house style of every AI-made "tech" animation there is, and they
+/// said nothing about Sozo or about which mode you had asked for.
 ///
-/// Every [Paint] here is built once and mutated in place. They are not shared
-/// between painters — one overlay is on screen at a time — and a fresh Paint
-/// per ring per frame is six allocations a frame for the length of a switch.
-class _RipplePainter extends CustomPainter {
-  _RipplePainter({
+/// What is left says more with less: the boundary of the shape that is
+/// actually opening, drawn as one crisp accent line. It is the manga panel's
+/// own diagonal, the book's own spine, the iris's own circle — so the edge is
+/// the mode, and it is a line rather than a glow, which is the difference
+/// between something drawn and something lit.
+class _EdgePainter extends CustomPainter {
+  const _EdgePainter({
     required this.origin,
     required this.reach,
-    required this.glyphCenter,
     required this.accent,
     required this.open,
-    required this.exit,
-    required this.pulse,
-  }) : super(repaint: pulse);
+    required this.mode,
+  });
 
   final Offset origin;
   final double reach;
-  final Offset glyphCenter;
   final Color accent;
   final double open;
-  final double exit;
-  final Animation<double> pulse;
-
-  static const Curve _ease = Curves.easeOutCubic;
-
-  final Paint _stroke = Paint()..style = PaintingStyle.stroke;
-  final Paint _soft = Paint()
-    ..style = PaintingStyle.stroke
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14);
-  final Paint _wavePaint = Paint()
-    ..style = PaintingStyle.stroke
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
+  final ContentMode mode;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (open < 1) {
-      _rim(canvas);
-      _leadRings(canvas);
-    }
-    if (open >= 1 && exit == 0 && pulse.isAnimating) _pulseRing(canvas);
-    if (exit > 0) _wave(canvas);
-  }
-
-  /// A soft band on the reveal's edge.
-  void _rim(Canvas canvas) {
-    final r = reach * open;
-    if (r <= 0) return;
-    canvas.drawCircle(
-      origin,
-      r,
-      _soft
-        ..color = accent.withValues(alpha: 0.45 * (1 - open))
-        ..strokeWidth = 18,
-    );
-  }
-
-  /// Three rings, each released a little after the last, running out past
-  /// the edge and thinning as they go.
-  void _leadRings(Canvas canvas) {
-    for (var i = 0; i < 3; i++) {
-      final start = 0.05 * i;
-      if (open <= start) continue;
-      final t = _ease.transform(((open - start) / (1 - start)).clamp(0.0, 1.0));
-      final r = reach * (0.18 + 1.0 * t);
-      final alpha = (0.55 - 0.15 * i) * (1 - t);
-      if (alpha <= 0.01) continue;
-      canvas.drawCircle(
-        origin,
-        r,
-        _stroke
-          ..color = accent.withValues(alpha: alpha)
-          ..strokeWidth = 2.5 - 1.5 * t,
-      );
-    }
-  }
-
-  /// One ring per breath, leaving the glyph and fading before the next.
-  void _pulseRing(Canvas canvas) {
-    final t = _ease.transform(pulse.value);
-    final r = 44 + 140 * t;
-    final alpha = 0.35 * (1 - t);
-    canvas.drawCircle(
-      glyphCenter,
-      r,
-      _stroke
-        ..color = accent.withValues(alpha: alpha)
-        ..strokeWidth = 2 - 1.2 * t,
-    );
-  }
-
-  /// The last wave: from the glyph out to the corners as the cover lifts.
-  void _wave(Canvas canvas) {
-    final t = _ease.transform(exit);
-    final r = 44 + reach * t;
-    final alpha = 0.5 * (1 - t);
-    canvas.drawCircle(
-      glyphCenter,
-      r,
-      _wavePaint
-        ..color = accent.withValues(alpha: alpha)
-        ..strokeWidth = 3 - 2 * t,
-    );
-    canvas.drawCircle(
-      glyphCenter,
-      r * 0.72,
-      _stroke
-        ..color = accent.withValues(alpha: alpha * 0.5)
+    if (open <= 0 || open >= 1) return;
+    canvas.drawPath(
+      ModeSwitchOverlay.revealPath(
+        mode: mode,
+        center: origin,
+        reach: reach,
+        progress: open,
+      ),
+      Paint()
+        ..color = accent.withValues(alpha: 0.9 * (1 - open * open))
+        ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5,
     );
   }
 
   @override
-  bool shouldRepaint(_RipplePainter old) =>
+  bool shouldRepaint(_EdgePainter old) =>
       old.open != open ||
-      old.exit != exit ||
       old.origin != origin ||
       old.reach != reach ||
-      old.glyphCenter != glyphCenter ||
-      old.accent != accent;
+      old.accent != accent ||
+      old.mode != mode;
 }
 
 /// How the new screen arrives, which is different for each mode.

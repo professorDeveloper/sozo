@@ -211,7 +211,7 @@ class _AnilistLineState extends State<_AnilistLine> {
     // say about it. The row becomes the one thing that can help: try again.
     final failed = _failed && s == null;
     return _TrackerLine(
-      logo: const AnilistLogo(size: 22, radius: 6),
+      logo: const AnilistLogo(size: 26, radius: 7),
       accent: kAnilistBlue,
       name: 'AniList',
       status: !linked || failed || s == null
@@ -477,8 +477,8 @@ class _MalLineState extends State<_MalLine> {
     final failed = _failed && s == null;
     return _TrackerLine(
       logo: Container(
-        width: 22,
-        height: 22,
+        width: 26,
+        height: 26,
         decoration: BoxDecoration(
           color: kMalBlue,
           borderRadius: BorderRadius.circular(6),
@@ -488,7 +488,7 @@ class _MalLineState extends State<_MalLine> {
           'MAL',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 8,
+            fontSize: 9,
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -670,18 +670,27 @@ class _TrackerLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showsCounter = progress != null;
+    // Grows with the text scaler instead of clipping at it. The counter used
+    // to sit in a fixed 52px box, which is exactly wide enough for "12/24" at
+    // the default size and not for "121/220" at any size above it.
+    final scale = MediaQuery.textScalerOf(context);
     return Material(
       color: Colors.white.withValues(alpha: 0.06),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(10, 6, 6, 6),
+          // Roomier than it was. At (10,6,6,6) with 13pt text the whole line
+          // came out about 34px tall and the action sat six pixels from the
+          // edge of the card — on a detail page of posters and full-width
+          // buttons it read as something that had been squeezed in rather than
+          // laid out.
+          padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 8, 8),
           child: Row(
             children: [
               logo,
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: Semantics(
                   label: status == null ? name : '$name, $status',
@@ -689,8 +698,9 @@ class _TrackerLine extends StatelessWidget {
                   child: RichText(
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    textScaler: scale,
                     text: TextSpan(
-                      style: const TextStyle(fontSize: 13),
+                      style: const TextStyle(fontSize: 14),
                       children: [
                         TextSpan(
                           text: name,
@@ -712,19 +722,45 @@ class _TrackerLine extends StatelessWidget {
                   ),
                 ),
               ),
-              if (action != null)
-                Text(
-                  action!,
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
+              if (action != null) ...[
+                const SizedBox(width: 8),
+                // A button, not a word. It was a bare `Text` in the accent
+                // colour with no padding and no target of its own: the one
+                // thing on the row you are meant to press looked like a label
+                // and was the smallest thing on it.
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: accent.withValues(alpha: 0.35)),
                   ),
-                )
-              else if (showsCounter) ...[
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 8, 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          action!,
+                          style: TextStyle(
+                            color: accent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: accent,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ] else if (showsCounter) ...[
                 _Step(icon: Icons.remove_rounded, onTap: busy ? null : onLess),
                 SizedBox(
-                  width: total != null ? 52 : 34,
+                  width: scale.scale(total != null ? 52 : 34),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -781,7 +817,9 @@ class _Step extends StatelessWidget {
       onPressed: onTap,
       icon: Icon(icon, size: 20),
       visualDensity: VisualDensity.compact,
-      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      // 36 was under every touch-target guideline there is, on the two
+      // controls most likely to be pressed repeatedly and in a hurry.
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
       padding: EdgeInsets.zero,
       color: AppColors.textPrimary,
       disabledColor: AppColors.textHint,

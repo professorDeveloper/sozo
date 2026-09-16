@@ -11,10 +11,47 @@ import 'package:easy_localization/easy_localization.dart';
 /// So the recognised cases get a sentence, and the raw line moves underneath
 /// where it still helps a bug report. The unrecognised ones are shown as they
 /// were, because a wrong plain-language guess is worse than a technical truth.
+/// Which KIND of failure it was, for the callers that have to react to it
+/// rather than print it.
+///
+/// A plain enum and not an icon: this is domain, and the two screens that draw
+/// a failure disagreed about the picture for years precisely because each one
+/// re-derived the kind from the raw string with its own list of substrings.
+/// The kind is decided once, here, beside the sentence it goes with.
+enum SourceFailureKind {
+  /// The site answered, and it is not there any more — 404, 410.
+  gone,
+
+  /// Reached and refused: Cloudflare, a region lock, a bot check, 401/403.
+  blocked,
+
+  /// Asked too often.
+  rateLimited,
+
+  /// Never reached at all. The only kind that is genuinely about the
+  /// reader's connection.
+  unreachable,
+
+  /// The extension and the app disagree about the API between them.
+  incompatible,
+
+  /// The source's own code threw.
+  broken,
+
+  /// Nothing recognised it, so the raw line is the headline.
+  unknown,
+}
+
 class SourceFailure {
-  const SourceFailure({required this.headline, this.detail});
+  const SourceFailure({
+    required this.headline,
+    this.detail,
+    this.kind = SourceFailureKind.unknown,
+  });
 
   final String headline;
+
+  final SourceFailureKind kind;
 
   /// The original message, when the headline is a translation of it rather
   /// than the thing itself.
@@ -39,6 +76,7 @@ class SourceFailure {
       return SourceFailure(
         headline: 'sources.fail_gone'.tr(),
         detail: text,
+        kind: SourceFailureKind.gone,
       );
     }
     // Blocked rather than missing: Cloudflare, a region lock, a bot check.
@@ -48,12 +86,14 @@ class SourceFailure {
       return SourceFailure(
         headline: 'sources.fail_blocked'.tr(),
         detail: text,
+        kind: SourceFailureKind.blocked,
       );
     }
     if (_hasCode(lower, 429) || lower.contains('rate limit')) {
       return SourceFailure(
         headline: 'sources.fail_rate_limited'.tr(),
         detail: text,
+        kind: SourceFailureKind.rateLimited,
       );
     }
     // Never reached it at all.
@@ -68,6 +108,7 @@ class SourceFailure {
       return SourceFailure(
         headline: 'sources.fail_unreachable'.tr(),
         detail: text,
+        kind: SourceFailureKind.unreachable,
       );
     }
     // The extension and the app disagree about the API between them.
@@ -80,6 +121,7 @@ class SourceFailure {
       return SourceFailure(
         headline: 'sources.fail_incompatible'.tr(),
         detail: text,
+        kind: SourceFailureKind.incompatible,
       );
     }
     // The source's own code threw. Not something the reader can act on beyond
@@ -92,6 +134,7 @@ class SourceFailure {
       return SourceFailure(
         headline: 'sources.fail_broken'.tr(),
         detail: text,
+        kind: SourceFailureKind.broken,
       );
     }
     return SourceFailure(headline: text);

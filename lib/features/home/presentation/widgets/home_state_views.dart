@@ -144,52 +144,28 @@ class _SkeletonCard extends StatelessWidget {
   }
 }
 
-/// Which icon a catalogue failure gets.
+/// The picture that goes with a failure.
 ///
-/// Every one of them drew the same wifi-off. That told the reader they were
-/// offline about a site that had shut down, about an extension that would not
-/// load, and about a Cloudflare wall the strip was at that same moment
-/// offering a button to solve — three problems with three different answers
-/// wearing one icon.
+/// One icon for everything told the reader they were offline about a site that
+/// had shut down, about an extension that would not load, and about a
+/// Cloudflare wall the strip was at that same moment offering a button to
+/// solve — three problems with three different answers wearing one icon.
 ///
-/// This repeats a slice of the classification [SourceFailure] already does two
-/// lines above each call site, and it should not: the icon belongs on
-/// SourceFailure next to the headline it goes with. That file is not ours to
-/// change in this pass, so the branch lives here until it can move.
-IconData _failureIcon(String? message) {
-  if (isCloudflareError(message)) return Icons.shield_outlined;
-  final lower = (message ?? '').toLowerCase();
-  // Never reached the source at all — the only case that is genuinely about
-  // the connection, and the only one the old icon was ever right about.
-  if (lower.contains('unknownhost') ||
-      lower.contains('unable to resolve host') ||
-      lower.contains('sockettimeout') ||
-      lower.contains('timeoutexception') ||
-      lower.contains('connectexception') ||
-      lower.contains('failed to connect') ||
-      lower.contains('sslexception') ||
-      lower.contains('sslhandshake')) {
-    return Icons.wifi_off_rounded;
-  }
-  // The extension and the app disagree about the API between them, or the
-  // extension's own code threw. Either way the source is what is broken.
-  if (lower.contains('nosuchmethod') ||
-      lower.contains('noclassdeffound') ||
-      lower.contains('classnotfound') ||
-      lower.contains('abstractmethod') ||
-      lower.contains('nosuchfield') ||
-      lower.contains('incompatibleclasschange') ||
-      lower.contains('invocationtarget') ||
-      lower.contains('nullpointer') ||
-      lower.contains('indexoutofbounds') ||
-      lower.contains('illegalstate') ||
-      lower.contains('illegalargument')) {
-    return Icons.extension_off_rounded;
-  }
-  // The server answered and the answer was no: a 404 on a source that moved, a
-  // 429, a 500. Reached, and unhelpful.
-  return Icons.cloud_off_rounded;
-}
+/// The branch used to live here and re-derive the kind from the raw string,
+/// beside a [SourceFailure] that had just done the same work. It reads the
+/// kind now, so the two can no longer disagree.
+IconData _failureIcon(SourceFailure failure) => switch (failure.kind) {
+  // The only kind that is genuinely about the reader's connection.
+  SourceFailureKind.unreachable => Icons.wifi_off_rounded,
+  SourceFailureKind.blocked => Icons.shield_outlined,
+  SourceFailureKind.rateLimited => Icons.hourglass_empty_rounded,
+  // The source is what is broken, either its code or its contract.
+  SourceFailureKind.incompatible ||
+  SourceFailureKind.broken => Icons.extension_off_rounded,
+  // Reached, answered, and the answer was no.
+  SourceFailureKind.gone || SourceFailureKind.unknown => Icons.cloud_off_rounded,
+};
+
 
 /// The catalogue failed, said inline above the rows that still work.
 ///
@@ -235,7 +211,7 @@ class HomeErrorStrip extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(_failureIcon(message),
+              Icon(_failureIcon(failure),
                   color: AppColors.textSecondary, size: 18),
               const SizedBox(width: 10),
               Expanded(
@@ -323,7 +299,7 @@ class HomeErrorView extends StatelessWidget {
                 border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
               ),
               child: Icon(
-                _failureIcon(message),
+                _failureIcon(failure),
                 color: AppColors.textSecondary,
                 size: 32,
               ),
