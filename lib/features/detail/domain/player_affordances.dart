@@ -30,15 +30,15 @@ class PlayerAffordances {
   /// Nothing is available: what the bar renders before the first resolve, and
   /// the value a test starts from before switching one thing on.
   const PlayerAffordances.none()
-      : isSerial = false,
-        episodeCount = 0,
-        serverCount = 0,
-        serverSourceCount = 0,
-        engineTrackCount = 0,
-        langCount = 0,
-        showDownloadAction = false,
-        provider = '',
-        hasResolvedUrl = false;
+    : isSerial = false,
+      episodeCount = 0,
+      serverCount = 0,
+      serverSourceCount = 0,
+      engineTrackCount = 0,
+      langCount = 0,
+      showDownloadAction = false,
+      provider = '',
+      hasResolvedUrl = false;
 
   final bool isSerial;
 
@@ -104,16 +104,15 @@ class PlayerAffordances {
     bool? showDownloadAction,
     String? provider,
     bool? hasResolvedUrl,
-  }) =>
-      PlayerAffordances(
-        isSerial: isSerial ?? this.isSerial,
-        episodeCount: episodeCount ?? this.episodeCount,
-        serverCount: serverCount ?? this.serverCount,
-        serverSourceCount: serverSourceCount ?? this.serverSourceCount,
-        engineTrackCount: engineTrackCount ?? this.engineTrackCount,
-        langCount: langCount ?? this.langCount,
-        showDownloadAction: showDownloadAction ?? this.showDownloadAction,
-        provider: provider ?? this.provider,
-        hasResolvedUrl: hasResolvedUrl ?? this.hasResolvedUrl,
-      );
+  }) => PlayerAffordances(
+    isSerial: isSerial ?? this.isSerial,
+    episodeCount: episodeCount ?? this.episodeCount,
+    serverCount: serverCount ?? this.serverCount,
+    serverSourceCount: serverSourceCount ?? this.serverSourceCount,
+    engineTrackCount: engineTrackCount ?? this.engineTrackCount,
+    langCount: langCount ?? this.langCount,
+    showDownloadAction: showDownloadAction ?? this.showDownloadAction,
+    provider: provider ?? this.provider,
+    hasResolvedUrl: hasResolvedUrl ?? this.hasResolvedUrl,
+  );
 }

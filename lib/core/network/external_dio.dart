@@ -8,8 +8,10 @@ import 'package:dio/dio.dart';
 class ExternalDio {
   ExternalDio._();
 
-  static final Dio instance = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  static final Dio instance = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
+    ),
+  );
 }

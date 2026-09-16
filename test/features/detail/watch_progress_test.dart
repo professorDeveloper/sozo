@@ -9,20 +9,28 @@ void main() {
       // Somebody who stops during the credits has watched the episode. A
       // tracker that only fires at 100% never fires for them.
       const total = Duration(minutes: 100);
-      expect(WatchProgress.isWatched(const Duration(minutes: 84), total),
-          isFalse);
-      expect(WatchProgress.isWatched(const Duration(minutes: 85), total),
-          isTrue);
+      expect(
+        WatchProgress.isWatched(const Duration(minutes: 84), total),
+        isFalse,
+      );
+      expect(
+        WatchProgress.isWatched(const Duration(minutes: 85), total),
+        isTrue,
+      );
     });
 
     test('an unknown duration never counts', () {
       // A live channel reports zero. "85% of nothing" would mark it watched
       // the instant it opened.
-      expect(WatchProgress.isWatched(const Duration(minutes: 5), Duration.zero),
-          isFalse);
+      expect(
+        WatchProgress.isWatched(const Duration(minutes: 5), Duration.zero),
+        isFalse,
+      );
       expect(
         WatchProgress.isWatched(
-            const Duration(minutes: 5), const Duration(seconds: -1)),
+          const Duration(minutes: 5),
+          const Duration(seconds: -1),
+        ),
         isFalse,
       );
     });
@@ -82,8 +90,11 @@ void main() {
       final p = WatchProgress();
       p.bank(const Duration(seconds: 10));
       expect(p.bank(const Duration(seconds: 10)), 0);
-      expect(p.bank(const Duration(seconds: 9)), 0,
-          reason: 'and a clock going backwards never credits negative time');
+      expect(
+        p.bank(const Duration(seconds: 9)),
+        0,
+        reason: 'and a clock going backwards never credits negative time',
+      );
       expect(p.bankedSeconds, 10);
     });
 

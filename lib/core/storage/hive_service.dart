@@ -94,10 +94,9 @@ class HiveService {
       _authBox.delete(AppConstants.malViewerKey);
 
   String getCurrentProvider() {
-    final saved = _settingsBox.get(
-      AppConstants.currentProviderKey,
-      defaultValue: '',
-    ) as String;
+    final saved =
+        _settingsBox.get(AppConstants.currentProviderKey, defaultValue: '')
+            as String;
 
     return saved.isEmpty ? AppConstants.defaultProviderId : saved;
   }
@@ -107,7 +106,10 @@ class HiveService {
   }
 
   String getPreOutageProvider() {
-    return _settingsBox.get(AppConstants.preOutageProviderKey, defaultValue: '');
+    return _settingsBox.get(
+      AppConstants.preOutageProviderKey,
+      defaultValue: '',
+    );
   }
 
   Future<void> savePreOutageProvider(String providerId) async {
@@ -192,6 +194,7 @@ class HiveService {
     }
     await _settingsBox.put('favorite_providers', list);
   }
+
   List<String> getCrossSearchProviders() {
     return (_settingsBox.get('cross_search_providers') as List?)
             ?.map((e) => e.toString())
@@ -326,7 +329,9 @@ class HiveService {
 
   /// Notified when the setting changes, so a queue that is holding can start
   /// the moment it is switched off rather than at the next app launch.
-  final ValueNotifier<bool> downloadWifiOnlyChanged = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> downloadWifiOnlyChanged = ValueNotifier<bool>(
+    false,
+  );
 
   /// The volume downloads are kept on, or empty for the app's own directory.
   String getDownloadLocation() =>
@@ -393,6 +398,7 @@ class HiveService {
   Future<void> setShaderTier(String id) async {
     await _settingsBox.put(AppConstants.shaderTierKey, id);
   }
+
   bool get askEngineOnPlay {
     return _settingsBox.get(
           AppConstants.askEngineOnPlayKey,
@@ -469,8 +475,7 @@ class HiveService {
   /// actually is, and that is the home screen — not a sheet inside the player,
   /// which nobody opens to check whether they are being recorded. Anything
   /// showing the state listens here rather than polling.
-  final ValueNotifier<bool> incognitoChanged =
-      ValueNotifier<bool>(false);
+  final ValueNotifier<bool> incognitoChanged = ValueNotifier<bool>(false);
 
   Future<void> setIncognito(bool value) async {
     await _settingsBox.put(AppConstants.incognitoKey, value);
@@ -483,7 +488,10 @@ class HiveService {
   /// the viewer ninety seconds into the episode is a far worse first impression
   /// than a button they chose not to press.
   bool get autoSkipIntro {
-    return _settingsBox.get(AppConstants.autoSkipIntroKey, defaultValue: false) ==
+    return _settingsBox.get(
+          AppConstants.autoSkipIntroKey,
+          defaultValue: false,
+        ) ==
         true;
   }
 
@@ -532,7 +540,8 @@ class HiveService {
 
   /// Whether to remind before an episode on the AniList list airs.
   bool get airingRemindersEnabled =>
-      _settingsBox.get(AppConstants.airingRemindersKey, defaultValue: false) == true;
+      _settingsBox.get(AppConstants.airingRemindersKey, defaultValue: false) ==
+      true;
 
   Future<void> setAiringRemindersEnabled(bool value) =>
       _settingsBox.put(AppConstants.airingRemindersKey, value);
@@ -540,12 +549,17 @@ class HiveService {
   /// How many reminders were scheduled last time, so exactly those can be
   /// cancelled before the next batch.
   int get airingReminderCount {
-    final raw = _settingsBox.get(AppConstants.airingReminderCountKey, defaultValue: 0);
+    final raw = _settingsBox.get(
+      AppConstants.airingReminderCountKey,
+      defaultValue: 0,
+    );
     return raw is int && raw >= 0 ? raw : 0;
   }
 
-  Future<void> setAiringReminderCount(int value) =>
-      _settingsBox.put(AppConstants.airingReminderCountKey, value < 0 ? 0 : value);
+  Future<void> setAiringReminderCount(int value) => _settingsBox.put(
+    AppConstants.airingReminderCountKey,
+    value < 0 ? 0 : value,
+  );
 
   /// Channels the user pinned to the top of Live TV.
   ///
@@ -573,7 +587,10 @@ class HiveService {
 
   /// Bounded: a history of everything ever watched is not a shortcut any more.
   Future<void> pushLiveTvRecent(String id) {
-    final ids = [id, ...getLiveTvRecent().where((e) => e != id)].take(12).toList();
+    final ids = [
+      id,
+      ...getLiveTvRecent().where((e) => e != id),
+    ].take(12).toList();
     return _settingsBox.put(AppConstants.liveTvRecentKey, ids);
   }
 
@@ -591,7 +608,8 @@ class HiveService {
     raw.forEach((key, value) {
       if (value is Map) {
         out[key.toString()] = {
-          for (final e in value.entries) e.key.toString(): e.value?.toString() ?? '',
+          for (final e in value.entries)
+            e.key.toString(): e.value?.toString() ?? '',
         };
       }
     });
@@ -640,7 +658,9 @@ class HiveService {
 
   /// So an open detail page stops its preview the moment the setting is turned
   /// off, rather than on the next visit.
-  final ValueNotifier<bool> heroTrailerAutoplayChanged = ValueNotifier<bool>(true);
+  final ValueNotifier<bool> heroTrailerAutoplayChanged = ValueNotifier<bool>(
+    true,
+  );
 
   bool get volumeGestureEnabled {
     return _settingsBox.get(
@@ -680,7 +700,10 @@ class HiveService {
     final out = <String, List<String>>{};
     raw.forEach((k, v) {
       if (k is! String || v is! List) return;
-      out[k] = [for (final e in v) if (e is String) e];
+      out[k] = [
+        for (final e in v)
+          if (e is String) e,
+      ];
     });
     return out;
   }
@@ -692,10 +715,7 @@ class HiveService {
       _settingsBox.delete(AppConstants.playerControlsLayoutKey);
 
   bool get keepScreenOn {
-    return _settingsBox.get(
-          AppConstants.keepScreenOnKey,
-          defaultValue: true,
-        ) ==
+    return _settingsBox.get(AppConstants.keepScreenOnKey, defaultValue: true) ==
         true;
   }
 
@@ -714,10 +734,10 @@ class HiveService {
   bool get hasTelegramPromoSeen {
     return _telegramPromoSeen ??=
         _settingsBox.get(
-              AppConstants.telegramPromoSeenKey,
-              defaultValue: false,
-            ) ==
-            true;
+          AppConstants.telegramPromoSeenKey,
+          defaultValue: false,
+        ) ==
+        true;
   }
 
   Future<void> setTelegramPromoSeen(bool value) async {
@@ -728,7 +748,8 @@ class HiveService {
   Future<void> markTelegramPromoSeen() => setTelegramPromoSeen(true);
 
   bool get isAmoledMode {
-    return _settingsBox.get(AppConstants.amoledModeKey, defaultValue: false) == true;
+    return _settingsBox.get(AppConstants.amoledModeKey, defaultValue: false) ==
+        true;
   }
 
   Future<void> setAmoledMode(bool enabled) async {
@@ -768,7 +789,11 @@ class HiveService {
   }
 
   bool get hasOnboardingSeen {
-    return _settingsBox.get(AppConstants.onboardingSeenKey, defaultValue: false) == true;
+    return _settingsBox.get(
+          AppConstants.onboardingSeenKey,
+          defaultValue: false,
+        ) ==
+        true;
   }
 
   Future<void> markOnboardingSeen() async {
@@ -812,7 +837,10 @@ class HiveService {
   }
 
   int get appLockPinLength {
-    final v = _settingsBox.get(AppConstants.appLockPinLengthKey, defaultValue: 4);
+    final v = _settingsBox.get(
+      AppConstants.appLockPinLengthKey,
+      defaultValue: 4,
+    );
     return (v is int && (v == 4 || v == 6)) ? v : 4;
   }
 
@@ -831,7 +859,6 @@ class HiveService {
   Future<void> setAppLockBiometricEnabled(bool enabled) async {
     await _settingsBox.put(AppConstants.appLockBiometricKey, enabled);
   }
-
 
   bool get useNativeTitleBar =>
       _settingsBox.get('use_native_title_bar', defaultValue: false) == true;
@@ -858,7 +885,6 @@ class HiveService {
 
   Future<void> setTabOrder(List<String> ids) =>
       _settingsBox.put('tab_order', ids);
-
 
   bool get hasSeenPrivateShowcase =>
       _settingsBox.get('private_showcase_seen', defaultValue: false) == true;
@@ -889,13 +915,17 @@ class HiveService {
   }
 
   bool get readerSpread =>
-      _settingsBox.get(AppConstants.readerSpreadKey, defaultValue: false) == true;
+      _settingsBox.get(AppConstants.readerSpreadKey, defaultValue: false) ==
+      true;
 
   Future<void> setReaderSpread(bool value) async =>
       _settingsBox.put(AppConstants.readerSpreadKey, value);
 
   String getReaderMode(String contentUrl) {
-    return _settingsBox.get('reader_mode::$contentUrl', defaultValue: 'vertical');
+    return _settingsBox.get(
+      'reader_mode::$contentUrl',
+      defaultValue: 'vertical',
+    );
   }
 
   Future<void> saveReaderMode(String contentUrl, String mode) async {
@@ -903,7 +933,8 @@ class HiveService {
   }
 
   bool getReaderRtl(String contentUrl) {
-    return _settingsBox.get('reader_rtl::$contentUrl', defaultValue: false) == true;
+    return _settingsBox.get('reader_rtl::$contentUrl', defaultValue: false) ==
+        true;
   }
 
   Future<void> saveReaderRtl(String contentUrl, bool rtl) async {
@@ -927,7 +958,8 @@ class HiveService {
   // these are how a person reads, not how one book is laid out.
 
   double getNovelFontSize() =>
-      (_settingsBox.get('novel_font_size', defaultValue: 17.0) as num).toDouble();
+      (_settingsBox.get('novel_font_size', defaultValue: 17.0) as num)
+          .toDouble();
 
   Future<void> saveNovelFontSize(double v) async =>
       _settingsBox.put('novel_font_size', v);
@@ -987,10 +1019,7 @@ class HiveService {
   }
 
   Future<void> saveSubtitleStyle(SubtitleStyle style) async {
-    await _settingsBox.put(
-      AppConstants.subtitleStyleKey,
-      style.toJsonString(),
-    );
+    await _settingsBox.put(AppConstants.subtitleStyleKey, style.toJsonString());
   }
 
   /// Subtitle sync is tuned per title+episode: a shift that fixes episode 1 is

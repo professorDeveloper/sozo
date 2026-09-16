@@ -11,7 +11,8 @@ import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
 /// tabs is instant — AniList returns every status in a single request, and
 /// re-fetching per tab would spend a round trip to show data already held.
 class AnilistLibraryController extends ChangeNotifier {
-  AnilistLibraryController({required AnilistService service}) : _service = service;
+  AnilistLibraryController({required AnilistService service})
+    : _service = service;
 
   final AnilistService _service;
 
@@ -41,6 +42,7 @@ class AnilistLibraryController extends ChangeNotifier {
     final left = at.difference(DateTime.now());
     return left.isNegative ? null : left;
   }
+
   bool isBusy(int entryId) => _busy.contains(entryId);
   bool get isConnected => _service.isConnected;
   AnilistViewer? get viewer => _service.viewer;
@@ -73,14 +75,17 @@ class AnilistLibraryController extends ChangeNotifier {
   /// only cares about upcoming episodes of shows they are actually on.
   List<AnilistListEntry> get upcoming {
     final out = _entries
-        .where((e) =>
-            e.media.nextAiring != null &&
-            (e.status == AnilistStatus.current.value ||
-                e.status == AnilistStatus.planning.value ||
-                e.status == AnilistStatus.repeating.value))
+        .where(
+          (e) =>
+              e.media.nextAiring != null &&
+              (e.status == AnilistStatus.current.value ||
+                  e.status == AnilistStatus.planning.value ||
+                  e.status == AnilistStatus.repeating.value),
+        )
         .toList();
     out.sort(
-      (a, b) => a.media.nextAiring!.airingAt.compareTo(b.media.nextAiring!.airingAt),
+      (a, b) =>
+          a.media.nextAiring!.airingAt.compareTo(b.media.nextAiring!.airingAt),
     );
     return out;
   }
@@ -154,7 +159,10 @@ class AnilistLibraryController extends ChangeNotifier {
   }
 
   /// Moves an entry to another list.
-  Future<String?> setStatus(AnilistListEntry entry, AnilistStatus status) async {
+  Future<String?> setStatus(
+    AnilistListEntry entry,
+    AnilistStatus status,
+  ) async {
     final token = _service.token;
     if (token == null) return 'anilist.connect_first'.tr();
     if (_busy.contains(entry.id)) return null;

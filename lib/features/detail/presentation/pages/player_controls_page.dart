@@ -57,8 +57,9 @@ class PlayerControlsPage extends StatefulWidget {
 
 class _PlayerControlsPageState extends State<PlayerControlsPage> {
   final HiveService _hive = getIt<HiveService>();
-  late PlayerControlsLayout _layout =
-      PlayerControlsLayout.fromStored(_hive.getPlayerControlsLayout());
+  late PlayerControlsLayout _layout = PlayerControlsLayout.fromStored(
+    _hive.getPlayerControlsLayout(),
+  );
 
   /// Saved on every edit, not on leave. There is no Save button and no
   /// confirmation, so a back-swipe must not be able to lose the arrangement.
@@ -190,8 +191,7 @@ class _PlayerControlsPageState extends State<PlayerControlsPage> {
                   ),
                   child: Text(
                     'player.layout_empty'.tr(),
-                    style:
-                        const TextStyle(color: Colors.white30, fontSize: 13),
+                    style: const TextStyle(color: Colors.white30, fontSize: 13),
                   ),
                 )
               : ReorderableListView.builder(
@@ -310,12 +310,12 @@ class _PlayerControlsPageState extends State<PlayerControlsPage> {
   }
 
   static String _slotLabel(PlayerControlSlot slot) => switch (slot) {
-        PlayerControlSlot.topBar => 'player.layout_top_bar'.tr(),
-        PlayerControlSlot.center => 'player.layout_center'.tr(),
-        PlayerControlSlot.bottomLeft => 'player.layout_bottom_left'.tr(),
-        PlayerControlSlot.bottomRight => 'player.layout_bottom_right'.tr(),
-        PlayerControlSlot.hidden => 'player.layout_hidden'.tr(),
-      };
+    PlayerControlSlot.topBar => 'player.layout_top_bar'.tr(),
+    PlayerControlSlot.center => 'player.layout_center'.tr(),
+    PlayerControlSlot.bottomLeft => 'player.layout_bottom_left'.tr(),
+    PlayerControlSlot.bottomRight => 'player.layout_bottom_right'.tr(),
+    PlayerControlSlot.hidden => 'player.layout_hidden'.tr(),
+  };
 }
 
 /// A miniature of the real player, drawn from the same layout the player reads.
@@ -399,8 +399,8 @@ class _LayoutPreview extends StatelessWidget {
                 // film.
                 mainAxisAlignment:
                     layout.of(PlayerControlSlot.bottomLeft).isEmpty
-                        ? MainAxisAlignment.start
-                        : MainAxisAlignment.spaceBetween,
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.spaceBetween,
                 children: [
                   _group(layout.of(PlayerControlSlot.bottomLeft)),
                   _group(layout.of(PlayerControlSlot.bottomRight)),
@@ -414,13 +414,13 @@ class _LayoutPreview extends StatelessWidget {
   }
 
   Widget _group(List<String> ids) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final id in ids)
-            Padding(
-              padding: const EdgeInsets.only(right: 9),
-              child: Icon(iconForControl(id), color: Colors.white, size: 14),
-            ),
-        ],
-      );
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (final id in ids)
+        Padding(
+          padding: const EdgeInsets.only(right: 9),
+          child: Icon(iconForControl(id), color: Colors.white, size: 14),
+        ),
+    ],
+  );
 }

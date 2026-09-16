@@ -18,7 +18,11 @@ import 'package:soplay/features/anilist/presentation/widgets/anilist_entry_sheet
 /// with the page, which is what makes the whole screen disappear cleanly when
 /// the account is disconnected from somewhere else.
 class AnilistLibraryPage extends StatefulWidget {
-  const AnilistLibraryPage({super.key, this.showAppBar = true, this.controller});
+  const AnilistLibraryPage({
+    super.key,
+    this.showAppBar = true,
+    this.controller,
+  });
 
   /// False when hosted inside another scaffold's tab, which already supplies
   /// its own bar — two stacked app bars is the usual cost of reusing a page.
@@ -170,7 +174,9 @@ class _StatusTabBar extends StatelessWidget {
     return Container(
       alignment: AlignmentDirectional.centerStart,
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.divider, width: 0.5)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.divider, width: 0.5),
+        ),
       ),
       child: TabBar(
         controller: controller,
@@ -182,9 +188,14 @@ class _StatusTabBar extends StatelessWidget {
         indicatorWeight: 2.5,
         labelColor: kAnilistBlue,
         unselectedLabelColor: AppColors.textSecondary,
-        labelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800),
-        unselectedLabelStyle:
-            const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+        labelStyle: const TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w800,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w600,
+        ),
         tabs: [
           for (final status in AnilistStatus.values)
             Tab(
@@ -243,8 +254,9 @@ class _StatusList extends StatelessWidget {
         child: AnilistScrollableMessage(
           message: AnilistStateMessage(
             icon: Icons.inbox_rounded,
-            text: 'anilist.empty_status'
-                .tr(args: [status.labelKey.tr().toLowerCase()]),
+            text: 'anilist.empty_status'.tr(
+              args: [status.labelKey.tr().toLowerCase()],
+            ),
           ),
         ),
       );
@@ -271,7 +283,10 @@ class _StatusList extends StatelessWidget {
             final error = await controller.bumpEpisode(items[i]);
             if (error != null && context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(error), behavior: SnackBarBehavior.floating),
+                SnackBar(
+                  content: Text(error),
+                  behavior: SnackBarBehavior.floating,
+                ),
               );
             }
           },
@@ -440,7 +455,6 @@ class _LoadingList extends StatelessWidget {
   }
 }
 
-
 /// The rate-limit message, with the wait counted down and the retry made itself.
 ///
 /// A budget AniList has already closed does not reopen because somebody presses
@@ -506,7 +520,8 @@ class _RateLimitCountdownState extends State<_RateLimitCountdown> {
     final seconds = left.inSeconds + 1;
     return AnilistStateMessage(
       icon: Icons.hourglass_bottom_rounded,
-      text: '${widget.error}\n'
+      text:
+          '${widget.error}\n'
           '${'anilist.retry_in'.tr(args: ['$seconds'])}',
     );
   }

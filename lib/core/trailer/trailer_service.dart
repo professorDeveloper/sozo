@@ -62,8 +62,8 @@ class TrailerResult {
 /// covers both.
 class TrailerService {
   TrailerService({YoutubeExplode? client, TrailerTitleLookup? titles})
-      : _yt = client ?? YoutubeExplode(),
-        _titles = titles ?? TrailerTitleLookup();
+    : _yt = client ?? YoutubeExplode(),
+      _titles = titles ?? TrailerTitleLookup();
 
   final YoutubeExplode _yt;
   final TrailerTitleLookup _titles;

@@ -14,8 +14,11 @@ Future<bool> confirmIntroLanguage(BuildContext context) async {
 }
 
 /// The same page from Settings, where picking one applies it.
-Future<void> openLanguagePage(BuildContext context) => Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const LanguagePage(firstRun: false)),
+Future<void> openLanguagePage(BuildContext context) =>
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const LanguagePage(firstRun: false),
+      ),
     );
 
 /// Every language the app ships, in its own name.
@@ -64,15 +67,16 @@ class _LanguagePageState extends State<LanguagePage> {
                       icon: const Icon(Icons.arrow_back_rounded),
                     ),
                     const Spacer(),
-                    if (widget.firstRun) Text(
-                      'SOZO',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2.2,
+                    if (widget.firstRun)
+                      Text(
+                        'SOZO',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.2,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),

@@ -45,21 +45,29 @@ void main() {
     });
 
     test('hiding is a move like any other', () {
-      final l = PlayerControlsLayout.defaults()
-          .move('pip', PlayerControlSlot.hidden);
+      final l = PlayerControlsLayout.defaults().move(
+        'pip',
+        PlayerControlSlot.hidden,
+      );
       expect(l.of(PlayerControlSlot.hidden), contains('pip'));
       expect(l.isDefault, isFalse);
     });
 
     test('an index puts it where the drag ended, not at the end', () {
-      final l = PlayerControlsLayout.defaults()
-          .move('download', PlayerControlSlot.bottomLeft, index: 0);
+      final l = PlayerControlsLayout.defaults().move(
+        'download',
+        PlayerControlSlot.bottomLeft,
+        index: 0,
+      );
       expect(l.of(PlayerControlSlot.bottomLeft).first, 'download');
     });
 
     test('an out-of-range index is clamped, not thrown', () {
-      final l = PlayerControlsLayout.defaults()
-          .move('download', PlayerControlSlot.bottomLeft, index: 99);
+      final l = PlayerControlsLayout.defaults().move(
+        'download',
+        PlayerControlSlot.bottomLeft,
+        index: 99,
+      );
       expect(l.of(PlayerControlSlot.bottomLeft), contains('download'));
     });
   });
@@ -76,25 +84,31 @@ void main() {
       return l;
     }
 
-    test('a move onto a full bar is refused rather than accepted and squashed',
-        () {
-      // The bar's overflow behaviour is a FittedBox: an extra button does not
-      // wrap or scroll, it shrinks every button until none can be hit.
-      final l = fillTopBar();
-      expect(l.topBarCount, PlayerControlsLayout.topBarCapacity);
-      final outside = PlayerControlCatalogue.all
-          .firstWhere((s) => l.slotOf(s.id) != PlayerControlSlot.topBar);
-      expect(l.canMove(outside.id, PlayerControlSlot.topBar), isFalse);
-      expect(l.moveRefusal(outside.id, PlayerControlSlot.topBar),
-          'player.layout_top_bar_full');
-    });
+    test(
+      'a move onto a full bar is refused rather than accepted and squashed',
+      () {
+        // The bar's overflow behaviour is a FittedBox: an extra button does not
+        // wrap or scroll, it shrinks every button until none can be hit.
+        final l = fillTopBar();
+        expect(l.topBarCount, PlayerControlsLayout.topBarCapacity);
+        final outside = PlayerControlCatalogue.all.firstWhere(
+          (s) => l.slotOf(s.id) != PlayerControlSlot.topBar,
+        );
+        expect(l.canMove(outside.id, PlayerControlSlot.topBar), isFalse);
+        expect(
+          l.moveRefusal(outside.id, PlayerControlSlot.topBar),
+          'player.layout_top_bar_full',
+        );
+      },
+    );
 
     test('a refused move leaves the layout untouched', () {
       // move() is reachable without asking canMove first, and a caller that
       // skips the check must still not be able to build an invalid bar.
       final l = fillTopBar();
-      final outside = PlayerControlCatalogue.all
-          .firstWhere((s) => l.slotOf(s.id) != PlayerControlSlot.topBar);
+      final outside = PlayerControlCatalogue.all.firstWhere(
+        (s) => l.slotOf(s.id) != PlayerControlSlot.topBar,
+      );
       final after = l.move(outside.id, PlayerControlSlot.topBar);
       expect(after.topBarCount, PlayerControlsLayout.topBarCapacity);
       expect(after.slotOf(outside.id), l.slotOf(outside.id));
@@ -114,8 +128,10 @@ void main() {
       // hides the screen that would undo the hiding.
       final l = PlayerControlsLayout.defaults();
       expect(l.canMove('settings', PlayerControlSlot.hidden), isFalse);
-      expect(l.moveRefusal('settings', PlayerControlSlot.hidden),
-          'player.layout_pinned');
+      expect(
+        l.moveRefusal('settings', PlayerControlSlot.hidden),
+        'player.layout_pinned',
+      );
       expect(
         l.move('settings', PlayerControlSlot.hidden).slotOf('settings'),
         PlayerControlSlot.topBar,
@@ -131,22 +147,29 @@ void main() {
     });
 
     test('exactly one thing is pinned', () {
-      final pinned =
-          PlayerControlCatalogue.all.where((s) => s.pinned).map((s) => s.id);
+      final pinned = PlayerControlCatalogue.all
+          .where((s) => s.pinned)
+          .map((s) => s.id);
       expect(pinned, ['settings']);
     });
   });
 
   group('surviving an upgrade', () {
-    test('legacy bottom-left episode controls migrate beside the seek buttons', () {
-      final layout = PlayerControlsLayout.fromStored({
-        'bottomLeft': ['previous', 'next'],
-        'hidden': ['stats'],
-      });
-      expect(layout.slotOf('previous'), PlayerControlSlot.center);
-      expect(layout.slotOf('next'), PlayerControlSlot.center);
-      expect(layout.of(PlayerControlSlot.bottomLeft), isNot(contains('previous')));
-    });
+    test(
+      'legacy bottom-left episode controls migrate beside the seek buttons',
+      () {
+        final layout = PlayerControlsLayout.fromStored({
+          'bottomLeft': ['previous', 'next'],
+          'hidden': ['stats'],
+        });
+        expect(layout.slotOf('previous'), PlayerControlSlot.center);
+        expect(layout.slotOf('next'), PlayerControlSlot.center);
+        expect(
+          layout.of(PlayerControlSlot.bottomLeft),
+          isNot(contains('previous')),
+        );
+      },
+    );
     test('modern explicit layout and hidden episode controls survive', () {
       final layout = PlayerControlsLayout.fromStored({
         'center': <String>[],
@@ -179,13 +202,18 @@ void main() {
       );
     });
 
-    test('a control that no longer exists is dropped, not carried as a ghost',
-        () {
-      final l = PlayerControlsLayout.fromStored({
-        'topBar': ['subtitles', 'chromecast_v1_removed'],
-      });
-      expect(l.of(PlayerControlSlot.topBar), isNot(contains('chromecast_v1_removed')));
-    });
+    test(
+      'a control that no longer exists is dropped, not carried as a ghost',
+      () {
+        final l = PlayerControlsLayout.fromStored({
+          'topBar': ['subtitles', 'chromecast_v1_removed'],
+        });
+        expect(
+          l.of(PlayerControlSlot.topBar),
+          isNot(contains('chromecast_v1_removed')),
+        );
+      },
+    );
 
     test('an id stored twice lands once', () {
       final l = PlayerControlsLayout.fromStored({
@@ -204,8 +232,13 @@ void main() {
       // order, so the viewer's first choices are the ones kept.
       final l = PlayerControlsLayout.fromStored({
         'topBar': [
-          'subtitles', 'settings', 'lock', 'orientation', 'language',
-          'speed', 'quality',
+          'subtitles',
+          'settings',
+          'lock',
+          'orientation',
+          'language',
+          'speed',
+          'quality',
         ],
       });
       expect(l.topBarCount, PlayerControlsLayout.topBarCapacity);
@@ -242,8 +275,12 @@ void main() {
           .move('previous', PlayerControlSlot.hidden)
           .move('next', PlayerControlSlot.hidden);
       expect(l.of(PlayerControlSlot.bottomLeft), isEmpty);
-      expect(l.reorder(PlayerControlSlot.bottomLeft, 0, 1).of(PlayerControlSlot.bottomLeft),
-          isEmpty);
+      expect(
+        l
+            .reorder(PlayerControlSlot.bottomLeft, 0, 1)
+            .of(PlayerControlSlot.bottomLeft),
+        isEmpty,
+      );
     });
 
     test('a drag that ends off the edge is clamped', () {
@@ -257,13 +294,16 @@ void main() {
 
   test('the returned lists cannot be edited behind the layout', () {
     final l = PlayerControlsLayout.defaults();
-    expect(() => l.of(PlayerControlSlot.topBar).add('x'), throwsUnsupportedError);
+    expect(
+      () => l.of(PlayerControlSlot.topBar).add('x'),
+      throwsUnsupportedError,
+    );
   });
 
   test('the domain layer stays free of Flutter', () {
-    final source =
-        File('lib/features/detail/domain/player_controls_layout.dart')
-            .readAsStringSync();
+    final source = File(
+      'lib/features/detail/domain/player_controls_layout.dart',
+    ).readAsStringSync();
     expect(source.contains('package:flutter/'), isFalse);
     expect(source.contains('get_it'), isFalse);
   });

@@ -118,8 +118,7 @@ class PlayerArgs {
   ///
   /// Falls back to the loaded list, so a caller that knows nothing about
   /// paging behaves exactly as before.
-  int get effectiveTotal =>
-      totalEpisodes > 0 ? totalEpisodes : episodes.length;
+  int get effectiveTotal => totalEpisodes > 0 ? totalEpisodes : episodes.length;
 
   /// Whether the loaded window is only part of the run.
   bool get isWindowed =>

@@ -11,22 +11,22 @@ import 'package:soplay/core/theme/app_theme.dart';
 /// Icon shown for each backend. Shared with Settings → Player so the row a
 /// user taps in the sheet is visually the same row they see in settings.
 IconData playerEngineIcon(PlayerEngine engine) => switch (engine) {
-      PlayerEngine.native => Icons.play_circle_outline_rounded,
-      PlayerEngine.mediaKit => Icons.graphic_eq_rounded,
-      PlayerEngine.external => Icons.open_in_new_rounded,
-    };
+  PlayerEngine.native => Icons.play_circle_outline_rounded,
+  PlayerEngine.mediaKit => Icons.graphic_eq_rounded,
+  PlayerEngine.external => Icons.open_in_new_rounded,
+};
 
 String playerEngineTitleKey(PlayerEngine engine) => switch (engine) {
-      PlayerEngine.native => 'profile.player_engine_native',
-      PlayerEngine.mediaKit => 'profile.player_engine_media_kit',
-      PlayerEngine.external => 'profile.player_engine_external',
-    };
+  PlayerEngine.native => 'profile.player_engine_native',
+  PlayerEngine.mediaKit => 'profile.player_engine_media_kit',
+  PlayerEngine.external => 'profile.player_engine_external',
+};
 
 String playerEngineDescKey(PlayerEngine engine) => switch (engine) {
-      PlayerEngine.native => 'profile.player_engine_native_desc',
-      PlayerEngine.mediaKit => 'profile.player_engine_media_kit_desc',
-      PlayerEngine.external => 'profile.player_engine_external_desc',
-    };
+  PlayerEngine.native => 'profile.player_engine_native_desc',
+  PlayerEngine.mediaKit => 'profile.player_engine_media_kit_desc',
+  PlayerEngine.external => 'profile.player_engine_external_desc',
+};
 
 /// Asks which backend should decode the video that is about to start.
 ///
@@ -134,8 +134,11 @@ Future<bool> showPlayerEngineSheet(BuildContext context) async {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.info_outline_rounded,
-                          color: AppColors.textHint, size: 14),
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        color: AppColors.textHint,
+                        size: 14,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -163,8 +166,7 @@ Future<bool> showPlayerEngineSheet(BuildContext context) async {
                             setSheetState(() => dontAskAgain = v ?? false),
                         activeColor: AppColors.primary,
                         side: const BorderSide(color: Colors.white38),
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.compact,
                       ),
                       const SizedBox(width: 4),

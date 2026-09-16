@@ -22,10 +22,9 @@ class BridgeControl {
   static Future<BridgeStatus> setEnabled(bool enabled) async {
     if (!canHost) return const BridgeStatus(enabled: false, link: null);
     try {
-      final m = await _ch.invokeMapMethod<String, dynamic>(
-        'setEnabled',
-        {'enabled': enabled},
-      );
+      final m = await _ch.invokeMapMethod<String, dynamic>('setEnabled', {
+        'enabled': enabled,
+      });
       return BridgeStatus.fromMap(m);
     } catch (_) {
       return const BridgeStatus(enabled: false, link: null);
@@ -35,7 +34,9 @@ class BridgeControl {
   static Future<SharedSelection> getSharedProviders() async {
     if (!canHost) return const SharedSelection(shareAll: true, ids: {});
     try {
-      final m = await _ch.invokeMapMethod<String, dynamic>('getSharedProviders');
+      final m = await _ch.invokeMapMethod<String, dynamic>(
+        'getSharedProviders',
+      );
       return SharedSelection.fromMap(m);
     } catch (_) {
       return const SharedSelection(shareAll: true, ids: {});
@@ -66,11 +67,9 @@ class SharedSelection {
   final Set<String> ids;
 
   factory SharedSelection.fromMap(Map<String, dynamic>? m) => SharedSelection(
-        shareAll: m?['shareAll'] != false,
-        ids: ((m?['ids'] as List?) ?? const [])
-            .map((e) => e.toString())
-            .toSet(),
-      );
+    shareAll: m?['shareAll'] != false,
+    ids: ((m?['ids'] as List?) ?? const []).map((e) => e.toString()).toSet(),
+  );
 }
 
 class BridgeStatus {
@@ -80,8 +79,6 @@ class BridgeStatus {
 
   final String? link;
 
-  factory BridgeStatus.fromMap(Map<String, dynamic>? m) => BridgeStatus(
-        enabled: m?['enabled'] == true,
-        link: m?['link'] as String?,
-      );
+  factory BridgeStatus.fromMap(Map<String, dynamic>? m) =>
+      BridgeStatus(enabled: m?['enabled'] == true, link: m?['link'] as String?);
 }

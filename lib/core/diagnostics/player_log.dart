@@ -38,7 +38,8 @@ class PlayerLog {
       _appVersion = 'unknown';
     }
     try {
-      _device = '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
+      _device =
+          '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
     } catch (_) {
       _device = 'unknown';
     }

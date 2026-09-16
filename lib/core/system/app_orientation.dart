@@ -28,9 +28,9 @@ class AppOrientation {
   }
 
   static String _name(DeviceOrientation o) => switch (o) {
-        DeviceOrientation.portraitUp => 'portraitUp',
-        DeviceOrientation.portraitDown => 'portraitDown',
-        DeviceOrientation.landscapeLeft => 'landscapeLeft',
-        DeviceOrientation.landscapeRight => 'landscapeRight',
-      };
+    DeviceOrientation.portraitUp => 'portraitUp',
+    DeviceOrientation.portraitDown => 'portraitDown',
+    DeviceOrientation.landscapeLeft => 'landscapeLeft',
+    DeviceOrientation.landscapeRight => 'landscapeRight',
+  };
 }

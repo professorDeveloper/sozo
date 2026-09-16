@@ -8,22 +8,20 @@ import 'package:soplay/features/detail/domain/entities/player_args.dart';
 void main() {
   List<EpisodeEntity> page(int from, int count) => List.generate(
     count,
-    (i) => EpisodeEntity(episode: from + i, label: '', mediaRef: 'u${from + i}'),
+    (i) =>
+        EpisodeEntity(episode: from + i, label: '', mediaRef: 'u${from + i}'),
   );
 
-  PlayerArgs args({
-    int windowStart = 0,
-    int total = 0,
-    int loaded = 100,
-  }) => PlayerArgs(
-    title: 'One Piece',
-    provider: 'x',
-    headers: const {},
-    episodes: page(windowStart + 1, loaded),
-    windowStart: windowStart,
-    totalEpisodes: total,
-    pageSize: 100,
-  );
+  PlayerArgs args({int windowStart = 0, int total = 0, int loaded = 100}) =>
+      PlayerArgs(
+        title: 'One Piece',
+        provider: 'x',
+        headers: const {},
+        episodes: page(windowStart + 1, loaded),
+        windowStart: windowStart,
+        totalEpisodes: total,
+        pageSize: 100,
+      );
 
   group('effectiveTotal', () {
     test('is the series when the caller knows it', () {
@@ -51,11 +49,7 @@ void main() {
     });
 
     test('false for a film', () {
-      final movie = PlayerArgs(
-        title: 'Dune',
-        provider: 'x',
-        headers: const {},
-      );
+      final movie = PlayerArgs(title: 'Dune', provider: 'x', headers: const {});
       expect(movie.isWindowed, isFalse);
       expect(movie.effectiveTotal, 0);
     });

@@ -55,10 +55,7 @@ class WatchProgress {
   /// the loaded window, and an episode the provider numbered 0 or less — which
   /// several anime sources do for specials, and which would otherwise write
   /// "episode 0 watched" onto somebody's list.
-  int? episodeToReport({
-    required bool isSerial,
-    required int? episodeNumber,
-  }) {
+  int? episodeToReport({required bool isSerial, required int? episodeNumber}) {
     final number = isSerial ? episodeNumber : 1;
     if (number == null || number <= 0) return null;
     if (!_reported.add(number)) return null;

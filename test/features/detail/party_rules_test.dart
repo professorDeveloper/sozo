@@ -160,10 +160,7 @@ void main() {
     test('the guest checks itself more often than the host speaks', () {
       // It re-applies the LAST sync against a moving clock, so it corrects
       // between announcements instead of waiting for the next one.
-      expect(
-        PartyRules.driftPeriod,
-        lessThan(PartyRules.heartbeatPeriod),
-      );
+      expect(PartyRules.driftPeriod, lessThan(PartyRules.heartbeatPeriod));
     });
   });
 

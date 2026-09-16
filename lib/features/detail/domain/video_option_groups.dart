@@ -29,9 +29,9 @@ class VideoOptionGroups {
   /// Positions in the ORIGINAL list, so the caller's selected index stays
   /// valid.
   static List<int> indicesFor(List<String> labels, String server) => [
-        for (var i = 0; i < labels.length; i++)
-          if (serverOf(labels[i]) == server) i,
-      ];
+    for (var i = 0; i < labels.length; i++)
+      if (serverOf(labels[i]) == server) i,
+  ];
 
   /// The distinct qualities [server] offers, so a picker can say what choosing
   /// it gets you.
@@ -114,9 +114,6 @@ class VideoOptionGroups {
     if (at < 0) return (server: text, quality: '');
 
     final host = [...words.take(at), ...words.skip(at + 1)].join(' ');
-    return (
-      server: host.isEmpty ? _fallbackServer : host,
-      quality: words[at],
-    );
+    return (server: host.isEmpty ? _fallbackServer : host, quality: words[at]);
   }
 }

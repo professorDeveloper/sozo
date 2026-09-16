@@ -77,11 +77,7 @@ abstract final class PlayerInfoFields {
       labelKey: 'player.info_server',
       onByDefault: false,
     ),
-    PlayerInfoField(
-      id: 'hdr',
-      labelKey: 'player.info_hdr',
-      onByDefault: false,
-    ),
+    PlayerInfoField(id: 'hdr', labelKey: 'player.info_hdr', onByDefault: false),
     PlayerInfoField(
       id: 'audio',
       labelKey: 'player.info_audio',
@@ -122,8 +118,10 @@ abstract final class PlayerInfoFields {
   }
 
   /// The set a viewer who has never opened the screen sees.
-  static Set<String> get defaults =>
-      {for (final f in all) if (f.onByDefault) f.id};
+  static Set<String> get defaults => {
+    for (final f in all)
+      if (f.onByDefault) f.id,
+  };
 
   /// Rebuilds the enabled set from storage.
   ///
@@ -151,8 +149,9 @@ abstract final class PlayerInfoFields {
   }
 
   /// Explicit answers for every field this build knows about.
-  static Map<String, bool> toStored(Set<String> enabled) =>
-      {for (final f in all) f.id: enabled.contains(f.id)};
+  static Map<String, bool> toStored(Set<String> enabled) => {
+    for (final f in all) f.id: enabled.contains(f.id),
+  };
 
   /// Whether [enabled] is still what ships, which is what decides if Reset has
   /// anything to undo.

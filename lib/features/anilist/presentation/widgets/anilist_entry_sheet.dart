@@ -32,7 +32,8 @@ class AnilistEntrySheet extends StatefulWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => AnilistEntrySheet(entryId: entryId, controller: controller),
+      builder: (_) =>
+          AnilistEntrySheet(entryId: entryId, controller: controller),
     );
   }
 
@@ -188,10 +189,11 @@ class _AnilistEntrySheetState extends State<AnilistEntrySheet> {
                           runSpacing: 6,
                           children: [
                             AnilistChip(
-                              label: (AnilistStatus.fromValue(entry.status) ??
-                                      AnilistStatus.current)
-                                  .labelKey
-                                  .tr(),
+                              label:
+                                  (AnilistStatus.fromValue(entry.status) ??
+                                          AnilistStatus.current)
+                                      .labelKey
+                                      .tr(),
                             ),
                             if (media.format != null)
                               AnilistChip(
@@ -218,7 +220,8 @@ class _AnilistEntrySheetState extends State<AnilistEntrySheet> {
                 busy: busy,
                 canDecrement: entry.progress > 0,
                 canIncrement: next != null,
-                onDecrement: () => _run(_c.setProgress(entry, entry.progress - 1)),
+                onDecrement: () =>
+                    _run(_c.setProgress(entry, entry.progress - 1)),
                 onIncrement: () => _run(_c.bumpEpisode(entry)),
               ),
               const SizedBox(height: 18),
@@ -264,9 +267,9 @@ class _AnilistEntrySheetState extends State<AnilistEntrySheet> {
                 onTap: media.siteUrl == null
                     ? null
                     : () => launchUrl(
-                          Uri.parse(media.siteUrl!),
-                          mode: LaunchMode.externalApplication,
-                        ),
+                        Uri.parse(media.siteUrl!),
+                        mode: LaunchMode.externalApplication,
+                      ),
               ),
               // Behind a confirmation, and last: everything above this line is
               // reversible with one more tap, and this is not — AniList drops
@@ -311,7 +314,10 @@ class _ProgressRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.05),
+          width: 0.5,
+        ),
       ),
       child: Row(
         children: [
@@ -415,7 +421,9 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? kAnilistBlue.withValues(alpha: 0.16) : Colors.transparent,
+      color: selected
+          ? kAnilistBlue.withValues(alpha: 0.16)
+          : Colors.transparent,
       borderRadius: BorderRadius.circular(9),
       child: InkWell(
         onTap: onTap,

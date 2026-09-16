@@ -27,16 +27,15 @@ class PlayerInfoFieldsSheet extends StatefulWidget {
   static Future<Set<String>?> show(
     BuildContext context, {
     ValueChanged<Set<String>>? onChanged,
-  }) =>
-      showAdaptiveModal<Set<String>>(
-        context: context,
-        backgroundColor: const Color(0xFF111111),
-        isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        builder: (_) => PlayerInfoFieldsSheet(onChanged: onChanged),
-      );
+  }) => showAdaptiveModal<Set<String>>(
+    context: context,
+    backgroundColor: const Color(0xFF111111),
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (_) => PlayerInfoFieldsSheet(onChanged: onChanged),
+  );
 
   @override
   State<PlayerInfoFieldsSheet> createState() => _PlayerInfoFieldsSheetState();
@@ -44,8 +43,9 @@ class PlayerInfoFieldsSheet extends StatefulWidget {
 
 class _PlayerInfoFieldsSheetState extends State<PlayerInfoFieldsSheet> {
   final HiveService _hive = getIt<HiveService>();
-  late Set<String> _enabled =
-      PlayerInfoFields.fromStored(_hive.getPlayerInfoFields());
+  late Set<String> _enabled = PlayerInfoFields.fromStored(
+    _hive.getPlayerInfoFields(),
+  );
 
   void _apply(Set<String> next) {
     setState(() => _enabled = next);
@@ -153,8 +153,9 @@ class _PlayerInfoFieldsSheetState extends State<PlayerInfoFieldsSheet> {
                               style: TextStyle(
                                 color: on ? Colors.white : Colors.white70,
                                 fontSize: 14,
-                                fontWeight:
-                                    on ? FontWeight.w600 : FontWeight.w400,
+                                fontWeight: on
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
                               ),
                             ),
                           ),

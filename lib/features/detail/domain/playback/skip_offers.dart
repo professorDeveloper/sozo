@@ -35,7 +35,10 @@ class SkipOffers {
   /// Unusable intervals are dropped here rather than skipped over later, so
   /// nothing downstream has to remember the rule.
   void load(List<SkipInterval> intervals) {
-    _intervals = [for (final i in intervals) if (i.isUsable) i];
+    _intervals = [
+      for (final i in intervals)
+        if (i.isUsable) i,
+    ];
     _taken.clear();
   }
 

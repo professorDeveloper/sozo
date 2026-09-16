@@ -172,6 +172,7 @@ class AppConstants {
   /// the system player keeps it, because a stored id wins over this constant.
   static const String defaultPlayerEngine = 'media_kit';
   static const String telegramPromoSeenKey = 'telegram_promo_seen';
+
   /// Appearance → "Pure black". Absent ⇒ off, i.e. the greys the app has
   /// always shipped.
   static const String amoledModeKey = 'amoled_mode';

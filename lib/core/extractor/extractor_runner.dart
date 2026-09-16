@@ -64,7 +64,8 @@ class ExtractorRunner {
     }
 
     final argsJson = args != null ? jsonEncode(args) : '{}';
-    final functionBody = '''
+    final functionBody =
+        '''
 try {
   $_runtimeJs
   $js
@@ -84,7 +85,9 @@ try {
 ''';
 
     final result = await _evaluateJs(functionBody);
-    debugPrint('[ExtractorRunner] $method raw result: ${result == null ? 'null' : '${result.substring(0, result.length.clamp(0, 200))}${result.length > 200 ? '...' : ''}'}');
+    debugPrint(
+      '[ExtractorRunner] $method raw result: ${result == null ? 'null' : '${result.substring(0, result.length.clamp(0, 200))}${result.length > 200 ? '...' : ''}'}',
+    );
     if (result == null || result == 'null') {
       throw Exception('Extractor returned null');
     }

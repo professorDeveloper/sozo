@@ -21,7 +21,12 @@ class NavPrefs {
   /// Persisted bottom-nav tab set/order (list of TabId.name). Instant-rebuild
   /// for the same reason as [navStyle]: the customizer lives in the Profile tab,
   /// a sibling of the nav inside the same shell. Default = current shipped tabs.
-  static final ValueNotifier<List<String>> tabOrder = ValueNotifier<List<String>>(
-    const ['home', 'search', 'shorts', 'myList', 'profile'],
-  );
+  static final ValueNotifier<List<String>> tabOrder =
+      ValueNotifier<List<String>>(const [
+        'home',
+        'search',
+        'shorts',
+        'myList',
+        'profile',
+      ]);
 }

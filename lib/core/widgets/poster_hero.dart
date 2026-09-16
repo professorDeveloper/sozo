@@ -113,7 +113,8 @@ class PosterHero extends StatelessWidget {
     if (box.width <= 0 || box.height <= 0) return 1;
     final boxAspect = box.width / box.height;
     return boxAspect > imageAspect
-        ? boxAspect / imageAspect // box is wider — width decides
+        ? boxAspect /
+              imageAspect // box is wider — width decides
         : imageAspect / boxAspect; // box is taller — height decides
   }
 

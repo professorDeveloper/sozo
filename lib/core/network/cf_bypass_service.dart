@@ -19,8 +19,12 @@ class CfBypassService {
   }) {
     final existing = _inflight[host];
     if (existing != null) return existing;
-    final future = _runSolve(host: host, url: url, userAgent: userAgent, timeout: timeout)
-        .whenComplete(() => _inflight.remove(host));
+    final future = _runSolve(
+      host: host,
+      url: url,
+      userAgent: userAgent,
+      timeout: timeout,
+    ).whenComplete(() => _inflight.remove(host));
     _inflight[host] = future;
     return future;
   }
@@ -36,8 +40,9 @@ class CfBypassService {
   /// keeps cookies of its own.
   Future<String?> readClearance(String host) async {
     try {
-      final cookies =
-          await CookieManager.instance().getCookies(url: WebUri('https://$host/'));
+      final cookies = await CookieManager.instance().getCookies(
+        url: WebUri('https://$host/'),
+      );
       final hasClearance = cookies.any(
         (c) => c.name == 'cf_clearance' && '${c.value}'.isNotEmpty,
       );
@@ -121,10 +126,12 @@ class CfBypassService {
     );
 
     var started = true;
-    unawaited(headless.run().catchError((Object e) {
-      JsLog.err('cf', 'webview failed to start for $host: $e');
-      started = false;
-    }));
+    unawaited(
+      headless.run().catchError((Object e) {
+        JsLog.err('cf', 'webview failed to start for $host: $e');
+        started = false;
+      }),
+    );
 
     try {
       var retargeted = false;
@@ -151,8 +158,9 @@ class CfBypassService {
           } catch (_) {}
         }
 
-        final cookies = await CookieManager.instance()
-            .getCookies(url: WebUri(origin));
+        final cookies = await CookieManager.instance().getCookies(
+          url: WebUri(origin),
+        );
         final hasClearance = cookies.any(
           (c) => c.name == 'cf_clearance' && '${c.value}'.isNotEmpty,
         );
@@ -165,7 +173,8 @@ class CfBypassService {
         // WebView to have actually left the interstitial is what makes the
         // cookie mean something.
         final stillChallenged = await controller?.evaluateJavascript(
-          source: "(function(){var t=(document.title||'');"
+          source:
+              "(function(){var t=(document.title||'');"
               "return /just a moment|attention required|checking your browser/i"
               ".test(t) || !!document.getElementById('challenge-running');})()",
         );

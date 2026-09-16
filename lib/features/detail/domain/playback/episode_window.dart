@@ -33,11 +33,11 @@ class EpisodeWindow {
   /// The empty window a movie plays in, and what a serial starts from before
   /// its first page arrives.
   const EpisodeWindow.movie()
-      : episodes = const [],
-        windowStart = 0,
-        index = 0,
-        total = 0,
-        isSerial = false;
+    : episodes = const [],
+      windowStart = 0,
+      index = 0,
+      total = 0,
+      isSerial = false;
 
   /// The loaded page. Never the whole series.
   final List<EpisodeEntity> episodes;
@@ -103,22 +103,22 @@ class EpisodeWindow {
 
   /// The same window with a different episode playing.
   EpisodeWindow at(int windowIndex) => EpisodeWindow(
-        episodes: episodes,
-        windowStart: windowStart,
-        index: windowIndex,
-        total: total,
-        isSerial: isSerial,
-      );
+    episodes: episodes,
+    windowStart: windowStart,
+    index: windowIndex,
+    total: total,
+    isSerial: isSerial,
+  );
 
   /// The same window with a replaced episode list — a re-resolve that returned
   /// the same page, which is what a language switch does.
   EpisodeWindow withEpisodes(List<EpisodeEntity> next) => EpisodeWindow(
-        episodes: List.of(next),
-        windowStart: windowStart,
-        index: index,
-        total: total,
-        isSerial: isSerial,
-      );
+    episodes: List.of(next),
+    windowStart: windowStart,
+    index: index,
+    total: total,
+    isSerial: isSerial,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -133,8 +133,13 @@ class EpisodeWindow {
       identical(other.episodes, episodes);
 
   @override
-  int get hashCode =>
-      Object.hash(identityHashCode(episodes), windowStart, index, total, isSerial);
+  int get hashCode => Object.hash(
+    identityHashCode(episodes),
+    windowStart,
+    index,
+    total,
+    isSerial,
+  );
 
   @override
   String toString() =>

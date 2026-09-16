@@ -57,10 +57,7 @@ class ExtractorRemote {
         extra: const {'skipAuthInterceptor': true},
       ),
     );
-    return (
-      code: response.data ?? '',
-      version: _versionHeader(response),
-    );
+    return (code: response.data ?? '', version: _versionHeader(response));
   }
 
   Future<({String code, int version})> fetchExtractor(String name) async {
@@ -71,10 +68,7 @@ class ExtractorRemote {
         extra: const {'skipAuthInterceptor': true},
       ),
     );
-    return (
-      code: response.data ?? '',
-      version: _versionHeader(response),
-    );
+    return (code: response.data ?? '', version: _versionHeader(response));
   }
 
   int _versionHeader(Response response) {

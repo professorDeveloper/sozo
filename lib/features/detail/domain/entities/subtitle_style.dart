@@ -71,13 +71,13 @@ class SubtitleStyle {
   });
 
   factory SubtitleStyle.defaults() => const SubtitleStyle(
-        fontSize: 16,
-        textColor: 0xFFFFFFFF,
-        bgOpacity: 0.75,
-        bold: true,
-        edge: SubtitleEdge.shadow,
-        position: SubtitlePosition.normal,
-      );
+    fontSize: 16,
+    textColor: 0xFFFFFFFF,
+    bgOpacity: 0.75,
+    bold: true,
+    edge: SubtitleEdge.shadow,
+    position: SubtitlePosition.normal,
+  );
 
   factory SubtitleStyle.fromJsonString(String raw) {
     try {
@@ -128,12 +128,12 @@ class SubtitleStyle {
   }
 
   String toJsonString() => jsonEncode({
-        'fontSize': fontSize,
-        'font': font.id,
-        'textColor': textColor,
-        'bgOpacity': bgOpacity,
-        'bold': bold,
-        'edge': edge.index,
-        'position': position.index,
-      });
+    'fontSize': fontSize,
+    'font': font.id,
+    'textColor': textColor,
+    'bgOpacity': bgOpacity,
+    'bold': bold,
+    'edge': edge.index,
+    'position': position.index,
+  });
 }

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-
 import 'discord_activity.dart';
 
 /// Talks to the Discord desktop client over its local IPC socket.
@@ -69,8 +68,10 @@ class DiscordIpcClient {
         // A named pipe, not a socket. Dart has no pipe API, but the pipe is
         // openable as a file and `FileMode.append` is the only mode that asks
         // the OS for read AND write on an existing object.
-        final pipe = await File(r'\\.\pipe\discord-ipc-' '$index')
-            .open(mode: FileMode.append);
+        final pipe = await File(
+          r'\\.\pipe\discord-ipc-'
+          '$index',
+        ).open(mode: FileMode.append);
         _pipe = pipe;
       } else {
         final path = _unixCandidates(index).firstWhere(
@@ -116,7 +117,12 @@ class DiscordIpcClient {
       if ((env['TEMP'] ?? '').isNotEmpty) env['TEMP']!,
       '/tmp',
     ];
-    const nested = ['', '/app/com.discordapp.Discord', '/snap.discord', '/app/com.discordapp.DiscordCanary'];
+    const nested = [
+      '',
+      '/app/com.discordapp.Discord',
+      '/snap.discord',
+      '/app/com.discordapp.DiscordCanary',
+    ];
     return [
       for (final root in roots)
         for (final dir in nested)

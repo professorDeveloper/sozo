@@ -59,10 +59,7 @@ class SourceLadder {
   /// providers push one first for every server, so `sources[0]` was routinely
   /// an HTML document handed to a video decoder. That only becomes playable
   /// once a directive says a WebView will sniff the real stream out of it.
-  static bool isPlayable(
-    VideoSourceEntity s, {
-    required bool hasDirective,
-  }) {
+  static bool isPlayable(VideoSourceEntity s, {required bool hasDirective}) {
     if (!s.accessible) return false;
     if (s.videoUrl.isEmpty) return false;
     if (s.type == 'iframe' && !hasDirective) return false;
@@ -109,7 +106,8 @@ class SourceLadder {
     // Zero where the label carries no resolution — "Server 1", "Auto", a host
     // name. Those compare equal to each other and keep the backend's order,
     // which is the only thing known about them.
-    int height(int i) => VideoOptionGroups.resolutionOf(sources[i].quality) ?? 0;
+    int height(int i) =>
+        VideoOptionGroups.resolutionOf(sources[i].quality) ?? 0;
 
     candidates.sort((a, b) {
       final byRank = rank(a).compareTo(rank(b));

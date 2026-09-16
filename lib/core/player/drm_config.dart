@@ -119,9 +119,9 @@ class DrmConfig {
   /// stream to the DRM backend, which then fails, instead of letting the normal
   /// player have a go at a stream that may not have needed decrypting.
   bool get isUsable => switch (scheme) {
-        DrmScheme.clearKey => clearKeys.isNotEmpty,
-        DrmScheme.widevine || DrmScheme.playReady => licenseUrl.isNotEmpty,
-      };
+    DrmScheme.clearKey => clearKeys.isNotEmpty,
+    DrmScheme.widevine || DrmScheme.playReady => licenseUrl.isNotEmpty,
+  };
 
   /// Parses the shape the backend serves. Null when there is no DRM on this
   /// stream, or when what is there cannot be used.
@@ -145,12 +145,12 @@ class DrmConfig {
   }
 
   Map<String, dynamic> toMap() => {
-        'scheme': scheme.id,
-        'licenseUrl': licenseUrl,
-        'licenseHeaders': licenseHeaders,
-        'clearKeys': clearKeys,
-        'multiSession': multiSession,
-      };
+    'scheme': scheme.id,
+    'licenseUrl': licenseUrl,
+    'licenseHeaders': licenseHeaders,
+    'clearKeys': clearKeys,
+    'multiSession': multiSession,
+  };
 
   static Map<String, String> _stringMap(Object? raw) {
     if (raw is! Map) return const {};
@@ -198,18 +198,19 @@ class DrmConfig {
 
   @override
   int get hashCode => Object.hash(
-        scheme,
-        licenseUrl,
-        multiSession,
-        Object.hashAllUnordered(licenseHeaders.entries.map((e) => e.key)),
-        Object.hashAllUnordered(clearKeys.keys),
-      );
+    scheme,
+    licenseUrl,
+    multiSession,
+    Object.hashAllUnordered(licenseHeaders.entries.map((e) => e.key)),
+    Object.hashAllUnordered(clearKeys.keys),
+  );
 
   /// Deliberately never prints key material — this ends up in the diagnostics
   /// log the player already writes, and a log someone pastes into a bug report
   /// must not be a way to hand out someone's content keys.
   @override
-  String toString() => 'DrmConfig(${scheme.id}, '
+  String toString() =>
+      'DrmConfig(${scheme.id}, '
       'license: ${licenseUrl.isEmpty ? 'none' : 'set'}, '
       'keys: ${clearKeys.length})';
 }

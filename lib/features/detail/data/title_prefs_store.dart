@@ -72,19 +72,14 @@ class TitlePrefsStore {
     return (value is String && value.isNotEmpty) ? value : null;
   }
 
-  Future<void> rememberLang(
-    String provider,
-    String contentUrl,
-    String lang,
-  ) =>
+  Future<void> rememberLang(String provider, String contentUrl, String lang) =>
       _write(provider, contentUrl, 'lang', lang);
 
   Future<void> rememberQuality(
     String provider,
     String contentUrl,
     String quality,
-  ) =>
-      _write(provider, contentUrl, 'quality', quality);
+  ) => _write(provider, contentUrl, 'quality', quality);
 
   Future<void> _write(
     String provider,

@@ -27,7 +27,7 @@ enum SubtitleParseFailure {
 class SubtitleParseResult {
   const SubtitleParseResult.success(this.captions) : failure = null;
   const SubtitleParseResult.failed(SubtitleParseFailure this.failure)
-      : captions = const [];
+    : captions = const [];
 
   final List<Caption> captions;
   final SubtitleParseFailure? failure;
@@ -100,9 +100,11 @@ SubtitleParseResult parseSubtitleText(
   }
 
   final format = declaredFormat.trim().toUpperCase();
-  final isVtt = trimmed.startsWith('WEBVTT') ||
+  final isVtt =
+      trimmed.startsWith('WEBVTT') ||
       (format == 'VTT' && !lowerHead.contains('dialogue:'));
-  final isAss = lowerHead.contains('[script info]') ||
+  final isAss =
+      lowerHead.contains('[script info]') ||
       lowerHead.contains('[events]') ||
       lowerHead.contains('dialogue:') ||
       format == 'ASS' ||
@@ -228,7 +230,9 @@ String _fmtStamp(Duration d) {
 // --- ASS / SSA --------------------------------------------------------------
 
 final RegExp _assOverride = RegExp(r'\{[^}]*\}');
-final RegExp _assStamp = RegExp(r'^(\d{1,3}):(\d{1,2}):(\d{1,2})[.,](\d{1,2})$');
+final RegExp _assStamp = RegExp(
+  r'^(\d{1,3}):(\d{1,2}):(\d{1,2})[.,](\d{1,2})$',
+);
 
 /// Converts the `Dialogue:` lines of an ASS/SSA script into cues. Feeding these
 /// to the SubRip parser throws a FormatException on the very first line.

@@ -34,8 +34,8 @@ export 'package:soplay/core/analytics/analytics_event.dart';
 /// must behave identically without it.
 class Analytics {
   Analytics({required bool Function() suppressed, Amplitude? client})
-      : _suppressed = suppressed,
-        _client = client;
+    : _suppressed = suppressed,
+      _client = client;
 
   static const String _envKey = 'AMPLITUDE_API_KEY';
 
@@ -119,15 +119,17 @@ class Analytics {
   void track(AnalyticsEvent event, {Map<String, Object?> props = const {}}) {
     if (!isEnabled) return;
     try {
-      unawaited(_client!.track(
-        BaseEvent(
-          event.wireName,
-          eventProperties: {
-            for (final e in props.entries)
-              if (e.value != null) e.key: e.value!,
-          },
+      unawaited(
+        _client!.track(
+          BaseEvent(
+            event.wireName,
+            eventProperties: {
+              for (final e in props.entries)
+                if (e.value != null) e.key: e.value!,
+            },
+          ),
         ),
-      ));
+      );
     } catch (e) {
       debugPrint('[analytics] ${event.wireName} dropped: $e');
     }

@@ -22,9 +22,9 @@ class SozoMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SvgPicture.asset(
-        asset,
-        width: size,
-        height: size,
-        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-      );
+    asset,
+    width: size,
+    height: size,
+    colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+  );
 }

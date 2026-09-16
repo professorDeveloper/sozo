@@ -70,10 +70,10 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
   }
 
   Color _colorFor(LogLevel level) => switch (level) {
-        LogLevel.error => const Color(0xFFFF6B6B),
-        LogLevel.warn => const Color(0xFFFFC857),
-        LogLevel.info => Colors.white70,
-      };
+    LogLevel.error => const Color(0xFFFF6B6B),
+    LogLevel.warn => const Color(0xFFFFC857),
+    LogLevel.info => Colors.white70,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -89,8 +89,11 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
               padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 8, 8),
               child: Row(
                 children: [
-                  const Icon(Icons.bug_report_outlined,
-                      color: Colors.white, size: 18),
+                  const Icon(
+                    Icons.bug_report_outlined,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   const SizedBox(width: 10),
                   Text(
                     'Player logs (${lines.length})',
@@ -103,20 +106,29 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
                   const Spacer(),
                   IconButton(
                     tooltip: 'general.copy'.tr(),
-                    icon: const Icon(Icons.copy_rounded,
-                        color: Colors.white70, size: 20),
+                    icon: const Icon(
+                      Icons.copy_rounded,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
                     onPressed: lines.isEmpty ? null : _copy,
                   ),
                   IconButton(
                     tooltip: 'general.share'.tr(),
-                    icon: const Icon(Icons.ios_share_rounded,
-                        color: Colors.white70, size: 20),
+                    icon: const Icon(
+                      Icons.ios_share_rounded,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
                     onPressed: lines.isEmpty ? null : _share,
                   ),
                   IconButton(
                     tooltip: 'general.clear'.tr(),
-                    icon: const Icon(Icons.delete_outline_rounded,
-                        color: Colors.white70, size: 20),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
                     onPressed: lines.isEmpty ? null : _log.clear,
                   ),
                 ],
@@ -127,8 +139,10 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
               child: lines.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.symmetric(vertical: 48),
-                      child: Text('player.logs_empty'.tr(),
-                          style: const TextStyle(color: Colors.white38)),
+                      child: Text(
+                        'player.logs_empty'.tr(),
+                        style: const TextStyle(color: Colors.white38),
+                      ),
                     )
                   : Scrollbar(
                       controller: _scroll,
@@ -151,12 +165,12 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
                                   TextSpan(
                                     text: '${_log.stamp(l.time)}  ',
                                     style: const TextStyle(
-                                        color: Colors.white30),
+                                      color: Colors.white30,
+                                    ),
                                   ),
                                   TextSpan(
                                     text: l.message,
-                                    style: TextStyle(
-                                        color: _colorFor(l.level)),
+                                    style: TextStyle(color: _colorFor(l.level)),
                                   ),
                                 ],
                               ),

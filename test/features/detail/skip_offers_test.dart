@@ -3,16 +3,16 @@ import 'package:soplay/features/detail/data/aniskip_service.dart';
 import 'package:soplay/features/detail/domain/playback/skip_offers.dart';
 
 SkipInterval op({int startS = 60, int endS = 150}) => SkipInterval(
-      type: 'op',
-      start: Duration(seconds: startS),
-      end: Duration(seconds: endS),
-    );
+  type: 'op',
+  start: Duration(seconds: startS),
+  end: Duration(seconds: endS),
+);
 
 SkipInterval ed({int startS = 1300, int endS = 1400}) => SkipInterval(
-      type: 'ed',
-      start: Duration(seconds: startS),
-      end: Duration(seconds: endS),
-    );
+  type: 'ed',
+  start: Duration(seconds: startS),
+  end: Duration(seconds: endS),
+);
 
 Duration at(int seconds) => Duration(seconds: seconds);
 
