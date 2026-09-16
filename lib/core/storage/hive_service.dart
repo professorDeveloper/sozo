@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/app_constants.dart';
+import '../subtitles/subtitle_languages.dart';
 import '../../features/auth/data/models/user_model.dart';
 import '../../features/detail/domain/entities/subtitle_style.dart';
 
@@ -999,12 +1000,28 @@ class HiveService {
   }
 
   /// Target language for subtitle translation. Falls back to the app language,
-  /// which is the one the person already reads the interface in.
+  /// which is the one the person already reads the interface in — but only
+  /// when the translators can actually produce it.
+  ///
+  /// The two lists are not the same list and were never going to be. The
+  /// interface is translated by people, once; a subtitle is translated at
+  /// playback by whichever of Azure, DeepL and Google the deployment holds a
+  /// key for. Cantonese is the case that made the difference matter: it is a
+  /// perfectly good interface language and none of the three takes `yue` as a
+  /// target, so falling straight through would have posted a code the provider
+  /// rejects and shown the viewer a translation that silently never arrived.
   String getSubtitleTranslateLang() {
     final saved = _settingsBox.get(AppConstants.subtitleTranslateLangKey);
     if (saved is String && saved.isNotEmpty) return saved;
-    return getLanguage();
+    final ui = getLanguage();
+    if (kSubtitleTranslateLanguages.any((l) => l.$1 == ui)) return ui;
+    return _kNearestTranslateTarget[ui] ?? 'en';
   }
+
+  /// What to translate into for an interface language the translators do not
+  /// offer. Readable rather than right: a Cantonese reader reads Chinese
+  /// subtitles, which is a great deal better than none.
+  static const Map<String, String> _kNearestTranslateTarget = {'yue': 'zh'};
 
   Future<void> setSubtitleTranslateLang(String lang) async {
     await _settingsBox.put(AppConstants.subtitleTranslateLangKey, lang.trim());

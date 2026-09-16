@@ -185,6 +185,11 @@ void main(List<String> args) async {
       Locale('fr'),
       Locale('tr'),
       Locale('id'),
+      // Cantonese, in Traditional characters. `yue` rather than `zh-HK`
+      // because the copy is written in Cantonese — 睇, 嘅, 冇 — and not in the
+      // Standard Written Chinese a `zh` tag promises; a reader who set their
+      // phone to Mandarin should not land here by a region match.
+      Locale('yue'),
     ],
     path: 'assets/translations',
     fallbackLocale: const Locale('en'),

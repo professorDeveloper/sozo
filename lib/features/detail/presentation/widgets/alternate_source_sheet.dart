@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'dart:io';
 
@@ -10,6 +11,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/matching/title_match.dart';
+import 'package:soplay/core/network/image_headers.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/detail/data/source_choice_store.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -457,7 +459,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
             child: ListView(
               shrinkWrap: true,
               children: [
-                for (final row in list) _matchRow(row),
+                if (list.isNotEmpty) _matchGrid(list),
                 if (list.isEmpty) _emptyBlock(),
                 if (quiet.isNotEmpty) ..._silentSection(quiet),
               ],
@@ -469,53 +471,153 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     );
   }
 
-  Widget _matchRow(_Row row) {
+  /// Every source that has this title, as posters.
+  ///
+  /// It was a list of names, and a name is the one thing that does not settle
+  /// the question being asked here — which is "is this the show I was
+  /// watching". Four sources answering with the same words look identical in a
+  /// list and are told apart instantly by their artwork, and a source that has
+  /// quietly matched the wrong series is usually obvious from the cover before
+  /// it is obvious from the title.
+  ///
+  /// Sized by the widest a tile may be rather than by a column count, so a
+  /// phone lands on three and a tablet or a desktop window takes four or more
+  /// without a second layout being written for them.
+  Widget _matchGrid(List<_Row> rows) => GridView.builder(
+    padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    itemCount: rows.length,
+    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+      maxCrossAxisExtent: 132,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 10,
+      // The poster's own 2:3 plus room for two lines of caption, which grows
+      // with the text scale rather than clipping at it.
+      mainAxisExtent:
+          132 * 1.5 + 34 + MediaQuery.textScalerOf(context).scale(12) * 1.6,
+    ),
+    itemBuilder: (context, i) => _matchTile(rows[i]),
+  );
+
+  Widget _matchTile(_Row row) {
     final busy = _preparing == row.provider.id;
-    return ListTile(
-      dense: true,
-      enabled: _preparing == null,
-      onTap: () => _pick(row.source),
-      leading: busy
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white54,
+    final enabled = _preparing == null;
+    final poster = row.source.item.thumbnail;
+    // Deliberately NOT an ExcludeSemantics over the whole tile: the "Wrong
+    // title?" control and the confidence pill each have something of their own
+    // to say, and swallowing them to give the tile one tidy label took the
+    // escape hatch away from exactly the reader most likely to need it.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ColoredBox(
+                      color: const Color(0xFF1C1C1C),
+                      child: poster == null || poster.isEmpty
+                          ? const Icon(
+                              Icons.image_not_supported_outlined,
+                              color: Colors.white24,
+                              size: 22,
+                            )
+                          : CachedNetworkImage(
+                              imageUrl: poster,
+                              httpHeaders: posterImageHeaders(poster),
+                              fit: BoxFit.cover,
+                              fadeInDuration: const Duration(milliseconds: 180),
+                              errorWidget: (_, _, _) => const Icon(
+                                Icons.broken_image_outlined,
+                                color: Colors.white24,
+                                size: 22,
+                              ),
+                            ),
+                    ),
+                    // A scrim under the play mark and the badges, so both stay
+                    // legible on a bright cover as well as a dark one.
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0x99000000), Color(0x00000000)],
+                          stops: [0, 0.55],
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: busy
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white70,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.play_circle_fill_rounded,
+                              color: Colors.white70,
+                              size: 34,
+                            ),
+                    ),
+                    Positioned.fill(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: Semantics(
+                          button: true,
+                          label:
+                              '${row.provider.name}, ${row.source.item.title}',
+                          child: InkWell(
+                            onTap: enabled ? () => _pick(row.source) : null,
+                          ),
+                        ),
+                      ),
+                    ),
+                    PositionedDirectional(
+                      top: 4,
+                      start: 4,
+                      child: Wrap(spacing: 4, children: _badge(row)),
+                    ),
+                    // The escape hatch keeps its own target in the corner: the
+                    // tile's own tap is still "play this", and a cover that
+                    // opened a search when somebody meant to watch would be a
+                    // worse bug than the one it is here to fix.
+                    PositionedDirectional(
+                      top: 0,
+                      end: 0,
+                      child: _wrongTitleButton(row.provider),
+                    ),
+                  ],
+                ),
               ),
-            )
-          : const Icon(
-              Icons.play_circle_outline_rounded,
-              color: Colors.white70,
-              size: 22,
             ),
-      title: Row(
-        children: [
-          Flexible(
-            child: Text(
+            const SizedBox(height: 6),
+            Text(
               row.provider.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: 12.5,
                 fontWeight: FontWeight.w700,
               ),
             ),
-          ),
-          ..._badge(row),
-        ],
-      ),
-      // The source's own title for the show, not ours. Two catalogues spell the
-      // same series differently, and seeing which one this source means is how
-      // the viewer tells a real match from a near miss before committing.
-      subtitle: Text(
-        row.source.item.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: Colors.white54, fontSize: 12),
-      ),
-      trailing: _wrongTitleButton(row.provider),
+            // The source's own title for the show, not ours. Two catalogues
+            // spell the same series differently, and seeing which one this
+            // source means is how the viewer tells a real match from a near
+            // miss before committing.
+            Text(
+              row.source.item.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: Colors.white54, fontSize: 11.5),
+        ),
+      ],
     );
   }
 
@@ -532,7 +634,6 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   List<Widget> _badge(_Row row) {
     if (row.chosen) {
       return [
-        const SizedBox(width: 8),
         _Pill(
           icon: Icons.person_outline_rounded,
           label: 'player.alt_your_pick'.tr(),
@@ -541,7 +642,6 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     }
     if (row.source.confidence != TitleConfidence.weak) return const [];
     return [
-      const SizedBox(width: 8),
       _Pill(
         icon: Icons.help_outline_rounded,
         label: 'player.alt_guess'.tr(),
@@ -552,24 +652,35 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
 
   /// The escape hatch, on every row.
   ///
-  /// A text button rather than the row's own tap: the primary action is still
-  /// "play this", and a row that opens a search when someone meant to watch
-  /// something would be a worse bug than the one this fixes. 48dp because it is
-  /// a real target on a phone, and labelled in words so a screen reader reads
-  /// out something actionable rather than "button".
+  /// Its own target rather than the tile's tap: the primary action is still
+  /// "play this", and a cover that opened a search when someone meant to watch
+  /// would be a worse bug than the one this fixes.
+  ///
+  /// An icon rather than the words it used to be, because a tile is 132px wide
+  /// and "Wrong title?" is not — but it keeps a 48dp target, a tooltip, and a
+  /// spoken label that says something actionable rather than "button".
   Widget _wrongTitleButton(ProviderRef provider) {
     final label = 'player.alt_wrong_title'.tr();
     return Tooltip(
       message: 'player.alt_wrong_title_hint'.tr(args: [provider.name]),
-      child: TextButton(
-        onPressed: _preparing == null ? () => _correct(provider) : null,
-        style: TextButton.styleFrom(
-          minimumSize: const Size(48, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          foregroundColor: Colors.white70,
-          tapTargetSize: MaterialTapTargetSize.padded,
+      child: Semantics(
+        button: true,
+        label: label,
+        child: ExcludeSemantics(
+          child: InkWell(
+            onTap: _preparing == null ? () => _correct(provider) : null,
+            customBorder: const CircleBorder(),
+            child: const SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(
+                Icons.edit_outlined,
+                color: Colors.white70,
+                size: 17,
+              ),
+            ),
+          ),
         ),
-        child: Text(label, style: const TextStyle(fontSize: 12)),
       ),
     );
   }

@@ -170,7 +170,21 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder rowFor(String title) => find.widgetWithText(ListTile, title);
+  /// One tile in the grid, found by the title the source answered with.
+  ///
+  /// The rows became poster tiles — a list of names could not answer the
+  /// question the sheet is for, which is "is this the show I was watching",
+  /// and four sources spelling the title identically are told apart by their
+  /// artwork in a way they never were by their names.
+  Finder rowFor(String title) =>
+      find.ancestor(of: find.text(title), matching: find.byType(Column)).first;
+
+  /// The "Wrong title?" control on a tile.
+  ///
+  /// It is an icon with a spoken label rather than a text button: a tile is
+  /// 132px wide and the words are not. Found the way a screen reader finds it,
+  /// which is also the only way it is labelled.
+  Finder wrongTitle() => find.bySemanticsLabel('player.alt_wrong_title');
 
   group('how sure the row is', () {
     testWidgets('a weak match is marked a guess and a strong one is not', (
@@ -251,7 +265,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: rowFor('Return of the Blade'),
-          matching: find.text('player.alt_wrong_title'),
+          matching: wrongTitle(),
         ),
       );
       await tester.pumpAndSettle();
@@ -284,7 +298,7 @@ void main() {
         _Service(sources: [_source('an:two', 'AniTwo', 'Return of the Blade')]),
         candidates: [_provider('an:two', 'AniTwo')],
       );
-      final button = find.widgetWithText(TextButton, 'player.alt_wrong_title');
+      final button = wrongTitle();
       final size = tester.getSize(button);
       // A phone target, not a 12pt word: this is reached one-handed by someone
       // who has already had one thing go wrong.
@@ -306,7 +320,7 @@ void main() {
         results: _handAnswers(),
       );
       await pump(tester, service, candidates: [_provider('an:two', 'AniTwo')]);
-      await tester.tap(find.text('player.alt_wrong_title'));
+      await tester.tap(wrongTitle().first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Hwagae Hyeongsa: The Blossoming Blade'));
       await tester.pumpAndSettle();
