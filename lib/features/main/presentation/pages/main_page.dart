@@ -383,7 +383,22 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           // Stable per-tab key so reordering the bar MOVES a page (keeping its
           // State) instead of rebuilding it at a new index — which was
           // re-mounting Home and re-firing its "Join Telegram" sheet.
-          key: ValueKey(defs[i].id),
+          //
+          // The language is part of the key because `easy_localization`'s
+          // `.tr()` reads a singleton and registers no dependency, so changing
+          // it marks nothing dirty. A row like
+          // `SettingsNavTile(title: 'profile.downloads'.tr())` has its words
+          // computed in its PARENT's build, and the parent does not re-run — so
+          // switching from Cantonese to English left a Profile tab reading
+          // "Downloads" and "Activity" beside 連接 and 來源, which have their
+          // own builds and did re-run. Tearing the tab down and building it
+          // again is what makes the whole page speak one language.
+          //
+          // Keyed here, below the Navigator, and not around the app: GoRouter
+          // is a single long-lived instance holding a GlobalKey, and rebuilding
+          // the Router around it puts that key in two live trees at once —
+          // which asserts, immediately, on the first switch.
+          key: ValueKey('${defs[i].id}:${context.locale.languageCode}'),
           // No-op off TV: returns the page widget unchanged.
           child: _tvWrapTab(
             defs[i].builder(
