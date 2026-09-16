@@ -73,7 +73,9 @@ class PlaybackFault {
   /// libmpv, and rewriting them would be inventing new behaviour under cover of
   /// a refactor.
   static PlaybackFault classify(String raw) {
-    if (raw.trim().isEmpty) return const PlaybackFault(PlaybackFaultKind.unknown);
+    if (raw.trim().isEmpty) {
+      return const PlaybackFault(PlaybackFaultKind.unknown);
+    }
     final lower = raw.toLowerCase();
 
     // Checked before the generic decoder match: these are AVFoundation's way of

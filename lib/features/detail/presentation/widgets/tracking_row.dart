@@ -107,6 +107,16 @@ class _AnilistLineState extends State<_AnilistLine> {
     final id = _mediaId;
     final token = getIt<AnilistService>().token;
     if (id == null || token == null) return;
+    // Back to the waiting state before the second attempt, so the row stops
+    // offering Retry while the retry is in the air. What keeps the first call
+    // safe is `_failed`, not `mounted`: nothing has failed yet when initState
+    // runs, so this setState does not happen mid-build. (`mounted` is already
+    // true inside initState — the element is mounted before it runs — so it
+    // would guard nothing there.) It earns its keep for [_add], which awaits
+    // this method after a write and has no check of its own, so it can arrive
+    // on a page the viewer has already left; [_link] and [_edit] check
+    // `mounted` at their own call site, and the Retry tap is synchronous.
+    if (_failed && mounted) setState(() => _failed = false);
     try {
       final s = await getIt<AnilistService>().api.entryState(
         token: token,
@@ -197,20 +207,22 @@ class _AnilistLineState extends State<_AnilistLine> {
   Widget build(BuildContext context) {
     final s = _state;
     final linked = _mediaId != null;
+    // The read never landed, so there is no entry to edit and nothing true to
+    // say about it. The row becomes the one thing that can help: try again.
+    final failed = _failed && s == null;
     return _TrackerLine(
       logo: const AnilistLogo(size: 22, radius: 6),
       accent: kAnilistBlue,
       name: 'AniList',
-      status: !linked
+      status: !linked || failed || s == null
           ? null
-          : s == null
-          ? (_failed ? '—' : '…')
           : !s.onList
           ? 'detail.not_on_list'.tr()
           : _statusLabel(
               s.status,
               manga: widget.detail.record?.isManga ?? false,
             ),
+      loading: linked && !failed && s == null,
       progress: s != null && s.onList ? s.progress : null,
       total: s?.totalEpisodes,
       busy: _busy,
@@ -221,8 +233,14 @@ class _AnilistLineState extends State<_AnilistLine> {
               (s.totalEpisodes == null || s.progress < s.totalEpisodes!)
           ? () => _move(1)
           : null,
-      onTap: !linked ? _link : (s != null && !s.onList ? _add : _edit),
-      action: !linked
+      onTap: failed
+          ? _load
+          : !linked
+          ? _link
+          : (s != null && !s.onList ? _add : _edit),
+      action: failed
+          ? 'general.retry'.tr()
+          : !linked
           ? 'detail.anilist_track'.tr()
           : (s != null && !s.onList ? 'detail.add_to_list'.tr() : null),
     );
@@ -376,6 +394,13 @@ class _MalLineState extends State<_MalLine> {
     final id = _animeId;
     final token = getIt<MalService>().token;
     if (id == null || token == null) return;
+    // See the AniList line: Retry has to stop offering itself while the retry
+    // is running, and `_failed` — false until a read has actually failed — is
+    // what keeps the call from initState from running a setState mid-build.
+    // `mounted` is belt and braces on this line: every caller here either runs
+    // synchronously or has just checked it. Kept so the two lines read the
+    // same, and because the next caller may not.
+    if (_failed && mounted) setState(() => _failed = false);
     try {
       final s = await getIt<MalService>().api.entryState(
         token: token,
@@ -449,6 +474,7 @@ class _MalLineState extends State<_MalLine> {
     final s = _state;
     final linked = _animeId != null;
     final onList = s != null && s.status != null;
+    final failed = _failed && s == null;
     return _TrackerLine(
       logo: Container(
         width: 22,
@@ -469,13 +495,12 @@ class _MalLineState extends State<_MalLine> {
       ),
       accent: kMalBlue,
       name: 'MyAnimeList',
-      status: !linked
+      status: !linked || failed || s == null
           ? null
-          : s == null
-          ? (_failed ? '—' : '…')
           : !onList
           ? 'detail.not_on_list'.tr()
           : _statusLabel(s.status!),
+      loading: linked && !failed && s == null,
       progress: onList ? s.watchedEpisodes : null,
       total: s?.totalEpisodes,
       busy: _busy,
@@ -485,8 +510,14 @@ class _MalLineState extends State<_MalLine> {
               (s.totalEpisodes == null || s.watchedEpisodes < s.totalEpisodes!)
           ? () => _move(1)
           : null,
-      onTap: !linked ? _link : (s != null && !onList ? () => _move(1) : _edit),
-      action: !linked
+      onTap: failed
+          ? _load
+          : !linked
+          ? _link
+          : (s != null && !onList ? () => _move(1) : _edit),
+      action: failed
+          ? 'general.retry'.tr()
+          : !linked
           ? 'mal.track'.tr()
           : (s != null && !onList ? 'detail.add_to_list'.tr() : null),
     );
@@ -602,6 +633,7 @@ class _TrackerLine extends StatelessWidget {
     required this.accent,
     required this.name,
     required this.status,
+    required this.loading,
     required this.progress,
     required this.total,
     required this.busy,
@@ -615,8 +647,15 @@ class _TrackerLine extends StatelessWidget {
   final Color accent;
   final String name;
 
-  /// Null when the title is not linked on this tracker yet.
+  /// Null when there is nothing true to say: the title is not linked on this
+  /// tracker yet, the read has not come back, or it failed outright.
   final String? status;
+
+  /// The read is still in the air. Draws the placeholder that stands in for a
+  /// status, which is a shape rather than a value and so is kept out of the
+  /// spoken line — a screen reader must not read a row as if it knows where
+  /// you are when it does not.
+  final bool loading;
   final int? progress;
   final int? total;
   final bool busy;
@@ -644,28 +683,32 @@ class _TrackerLine extends StatelessWidget {
               logo,
               const SizedBox(width: 8),
               Expanded(
-                child: RichText(
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  text: TextSpan(
-                    style: const TextStyle(fontSize: 13),
-                    children: [
-                      TextSpan(
-                        text: name,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (status != null)
+                child: Semantics(
+                  label: status == null ? name : '$name, $status',
+                  excludeSemantics: true,
+                  child: RichText(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 13),
+                      children: [
                         TextSpan(
-                          text: '  ·  $status',
+                          text: name,
                           style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                    ],
+                        if (status != null || loading)
+                          TextSpan(
+                            text: '  ·  ${status ?? '…'}',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -682,15 +725,38 @@ class _TrackerLine extends StatelessWidget {
                 _Step(icon: Icons.remove_rounded, onTap: busy ? null : onLess),
                 SizedBox(
                   width: total != null ? 52 : 34,
-                  child: Text(
-                    total != null ? '$progress/$total' : '$progress',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 120),
+                        opacity: busy ? 0.4 : 1,
+                        child: Text(
+                          total != null ? '$progress/$total' : '$progress',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                      // The number moved the instant the button was pressed;
+                      // this hairline under it is the only thing that says the
+                      // tracker has not agreed yet. Its box is always there, so
+                      // the row does not jump when a write starts.
+                      SizedBox(
+                        height: 2,
+                        child: busy
+                            ? LinearProgressIndicator(
+                                minHeight: 2,
+                                color: accent,
+                                backgroundColor: Colors.transparent,
+                              )
+                            : null,
+                      ),
+                    ],
                   ),
                 ),
                 _Step(icon: Icons.add_rounded, onTap: busy ? null : onMore),

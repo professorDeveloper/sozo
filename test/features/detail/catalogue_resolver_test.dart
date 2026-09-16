@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/matching/title_match.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
@@ -63,7 +65,10 @@ AlternateSource _found(
     kind: ProviderKind.channel,
   ),
   item: _movie(title, year: year),
-  score: score,
+  // The band, not a second opinion about it: every decision the resolver makes
+  // is now made on the band, so a fixture that set one by hand would be
+  // testing the fixture.
+  match: TitleMatch(score: score, confidence: TitleMatch.confidenceOf(score)),
 );
 
 void main() {
@@ -73,7 +78,7 @@ void main() {
       final resolver = CatalogueResolver(
         hive: hive,
         providers: () async => [_provider('an:x')],
-        finder: ({required title, required candidates}) => Stream.fromIterable([
+        finder: ({required title, required candidates, onOutcome}) => Stream.fromIterable([
           _found('an:weak', 'Frieren Season 9', 0.62),
           _found('an:best', 'Frieren', 0.97),
         ]),
@@ -99,7 +104,7 @@ void main() {
       final resolver = CatalogueResolver(
         hive: hive,
         providers: () async => [_provider('an:x')],
-        finder: ({required title, required candidates}) {
+        finder: ({required title, required candidates, onOutcome}) {
           searched = true;
           return const Stream.empty();
         },
@@ -125,7 +130,7 @@ void main() {
       final resolver = CatalogueResolver(
         hive: _Hive(),
         providers: () async => [_provider('an:x')],
-        finder: ({required title, required candidates}) => Stream.fromIterable([
+        finder: ({required title, required candidates, onOutcome}) => Stream.fromIterable([
           _found('an:remake', 'Hunter x Hunter', 0.9, year: 2011),
           _found('an:original', 'Hunter x Hunter', 0.9, year: 1999),
         ]),
@@ -145,7 +150,7 @@ void main() {
           _provider('vidapi', category: 'tmdb'),
           _provider('an:anime'),
         ],
-        finder: ({required title, required candidates}) => Stream.fromIterable([
+        finder: ({required title, required candidates, onOutcome}) => Stream.fromIterable([
           _found('vidapi', 'One Piece', 1.0, year: 2023),
           _found('an:anime', 'One Piece', 0.95, year: 1999),
         ]),
@@ -165,7 +170,7 @@ void main() {
           _provider('an:anime'),
           _provider('asilmedia', category: 'movies'),
         ],
-        finder: ({required title, required candidates}) => Stream.fromIterable([
+        finder: ({required title, required candidates, onOutcome}) => Stream.fromIterable([
           _found('an:anime', 'Dune', 0.9),
           _found('asilmedia', 'Dune', 0.9),
         ]),
@@ -183,7 +188,7 @@ void main() {
       final resolver = CatalogueResolver(
         hive: hive,
         providers: () async => [_provider('an:x')],
-        finder: ({required title, required candidates}) =>
+        finder: ({required title, required candidates, onOutcome}) =>
             Stream.fromIterable([_found('an:meh', 'Something Else', 0.4)]),
       );
       final link = await resolver.resolve(
@@ -201,7 +206,7 @@ void main() {
         final resolver = CatalogueResolver(
           hive: _Hive(),
           providers: () async => [_provider('an:x')],
-          finder: ({required title, required candidates}) =>
+          finder: ({required title, required candidates, onOutcome}) =>
               Stream<AlternateSource>.error(StateError('boom')),
         );
         expect(
@@ -224,7 +229,7 @@ void main() {
           _provider('mn:manga'),
           _provider('cs:cloud'),
         ],
-        finder: ({required title, required candidates}) {
+        finder: ({required title, required candidates, onOutcome}) {
           asked = candidates;
           return const Stream.empty();
         },
@@ -246,7 +251,7 @@ void main() {
           _provider('mn:manga'),
           _provider('cs:cloud'),
         ],
-        finder: ({required title, required candidates}) {
+        finder: ({required title, required candidates, onOutcome}) {
           asked = candidates;
           return const Stream.empty();
         },
@@ -274,6 +279,85 @@ void main() {
       // open, when there is no search to take it from.
       expect(back?.providerImage, link.providerImage);
       expect(CatalogueLink.decode('not json'), isNull);
+    });
+  });
+
+  group('CatalogueResolver.locate says which kind of nothing it found', () {
+    CatalogueResolver build({
+      required List<ProviderEntity> installed,
+      AlternateSearchOutcome? outcome,
+    }) => CatalogueResolver(
+      hive: _Hive(),
+      providers: () async => installed,
+      finder: ({required title, required candidates, onOutcome}) {
+        if (outcome != null) onOutcome?.call(outcome);
+        return const Stream.empty();
+      },
+    );
+
+    test('no reader installed is not "no source has this manga"', () async {
+      // The reported symptom: opening a manga from the AniList shelf on an
+      // install with only video sources said the sources did not carry it.
+      // Nothing was asked — there was nothing of that kind to ask.
+      final out = await build(installed: [_provider('an:anime')]).locate(
+        catalogueId: 'cat:anilist-manga',
+        contentUrl: 'u',
+        hint: _movie('Berserk', category: 'manga'),
+      );
+      expect(out.found, isFalse);
+      expect(out.miss, CatalogueMiss.noSourcesOfKind);
+      expect(out.catalogue, Catalogue.anilistManga);
+    });
+
+    test('sources asked and answered, none carries it', () async {
+      final out =
+          await build(
+            installed: [_provider('mn:manga')],
+            outcome: const AlternateSearchOutcome(asked: 1),
+          ).locate(
+            catalogueId: 'cat:anilist-manga',
+            contentUrl: 'u',
+            hint: _movie('Berserk', category: 'manga'),
+          );
+      expect(out.miss, CatalogueMiss.notCarried);
+    });
+
+    test('every source failing is not an answer about the title', () async {
+      final out =
+          await build(
+            installed: [_provider('mn:manga')],
+            outcome: const AlternateSearchOutcome(asked: 1, failed: 1),
+          ).locate(
+            catalogueId: 'cat:anilist-manga',
+            contentUrl: 'u',
+            hint: _movie('Berserk', category: 'manga'),
+          );
+      expect(out.miss, CatalogueMiss.sourcesUnreachable);
+    });
+
+    test('a card with no title is a bug upstream, not a missing source', () async {
+      final out = await build(installed: [_provider('an:anime')]).locate(
+        catalogueId: 'cat:anilist',
+        contentUrl: 'u',
+        hint: null,
+      );
+      expect(out.miss, CatalogueMiss.nothingToSearch);
+    });
+
+    test('a found link reports no miss at all', () async {
+      final resolver = CatalogueResolver(
+        hive: _Hive(),
+        providers: () async => [_provider('an:x')],
+        finder: ({required title, required candidates, onOutcome}) =>
+            Stream.fromIterable([_found('an:x', 'Frieren', 1.0)]),
+      );
+      final out = await resolver.locate(
+        catalogueId: 'cat:anilist',
+        contentUrl: 'u',
+        hint: _movie('Frieren'),
+      );
+      expect(out.found, isTrue);
+      expect(out.miss, isNull);
     });
   });
 }

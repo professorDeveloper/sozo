@@ -171,6 +171,12 @@ class MainActivity : FlutterFragmentActivity() {
         platformChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "isTv" -> result.success(isLeanbackDevice())
+                "isEmulator" -> result.success(
+                    Build.HARDWARE == "goldfish" || Build.HARDWARE == "ranchu" ||
+                        Build.MODEL.startsWith("sdk_gphone") ||
+                        Build.MODEL.contains("Android SDK built for") ||
+                        Build.PRODUCT.startsWith("sdk_gphone")
+                )
                 "openExternalVideo" -> {
                     val url = call.argument<String>("url").orEmpty()
                     val title = call.argument<String>("title").orEmpty()

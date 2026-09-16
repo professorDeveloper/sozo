@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
@@ -197,42 +198,11 @@ class _GlyphPainter extends CustomPainter {
     double t,
     Color color, {
     double scale = 1,
-  }) {
-    final drawn = _trim(path, t);
-    canvas.drawPath(
-      drawn,
-      Paint()
-        ..color = color.withValues(alpha: 0.35)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 5.5 * scale
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2.2 * scale),
-    );
-    canvas.drawPath(
-      drawn,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0 * scale
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-    if (t > 0 && t < 1) {
-      final tip = _tipOf(path, t);
-      if (tip != null) {
-        canvas.drawCircle(
-          tip,
-          1.9 * scale,
-          Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.95),
-        );
-      }
-    }
-  }
+  }) => paintPenStrokes(canvas, path, t, color, scale: scale);
 
   /// Where the pen is at [t] along the combined length.
-  static Offset? _tipOf(Path path, double t) {
-    final metrics = path.computeMetrics().toList();
+  static Offset? _tipOf(Path path, double t, List<ui.PathMetric>? cached) {
+    final metrics = cached ?? path.computeMetrics().toList();
     final total = metrics.fold<double>(0, (sum, m) => sum + m.length);
     if (total == 0) return null;
     var remaining = total * t;
@@ -250,9 +220,9 @@ class _GlyphPainter extends CustomPainter {
   /// The strokes are trimmed against the COMBINED length rather than each
   /// against its own, so four panels are drawn one after another the way a
   /// hand would, instead of four boxes growing at once.
-  static Path _trim(Path path, double t) {
+  static Path _trim(Path path, double t, List<ui.PathMetric>? cached) {
     if (t >= 1) return path;
-    final metrics = path.computeMetrics().toList();
+    final metrics = cached ?? path.computeMetrics().toList();
     final total = metrics.fold<double>(0, (sum, m) => sum + m.length);
     if (total == 0) return Path();
     var remaining = total * t;
@@ -321,4 +291,52 @@ class _GlyphPainter extends CustomPainter {
   @override
   bool shouldRepaint(_GlyphPainter old) =>
       old.progress != progress || old.color != color || old.mode != mode;
+}
+
+/// The pen: see [_GlyphPainter.strokes]. Public so the Sozo mark can be
+/// drawn the same way the glyphs are.
+///
+/// [metrics] is [Path.computeMetrics] already run over [path]. Measuring a
+/// path is the expensive half of trimming it, and it is the same answer every
+/// frame for a path that never changes — the Sozo mark is parsed once per
+/// process, so it measures once too. A caller whose path is rebuilt each
+/// frame, like the mode glyphs, passes nothing and pays as before.
+void paintPenStrokes(
+  Canvas canvas,
+  Path path,
+  double t,
+  Color color, {
+  double scale = 1,
+  List<ui.PathMetric>? metrics,
+}) {
+  final drawn = _GlyphPainter._trim(path, t, metrics);
+  canvas.drawPath(
+    drawn,
+    Paint()
+      ..color = color.withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5.5 * scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2.2 * scale),
+  );
+  canvas.drawPath(
+    drawn,
+    Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0 * scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round,
+  );
+  if (t > 0 && t < 1) {
+    final tip = _GlyphPainter._tipOf(path, t, metrics);
+    if (tip != null) {
+      canvas.drawCircle(
+        tip,
+        1.9 * scale,
+        Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.95),
+      );
+    }
+  }
 }

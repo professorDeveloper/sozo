@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -22,153 +23,189 @@ import 'package:soplay/features/search/presentation/widgets/search_result_card.d
 /// the provider had any. Now it is somewhere to start from: what was searched
 /// last, what is trending on the source in use, and the genres as a grid of
 /// covers — the three ways somebody who has not decided yet finds something.
-class SearchLanding extends StatelessWidget {
-  const SearchLanding({
-    super.key,
+///
+/// Slivers rather than one widget, and the difference is the genre grid. As a
+/// `shrinkWrap` GridView inside a single box adapter it was laid out in full on
+/// the first frame: every tile built, every cover requested, and two dozen
+/// entrance animations played out below the fold where nobody saw them — all
+/// before the tab had drawn once. A real [SliverGrid] builds the rows the
+/// viewport asks for and nothing else, so the covers download as they are
+/// scrolled to and the stagger runs where it can be seen.
+List<Widget> searchLandingSlivers(
+  BuildContext context, {
+  required List<String> recent,
+  required List<GenreEntity> genres,
+  required bool genresLoading,
+  required ValueChanged<String> onSuggestion,
+  required ValueChanged<String> onGenre,
+  required ValueChanged<String> onRemoveRecent,
+  required VoidCallback onClearRecents,
+}) {
+  final width = MediaQuery.sizeOf(context).width;
+  final columns = width >= 900 ? 4 : (width >= 600 ? 3 : 2);
+
+  return [
+    if (recent.isNotEmpty)
+      SliverToBoxAdapter(
+        child: _RecentSearches(
+          recent: recent,
+          onSuggestion: onSuggestion,
+          onRemoveRecent: onRemoveRecent,
+          onClearRecents: onClearRecents,
+        ),
+      ),
+    const SliverToBoxAdapter(child: _TrendingRail()),
+    if (genres.isNotEmpty) ...[
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          child: _SectionTitle('search.categories'.tr()),
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        sliver: SliverGrid(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.85,
+          ),
+          delegate: SliverChildBuilderDelegate((context, i) {
+            final g = genres[i];
+            return ItemAppear(
+              index: i,
+              columns: columns,
+              staggerLimit: 24,
+              child: GenreTile(
+                label: g.name.isNotEmpty ? g.name : g.slug,
+                image: g.image,
+                index: i,
+                onTap: () {
+                  // A genre tile replaces the whole screen with a browse of
+                  // that genre, which is as much of a departure as opening a
+                  // title — and the tile's ink alone does not say so.
+                  HapticFeedback.selectionClick();
+                  onGenre(g.slug);
+                },
+              ),
+            );
+          }, childCount: genres.length),
+        ),
+      ),
+    ] else if (genresLoading)
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: ShimmerWrapper(
+            child: GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              crossAxisCount: columns,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 1.85,
+              children: [
+                for (var i = 0; i < 6; i++)
+                  const HomeSkeletonBox(
+                    width: double.infinity,
+                    height: double.infinity,
+                    radius: 14,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      )
+    else if (recent.isEmpty)
+      // Nothing to start from at all: the old empty state, kept for the
+      // source that offers neither genres nor a home.
+      const SliverToBoxAdapter(child: _NothingToStartFrom()),
+  ];
+}
+
+class _RecentSearches extends StatelessWidget {
+  const _RecentSearches({
     required this.recent,
-    required this.genres,
-    required this.genresLoading,
     required this.onSuggestion,
-    required this.onGenre,
     required this.onRemoveRecent,
     required this.onClearRecents,
   });
 
   final List<String> recent;
-  final List<GenreEntity> genres;
-  final bool genresLoading;
   final ValueChanged<String> onSuggestion;
-  final ValueChanged<String> onGenre;
   final ValueChanged<String> onRemoveRecent;
   final VoidCallback onClearRecents;
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final columns = width >= 900 ? 4 : (width >= 600 ? 3 : 2);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (recent.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Row(
-              children: [
-                Expanded(child: _SectionTitle('search.recent'.tr())),
-                _TextAction(
-                  label: 'search.clear_filter'.tr(),
-                  onTap: onClearRecents,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          child: Row(
+            children: [
+              Expanded(child: _SectionTitle('search.recent'.tr())),
+              _TextAction(
+                label: 'search.clear_filter'.tr(),
+                onTap: onClearRecents,
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final q in recent)
+                _Chip(
+                  label: q,
+                  icon: Icons.history_rounded,
+                  onTap: () => onSuggestion(q),
+                  onRemove: () => onRemoveRecent(q),
                 ),
-              ],
-            ),
+            ],
           ),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final q in recent)
-                  _Chip(
-                    label: q,
-                    icon: Icons.history_rounded,
-                    onTap: () => onSuggestion(q),
-                    onRemove: () => onRemoveRecent(q),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 22),
-        ],
-        const _TrendingRail(),
-        if (genres.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: _SectionTitle('search.categories'.tr()),
-          ),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 1.85,
-              ),
-              itemCount: genres.length,
-              itemBuilder: (context, i) {
-                final g = genres[i];
-                return ItemAppear(
-                  index: i,
-                  columns: columns,
-                  staggerLimit: 24,
-                  child: GenreTile(
-                    label: g.name.isNotEmpty ? g.name : g.slug,
-                    image: g.image,
-                    index: i,
-                    onTap: () => onGenre(g.slug),
-                  ),
-                );
-              },
-            ),
-          ),
-        ] else if (genresLoading)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: ShimmerWrapper(
-              child: GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.zero,
-                crossAxisCount: columns,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 1.85,
-                children: [
-                  for (var i = 0; i < 6; i++)
-                    const HomeSkeletonBox(
-                      width: double.infinity,
-                      height: double.infinity,
-                      radius: 14,
-                    ),
-                ],
-              ),
-            ),
-          )
-        else if (recent.isEmpty)
-          // Nothing to start from at all: the old empty state, kept for the
-          // source that offers neither genres nor a home.
-          Padding(
-            padding: const EdgeInsets.only(top: 60),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.search_rounded,
-                    color: AppColors.textHint.withValues(alpha: 0.45),
-                    size: 68,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'search.hint'.tr(),
-                    style: const TextStyle(
-                      color: AppColors.textHint,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
+        ),
+        const SizedBox(height: 22),
       ],
+    );
+  }
+}
+
+class _NothingToStartFrom extends StatelessWidget {
+  const _NothingToStartFrom();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 60),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search_rounded,
+              color: AppColors.textHint.withValues(alpha: 0.45),
+              size: 68,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'search.hint'.tr(),
+              style: const TextStyle(
+                color: AppColors.textHint,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -319,12 +356,17 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chip = Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 8, 8),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+    final remove = onRemove;
+
+    final text = Padding(
+      // No vertical padding where there is a remove button: the 44dp box
+      // beside it is what sets the chip's height in that case, and adding to
+      // it would only make the chip taller than the target it exists to hold.
+      padding: EdgeInsetsDirectional.fromSTEB(
+        12,
+        remove == null ? 8 : 0,
+        remove == null ? 12 : 0,
+        remove == null ? 8 : 0,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -333,35 +375,101 @@ class _Chip extends StatelessWidget {
             Icon(icon, size: 15, color: AppColors.textSecondary),
             const SizedBox(width: 6),
           ],
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 13.5,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          if (onRemove != null) ...[
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: onRemove,
-              child: const Padding(
-                padding: EdgeInsets.all(2),
-                child: Icon(
-                  Icons.close_rounded,
-                  size: 15,
-                  color: AppColors.textSecondary,
-                ),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
               ),
             ),
-          ] else
-            const SizedBox(width: 4),
+          ),
         ],
       ),
     );
+
+    // The decoration stays on the Container and the ink goes on a transparent
+    // Material above it, so the splash paints over the fill instead of being
+    // hidden under it.
+    final chip = Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        // InkWell rather than a bare GestureDetector, which is what this was:
+        // the gesture showed nothing on press and announced nothing at all,
+        // while the chip is a button that runs a search. The InkWell is both
+        // the press feedback and the `button: true` that says so.
+        child: InkWell(
+          onTap: isTvPlatform ? null : onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: text),
+              if (remove != null) _ChipRemove(query: label, onTap: remove),
+            ],
+          ),
+        ),
+      ),
+    );
+
     if (isTvPlatform) {
       return TvFocusable(onPressed: onTap, borderRadius: 10, child: chip);
     }
-    return GestureDetector(onTap: onTap, child: chip);
+    return chip;
+  }
+}
+
+/// The × on a recent-search chip.
+///
+/// It was a 15px icon in 2px of padding — a 19dp target, sitting 6dp from the
+/// chip's own tap area — so the common outcome of aiming at it was running the
+/// search you were trying to forget. The box is 44dp square now and the icon
+/// inside it is the same 15px it always was; only the reachable area grew, out
+/// into padding the chip was already spending.
+class _ChipRemove extends StatelessWidget {
+  const _ChipRemove({required this.query, required this.onTap});
+
+  final String query;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // Merged so the label and the button land on one node rather than on a
+    // Semantics wrapper with an unlabelled InkResponse nested inside it.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        // Which query this forgets. Every chip in the row otherwise announces
+        // an identical unlabelled button, which is no help to anyone
+        // navigating by screen reader.
+        label: '${'general.remove'.tr()} $query',
+        child: InkResponse(
+          onTap: () {
+            // Destructive and unconfirmed: the entry is gone the moment this
+            // lands, so the tap is worth feeling.
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          radius: 22,
+          child: const SizedBox(
+            width: 44,
+            height: 44,
+            child: Icon(
+              Icons.close_rounded,
+              size: 15,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

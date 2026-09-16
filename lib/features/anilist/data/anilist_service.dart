@@ -100,7 +100,9 @@ class AnilistService extends ChangeNotifier {
     try {
       await completeLink(code);
     } catch (e) {
-      _lastError = e is AnilistException ? e.message : 'Could not connect to AniList';
+      _lastError = e is AnilistException
+          ? e.message
+          : 'Could not connect to AniList';
     } finally {
       _linking = false;
       notifyListeners();
@@ -182,7 +184,9 @@ class AnilistService extends ChangeNotifier {
     }
     await _store(link.cast<String, dynamic>());
     final v = _viewer;
-    if (v == null) throw const AnilistException('Could not identify the AniList account');
+    if (v == null) {
+      throw const AnilistException('Could not identify the AniList account');
+    }
     // Pull whatever links the account already holds, so a phone that connects
     // second inherits every association made on the first.
     unawaited(syncLinks());

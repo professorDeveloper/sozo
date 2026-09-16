@@ -86,6 +86,8 @@ dependencies:
   # UI
   shimmer: ^3.0.0
   flutter_svg: ^2.0.3
+  # The Sozo mark's SVG path, as a Path the switch can draw with a pen.
+  path_parsing: ^1.1.0
   url_launcher: ^6.3.1
   cached_network_image: ^3.4.1
   scrollable_positioned_list: ^0.3.8

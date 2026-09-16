@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/widgets/shimmer_wrapper.dart';
 // Re-exported so the dozen existing `ShimmerWrapper` call sites in this
 // feature keep working while the definition lives in core.
 export 'package:soplay/core/widgets/shimmer_wrapper.dart';
@@ -102,16 +103,19 @@ class HomeNetworkImage extends StatelessWidget {
             memCacheWidth: (w != null && w > 0) ? w : null,
             filterQuality:
                 isDesktopPlatform ? FilterQuality.medium : FilterQuality.low,
-            // Same widget for both, so a tile that is loading and a tile that
-            // failed do not jump between two different shapes.
+            // Loading and broken are different states and now look it. Both
+            // used to be the same grey icon, so a poster that was never going
+            // to arrive was indistinguishable from one still on its way — the
+            // reader had no way to tell "wait" from "this is as good as it
+            // gets". The skeleton says the first, the icon says the second.
             errorWidget: (_, _, _) =>
                 HomeImagePlaceholder(icon: placeholderIcon),
-            placeholder: (_, _) => HomeImagePlaceholder(icon: placeholderIcon),
-            // No cross-fade: these arrive in a scrolling rail, and forty tiles
-            // fading in at slightly different times is more distracting than
-            // forty tiles appearing.
-            fadeInDuration: Duration.zero,
-            fadeOutDuration: Duration.zero,
+            placeholder: (_, _) => const HomeImageSkeleton(),
+            // The same dissolve the rest of the app gives an arriving image.
+            // Zero here made home and search the two screens where artwork
+            // snapped in while every other surface eased.
+            fadeInDuration: ShimmerWrapper.imageFade,
+            fadeOutDuration: ShimmerWrapper.imageFade,
           );
         },
       ),
@@ -148,6 +152,24 @@ class HomeImagePlaceholder extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A poster that has not arrived yet.
+///
+/// One [ShimmerWrapper] per tile, which the wrapper's own doc argues against —
+/// and rightly, for a skeleton screen, where thirty blocks appear and vanish
+/// together and belong to one sweep. A rail is the other case: every poster
+/// starts and finishes on its own schedule, most of them from the disk cache
+/// within a frame, so there is no shared tree to hang a single wrapper on.
+class HomeImageSkeleton extends StatelessWidget {
+  const HomeImageSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) => const ShimmerWrapper(
+    // Opaque white on purpose: the shimmer composites its gradient with
+    // `srcIn`, so it can only be seen through a fully painted child.
+    child: ColoredBox(color: Colors.white, child: SizedBox.expand()),
+  );
 }
 
 /// Reserves the vertical space of [lines] text lines whether or not [child]

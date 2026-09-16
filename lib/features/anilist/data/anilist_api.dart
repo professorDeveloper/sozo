@@ -184,6 +184,38 @@ class AnilistApi {
     return data.cast<String, dynamic>();
   }
 
+  /// A staff credit reduced to its bare words, so one role is one string.
+  ///
+  /// AniList qualifies credits freely and by hand — "Story & Art (vols 1-41)",
+  /// "Original Story (eps 1-12)", "Storyboard  (eps 16, 20)" with two spaces —
+  /// so the same job arrives spelled a dozen ways. Dropping the parenthesis and
+  /// everything that is not a letter leaves "story art", which a named set can
+  /// be compared against exactly.
+  static String _normalizeRole(String? raw) {
+    if (raw == null) return '';
+    return raw
+        .replaceAll(RegExp(r'\([^)]*\)'), ' ')
+        .toLowerCase()
+        .replaceAll(RegExp('[^a-z]+'), ' ')
+        .trim();
+  }
+
+  /// The credits that mean "this person wrote the thing", as [_normalizeRole]
+  /// spells them. Everything absent from this set is somebody else's job on it:
+  /// "story board", "storyboard", "story composition", "series composition",
+  /// "story editor", "story supervisor", "original character design",
+  /// "original work assistance".
+  static const Set<String> _authorRoles = {
+    'story',
+    'story art',
+    'original creator',
+    'original story',
+    'original work',
+  };
+
+  /// Drawn but not written. Only a last resort — see the author block.
+  static const Set<String> _artistRoles = {'art'};
+
   /// The first message out of a GraphQL `errors` array, wherever it arrives —
   /// a 200 body or the body of a refusal. Null when the payload carries none.
   static String? _graphqlError(dynamic body) {
@@ -322,16 +354,24 @@ class AnilistApi {
 
   /// Public title search — used to attach an AniList id to something the user
   /// is watching from a source that knows nothing about AniList.
+  ///
+  /// [type] is AniList's own split and defaults to ANIME rather than to "both".
+  /// Widening it silently would be the expensive mistake here: the skip-times
+  /// lookup and the search suggestions both feed the id they find to services
+  /// that only know anime, and a manga would arrive there as a plausible id
+  /// for the wrong thing. A reader asks for MANGA — which is also AniList's
+  /// type for a light novel.
   Future<List<AnilistMedia>> searchMedia(
     String query, {
     int perPage = 20,
+    String type = 'ANIME',
   }) async {
     if (query.trim().isEmpty) return const [];
     final gql =
         '''
-      query (\$search: String, \$perPage: Int) {
+      query (\$search: String, \$type: MediaType, \$perPage: Int) {
         Page(page: 1, perPage: \$perPage) {
-          media(search: \$search, type: ANIME, sort: SEARCH_MATCH) {
+          media(search: \$search, type: \$type, sort: SEARCH_MATCH) {
             $_mediaFields
           }
         }
@@ -339,7 +379,7 @@ class AnilistApi {
     ''';
     final data = await _run(
       gql,
-      variables: {'search': query.trim(), 'perPage': perPage},
+      variables: {'search': query.trim(), 'type': type, 'perPage': perPage},
     );
     final page = data['Page'];
     final media = page is Map ? page['media'] : null;
@@ -359,11 +399,16 @@ class AnilistApi {
   /// Empty on any failure. A missing relations list costs a tab that says
   /// nothing was found; a thrown one would take the detail page with it.
   /// The page for one title. See [AnilistMediaDetail] for what and why.
-  Future<AnilistMediaDetail?> mediaDetail(int id) async {
+  ///
+  /// [type] is AniList's own split, `ANIME` or `MANGA` (a light novel is
+  /// MANGA with format NOVEL). Ids are unique across both, so it is a check
+  /// rather than a lookup key: a manga id asked for as an anime is null, not
+  /// the wrong record.
+  Future<AnilistMediaDetail?> mediaDetail(int id, {String? type}) async {
     const gql =
         '''
-      query (\$id: Int) {
-        Media(id: \$id) {
+      query (\$id: Int, \$type: MediaType) {
+        Media(id: \$id, type: \$type) {
           $_mediaFields
           meanScore
           popularity
@@ -373,6 +418,9 @@ class AnilistApi {
           genres
           rankings { rank type context allTime year season }
           studios(isMain: true) { nodes { name } }
+          staff(sort: RELEVANCE, perPage: 3) {
+            edges { role node { name { full } } }
+          }
           tags { name rank isMediaSpoiler }
           trailer { id site }
           characters(sort: [ROLE, RELEVANCE], perPage: 12) {
@@ -390,10 +438,41 @@ class AnilistApi {
         }
       }
     ''';
-    final data = await _run(gql, variables: {'id': id});
+    final data = await _run(gql, variables: {'id': id, 'type': ?type});
     final raw = data['Media'];
     if (raw is! Map) return null;
     final m = raw.cast<String, dynamic>();
+
+    // Who wrote it: a manga's answer to the studio line, and on an anime the
+    // person whose book it came from.
+    //
+    // Only a writing credit counts, and the credit has to BE one rather than
+    // contain one. AniList's role vocabulary is full of near misses that a
+    // substring test cannot tell apart from the real thing: "Storyboard" and
+    // "Story Supervisor" both hold "story", "Original Character Design" and
+    // "Original Work Assistance" both hold "original", and every one of those
+    // is a job done on somebody else's story. Relevance order makes this worse,
+    // not better — AniList sorts the helper above the writer often enough that
+    // whichever near miss matched first became the name printed under "Author".
+    //
+    // "Art" alone is the illustrator, so it is taken only when no writing
+    // credit appears at all: on a manga drawn and written by one person AniList
+    // sometimes files them that way, and there it is the right name — but it
+    // must never outrank a real story credit sorted below it.
+    String? author;
+    String? artist;
+    final staff = ((m['staff'] as Map?)?['edges'] as List?)?.whereType<Map>();
+    for (final e in staff ?? const <Map>[]) {
+      final name = ((e['node'] as Map?)?['name'] as Map?)?['full']?.toString();
+      if (name == null || name.isEmpty) continue;
+      final role = _normalizeRole(e['role']?.toString());
+      if (_authorRoles.contains(role)) {
+        author = name;
+        break;
+      }
+      if (artist == null && _artistRoles.contains(role)) artist = name;
+    }
+    author ??= artist;
 
     // The ranking worth one line: this season's, if AniList has one, else
     // the all-time one. "#2 most popular this season" beats "#1043 all time".
@@ -459,6 +538,7 @@ class AnilistApi {
       popularity: m['popularity'] as int?,
       rankText: rankText,
       studio: studio,
+      author: author,
       source: m['source']?.toString(),
       durationMinutes: m['duration'] as int?,
       countryOfOrigin: m['countryOfOrigin']?.toString(),

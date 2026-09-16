@@ -144,6 +144,53 @@ class _SkeletonCard extends StatelessWidget {
   }
 }
 
+/// Which icon a catalogue failure gets.
+///
+/// Every one of them drew the same wifi-off. That told the reader they were
+/// offline about a site that had shut down, about an extension that would not
+/// load, and about a Cloudflare wall the strip was at that same moment
+/// offering a button to solve — three problems with three different answers
+/// wearing one icon.
+///
+/// This repeats a slice of the classification [SourceFailure] already does two
+/// lines above each call site, and it should not: the icon belongs on
+/// SourceFailure next to the headline it goes with. That file is not ours to
+/// change in this pass, so the branch lives here until it can move.
+IconData _failureIcon(String? message) {
+  if (isCloudflareError(message)) return Icons.shield_outlined;
+  final lower = (message ?? '').toLowerCase();
+  // Never reached the source at all — the only case that is genuinely about
+  // the connection, and the only one the old icon was ever right about.
+  if (lower.contains('unknownhost') ||
+      lower.contains('unable to resolve host') ||
+      lower.contains('sockettimeout') ||
+      lower.contains('timeoutexception') ||
+      lower.contains('connectexception') ||
+      lower.contains('failed to connect') ||
+      lower.contains('sslexception') ||
+      lower.contains('sslhandshake')) {
+    return Icons.wifi_off_rounded;
+  }
+  // The extension and the app disagree about the API between them, or the
+  // extension's own code threw. Either way the source is what is broken.
+  if (lower.contains('nosuchmethod') ||
+      lower.contains('noclassdeffound') ||
+      lower.contains('classnotfound') ||
+      lower.contains('abstractmethod') ||
+      lower.contains('nosuchfield') ||
+      lower.contains('incompatibleclasschange') ||
+      lower.contains('invocationtarget') ||
+      lower.contains('nullpointer') ||
+      lower.contains('indexoutofbounds') ||
+      lower.contains('illegalstate') ||
+      lower.contains('illegalargument')) {
+    return Icons.extension_off_rounded;
+  }
+  // The server answered and the answer was no: a 404 on a source that moved, a
+  // 429, a 500. Reached, and unhelpful.
+  return Icons.cloud_off_rounded;
+}
+
 /// The catalogue failed, said inline above the rows that still work.
 ///
 /// Same words and the same two buttons as [HomeErrorView] — including the
@@ -188,7 +235,7 @@ class HomeErrorStrip extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.wifi_off_rounded,
+              Icon(_failureIcon(message),
                   color: AppColors.textSecondary, size: 18),
               const SizedBox(width: 10),
               Expanded(
@@ -275,8 +322,8 @@ class HomeErrorView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
               ),
-              child: const Icon(
-                Icons.wifi_off_rounded,
+              child: Icon(
+                _failureIcon(message),
                 color: AppColors.textSecondary,
                 size: 32,
               ),

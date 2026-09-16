@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
@@ -39,6 +40,10 @@ class MovieSection extends StatelessWidget {
           // was only as tall as the title text (~19dp).
           HomeSectionTapTarget(
             onTap: () {
+              // The strip is a button that leaves the screen, and until now the
+              // only thing that said so was the dip. On a phone a tap that
+              // navigates is expected to be felt.
+              HapticFeedback.selectionClick();
               if (onSeeAll != null) {
                 onSeeAll!();
                 return;
@@ -149,6 +154,9 @@ class _MovieCardState extends State<_MovieCard> {
   void _openDetail() {
     final movie = widget.movie;
     if (movie.url.isNotEmpty) {
+      // Only on a card that actually opens something. Firing before the empty
+      // -url check would make a dead card feel exactly like a live one.
+      HapticFeedback.selectionClick();
       context.push(
         '/detail',
         extra: DetailArgs(
@@ -239,9 +247,13 @@ class _MovieCardState extends State<_MovieCard> {
                 ),
               ),
               if (quality != null)
-                Positioned(
+                // Directional, not physical: in Arabic — the largest
+                // translation the app ships — the poster's reading order
+                // flips and a badge pinned to `right` lands over the start of
+                // the artwork instead of the far corner.
+                PositionedDirectional(
                   top: 6,
-                  right: 6,
+                  end: 6,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 5,

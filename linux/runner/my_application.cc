@@ -22,6 +22,18 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
+
+  // A sozo:// link arrives as `soplay sozo://...` from a second process, and
+  // the point of routing it to the already-running instance is that the user
+  // lands in the app they already had open. Activation is what that second
+  // process triggers here, so raise the existing window instead of building a
+  // second one on top of the same Dart isolate.
+  GList* windows = gtk_application_get_windows(GTK_APPLICATION(application));
+  if (windows != nullptr) {
+    gtk_window_present(GTK_WINDOW(windows->data));
+    return;
+  }
+
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
@@ -103,10 +115,21 @@ static gboolean my_application_local_command_line(GApplication* application,
     return TRUE;
   }
 
+  // Activate before handing control back, so that by the time GApplication
+  // emits command-line the FlView exists and fl_register_plugins() has run —
+  // the gtk plugin connects the command-line signal from inside registration,
+  // and a first launch emits that signal in this same process.
   g_application_activate(application);
   *exit_status = 0;
 
-  return TRUE;
+  // FALSE, not TRUE: TRUE claims the command line is fully handled and stops
+  // g_application_run() before it ever emits GApplication::command-line, which
+  // is the one and only path by which app_links_linux (via the gtk package's
+  // "gtk/application" channel) can see the sozo:// URL. Returning FALSE lets
+  // g_application_run() do its normal work — forward the arguments to the
+  // primary instance, or emit them locally — and the arguments above are still
+  // captured for the Dart entrypoint either way.
+  return FALSE;
 }
 
 // Implements GApplication::startup.
@@ -152,7 +175,21 @@ MyApplication* my_application_new() {
   // the application to be recognized beyond its binary name.
   g_set_prgname(APPLICATION_ID);
 
+  // G_APPLICATION_HANDLES_COMMAND_LINE, not the template's
+  // G_APPLICATION_NON_UNIQUE. NON_UNIQUE makes every `soplay sozo://...` a
+  // fresh, independent process that never talks to the running app, and it also
+  // suppresses the GApplication::command-line signal — the only channel through
+  // which app_links_linux receives a URL. With this flag the second process
+  // registers as remote, forwards its arguments to the instance that is already
+  // running, and exits; the running app gets command-line and DeeplinkService
+  // sees the link. The cost is that Sozo is now single-instance on Linux, which
+  // is what a scheme handler has to be.
+  //
+  // G_APPLICATION_HANDLES_OPEN is deliberately not set: it only matters for file
+  // arguments, which this flag's routing bypasses entirely, and GApplication
+  // complains about a subclass that advertises open() without implementing it.
   return MY_APPLICATION(g_object_new(my_application_get_type(),
                                      "application-id", APPLICATION_ID, "flags",
-                                     G_APPLICATION_NON_UNIQUE, nullptr));
+                                     G_APPLICATION_HANDLES_COMMAND_LINE,
+                                     nullptr));
 }

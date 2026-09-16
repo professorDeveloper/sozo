@@ -13,6 +13,8 @@
 /// is a display courtesy, not a gate: an unknown code renders as itself.
 library;
 
+import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
+
 /// A source tagged with this belongs to every language selection rather than
 /// to none. Both Tachiyomi-family ecosystems use the literal string.
 const String kAllLanguages = 'all';
@@ -147,11 +149,15 @@ String shortLabelFor(String lang) => normalizeLang(lang).toUpperCase();
 
 /// The language a source is in, when it did not say.
 ///
-/// Roughly half the sources in a Watch tab declare nothing: CloudStream's lazy
-/// metadata carries no language, and Sozo's own backend providers have never
-/// needed one. Filtering by language was letting all of those through, so
-/// picking English barely shortened the list — the filter looked broken because
-/// it had nothing to match against.
+/// Roughly half the sources in a Watch tab declare nothing — CloudStream's lazy
+/// metadata carries no language. Filtering by language was letting all of those
+/// through, so picking English barely shortened the list; the filter looked
+/// broken because it had nothing to match against.
+///
+/// Sozo's own cloud providers used to be in that half and no longer are: the
+/// backend declares `lang` per provider now, so they take the first line below
+/// and never reach the guessing at all. That is the arrangement this function
+/// wants — every guess here is a source nobody could ask.
 ///
 /// Most of them do say, just not in the field: `HindiSubAnime`, `animefr`,
 /// `.ru`, `.com.tr`. This reads the name, the id and the host. It returns null
@@ -165,16 +171,36 @@ String? inferLang({
   required String url,
 }) {
   final declared = normalizeLang(lang);
-  if (declared.isNotEmpty && declared != kAllLanguages) return declared;
+  if (declared.isNotEmpty) {
+    // `all` is a declaration too, and the guesses below would overrule it: an
+    // `all` catalogue served from a `.ru` domain is not a Russian source, and
+    // one called `AnimeFrench` is not a French one. Tachiyomi and Aniyomi repos
+    // hand `all` out freely, so falling through to the guessing here was the
+    // VidAPI bug waiting in a second ecosystem. It is not a language to hand
+    // back either — this function answers "which language", and the honest
+    // answer for a catalogue that says it has no one language is the same null
+    // it returns when it will not guess. [ProviderLanguage.displayLang], which
+    // is how every screen asks, keeps `all` as itself.
+    return declared == kAllLanguages ? null : declared;
+  }
 
   final haystack = '$name $id'.toLowerCase();
   for (final entry in _nameHints.entries) {
     if (haystack.contains(entry.key)) return entry.value;
   }
 
-  final host = Uri.tryParse(url)?.host.toLowerCase() ?? '';
-  for (final entry in _tldHints.entries) {
-    if (host.endsWith(entry.key)) return entry.value;
+  // A domain says where a site is hosted, not what it speaks. For the
+  // extension ecosystems it is still the best guess there is, and the only one:
+  // an `an:`/`cs:`/`mn:` id is a source in somebody else's repo that nobody
+  // here can go and ask. Sozo's own providers can be asked, and were guessed at
+  // wrongly for as long as they were not — VidAPI on vidapi.ru serves English
+  // and was labelled Russian — so their bare ids are excluded from the guess
+  // even if a declaration ever goes missing.
+  if (id.contains(':')) {
+    final host = Uri.tryParse(url)?.host.toLowerCase() ?? '';
+    for (final entry in _tldHints.entries) {
+      if (host.endsWith(entry.key)) return entry.value;
+    }
   }
   return null;
 }
@@ -241,3 +267,26 @@ const Map<String, String> _tldHints = {
   '.kr': 'ko',
   '.ir': 'fa',
 };
+
+/// The one language answer every screen shows, counts and filters on.
+///
+/// Three screens used to answer the question three different ways: the
+/// providers page badged the raw `lang`, the sources hub put the raw `lang` in
+/// a row's subtitle, and the quick switcher ran [inferLang]. So one source
+/// could be unlabelled in one list, `RU` in the next and English in the third,
+/// and — worse — the providers page hid rows by a value it never displayed. A
+/// filter is only believable when the label it hides a row by is the label the
+/// row was showing.
+extension ProviderLanguage on ProviderEntity {
+  /// Empty when there is nothing to go on at all, which is the same thing an
+  /// undeclared language has always meant here: the chip, the badge and the
+  /// tally all skip it, and [langMatches] lets it through rather than hiding a
+  /// source nobody can vouch for.
+  ///
+  /// `all` survives as itself. It is a declaration — this catalogue has no one
+  /// language — and inferring a narrower answer from the name or the host would
+  /// be overruling the source about its own contents.
+  String get displayLang => isAllLanguages
+      ? kAllLanguages
+      : inferLang(lang: lang, name: name, id: id, url: url) ?? '';
+}

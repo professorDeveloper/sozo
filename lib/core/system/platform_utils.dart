@@ -1,7 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart' show PlatformInfo;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart'
+    show PlatformInfo;
 import 'package:flutter/services.dart';
 
 /// Resolved once at startup by [initTvPlatform]. Never mutated afterwards.
@@ -9,6 +10,10 @@ import 'package:flutter/services.dart';
 /// Defaults to `false` so every read before (or without) resolution takes the
 /// phone/desktop path the app ships today.
 bool _isTv = false;
+bool _isAndroidEmulator = false;
+
+/// Emulator GPU surfaces can report dimensions without displaying video.
+bool get isAndroidEmulator => _isAndroidEmulator;
 bool _tvResolved = false;
 
 const MethodChannel _platformChannel = MethodChannel('soplay/platform');
@@ -36,6 +41,12 @@ Future<void> initTvPlatform() async {
     _isTv = await _platformChannel.invokeMethod<bool>('isTv') ?? false;
   } catch (_) {
     _isTv = false;
+  }
+  try {
+    _isAndroidEmulator =
+        await _platformChannel.invokeMethod<bool>('isEmulator') ?? false;
+  } catch (_) {
+    _isAndroidEmulator = false;
   }
 }
 

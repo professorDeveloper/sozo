@@ -2,6 +2,7 @@ import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_source_settings_page.dart';
@@ -193,6 +194,22 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         appBar: open == null ? _hubBar() : _browseBar(open),
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 180),
+          // The default layout stacks the outgoing and incoming children in a
+          // Stack that sizes itself to the LARGER of the two and centres both.
+          // These are three whole pages of different heights, so for the
+          // length of the crossfade you saw two headers overlapping and the
+          // shorter one floating in the middle of the taller one's box — which
+          // read as the filter row landing on top of the list. Each child gets
+          // the whole body and sits at the top, so the only thing that changes
+          // during the switch is opacity.
+          layoutBuilder: (current, previous) => Stack(
+            alignment: AlignmentDirectional.topStart,
+            children: [
+              for (final child in previous)
+                Positioned.fill(child: child),
+              if (current != null) Positioned.fill(child: current),
+            ],
+          ),
           child: open != null
               ? _SourceBrowseView(key: ValueKey(open.id), source: open)
               : _adding
@@ -402,6 +419,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     // So: match on what the source declares, or on what its name, id and host
     // give away. What is left says nothing either way, and it goes to the end
     // under a heading that admits as much.
+    //
+    // The value tested is displayLang — the one the row's own subtitle shows,
+    // and the one the filter menu above was built from. `all` is a declaration
+    // and matches every selection; it used to reach the guessing stage, find
+    // no hint in "KissKH" or "UHD Movies" and land those two under "language
+    // not stated", which is the opposite of what they said about themselves.
     final matched = <ProviderEntity>[];
     final unstated = <ProviderEntity>[];
     for (final p in all) {
@@ -409,15 +432,11 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         matched.add(p);
         continue;
       }
-      final lang = srclang.inferLang(
-        lang: p.lang,
-        name: p.name,
-        id: p.id,
-        url: p.url,
-      );
-      if (lang == null) {
+      final lang = p.displayLang;
+      if (lang.isEmpty) {
         unstated.add(p);
-      } else if (languages.any((l) => srclang.normalizeLang(l) == lang)) {
+      } else if (lang == srclang.kAllLanguages ||
+          languages.any((l) => srclang.normalizeLang(l) == lang)) {
         matched.add(p);
       }
     }
@@ -487,12 +506,24 @@ class _SourcesHubPageState extends State<SourcesHubPage>
               ),
             ),
             _searchField(state, mode),
-            if (counts.length > 1)
-              _EcosystemFilter(
-                counts: counts,
-                active: eco,
-                onPick: (picked) => setState(() => _eco = picked),
-              ),
+            // The row comes and goes — a search that narrows to one ecosystem
+            // removes it, changing tab can add it back — and it used to do
+            // that by simply not being in the Column, so the whole list under
+            // it jumped 34 pixels with no warning. It grows and shrinks now,
+            // which is the same information arriving at a speed the eye can
+            // follow.
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: counts.length > 1
+                  ? _EcosystemFilter(
+                      counts: counts,
+                      active: eco,
+                      onPick: (picked) => setState(() => _eco = picked),
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
             Expanded(
               child: TabBarView(
                 controller: _tabs,
@@ -529,15 +560,21 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                 value: '*',
                 child: Text('profile.all_languages'.tr()),
               ),
+              // Offered from displayLang, not the raw field, because that is
+              // what the list below filters on: built from `lang` alone the
+              // menu could never offer a language that exists only as an
+              // inference, so the several hundred untagged extension sources
+              // were unreachable — their language was in their name and the
+              // one control that could have used it did not know it was there.
               for (final language
                   in srclang
                       .orderedLanguages(
                         state.providers
                             .where((p) => p.id.contentMode == mode)
-                            .map((p) => p.lang),
+                            .map((p) => p.displayLang),
                         _languages,
                       )
-                      .where((language) => language != 'all'))
+                      .where((language) => language != srclang.kAllLanguages))
                 CheckedPopupMenuItem(
                   value: language,
                   checked: _languages.contains(language),
@@ -661,9 +698,14 @@ class _SourceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The row says the same language the filter menu offers and the split
+    // above sorts by. `all` is left out on purpose: "this catalogue is in
+    // every language" is not something a two-letter chip can say, and the row
+    // appears under every selection anyway.
+    final lang = source.displayLang;
     final subtitle = [
-      if (source.lang.isNotEmpty && source.lang != 'all')
-        source.lang.toUpperCase(),
+      if (lang.isNotEmpty && lang != srclang.kAllLanguages)
+        srclang.shortLabelFor(lang),
       if (source.category.isNotEmpty) source.category,
       if (source.browseOnly) 'profile.provider'.tr(),
     ].join(' · ');
@@ -974,59 +1016,95 @@ class _EcosystemFilter extends StatelessWidget {
         if (counts.containsKey(e)) e,
     ];
     final total = counts.values.fold(0, (a, b) => a + b);
-    return SizedBox(
-      height: 34,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: chips.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 6),
-        itemBuilder: (context, i) {
-          final e = chips[i];
-          final selected = e == active;
-          final count = e == null ? total : counts[e] ?? 0;
-          return Center(
-            child: Material(
-              color: selected ? AppColors.primary : AppColors.card,
-              borderRadius: BorderRadius.circular(999),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => onPick(e),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        e?.label ?? 'sources.eco_all'.tr(),
-                        style: TextStyle(
+    // Scaled, because this row is the one control on the page that is read at
+    // a glance and it was laid out at a size meant for a badge: 34 high with
+    // 12pt type is under the 44dp anyone actually hits, and the count beside
+    // it was small enough to be taken for decoration.
+    final scale = MediaQuery.textScalerOf(context);
+    final height = scale.scale(13) * 2.0 + 18;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 2),
+      child: SizedBox(
+        height: height,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsetsDirectional.only(start: 12, end: 12),
+          itemCount: chips.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, i) {
+            final e = chips[i];
+            final selected = e == active;
+            final count = e == null ? total : counts[e] ?? 0;
+            final label = e?.label ?? 'sources.eco_all'.tr();
+            return Center(
+              child: Semantics(
+                button: true,
+                selected: selected,
+                label: '$label, $count',
+                child: ExcludeSemantics(
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      onPick(e);
+                    },
+                    borderRadius: BorderRadius.circular(999),
+                    // Selection used to be a hard cut between two colours and
+                    // two weights, which on a row of five chips reads as the
+                    // list redrawing rather than as one of them being chosen.
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      curve: Curves.easeOut,
+                      padding: const EdgeInsets.fromLTRB(13, 7, 13, 7),
+                      decoration: BoxDecoration(
+                        color: selected ? AppColors.primary : AppColors.card,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
                           color: selected
-                              ? Colors.white
-                              : AppColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
+                              ? AppColors.primary
+                              : Colors.white.withValues(alpha: 0.06),
                         ),
                       ),
-                      const SizedBox(width: 5),
-                      Text(
-                        '$count',
-                        style: TextStyle(
-                          color: selected
-                              ? Colors.white70
-                              : AppColors.textSecondary.withValues(alpha: 0.55),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 160),
+                            style: TextStyle(
+                              color: selected
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                              fontSize: 13,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              decoration: TextDecoration.none,
+                            ),
+                            child: Text(label),
+                          ),
+                          const SizedBox(width: 6),
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 160),
+                            style: TextStyle(
+                              color: selected
+                                  ? Colors.white70
+                                  : AppColors.textSecondary.withValues(
+                                      alpha: 0.6,
+                                    ),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.none,
+                            ),
+                            child: Text('$count'),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

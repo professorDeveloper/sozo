@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
@@ -17,9 +18,11 @@ import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
 ///      further ahead, must not undo real progress;
 ///   3. never surface a failure to the viewer — this runs during playback.
 class AnilistTracker {
-  AnilistTracker({required AnilistService service, required AnilistLinkStore links})
-      : _service = service,
-        _links = links;
+  AnilistTracker({
+    required AnilistService service,
+    required AnilistLinkStore links,
+  }) : _service = service,
+       _links = links;
 
   final AnilistService _service;
   final AnilistLinkStore _links;
@@ -79,7 +82,13 @@ class AnilistTracker {
     final key = AnilistLinkStore.keyFor(provider, contentUrl);
     if (_autoMatchFailed.contains(key)) return null;
 
-    final match = await findExactMatch(title);
+    // Which half of AniList to look in, taken from the source: a reader's
+    // title is not in the anime index at all, so searching it there would
+    // fail every time and then be remembered as hopeless.
+    final match = await findExactMatch(
+      title,
+      type: provider.contentMode == ContentMode.video ? 'ANIME' : 'MANGA',
+    );
     if (match == null) {
       _autoMatchFailed.add(key);
       return null;
@@ -92,7 +101,9 @@ class AnilistTracker {
         mediaId: match.id,
         title: match.displayTitle,
         coverImage: match.coverImage,
-        totalEpisodes: match.episodes,
+        // Chapters when there are no episodes — `episodes` is null for
+        // everything that is read rather than watched.
+        totalEpisodes: match.episodes ?? match.chapters,
         linkedAt: DateTime.now().millisecondsSinceEpoch,
         auto: true,
       ),
@@ -107,11 +118,21 @@ class AnilistTracker {
   /// 1, or a recap film to the series, and then quietly write episode numbers
   /// into it for months. When there is no exact match the user is asked instead
   /// — being unlinked is recoverable, being wrongly linked is not obvious.
-  Future<AnilistMedia?> findExactMatch(String title) async {
+  ///
+  /// [type] defaults to ANIME because that is what the MyAnimeList tracker
+  /// borrows this for, and MAL numbers manga separately.
+  Future<AnilistMedia?> findExactMatch(
+    String title, {
+    String type = 'ANIME',
+  }) async {
     final wanted = normalizeTitle(title);
     if (wanted.isEmpty) return null;
     try {
-      final results = await _service.api.searchMedia(title, perPage: 10);
+      final results = await _service.api.searchMedia(
+        title,
+        perPage: 10,
+        type: type,
+      );
       for (final media in results) {
         for (final candidate in media.searchTitles) {
           if (normalizeTitle(candidate) == wanted) return media;
@@ -125,12 +146,18 @@ class AnilistTracker {
 
   /// Reads the account's current position, then writes only if this episode is
   /// genuinely ahead of it.
-  Future<bool> _write({required int mediaId, required int episodeNumber}) async {
+  Future<bool> _write({
+    required int mediaId,
+    required int episodeNumber,
+  }) async {
     final token = _service.token;
     if (token == null) return false;
 
     try {
-      final state = await _service.api.entryState(token: token, mediaId: mediaId);
+      final state = await _service.api.entryState(
+        token: token,
+        mediaId: mediaId,
+      );
       if (state != null && episodeNumber <= state.progress) {
         // Already at or beyond this episode — a rewatch, or another device got
         // here first. Writing would move the list backwards.
@@ -142,9 +169,15 @@ class AnilistTracker {
         token: token,
         mediaId: mediaId,
         progress: episodeNumber,
-        status: _statusFor(current: state?.status, episode: episodeNumber, total: total),
+        status: _statusFor(
+          current: state?.status,
+          episode: episodeNumber,
+          total: total,
+        ),
       );
-      debugPrint('$_tag media $mediaId → episode ${result.progress} (${result.status})');
+      debugPrint(
+        '$_tag media $mediaId → episode ${result.progress} (${result.status})',
+      );
       return true;
     } catch (e) {
       // Playback must not be disturbed by a tracker outage.
@@ -185,8 +218,9 @@ class AnilistTracker {
     return s.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
-  static final RegExp _punctuation =
-      RegExp(r'''[.,:;!?'"`~@#$%^&*_+=<>/\\|{}\[\]()·・…—–-]+''');
+  static final RegExp _punctuation = RegExp(
+    r'''[.,:;!?'"`~@#$%^&*_+=<>/\\|{}\[\]()·・…—–-]+''',
+  );
 
   /// Bracketed tags (`[1080p]`, `(TV)`), quality markers and subtitle labels —
   /// all of which appear in source-site titles and never in an AniList one.

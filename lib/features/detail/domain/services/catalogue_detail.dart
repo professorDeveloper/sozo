@@ -83,6 +83,7 @@ DetailEntity detailFromAnilist(AnilistMediaDetail d, {CatalogueLink? via}) {
       tags: d.tags,
       facts: [
         if (d.studio != null) RecordFact('detail.about_studio', d.studio!),
+        if (d.author != null) RecordFact('detail.about_author', d.author!),
         if (d.source != null)
           RecordFact('detail.about_source', _word(d.source!)),
         if (m.episodes != null)
@@ -150,7 +151,7 @@ DetailEntity detailFromTmdb(Map<String, dynamic> json, {CatalogueLink? via}) {
   final base = DetailModel.fromJson(json);
   final extra = json['extra'];
   final about = extra is Map ? extra['about'] : null;
-  String? str(Object? v) => v == null ? null : v.toString();
+  String? str(Object? v) => v?.toString();
   int? num_(Object? v) => v is num ? v.toInt() : int.tryParse('$v');
   final vote = extra is Map ? extra['voteAverage'] : null;
   final status = extra is Map ? str(extra['status']) : null;

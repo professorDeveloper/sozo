@@ -366,7 +366,41 @@
     "alt_some_failed": "Moslik topilmadi, lekin {} ta manba javob bermadi.",
     "resolve_timeout": "Manba vaqtida javob bermadi. Boshqa server yoki boshqa manbani sinab ko'ring.",
     "layout_center": "Play atrofida",
-    "layout_center_full": "Play atrofida joy qolmadi"
+    "layout_center_full": "Play atrofida joy qolmadi",
+    "shortcuts_title": "Klaviatura yorliqlari",
+    "shortcut_play_pause": "Ijro / pauza",
+    "shortcut_seek": "{} s orqaga / oldinga",
+    "shortcut_seek_long": "{} s orqaga / oldinga sakrash",
+    "shortcut_frame": "Bir kadr orqaga / oldinga",
+    "shortcut_decile": "Videoning 0–90% qismiga o‘tish",
+    "shortcut_volume": "Ovozni balandlatish / pasaytirish",
+    "shortcut_mute": "Ovozsiz",
+    "shortcut_speed": "Sekinroq / tezroq",
+    "shortcut_episode": "Oldingi / keyingi qism",
+    "shortcut_start_end": "Boshiga / oxiriga o‘tish",
+    "shortcut_escape": "Panelni yopish, to‘liq ekrandan chiqish yoki chiqish",
+    "shortcut_help": "Shu ro‘yxatni ko‘rsatish",
+    "key_space": "Bo‘sh joy",
+    "alt_guess": "Taxmin",
+    "alt_guess_spoken": "Ishonchsiz moslik — ijro etishdan oldin sarlavhani tekshiring",
+    "alt_your_pick": "Sizning tanlovingiz",
+    "alt_wrong_title": "Sarlavha noto‘g‘rimi?",
+    "alt_wrong_title_hint": "{} ichidan o‘zingiz qidirib, to‘g‘ri sarlavhani tanlang",
+    "alt_corrected": "Endi “{}” ishlatilyapti",
+    "alt_unmatched": "Qidirildi, mos kelmadi ({})",
+    "alt_unmatched_hint": "Bularda mos sarlavha topilmadi. Bor deb bilsangiz, o‘zingiz qidiring.",
+    "alt_search_by_hand": "Qo‘lda qidirish",
+    "alt_no_answer": "Qidiruv javobsiz tugadi. Qayta urinib ko‘ring yoki manbani qo‘lda qidiring.",
+    "alt_none_asked": "Boshqa manbalaringizdan hech biri bu turdagi sarlavhani ochmaydi, shuning uchun hech biri qidirilmadi. Shu turni qo‘llaydiganini qo‘shing.",
+    "alt_no_match": "{} ta manba javob berdi va hech birida bu sarlavha yo‘q — eng yaqin natijalar boshqa asarlar edi. Birontasida bor deb bilsangiz, quyida qo‘lda qidiring.",
+    "src_search_title": "{} ichidan qidirish",
+    "src_search_hint": "Qidiriladigan sarlavha",
+    "src_search_go": "Qidirish",
+    "src_searching": "{} so‘ralyapti…",
+    "src_search_empty": "{} da “{}” uchun hech narsa yo‘q. Boshqa imlo bilan urinib ko‘ring — romaji yoki dublyaj nomi.",
+    "src_search_slow": "{} vaqtida javob bermadi. Sarlavha yo‘qligidan ko‘ra sekinligi mumkin — qayta urinib ko‘ring.",
+    "src_search_failed": "{} ga ulanib bo‘lmadi. Manbalar bo‘limida tekshiring va qayta urinib ko‘ring.",
+    "src_search_unavailable": "{} bu qurilmada endi o‘rnatilmagan."
   },
   "profile": {
     "title": "Profil",
@@ -1124,7 +1158,8 @@
     "tracking_chapters_read": "O‘qilgan boblar",
     "tracking_episodes_watched": "Ko‘rilgan epizodlar",
     "status_reading": "O‘qilmoqda",
-    "status_rereading": "Qayta o‘qilmoqda"
+    "status_rereading": "Qayta o‘qilmoqda",
+    "about_author": "Muallif"
   },
   "episodes": {
     "filter_hint": "Epizod raqami yoki nomi",
@@ -1469,7 +1504,8 @@
     "remove_entry": "Ro'yxatimdan o'chirish",
     "remove_confirm": "\"{}\" AniList ro'yxatingizdan o'chirilsinmi? Undagi progress ham o'chadi.",
     "removed": "AniList ro'yxatidan o'chirildi",
-    "retry_in": "{} s dan keyin qayta urinamiz"
+    "retry_in": "{} s dan keyin qayta urinamiz",
+    "n_chapters_short": "{}-bob"
   },
   "mal": {
     "connect": "MyAnimeList ulash",
@@ -1903,6 +1939,9 @@
     "hint_anilist": "Anime katalogi",
     "hint_tmdb": "Kino va seriallar",
     "hint_anilist_manga": "Manga katalogi",
-    "hint_anilist_novel": "Ranobelar"
+    "hint_anilist_novel": "Ranobelar",
+    "miss_no_sources_of_kind": "Bu turdagi manba o‘rnatilmagan, shuning uchun hech narsa qidirilmadi. Shu turni o‘qiydigan manba qo‘shing.",
+    "miss_unreachable": "Manbalaringiz vaqtida javob bermadi. Bu ularda sarlavha bor-yo‘qligini bildirmaydi — qayta urinib ko‘ring.",
+    "miss_nothing_to_search": "Bu yerda manba izlash uchun hech narsa yo‘q."
   }
 }

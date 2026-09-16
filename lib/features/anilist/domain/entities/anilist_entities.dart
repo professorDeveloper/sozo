@@ -421,6 +421,7 @@ class AnilistMediaDetail {
     this.popularity,
     this.rankText,
     this.studio,
+    this.author,
     this.source,
     this.durationMinutes,
     this.countryOfOrigin,
@@ -439,6 +440,12 @@ class AnilistMediaDetail {
   /// has no ranking for it.
   final String? rankText;
   final String? studio;
+
+  /// Who wrote it: a manga's author, and on an anime the writer it was
+  /// adapted from — which is a fact worth a line on both, and the only line a
+  /// manga has where an anime shows its studio. Null when AniList credits
+  /// nobody with the story, as it does for an original anime.
+  final String? author;
 
   /// MANGA, LIGHT_NOVEL, ORIGINAL… what the anime was adapted from.
   final String? source;

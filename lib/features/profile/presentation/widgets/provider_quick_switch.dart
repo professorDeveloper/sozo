@@ -556,6 +556,30 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
     );
   }
 
+  /// The same threshold the bottom bar switches its own layout at, read off
+  /// the card's title rather than a label size: one number for "type is big
+  /// enough that side by side stops being readable".
+  static bool _stacksCatalogues(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(14) > 18.2;
+
+  Widget _catalogueCard(Catalogue c) {
+    final current = widget.currentProviderId == c.id;
+    return _CatalogueCard(
+      key: _catalogueKeys[c],
+      catalogue: c,
+      active: current,
+      // The catalogue already being browsed has nowhere to go, the same way
+      // the active mode segment has nowhere to go.
+      onTap: current
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              widget.onModeTap?.call(_rectOf(_catalogueKeys[c]));
+              Navigator.of(context).pop('$_kCataloguePrefix${c.id}');
+            },
+    );
+  }
+
   /// Mode chips and filter — the part that stays put.
   ///
   /// Pinned, because scrolling two hundred sources past a mode switcher that
@@ -591,33 +615,24 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
             _SectionLabel('catalogue.section'.tr()),
             const SizedBox(height: 8),
             // Two cards side by side where there are two; a lone card takes
-            // the width. At 200% text a card's two lines still fit, because
-            // the hint is the line that gives way.
-            Row(
-              children: [
-                for (final (i, c) in catalogues.indexed) ...[
-                  if (i > 0) const SizedBox(width: 8),
-                  Expanded(
-                    child: _CatalogueCard(
-                      key: _catalogueKeys[c],
-                      catalogue: c,
-                      active: widget.currentProviderId == c.id,
-                      onTap: widget.currentProviderId == c.id
-                          ? null
-                          : () {
-                              HapticFeedback.selectionClick();
-                              widget.onModeTap?.call(
-                                _rectOf(_catalogueKeys[c]),
-                              );
-                              Navigator.of(
-                                context,
-                              ).pop('$_kCataloguePrefix${c.id}');
-                            },
-                    ),
-                  ),
+            // the width. Past the text size at which the navigation bar goes
+            // readable, half a phone width is about two letters of a name
+            // once the mark and the covers have taken theirs, so the cards
+            // take a line each instead of sharing one.
+            if (_stacksCatalogues(context))
+              for (final (i, c) in catalogues.indexed) ...[
+                if (i > 0) const SizedBox(height: 8),
+                _catalogueCard(c),
+              ]
+            else
+              Row(
+                children: [
+                  for (final (i, c) in catalogues.indexed) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    Expanded(child: _catalogueCard(c)),
+                  ],
                 ],
-              ],
-            ),
+              ),
           ],
           const SizedBox(height: _pinnedPad),
           _SectionLabel('${'sources.section'.tr()} · ${widget.all.length}'),
@@ -842,7 +857,12 @@ class _CatalogueCard extends StatelessWidget {
   final bool active;
   final VoidCallback? onTap;
 
-  static const double _height = 68;
+  /// A floor, not a height. The card used to be exactly this tall, which is
+  /// the size the mark and two lines of text want at normal type — and at
+  /// 200% those two lines are taller than the card, so they spilled out of
+  /// the bottom of it. It sizes to its text now and only stops shrinking
+  /// here, so a card next to a one-word catalogue still looks like a card.
+  static const double _minHeight = 68;
 
   @override
   Widget build(BuildContext context) {
@@ -855,7 +875,7 @@ class _CatalogueCard extends StatelessWidget {
       selected: active,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        height: _height,
+        constraints: const BoxConstraints(minHeight: _minHeight),
         decoration: BoxDecoration(
           color: base,
           borderRadius: BorderRadius.circular(14),
@@ -878,8 +898,11 @@ class _CatalogueCard extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
+            // Loose, and centred: the text stack is what says how tall the
+            // card is, and an expanded Stack would hand it the card's height
+            // instead — which is the fixed height this just stopped being.
             child: Stack(
-              fit: StackFit.expand,
+              alignment: AlignmentDirectional.center,
               children: [
                 // What is inside, along the far edge and fading into the
                 // card, so the name never has to fight it for room.
@@ -891,8 +914,10 @@ class _CatalogueCard extends StatelessWidget {
                 ),
                 Padding(
                   // Room on the end for the covers, so the hint gives way
-                  // to them instead of running under them.
-                  padding: const EdgeInsetsDirectional.fromSTEB(12, 0, 44, 0),
+                  // to them instead of running under them, and enough above
+                  // and below that big type is inset rather than flush with
+                  // the border.
+                  padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 44, 10),
                   child: Row(
                     children: [
                       CatalogueLogo(catalogue: catalogue, size: 30),
@@ -901,6 +926,7 @@ class _CatalogueCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Row(
                               children: [
@@ -1021,39 +1047,47 @@ class _CataloguePeekState extends State<_CataloguePeek> {
               stops: const [0, 0.55],
             ).createShader(rect),
             blendMode: BlendMode.dstIn,
-            child: SizedBox(
-              width: 22 + w + step * (covers.length - 1),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  for (final (i, url) in covers.indexed)
-                    PositionedDirectional(
-                      start: 22 + step * i,
-                      top:
-                          (_CatalogueCard._height - h) / 2 + (i.isOdd ? 4 : -2),
-                      child: Transform.rotate(
-                        angle: lean + i * 0.06,
-                        child: Container(
-                          width: w,
-                          height: h,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(4),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black54, blurRadius: 6),
-                            ],
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: CachedNetworkImage(
-                            imageUrl: url,
-                            httpHeaders: posterImageHeaders(url),
-                            fit: BoxFit.cover,
-                            fadeInDuration: const Duration(milliseconds: 200),
-                            errorWidget: (_, _, _) => const SizedBox.shrink(),
+            // Centred against whatever the card ended up being, rather than
+            // against a number copied from it: the card grows with the text
+            // size now, and a copied number would leave the fan riding high
+            // in a tall card.
+            child: Center(
+              child: SizedBox(
+                width: 22 + w + step * (covers.length - 1),
+                height: h + 6,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    for (final (i, url) in covers.indexed)
+                      PositionedDirectional(
+                        start: 22 + step * i,
+                        top: i.isOdd ? 6 : 0,
+                        child: Transform.rotate(
+                          // The fan leans away from the card's edge, so it
+                          // leans the other way when that edge is the left.
+                          angle: (lean + i * 0.06) * (rtl ? -1 : 1),
+                          child: Container(
+                            width: w,
+                            height: h,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              boxShadow: const [
+                                BoxShadow(color: Colors.black54, blurRadius: 6),
+                              ],
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: CachedNetworkImage(
+                              imageUrl: url,
+                              httpHeaders: posterImageHeaders(url),
+                              fit: BoxFit.cover,
+                              fadeInDuration: const Duration(milliseconds: 200),
+                              errorWidget: (_, _, _) => const SizedBox.shrink(),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1088,60 +1122,85 @@ Widget _favoriteProviderTile(
 }) {
   final selected = p.id == currentProviderId;
   final eco = SourceEcosystem.of(p.id);
-  final lang = inferLang(lang: p.lang, name: p.name, id: p.id, url: p.url);
   // Where it comes from and what language it speaks, in one small line:
   // the two things that tell "AnimeKAI" apart from "AnimeKAI" one row down.
+  //
+  // [ProviderLanguage.displayLang] is the one answer, the same one the
+  // providers page badges and the sources hub subtitles. Calling [inferLang]
+  // here instead was a second opinion that disagreed: a source declaring
+  // `all` — which Tachiyomi and Aniyomi repos hand out freely — falls past
+  // that function's declaration check into the domain guess, so an `all`
+  // catalogue hosted on a `.ru` domain read `RU` in this sheet and `ALL`
+  // everywhere else. displayLang keeps `all` as itself.
+  //
+  // `all` is then left out of the line for the reason the other two lists
+  // leave it out: "this catalogue is in every language" is not something a
+  // two-letter chip can say, and the row shows under every selection anyway.
+  final lang = p.displayLang;
   final meta = [
     eco.label,
-    if (lang != null && lang.isNotEmpty) lang.toUpperCase(),
+    if (lang.isNotEmpty && lang != kAllLanguages) shortLabelFor(lang),
   ].join(' · ');
-  return Material(
-    color: selected
-        ? AppColors.primary.withValues(alpha: 0.08)
-        : Colors.transparent,
-    child: ListTile(
-      leading: Container(
-        decoration: selected
-            ? BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.35),
-                    blurRadius: 10,
-                  ),
-                ],
-              )
+  // Announced the way the mode segments and the catalogue cards are: a thing
+  // to press, and one of them is the one you are on. Without it the current
+  // source reads to a screen reader as an ordinary row with a tick drawn on
+  // it, which is exactly the row somebody using one cannot see.
+  return Semantics(
+    button: true,
+    selected: selected,
+    child: Material(
+      color: selected
+          ? AppColors.primary.withValues(alpha: 0.08)
+          : Colors.transparent,
+      child: ListTile(
+        leading: Container(
+          decoration: selected
+              ? BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                    ),
+                  ],
+                )
+              : null,
+          child: ProviderLogo(image: p.image, size: 36),
+        ),
+        title: Text(
+          p.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+            fontSize: 14,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          meta,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppColors.textHint,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.3,
+          ),
+        ),
+        dense: true,
+        trailing: selected
+            ? Icon(Icons.check_rounded, color: AppColors.primary, size: 20)
+            : favorite
+            ? const Icon(Icons.star_rounded, color: Colors.amber, size: 20)
             : null,
-        child: ProviderLogo(image: p.image, size: 36),
+        onTap: () {
+          // The same tick the mode segments answer a tap with, so a source
+          // and a mode feel like one control between them.
+          HapticFeedback.selectionClick();
+          Navigator.of(context).pop(p.id);
+        },
       ),
-      title: Text(
-        p.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: selected ? AppColors.textPrimary : AppColors.textSecondary,
-          fontSize: 14,
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-        ),
-      ),
-      subtitle: Text(
-        meta,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: AppColors.textHint,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.3,
-        ),
-      ),
-      dense: true,
-      trailing: selected
-          ? Icon(Icons.check_rounded, color: AppColors.primary, size: 20)
-          : favorite
-          ? const Icon(Icons.star_rounded, color: Colors.amber, size: 20)
-          : null,
-      onTap: () => Navigator.of(context).pop(p.id),
     ),
   );
 }

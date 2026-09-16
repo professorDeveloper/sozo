@@ -3,17 +3,22 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/matching/title_match.dart';
 import 'package:soplay/core/system/responsive.dart';
+import 'package:soplay/features/detail/data/source_choice_store.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
+import 'package:soplay/features/detail/presentation/widgets/source_search_sheet.dart';
+import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
+import 'package:soplay/features/search/domain/entities/cross_search_result.dart';
 
 /// "This source is down — here is who else has it."
 ///
@@ -26,6 +31,28 @@ import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 /// after two seconds than a complete list after fifteen; sources that answer
 /// late simply appear below the ones that answered early.
 ///
+/// ## Three things the list has to admit
+///
+/// A row used to be a source's name and a title, drawn identically whether the
+/// match was certain or a coincidence. That is how a viewer came to read the
+/// whole feature as broken: four of the six rows offered for "Return of the
+/// Blossoming Blade" were other shows entirely, and nothing on screen
+/// distinguished them from the two that were right. So:
+///
+/// 1. every row says how sure the match is, in a word and an icon rather than
+///    in a colour, because a colour survives neither a screenshot nor a
+///    colour-blind reader;
+/// 2. every row offers **Wrong title?**, which searches that one source by
+///    hand — an automatic matcher is wrong sometimes no matter how good it
+///    gets, and the person looking at both titles can settle it instantly;
+/// 3. sources that matched nothing are still listed, quietly, with the same
+///    by-hand search. They used to vanish, which meant the only sources a
+///    viewer could correct were the ones that did not need correcting — and a
+///    stricter matcher makes more of them vanish, not fewer.
+///
+/// A correction is remembered ([SourceChoiceStore]) so it survives the episode,
+/// the sheet and the app.
+///
 /// Returns the [PlayerArgs] for the source the viewer picked, or null.
 class AlternateSourceSheet extends StatefulWidget {
   const AlternateSourceSheet._({
@@ -34,6 +61,25 @@ class AlternateSourceSheet extends StatefulWidget {
     required this.category,
     required this.episodeNumber,
     this.resumeAt = Duration.zero,
+  }) : candidates = null,
+       choices = null;
+
+  /// The sheet with its two collaborators supplied rather than looked up.
+  ///
+  /// [show] reads the installed sources off [ProviderBloc] and the corrections
+  /// out of the settings box, neither of which exists in a widget test; this
+  /// constructor is how a test drives the same widget with a known source list
+  /// and its own storage.
+  @visibleForTesting
+  const AlternateSourceSheet.withDependencies({
+    super.key,
+    required this.title,
+    required this.provider,
+    required this.category,
+    required this.episodeNumber,
+    this.resumeAt = Duration.zero,
+    required this.candidates,
+    required this.choices,
   });
 
   final String title;
@@ -47,6 +93,12 @@ class AlternateSourceSheet extends StatefulWidget {
   /// resume to. Non-zero when they chose to switch mid-episode, which is the
   /// case that must not restart it.
   final Duration resumeAt;
+
+  /// Every source the app can reach, or null to read them off [ProviderBloc].
+  final List<ProviderEntity>? candidates;
+
+  /// Where corrections are read and written, or null for the real store.
+  final SourceChoiceStore? choices;
 
   static Future<PlayerArgs?> show(
     BuildContext context, {
@@ -77,6 +129,24 @@ class AlternateSourceSheet extends StatefulWidget {
   State<AlternateSourceSheet> createState() => _AlternateSourceSheetState();
 }
 
+/// One line of the list, whatever produced it.
+///
+/// A row the matcher found and a row the viewer corrected are the same tap with
+/// the same consequence, so they are the same type — the only difference the UI
+/// draws is the badge, and that is exactly the difference worth drawing.
+class _Row {
+  const _Row({required this.source, required this.chosen});
+
+  final AlternateSource source;
+
+  /// True when the viewer picked this entry by hand. It outranks the score:
+  /// nothing the matcher computes is evidence against someone who read both
+  /// titles.
+  final bool chosen;
+
+  ProviderRef get provider => source.provider;
+}
+
 class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// Torrent streaming is Android-only — the engine is a native Android
   /// library. Hidden elsewhere rather than shown and failing.
@@ -94,20 +164,37 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// How the run ended, so the empty state can say which kind of empty.
   AlternateSearchOutcome? _outcome;
 
+  /// The sources this device can reach, which is more than the backend knows
+  /// about. Held rather than read on demand because the by-hand search needs
+  /// the same list the automatic one used.
+  List<ProviderEntity> _candidates = const [];
+
+  late final SourceChoiceStore _choices =
+      widget.choices ?? SourceChoiceStore();
+
+  /// The viewer's corrections for this title, by provider id.
+  final Map<String, SourceChoice> _corrections = {};
+
+  /// Collapsed by default: this is the section for sources that had nothing to
+  /// say, and on a device with extensions installed it is long. It exists to be
+  /// reachable, not to be read.
+  bool _showSilent = false;
+
   @override
   void initState() {
     super.initState();
     // Every source the app can reach, not only the ones the backend serves.
     // The bloc is the only place the installed extension sources exist.
-    final state = context.read<ProviderBloc>().state;
-    final candidates =
-        state is ProviderLoaded ? state.usableProviders : null;
+    _candidates = widget.candidates ?? _fromBloc();
+    for (final choice in _choices.forSubject(widget.title)) {
+      _corrections[choice.providerId] = choice;
+    }
     _sub = getIt<AlternateSourceService>()
         .find(
           title: widget.title,
           excludeProvider: widget.provider,
           category: widget.category,
-          candidates: candidates,
+          candidates: _candidates.isEmpty ? null : _candidates,
           onOutcome: (o) {
             if (mounted) setState(() => _outcome = o);
           },
@@ -133,29 +220,131 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
         );
   }
 
+  List<ProviderEntity> _fromBloc() {
+    final state = context.read<ProviderBloc>().state;
+    return state is ProviderLoaded ? state.usableProviders : const [];
+  }
+
   /// Which kind of empty this is.
   ///
-  /// "No other source has it" was shown for three different situations — an
-  /// honest miss, every source timing out, and the provider list failing to
-  /// load at all. The last two are the app's problem and saying they are the
-  /// catalogue's is the worst of the three.
+  /// "No other source has it" was shown for every one of these, and for most of
+  /// them it was a claim the run never established. Asking twenty sources and
+  /// being told no is an answer; asking twenty and having them all time out is
+  /// not, and neither is asking none at all. They lead to different next steps,
+  /// so they get different sentences.
   String _emptyMessage() {
     final outcome = _outcome;
-    if (outcome == null) return 'player.alt_none'.tr();
+    // The stream ended without reporting — an error on the way out. Nothing was
+    // established either way, and saying so beats inventing a result.
+    if (outcome == null) return 'player.alt_no_answer'.tr();
     if (outcome.unavailable) return 'player.alt_unavailable'.tr();
-    if (outcome.failed > 0 && outcome.failed >= outcome.asked) {
-      return 'player.alt_all_failed'.tr();
-    }
+    // Nobody was asked: no other installed source handles this kind of title.
+    if (outcome.asked == 0) return 'player.alt_none_asked'.tr();
+    if (outcome.failed >= outcome.asked) return 'player.alt_all_failed'.tr();
     if (outcome.failed > 0) {
       return 'player.alt_some_failed'.tr(args: ['${outcome.failed}']);
     }
-    return 'player.alt_none'.tr();
+    // Asked, answered, and every answer was about a different show. This is the
+    // only branch the old single message actually described.
+    return 'player.alt_no_match'.tr(args: ['${outcome.asked}']);
   }
 
   @override
   void dispose() {
     _sub?.cancel();
     super.dispose();
+  }
+
+  /// The list as drawn: corrections first, then the matcher's rows by score.
+  ///
+  /// A correction leads because it is the only row here that is known rather
+  /// than inferred, and it replaces the matcher's row for the same source —
+  /// two lines for one source, one of them the guess that was just overruled,
+  /// would be the switcher arguing with the viewer.
+  List<_Row> get _rows {
+    final byProvider = {for (final s in _found) s.provider.id: s};
+    final corrections = _corrections.values.toList()
+      ..sort((a, b) => b.at.compareTo(a.at));
+    return [
+      for (final c in corrections)
+        _Row(
+          source: AlternateSource(
+            provider: byProvider[c.providerId]?.provider ?? _refFor(c),
+            item: c.asItem(),
+            // Computed rather than faked to exact: the score still orders
+            // nothing and decides nothing here, but a stored record that
+            // claimed certainty would be a lie the moment it was read by
+            // anything else.
+            match: TitleMatch.of(query: widget.title, candidate: c.title),
+          ),
+          chosen: true,
+        ),
+      for (final s in _found)
+        if (!_corrections.containsKey(s.provider.id))
+          _Row(source: s, chosen: false),
+    ];
+  }
+
+  /// A handle for a source known only from a stored correction.
+  ///
+  /// The installed list is the better answer — it carries the icon and the
+  /// right search dispatch — but a correction outlives the source being
+  /// present, and a remembered row is still worth showing with the name it was
+  /// saved under.
+  ProviderRef _refFor(SourceChoice choice) {
+    for (final p in _candidates) {
+      if (p.id == choice.providerId) return ProviderRef.fromEntity(p);
+    }
+    return ProviderRef(
+      id: choice.providerId,
+      name: choice.providerName,
+      kind: ProviderRef.kindOf(choice.providerId, scopesAll: false),
+    );
+  }
+
+  /// Sources that were in the run and produced no row.
+  ///
+  /// Only once the search is over: a source that has not answered yet has not
+  /// found nothing, it is still looking.
+  ///
+  /// The category rule below is a copy of [AlternateSourceService]'s own, which
+  /// is private to it. That is a duplicate worth removing — see the note in the
+  /// service — but the alternative today is a section that either hides sources
+  /// that were asked or invents ones that never were.
+  List<ProviderEntity> get _silent {
+    if (_searching) return const [];
+    final answered = {
+      for (final s in _found) s.provider.id,
+      ..._corrections.keys,
+    };
+    final out = [
+      for (final p in _candidates)
+        if (p.id != widget.provider &&
+            !p.browseOnly &&
+            !answered.contains(p.id) &&
+            _sameKind(widget.category, p.category))
+          p,
+    ];
+    out.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+    return out;
+  }
+
+  /// Extension providers are stamped with their ECOSYSTEM rather than a content
+  /// category, and an ecosystem says nothing about what a source carries — so
+  /// it is never grounds for hiding one. Mirrors the service's rule exactly.
+  static const Set<String> _ecosystems = {
+    'cloudstream',
+    'aniyomi',
+    'manga',
+    'mangayomi',
+  };
+
+  static bool _sameKind(String want, String have) {
+    if (want.isEmpty || have.isEmpty) return true;
+    if (_ecosystems.contains(want) || _ecosystems.contains(have)) return true;
+    return want == have;
   }
 
   Future<void> _pick(AlternateSource source) async {
@@ -187,8 +376,46 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     Navigator.of(context).pop(args);
   }
 
+  /// Hand the question to the viewer: search this one source, take their pick.
+  ///
+  /// Remembered before the row is redrawn, so the correction is already on disk
+  /// if they close the sheet immediately — which is what someone does when the
+  /// row they wanted is finally there.
+  Future<void> _correct(ProviderRef provider) async {
+    final picked = await SourceSearchSheet.show(
+      context,
+      provider: provider,
+      query: widget.title,
+      candidates: _candidates.isEmpty ? null : _candidates,
+    );
+    if (picked == null || !mounted) return;
+    final choice = SourceChoice(
+      subject: widget.title,
+      providerId: provider.id,
+      providerName: provider.name,
+      url: picked.url,
+      title: picked.title,
+      thumbnail: picked.thumbnail,
+      at: DateTime.now().millisecondsSinceEpoch,
+    );
+    await _choices.remember(choice);
+    if (!mounted) return;
+    // A corrected source drops out of the "nothing matched" section by itself:
+    // it now answers for this title.
+    setState(() => _corrections[provider.id] = choice);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('player.alt_corrected'.tr(args: [picked.title])),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final list = _rows;
+    final quiet = _silent;
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -197,8 +424,11 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
             child: Row(
               children: [
-                const Icon(Icons.swap_horiz_rounded,
-                    color: Colors.white, size: 18),
+                const Icon(
+                  Icons.swap_horiz_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -224,114 +454,284 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
           ),
           const Divider(color: Colors.white12, height: 1),
           Flexible(
-            child: _found.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 28),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _searching
-                              ? 'player.alt_searching'.tr()
-                              : _emptyMessage(),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 13,
-                          ),
-                        ),
-                        // Only once the search is over, and only when it found
-                        // nothing. Cross-search casts a wider net — every
-                        // category, no title matching — so it is the right next
-                        // step for someone this sheet could not help, and a
-                        // dead end is the wrong thing to leave them with.
-                        if (!_searching) ...[
-                          const SizedBox(height: 14),
-                          TextButton.icon(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                              context.push('/cross-search', extra: widget.title);
-                            },
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.white70,
-                            ),
-                            icon: const Icon(Icons.travel_explore_rounded, size: 18),
-                            label: Text('player.alt_search_all'.tr()),
-                          ),
-                          // The last resort, and this is the moment for it: a
-                          // source just failed and none of the others has the
-                          // title either. Offering torrents earlier would push
-                          // people onto BitTorrent for something that streams
-                          // fine; offering nothing here leaves them at a dead
-                          // end.
-                          if (_torrentsAvailable)
-                            TextButton.icon(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                                context.push('/torrents', extra: widget.title);
-                              },
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.white70,
-                              ),
-                              icon: const Icon(Icons.hub_rounded, size: 18),
-                              label: Text('search.try_torrents'.tr()),
-                            ),
-                        ],
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _found.length,
-                    itemBuilder: (_, i) {
-                      final s = _found[i];
-                      final busy = _preparing == s.provider.id;
-                      return ListTile(
-                        dense: true,
-                        enabled: _preparing == null,
-                        onTap: () => _pick(s),
-                        leading: busy
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white54,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.play_circle_outline_rounded,
-                                color: Colors.white70,
-                                size: 22,
-                              ),
-                        title: Text(
-                          s.provider.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        // The source's own title for the show, not ours. Two
-                        // catalogues spell the same series differently, and
-                        // seeing which one this source means is how the viewer
-                        // tells a real match from a near miss before committing.
-                        subtitle: Text(
-                          s.item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final row in list) _matchRow(row),
+                if (list.isEmpty) _emptyBlock(),
+                if (quiet.isNotEmpty) ..._silentSection(quiet),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
         ],
+      ),
+    );
+  }
+
+  Widget _matchRow(_Row row) {
+    final busy = _preparing == row.provider.id;
+    return ListTile(
+      dense: true,
+      enabled: _preparing == null,
+      onTap: () => _pick(row.source),
+      leading: busy
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white54,
+              ),
+            )
+          : const Icon(
+              Icons.play_circle_outline_rounded,
+              color: Colors.white70,
+              size: 22,
+            ),
+      title: Row(
+        children: [
+          Flexible(
+            child: Text(
+              row.provider.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          ..._badge(row),
+        ],
+      ),
+      // The source's own title for the show, not ours. Two catalogues spell the
+      // same series differently, and seeing which one this source means is how
+      // the viewer tells a real match from a near miss before committing.
+      subtitle: Text(
+        row.source.item.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Colors.white54, fontSize: 12),
+      ),
+      trailing: _wrongTitleButton(row.provider),
+    );
+  }
+
+  /// How sure this row is, said in a word.
+  ///
+  /// Only the two rows that need it carry one: a match the viewer chose, and a
+  /// match that is a guess. An [TitleConfidence.exact] or
+  /// [TitleConfidence.strong] row is left exactly as it was, because a badge on
+  /// every row is a badge nobody reads.
+  ///
+  /// Word plus icon, never colour on its own — the dim grey a weak row is drawn
+  /// in disappears in a screenshot, in high contrast, and for a reader who
+  /// cannot tell it from the one beside it.
+  List<Widget> _badge(_Row row) {
+    if (row.chosen) {
+      return [
+        const SizedBox(width: 8),
+        _Pill(
+          icon: Icons.person_outline_rounded,
+          label: 'player.alt_your_pick'.tr(),
+        ),
+      ];
+    }
+    if (row.source.confidence != TitleConfidence.weak) return const [];
+    return [
+      const SizedBox(width: 8),
+      _Pill(
+        icon: Icons.help_outline_rounded,
+        label: 'player.alt_guess'.tr(),
+        semanticsLabel: 'player.alt_guess_spoken'.tr(),
+      ),
+    ];
+  }
+
+  /// The escape hatch, on every row.
+  ///
+  /// A text button rather than the row's own tap: the primary action is still
+  /// "play this", and a row that opens a search when someone meant to watch
+  /// something would be a worse bug than the one this fixes. 48dp because it is
+  /// a real target on a phone, and labelled in words so a screen reader reads
+  /// out something actionable rather than "button".
+  Widget _wrongTitleButton(ProviderRef provider) {
+    final label = 'player.alt_wrong_title'.tr();
+    return Tooltip(
+      message: 'player.alt_wrong_title_hint'.tr(args: [provider.name]),
+      child: TextButton(
+        onPressed: _preparing == null ? () => _correct(provider) : null,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          foregroundColor: Colors.white70,
+          tapTargetSize: MaterialTapTargetSize.padded,
+        ),
+        child: Text(label, style: const TextStyle(fontSize: 12)),
+      ),
+    );
+  }
+
+  /// The sources that were asked and matched nothing.
+  ///
+  /// They were dropped from the list entirely before this, which made the
+  /// by-hand search available on exactly the sources that did not need it. A
+  /// source whose automatic match failed is the single most likely place for a
+  /// correction to be needed.
+  List<Widget> _silentSection(List<ProviderEntity> quiet) {
+    return [
+      const Divider(color: Colors.white12, height: 1),
+      InkWell(
+        onTap: () => setState(() => _showSilent = !_showSilent),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'player.alt_unmatched'.tr(args: ['${quiet.length}']),
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Icon(
+                _showSilent
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
+                color: Colors.white38,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+      if (_showSilent) ...[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Text(
+            'player.alt_unmatched_hint'.tr(),
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+        ),
+        for (final p in quiet)
+          ListTile(
+            dense: true,
+            enabled: _preparing == null,
+            onTap: () => _correct(ProviderRef.fromEntity(p)),
+            leading: const Icon(
+              Icons.search_off_rounded,
+              color: Colors.white30,
+              size: 20,
+            ),
+            title: Text(
+              p.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            subtitle: Text(
+              'player.alt_search_by_hand'.tr(),
+              style: const TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+          ),
+      ],
+    ];
+  }
+
+  Widget _emptyBlock() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _searching ? 'player.alt_searching'.tr() : _emptyMessage(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white54, fontSize: 13),
+          ),
+          // Only once the search is over, and only when it found nothing.
+          // Cross-search casts a wider net — every category, no title matching
+          // — so it is the right next step for someone this sheet could not
+          // help, and a dead end is the wrong thing to leave them with.
+          if (!_searching) ...[
+            const SizedBox(height: 14),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                context.push('/cross-search', extra: widget.title);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.white70),
+              icon: const Icon(Icons.travel_explore_rounded, size: 18),
+              label: Text('player.alt_search_all'.tr()),
+            ),
+            // The last resort, and this is the moment for it: a source just
+            // failed and none of the others has the title either. Offering
+            // torrents earlier would push people onto BitTorrent for something
+            // that streams fine; offering nothing here leaves them at a dead
+            // end.
+            if (_torrentsAvailable)
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.push('/torrents', extra: widget.title);
+                },
+                style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                icon: const Icon(Icons.hub_rounded, size: 18),
+                label: Text('search.try_torrents'.tr()),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A word and a mark, in a box.
+///
+/// Both carriers on purpose: the icon survives a colour-blind reader and a
+/// greyscale screenshot, the word survives a screen reader, and neither is the
+/// only thing saying what the pill says.
+class _Pill extends StatelessWidget {
+  const _Pill({required this.icon, required this.label, this.semanticsLabel});
+
+  final IconData icon;
+  final String label;
+
+  /// What a screen reader says instead of [label], when a whole sentence is
+  /// clearer out loud than the one word the row has space for.
+  final String? semanticsLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: semanticsLabel ?? label,
+      excludeSemantics: semanticsLabel != null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.white12,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 11, color: Colors.white70),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

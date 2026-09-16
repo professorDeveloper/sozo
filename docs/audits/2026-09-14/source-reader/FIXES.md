@@ -53,8 +53,8 @@ replace the user's source manager, reader, or player with a global offline page.
   decoder release on scrub end or idle. Late frames from another source or
   header identity are discarded.
 - MediaKit duration metadata alone no longer means video readiness. Missing
-  dimensions/readiness times out; missing first frame uses a per-stream Android
-  native fallback. The user's engine preference is preserved. Existing Android
+  dimensions/readiness or surface availability times out and uses a per-stream
+  Android native fallback. The plugin signal does not verify rendered pixels. The user's engine preference is preserved. Existing Android
   hardware-decoding defaults remain unchanged.
 - Playback generations cover quality switches, episode resolution, retry,
   reconnect and teardown. Old requests cannot restart playback or clear newer
@@ -117,3 +117,30 @@ installation as an additional safeguard.
 Earlier phone thermal readings confirmed thermal pressure. Reduced background
 work is implemented; a before/after sustained thermal improvement has not been
 measured and should not be inferred from desktop timing or emulator results.
+
+## Follow-up: scrolling, filter feedback, and emulator black video
+
+- Sources uses one CustomScrollView with the original compact toolbar and
+  pinned tabs. Hint/search scroll away; the category row moves up below the tabs
+  and stays pinned, making both filters available while browsing. The earlier
+  oversized FlexibleSpaceBar title was removed following user feedback.
+  PageStorage preserves offsets by mode/query/filter.
+- Catalog language selection updates before asynchronous persistence; requests
+  remain generation guarded. All languages is selected for an empty selection.
+  Chips use a filled selection and a 120 ms ease-out transition (disabled when
+  reduced motion is requested). Re-selecting the same content type skips reload.
+- Reproduced black video with advancing subtitles in MediaKit on the API 36
+  arm64 emulator. The same title (One Night Only, UHD Movies, actual 1080p H.264
+  MKV despite the provider's 2160p label) displayed correctly with System player.
+  media_kit_video 1.3.1 Android completes waitUntilFirstFrameRendered immediately
+  after SetSurfaceSize, so that signal cannot prove visible video. A related
+  upstream report is https://github.com/media-kit/media-kit/issues/1343.
+- Android emulator detection at startup now routes playback to the native
+  platform engine without changing the saved preference. Physical phones keep
+  their selected engine. Player settings also offer System player for a MediaKit
+  session, preserving URL, headers and position through the existing generation
+  guards. This is a recovery option, not proof of the S22's underlying cause.
+- Full Flutter suite after these changes: 882 passed; analyzer: no issues.
+- Final arm64 release installed in-place on emulator-5554. Restored the saved
+  MediaKit preference before installation; replaying the same title then showed
+  video through automatic native routing. No physical phone test in this follow-up.

@@ -1,0 +1,22 @@
+[Desktop Entry]
+Type=Application
+Name=Sozo
+Comment=Anime and film player
+# %u, not %f: the only argument this app is ever handed is the sozo:// URL from
+# the MimeType line below, and %f would hand it over as a (nonexistent) path.
+Exec=soplay %u
+Icon=sozo
+Terminal=false
+Categories=AudioVideo;Player;
+# This is what makes a sozo:// link in a browser reach the app at all. The URL
+# arrives as an argument to a second soplay process, which hands it to the
+# running instance over GApplication::command-line — so this line only works in
+# company with the G_APPLICATION_HANDLES_COMMAND_LINE flag in
+# linux/runner/my_application.cc, which is where app_links_linux ultimately
+# picks it up before DeeplinkService routes it.
+MimeType=x-scheme-handler/sozo;
+# linux/runner/my_application.cc calls g_set_prgname(APPLICATION_ID), so the
+# window's WM_CLASS is the application id and not "sozo". Without this line the
+# shell cannot tie a running window back to this entry, and the taskbar shows a
+# generic icon next to a correctly-iconed launcher.
+StartupWMClass=com.soplay.soplay

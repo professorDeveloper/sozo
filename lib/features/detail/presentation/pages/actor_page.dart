@@ -38,7 +38,7 @@ class ActorPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) =>
-          getIt<ViewAllBloc>()..add(ViewAllLoad(key: 'actor', slug:args.name)),
+          getIt<ViewAllBloc>()..add(ViewAllLoad(key: 'actor', slug: args.name)),
       child: _ActorScaffold(args: args),
     );
   }
@@ -99,8 +99,7 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
         _accent = dominant;
         _accentDeep = Color.lerp(dominant, Colors.black, 0.7) ?? _accentDeep;
       });
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   void _onScroll() {
@@ -114,7 +113,9 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
 
   void _maybeAutoFill(ViewAllState state) {
     if (!isDesktopPlatform) return;
-    if (state is! ViewAllLoaded || !state.hasMore || state.isLoadingMore) return;
+    if (state is! ViewAllLoaded || !state.hasMore || state.isLoadingMore) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
       if (_scroll.position.maxScrollExtent <= 0) {
@@ -590,7 +591,11 @@ class _ActorTopBar extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: EdgeInsetsDirectional.only(top: topPad + 6, start: 4, end: 8),
+          padding: EdgeInsetsDirectional.only(
+            top: topPad + 6,
+            start: 4,
+            end: 8,
+          ),
           child: SizedBox(
             height: kToolbarHeight - 12,
             child: Row(

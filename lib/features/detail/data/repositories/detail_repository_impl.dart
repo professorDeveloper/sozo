@@ -52,12 +52,18 @@ class DetailRepositoryImpl implements DetailRepository {
   }
 
   @override
-  Future<Result<DetailEntity>> getDetail(String contentUrl, {String? provider}) async {
+  Future<Result<DetailEntity>> getDetail(
+    String contentUrl, {
+    String? provider,
+  }) async {
     final js = jsRuntime;
     final effective = _resolveProvider(provider);
     if (effective != null && effective.startsWith('cs:')) {
       try {
-        final map = await CloudStreamChannel.load(effective.substring(3), contentUrl);
+        final map = await CloudStreamChannel.load(
+          effective.substring(3),
+          contentUrl,
+        );
         if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
         return Failure(Exception('CloudStream: details not found'));
       } catch (e) {
@@ -66,7 +72,10 @@ class DetailRepositoryImpl implements DetailRepository {
     }
     if (effective != null && effective.startsWith('an:')) {
       try {
-        final map = await AniyomiChannel.load(effective.substring(3), contentUrl);
+        final map = await AniyomiChannel.load(
+          effective.substring(3),
+          contentUrl,
+        );
         if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
         return Failure(Exception('Aniyomi: details not found'));
       } catch (e) {
@@ -100,7 +109,9 @@ class DetailRepositoryImpl implements DetailRepository {
       }
     }
     try {
-      return Success(await dataSource.getDetail(contentUrl, provider: effective));
+      return Success(
+        await dataSource.getDetail(contentUrl, provider: effective),
+      );
     } on DioException catch (e) {
       return Failure(Exception(_messageFrom(e)));
     } catch (e) {
@@ -126,9 +137,13 @@ class DetailRepositoryImpl implements DetailRepository {
     final model = PlaybackModel.fromJson(map);
     if (model.episodes.isEmpty) {
       final err = map['error'];
-      return Failure(Exception(
-        err is String && err.isNotEmpty ? '$label: $err' : '$label: nothing to play',
-      ));
+      return Failure(
+        Exception(
+          err is String && err.isNotEmpty
+              ? '$label: $err'
+              : '$label: nothing to play',
+        ),
+      );
     }
     return Success(_applySort(model, sort));
   }
@@ -145,7 +160,10 @@ class DetailRepositoryImpl implements DetailRepository {
     final effective = _resolveProvider(provider);
     if (effective != null && effective.startsWith('cs:')) {
       try {
-        final map = await CloudStreamChannel.load(effective.substring(3), contentUrl);
+        final map = await CloudStreamChannel.load(
+          effective.substring(3),
+          contentUrl,
+        );
         return _playbackFrom(map, 'CloudStream', sort);
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
@@ -153,7 +171,10 @@ class DetailRepositoryImpl implements DetailRepository {
     }
     if (effective != null && effective.startsWith('an:')) {
       try {
-        final map = await AniyomiChannel.load(effective.substring(3), contentUrl);
+        final map = await AniyomiChannel.load(
+          effective.substring(3),
+          contentUrl,
+        );
         return _playbackFrom(map, 'Aniyomi', sort);
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
@@ -215,7 +236,10 @@ class DetailRepositoryImpl implements DetailRepository {
   }) async {
     if (provider.startsWith('cs:')) {
       try {
-        final map = await CloudStreamChannel.loadLinks(provider.substring(3), ref);
+        final map = await CloudStreamChannel.loadLinks(
+          provider.substring(3),
+          ref,
+        );
         final sources = map['videoSources'];
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
           return await _postProcess(MediaResolveModel.fromJson(map));
@@ -224,11 +248,13 @@ class DetailRepositoryImpl implements DetailRepository {
         // its text, or "the provider returned no mirrors" — and this threw it
         // away, so a plugin that crashed, a title with no mirrors and a WebView
         // sniff that timed out after sixty seconds were one sentence.
-        return Failure(Exception(
-          _hostError(map) ?? 'CloudStream: stream not found',
-        ));
+        return Failure(
+          Exception(_hostError(map) ?? 'CloudStream: stream not found'),
+        );
       } catch (e) {
-        if (kDebugMode) debugPrint('[resolveMedia] CloudStream path failed: $e');
+        if (kDebugMode) {
+          debugPrint('[resolveMedia] CloudStream path failed: $e');
+        }
         return Failure(Exception(_normalizeJsError(e)));
       }
     }
@@ -239,9 +265,9 @@ class DetailRepositoryImpl implements DetailRepository {
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
           return await _postProcess(MediaResolveModel.fromJson(map));
         }
-        return Failure(Exception(
-          _hostError(map) ?? 'Aniyomi: stream not found',
-        ));
+        return Failure(
+          Exception(_hostError(map) ?? 'Aniyomi: stream not found'),
+        );
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] Aniyomi path failed: $e');
         return Failure(Exception(_normalizeJsError(e)));
@@ -254,9 +280,9 @@ class DetailRepositoryImpl implements DetailRepository {
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
           return await _postProcess(MediaResolveModel.fromJson(map));
         }
-        return Failure(Exception(
-          _hostError(map) ?? 'Mangayomi: stream not found',
-        ));
+        return Failure(
+          Exception(_hostError(map) ?? 'Mangayomi: stream not found'),
+        );
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] Mangayomi path failed: $e');
         return Failure(Exception(_normalizeJsError(e)));
@@ -281,11 +307,7 @@ class DetailRepositoryImpl implements DetailRepository {
 
     try {
       return await _postProcess(
-        await dataSource.resolveMedia(
-          ref: ref,
-          provider: provider,
-          lang: lang,
-        ),
+        await dataSource.resolveMedia(ref: ref, provider: provider, lang: lang),
       );
     } on DioException catch (e) {
       final code = e.response?.statusCode;

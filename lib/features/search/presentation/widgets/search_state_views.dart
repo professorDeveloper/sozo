@@ -19,6 +19,7 @@ class SearchContentView extends StatelessWidget {
     required this.topPad,
     required this.bottomPad,
     required this.onRetry,
+    required this.onRefresh,
     required this.onSuggestion,
     required this.onGenre,
     required this.onRemoveRecent,
@@ -32,6 +33,12 @@ class SearchContentView extends StatelessWidget {
   final double topPad;
   final double bottomPad;
   final VoidCallback onRetry;
+
+  /// Runs the same search again and completes when it has landed. The
+  /// indicator holds its spinner for as long as this future does, so it has to
+  /// outlive the dispatch rather than returning the moment the event is added.
+  final Future<void> Function() onRefresh;
+
   final ValueChanged<String> onSuggestion;
   final ValueChanged<String> onGenre;
   final ValueChanged<String> onRemoveRecent;
@@ -45,25 +52,43 @@ class SearchContentView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      controller: scrollController,
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      slivers: [
-        SliverToBoxAdapter(child: SizedBox(height: topPad)),
-        if (state.status == SearchStatus.refreshing)
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 2,
-              child: LinearProgressIndicator(
-                minHeight: 2,
-                color: AppColors.primary,
-                backgroundColor: Colors.transparent,
+    // Pull to refresh, with Home's exact colours, offsets and stroke. Nineteen
+    // feature screens already answer the gesture and search — the tab people
+    // pull on hardest, because it is the one showing a source that may simply
+    // have been having a bad minute — was not one of them. Matching Home's
+    // numbers rather than the Material defaults is the point: the two tabs are
+    // one swipe apart and a differently placed spinner reads as a different
+    // app.
+    return RefreshIndicator(
+      color: AppColors.primary,
+      backgroundColor: AppColors.surface,
+      edgeOffset: topPad + 10,
+      displacement: topPad + 10,
+      strokeWidth: 2.6,
+      onRefresh: onRefresh,
+      child: CustomScrollView(
+        controller: scrollController,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        // A short result set has nothing to overscroll, and RefreshIndicator
+        // only sees the gesture on a scrollable that lets it start.
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(child: SizedBox(height: topPad)),
+          if (state.status == SearchStatus.refreshing)
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 2,
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  color: AppColors.primary,
+                  backgroundColor: Colors.transparent,
+                ),
               ),
             ),
-          ),
-        ..._body(context),
-        SliverToBoxAdapter(child: SizedBox(height: bottomPad + 90)),
-      ],
+          ..._body(context),
+          SliverToBoxAdapter(child: SizedBox(height: bottomPad + 90)),
+        ],
+      ),
     );
   }
 
@@ -110,19 +135,16 @@ class SearchContentView extends StatelessWidget {
           ),
         ];
       case SearchStatus.idle:
-        return [
-          SliverToBoxAdapter(
-            child: SearchLanding(
-              recent: state.recent,
-              genres: state.genres,
-              genresLoading: state.genresLoading,
-              onSuggestion: onSuggestion,
-              onGenre: onGenre,
-              onRemoveRecent: onRemoveRecent,
-              onClearRecents: onClearRecents,
-            ),
-          ),
-        ];
+        return searchLandingSlivers(
+          context,
+          recent: state.recent,
+          genres: state.genres,
+          genresLoading: state.genresLoading,
+          onSuggestion: onSuggestion,
+          onGenre: onGenre,
+          onRemoveRecent: onRemoveRecent,
+          onClearRecents: onClearRecents,
+        );
       case SearchStatus.loaded:
       case SearchStatus.refreshing:
         return [
