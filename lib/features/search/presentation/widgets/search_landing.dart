@@ -194,6 +194,44 @@ class _RecentSearches extends StatelessWidget {
 /// placeholder. Borrowed up here that placeholder told you to search in a box
 /// you were already looking at, and it offered films and series on a manga
 /// source.
+/// The shape of the shelf that is coming, while the home is still answering.
+///
+/// A heading bar and a row of posters at the sizes the real rail uses, so the
+/// screen does not jump when the answer arrives.
+class _RailSkeleton extends StatelessWidget {
+  const _RailSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ShimmerWrapper(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsetsDirectional.only(start: 16, bottom: 12),
+              child: HomeSkeletonBox(width: 148, height: 13, radius: 4),
+            ),
+            SizedBox(
+              height: 168,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsetsDirectional.only(start: 16, end: 16),
+                itemCount: 4,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (_, _) =>
+                    const HomeSkeletonBox(width: 112, height: 168, radius: 10),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _NothingToStartFrom extends StatelessWidget {
   const _NothingToStartFrom();
 
@@ -201,8 +239,17 @@ class _NothingToStartFrom extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<HomeBloc, HomeState>(
       builder: (context, state) {
-        if (state is HomeLoaded &&
-            searchRailSection(state.homeData.sections) != null) {
+        // While the home is still in flight, a shape rather than a sentence.
+        //
+        // This message is a claim about what the source HAS, and until the
+        // home answers the app does not know. Saying it on `HomeLoading` put
+        // "nothing to browse" on screen for as long as the source took, then
+        // replaced it with a shelf of posters — the app calling itself a liar
+        // a second later. Saying NOTHING was worse again: the whole screen
+        // below the chips went blank for the same second, which reads as a
+        // broken tab rather than a slow one.
+        if (state is! HomeLoaded) return const _RailSkeleton();
+        if (searchRailSection(state.homeData.sections) != null) {
           return const SizedBox.shrink();
         }
         return Padding(
