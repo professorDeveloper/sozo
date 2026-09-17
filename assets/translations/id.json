@@ -687,7 +687,11 @@
     "voice_done": "Berhenti mendengarkan",
     "voice_hint": "Sebutkan nama film atau serial",
     "try_torrents": "Cari torrent",
-    "capped_note": "Mencari di {} sumber paling andal dari {} — persempit cakupan untuk menjangkau sumber tertentu."
+    "capped_note": "Mencari di {} sumber paling andal dari {} — persempit cakupan untuk menjangkau sumber tertentu.",
+    "rail_popular_on": "Populer di {source}",
+    "rail_browse_on": "Jelajahi {source}",
+    "rail_no_source": "Sebelum mencari",
+    "nothing_to_browse": "Tidak ada yang bisa dijelajahi di sini — ketik sebuah judul."
   },
   "movie": {
     "rating": "Rating",

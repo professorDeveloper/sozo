@@ -687,7 +687,11 @@
     "voice_done": "Gestopt met luisteren",
     "voice_hint": "Zeg de naam van een film of serie",
     "try_torrents": "Torrents zoeken",
-    "capped_note": "De {} betrouwbaarste van {} bronnen doorzocht — beperk de selectie om een specifieke te bereiken."
+    "capped_note": "De {} betrouwbaarste van {} bronnen doorzocht — beperk de selectie om een specifieke te bereiken.",
+    "rail_popular_on": "Populair op {source}",
+    "rail_browse_on": "{source} verkennen",
+    "rail_no_source": "Voordat je zoekt",
+    "nothing_to_browse": "Hier valt niets te verkennen — typ een titel."
   },
   "movie": {
     "rating": "Beoordeling",

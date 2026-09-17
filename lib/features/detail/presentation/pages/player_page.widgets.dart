@@ -281,9 +281,15 @@ class _IconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 0.45, matching _CenterIconButton — though not for its reason. The centre
+    // cluster sits where the controls scrim has already faded to nothing, so
+    // its disc is all the contrast it gets. These sit inside the scrim and
+    // still needed it: a bar button is a 20pt white glyph against whatever
+    // frame is behind it, and on a bright shot 0.35 left it reading as a
+    // smudge. Raised for legibility, not because the scrim is absent.
     final fill = color != null
         ? color!.withValues(alpha: 0.22)
-        : Colors.black.withValues(alpha: 0.35);
+        : Colors.black.withValues(alpha: 0.45);
     final tint = (color ?? Colors.white).withValues(
       alpha: enabled ? 1.0 : 0.38,
     );
@@ -313,10 +319,13 @@ class _IconButton extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+                // 20 inside a 38pt disc. It was 18, which left 10pt of empty
+                // disc a side and read as a small mark in a large circle —
+                // half of why these looked flimsy over video.
                 child: Icon(
                   icon,
                   color: tint,
-                  size: 18,
+                  size: 20,
                   shadows: _kControlShadow,
                 ),
               ),
@@ -393,7 +402,9 @@ class _LangPill extends StatelessWidget {
     return _tvRing(
       radius: 20,
       Material(
-        color: Colors.black.withValues(alpha: 0.35),
+        // The same 0.45 disc its _IconButton neighbours wear; at 0.35 it was
+        // the one washed-out shape in the row.
+        color: Colors.black.withValues(alpha: 0.45),
         shape: const StadiumBorder(),
         child: InkWell(
           onTap: onTap,
@@ -529,18 +540,30 @@ class _BottomTextButton extends StatelessWidget {
     return Padding(
       padding: const EdgeInsetsDirectional.only(end: 10),
       child: _tvRing(
-        radius: 6,
-        InkWell(
-          onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(6),
-          child: Padding(
-            // 18pt glyph + 13 above and below = a 44pt row, Apple's minimum.
-            // It was 10, i.e. 38 — the same miss as _IconButton above.
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
+        radius: 10,
+        // The landscape bottom row — Lock, the speed, the server, the quality —
+        // was drawn as bare white text and a bare white glyph over the frame,
+        // with only a drop shadow to hold it. Against a bright shot that is
+        // exactly the "thin, low quality" the icon buttons beside it had
+        // already been given a disc to fix; this is that disc, shaped for a
+        // label instead of a glyph, at the same 0.45.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: InkWell(
+            onTap: enabled ? onTap : null,
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+            // 20pt glyph + 12 above and below = a 44pt row, Apple's minimum.
+            // The glyph grew to match _IconButton, so the padding gave back the
+            // 2pt rather than letting the row grow past 44.
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: color, size: 18, shadows: _kControlShadow),
+                Icon(icon, color: color, size: 20, shadows: _kControlShadow),
                 if (!compact) ...[
                   const SizedBox(width: 4),
                   Text(
@@ -552,12 +575,80 @@ class _BottomTextButton extends StatelessWidget {
                       shadows: _kControlShadow,
                     ),
                   ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The row of controls under the seek bar, as the viewer arranged it.
+///
+/// Public, and taking its children rather than building them, for one reason:
+/// it is the piece that keeps breaking, and everything around it —
+/// `_PlayerPageState`, a `VideoPlayerController`, a resolved stream — cannot be
+/// stood up in a test. `PlayerTransportRow` was pulled out of the centre
+/// cluster for the same reason and is tested the same way.
+///
+/// The two groups are drawn as one CENTRED block. They used to sit at opposite
+/// ends of a `spaceBetween`, which on a landscape phone put a hand's width of
+/// empty bar between them and threw the controls to the two corners furthest
+/// from a thumb already resting in the middle of the screen. Adjacent groups
+/// keep the transport/everything-else split readable without spending the whole
+/// width saying it.
+///
+/// Overflow stays a horizontal scroll rather than a `FittedBox`. Shrinking is
+/// what the top bar does and what caps it at six: past a few percent the glyphs
+/// stop being hittable, and a bottom row the viewer can fill from the layout
+/// editor would hit that far sooner. The caller trims this row to what fits in
+/// portrait; the scroll is the floor under that, not the plan.
+class PlayerBottomControlRow extends StatelessWidget {
+  const PlayerBottomControlRow({
+    super.key,
+    required this.leading,
+    required this.trailing,
+  });
+
+  /// The transport group — whatever the viewer left in `bottomLeft`.
+  final List<Widget> leading;
+
+  /// Everything in `bottomRight`, already trimmed to what fits.
+  final List<Widget> trailing;
+
+  /// Separates the two groups when both exist, so centring them together does
+  /// not read as one undifferentiated row of ten buttons.
+  static const double groupGap = 16;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            // The floor is what makes centring possible without giving up the
+            // scroll: at minWidth the row has slack to centre in, while an
+            // unbounded maxWidth still lets a genuinely over-long row scroll
+            // instead of overflowing. Spacer and Expanded cannot be used here
+            // for exactly that reason — they throw on an unbounded main axis.
+            constraints: BoxConstraints(minWidth: box.maxWidth),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ...leading,
+                if (leading.isNotEmpty && trailing.isNotEmpty)
+                  const SizedBox(width: groupGap),
+                ...trailing,
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -687,7 +687,11 @@
     "voice_done": "Tinglash to‘xtadi",
     "voice_hint": "Film yoki serial nomini ayting",
     "try_torrents": "Torrentlarda qidirish",
-    "capped_note": "{} ta manbadan eng ishonchli {} tasi qidirildi — aniq bittasiga yetish uchun qamrovni toraytiring."
+    "capped_note": "{} ta manbadan eng ishonchli {} tasi qidirildi — aniq bittasiga yetish uchun qamrovni toraytiring.",
+    "rail_popular_on": "{source} da mashhur",
+    "rail_browse_on": "{source} ni ko‘rish",
+    "rail_no_source": "Qidirishdan oldin",
+    "nothing_to_browse": "Bu yerda ko‘riladigan narsa yo‘q — sarlavha yozing."
   },
   "movie": {
     "rating": "Reyting",

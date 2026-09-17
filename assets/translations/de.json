@@ -687,7 +687,11 @@
     "voice_done": "Zuhören beendet",
     "voice_hint": "Sag den Namen eines Films oder einer Serie",
     "try_torrents": "Torrents durchsuchen",
-    "capped_note": "Die {} verlässlichsten von {} Quellen wurden durchsucht — grenze die Auswahl ein, um eine bestimmte zu erreichen."
+    "capped_note": "Die {} verlässlichsten von {} Quellen wurden durchsucht — grenze die Auswahl ein, um eine bestimmte zu erreichen.",
+    "rail_popular_on": "Beliebt auf {source}",
+    "rail_browse_on": "{source} durchstöbern",
+    "rail_no_source": "Bevor du suchst",
+    "nothing_to_browse": "Hier gibt es nichts zu stöbern — tippe einen Titel."
   },
   "movie": {
     "rating": "Bewertung",

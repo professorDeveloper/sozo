@@ -11,26 +11,32 @@ import 'package:soplay/features/detail/domain/player_controls_layout.dart';
 /// code and an `IconData` is Flutter — there is a test that keeps that layer
 /// clean. The pairing still has to be exhaustive, which is what [_iconFor]'s
 /// fallback makes visible rather than silently blank.
+/// Every glyph here is a `_rounded` filled variant, and that is the rule
+/// rather than a coincidence: the bar mixed outlined and filled, which over
+/// video read as a row somebody had not finished. This map and the bar have to
+/// agree — a control that wears one face in the editor and another on screen
+/// is not recognisably the same control — so a change in either belongs in
+/// both, and `player_control_icons_test.dart` holds the one-to-one.
 const Map<String, IconData> _kControlIcons = <String, IconData>{
   'previous': Icons.skip_previous_rounded,
   'next': Icons.skip_next_rounded,
   'speed': Icons.speed_rounded,
-  'server': Icons.dns_outlined,
+  'server': Icons.dns_rounded,
   'quality': Icons.high_quality_rounded,
-  'episodes': Icons.list_rounded,
+  'episodes': Icons.video_library_rounded,
   'shader': Icons.auto_awesome_rounded,
   'fit': Icons.aspect_ratio_rounded,
-  'sleep': Icons.bedtime_outlined,
+  'sleep': Icons.bedtime_rounded,
   'cast': Icons.cast_rounded,
-  'party': Icons.groups_2_outlined,
+  'party': Icons.groups_2_rounded,
   'pip': Icons.picture_in_picture_alt_rounded,
   'download': Icons.download_rounded,
   'language': Icons.translate_rounded,
-  'subtitles': Icons.subtitles_outlined,
-  'orientation': Icons.screen_rotation_rounded,
-  'lock': Icons.lock_outline_rounded,
-  'settings': Icons.settings_outlined,
-  'stats': Icons.info_outline_rounded,
+  'subtitles': Icons.subtitles_rounded,
+  'orientation': Icons.stay_current_landscape_rounded,
+  'lock': Icons.lock_rounded,
+  'settings': Icons.settings_rounded,
+  'stats': Icons.info_rounded,
 };
 
 IconData iconForControl(String id) =>

@@ -1,6 +1,75 @@
 // ignore_for_file: invalid_use_of_protected_member
 part of 'player_page.dart';
 
+/// Which bar draws the Lock button, given where the viewer filed it.
+///
+/// Orientation is the one thing [PlayerControlsLayout] cannot express: it
+/// stores a single arrangement and the device turns underneath it. Lock is the
+/// one control whose right home depends on which way the phone is held, so it
+/// is resolved here, at build time, and the stored slot is never rewritten —
+/// turning back to portrait has to give the viewer their arrangement intact.
+///
+/// In landscape it goes up top, with the other things you do to the SESSION
+/// rather than to what is playing. Down beside the seek bar it sat among the
+/// speed and the quality, which is where you look when you want to change the
+/// picture, not when you want the screen to stop responding.
+///
+/// Three things this must not do, each of which is a bug someone has already
+/// filed once:
+///
+///   * **Hoist a lock the viewer hid.** Hiding is a decision, not an absence.
+///   * **Hoist onto a full bar.** The top bar's overflow is a `FittedBox`, so a
+///     seventh button does not wrap — it shrinks all seven past the point where
+///     they can be hit. See [PlayerControlsLayout.topBarCapacity]. A lock still
+///     reachable at the bottom beats a top bar nobody can aim at.
+///   * **Draw it in portrait at all.** The only way out of the lock overlay is
+///     a tap target a D-pad cannot reach, which is why the button has always
+///     been landscape-only; that reasoning is unchanged by moving it.
+PlayerControlSlot resolvedLockSlot({
+  required PlayerControlSlot stored,
+  required bool portrait,
+  required int topBarCount,
+}) {
+  if (portrait) return PlayerControlSlot.hidden;
+  if (stored != PlayerControlSlot.bottomLeft &&
+      stored != PlayerControlSlot.bottomRight) {
+    return stored;
+  }
+  return topBarCount >= PlayerControlsLayout.landscapeTopBarCapacity
+      ? stored
+      : PlayerControlSlot.topBar;
+}
+
+/// The bottom-row controls that move up to the top bar on a landscape phone,
+/// in the order they go.
+///
+/// The split is by what a control is ABOUT. The bottom row sits against the
+/// seek bar and answers "what am I watching" — speed, server, quality, fit,
+/// subtitles, episodes — and every one of those is a thing you change about
+/// the thing playing. These five answer "what is this session doing": lock the
+/// screen, throw it at a television, shrink it into a corner, stop it in an
+/// hour, watch it with somebody. They were all in the same row, eleven wide,
+/// and a landscape phone has a top bar with room to spare.
+///
+/// Ordered by how often the hand reaches for them, because when the bar is
+/// nearly full only the first few move.
+const List<String> kLandscapeHoistOrder = ['cast', 'pip', 'sleep', 'party'];
+
+/// As many of [candidates] as the top bar can take, in order.
+///
+/// [topBarRendered] is the number of controls the top bar is ACTUALLY drawing,
+/// not the number of ids stored in it: a film stores `episodes` up there and
+/// draws nothing for it, and counting the id refused a hoist the bar had room
+/// for. See the affordance/layout distinction in [PlayerControlsLayout].
+List<String> landscapeHoists({
+  required List<String> candidates,
+  required int topBarRendered,
+}) {
+  final room = PlayerControlsLayout.landscapeTopBarCapacity - topBarRendered;
+  if (room <= 0) return const [];
+  return candidates.take(room).toList(growable: false);
+}
+
 extension _PlayerControls on _PlayerPageState {
   void _toggleControls() {
     setState(() => _controlsVisible = !_controlsVisible);
@@ -865,7 +934,7 @@ extension _PlayerControls on _PlayerPageState {
                                 _IconButton(
                                   icon: _inParty
                                       ? Icons.groups_rounded
-                                      : Icons.groups_2_outlined,
+                                      : Icons.groups_2_rounded,
                                   color: _inParty ? AppColors.primary : null,
                                   onTap: _openWatchParty,
                                 ),
@@ -879,7 +948,7 @@ extension _PlayerControls on _PlayerPageState {
                               // that is an unrecoverable state.
                               if (isTvPlatform) ...[
                                 _IconButton(
-                                  icon: Icons.subtitles_outlined,
+                                  icon: Icons.subtitles_rounded,
                                   onTap: _openSubtitleSheet,
                                 ),
                                 const SizedBox(width: 2),
@@ -891,13 +960,13 @@ extension _PlayerControls on _PlayerPageState {
                                   const SizedBox(width: 2),
                                 ],
                                 _IconButton(
-                                  icon: Icons.settings_outlined,
+                                  icon: Icons.settings_rounded,
                                   onTap: _openSettingsSheet,
                                 ),
                                 if (hasServers) ...[
                                   const SizedBox(width: 2),
                                   _IconButton(
-                                    icon: Icons.dns_outlined,
+                                    icon: Icons.dns_rounded,
                                     onTap: _openServerSheet,
                                   ),
                                 ],
@@ -1152,18 +1221,18 @@ extension _PlayerControls on _PlayerPageState {
                       onTap: _openSpeedSheet,
                     ),
                     _IconButton(
-                      icon: Icons.subtitles_outlined,
+                      icon: Icons.subtitles_rounded,
                       onTap: _openSubtitleSheet,
                     ),
                     const SizedBox(width: 4),
                     _IconButton(
-                      icon: Icons.settings_outlined,
+                      icon: Icons.settings_rounded,
                       onTap: _openSettingsSheet,
                     ),
                     if (hasServers) ...[
                       const SizedBox(width: 4),
                       _IconButton(
-                        icon: Icons.dns_outlined,
+                        icon: Icons.dns_rounded,
                         onTap: _openServerSheet,
                       ),
                     ],
@@ -1391,6 +1460,58 @@ extension _PlayerControls on _PlayerPageState {
   /// Whether the viewer's arrangement drives the bars on this platform.
   bool get _layoutDrivesBars => !isTvPlatform && !isDesktopPlatform;
 
+  /// Which controls this build has taken out of the bottom row and put on the
+  /// top bar. See [resolvedLockSlot] and [kLandscapeHoistOrder].
+  ///
+  /// Computed rather than stored, and recomputed every build, because the move
+  /// is about which way the phone is held and the saved arrangement has no
+  /// orientation in it. Writing it back would rewrite the viewer's choice
+  /// every time they turned the device, and they would never get it back on
+  /// turning it again.
+  List<String> get _hoisted {
+    if (!_layoutDrivesBars || _isPortrait) return const [];
+    // What the top bar is really drawing. An id stored up there that fails its
+    // affordance — `episodes` on a film — takes no room, and counting it
+    // refused hoists the bar could have taken.
+    var rendered = 0;
+    for (final id in _layout.of(PlayerControlSlot.topBar)) {
+      if (_topBarControl(id) != null) rendered++;
+    }
+
+    final out = <String>[];
+    // The lock keeps its own rule: landscape-only, and never hoisted out of
+    // `hidden`, because hiding is a decision and an absence is not.
+    if (_layout.slotOf('lock') != PlayerControlSlot.topBar &&
+        resolvedLockSlot(
+              stored: _layout.slotOf('lock'),
+              portrait: _isPortrait,
+              topBarCount: rendered,
+            ) ==
+            PlayerControlSlot.topBar) {
+      out.add('lock');
+    }
+
+    final candidates = <String>[];
+    for (final id in kLandscapeHoistOrder) {
+      final stored = _layout.slotOf(id);
+      // Only out of the bottom row: `topBar` is already there and would draw
+      // twice, `hidden` is a decision.
+      if (stored != PlayerControlSlot.bottomLeft &&
+          stored != PlayerControlSlot.bottomRight) {
+        continue;
+      }
+      if (_topBarControl(id) == null) continue;
+      candidates.add(id);
+    }
+    out.addAll(
+      landscapeHoists(
+        candidates: candidates,
+        topBarRendered: rendered + out.length,
+      ),
+    );
+    return out;
+  }
+
   /// One control as it appears on the TOP bar: a bare icon, no label.
   Widget? _topBarControl(String id) {
     final a = _affordances;
@@ -1410,19 +1531,19 @@ extension _PlayerControls on _PlayerPageState {
         );
       case 'subtitles':
         return _IconButton(
-          icon: Icons.subtitles_outlined,
+          icon: Icons.subtitles_rounded,
           onTap: _openSubtitleSheet,
         );
       case 'settings':
         return _IconButton(
-          icon: Icons.settings_outlined,
+          icon: Icons.settings_rounded,
           onTap: _openSettingsSheet,
         );
       case 'orientation':
         return _IconButton(
           icon: _isPortrait
-              ? Icons.screen_lock_landscape_rounded
-              : Icons.screen_lock_portrait_rounded,
+              ? Icons.stay_current_landscape_rounded
+              : Icons.stay_current_portrait_rounded,
           onTap: _toggleOrientation,
         );
       case 'lock':
@@ -1431,7 +1552,7 @@ extension _PlayerControls on _PlayerPageState {
         // that reason, not for room.
         if (_isPortrait) return null;
         return _IconButton(
-          icon: Icons.lock_outline_rounded,
+          icon: Icons.lock_rounded,
           onTap: () => setState(() {
             _locked = true;
             _controlsVisible = false;
@@ -1441,7 +1562,7 @@ extension _PlayerControls on _PlayerPageState {
         );
       case 'stats':
         return _IconButton(
-          icon: Icons.info_outline_rounded,
+          icon: Icons.info_rounded,
           color: _showPlayerInfo ? AppColors.primary : null,
           onTap: () => setState(() => _showPlayerInfo = !_showPlayerInfo),
         );
@@ -1449,7 +1570,7 @@ extension _PlayerControls on _PlayerPageState {
         return _IconButton(icon: Icons.speed_rounded, onTap: _openSpeedSheet);
       case 'server':
         if (!a.hasServers) return null;
-        return _IconButton(icon: Icons.dns_outlined, onTap: _openServerSheet);
+        return _IconButton(icon: Icons.dns_rounded, onTap: _openServerSheet);
       case 'quality':
         if (!a.hasQualities) return null;
         return _IconButton(
@@ -1491,7 +1612,7 @@ extension _PlayerControls on _PlayerPageState {
       case 'sleep':
         if (_isLive) return null;
         return _IconButton(
-          icon: Icons.bedtime_outlined,
+          icon: Icons.bedtime_rounded,
           onTap: _openSleepSheet,
         );
       case 'cast':
@@ -1506,7 +1627,7 @@ extension _PlayerControls on _PlayerPageState {
         // out of Watch2Gether until every peer can resolve them.
         if (!_inParty && widget.args.provider.startsWith('cs:')) return null;
         return _IconButton(
-          icon: _inParty ? Icons.groups_rounded : Icons.groups_2_outlined,
+          icon: _inParty ? Icons.groups_rounded : Icons.groups_2_rounded,
           color: _inParty ? AppColors.primary : null,
           onTap: _openWatchParty,
         );
@@ -1537,11 +1658,15 @@ extension _PlayerControls on _PlayerPageState {
     final compact = _compactBottomBar;
     switch (id) {
       case 'lock':
-        // Landscape only, and not for room: portrait has exactly one way out
-        // of the lock overlay and it is a tap target a D-pad cannot reach.
+        // Portrait has exactly one way out of the lock overlay and it is a tap
+        // target a D-pad cannot reach, so there is no button to press down
+        // here; landscape normally draws it on the top bar instead. What is
+        // left is the case resolvedLockSlot refuses to hoist — a top bar with
+        // no room — and it still has to render, or the viewer would simply
+        // lose the control.
         if (isTvPlatform || _isPortrait) return null;
         return _BottomTextButton(
-          icon: Icons.lock_outline_rounded,
+          icon: Icons.lock_rounded,
           label: 'player.lock'.tr(),
           compact: compact,
           enabled: true,
@@ -1582,7 +1707,7 @@ extension _PlayerControls on _PlayerPageState {
       case 'server':
         if (isTvPlatform || !a.hasServers) return null;
         return _BottomTextButton(
-          icon: Icons.dns_outlined,
+          icon: Icons.dns_rounded,
           label: _currentServer ?? '—',
           compact: compact,
           enabled: true,
@@ -1602,7 +1727,9 @@ extension _PlayerControls on _PlayerPageState {
       case 'episodes':
         if (isTvPlatform || !a.hasEpisodes) return null;
         return _BottomTextButton(
-          icon: Icons.list_rounded,
+          // The same glyph the top bar draws. A control that changes its face
+          // when the viewer moves it stops being the control they moved.
+          icon: Icons.video_library_rounded,
           label: 'player.episodes'.tr(),
           compact: compact,
           enabled: true,
@@ -1630,7 +1757,7 @@ extension _PlayerControls on _PlayerPageState {
       case 'sleep':
         if (!_roomForExtras || _isLive) return null;
         return _BottomTextButton(
-          icon: Icons.bedtime_outlined,
+          icon: Icons.bedtime_rounded,
           label: _sleepValueLabel,
           enabled: true,
           onTap: _openSleepSheet,
@@ -1660,8 +1787,17 @@ extension _PlayerControls on _PlayerPageState {
     final layout = _layoutDrivesBars
         ? _layout
         : PlayerControlsLayout.defaults();
+    // One place decides the hoist, so a control can never be drawn on both
+    // bars or on neither: the bottom row drops whatever went up, and the top
+    // bar takes it on the end.
+    final lifted = _hoisted;
+    final ids = <String>[
+      for (final id in layout.of(slot))
+        if (topBar || !lifted.contains(id)) id,
+      if (topBar && slot == PlayerControlSlot.topBar) ...lifted,
+    ];
     final out = <Widget>[];
-    for (final id in layout.of(slot)) {
+    for (final id in ids) {
       final w = topBar ? _topBarControl(id) : _bottomControl(id);
       if (w != null) out.add(w);
     }
@@ -1813,18 +1949,12 @@ extension _PlayerControls on _PlayerPageState {
                   hasNext,
                 )
               else
-                // Transport left, everything else right — the split
-                // _buildDesktopControlRow has always had. This row used to be a
-                // bare Row in a horizontal scroll view, so on a 844pt landscape
-                // phone six buttons sat in the leftmost 540pt and the remaining
-                // third of the bar was empty; on a 1280pt television three
-                // buttons used a fifth of it. The ConstrainedBox is what makes
-                // the split possible without giving up the scroll: it floors the
-                // row at the viewport width so spaceBetween has slack to
-                // distribute, while maxWidth stays unbounded so a narrow screen
-                // with long labels still scrolls instead of overflowing. Spacer
-                // and Expanded cannot be used here for exactly that reason —
-                // they throw against an unbounded main axis.
+                // Centred, not spread to the edges — see PlayerBottomControlRow
+                // for why. This row reached that shape the long way round: a
+                // bare Row in a scroll view left a 844pt landscape phone with
+                // six buttons in its leftmost 540pt, spaceBetween fixed the
+                // dead third by pushing the two groups into the two corners,
+                // and the corners are what the viewer is complaining about now.
                 Builder(
                   builder: (context) {
                     final left = _controlsFor(
@@ -1852,35 +1982,9 @@ extension _PlayerControls on _PlayerPageState {
                                     _fittingControls(box.maxWidth, left.length),
                                   )
                                   .toList();
-                        return SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(minWidth: box.maxWidth),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              // spaceBetween only makes sense with something on BOTH
-                              // sides. The left group is the transport pair and it
-                              // exists only on a serial, so on a film it was empty and
-                              // every remaining control ended up pinned to the right
-                              // edge with the whole width blank beside it. Emptiness is
-                              // now read off the built widgets rather than guessed from
-                              // hasEpisodes: the viewer can move Previous and Next out
-                              // of that group entirely, and can move other controls in.
-                              mainAxisAlignment: left.isEmpty
-                                  ? MainAxisAlignment.start
-                                  : MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: left,
-                                ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: right,
-                                ),
-                              ],
-                            ),
-                          ),
+                        return PlayerBottomControlRow(
+                          leading: left,
+                          trailing: right,
                         );
                       },
                     );

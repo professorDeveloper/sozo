@@ -9,10 +9,13 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
+import 'package:soplay/features/home/domain/entities/home_section_entity.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_state.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 import 'package:soplay/features/search/presentation/widgets/genre_tile.dart';
 import 'package:soplay/features/search/presentation/widgets/search_result_card.dart';
@@ -54,7 +57,7 @@ List<Widget> searchLandingSlivers(
           onClearRecents: onClearRecents,
         ),
       ),
-    const SliverToBoxAdapter(child: _TrendingRail()),
+    const SliverToBoxAdapter(child: _SourceRail()),
     if (genres.isNotEmpty) ...[
       SliverToBoxAdapter(
         child: Padding(
@@ -177,45 +180,126 @@ class _RecentSearches extends StatelessWidget {
   }
 }
 
+/// The last resort: a source with no genres, no rail and nothing searched
+/// before.
+///
+/// It checks the rail itself rather than trusting the caller, because the
+/// caller cannot see one: the rail is decided inside a [BlocBuilder] on the
+/// home, so "neither genres nor a home" — which is what this branch has always
+/// claimed to mean — used to be only half tested. A source with no genres and
+/// no history but a perfectly good home drew a screenful of posters and then,
+/// underneath them, a large magnifying glass saying there was nothing here.
+///
+/// The sentence is its own, where it used to be the search field's
+/// placeholder. Borrowed up here that placeholder told you to search in a box
+/// you were already looking at, and it offered films and series on a manga
+/// source.
 class _NothingToStartFrom extends StatelessWidget {
   const _NothingToStartFrom();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 60),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.search_rounded,
-              color: AppColors.textHint.withValues(alpha: 0.45),
-              size: 68,
+    return BlocBuilder<HomeBloc, HomeState>(
+      builder: (context, state) {
+        if (state is HomeLoaded &&
+            searchRailSection(state.homeData.sections) != null) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(top: 60),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.search_rounded,
+                  color: AppColors.textHint.withValues(alpha: 0.45),
+                  size: 68,
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    'search.nothing_to_browse'.tr(),
+                    style: const TextStyle(
+                      color: AppColors.textHint,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              'search.hint'.tr(),
-              style: const TextStyle(
-                color: AppColors.textHint,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
-/// The first rail of the home that is loaded — what is trending on the source
-/// or catalogue in use — so the search tab is not a blank page waiting for a
-/// word. Nothing while Home is still loading or has failed: a rail of its own
-/// would be a second request for the same list.
-class _TrendingRail extends StatelessWidget {
-  const _TrendingRail();
+/// Whether a home rail is the source's popularity row.
+///
+/// The key is the half a source writes for machines and the label is the half
+/// it writes for people, and neither is reliable alone: some sources key the
+/// row `home` and only the name "Trending now" says what it is, others name it
+/// in a language this check cannot read and only the key `trending` does. Both
+/// are read, and a miss costs nothing worse than the generic heading.
+bool _readsAsPopular(String key, String label) {
+  final signal = '$key $label'.toLowerCase();
+  return signal.contains('trend') || signal.contains('popular');
+}
+
+/// The home rail the search tab borrows, or null when the home has none worth
+/// borrowing.
+///
+/// Four items is the floor because this is a poster row: three covers and a
+/// gap read as a shelf that failed to load rather than as a suggestion. What
+/// everyone is watching wins over what this viewer saved — the personal rails
+/// a home can lead with are the search tab's least useful answer to "what
+/// should I look for".
+HomeSectionEntity? searchRailSection(List<HomeSectionEntity> sections) {
+  final shelves = sections.where((s) => s.items.length >= 4).toList();
+  bool personal(String k) =>
+      k.contains('list') ||
+      k.contains('continue') ||
+      k.contains('history') ||
+      k.contains('recent');
+  return shelves.where((s) => _readsAsPopular(s.key, s.label)).firstOrNull ??
+      shelves.where((s) => !personal(s.key.toLowerCase())).firstOrNull;
+}
+
+/// The heading over [searchRailSection]'s posters.
+///
+/// What a source calls this row is the source's own business, and for one of
+/// them the answer is "Homepage" — which on the search tab reads as a section
+/// named after a page, and on the next source along reads as something else
+/// entirely. So the row's name is never shown here. It is only ever read, by
+/// [_readsAsPopular], as evidence about what the row holds, and the heading
+/// itself is the app's own sentence.
+///
+/// That sentence names [source], because which source the next search will go
+/// to is the most useful fact on this screen and it is the one the old heading
+/// got right — except for plain sources, which it left unnamed altogether.
+/// When even the name is unknown the heading says what the shelf is for
+/// instead, since a nameless shelf is worse than a general one.
+String searchRailHeading({
+  required String railKey,
+  required String railLabel,
+  required String source,
+}) {
+  if (source.isEmpty) return 'search.rail_no_source'.tr();
+  final key = _readsAsPopular(railKey, railLabel)
+      ? 'search.rail_popular_on'
+      : 'search.rail_browse_on';
+  return key.tr(namedArgs: {'source': source});
+}
+
+/// A shelf from the source that is about to be searched, so the search tab is
+/// not a blank page waiting for a word. Nothing while Home is still loading or
+/// has failed: a shelf of its own would be a second request for the same list.
+class _SourceRail extends StatelessWidget {
+  const _SourceRail();
 
   @override
   Widget build(BuildContext context) {
@@ -224,33 +308,22 @@ class _TrendingRail extends StatelessWidget {
           a is HomeLoaded != b is HomeLoaded || b is HomeLoaded,
       builder: (context, state) {
         if (state is! HomeLoaded) return const SizedBox.shrink();
-        final sections = state.homeData.sections
-            .where((s) => s.items.length >= 4)
-            .toList();
-        // What everyone is watching, not what this viewer has saved: the
-        // personal rails a home can lead with are the search tab's least
-        // useful answer to "what should I look for".
-        bool personal(String k) =>
-            k.contains('list') ||
-            k.contains('continue') ||
-            k.contains('history') ||
-            k.contains('recent');
-        bool trending(String k) => k.contains('trend') || k.contains('popular');
-        final rail =
-            sections.where((s) => trending(s.key.toLowerCase())).firstOrNull ??
-            sections.where((s) => !personal(s.key.toLowerCase())).firstOrNull;
+        final rail = searchRailSection(state.homeData.sections);
         if (rail == null) return const SizedBox.shrink();
         final items = rail.items.take(15).toList();
-        final catalogue = Catalogue.fromId(state.homeData.provider);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: _SectionTitle(
-                catalogue != null
-                    ? '${rail.label} · ${catalogue.labelKey.tr()}'
-                    : rail.label,
+              child: _RailHeading(
+                rail: rail,
+                // The provider the posters came from, not the one that is
+                // current: during a source switch the two disagree for as long
+                // as the new home takes to arrive, and naming the incoming
+                // source over the outgoing source's posters is a lie the user
+                // can see.
+                providerId: state.homeData.provider,
               ),
             ),
             const SizedBox(height: 10),
@@ -293,6 +366,39 @@ class _TrendingRail extends StatelessWidget {
         provider: movie.provider.isEmpty ? null : movie.provider,
       ),
     );
+  }
+}
+
+/// Separated from the rail so that the provider list — which the source's name
+/// has to be looked up in, and which reloads on its own schedule — is listened
+/// to by one line of text rather than by fifteen posters.
+class _RailHeading extends StatelessWidget {
+  const _RailHeading({required this.rail, required this.providerId});
+
+  final HomeSectionEntity rail;
+  final String providerId;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ProviderBloc, ProviderState>(
+      builder: (context, state) => _SectionTitle(
+        searchRailHeading(
+          railKey: rail.key,
+          railLabel: rail.label,
+          source: _sourceName(state),
+        ),
+      ),
+    );
+  }
+
+  /// A catalogue answers for itself; everything else has to be found in the
+  /// installed list, and until that list has loaded there is no name to give.
+  String _sourceName(ProviderState state) {
+    final catalogue = Catalogue.fromId(providerId);
+    if (catalogue != null) return catalogue.labelKey.tr();
+    if (state is! ProviderLoaded) return '';
+    return state.providers.where((p) => p.id == providerId).firstOrNull?.name ??
+        '';
   }
 }
 

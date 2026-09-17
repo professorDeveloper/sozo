@@ -687,7 +687,11 @@
     "voice_done": "Écoute terminée",
     "voice_hint": "Dis le nom d’un film ou d’une série",
     "try_torrents": "Chercher des torrents",
-    "capped_note": "Recherche dans les {} sources les plus fiables sur {} — restreins la sélection pour en atteindre une précise."
+    "capped_note": "Recherche dans les {} sources les plus fiables sur {} — restreins la sélection pour en atteindre une précise.",
+    "rail_popular_on": "Populaire sur {source}",
+    "rail_browse_on": "Parcourir {source}",
+    "rail_no_source": "Avant de chercher",
+    "nothing_to_browse": "Rien à parcourir ici — tapez un titre."
   },
   "movie": {
     "rating": "Note",

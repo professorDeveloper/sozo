@@ -1,7 +1,9 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/features/detail/domain/player_controls_layout.dart';
+import 'package:soplay/features/detail/presentation/pages/player_page.dart';
 
 void main() {
   group('defaults', () {
@@ -292,6 +294,221 @@ void main() {
     });
   });
 
+  group('the lock follows the orientation, not the saved slot', () {
+    // The saved arrangement has no orientation in it, so resolvedLockSlot is
+    // where "landscape puts the lock up top" actually lives. The bars
+    // themselves cannot be pumped — every widget in player_page.controls.dart
+    // is library-private and needs a live _PlayerPageState behind it — so this
+    // is the seam that carries the rule.
+
+    test('landscape lifts a bottom-row lock onto the top bar', () {
+      final l = PlayerControlsLayout.defaults();
+      expect(l.slotOf('lock'), PlayerControlSlot.bottomRight);
+      expect(
+        resolvedLockSlot(
+          stored: l.slotOf('lock'),
+          portrait: false,
+          topBarCount: l.topBarCount,
+        ),
+        PlayerControlSlot.topBar,
+      );
+    });
+
+    test('a lock stored in the left group is lifted too', () {
+      // Either bottom group counts. The viewer can drag it to bottomLeft and
+      // the complaint — a lock among the seek-bar controls — is the same one.
+      final l = PlayerControlsLayout.defaults().move(
+        'lock',
+        PlayerControlSlot.bottomLeft,
+      );
+      expect(
+        resolvedLockSlot(
+          stored: l.slotOf('lock'),
+          portrait: false,
+          topBarCount: l.topBarCount,
+        ),
+        PlayerControlSlot.topBar,
+      );
+    });
+
+    test('portrait draws no lock button at all', () {
+      // Unchanged from before the move, and for the unchanged reason: the only
+      // way out of the lock overlay is a tap target a D-pad cannot reach.
+      expect(
+        resolvedLockSlot(
+          stored: PlayerControlSlot.bottomRight,
+          portrait: true,
+          topBarCount: 0,
+        ),
+        PlayerControlSlot.hidden,
+      );
+    });
+
+    test('a lock the viewer hid stays hidden', () {
+      // Hiding is a decision, not an absence, and the hoist must not undo it.
+      expect(
+        resolvedLockSlot(
+          stored: PlayerControlSlot.hidden,
+          portrait: false,
+          topBarCount: 0,
+        ),
+        PlayerControlSlot.hidden,
+      );
+    });
+
+    test('a lock the viewer already put on the top bar is left alone', () {
+      // Nothing to lift. If this said topBar by lifting rather than by leaving
+      // it, the bar would draw two of them.
+      expect(
+        resolvedLockSlot(
+          stored: PlayerControlSlot.topBar,
+          portrait: false,
+          topBarCount: PlayerControlsLayout.topBarCapacity,
+        ),
+        PlayerControlSlot.topBar,
+      );
+    });
+
+    test('a full top bar keeps the lock where the viewer put it', () {
+      // The ceiling is a FittedBox, so one button past it shrinks them all past
+      // the point of being hittable. A lock still reachable at the bottom beats
+      // a top bar nobody can aim at.
+      //
+      // The ceiling here is the LANDSCAPE one. The lock only ever moves in
+      // landscape, and six is a portrait number — a phone held sideways has
+      // about twice the room beside the title.
+      expect(
+        resolvedLockSlot(
+          stored: PlayerControlSlot.bottomRight,
+          portrait: false,
+          topBarCount: PlayerControlsLayout.landscapeTopBarCapacity,
+        ),
+        PlayerControlSlot.bottomRight,
+      );
+    });
+
+    test('the portrait ceiling does not hold the lock down in landscape', () {
+      // The regression this guards: the hoist read `topBarCapacity`, which is
+      // derived from the narrowest PORTRAIT phone, so a landscape bar with
+      // room for nine refused the lock at six and left it in the crowded row
+      // the move exists to thin out.
+      expect(
+        resolvedLockSlot(
+          stored: PlayerControlSlot.bottomRight,
+          portrait: false,
+          topBarCount: PlayerControlsLayout.topBarCapacity,
+        ),
+        PlayerControlSlot.topBar,
+      );
+    });
+
+    test('the saved arrangement is never rewritten by the lift', () {
+      // Turning the phone must not cost the viewer their layout. The stored
+      // slot is read, resolved, and left alone — so turning back restores it.
+      final stored = PlayerControlsLayout.defaults().toStored();
+      resolvedLockSlot(
+        stored: PlayerControlsLayout.fromStored(stored).slotOf('lock'),
+        portrait: false,
+        topBarCount: 6,
+      );
+      expect(
+        PlayerControlsLayout.fromStored(stored).slotOf('lock'),
+        PlayerControlSlot.bottomRight,
+      );
+    });
+  });
+
+  group('the bottom control row', () {
+    Widget box(String key) =>
+        SizedBox(key: ValueKey(key), width: 44, height: 44);
+
+    Future<void> pump(
+      WidgetTester tester, {
+      required List<Widget> leading,
+      required List<Widget> trailing,
+      double width = 800,
+    }) async {
+      tester.view.physicalSize = Size(width, 200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: PlayerBottomControlRow(
+                leading: leading,
+                trailing: trailing,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('both groups sit centred, not at the two edges', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        leading: [box('prev'), box('next')],
+        trailing: [box('speed'), box('quality'), box('subs')],
+      );
+      final first = tester.getRect(find.byKey(const ValueKey('prev')));
+      final last = tester.getRect(find.byKey(const ValueKey('subs')));
+      expect((first.left + last.right) / 2, closeTo(400, 0.5));
+      // And they are one block: spaceBetween would have left the whole middle
+      // of the bar empty between the two groups.
+      expect(last.right - first.left, lessThan(300));
+    });
+
+    testWidgets('a film, with no transport group, is centred too', (
+      tester,
+    ) async {
+      // This is the case that used to fall back to MainAxisAlignment.start and
+      // pile everything against the left edge.
+      await pump(
+        tester,
+        leading: const [],
+        trailing: [box('speed'), box('quality')],
+      );
+      final first = tester.getRect(find.byKey(const ValueKey('speed')));
+      final last = tester.getRect(find.byKey(const ValueKey('quality')));
+      expect((first.left + last.right) / 2, closeTo(400, 0.5));
+    });
+
+    testWidgets('the two groups stay visibly apart', (tester) async {
+      // Centring them together must not read as one undifferentiated row.
+      await pump(
+        tester,
+        leading: [box('prev')],
+        trailing: [box('speed')],
+      );
+      final left = tester.getRect(find.byKey(const ValueKey('prev')));
+      final right = tester.getRect(find.byKey(const ValueKey('speed')));
+      expect(
+        right.left - left.right,
+        closeTo(PlayerBottomControlRow.groupGap, 0.5),
+      );
+    });
+
+    testWidgets('more controls than fit scroll instead of overflowing', (
+      tester,
+    ) async {
+      // A centred row that clips loses controls at BOTH ends. The viewer can
+      // put ten things down here from the layout editor.
+      await pump(
+        tester,
+        leading: const [],
+        trailing: [for (var i = 0; i < 10; i++) box('c$i')],
+        width: 200,
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+    });
+  });
+
   test('the returned lists cannot be edited behind the layout', () {
     final l = PlayerControlsLayout.defaults();
     expect(
@@ -307,4 +524,58 @@ void main() {
     expect(source.contains('package:flutter/'), isFalse);
     expect(source.contains('get_it'), isFalse);
   });
+
+  group('the session controls ride up with the lock in landscape', () {
+    test('as many as the bar has room for, in order', () {
+      // The complaint was that one eleven-wide row carried everything while a
+      // landscape top bar sat half empty. These four are what a session is
+      // doing rather than what is playing, so they are the ones that move.
+      expect(kLandscapeHoistOrder, ['cast', 'pip', 'sleep', 'party']);
+      expect(
+        landscapeHoists(candidates: kLandscapeHoistOrder, topBarRendered: 5),
+        ['cast', 'pip', 'sleep', 'party'],
+      );
+    });
+
+    test('a nearly full bar takes only what fits', () {
+      expect(
+        landscapeHoists(
+          candidates: kLandscapeHoistOrder,
+          topBarRendered: PlayerControlsLayout.landscapeTopBarCapacity - 2,
+        ),
+        ['cast', 'pip'],
+      );
+    });
+
+    test('a full bar takes none, and does not go negative', () {
+      expect(
+        landscapeHoists(
+          candidates: kLandscapeHoistOrder,
+          topBarRendered: PlayerControlsLayout.landscapeTopBarCapacity,
+        ),
+        isEmpty,
+      );
+      expect(
+        landscapeHoists(
+          candidates: kLandscapeHoistOrder,
+          topBarRendered: PlayerControlsLayout.landscapeTopBarCapacity + 3,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('nothing to lift is not an error', () {
+      expect(landscapeHoists(candidates: const [], topBarRendered: 0), isEmpty);
+    });
+
+    test('the landscape ceiling is above the portrait one', () {
+      // If these ever met, the hoist would be a no-op on every phone and the
+      // bottom row would quietly go back to carrying everything.
+      expect(
+        PlayerControlsLayout.landscapeTopBarCapacity,
+        greaterThan(PlayerControlsLayout.topBarCapacity),
+      );
+    });
+  });
+
 }

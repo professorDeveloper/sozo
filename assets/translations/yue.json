@@ -687,7 +687,11 @@
     "voice_done": "已停止聆聽",
     "voice_hint": "講出電影或者劇集嘅名",
     "try_torrents": "搜尋 torrent",
-    "capped_note": "已經搵咗 {} 個最穩定嘅來源（共 {} 個）— 想搵特定嗰個就縮窄範圍。"
+    "capped_note": "已經搵咗 {} 個最穩定嘅來源（共 {} 個）— 想搵特定嗰個就縮窄範圍。",
+    "rail_popular_on": "{source} 熱門",
+    "rail_browse_on": "睇下 {source}",
+    "rail_no_source": "搵之前",
+    "nothing_to_browse": "呢度冇嘢可以睇 — 打個名搜尋啦。"
   },
   "movie": {
     "rating": "評分",

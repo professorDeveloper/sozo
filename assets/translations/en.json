@@ -687,7 +687,11 @@
     "voice_done": "Stopped listening",
     "voice_hint": "Say the name of a film or series",
     "try_torrents": "Search torrents",
-    "capped_note": "Searched the {} most reliable of {} sources — narrow the scope to reach a specific one."
+    "capped_note": "Searched the {} most reliable of {} sources — narrow the scope to reach a specific one.",
+    "rail_popular_on": "Popular on {source}",
+    "rail_browse_on": "Browse {source}",
+    "rail_no_source": "Before you search",
+    "nothing_to_browse": "Nothing to browse here — type a title to search."
   },
   "movie": {
     "rating": "Rating",
