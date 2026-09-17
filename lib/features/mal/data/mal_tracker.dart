@@ -18,6 +18,15 @@ import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
 /// the MAL id for the same entry, so the AniList match is reused and `idMal`
 /// read off it. MAL's search is only the fallback for entries AniList has no
 /// counterpart for.
+///
+/// Anime only, and that is a limit rather than an oversight: every id here is
+/// an ANIME id and every call below is an anime endpoint, while MAL numbers
+/// manga in a separate space and reads their progress from `num_chapters_read`
+/// on `/manga/{id}`. Handing a manga's `idMal` to `updateProgress` would
+/// therefore write a chapter count onto whatever anime happens to hold that
+/// number. The reader reports to AniList alone for this reason; adding manga
+/// here means adding the manga endpoints to MalApi first, not calling these
+/// with a different id.
 class MalTracker {
   MalTracker({
     required MalService service,

@@ -133,7 +133,6 @@ class _AnilistEntrySheetState extends State<AnilistEntrySheet> {
 
     final media = entry.media;
     final busy = _c.isBusy(entry.id);
-    final total = media.episodes;
     final next = entry.nextEpisode;
 
     return SafeArea(
@@ -215,8 +214,14 @@ class _AnilistEntrySheetState extends State<AnilistEntrySheet> {
               ),
               const SizedBox(height: 20),
               _ProgressRow(
-                progress: entry.progress,
-                total: total,
+                count: entry.progressLabel,
+                // Chapters for a manga or a light novel: AniList counts both
+                // halves of a library in the same `progress` field, and this
+                // caption is the only thing on the sheet that says which unit
+                // the number in front of it is.
+                caption: media.isManga
+                    ? 'anilist.chapters_read'.tr()
+                    : 'anilist.episodes_watched'.tr(),
                 busy: busy,
                 canDecrement: entry.progress > 0,
                 canIncrement: next != null,
@@ -290,8 +295,8 @@ class _AnilistEntrySheetState extends State<AnilistEntrySheet> {
 
 class _ProgressRow extends StatelessWidget {
   const _ProgressRow({
-    required this.progress,
-    required this.total,
+    required this.count,
+    required this.caption,
     required this.busy,
     required this.canDecrement,
     required this.canIncrement,
@@ -299,8 +304,13 @@ class _ProgressRow extends StatelessWidget {
     required this.onIncrement,
   });
 
-  final int progress;
-  final int? total;
+  /// Already worded by the entry: "12 / 48", or a bare "12" when AniList has
+  /// announced no total.
+  final String count;
+
+  /// The unit the count is in, already translated.
+  final String caption;
+
   final bool busy;
   final bool canDecrement;
   final bool canIncrement;
@@ -329,7 +339,7 @@ class _ProgressRow extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  total != null ? '$progress / $total' : '$progress',
+                  count,
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 19,
@@ -338,7 +348,7 @@ class _ProgressRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'anilist.episodes_watched'.tr(),
+                  caption,
                   style: const TextStyle(
                     color: AppColors.textHint,
                     fontSize: 11,
@@ -474,44 +484,50 @@ class _Action extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      enabled: enabled,
-      leading: Icon(
-        icon,
-        color: !enabled
-            ? AppColors.textHint
-            : destructive
-            ? AppColors.error
-            : kAnilistBlue,
-        size: 22,
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
+    // Its own Material, because a ListTile paints its ink on the nearest one
+    // above it and the sheet puts an opaque Container in between — so the tap
+    // ripple on these rows was landing underneath the sheet's own background.
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        enabled: enabled,
+        leading: Icon(
+          icon,
           color: !enabled
               ? AppColors.textHint
               : destructive
               ? AppColors.error
-              : AppColors.textPrimary,
-          fontSize: 14.5,
-          fontWeight: FontWeight.w600,
+              : kAnilistBlue,
+          size: 22,
         ),
+        title: Text(
+          label,
+          style: TextStyle(
+            color: !enabled
+                ? AppColors.textHint
+                : destructive
+                ? AppColors.error
+                : AppColors.textPrimary,
+            fontSize: 14.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: subtitle == null
+            ? null
+            : Text(
+                subtitle!,
+                style: const TextStyle(color: AppColors.textHint, fontSize: 12),
+              ),
+        trailing: destructive
+            ? null
+            : const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textHint,
+                size: 20,
+              ),
+        onTap: onTap,
       ),
-      subtitle: subtitle == null
-          ? null
-          : Text(
-              subtitle!,
-              style: const TextStyle(color: AppColors.textHint, fontSize: 12),
-            ),
-      trailing: destructive
-          ? null
-          : const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textHint,
-              size: 20,
-            ),
-      onTap: onTap,
     );
   }
 }

@@ -69,6 +69,29 @@ class AnilistTracker {
         : null;
   }
 
+  /// Records that [chapterNumber] of a local title has been read.
+  ///
+  /// Delegates to [reportEpisode] because on AniList they are the same write:
+  /// a list entry has one `progress` field, counting whichever unit the media
+  /// has, and `entryState` already reads `chapters` as the total for a title
+  /// that has no episodes. What keeps the two apart is [_resolveMediaId],
+  /// which searches the MANGA half of the catalogue for a reader's provider.
+  ///
+  /// It is still its own method: a reader calling `reportEpisode` would read
+  /// as a mistake at the call site, and the next person to need a
+  /// chapter-specific rule would have nowhere to put it.
+  Future<int?> reportChapter({
+    required String provider,
+    required String contentUrl,
+    required String title,
+    required int chapterNumber,
+  }) => reportEpisode(
+    provider: provider,
+    contentUrl: contentUrl,
+    title: title,
+    episodeNumber: chapterNumber,
+  );
+
   /// Finds the AniList id for a local title: an existing link first, then an
   /// exact title match.
   Future<int?> _resolveMediaId({
@@ -101,9 +124,10 @@ class AnilistTracker {
         mediaId: match.id,
         title: match.displayTitle,
         coverImage: match.coverImage,
-        // Chapters when there are no episodes — `episodes` is null for
-        // everything that is read rather than watched.
-        totalEpisodes: match.episodes ?? match.chapters,
+        // Episodes for an anime, chapters for a manga — the same unit the
+        // progress written against this link is counted in, chosen once on the
+        // media rather than again here.
+        totalEpisodes: match.totalUnits,
         linkedAt: DateTime.now().millisecondsSinceEpoch,
         auto: true,
       ),

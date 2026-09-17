@@ -1505,7 +1505,12 @@
     "remove_confirm": "إزالة \"{}\" من AniList؟ سيُحذف تقدّمك فيه أيضاً.",
     "removed": "أُزيل من AniList",
     "retry_in": "إعادة المحاولة خلال {} ث",
-    "n_chapters_short": "{} فصل"
+    "n_chapters_short": "{} فصل",
+    "mark_chapter_read": "وضع علامة مقروء على الفصل {}",
+    "kind_anime": "أنمي",
+    "kind_manga": "مانغا",
+    "kind_novel": "روايات",
+    "chapters_read": "فصول مقروءة"
   },
   "mal": {
     "connect": "ربط MyAnimeList",
@@ -1946,6 +1951,8 @@
     "hint_anilist_novel": "روايات خفيفة",
     "miss_no_sources_of_kind": "لا يوجد مصدر من هذا النوع مثبّت، لذلك لم يتم البحث. أضف مصدرًا يقرأ هذا النوع.",
     "miss_unreachable": "لم تستجب مصادرك في الوقت المناسب. هذا لا يعني أنها لا تحتوي على هذا العنوان — حاول مرة أخرى.",
-    "miss_nothing_to_search": "لا يوجد هنا ما يمكن البحث به عن مصدر."
+    "miss_nothing_to_search": "لا يوجد هنا ما يمكن البحث به عن مصدر.",
+    "approximate_source": "أفضل تخمين",
+    "approximate_source_hint": "لا يوجد مصدر روايات مصوّرة مثبّت، لذلك استُخدم مصدر المانغا هذا. قد يكون الاقتباس وليس الرواية."
   }
 }

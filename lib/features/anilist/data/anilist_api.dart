@@ -248,18 +248,25 @@ class AnilistApi {
     return AnilistViewer.fromJson(v.cast<String, dynamic>());
   }
 
-  /// The viewer's anime list, every status in one call.
+  /// One of the viewer's lists, every status in one call.
   ///
   /// AniList returns it grouped by status; flattening here keeps the grouping
   /// decision in the UI rather than baking one layout into the transport.
+  ///
+  /// [type] is AniList's own split and defaults to ANIME, so the callers that
+  /// only ever meant anime — the episode reminders among them — keep making
+  /// exactly the request they made before. A reader asks for MANGA, which is
+  /// also where their light novels are: AniList has no NOVEL type, only the
+  /// format, so novels arrive in this same collection and are told apart after.
   Future<List<AnilistListEntry>> mediaList({
     required String token,
     required int userId,
+    String type = 'ANIME',
   }) async {
     final query =
         '''
-      query (\$userId: Int) {
-        MediaListCollection(userId: \$userId, type: ANIME) {
+      query (\$userId: Int, \$type: MediaType) {
+        MediaListCollection(userId: \$userId, type: \$type) {
           lists {
             entries {
               id
@@ -273,7 +280,11 @@ class AnilistApi {
         }
       }
     ''';
-    final data = await _run(query, variables: {'userId': userId}, token: token);
+    final data = await _run(
+      query,
+      variables: {'userId': userId, 'type': type},
+      token: token,
+    );
 
     final collection = data['MediaListCollection'];
     final lists = collection is Map ? collection['lists'] : null;
@@ -316,6 +327,10 @@ class AnilistApi {
              \$status: MediaStatus, \$page: Int, \$perPage: Int) {
         Page(page: \$page, perPage: \$perPage) {
           media(
+            # Fixed, unlike the list query's: this shelf's whole point is
+            # `season` and `seasonYear`, and AniList only gives those to an
+            # anime. A manga shelf would need a different sort and a different
+            # row, so it is a screen of its own rather than a variable here.
             type: ANIME
             sort: \$sort
             season: \$season

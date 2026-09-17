@@ -1505,7 +1505,12 @@
     "remove_confirm": "Hapus “{}” dari AniList-mu? Progresmu untuk judul itu ikut terhapus.",
     "removed": "Dihapus dari AniList",
     "retry_in": "Coba lagi dalam {} d",
-    "n_chapters_short": "{} bab"
+    "n_chapters_short": "{} bab",
+    "mark_chapter_read": "Tandai bab {} sudah dibaca",
+    "kind_anime": "Anime",
+    "kind_manga": "Manga",
+    "kind_novel": "Novel",
+    "chapters_read": "bab dibaca"
   },
   "mal": {
     "connect": "Hubungkan MyAnimeList",
@@ -1942,6 +1947,8 @@
     "hint_anilist_novel": "Light novel",
     "miss_no_sources_of_kind": "Tidak ada sumber jenis ini yang terpasang, jadi tidak ada yang dicari. Tambahkan sumber yang membaca jenis ini.",
     "miss_unreachable": "Sumber Anda tidak menjawab tepat waktu. Itu tidak berarti judul ini tidak ada di sana — coba lagi.",
-    "miss_nothing_to_search": "Tidak ada apa pun di sini untuk mencari sumber."
+    "miss_nothing_to_search": "Tidak ada apa pun di sini untuk mencari sumber.",
+    "approximate_source": "Perkiraan terbaik",
+    "approximate_source_hint": "Tidak ada sumber light novel yang terpasang, jadi sumber manga ini yang dipakai. Ini mungkin adaptasinya, bukan novelnya."
   }
 }

@@ -12,7 +12,8 @@ import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/domain/usecases/get_providers_usecase.dart';
 
-/// Where a catalogue title was found.
+/// Where a catalogue title was found — or, when [approximate], where it might
+/// be.
 class CatalogueLink {
   const CatalogueLink({
     required this.providerId,
@@ -20,6 +21,7 @@ class CatalogueLink {
     required this.contentUrl,
     this.catalogueId = '',
     this.providerImage = '',
+    this.approximate = false,
   });
 
   final String providerId;
@@ -31,12 +33,25 @@ class CatalogueLink {
   final String catalogueId;
   final String providerImage;
 
+  /// This source is not of the catalogue's kind, and is a guess rather than an
+  /// answer.
+  ///
+  /// Only the light-novel shelf can set it, and only by falling back to a
+  /// manga source, because on most installs there is no novel source to ask —
+  /// see [CatalogueResolver.kindsFor]. The title will often be right and the
+  /// WORK still wrong: a light novel and its manga adaptation share a name,
+  /// which is exactly what makes the title score untrustworthy here. Anything
+  /// that puts this in front of somebody has to say so; presenting it as a
+  /// found source is the one thing this flag exists to prevent.
+  final bool approximate;
+
   CatalogueLink withCatalogue(String id) => CatalogueLink(
     providerId: providerId,
     providerName: providerName,
     contentUrl: contentUrl,
     catalogueId: id,
     providerImage: providerImage,
+    approximate: approximate,
   );
 
   String encode() => jsonEncode({
@@ -44,6 +59,10 @@ class CatalogueLink {
     'n': providerName,
     'u': contentUrl,
     if (providerImage.isNotEmpty) 'i': providerImage,
+    // Carried although [CatalogueResolver] never stores a guess: the day
+    // something else does, a link that came back from Hive without this would
+    // be a guess that had quietly stopped looking like one.
+    if (approximate) 'g': true,
   });
 
   static CatalogueLink? decode(String? raw) {
@@ -59,6 +78,7 @@ class CatalogueLink {
         providerName: m['n']?.toString() ?? p,
         contentUrl: u,
         providerImage: m['i']?.toString() ?? '',
+        approximate: m['g'] == true,
       );
     } catch (_) {
       return null;
@@ -66,23 +86,6 @@ class CatalogueLink {
   }
 }
 
-/// Turns a catalogue title into a source that has it.
-///
-/// A catalogue card is AniList's or TMDB's idea of a title — a name, a year, a
-/// poster — with nothing behind it to play. This asks every installed source
-/// of the right kind for that name at once, takes the closest answer, and
-/// remembers it, so the second time the same title is opened there is no
-/// search at all.
-///
-/// The search itself is [AlternateSourceService], which already existed for
-/// "this source died mid-episode, find me another". Same fan-out, same ranking;
-/// the only difference is that nothing is excluded, because there is no source
-/// to move away from.
-///
-/// Silent by design, and agreed that way: Play uses the best answer, the page
-/// says which source that was, and the viewer can change it. The alternative —
-/// a list of sources to pick from before every title — is a tap before
-/// playing, every time, for a decision most people do not want to make.
 /// Why a catalogue title could not be opened.
 ///
 /// One message was shown for all of these — "None of your sources has this
@@ -123,6 +126,9 @@ class CatalogueResolution {
   /// Null exactly when [link] is not.
   final CatalogueMiss? miss;
 
+  /// Whether anything was found — never whether it is the right WORK. A guess
+  /// is found too: see [CatalogueLink.approximate], which is the only thing
+  /// separating the two and which whatever renders this has to show.
   bool get found => link != null;
 }
 
@@ -133,14 +139,39 @@ typedef AlternateFinder =
       void Function(AlternateSearchOutcome outcome)? onOutcome,
     });
 
+/// Turns a catalogue title into a source that has it.
+///
+/// A catalogue card is AniList's or TMDB's idea of a title — a name, a year, a
+/// poster — with nothing behind it to play. This asks every installed source
+/// of the right kind for that name at once, takes the closest answer, and
+/// remembers it, so the second time the same title is opened there is no
+/// search at all.
+///
+/// The search itself is [AlternateSourceService], which already existed for
+/// "this source died mid-episode, find me another". Same fan-out, same ranking;
+/// the only difference is that nothing is excluded, because there is no source
+/// to move away from.
+///
+/// Silent by design, and agreed that way: Play uses the best answer, the page
+/// says which source that was, and the viewer can change it. The alternative —
+/// a list of sources to pick from before every title — is a tap before
+/// playing, every time, for a decision most people do not want to make.
+///
+/// Silent has one exception, and it is the light-novel shelf. There, "the right
+/// kind of source" is a kind most installs do not have at all, so the manga
+/// readers are asked as well and whatever they answer is returned marked
+/// [CatalogueLink.approximate] — an offer the page has to caveat, never an
+/// answer. See [kindsFor].
 class CatalogueResolver {
   CatalogueResolver({
     required AlternateFinder finder,
     required HiveService hive,
     required Future<List<ProviderEntity>> Function() providers,
+    ContentMode Function(String providerId)? providerKind,
   }) : _find = finder,
        _hive = hive,
-       _providers = providers;
+       _providers = providers,
+       _kindOf = providerKind ?? _declaredKind;
 
   /// The production wiring: the alternate-source search over the sources the
   /// resolver picks, and the provider list from the same use case the picker
@@ -153,7 +184,8 @@ class CatalogueResolver {
     // Category is left blank on purpose. A TMDB card says `movie` and the
     // providers say `movies` (or `tmdb`, or `anime`), and one letter of
     // difference silently excluded every source there was. Which sources to
-    // ask is decided in [resolve], by mode, where the vocabulary is one enum.
+    // ask is decided in [locate], by [ContentMode], where the vocabulary is one
+    // enum — see [kindsFor].
     finder: ({required title, required candidates, onOutcome}) =>
         alternates.find(
           title: title,
@@ -170,6 +202,18 @@ class CatalogueResolver {
   final AlternateFinder _find;
   final HiveService _hive;
   final Future<List<ProviderEntity>> Function() _providers;
+
+  /// What kind of thing a source carries.
+  ///
+  /// Handed in for one reason: [ContentModeX.contentMode] answers a `my:` id by
+  /// looking the source up in the installed-repo store through the global
+  /// service locator, so with no locator standing up there is no provider id
+  /// that reads as [ContentMode.novel] — which would leave the novel path, the
+  /// one all of this is for, the only path that cannot be exercised. Production
+  /// passes nothing and gets the real lookup.
+  final ContentMode Function(String providerId) _kindOf;
+
+  static ContentMode _declaredKind(String providerId) => providerId.contentMode;
 
   static const String _tag = '[catalogue]';
 
@@ -189,18 +233,77 @@ class CatalogueResolver {
   Future<void> forget(String catalogueId, String contentUrl) =>
       _hive.setCatalogueLink(_key(catalogueId, contentUrl), null);
 
+  /// Which kinds of source a catalogue's titles are looked for on.
+  ///
+  /// Its own, except for light novels, which also look at the manga readers.
+  ///
+  /// A novel-mode source is a Mangayomi (`my:`) source whose repo index
+  /// declares `itemType: novel`, and that is the only kind there is — a Mihon
+  /// (`mn:`) extension is a Tachiyomi catalogue source with no notion of a
+  /// novel to declare, so it can never be one. Novel repos are a handful next
+  /// to the manga ones and most installs carry none, which left every title on
+  /// the light-novel shelf with an empty candidate list: a page that rendered
+  /// from AniList's record and a Play button that could not resolve, because no
+  /// search ever ran.
+  ///
+  /// Asking the manga readers is worth doing because the reader screen is the
+  /// same one either way — it renders a chapter as prose or as pages according
+  /// to what the source returns, not according to what the source was labelled
+  /// — so a manga source that happens to carry the text opens correctly. What
+  /// it usually carries is the ADAPTATION, a different work under the same
+  /// name, which is why every such answer comes back
+  /// [CatalogueLink.approximate] and is never remembered.
+  ///
+  /// It deliberately does not run the other way. A manga shelf on an install
+  /// with only novel sources is a state essentially nobody is in, and
+  /// [CatalogueMiss.noSourcesOfKind] already tells the truth there.
+  static Set<ContentMode> kindsFor(Catalogue catalogue) =>
+      catalogue == Catalogue.anilistNovel
+      ? const {ContentMode.novel, ContentMode.manga}
+      : {catalogue.mode};
+
+  /// What a source of the catalogue's own kind is worth in the ranking, and
+  /// what one of the wrong kind costs.
+  ///
+  /// Ordering only, both of them: neither can lift a weak title match into one
+  /// worth remembering. Sized against the title scores they are added to — a
+  /// fifth of the range is enough to outweigh the spelling advantage a larger
+  /// index tends to have, and not so much that a clearly better title loses.
+  static const double _rightKind = 0.15;
+  static const double _wrongKind = -0.2;
+
   /// How well a source's kind suits a catalogue's. Positive helps, negative
   /// hurts, zero is "cannot tell" — an on-device plugin whose category is
   /// its ecosystem's name says nothing about what it carries.
-  static double _fit(Catalogue? catalogue, ProviderEntity? p) {
+  ///
+  /// A null [p] is that same "cannot tell", and it is not a production state:
+  /// it means an answer arrived from a provider that was not among the ones
+  /// asked, and [AlternateSourceService.find] only ever searches the candidate
+  /// list it is handed. Only a hand-written finder in a test can reach it, so
+  /// the zero it returns is what keeps such a fixture rankable rather than a
+  /// deliberate score for anything real.
+  double _fit(Catalogue? catalogue, ProviderEntity? p) {
     if (catalogue == null || p == null) return 0;
     final anime = p.category == 'anime' || p.id.startsWith('an:');
     final film = p.category == 'movies' || p.category == 'tmdb';
     return switch (catalogue) {
-      Catalogue.anilist => anime ? 0.15 : (film ? -0.2 : 0),
-      Catalogue.tmdb => film ? 0.15 : (anime ? -0.2 : 0),
-      // The readers have no anime-versus-film split to weigh.
-      Catalogue.anilistManga || Catalogue.anilistNovel => 0,
+      Catalogue.anilist => anime ? _rightKind : (film ? _wrongKind : 0),
+      Catalogue.tmdb => film ? _rightKind : (anime ? _wrongKind : 0),
+      // The readers have no anime-versus-film split to weigh, and their
+      // category is no help at all — a Mihon source's is the name of its
+      // ecosystem. Mode is the only thing that separates a novel source from a
+      // manga one, and on the light-novel shelf both are in the running, so
+      // without an opinion here the guess would outrank the real answer on
+      // spelling alone.
+      //
+      // The manga shelf keeps the order it had, but not because this arm sits
+      // out: [kindsFor] widens nothing there, so every candidate is manga-mode
+      // and every answer gets the same [_rightKind], and a constant added to
+      // every score cannot reorder anything. It is uniform, not absent — the
+      // day a wrong-kind reader is asked on that shelf, this moves the
+      // ranking, which is the point.
+      Catalogue.anilistManga || Catalogue.anilistNovel =>
+        _kindOf(p.id) == catalogue.mode ? _rightKind : _wrongKind,
     };
   }
 
@@ -237,13 +340,15 @@ class CatalogueResolver {
       );
     }
 
-    // Every source of the catalogue's own kind that is not browse-only: an
-    // anime title is looked for on video sources, a manga title on manga
-    // sources. A leg spent asking a reader for an anime is a leg not spent
-    // on a source that might have it.
+    // Every source of a kind this catalogue can be answered by, that is not
+    // browse-only: an anime title is looked for on video sources, a manga title
+    // on manga sources. A leg spent asking a reader for an anime is a leg not
+    // spent on a source that might have it. [kindsFor] is where the light-novel
+    // shelf widens that, and why.
+    final kinds = kindsFor(catalogue);
     final candidates = [
       for (final p in await _providers())
-        if (!p.browseOnly && p.id.contentMode == catalogue.mode) p,
+        if (!p.browseOnly && kinds.contains(_kindOf(p.id))) p,
     ];
     if (candidates.isEmpty) {
       // Not "nobody has it" — nobody was asked, and this is the common way to
@@ -256,6 +361,23 @@ class CatalogueResolver {
       );
     }
     final byId = {for (final p in candidates) p.id: p};
+
+    // Whether an answer of the catalogue's own kind can arrive at all.
+    //
+    // It decides how long the fan-out is allowed to hold out. On every shelf
+    // but the light-novel one this is always true — [kindsFor] asks only that
+    // catalogue's own kind — so the stop below is exactly what it was, and an
+    // anime shelf still waits out a film source's perfect title for the anime
+    // source that may answer late.
+    //
+    // On the light-novel shelf of an install with no novel source it is false,
+    // and that is the case this exists for: the comic readers were widened in
+    // precisely because there is nothing better to ask, every answer they give
+    // scores [_wrongKind], and a stop that requires a non-negative fit can
+    // therefore never fire. That shelf sat on a spinner until the last leg
+    // settled or the whole [_budget] expired, on the one shelf whose answer was
+    // never going to be more than a guess.
+    final ownKindAsked = candidates.any((p) => _kindOf(p.id) == catalogue.mode);
 
     AlternateSource? best;
     TitleMatch? bestMatch;
@@ -298,12 +420,16 @@ class CatalogueResolver {
               bestMatch = match;
               best = found;
             }
-            // Stop early only on an answer nothing argues with: the same title,
-            // from the right kind of source. A perfect title from the wrong
-            // kind of source is exactly the case worth waiting on, and a
-            // disagreeing year has already pulled [match] down to weak.
+            // Stop early on an answer nothing better can argue with: the same
+            // title, from a source of the right kind — or, when no source of
+            // the right kind was asked, from the best kind there is. A perfect
+            // title from the wrong kind of source is worth waiting on only
+            // while a right-kind source is still out there to wait for; when
+            // none was asked, waiting buys a differently-spelled guess at the
+            // cost of the whole budget. A disagreeing year has already pulled
+            // [match] down to weak either way.
             if (match.confidence == TitleConfidence.exact &&
-                fit >= 0 &&
+                (fit >= 0 || !ownKindAsked) &&
                 !done.isCompleted) {
               done.complete();
             }
@@ -341,6 +467,9 @@ class CatalogueResolver {
             : CatalogueMiss.notCarried,
       );
     }
+    // Only [kindsFor] can produce this, so today it means exactly one thing: a
+    // light novel answered by a manga source, most likely with its adaptation.
+    final approximate = _kindOf(pick.provider.id) != catalogue.mode;
     final link = CatalogueLink(
       providerId: pick.provider.id,
       providerName: pick.provider.name,
@@ -350,16 +479,24 @@ class CatalogueResolver {
       // result refs do not always carry the image, and a blank mark next to
       // the catalogue's own is worse than none.
       providerImage: pick.provider.image ?? byId[pick.provider.id]?.image ?? '',
+      approximate: approximate,
     );
     debugPrint(
       '$_tag "${hint.title}" → ${link.providerName} '
-      '(${match.score.toStringAsFixed(2)} ${match.confidence.name})',
+      '(${match.score.toStringAsFixed(2)} ${match.confidence.name}'
+      '${approximate ? ', guess: not a ${catalogue.mode.id} source' : ''})',
     );
     // Remembered on the band, not on a number of this file's own. A weak match
     // is worth opening once — the viewer can see it is wrong and change it —
     // but pinning it means every future open of this title goes straight to a
     // guess, with no search to correct it.
-    if (match.isTrustworthy) {
+    //
+    // A guess is never remembered whatever the band says, because the band is
+    // about the title and what is wrong here is the kind: "Spice and Wolf" off
+    // a manga source scores 1.00 against the novel and is still not the novel.
+    // Pinning it would turn one caveated offer into the permanent answer, with
+    // no search left to find the novel source the viewer installs tomorrow.
+    if (match.isTrustworthy && !approximate) {
       await _hive.setCatalogueLink(
         _key(catalogueId, contentUrl),
         link.encode(),

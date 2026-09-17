@@ -1505,7 +1505,12 @@
     "remove_confirm": "„{}” van je AniList verwijderen? Je voortgang ervoor wordt ook gewist.",
     "removed": "Verwijderd van AniList",
     "retry_in": "Opnieuw over {} s",
-    "n_chapters_short": "{} hfst."
+    "n_chapters_short": "{} hfst.",
+    "mark_chapter_read": "Hoofdstuk {} als gelezen markeren",
+    "kind_anime": "Anime",
+    "kind_manga": "Manga",
+    "kind_novel": "Light novels",
+    "chapters_read": "hoofdstukken gelezen"
   },
   "mal": {
     "connect": "MyAnimeList koppelen",
@@ -1942,6 +1947,8 @@
     "hint_anilist_novel": "Light novels",
     "miss_no_sources_of_kind": "Er is geen bron van dit type geïnstalleerd, dus er is niets gezocht. Voeg er een toe die dit type leest.",
     "miss_unreachable": "Je bronnen hebben niet op tijd geantwoord. Dat zegt niets over of ze deze titel hebben — probeer het opnieuw.",
-    "miss_nothing_to_search": "Er is hier niets om een bron mee op te zoeken."
+    "miss_nothing_to_search": "Er is hier niets om een bron mee op te zoeken.",
+    "approximate_source": "Beste gok",
+    "approximate_source_hint": "Er is geen light-novelbron geïnstalleerd, dus is deze mangabron gebruikt. Dit kan de bewerking zijn in plaats van de roman."
   }
 }

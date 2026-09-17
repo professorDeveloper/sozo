@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/matching/title_match.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
@@ -70,6 +71,17 @@ AlternateSource _found(
   // testing the fixture.
   match: TitleMatch(score: score, confidence: TitleMatch.confidenceOf(score)),
 );
+
+/// What kind of source each installed id is.
+///
+/// Handed to the resolver rather than left to the real lookup because that one
+/// asks the installed-repo store through the service locator: with no locator
+/// up, every reader id reads as manga and a novel source cannot be installed in
+/// a unit test at all. Only the one `my:` id is declared here; every other id is
+/// still asked the real question, so the anime and manga rows below are ranked
+/// by exactly what production would say about them.
+ContentMode _kind(String id) =>
+    id == 'my:novelsite' ? ContentMode.novel : id.contentMode;
 
 void main() {
   group('CatalogueResolver', () {
@@ -358,6 +370,239 @@ void main() {
       );
       expect(out.found, isTrue);
       expect(out.miss, isNull);
+    });
+  });
+
+  group('a light novel can find a source', () {
+    CatalogueResolver build({
+      required List<ProviderEntity> installed,
+      List<AlternateSource> answers = const [],
+      HiveService? hive,
+      void Function(List<ProviderEntity> asked)? onAsk,
+    }) => CatalogueResolver(
+      hive: hive ?? _Hive(),
+      providers: () async => installed,
+      providerKind: _kind,
+      finder: ({required title, required candidates, onOutcome}) {
+        onAsk?.call(candidates);
+        return Stream.fromIterable(answers);
+      },
+    );
+
+    test('the novel shelf asks the manga readers as well', () async {
+      // The whole bug in one assertion: this list used to be empty, because
+      // nothing installed was novel-mode, so no search ever ran and Play could
+      // not resolve on a page that had otherwise rendered fine.
+      List<ProviderEntity>? asked;
+      await build(
+        installed: [
+          _provider('my:novelsite'),
+          _provider('mn:comics'),
+          _provider('an:anime'),
+          _provider('cs:cloud'),
+        ],
+        onAsk: (c) => asked = c,
+      ).resolve(
+        catalogueId: 'cat:anilist-novel',
+        contentUrl: 'https://anilist.co/manga/39115',
+        hint: _movie('Spice and Wolf', category: 'novel'),
+      );
+      expect(asked?.map((p) => p.id), ['my:novelsite', 'mn:comics']);
+    });
+
+    test(
+      'a real novel source beats a manga one that spells it better',
+      () async {
+        final hive = _Hive();
+        final out =
+            await build(
+              hive: hive,
+              installed: [_provider('my:novelsite'), _provider('mn:comics')],
+              answers: [
+                // The adaptation, under the exact title AniList lists.
+                _found('mn:comics', 'Spice and Wolf', 0.98),
+                // The novel itself, on a source that decorates its rows.
+                _found('my:novelsite', 'Spice and Wolf Light Novel', 0.72),
+              ],
+            ).locate(
+              catalogueId: 'cat:anilist-novel',
+              contentUrl: 'u',
+              hint: _movie('Spice and Wolf', category: 'novel'),
+            );
+        expect(out.link?.providerId, 'my:novelsite');
+        expect(out.link?.approximate, isFalse);
+        expect(
+          hive.links.length,
+          1,
+          reason: 'a source of the right kind is kept',
+        );
+      },
+    );
+
+    test('with only manga readers the answer is a marked guess', () async {
+      final hive = _Hive();
+      final out =
+          await build(
+            hive: hive,
+            installed: [_provider('mn:comics')],
+            // A perfect spelling, and still the wrong work: this is the
+            // adaptation, which is what a manga source almost always carries
+            // under a light novel's name.
+            answers: [_found('mn:comics', 'Spice and Wolf', 1.0)],
+          ).locate(
+            catalogueId: 'cat:anilist-novel',
+            contentUrl: 'u',
+            hint: _movie('Spice and Wolf', category: 'novel'),
+          );
+      expect(out.found, isTrue);
+      expect(out.miss, isNull);
+      expect(out.link?.providerId, 'mn:comics');
+      expect(
+        out.link?.approximate,
+        isTrue,
+        reason: 'the page must caveat it, not present it as the novel',
+      );
+      expect(
+        hive.links,
+        isEmpty,
+        reason: 'pinning a guess outlives the reason for guessing',
+      );
+    });
+
+    test('a manga-only novel shelf does not sit out the budget', () async {
+      // The latency half of the fallback. [_wrongKind] makes every answer this
+      // install can possibly give score negative, so an early stop that asks
+      // for a non-negative fit can never fire here: the shelf waited for the
+      // slowest reader, or for the whole 8-second budget, for an answer that
+      // could not improve. One reader answers with the exact title; the other
+      // never answers at all.
+      final stalled = StreamController<AlternateSource>();
+      stalled.add(_found('mn:comics', 'Spice and Wolf', 1.0));
+      addTearDown(stalled.close);
+
+      final watch = Stopwatch()..start();
+      final out =
+          await CatalogueResolver(
+            hive: _Hive(),
+            providers: () async => [
+              _provider('mn:comics'),
+              _provider('mn:silent'),
+            ],
+            providerKind: _kind,
+            finder: ({required title, required candidates, onOutcome}) =>
+                stalled.stream,
+          ).locate(
+            catalogueId: 'cat:anilist-novel',
+            contentUrl: 'u',
+            hint: _movie('Spice and Wolf', category: 'novel'),
+          );
+      watch.stop();
+
+      expect(out.link?.providerId, 'mn:comics');
+      expect(out.link?.approximate, isTrue);
+      expect(
+        watch.elapsed,
+        lessThan(const Duration(seconds: 2)),
+        reason: 'nothing better could arrive, so nothing was worth waiting for',
+      );
+    });
+
+    test('a manga answer waits while a novel source is still out', () async {
+      // The other half, and the one that stops the fix above from becoming
+      // "take the first exact title on the novel shelf". A novel source WAS
+      // asked, so the manga source's perfect spelling is exactly the answer
+      // worth holding out on — even though it arrives first.
+      final out =
+          await CatalogueResolver(
+            hive: _Hive(),
+            providers: () async => [
+              _provider('mn:comics'),
+              _provider('my:novelsite'),
+            ],
+            providerKind: _kind,
+            finder: ({required title, required candidates, onOutcome}) async* {
+              yield _found('mn:comics', 'Spice and Wolf', 1.0);
+              await Future<void>.delayed(const Duration(milliseconds: 20));
+              yield _found('my:novelsite', 'Spice and Wolf', 1.0);
+            },
+          ).locate(
+            catalogueId: 'cat:anilist-novel',
+            contentUrl: 'u',
+            hint: _movie('Spice and Wolf', category: 'novel'),
+          );
+
+      expect(out.link?.providerId, 'my:novelsite');
+      expect(out.link?.approximate, isFalse);
+    });
+
+    test('no reader of any kind is still "nothing was asked"', () async {
+      // Widening the candidates must not turn an honest "install a reader"
+      // into a search that finds nothing and blames the title.
+      final out = await build(installed: [_provider('an:anime')]).locate(
+        catalogueId: 'cat:anilist-novel',
+        contentUrl: 'u',
+        hint: _movie('Spice and Wolf', category: 'novel'),
+      );
+      expect(out.found, isFalse);
+      expect(out.miss, CatalogueMiss.noSourcesOfKind);
+      expect(out.catalogue, Catalogue.anilistNovel);
+    });
+
+    test('the manga shelf is not widened, and its pick is no guess', () async {
+      List<ProviderEntity>? asked;
+      final hive = _Hive();
+      final out =
+          await build(
+            hive: hive,
+            installed: [_provider('my:novelsite'), _provider('mn:comics')],
+            answers: [_found('mn:comics', 'Berserk', 1.0)],
+            onAsk: (c) => asked = c,
+          ).locate(
+            catalogueId: 'cat:anilist-manga',
+            contentUrl: 'u',
+            hint: _movie('Berserk', category: 'manga'),
+          );
+      expect(asked?.map((p) => p.id), ['mn:comics']);
+      expect(out.link?.approximate, isFalse);
+      expect(hive.links.length, 1);
+    });
+
+    test('an anime pick is never marked a guess', () async {
+      // No provider kind handed in: this is the production lookup, and the
+      // path every other test in this file rides.
+      final out =
+          await CatalogueResolver(
+            hive: _Hive(),
+            providers: () async => [_provider('an:x')],
+            finder: ({required title, required candidates, onOutcome}) =>
+                Stream.fromIterable([_found('an:x', 'Frieren', 1.0)]),
+          ).locate(
+            catalogueId: 'cat:anilist',
+            contentUrl: 'u',
+            hint: _movie('Frieren'),
+          );
+      expect(out.link?.approximate, isFalse);
+    });
+
+    test('a guess survives storage as a guess', () async {
+      const guess = CatalogueLink(
+        providerId: 'mn:comics',
+        providerName: 'Comics',
+        contentUrl: 'https://c/spice',
+        approximate: true,
+      );
+      expect(CatalogueLink.decode(guess.encode())?.approximate, isTrue);
+      expect(
+        CatalogueLink.decode(
+          const CatalogueLink(
+            providerId: 'mn:comics',
+            providerName: 'Comics',
+            contentUrl: 'https://c/berserk',
+          ).encode(),
+        )?.approximate,
+        isFalse,
+      );
+      expect(guess.withCatalogue('cat:anilist-novel').approximate, isTrue);
     });
   });
 }

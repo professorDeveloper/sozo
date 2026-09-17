@@ -685,6 +685,14 @@ class _PlayButton extends StatelessWidget {
 /// The catalogue's own logo and the source's own logo, so the line reads at
 /// a glance without a word being read: this came from there, and it plays
 /// from here. Change is the one control, because the pick is a guess.
+///
+/// When the pick is [CatalogueLink.approximate] it is a guess of a second,
+/// worse kind, and it is caveated here rather than anywhere else because here
+/// is where Play is decided. The light-novel shelf falls back to the manga
+/// readers on an install with no novel source, and what a manga source carries
+/// under a light novel's name is usually the adaptation — a different work
+/// with the same title. Naming the source without that is telling somebody a
+/// source was found for their novel when one was not.
 class _ViaRow extends StatelessWidget {
   const _ViaRow({required this.via, this.onChange});
 
@@ -701,59 +709,157 @@ class _ViaRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (catalogue != null) ...[
-            CatalogueLogo(catalogue: catalogue, size: 22),
-            const SizedBox(width: 7),
-            Text(
-              catalogue.labelKey.tr(),
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              if (catalogue != null) ...[
+                CatalogueLogo(catalogue: catalogue, size: 22),
+                const SizedBox(width: 7),
+                Text(
+                  catalogue.labelKey.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 16,
+                    color: AppColors.textHint,
+                  ),
+                ),
+              ],
+              ProviderLogo(image: via.providerImage, size: 22),
+              const SizedBox(width: 7),
+              // The name and the mark share one slot, so the mark stays
+              // against the name it qualifies instead of drifting off to the
+              // right, and a long name gives way to it rather than pushing it
+              // off the line. Without a mark this is the Expanded it was.
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        via.providerName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (via.approximate) ...[
+                      const SizedBox(width: 6),
+                      _GuessPill(
+                        label: 'catalogue.approximate_source'.tr(),
+                        spoken: 'catalogue.approximate_source_hint'.tr(),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 6),
-              child: Icon(
-                Icons.chevron_right_rounded,
-                size: 16,
-                color: AppColors.textHint,
-              ),
-            ),
-          ],
-          ProviderLogo(image: via.providerImage, size: 22),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Text(
-              via.providerName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+              if (onChange != null)
+                TextButton(
+                  onPressed: onChange,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 30),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'catalogue.change_source'.tr(),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          if (onChange != null)
-            TextButton(
-              onPressed: onChange,
-              style: TextButton.styleFrom(
-                minimumSize: const Size(0, 30),
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Text(
-                'catalogue.change_source'.tr(),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+          // The whole sentence on screen, not hidden behind a long-press:
+          // "Best guess" alone does not tell anybody WHICH work they are about
+          // to open, and the choice in front of them is Play or Change.
+          //
+          // Silent to a screen reader because the pill above already speaks
+          // this exact sentence as its label, and hearing it twice in a row is
+          // worse than hearing it once.
+          if (via.approximate) ...[
+            const SizedBox(height: 7),
+            ExcludeSemantics(
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(end: 4),
+                child: Text(
+                  'catalogue.approximate_source_hint'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11.5,
+                    height: 1.35,
+                  ),
                 ),
               ),
             ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// A word and a mark, in a box — "❓ Best guess".
+///
+/// Deliberately the same shape as the pill the alternate-source sheet puts on
+/// its uncertain rows: an icon AND a word, never a tint on its own, so the
+/// mark survives a greyscale screenshot, a colour-blind reader and a screen
+/// reader alike. It is a second copy rather than that one because that one is
+/// private to its file; a third should be the one that moves them into
+/// core/widgets.
+class _GuessPill extends StatelessWidget {
+  const _GuessPill({required this.label, required this.spoken});
+
+  final String label;
+
+  /// Said instead of [label], because two words are all the line has room for
+  /// and they are not the part a reader needs.
+  final String spoken;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: spoken,
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.white12,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.help_outline_rounded,
+              size: 11,
+              color: Colors.white70,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

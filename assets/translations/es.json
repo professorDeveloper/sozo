@@ -1505,7 +1505,12 @@
     "remove_confirm": "¿Quitar «{}» de tu AniList? También se borra tu progreso.",
     "removed": "Quitado de AniList",
     "retry_in": "Reintento en {} s",
-    "n_chapters_short": "{} cap."
+    "n_chapters_short": "{} cap.",
+    "mark_chapter_read": "Marcar el capítulo {} como leído",
+    "kind_anime": "Anime",
+    "kind_manga": "Manga",
+    "kind_novel": "Novelas",
+    "chapters_read": "capítulos leídos"
   },
   "mal": {
     "connect": "Conectar MyAnimeList",
@@ -1942,6 +1947,8 @@
     "hint_anilist_novel": "Novelas ligeras",
     "miss_no_sources_of_kind": "No hay ninguna fuente de este tipo instalada, así que no se buscó nada. Añade una que lea este tipo de título.",
     "miss_unreachable": "Tus fuentes no respondieron a tiempo. Eso no dice si tienen este título — inténtalo de nuevo.",
-    "miss_nothing_to_search": "Aquí no hay nada con lo que buscar una fuente."
+    "miss_nothing_to_search": "Aquí no hay nada con lo que buscar una fuente.",
+    "approximate_source": "Mejor suposición",
+    "approximate_source_hint": "No hay ninguna fuente de novelas ligeras instalada, así que se usó esta fuente de manga. Puede ser la adaptación y no la novela."
   }
 }

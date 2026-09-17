@@ -1505,7 +1505,12 @@
     "remove_confirm": "„{}“ von AniList entfernen? Dein Fortschritt dazu wird ebenfalls gelöscht.",
     "removed": "Von AniList entfernt",
     "retry_in": "Erneut in {} s",
-    "n_chapters_short": "{} Kap."
+    "n_chapters_short": "{} Kap.",
+    "mark_chapter_read": "Kapitel {} als gelesen markieren",
+    "kind_anime": "Anime",
+    "kind_manga": "Manga",
+    "kind_novel": "Light Novels",
+    "chapters_read": "Kapitel gelesen"
   },
   "mal": {
     "connect": "MyAnimeList verbinden",
@@ -1942,6 +1947,8 @@
     "hint_anilist_novel": "Light Novels",
     "miss_no_sources_of_kind": "Es ist keine Quelle dieser Art installiert, also wurde nichts gesucht. Füge eine hinzu, die diese Art liest.",
     "miss_unreachable": "Deine Quellen haben nicht rechtzeitig geantwortet. Das sagt nichts darüber aus, ob sie diesen Titel führen — versuch es erneut.",
-    "miss_nothing_to_search": "Hier gibt es nichts, womit sich eine Quelle finden ließe."
+    "miss_nothing_to_search": "Hier gibt es nichts, womit sich eine Quelle finden ließe.",
+    "approximate_source": "Beste Vermutung",
+    "approximate_source_hint": "Es ist keine Light-Novel-Quelle installiert, also wurde diese Manga-Quelle genommen. Es kann die Adaption statt des Romans sein."
   }
 }

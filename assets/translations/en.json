@@ -1439,9 +1439,11 @@
     "status_dropped": "Dropped",
     "status_repeating": "Rewatching",
     "episodes_watched": "episodes watched",
+    "chapters_read": "chapters read",
     "empty_status": "Your \"{}\" list is empty",
     "behind_n": "{} new",
     "mark_episode_watched": "Mark episode {} watched",
+    "mark_chapter_read": "Mark chapter {} read",
     "find_in_sources": "Find in sources",
     "find_in_sources_hint": "Search every source for this title",
     "open_on_anilist": "Open on AniList",
@@ -1505,7 +1507,10 @@
     "remove_entry": "Remove from my list",
     "remove_confirm": "Remove \"{}\" from your AniList? Your progress for it is deleted too.",
     "removed": "Removed from AniList",
-    "retry_in": "Try again in {}s"
+    "retry_in": "Try again in {}s",
+    "kind_anime": "Anime",
+    "kind_manga": "Manga",
+    "kind_novel": "Novels"
   },
   "mal": {
     "connect": "Connect MyAnimeList",
@@ -1942,6 +1947,8 @@
     "hint_anilist_novel": "Light novels",
     "miss_no_sources_of_kind": "No source of this kind is installed, so nothing was searched. Add one that reads this kind of title.",
     "miss_unreachable": "Your sources did not answer in time. That says nothing about whether they carry this title — try again.",
-    "miss_nothing_to_search": "There is nothing here to look a source up by."
+    "miss_nothing_to_search": "There is nothing here to look a source up by.",
+    "approximate_source": "Best guess",
+    "approximate_source_hint": "No light-novel source is installed, so this manga source was used. It may be the adaptation rather than the novel."
   }
 }

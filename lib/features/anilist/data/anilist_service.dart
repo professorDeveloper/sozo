@@ -209,14 +209,19 @@ class AnilistService extends ChangeNotifier {
     await _clearLocal();
   }
 
-  /// The viewer's library. Requires a connection.
-  Future<List<AnilistListEntry>> library() async {
+  /// The viewer's library for one AniList media type. Requires a connection.
+  ///
+  /// [type] defaults to ANIME so callers that only ever meant anime — the
+  /// airing reminders in `main` above all — keep asking for what they always
+  /// did. MANGA returns the reader's manga and light novels together, AniList
+  /// filing both under the one type.
+  Future<List<AnilistListEntry>> library({String type = 'ANIME'}) async {
     final token = _token;
     final v = _viewer;
     if (token == null || v == null) {
       throw const AnilistException('AniList is not connected');
     }
-    return _api.mediaList(token: token, userId: v.id);
+    return _api.mediaList(token: token, userId: v.id, type: type);
   }
 
   /// Reports [episodesWatched] finished episodes for [mediaId].

@@ -1505,7 +1505,12 @@
     "remove_confirm": "\"{}\" AniList ro'yxatingizdan o'chirilsinmi? Undagi progress ham o'chadi.",
     "removed": "AniList ro'yxatidan o'chirildi",
     "retry_in": "{} s dan keyin qayta urinamiz",
-    "n_chapters_short": "{}-bob"
+    "n_chapters_short": "{}-bob",
+    "mark_chapter_read": "{}-bobni o‘qilgan deb belgilash",
+    "kind_anime": "Anime",
+    "kind_manga": "Manga",
+    "kind_novel": "Ranobelar",
+    "chapters_read": "bob o‘qildi"
   },
   "mal": {
     "connect": "MyAnimeList ulash",
@@ -1942,6 +1947,8 @@
     "hint_anilist_novel": "Ranobelar",
     "miss_no_sources_of_kind": "Bu turdagi manba o‘rnatilmagan, shuning uchun hech narsa qidirilmadi. Shu turni o‘qiydigan manba qo‘shing.",
     "miss_unreachable": "Manbalaringiz vaqtida javob bermadi. Bu ularda sarlavha bor-yo‘qligini bildirmaydi — qayta urinib ko‘ring.",
-    "miss_nothing_to_search": "Bu yerda manba izlash uchun hech narsa yo‘q."
+    "miss_nothing_to_search": "Bu yerda manba izlash uchun hech narsa yo‘q.",
+    "approximate_source": "Eng yaqin taxmin",
+    "approximate_source_hint": "Ranobe manbasi o‘rnatilmagan, shuning uchun manga manbasi ishlatildi. Bu ranobe emas, uning ekranlashtirilgani bo‘lishi mumkin."
   }
 }

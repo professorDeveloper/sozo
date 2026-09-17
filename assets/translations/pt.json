@@ -1505,7 +1505,12 @@
     "remove_confirm": "Remover “{}” do seu AniList? Seu progresso nele também é apagado.",
     "removed": "Removido do AniList",
     "retry_in": "Nova tentativa em {} s",
-    "n_chapters_short": "{} cap."
+    "n_chapters_short": "{} cap.",
+    "mark_chapter_read": "Marcar o capítulo {} como lido",
+    "kind_anime": "Anime",
+    "kind_manga": "Manga",
+    "kind_novel": "Novelas",
+    "chapters_read": "capítulos lidos"
   },
   "mal": {
     "connect": "Conectar o MyAnimeList",
@@ -1942,6 +1947,8 @@
     "hint_anilist_novel": "Light novels",
     "miss_no_sources_of_kind": "Não há nenhuma fonte deste tipo instalada, por isso nada foi pesquisado. Adicione uma que leia este tipo de título.",
     "miss_unreachable": "As suas fontes não responderam a tempo. Isso não diz se têm este título — tente novamente.",
-    "miss_nothing_to_search": "Não há aqui nada por onde procurar uma fonte."
+    "miss_nothing_to_search": "Não há aqui nada por onde procurar uma fonte.",
+    "approximate_source": "Melhor palpite",
+    "approximate_source_hint": "Não há nenhuma fonte de light novels instalada, por isso foi usada esta fonte de manga. Pode ser a adaptação e não o romance."
   }
 }

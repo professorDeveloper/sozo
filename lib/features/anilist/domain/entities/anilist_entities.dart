@@ -158,15 +158,28 @@ class AnilistMedia {
   final AnilistAiring? nextAiring;
   final bool isAdult;
 
-  /// Episodes that exist to watch right now.
+  /// What progress on this title is counted in: episodes for an anime,
+  /// chapters for a manga or a light novel.
+  ///
+  /// Chapters and not volumes, even though AniList publishes both. A reader's
+  /// position is a chapter number — volumes live in AniList's separate
+  /// `progressVolumes`, which nothing here reads or writes — so a volume total
+  /// as the denominator would put a reader on chapter 40 of 9.
+  int? get totalUnits => episodes ?? chapters;
+
+  /// Units that exist to watch or read right now.
   ///
   /// For an airing show AniList keeps `episodes` at the announced season total
   /// while only `nextAiring.episode - 1` have actually gone out. Offering to
   /// mark an unaired episode watched is nonsense, so callers cap against this.
-  int? get airedEpisodes {
+  ///
+  /// A serialising manga has no such announcement to be ahead of: AniList
+  /// leaves `chapters` null until it knows the total, so an unknown total stays
+  /// unknown here instead of being guessed at.
+  int? get availableUnits {
     final next = nextAiring;
     if (next != null && next.episode > 0) return next.episode - 1;
-    return episodes;
+    return totalUnits;
   }
 
   /// What to show, and what to search sources with.
@@ -235,34 +248,49 @@ class AnilistListEntry {
   /// AniList's own status: CURRENT, PLANNING, COMPLETED, DROPPED, PAUSED, REPEATING.
   final String status;
 
-  /// Episodes FINISHED, not an index.
+  /// Units FINISHED, not an index — episodes on an anime, chapters on a manga
+  /// or a light novel, which is the same field on AniList's side.
   final int progress;
   final double? score;
   final int? updatedAt;
 
-  /// How far through, when the total is known. Null for an ongoing show with no
-  /// announced episode count, where a bar would be a guess.
+  /// How far through, when the total is known. Null for a title with no
+  /// announced total — an airing show or a running serial — where a bar would
+  /// be a guess.
   double? get completion {
-    final total = media.episodes;
+    final total = media.totalUnits;
     if (total == null || total <= 0) return null;
     return (progress / total).clamp(0.0, 1.0);
   }
 
-  /// The next episode to watch, or null when there is nothing left aired.
+  /// The count a row prints: "12 / 48", or a bare "12" when the total is
+  /// unknown.
   ///
-  /// Capped against what has actually aired rather than the announced total,
-  /// so a weekly show stops offering "+1" once the viewer has caught up.
+  /// Numbers with no unit word on purpose. The row is already under the shelf
+  /// it belongs to, so "chapters" would only repeat that — and it is one line
+  /// beside a cover, which a translated unit word pushes off the end of.
+  String get progressLabel {
+    final total = media.totalUnits;
+    return (total != null && total > 0) ? '$progress / $total' : '$progress';
+  }
+
+  /// The next episode to watch or chapter to read, or null when nothing more
+  /// is out yet.
+  ///
+  /// Capped against what actually exists rather than the announced total, so a
+  /// weekly show stops offering "+1" once the viewer has caught up.
   int? get nextEpisode {
-    final aired = media.airedEpisodes;
-    if (aired != null && progress >= aired) return null;
+    final available = media.availableUnits;
+    if (available != null && progress >= available) return null;
     return progress + 1;
   }
 
-  /// Episodes aired but not yet watched. 0 when caught up or unknown.
+  /// Episodes aired or chapters out but not yet finished. 0 when caught up or
+  /// unknown.
   int get behindBy {
-    final aired = media.airedEpisodes;
-    if (aired == null) return 0;
-    final behind = aired - progress;
+    final available = media.availableUnits;
+    if (available == null) return 0;
+    final behind = available - progress;
     return behind > 0 ? behind : 0;
   }
 
@@ -310,6 +338,33 @@ enum AnilistStatus {
       if (s.value == value) return s;
     }
     return null;
+  }
+}
+
+/// The three shelves a library can show, and how each one is asked for.
+///
+/// Three shelves but only two queries: AniList has no NOVEL media type, so a
+/// light novel is MANGA carrying format NOVEL — the same split the catalogue
+/// already makes. Keeping [mediaType] and the format test in one place is what
+/// stops the two drifting apart, because a picker that asks for a novel
+/// collection gets an error and a picker that forgets the format shows every
+/// novel on the manga shelf as well.
+enum AnilistLibraryKind {
+  anime('ANIME', 'anilist.kind_anime'),
+  manga('MANGA', 'anilist.kind_manga'),
+  novel('MANGA', 'anilist.kind_novel');
+
+  const AnilistLibraryKind(this.mediaType, this.labelKey);
+
+  /// AniList's own MediaType, which is what a list query takes.
+  final String mediaType;
+
+  /// A key rather than a word: this is rendered in twelve languages.
+  final String labelKey;
+
+  bool matches(AnilistMedia media) {
+    if (this == anime) return !media.isManga;
+    return media.isManga && (media.format == 'NOVEL') == (this == novel);
   }
 }
 

@@ -12,7 +12,8 @@ import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart'
 import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_entry_sheet.dart';
 
-/// The viewer's AniList anime list, one tab per status.
+/// The viewer's AniList lists: one tab per status, and a shelf picker above
+/// them once the account holds more than anime.
 ///
 /// Owns nothing but presentation: the controller is created here and disposed
 /// with the page, which is what makes the whole screen disappear cleanly when
@@ -52,6 +53,10 @@ class _AnilistLibraryPageState extends State<AnilistLibraryPage>
     super.initState();
     _controller =
         widget.controller ?? AnilistLibraryController(service: _service);
+    // This is the one screen that can show manga and light novels, so it is
+    // the one that pays for the second request — the calendar and the upcoming
+    // rail share this controller and want none of it.
+    _controller.includeReading = true;
     _tabs = TabController(length: AnilistStatus.values.length, vsync: this);
     _controller.addListener(_onChange);
     _service.addListener(_onConnectionChange);
@@ -99,6 +104,11 @@ class _AnilistLibraryPageState extends State<AnilistLibraryPage>
           )
         : Column(
             children: [
+              // Above the status tabs rather than beside them: the two are
+              // different questions ("which shelf" then "which list"), and the
+              // status bar is already six scrollable tabs with no room for
+              // three more.
+              _KindPicker(controller: _controller),
               _StatusTabBar(controller: _tabs, library: _controller),
               Expanded(
                 child: TabBarView(
@@ -159,6 +169,89 @@ class _AnilistLibraryPageState extends State<AnilistLibraryPage>
         ],
       ),
       body: body,
+    );
+  }
+}
+
+/// Anime / Manga / Novels, as a row of pills — and nothing at all for the
+/// library that is only anime.
+///
+/// A picker rather than three more tabs, and it draws itself only when the
+/// account actually has something to pick: nearly every opening of this screen
+/// is somebody checking what they are watching, and they must not pay a row of
+/// chrome, a wrong-shelf tap or a changed swipe gesture for a shelf they do
+/// not use. The novel pill is a format filter over the manga list, not a third
+/// query — AniList files a light novel as MANGA.
+class _KindPicker extends StatelessWidget {
+  const _KindPicker({required this.controller});
+
+  final AnilistLibraryController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final kinds = controller.availableKinds;
+    if (kinds.length < 2) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+      child: Row(
+        children: [
+          for (final kind in kinds) ...[
+            _KindPill(
+              label: kind.labelKey.tr(),
+              selected: kind == controller.kind,
+              onTap: () => controller.setKind(kind),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _KindPill extends StatelessWidget {
+  const _KindPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? kAnilistBlue.withValues(alpha: 0.16)
+          : AppColors.surface,
+      borderRadius: BorderRadius.circular(9),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: selected
+                  ? kAnilistBlue.withValues(alpha: 0.55)
+                  : AppColors.border,
+              width: 0.8,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? kAnilistBlue : AppColors.textSecondary,
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -314,7 +407,6 @@ class AnilistEntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final media = entry.media;
-    final total = media.episodes;
     final behind = entry.behindBy;
 
     return Material(
@@ -349,9 +441,7 @@ class AnilistEntryCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          total != null
-                              ? '${entry.progress} / $total'
-                              : '${entry.progress}',
+                          entry.progressLabel,
                           style: const TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 12,
@@ -376,7 +466,16 @@ class AnilistEntryCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 _BumpButton(
                   busy: busy,
-                  episode: entry.nextEpisode!,
+                  // The button does the same thing on both shelves, but the
+                  // tooltip is the only place that says what "+1" means — and
+                  // "Mark episode 12 watched" on a manga is simply wrong.
+                  tooltip: media.isManga
+                      ? 'anilist.mark_chapter_read'.tr(
+                          args: ['${entry.nextEpisode}'],
+                        )
+                      : 'anilist.mark_episode_watched'.tr(
+                          args: ['${entry.nextEpisode}'],
+                        ),
                   onTap: onBump!,
                 ),
               ],
@@ -391,18 +490,18 @@ class AnilistEntryCard extends StatelessWidget {
 class _BumpButton extends StatelessWidget {
   const _BumpButton({
     required this.busy,
-    required this.episode,
+    required this.tooltip,
     required this.onTap,
   });
 
   final bool busy;
-  final int episode;
+  final String tooltip;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: 'anilist.mark_episode_watched'.tr(args: ['$episode']),
+      message: tooltip,
       child: Material(
         color: kAnilistBlue.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(10),

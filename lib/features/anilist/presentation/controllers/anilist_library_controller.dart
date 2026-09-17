@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 
@@ -10,6 +12,10 @@ import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
 /// Holds the entries in memory for the life of the screen so switching status
 /// tabs is instant — AniList returns every status in a single request, and
 /// re-fetching per tab would spend a round trip to show data already held.
+///
+/// Anime only until a screen sets [includeReading]: the type is AniList's own
+/// split, one query each, and most of what builds this controller is asking
+/// about airing shows.
 class AnilistLibraryController extends ChangeNotifier {
   AnilistLibraryController({required AnilistService service})
     : _service = service;
@@ -47,10 +53,38 @@ class AnilistLibraryController extends ChangeNotifier {
   bool get isConnected => _service.isConnected;
   AnilistViewer? get viewer => _service.viewer;
 
-  /// Entries of one status, most recently updated first — which is the order
-  /// that puts what the viewer is actually watching at the top.
+  /// Which shelf the status tabs are showing. Anime to begin with, because
+  /// that is what all but a handful of openings of this screen are for.
+  AnilistLibraryKind _kind = AnilistLibraryKind.anime;
+  AnilistLibraryKind get kind => _kind;
+
+  void setKind(AnilistLibraryKind kind) {
+    if (_kind == kind) return;
+    _kind = kind;
+    notifyListeners();
+  }
+
+  /// The shelves the viewer has something on, anime always among them.
+  ///
+  /// The page draws its picker only when this has more than one entry, which
+  /// is what keeps a library of nothing but anime looking exactly as it did
+  /// before there was a picker to draw. Anime is kept unconditionally so a
+  /// reader with no anime still has a way back to an empty shelf rather than
+  /// the picker changing shape under them the moment they add a show.
+  List<AnilistLibraryKind> get availableKinds => [
+    for (final k in AnilistLibraryKind.values)
+      if (k == AnilistLibraryKind.anime ||
+          _entries.any((e) => k.matches(e.media)))
+        k,
+  ];
+
+  /// Entries of one status on the selected shelf, most recently updated first —
+  /// which is the order that puts what the viewer is actually watching at the
+  /// top.
   List<AnilistListEntry> byStatus(AnilistStatus status) {
-    final out = _entries.where((e) => e.status == status.value).toList();
+    final out = _entries
+        .where((e) => e.status == status.value && _kind.matches(e.media))
+        .toList();
     out.sort((a, b) => (b.updatedAt ?? 0).compareTo(a.updatedAt ?? 0));
     return out;
   }
@@ -66,8 +100,11 @@ class AnilistLibraryController extends ChangeNotifier {
     return null;
   }
 
-  int countOf(AnilistStatus status) =>
-      _entries.where((e) => e.status == status.value).length;
+  /// The number on a status tab. Counted on the selected shelf only, or a
+  /// reader's 300 manga would inflate the tab above a list of twelve anime.
+  int countOf(AnilistStatus status) => _entries
+      .where((e) => e.status == status.value && _kind.matches(e.media))
+      .length;
 
   /// Everything with an announced next episode, soonest first.
   ///
@@ -90,6 +127,58 @@ class AnilistLibraryController extends ChangeNotifier {
     return out;
   }
 
+  /// Whether what the viewer READS is held here too.
+  ///
+  /// Off unless a screen that can show manga asks for it. AniList's list query
+  /// is per media type, so the second shelf costs a second request — and the
+  /// calendar, the upcoming rail and the episode reminders all build this
+  /// controller to ask one question about airing anime. Spending a request on
+  /// every one of their loads, for entries they immediately drop, is exactly
+  /// the kind of traffic that gets this app rate limited.
+  bool _includeReading = false;
+
+  set includeReading(bool value) {
+    if (_includeReading == value) return;
+    _includeReading = value;
+    // A controller lent by the tracker hub has usually loaded its anime
+    // already, and that load will not come round again — so the shelf the
+    // library screen just asked for has to be fetched now or never appear.
+    if (value && _entries.isNotEmpty) unawaited(_loadReading());
+  }
+
+  /// Adds the viewer's manga and light novels to what is held.
+  ///
+  /// Silent on failure, and deliberately so: an anime-only library — which is
+  /// nearly every one — must not turn into an error banner because a request
+  /// it never needed was refused. The cost is that a reader whose manga alone
+  /// failed sees no shelf picker until they pull to refresh.
+  Future<void> _loadReading() async {
+    try {
+      // Manga and light novels arrive together; AniList has no NOVEL type.
+      final books = await _service.library(
+        type: AnilistLibraryKind.manga.mediaType,
+      );
+      // Replaces rather than appends, so a refresh does not list every title
+      // twice.
+      _entries = [
+        for (final e in _entries)
+          if (!e.media.isManga) e,
+        ...books,
+      ];
+      _settleKind();
+      notifyListeners();
+    } catch (_) {
+      // Swallowed on purpose — see above. The anime already on screen stays.
+    }
+  }
+
+  /// Puts the viewer back on anime when the shelf they were on is no longer
+  /// offered — emptied on another device, or never fetched at all. Standing on
+  /// a shelf the picker no longer draws is an empty list with no way off it.
+  void _settleKind() {
+    if (!availableKinds.contains(_kind)) _kind = AnilistLibraryKind.anime;
+  }
+
   Future<void> load({bool force = false}) async {
     if (_loading) return;
     if (!_service.isConnected) {
@@ -107,6 +196,8 @@ class AnilistLibraryController extends ChangeNotifier {
     notifyListeners();
     try {
       _entries = await _service.library();
+      if (_includeReading) await _loadReading();
+      _settleKind();
     } catch (e) {
       _error = e is AnilistException
           ? e.message
@@ -217,9 +308,10 @@ class AnilistLibraryController extends ChangeNotifier {
     }
   }
 
-  /// Completing the final episode should not leave the title on "Watching".
+  /// Finishing the last episode — or the last chapter — should not leave the
+  /// title on "Watching".
   static String? _statusAfter(AnilistListEntry entry, int progress) {
-    final total = entry.media.episodes;
+    final total = entry.media.totalUnits;
     if (total != null && total > 0 && progress >= total) {
       return AnilistStatus.completed.value;
     }

@@ -60,9 +60,23 @@ extension ContentModeX on String {
   ///
   /// Built on [mediaKind] rather than beside it, so there is still exactly one
   /// place that decides reader-versus-player and this only refines the reader
-  /// half. A Mangayomi source that declares itself a novel is a novel; anything
-  /// else that reads is manga, because the manga index dwarfs the novel one and
-  /// an unlabelled reader is far more likely to be one.
+  /// half.
+  ///
+  /// A Mangayomi (`my:`) source that declares itself a novel is a novel, and it
+  /// is the only kind of novel source there is: `itemType` comes off the repo
+  /// index, and a repo publishes its novels in a `novel_index.json` of their
+  /// own. Nothing else that reads can answer the question. A Mihon (`mn:`)
+  /// source is a Tachiyomi `CatalogueSource`, an interface with no notion of a
+  /// novel to declare, and `MangaHost` stamps every one of them `manga` on the
+  /// way out — so manga is not this function's guess about an `mn:` id, it is
+  /// the whole of what that ecosystem knows. For an unresolvable `my:` id it
+  /// IS a guess, and the right one, because the manga index dwarfs the novel
+  /// one several hundred times over.
+  ///
+  /// The consequence lives in the catalogue resolver: an install with no `my:`
+  /// novel source has no novel-mode source at all, which is why the light-novel
+  /// shelf has to be allowed to fall back to the comic readers and mark what it
+  /// finds as a guess.
   ContentMode get contentMode {
     if (Catalogue.isId(this)) {
       return Catalogue.fromId(this)?.mode ?? ContentMode.video;

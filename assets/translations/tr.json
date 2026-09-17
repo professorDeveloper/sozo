@@ -1505,7 +1505,12 @@
     "remove_confirm": "“{}” AniList’ten çıkarılsın mı? Ona ait ilerlemen de silinir.",
     "removed": "AniList’ten çıkarıldı",
     "retry_in": "{} sn içinde yeniden denenecek",
-    "n_chapters_short": "{} bölüm"
+    "n_chapters_short": "{} bölüm",
+    "mark_chapter_read": "{}. bölümü okundu olarak işaretle",
+    "kind_anime": "Anime",
+    "kind_manga": "Manga",
+    "kind_novel": "Light novel",
+    "chapters_read": "bölüm okundu"
   },
   "mal": {
     "connect": "MyAnimeList’i bağla",
@@ -1942,6 +1947,8 @@
     "hint_anilist_novel": "Light novel",
     "miss_no_sources_of_kind": "Bu türde kaynak yüklü değil, bu yüzden arama yapılmadı. Bu türü okuyan bir kaynak ekleyin.",
     "miss_unreachable": "Kaynaklarınız zamanında yanıt vermedi. Bu, bu başlığı taşımadıkları anlamına gelmez — tekrar deneyin.",
-    "miss_nothing_to_search": "Burada kaynak aramak için bir şey yok."
+    "miss_nothing_to_search": "Burada kaynak aramak için bir şey yok.",
+    "approximate_source": "En iyi tahmin",
+    "approximate_source_hint": "Light novel kaynağı yüklü değil, bu yüzden bir manga kaynağı kullanıldı. Roman yerine uyarlaması olabilir."
   }
 }

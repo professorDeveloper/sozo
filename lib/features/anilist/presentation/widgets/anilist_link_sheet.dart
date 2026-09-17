@@ -148,10 +148,10 @@ class _AnilistLinkSheetState extends State<AnilistLinkSheet> {
         mediaId: media.id,
         title: media.displayTitle,
         coverImage: media.coverImage,
-        // Chapters when there are no episodes: a linked manga otherwise
-        // reads as 0 of 0 forever, since AniList only fills `episodes` for
-        // anime.
-        totalEpisodes: media.episodes ?? media.chapters,
+        // Episodes for an anime, chapters for a manga. Through `totalUnits`
+        // rather than picking the field here, so the link a reader creates by
+        // hand counts in the same unit as everything else that reads a media.
+        totalEpisodes: media.totalUnits,
         linkedAt: DateTime.now().millisecondsSinceEpoch,
       ),
     );

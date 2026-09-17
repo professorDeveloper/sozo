@@ -1,6 +1,8 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/network/image_headers.dart';
@@ -240,7 +242,12 @@ class _HeroOverlayFadeState extends State<_HeroOverlayFade> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final animation = widget.hasFlight
+    // Same gate as [_Bloom], for the same reason and on the same animation:
+    // on iOS the route is a Cupertino page, so this controller runs backwards
+    // under an edge-swipe and the scrims fade out as the finger moves — the
+    // header's gradients measurably gone by about halfway through a drag the
+    // user may still abandon. The arrival fade belongs to arriving.
+    final animation = widget.hasFlight && _Bloom.runsHere
         ? ModalRoute.of(context)?.animation
         : null;
     if (identical(animation, _parent)) return;
@@ -276,6 +283,26 @@ class _HeroOverlayFadeState extends State<_HeroOverlayFade> {
 /// focus, the same beat as the page rising under it. Nothing once the route
 /// has settled: the filter is only in the tree for the run, so a page being
 /// scrolled or revisited paints a plain image.
+///
+/// ## Off on iOS
+///
+/// This reads `ModalRoute.of(context)?.animation`, and on iOS that animation is
+/// not only the arrival. (On Android it is the same object the bloom
+/// transition is handed — `CustomTransitionPage` passes `route.animation`
+/// straight into its `transitionsBuilder` — so there is no contrast to draw
+/// there; the difference is entirely what the route does with it.)
+/// `_bloomPage` in `app_router.dart` hands iOS the platform page so
+/// the edge swipe survives, and a Cupertino route's back gesture drives that
+/// same animation controller backwards as the finger moves. Ungated, dragging
+/// in from the left edge blurs and grows the poster under the thumb, frame by
+/// frame, at 18px of blur across the largest image on the screen — a beat that
+/// belongs to arriving, played over a gesture that is leaving, and one iOS
+/// does not draw that way anywhere else.
+///
+/// So the gate is [defaultTargetPlatform], deliberately the same check
+/// `_bloomPage` makes to choose the page type: the two decisions are one
+/// decision, and if they ever disagree the platform that gets the Cupertino
+/// page is the platform that gets the blur on its back swipe.
 class _Bloom extends StatefulWidget {
   const _Bloom({required this.child});
 
@@ -283,6 +310,13 @@ class _Bloom extends StatefulWidget {
 
   static const double _blur = 18;
   static const double _grow = 0.10;
+
+  /// True wherever the route animation means "arriving" and nothing else.
+  ///
+  /// Read by [_HeroOverlayFade] too: both ride the route animation, so both
+  /// have to be off on exactly the platforms where it is also the back
+  /// gesture, and one getter is how they stay that way.
+  static bool get runsHere => defaultTargetPlatform != TargetPlatform.iOS;
 
   @override
   State<_Bloom> createState() => _BloomState();
@@ -295,7 +329,11 @@ class _BloomState extends State<_Bloom> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final animation = ModalRoute.of(context)?.animation;
+    // Also skips the ancestor walk on the platform that has no use for the
+    // answer.
+    final animation = _Bloom.runsHere
+        ? ModalRoute.of(context)?.animation
+        : null;
     if (identical(animation, _parent)) return;
     _curve?.dispose();
     _parent = animation;
