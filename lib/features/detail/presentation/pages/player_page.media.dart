@@ -46,6 +46,37 @@ extension _PlayerMedia on _PlayerPageState {
     return merged;
   }
 
+  /// The same headers, plus any Cloudflare clearance already earned for this
+  /// host.
+  ///
+  /// The app can solve a challenge — [CfBypassService] does it headlessly and
+  /// the interactive solver does it in front of the viewer — and the Dio
+  /// client and the JS runtime both send the result. The PLAYER never did. So
+  /// a stream host behind Cloudflare was fetched with no cookie at all, by the
+  /// one part of the app that has to fetch it dozens of times per episode, and
+  /// solving the challenge changed nothing about playback. The jar travels
+  /// whole because Cloudflare pairs cf_clearance with the `__cf_bm` and
+  /// `_cfuvid` it was issued alongside; the User-Agent above is already the
+  /// one those were issued to, which is the other half of making them work.
+  ///
+  /// Best-effort: a host with nothing in the jar is the ordinary case and adds
+  /// no header at all.
+  Future<Map<String, String>> _streamHeaders(
+    Uri uri,
+    Map<String, String> sourceHeaders,
+  ) async {
+    final merged = _mergedStreamHeaders(uri, sourceHeaders);
+    if (merged.isEmpty || merged.containsKey('Cookie')) return merged;
+    try {
+      final jar = await getIt<CfBypassService>().readClearance(uri.host);
+      if (jar != null && jar.isNotEmpty) merged['Cookie'] = jar;
+    } catch (_) {
+      // A stream that plays without a cookie must not fail because the jar
+      // could not be read.
+    }
+    return merged;
+  }
+
   Future<void> _bootstrap() async {
     final resume = widget.args.resumePosition;
     if (widget.args.isSerial) {
@@ -105,6 +136,7 @@ extension _PlayerMedia on _PlayerPageState {
       _initializing = true;
       _stage = _LoadingStage.resolving;
       _errorMessage = null;
+      _errorRaw = null;
     });
 
     final result = await getIt<GetEpisodesUseCase>()(
@@ -231,6 +263,7 @@ extension _PlayerMedia on _PlayerPageState {
       _initializing = true;
       _stage = _LoadingStage.resolving;
       _errorMessage = null;
+      _errorRaw = null;
       _isCodecError = false;
       _window = _window.at(index);
       _panel = _SidePanel.none;
@@ -490,6 +523,7 @@ extension _PlayerMedia on _PlayerPageState {
       _initializing = true;
       _stage = _LoadingStage.loading;
       _errorMessage = null;
+      _errorRaw = null;
       _isCodecError = false;
       _currentQuality = source.quality;
       _currentSourceIndex = idx >= 0 ? idx : _currentSourceIndex;
@@ -989,6 +1023,7 @@ extension _PlayerMedia on _PlayerPageState {
       setState(() {
         _initializing = false;
         _errorMessage = null;
+      _errorRaw = null;
         _isCodecError = false;
       });
       await _handOffToExternalPlayer();
@@ -1019,7 +1054,8 @@ extension _PlayerMedia on _PlayerPageState {
       _headers = const {};
     } else {
       final uri = Uri.parse(effectiveUrl);
-      final mergedHeaders = _mergedStreamHeaders(uri, effectiveHeaders);
+      final mergedHeaders = await _streamHeaders(uri, effectiveHeaders);
+      if (!mounted || generation != _mediaGeneration) return;
 
       _plog('provider: ${widget.args.provider}');
       _plog('headers (${mergedHeaders.length}):');
@@ -1179,6 +1215,7 @@ extension _PlayerMedia on _PlayerPageState {
       setState(() {
         _initializing = false;
         _errorMessage = null;
+      _errorRaw = null;
         _isCodecError = false;
       });
       _scheduleHide();
@@ -1284,6 +1321,7 @@ extension _PlayerMedia on _PlayerPageState {
       setState(() {
         _initializing = false;
         _errorMessage = msg;
+        _errorRaw = raw;
       });
     } catch (e) {
       _plog('init threw: $e', level: LogLevel.error);
@@ -1528,6 +1566,7 @@ extension _PlayerMedia on _PlayerPageState {
     setState(() {
       _stage = _LoadingStage.loading;
       _errorMessage = null;
+      _errorRaw = null;
       _isCodecError = false;
     });
 
@@ -1579,6 +1618,7 @@ extension _PlayerMedia on _PlayerPageState {
         _initializing = true;
         _stage = _LoadingStage.loading;
         _errorMessage = null;
+      _errorRaw = null;
         _isCodecError = false;
         _currentSourceIndex = nextIdx;
         _currentQuality = next.quality;
@@ -1615,6 +1655,7 @@ extension _PlayerMedia on _PlayerPageState {
           ? _LoadingStage.resolving
           : _LoadingStage.loading;
       _errorMessage = null;
+      _errorRaw = null;
       _isCodecError = false;
     });
     final generation = await _disposeController();
@@ -1692,6 +1733,7 @@ extension _PlayerMedia on _PlayerPageState {
       _initializing = true;
       _stage = _LoadingStage.loading;
       _errorMessage = null;
+      _errorRaw = null;
       _isCodecError = false;
     });
     final generation = await _disposeController();
@@ -1720,6 +1762,7 @@ extension _PlayerMedia on _PlayerPageState {
         _initializing = true;
         _stage = _LoadingStage.loading;
         _errorMessage = null;
+      _errorRaw = null;
         _isCodecError = false;
       });
       final generation = await _disposeController();

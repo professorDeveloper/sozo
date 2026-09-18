@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:soplay/core/network/user_agent.dart';
 import 'package:soplay/core/system/webview_env.dart';
 import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
 
@@ -18,10 +19,6 @@ class ExtractedStream {
 }
 
 class WebViewStreamExtractor {
-  static const _mobileUserAgent =
-      'Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 '
-      '(KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36';
-
   static const _antiDebuggerShim = r'''
 (function(){
   try {
@@ -244,7 +241,18 @@ class WebViewStreamExtractor {
     /// hands the player an HTML page and ends in "no supported format".
     (String, Map<String, dynamic>)? fallback;
 
-    final userAgent = _mobileUserAgent;
+    // The agent every clearance in the shared cookie jar was issued to.
+    //
+    // This was a hard-coded `Chrome/125.0.0.0` on a Samsung string. Cloudflare
+    // binds cf_clearance to the exact User-Agent that earned it and a managed
+    // challenge compares what the header CLAIMS against what the engine
+    // actually is — so a fixed version on a device whose WebView is something
+    // else both invalidated whatever clearance the jar already held and could
+    // never clear a new challenge. core/network/user_agent.dart exists to be
+    // the one answer to this, read from the device once; the sniffer was the
+    // one place still inventing its own. These headers also travel on to the
+    // player, so the mismatch outlived the sniff.
+    final userAgent = kSozoUserAgent;
     final referer = _headerValue(pageHeaders, 'Referer');
 
     // Baseline noise plus whatever this source declared. Server-supplied hosts are

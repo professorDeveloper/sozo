@@ -9,6 +9,7 @@ import 'package:soplay/core/player/shader_store.dart';
 import 'package:soplay/features/detail/data/title_prefs_store.dart';
 import 'package:soplay/features/stats/data/watch_stats_store.dart';
 import 'package:soplay/core/network/external_dio.dart';
+import 'package:soplay/core/network/cf_bypass_service.dart';
 import 'package:soplay/core/network/user_agent.dart';
 import 'dart:async';
 import 'dart:io';
@@ -300,6 +301,16 @@ class _PlayerPageState extends State<PlayerPage>
   );
 
   String? _errorMessage;
+
+  /// The failure as the engine reported it, before translation.
+  ///
+  /// [_errorMessage] is what the viewer reads — a `PlaybackFaultKind` sentence
+  /// or a humanised line — and by then the words the classifiers key on are
+  /// gone. `isCloudflareError(_errorMessage)` therefore never matched anything
+  /// and the "Solve Cloudflare" button on the error screen was unreachable
+  /// code: the one screen where a challenge is visible to the viewer was the
+  /// one screen that could not offer to solve it.
+  String? _errorRaw;
   bool _isCodecError = false;
   bool _initializing = true;
   _LoadingStage _stage = _LoadingStage.loading;

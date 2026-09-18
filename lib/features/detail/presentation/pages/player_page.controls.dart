@@ -441,7 +441,9 @@ extension _PlayerControls on _PlayerPageState {
                     label: Text('player.alt_sources'.tr()),
                   ),
                 ],
-                if (isCloudflareError(_errorMessage)) ...[
+                // Tested against the RAW failure, not the translated one —
+                // see [_errorRaw]. Against `_errorMessage` this never matched.
+                if (isCloudflareError(_errorRaw ?? _errorMessage)) ...[
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: () async {

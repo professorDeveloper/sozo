@@ -957,10 +957,19 @@ class _ProviderListTile extends StatelessWidget {
   final VoidCallback onToggleFavorite;
   final VoidCallback onTap;
 
+  /// Which sources the Cloudflare solver can be run for.
+  ///
+  /// `my:` was missing, and it is the ecosystem that needs it most:
+  /// Mangayomi sources run in the app's own JS runtime rather than behind an
+  /// Android host, so [requestCloudflareSolve] has a whole separate branch for
+  /// them — `_solveForMangayomi` — that nothing could ever reach, because this
+  /// gate disabled the action before it was called. A Mangayomi source stuck
+  /// behind a challenge had no way out at all.
   bool get _canSolveCloudflare =>
       provider.id.startsWith('an:') ||
       provider.id.startsWith('mn:') ||
-      provider.id.startsWith('cs:');
+      provider.id.startsWith('cs:') ||
+      provider.id.startsWith('my:');
 
   Future<void> _solveCloudflare(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
