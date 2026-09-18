@@ -618,6 +618,7 @@
     "recent": "Последние поиски",
     "popular_searches": "Популярные запросы",
     "categories": "Жанры",
+    "categories_failed": "Не удалось загрузить категории",
     "all": "Все",
     "movies": "Фильмы",
     "series": "Сериалы",

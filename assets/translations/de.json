@@ -618,6 +618,7 @@
     "recent": "Letzte Suchen",
     "popular_searches": "Beliebte Suchen",
     "categories": "Genres",
+    "categories_failed": "Kategorien konnten nicht geladen werden",
     "all": "Alle",
     "movies": "Filme",
     "series": "Serien",

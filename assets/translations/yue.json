@@ -618,6 +618,7 @@
     "recent": "最近搜尋",
     "popular_searches": "熱門搜尋",
     "categories": "類型",
+    "categories_failed": "載入唔到分類",
     "all": "全部",
     "movies": "電影",
     "series": "劇集",

@@ -146,10 +146,12 @@ class SearchContentView extends StatelessWidget {
           recent: state.recent,
           genres: state.genres,
           genresLoading: state.genresLoading,
+          genresFailed: state.genresFailed,
           onSuggestion: onSuggestion,
           onGenre: onGenre,
           onRemoveRecent: onRemoveRecent,
           onClearRecents: onClearRecents,
+          onRetryGenres: onRetry,
         );
       case SearchStatus.loaded:
       case SearchStatus.refreshing:

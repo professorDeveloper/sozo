@@ -39,10 +39,12 @@ List<Widget> searchLandingSlivers(
   required List<String> recent,
   required List<GenreEntity> genres,
   required bool genresLoading,
+  required bool genresFailed,
   required ValueChanged<String> onSuggestion,
   required ValueChanged<String> onGenre,
   required ValueChanged<String> onRemoveRecent,
   required VoidCallback onClearRecents,
+  required VoidCallback onRetryGenres,
 }) {
   final width = MediaQuery.sizeOf(context).width;
   final columns = width >= 900 ? 4 : (width >= 600 ? 3 : 2);
@@ -121,6 +123,13 @@ List<Widget> searchLandingSlivers(
           ),
         ),
       )
+    else if (genresFailed)
+      // The state that had nowhere to go. `genresFailed` was computed and put
+      // on the state and then read by nothing at all, so a failed genre call
+      // simply removed the Categories section: on a device with recents the
+      // only way to browse this source vanished, with no reason given and no
+      // way to ask again.
+      SliverToBoxAdapter(child: _GenresUnavailable(onRetry: onRetryGenres))
     else if (recent.isEmpty)
       // Nothing to start from at all: the old empty state, kept for the
       // source that offers neither genres nor a home.
@@ -622,6 +631,60 @@ class _ChipRemove extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Says the genre list did not load, and offers to try again.
+///
+/// Deliberately small. This is one section of an idle screen that still has
+/// recents and a source rail on it, so a full-page error would be wrong; but
+/// the section disappearing without a word was worse, because browsing is the
+/// only thing this screen is for when you have nothing to type.
+class _GenresUnavailable extends StatelessWidget {
+  const _GenresUnavailable({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.category_outlined,
+            size: 18,
+            color: AppColors.textHint,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'search.categories_failed'.tr(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: AppColors.textHint, fontSize: 12.5),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              'general.retry'.tr(),
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -618,6 +618,7 @@
     "recent": "Recent gezocht",
     "popular_searches": "Populaire zoekopdrachten",
     "categories": "Genres",
+    "categories_failed": "Categorieën konden niet worden geladen",
     "all": "Alles",
     "movies": "Films",
     "series": "Series",

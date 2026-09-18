@@ -55,13 +55,31 @@ void main() {
     expect(s.since, first);
   });
 
-  test('an implausible jump is refused', () async {
-    // The player ticks every few seconds. Hours between two ticks is a clock
-    // change or a resumed process, and counting it puts a number on the
-    // screen nobody can explain.
+  test('a long stretch is credited, not thrown away', () async {
+    // This used to refuse anything over ten minutes outright, on the reasoning
+    // that a jump of hours must be a clock change or a resumed process. The
+    // only caller measures with a Stopwatch, which is monotonic, so neither
+    // can reach here — and the player's save tick was a one-shot that never
+    // re-armed, so a film watched straight through arrived as ONE delta of two
+    // hours. It was refused, and the statistics page read zero for exactly the
+    // sessions it exists to show.
     final s = WatchStatsStore();
-    await s.record(seconds: 99999, provider: 'p');
-    expect(s.totalSeconds, 0);
+    await s.record(seconds: 2 * 60 * 60, provider: 'p');
+    expect(s.totalSeconds, 2 * 60 * 60);
+  });
+
+  test('but one call can still never put a week on the screen', () async {
+    // Clamped rather than dropped: the guard keeps its purpose against a
+    // caller passing nonsense, while a real stretch is credited as far as it
+    // is plausible.
+    final s = WatchStatsStore();
+    await s.record(seconds: 99999999, provider: 'p');
+    expect(s.totalSeconds, lessThanOrEqualTo(4 * 60 * 60));
+    expect(
+      s.totalSeconds,
+      greaterThan(0),
+      reason: 'the old rule credited nothing at all',
+    );
   });
 
   test('nothing and negative time are refused', () async {

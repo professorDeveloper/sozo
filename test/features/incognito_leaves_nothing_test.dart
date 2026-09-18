@@ -109,7 +109,10 @@ void main() {
       // recents row: returning the query would put it on screen for the rest
       // of the session even with nothing on disk.
       mode(incognito: true);
-      expect(SearchRecentsStore().add('something private'), completion(isEmpty));
+      expect(
+        SearchRecentsStore().add('something private'),
+        completion(isEmpty),
+      );
     });
 
     test('an earlier query survives a private one', () async {

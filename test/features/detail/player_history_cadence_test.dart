@@ -188,8 +188,7 @@ void main() {
         expect(
           call,
           contains('resumeAt'),
-          reason:
-              'this reload inside $signature restarts from zero:\n$call',
+          reason: 'this reload inside $signature restarts from zero:\n$call',
         );
       }
 
