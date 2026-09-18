@@ -277,18 +277,11 @@ class _TrackingSheetState extends State<TrackingSheet> {
             const SizedBox(height: 20),
             _Label('detail.tracking_score'.tr()),
             const SizedBox(height: 8),
-            _Stepper(
-              value: e.score ?? 0,
-              text: (e.score ?? 0) == 0
-                  ? 'detail.tracking_not_scored'.tr()
-                  : '★ ${e.score} / 10',
+            _ScoreBar(
+              score: e.score ?? 0,
               accent: _e.accent,
-              onLess: e.onList && (e.score ?? 0) > 0
-                  ? () => _write(score: (e.score ?? 0) - 1)
-                  : null,
-              onMore: e.onList && (e.score ?? 0) < 10
-                  ? () => _write(score: (e.score ?? 0) + 1)
-                  : null,
+              enabled: e.onList && !_busy,
+              onScore: (v) => _write(score: v),
             ),
             const SizedBox(height: 24),
             if (e.onList)
@@ -362,6 +355,87 @@ class _Pill extends StatelessWidget {
 }
 
 /// − value + on one line, with long-press jumps where they make sense.
+/// A score, scored the way a score is given: by pointing at it.
+///
+/// This was the same −/+ [_Stepper] as the episode counter directly above it,
+/// reading "Not scored" or "★ 7 / 10". Two problems. Mechanically, putting 8/10
+/// on a title took eight taps. And visually the two rows were identical, so the
+/// thing that counts episodes and the thing that rates the show looked like one
+/// control repeated — nothing about it said "this is a rating".
+///
+/// Ten stars, tapped directly. Tapping the star you are already on clears the
+/// score, which is the only way back to "not scored" and is what every app that
+/// does this supports.
+class _ScoreBar extends StatelessWidget {
+  const _ScoreBar({
+    required this.score,
+    required this.accent,
+    required this.enabled,
+    required this.onScore,
+  });
+
+  final int score;
+  final Color accent;
+  final bool enabled;
+  final ValueChanged<int> onScore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      slider: true,
+      enabled: enabled,
+      value: score == 0 ? 'detail.tracking_not_scored'.tr() : '$score / 10',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              for (var i = 1; i <= 10; i++)
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    label: '$i / 10',
+                    excludeSemantics: true,
+                    child: InkResponse(
+                      // Tapping the current score again means "take it off".
+                      onTap: enabled ? () => onScore(i == score ? 0 : i) : null,
+                      radius: 20,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Icon(
+                          i <= score
+                              ? Icons.star_rounded
+                              : Icons.star_outline_rounded,
+                          size: 26,
+                          color: i <= score
+                              ? accent
+                              : Colors.white.withValues(
+                                  alpha: enabled ? 0.28 : 0.14,
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            score == 0
+                ? 'detail.tracking_not_scored'.tr()
+                : '$score / 10',
+            style: TextStyle(
+              color: score == 0 ? AppColors.textHint : AppColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Stepper extends StatelessWidget {
   const _Stepper({
     required this.value,

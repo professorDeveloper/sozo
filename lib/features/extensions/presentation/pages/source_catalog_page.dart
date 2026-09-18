@@ -291,7 +291,12 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
-        title: Text('manga.add_source'.tr()),
+        // Not 'manga.add_source'. The page was called "Add source" and every
+        // row on it carried a button called "Add source" — the same key — so
+        // the title said nothing about what the list was and the screen read
+        // as eight identical calls to action. The title names the list; the
+        // rows name the act.
+        title: Text('source_manager.catalog_title'.tr()),
         actions: [
           IconButton(
             onPressed: _manage,
@@ -419,7 +424,7 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
                   child: Text(
                     _added.contains(source.id)
                         ? 'source_manager.added'.tr()
-                        : 'manga.add_source'.tr(),
+                        : 'source_manager.add_short'.tr(),
                   ),
                 ),
         );
@@ -497,10 +502,10 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
           installable:
               _supported(s) && (_installing == null || _installing == s.id),
           label: installed != null
-              ? 'ux.use_source'.tr()
+              ? 'source_manager.use_short'.tr()
               : _added.contains(s.id)
               ? 'source_manager.added'.tr()
-              : 'manga.add_source'.tr(),
+              : 'source_manager.add_short'.tr(),
           busy: _installing == s.id,
           onInstall: installed != null
               ? () => _use(installed)
