@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
@@ -10,6 +12,7 @@ import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/search/data/model/genre_model.dart';
 import 'package:soplay/features/search/data/model/search_model.dart';
 import 'package:soplay/features/search/domain/repositories/search_repository.dart';
+import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
 
 import '../datasources/search_data_source.dart';
 
@@ -100,6 +103,41 @@ class SearchRepositoryImp extends SearchRepository {
     return Success(model);
   }
 
+  /// The budget an on-device host search gets.
+  ///
+  /// There was none. The backend path goes through Dio, which has connect,
+  /// send and receive timeouts; the five host paths below had nothing at all,
+  /// so an extension whose `search()` never returns — a dead host, a Cloudflare
+  /// challenge page that never resolves, a socket the plugin opened with no
+  /// read timeout of its own — left the Search tab spinning forever, with no
+  /// error, no empty state and no way out but leaving the screen.
+  ///
+  /// Borrowed from [CrossSearchEngine.channelTimeout] rather than picked again
+  /// here, so the two paths that search the same extension agree about how long
+  /// it may take. It is generous for the reason recorded there: the first
+  /// search against a freshly-installed source has to download and dex-load its
+  /// APK before it can issue a single request.
+  static const Duration _hostBudget = CrossSearchEngine.channelTimeout;
+
+  /// Runs one on-device host search under [_hostBudget].
+  Future<Result<SearchModel>> _viaHost(
+    String label,
+    Future<Map<String, dynamic>> Function() search,
+  ) async {
+    try {
+      return _fromChannel(await search().timeout(_hostBudget), label);
+    } on TimeoutException {
+      // Its own message, and not the channel's: a host that never answered is
+      // a different thing from one that answered with a failure, and only this
+      // one is worth suggesting another source for.
+      return Failure(
+        Exception('$label: no answer after ${_hostBudget.inSeconds}s'),
+      );
+    } catch (e) {
+      return Failure(Exception(e.toString()));
+    }
+  }
+
   @override
   Future<Result<SearchModel>> searchMovies(
     String query, {
@@ -126,57 +164,41 @@ class SearchRepositoryImp extends SearchRepository {
       }
     }
     if (provider != null && provider.startsWith('cs:')) {
-      try {
-        final map = await CloudStreamChannel.search(
-          provider.substring(3),
-          query,
-          page: page,
-        );
-        return _fromChannel(map, 'CloudStream');
-      } catch (e) {
-        return Failure(Exception(e.toString()));
-      }
+      return _viaHost(
+        'CloudStream',
+        () => CloudStreamChannel.search(provider.substring(3), query, page: page),
+      );
     }
     if (provider != null && provider.startsWith('an:')) {
-      try {
-        final map = await AniyomiChannel.search(
-          provider.substring(3),
-          query,
-          page: page,
-        );
-        return _fromChannel(map, 'Aniyomi');
-      } catch (e) {
-        return Failure(Exception(e.toString()));
-      }
+      return _viaHost(
+        'Aniyomi',
+        () => AniyomiChannel.search(provider.substring(3), query, page: page),
+      );
     }
     if (provider != null && provider.startsWith('mn:')) {
-      try {
-        final map = await MangaChannel.search(
-          provider.substring(3),
-          query,
-          page: page,
-        );
-        return _fromChannel(map, 'Manga');
-      } catch (e) {
-        return Failure(Exception(e.toString()));
-      }
+      return _viaHost(
+        'Manga',
+        () => MangaChannel.search(provider.substring(3), query, page: page),
+      );
     }
     if (provider != null && provider.startsWith('my:')) {
-      try {
-        final map = await mangayomi.search(
-          provider.substring(3),
-          query,
-          page: page,
-        );
-        return _fromChannel(map, 'Mangayomi');
-      } catch (e) {
-        return Failure(Exception(e.toString()));
-      }
+      return _viaHost(
+        'Mangayomi',
+        () => mangayomi.search(provider.substring(3), query, page: page),
+      );
     }
     if (js != null && provider != null) {
+      // The JS runtime falls THROUGH to the backend when it has no answer, so
+      // it cannot use _viaHost — but it can still be bounded.
       try {
-        final map = await js.trySearch(provider, query, page);
+        final map = await js.trySearch(provider, query, page).timeout(
+          _hostBudget,
+        );
         if (map != null) return Success(SearchModel.fromJson(map));
+      } on TimeoutException {
+        return Failure(
+          Exception('$provider: no answer after ${_hostBudget.inSeconds}s'),
+        );
       } catch (e) {
         return Failure(Exception(e.toString()));
       }
