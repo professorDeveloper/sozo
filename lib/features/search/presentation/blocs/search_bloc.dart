@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/analytics/analytics.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
@@ -164,8 +166,19 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     }
     final token = ++_suggestToken;
     _suggestTimer = Timer(_suggestDebounce, () async {
-      final titles = await service.suggest(q);
-      if (isClosed || token != _suggestToken || titles.isEmpty) return;
+      // Read at call time, not at construction: this bloc lives for the whole
+      // session and the mode switches under it.
+      final titles = await service.suggest(
+        q,
+        mode: ContentMode.fromId(getIt<HiveService>().getContentMode()),
+      );
+      if (isClosed || token != _suggestToken) return;
+      // Emitted even when empty. Returning early on `titles.isEmpty` left the
+      // PREVIOUS query's suggestions in place, and the only thing that ever
+      // cleared them was typing fewer than two characters — so a search for
+      // something with no suggestions showed "Did you mean" chips for a query
+      // the reader had moved on from, offering titles that have nothing to do
+      // with what they asked.
       add(SearchSuggestionsUpdated(q, titles));
     });
   }
@@ -183,7 +196,14 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     _pendingText = SearchQueryPolicy.normalize(event.query);
     _debouncer.runNow(_pendingText, (value) {
       if (isClosed) return;
-      add(_SearchRun(state.criteria.copyWith(text: value)));
+      // Text and genre do not compose — see [_onGenreSelected] — and `_fetch`
+      // enforces that by taking whichever is set, silently preferring the
+      // text. `copyWith` kept the active genre alive, so pressing the keyboard
+      // Search key with a filter chip on ran a PLAIN text search underneath a
+      // chip that said it was filtered. Typing the same query and waiting for
+      // the debounce did the right thing, because `_onQueryChanged` builds a
+      // genre-less criteria. Two ways to run the same search, two answers.
+      add(_SearchRun(SearchCriteria(text: value)));
     });
   }
 

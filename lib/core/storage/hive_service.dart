@@ -102,8 +102,27 @@ class HiveService {
     return saved.isEmpty ? AppConstants.defaultProviderId : saved;
   }
 
+  /// Fires whenever the current source changes, whoever changed it.
+  ///
+  /// [ProviderBloc] is registered as a FACTORY, so there is no single live
+  /// instance to dispatch a `ProviderSelect` to from outside the widget tree —
+  /// and three places did the only thing left to them and wrote the id
+  /// straight into Hive: the Shorts tab (twice, since a short may carry its
+  /// provider or have to fetch it) and the deep-link handler. The source
+  /// changed app-wide and nothing was told: the picker chip still named the
+  /// old source, Home was not reloaded, and the Search tab kept the previous
+  /// source's genre grid — whose tiles then browsed the NEW source with the
+  /// OLD source's slugs.
+  ///
+  /// So the notification lives at the write, where it cannot be forgotten.
+  final ValueNotifier<String> currentProviderChanged = ValueNotifier<String>('');
+
   Future<void> saveCurrentProvider(String providerId) async {
+    final before = getCurrentProvider();
     await _settingsBox.put(AppConstants.currentProviderKey, providerId);
+    // Only a real change, so a re-save of the same id does not reload
+    // everything for nothing.
+    if (before != providerId) currentProviderChanged.value = providerId;
   }
 
   String getPreOutageProvider() {

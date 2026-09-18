@@ -82,6 +82,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     super.initState();
     _navController = getIt<NavController>();
     _hiveService = getIt<HiveService>();
+    // The source can also change without ProviderBloc ever hearing: a Short
+    // and a deep link both carry one and write it straight to storage, because
+    // ProviderBloc is a factory and they have no live instance to tell. The
+    // listener below reloads the shell for those too — otherwise Home kept the
+    // old source's rows and Search kept the old source's genre grid, whose
+    // tiles then browsed the NEW source with the OLD source's slugs.
+    _hiveService.currentProviderChanged.addListener(_onProviderStored);
     // Reflect the persisted nav-style preference into the shared notifier the
     // nav listens to (so it renders correctly on first frame).
     NavPrefs.navStyle.value = _hiveService.navStyle;
@@ -152,10 +159,24 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     NavPrefs.tabOrder.removeListener(_onTabSetChange);
     ShowcaseView.getNamed(_showcaseScope).unregister();
     _tvRailScope.dispose();
+    _hiveService.currentProviderChanged.removeListener(_onProviderStored);
     for (final n in _tvTabScopes.values) {
       n.dispose();
     }
     super.dispose();
+  }
+
+  /// The source changed underneath us, outside [ProviderBloc].
+  void _onProviderStored() {
+    if (!mounted) return;
+    final newId = _hiveService.currentProviderChanged.value;
+    if (newId.isEmpty || _lastProviderId == newId) return;
+    // Null means the shell has not seen its first provider yet; the bloc's own
+    // listener owns that case and will do the initial load.
+    if (_lastProviderId == null) return;
+    _lastProviderId = newId;
+    context.read<HomeBloc>().add(HomeLoad(silent: true));
+    context.read<SearchBloc>().add(const SearchLoad());
   }
 
   void _onProviderStateChange(BuildContext context, ProviderState state) {

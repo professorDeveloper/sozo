@@ -235,6 +235,10 @@ class SearchRepositoryImp extends SearchRepository {
         () => mangayomi.search(provider.substring(3), query, page: page),
       );
     }
+    // Why the JS extractor said no, when it said no at all. Kept so that if
+    // the backend cannot answer either, the reader is told the real reason —
+    // a Cloudflare challenge, say — instead of whatever Dio then reports.
+    Object? jsFailure;
     if (js != null && provider != null) {
       // The JS runtime falls THROUGH to the backend when it has no answer, so
       // it cannot use _viaHost — but it can still be bounded.
@@ -244,18 +248,28 @@ class SearchRepositoryImp extends SearchRepository {
         );
         if (map != null) return Success(SearchModel.fromJson(map));
       } on TimeoutException {
-        return Failure(
-          Exception('$provider: no answer after ${_hostBudget.inSeconds}s'),
+        jsFailure = Exception(
+          '$provider: no answer after ${_hostBudget.inSeconds}s',
         );
       } catch (e) {
-        return Failure(Exception(e.toString()));
+        // A THROW used to end the search here, while a null fell through to
+        // the backend — two outcomes that mean the same thing to the reader,
+        // given opposite treatment. So a Cloudflare challenge that survived
+        // the one retry, a CDN hiccup fetching the extractor, or an extractor
+        // that simply has no search() turned the Search tab red for a provider
+        // the backend could have answered perfectly well. ProviderManager does
+        // the opposite for these same providers when resolving media: it logs
+        // and falls back to the server. This is now the same policy.
+        jsFailure = e;
       }
     }
     try {
       final result = await dataSource.searchMovies(query, page: page);
       return Success(result);
     } catch (e) {
-      return Failure(Exception(e.toString()));
+      // Both legs failed. The extractor's reason is the more specific one and
+      // the one the reader can act on, so it wins.
+      return Failure(Exception((jsFailure ?? e).toString()));
     }
   }
 }
