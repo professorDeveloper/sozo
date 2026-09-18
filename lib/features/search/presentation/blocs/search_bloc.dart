@@ -14,6 +14,7 @@ import 'package:soplay/features/search/domain/usecases/genre_usecase.dart';
 import 'package:soplay/features/search/domain/services/search_relevance.dart';
 import 'package:soplay/features/search/domain/usecases/search_usecase.dart';
 import 'package:soplay/features/search/presentation/blocs/search_query_policy.dart';
+import 'package:soplay/features/sources/domain/source_failure.dart';
 
 part 'search_event.dart';
 part 'search_state.dart';
@@ -228,6 +229,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       isLoadingMore: false,
       weakResults: false,
       clearError: true,
+      clearLoadMoreFailure: true,
     ));
 
     final result = await _fetch(criteria, 1);
@@ -243,8 +245,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       // over the last good results says the same thing without taking them.
       emit(state.copyWith(
         status: SearchStatus.error,
-        errorMessage: cleanFailureMessage(raw),
-        errorKind: classifySearchFailure(raw),
+        failure: SourceFailure.of(raw),
       ));
       return;
     }
@@ -320,17 +321,29 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         !state.hasMore) {
       return;
     }
+    // The scroll listener fires this on every frame within 300px of the
+    // bottom. Once a page has failed, that is the difference between one
+    // failed request and one per frame for as long as the reader stays there —
+    // so the automatic ones are refused until the footer's retry says
+    // otherwise.
+    if (state.loadMoreFailure != null && !event.retry) return;
 
     final token = ++_runToken;
     final criteria = state.criteria;
     final nextPage = state.page + 1;
-    emit(state.copyWith(isLoadingMore: true));
+    emit(state.copyWith(isLoadingMore: true, clearLoadMoreFailure: true));
 
     final result = await _fetch(criteria, nextPage);
     if (token != _runToken || isClosed) return;
 
     if (result.isError) {
-      emit(state.copyWith(isLoadingMore: false));
+      // Reported rather than swallowed. The spinner used to appear, vanish and
+      // leave nothing behind — no new rows, no reason, and every further
+      // scroll silently trying again.
+      emit(state.copyWith(
+        isLoadingMore: false,
+        loadMoreFailure: SourceFailure.of(result.getErrorOrNull()!.toString()),
+      ));
       return;
     }
 
@@ -351,6 +364,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       page: data.page,
       totalPages: data.totalPages,
       isLoadingMore: false,
+      clearLoadMoreFailure: true,
     ));
   }
 

@@ -1,9 +1,18 @@
 part of 'player_page.dart';
 
 extension _PlayerHistory on _PlayerPageState {
+  /// Starts the five-second tick that keeps the resume point current.
+  ///
+  /// Periodic, and that is the whole point of it. This was a one-shot `Timer`,
+  /// whose single callback landed at five seconds and hit the ten-second floor
+  /// in [_saveHistory] — so it wrote nothing, and nothing re-armed it. The only
+  /// other save was `dispose`. A viewer who started an episode and watched it
+  /// straight through was relying on the player being closed politely: lose
+  /// the network and kill the app, get killed by Android for memory, crash,
+  /// and the session left no trace at all. Which is exactly the report.
   void _scheduleHistorySave() {
     _historyTimer?.cancel();
-    _historyTimer = Timer(const Duration(seconds: 5), () {
+    _historyTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _saveHistory();
       // Deliberately not inside _saveHistory: that returns early for a
       // finished episode, a title with no url and a session under ten seconds,
@@ -11,6 +20,17 @@ extension _PlayerHistory on _PlayerPageState {
       // Discord profile.
       _publishDiscordPresence();
     });
+  }
+
+  /// Stops the tick, after one last save.
+  ///
+  /// Called when playback stops rather than letting the timer idle: the clock
+  /// behind [_bankWatchTime] is stopped too, so every further tick would bank
+  /// zero and rewrite the same row.
+  void _stopHistorySaves() {
+    _historyTimer?.cancel();
+    _historyTimer = null;
+    _saveHistory();
   }
 
   /// Tells Discord what is playing, if the viewer asked for that.
@@ -60,7 +80,7 @@ extension _PlayerHistory on _PlayerPageState {
   }
 
   void _saveHistory() {
-    if (_playbackWatch.elapsed.inSeconds < 10) return;
+    if (!WatchProgress.countsAsAViewing(_playbackWatch.elapsed)) return;
 
     // Time watched since the last save, banked before anything can return
     // early. History skips a finished episode and a title with no url; the

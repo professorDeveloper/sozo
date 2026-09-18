@@ -1393,7 +1393,7 @@ extension _PlayerMedia on _PlayerPageState {
         _scheduleHistorySave();
       } else {
         _playbackWatch.stop();
-        _saveHistory();
+        _stopHistorySaves();
       }
     }
     if (!_streakPingScheduled && _playbackWatch.elapsed.inSeconds >= 60) {
@@ -1518,6 +1518,20 @@ extension _PlayerMedia on _PlayerPageState {
   Future<void> _autoRetry() async {
     if (!mounted) return;
 
+    // Where they were, read before anything tears the controller down.
+    //
+    // A recoverable error is usually a connection that went away — a lift, a
+    // tunnel, a handover — and the viewer has not asked to start again. Every
+    // branch below re-initialises, and until this was captured all three did
+    // it at zero: a drop thirty-eight minutes into an episode restarted it,
+    // and then the five-second save wrote 0:05 over the position on disk and
+    // `dispose`'s sync pushed that to every other device. Quality and language
+    // switches have always carried the position through; a retry is the same
+    // move for a worse reason.
+    final keepPosition = _isLive
+        ? Duration.zero
+        : (_controller?.value.position ?? Duration.zero);
+
     // Every remaining mirror, in ladder order — not `+ 1` once and done.
     _markCurrentTried();
     final nextIdx = _ladder(
@@ -1554,6 +1568,7 @@ extension _PlayerMedia on _PlayerPageState {
             ? next.headers
             : (_headers.isNotEmpty ? _headers : widget.args.headers),
         type: _typeOf(next),
+        resumeAt: keepPosition,
       );
       if (mounted && generation == _mediaGeneration) _autoRetrying = false;
       return;
@@ -1572,7 +1587,11 @@ extension _PlayerMedia on _PlayerPageState {
     if (!mounted || generation != _mediaGeneration) return;
     if (widget.args.isSerial) {
       _autoRetrying = false;
-      await _loadEpisode(_episodeIndex, keepRetryCount: true);
+      await _loadEpisode(
+        _episodeIndex,
+        keepRetryCount: true,
+        resumeAt: keepPosition,
+      );
       return;
     } else if (_videoUrl != null) {
       if (!mounted || generation != _mediaGeneration) return;
@@ -1581,6 +1600,7 @@ extension _PlayerMedia on _PlayerPageState {
         url: _videoUrl!,
         headers: _headers,
         type: _mediaType,
+        resumeAt: keepPosition,
       );
     } else {
       _autoRetrying = false;
@@ -1649,8 +1669,15 @@ extension _PlayerMedia on _PlayerPageState {
   }
 
   Future<void> _retry() async {
+    // Read the position before the reload tears the controller down: a manual
+    // retry is nearly always a mid-episode drop-out, and reloading from zero
+    // would throw away however far the viewer had got. A live stream has no
+    // meaningful position to come back to, so it starts at the edge.
+    final keepPosition = _isLive
+        ? Duration.zero
+        : (_controller?.value.position ?? Duration.zero);
     if (widget.args.isSerial) {
-      await _loadEpisode(_episodeIndex);
+      await _loadEpisode(_episodeIndex, resumeAt: keepPosition);
     } else if (_videoUrl != null) {
       setState(() {
         _initializing = true;
@@ -1665,6 +1692,7 @@ extension _PlayerMedia on _PlayerPageState {
         url: _videoUrl!,
         headers: _headers,
         type: _mediaType,
+        resumeAt: keepPosition,
       );
     }
   }

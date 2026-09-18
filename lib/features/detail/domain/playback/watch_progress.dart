@@ -28,6 +28,21 @@ class WatchProgress {
   /// much lower either — an abandoned episode should not be marked finished.
   static const double watchedThreshold = 0.85;
 
+  /// How long a viewing has to last before it is worth remembering.
+  ///
+  /// Opening the wrong title, or bouncing off a source that turns out to be
+  /// dead, should not leave a row on the Continue watching shelf. Ten seconds
+  /// is past both.
+  static const int minimumSessionSeconds = 10;
+
+  /// Whether a session of [elapsed] watched time is worth writing down.
+  ///
+  /// Takes the wall clock, not the stream position: a viewer who opened an
+  /// episode at minute thirty and left two seconds later watched two seconds,
+  /// and resuming them at minute thirty would be a lie the shelf tells.
+  static bool countsAsAViewing(Duration elapsed) =>
+      elapsed.inSeconds >= minimumSessionSeconds;
+
   /// Episodes already reported this session, so a tracker hears once.
   final Set<int> _reported = <int>{};
 

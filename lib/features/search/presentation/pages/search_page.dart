@@ -232,6 +232,9 @@ class _SearchViewState extends State<_SearchView> {
                   bottomPad: bottomPad,
                   onRetry: () =>
                       context.read<SearchBloc>().add(const SearchRetry()),
+                  onRetryMore: () => context.read<SearchBloc>().add(
+                    const SearchLoadMore(retry: true),
+                  ),
                   onRefresh: _refresh,
                   onSuggestion: _runQuery,
                   onGenre: (genre) => context.read<SearchBloc>().add(

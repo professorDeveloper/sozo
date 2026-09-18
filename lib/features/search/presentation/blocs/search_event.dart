@@ -28,7 +28,16 @@ class SearchGenreSelected extends SearchEvent {
 }
 
 class SearchLoadMore extends SearchEvent {
-  const SearchLoadMore();
+  const SearchLoadMore({this.retry = false});
+
+  /// Set only by the footer's retry control.
+  ///
+  /// Scrolling near the bottom fires this event on every frame of the scroll,
+  /// so once a page has failed the bloc has to refuse the automatic ones —
+  /// otherwise a source that is down turns one flick of the thumb into an
+  /// unbounded request loop. The refusal has to be lifted by something, and
+  /// this is it: a deliberate tap, not another pixel of scroll.
+  final bool retry;
 }
 
 /// Re-runs the operation that actually failed, not the genres call.

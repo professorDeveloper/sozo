@@ -10,6 +10,7 @@ import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.da
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
 import 'package:soplay/features/search/presentation/widgets/search_landing.dart';
 import 'package:soplay/features/search/presentation/widgets/search_result_card.dart';
+import 'package:soplay/features/sources/domain/source_failure.dart';
 
 class SearchContentView extends StatelessWidget {
   const SearchContentView({
@@ -19,6 +20,7 @@ class SearchContentView extends StatelessWidget {
     required this.topPad,
     required this.bottomPad,
     required this.onRetry,
+    required this.onRetryMore,
     required this.onRefresh,
     required this.onSuggestion,
     required this.onGenre,
@@ -33,6 +35,11 @@ class SearchContentView extends StatelessWidget {
   final double topPad;
   final double bottomPad;
   final VoidCallback onRetry;
+
+  /// Asks for the next page again after one failed. Separate from [onRetry]:
+  /// that re-runs the whole search from page one and would throw away every
+  /// row the reader has already scrolled past.
+  final VoidCallback onRetryMore;
 
   /// Runs the same search again and completes when it has landed. The
   /// indicator holds its spinner for as long as this future does, so it has to
@@ -104,7 +111,7 @@ class SearchContentView extends StatelessWidget {
           return [
             SliverToBoxAdapter(
               child: _SearchErrorBanner(
-                message: state.errorMessage,
+                message: state.failure?.headline ?? '',
                 onRetry: onRetry,
               ),
             ),
@@ -115,8 +122,7 @@ class SearchContentView extends StatelessWidget {
           SliverFillRemaining(
             hasScrollBody: false,
             child: _SearchErrorView(
-              kind: state.errorKind,
-              message: state.errorMessage,
+              failure: state.failure,
               onRetry: onRetry,
             ),
           ),
@@ -176,9 +182,54 @@ class SearchContentView extends StatelessWidget {
                   ),
                 ),
               ),
+            )
+          else if (state.loadMoreFailure != null)
+            SliverToBoxAdapter(
+              child: _LoadMoreFailedFooter(
+                failure: state.loadMoreFailure!,
+                onRetry: onRetryMore,
+              ),
             ),
         ];
     }
+  }
+}
+
+/// The end of the list, when the next page did not arrive.
+///
+/// Where the spinner was. It has to be as quiet as the spinner it replaces —
+/// the results above it are fine and the reader is in the middle of reading
+/// them — but it has to be there, because the alternative is what shipped: a
+/// spinner that appeared, vanished and left the reader to work out whether the
+/// list had ended or the source had.
+class _LoadMoreFailedFooter extends StatelessWidget {
+  const _LoadMoreFailedFooter({required this.failure, required this.onRetry});
+
+  final SourceFailure failure;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 16, 32, 28),
+      child: Column(
+        children: [
+          Text(
+            failure.headline,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textHint, fontSize: 12.5),
+          ),
+          const SizedBox(height: 12),
+          _ActionChip(
+            icon: Icons.refresh_rounded,
+            label: 'search.load_more'.tr(),
+            onTap: onRetry,
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -506,31 +557,32 @@ class _DidYouMean extends StatelessWidget {
 }
 
 class _SearchErrorView extends StatelessWidget {
-  const _SearchErrorView({
-    required this.kind,
-    required this.message,
-    required this.onRetry,
-  });
+  const _SearchErrorView({required this.failure, required this.onRetry});
 
-  final SearchFailureKind kind;
-  final String message;
+  final SourceFailure? failure;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final (icon, title) = switch (kind) {
-      SearchFailureKind.network => (
-        Icons.wifi_off_rounded,
-        'errors.network'.tr(),
-      ),
-      SearchFailureKind.source => (
-        Icons.extension_off_rounded,
-        'search.source_failed'.tr(),
-      ),
-      SearchFailureKind.unknown => (
-        Icons.error_outline_rounded,
-        'search.search_failed'.tr(),
-      ),
+    final kind = failure?.kind ?? SourceFailureKind.unknown;
+    // The headline is already a sentence for every kind the classifier
+    // recognises, so it IS the title; `detail` is the raw line that used to be
+    // the title. For an unrecognised failure there is no sentence to show, and
+    // a generic one over a technical line still beats the line alone.
+    final title = kind == SourceFailureKind.unknown
+        ? 'search.search_failed'.tr()
+        : (failure?.headline ?? 'search.search_failed'.tr());
+    final message = kind == SourceFailureKind.unknown
+        ? (failure?.headline ?? '')
+        : (failure?.detail ?? '');
+    final icon = switch (kind) {
+      SourceFailureKind.unreachable => Icons.wifi_off_rounded,
+      SourceFailureKind.gone => Icons.link_off_rounded,
+      SourceFailureKind.blocked => Icons.shield_outlined,
+      SourceFailureKind.rateLimited => Icons.hourglass_empty_rounded,
+      SourceFailureKind.incompatible => Icons.system_update_alt_rounded,
+      SourceFailureKind.broken => Icons.extension_off_rounded,
+      SourceFailureKind.unknown => Icons.error_outline_rounded,
     };
 
     return Padding(
@@ -548,7 +600,8 @@ class _SearchErrorView extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          if (message.isNotEmpty && kind != SearchFailureKind.network) ...[
+          if (message.isNotEmpty &&
+              kind != SourceFailureKind.unreachable) ...[
             const SizedBox(height: 8),
             Text(
               message,

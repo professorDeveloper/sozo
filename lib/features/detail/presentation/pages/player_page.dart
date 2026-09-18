@@ -608,6 +608,12 @@ class _PlayerPageState extends State<PlayerPage>
           _resumeAfterPause = true;
           c.pause();
         }
+        // Backgrounded is the last callback Android reliably delivers before
+        // it is free to kill the process, and `dispose` is not delivered at
+        // all when it does. Keeping playing in PiP or on the desktop does not
+        // reach the pause above either, so the flush is unconditional: at
+        // worst it rewrites a row the tick just wrote.
+        _saveHistory();
         break;
       case AppLifecycleState.resumed:
         if (_isPip && mounted) {
@@ -619,6 +625,8 @@ class _PlayerPageState extends State<PlayerPage>
         _resumeAfterPause = false;
         break;
       case AppLifecycleState.detached:
+        // The engine is going away and dispose may never run. Last chance.
+        _saveHistory();
         break;
     }
   }

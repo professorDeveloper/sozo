@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:equatable/equatable.dart';
 
 /// What a source failure says, and what it says underneath.
 ///
@@ -42,7 +43,10 @@ enum SourceFailureKind {
   unknown,
 }
 
-class SourceFailure {
+/// Equatable because blocs carry one in their state: two failures that say the
+/// same thing are the same state, and without this every rebuild compared by
+/// identity and reported a change.
+class SourceFailure extends Equatable {
   const SourceFailure({
     required this.headline,
     this.detail,
@@ -56,6 +60,9 @@ class SourceFailure {
   /// The original message, when the headline is a translation of it rather
   /// than the thing itself.
   final String? detail;
+
+  @override
+  List<Object?> get props => [headline, detail, kind];
 
   static SourceFailure of(String? raw) {
     // "Exception: " is Dart's own toString talking, not the source. It was
@@ -97,6 +104,13 @@ class SourceFailure {
       );
     }
     // Never reached it at all.
+    //
+    // Two vocabularies, because a source failure arrives in whichever language
+    // the layer that threw it speaks. The first group is the JVM's, from an
+    // extension running on Android; the second is Dart's and Dio's, from the
+    // app's own client. Only the first was here, so every failure raised on
+    // the Dart side of the line — being offline, most of all — fell through to
+    // `unknown` and put a `DioException` on the screen.
     if (lower.contains('unknownhost') ||
         lower.contains('unable to resolve host') ||
         lower.contains('sockettimeout') ||
@@ -104,7 +118,18 @@ class SourceFailure {
         lower.contains('connectexception') ||
         lower.contains('failed to connect') ||
         lower.contains('sslexception') ||
-        lower.contains('sslhandshake')) {
+        lower.contains('sslhandshake') ||
+        lower.contains('socketexception') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('connection error') ||
+        lower.contains('connection refused') ||
+        lower.contains('connection closed') ||
+        lower.contains('connection reset') ||
+        lower.contains('network is unreachable') ||
+        lower.contains('no address associated') ||
+        lower.contains('handshakeexception') ||
+        lower.contains('timeout') ||
+        lower.contains('timed out')) {
       return SourceFailure(
         headline: 'sources.fail_unreachable'.tr(),
         detail: text,
