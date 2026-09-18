@@ -84,6 +84,12 @@ class StreakService {
 
   Future<StreakPingResult?> ping() async {
     if (!_hive.isLoggedIn) return null;
+    // Incognito reaches the server too, and here more than anywhere. A ping
+    // writes "watched today" onto the account — the one record of a private
+    // session the viewer cannot go and clear afterwards. Suppressing local
+    // history while still telling the backend they were here would make the
+    // promise false in exactly the place it matters.
+    if (_hive.isIncognito) return null;
     final today = _todayLocal();
     if (_lastPingDay == today) return null;
     try {

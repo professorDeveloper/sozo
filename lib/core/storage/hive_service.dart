@@ -587,7 +587,12 @@ class HiveService {
   }
 
   /// Bounded: a history of everything ever watched is not a shortcut any more.
-  Future<void> pushLiveTvRecent(String id) {
+  ///
+  /// Nothing in incognito. This is history by another name — it is drawn on
+  /// the home screen as a row of channels you were just watching — and it was
+  /// the only shelf in the app the mode did not cover.
+  Future<void> pushLiveTvRecent(String id) async {
+    if (isIncognito) return;
     final ids = [
       id,
       ...getLiveTvRecent().where((e) => e != id),

@@ -5,6 +5,7 @@ import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
+import 'package:soplay/features/anilist/domain/entities/tracker_lookup.dart';
 
 /// Turns "an episode finished playing" into "AniList knows about it".
 ///
@@ -108,12 +109,17 @@ class AnilistTracker {
     // Which half of AniList to look in, taken from the source: a reader's
     // title is not in the anime index at all, so searching it there would
     // fail every time and then be remembered as hopeless.
-    final match = await findExactMatch(
+    final lookup = await lookUpExactMatch(
       title,
       type: provider.contentMode == ContentMode.video ? 'ANIME' : 'MANGA',
     );
+    final match = lookup.value;
     if (match == null) {
-      _autoMatchFailed.add(key);
+      // Only an answer of "nothing matches" is a fact about the title. A
+      // request that never landed is a fact about the network, and recording
+      // it here would stop this title ever auto-linking again for the life of
+      // the process — the next episode simply tries again instead.
+      if (lookup.isSettledMiss) _autoMatchFailed.add(key);
       return null;
     }
 
@@ -145,12 +151,21 @@ class AnilistTracker {
   ///
   /// [type] defaults to ANIME because that is what the MyAnimeList tracker
   /// borrows this for, and MAL numbers manga separately.
-  Future<AnilistMedia?> findExactMatch(
+  Future<AnilistMedia?> findExactMatch(String title, {String type = 'ANIME'}) =>
+      lookUpExactMatch(title, type: type).then((r) => r.value);
+
+  /// The same search, keeping the difference between "AniList has nothing like
+  /// this" and "AniList did not answer".
+  ///
+  /// [findExactMatch] throws that difference away, which is fine for a caller
+  /// that only wants the media and not fine for one deciding whether to give
+  /// up on a title permanently.
+  Future<TrackerLookup<AnilistMedia>> lookUpExactMatch(
     String title, {
     String type = 'ANIME',
   }) async {
     final wanted = normalizeTitle(title);
-    if (wanted.isEmpty) return null;
+    if (wanted.isEmpty) return const TrackerLookup.noMatch();
     try {
       final results = await _service.api.searchMedia(
         title,
@@ -159,13 +174,17 @@ class AnilistTracker {
       );
       for (final media in results) {
         for (final candidate in media.searchTitles) {
-          if (normalizeTitle(candidate) == wanted) return media;
+          if (normalizeTitle(candidate) == wanted) {
+            return TrackerLookup.found(media);
+          }
         }
       }
+      // AniList answered. Whatever it sent back, none of it is this title.
+      return const TrackerLookup.noMatch();
     } catch (e) {
       debugPrint('$_tag auto-match failed for "$title": $e');
+      return const TrackerLookup.unreachable();
     }
-    return null;
   }
 
   /// Reads the account's current position, then writes only if this episode is
