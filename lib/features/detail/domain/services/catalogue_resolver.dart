@@ -190,7 +190,6 @@ class CatalogueResolver {
         alternates.find(
           title: title,
           excludeProvider: '',
-          category: '',
           candidates: candidates,
           onOutcome: onOutcome,
         ),

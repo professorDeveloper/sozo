@@ -202,6 +202,7 @@
     "speed_short": "速度",
     "aspect": "比例",
     "aspect_ratio": "畫面比例",
+    "speed_now": "速度：{}",
     "subtitle_style": "字幕樣式",
     "audio_track": "音軌",
     "shortcuts_title": "鍵盤快捷鍵",

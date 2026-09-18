@@ -12,6 +12,7 @@ import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/domain/usecases/get_providers_usecase.dart';
 import 'package:soplay/features/search/domain/entities/cross_search_result.dart';
 import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
+import 'package:soplay/core/content/content_mode.dart';
 
 /// One other source that appears to carry the same title.
 class AlternateSource {
@@ -108,7 +109,15 @@ class AlternateSourceService {
   Stream<AlternateSource> find({
     required String title,
     required String excludeProvider,
-    required String category,
+    /// The provider the title is being read on. Its id, not its category:
+    /// the kind is derived from the id because that is the only value that is
+    /// unambiguous for catalogues and extensions alike — see [_kindAllows].
+    ///
+    /// Empty means "do not filter": the catalogue resolver has already chosen
+    /// its candidates by [ContentMode] before calling, and filtering a second
+    /// time on a provider it does not have would only be able to take sources
+    /// away that it deliberately put in.
+    String titleProvider = '',
     List<ProviderEntity>? candidates,
     void Function(AlternateSearchOutcome outcome)? onOutcome,
   }) async* {
@@ -135,7 +144,7 @@ class AlternateSourceService {
         .where((p) {
           if (p.id == excludeProvider) return false;
           if (p.browseOnly) return false;
-          if (!_categoryAllows(category, p.category)) return false;
+          if (!_kindAllows(titleProvider, p.id)) return false;
           return true;
         })
         .map(ProviderRef.fromEntity)
@@ -224,23 +233,38 @@ class AlternateSourceService {
     );
   }
 
-  /// Whether a provider's category is compatible with the title's.
+  /// Whether a candidate can carry the kind of thing the title IS.
   ///
-  /// Only content categories are comparable. Extension providers are stamped
-  /// with their ECOSYSTEM — `cloudstream`, `aniyomi`, `manga`, `mangayomi` —
-  /// and comparing one of those against `anime` excluded every installed source
-  /// on a value that was never a category in the first place.
-  static const Set<String> _ecosystems = {
-    'cloudstream',
-    'aniyomi',
-    'manga',
-    'mangayomi',
-  };
+  /// This compared `category` strings, and that was wrong twice over.
+  ///
+  /// `category` holds a content category for a backend provider (`anime`,
+  /// `movies`, `tmdb`) but an ECOSYSTEM for an extension (`cloudstream`,
+  /// `aniyomi`, `manga`, `mangayomi`). The old rule waved through any pair
+  /// where either side was an ecosystem, on the reasoning that an ecosystem
+  /// says nothing about content — and `manga` is BOTH a content category and
+  /// an ecosystem name. So for a manga title the test short-circuited to true
+  /// and the sheet offered every video source in the app. On a catalogue title
+  /// it was worse: `providerCategory` looks a catalogue up in the backend list,
+  /// does not find it, and returns `''` — which the first line waved through
+  /// as well. Two different routes to no filtering at all, on exactly the
+  /// titles where it matters.
+  ///
+  /// The reasoning was also wrong on its own terms: an ecosystem says precisely
+  /// what a source carries. CloudStream and Aniyomi are video, MangaHost and
+  /// Mangayomi are read. [String.contentMode] already encodes all of that —
+  /// catalogues, ecosystems and Mangayomi's novel index — so the comparison is
+  /// made on the thing the app already knows instead of on a string that means
+  /// two things.
+  ///
+  /// Manga and novel are one group. A light novel is routinely carried by a
+  /// comic source, and the catalogue resolver already relies on that fallback;
+  /// splitting them here would empty the sheet for novels.
+  static bool _isRead(ContentMode m) =>
+      m == ContentMode.manga || m == ContentMode.novel;
 
-  static bool _categoryAllows(String want, String have) {
-    if (want.isEmpty || have.isEmpty) return true;
-    if (_ecosystems.contains(want) || _ecosystems.contains(have)) return true;
-    return want == have;
+  static bool _kindAllows(String wantId, String haveId) {
+    if (wantId.isEmpty || haveId.isEmpty) return true;
+    return _isRead(wantId.contentMode) == _isRead(haveId.contentMode);
   }
 
   /// Best match for [title] among [items], or null when none is close enough.

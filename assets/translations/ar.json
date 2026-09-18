@@ -202,6 +202,7 @@
     "speed_short": "السرعة",
     "aspect": "الأبعاد",
     "aspect_ratio": "نسبة الأبعاد",
+    "speed_now": "السرعة: {}",
     "subtitle_style": "شكل الترجمة",
     "audio_track": "المسار الصوتي",
     "diagnostics_logs": "التشخيص / السجلات",

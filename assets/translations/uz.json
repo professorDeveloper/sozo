@@ -202,6 +202,7 @@
     "speed_short": "Tezlik",
     "aspect": "Nisbat",
     "aspect_ratio": "Tomonlar nisbati",
+    "speed_now": "Tezlik: {}",
     "subtitle_style": "Subtitr uslubi",
     "audio_track": "Audio yo'lak",
     "diagnostics_logs": "Diagnostika / Loglar",

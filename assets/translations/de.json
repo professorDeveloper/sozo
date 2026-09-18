@@ -202,6 +202,7 @@
     "speed_short": "Tempo",
     "aspect": "Format",
     "aspect_ratio": "Seitenverhältnis",
+    "speed_now": "Geschwindigkeit: {}",
     "subtitle_style": "Untertitelstil",
     "audio_track": "Tonspur",
     "diagnostics_logs": "Diagnose / Protokolle",

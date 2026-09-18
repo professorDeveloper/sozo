@@ -289,6 +289,40 @@ extension _PlayerControls on _PlayerPageState {
     setState(() => _fit = fit);
   }
 
+  /// The values the speed button steps through, in the order a thumb wants
+  /// them: normal first, then faster, and the slow ones last.
+  static const List<double> _kSpeedCycle = [1.0, 1.25, 1.5, 2.0, 0.75, 0.5];
+
+  /// One step up the speed ladder, wrapping.
+  ///
+  /// Tapping this used to open a full sheet over the video — in landscape,
+  /// over the thing you are watching — to choose from six values, when what
+  /// almost every tap means is "a bit faster". Now the tap takes the step and a
+  /// toast says where it landed; a long press still opens the list for jumping
+  /// straight to 2x.
+  Future<void> _cycleSpeed() async {
+    final i = _kSpeedCycle.indexWhere((s) => (s - _playbackSpeed).abs() < 0.01);
+    final next = _kSpeedCycle[(i < 0 ? 0 : i + 1) % _kSpeedCycle.length];
+    await _setSpeed(next);
+    if (!mounted) return;
+    _toast(
+      'player.speed_now'.tr(args: [_speedLabel(next)]),
+      icon: Icons.speed_rounded,
+    );
+  }
+
+  String _speedLabel(double s) =>
+      s == 1.0 ? '1x' : '${s.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')}x';
+
+  /// The next fill mode, wrapping. Three of them, so stepping is the whole
+  /// interaction and the sheet was pure overhead.
+  void _cycleFit() {
+    final next =
+        _PlayerFit.values[(_fit.index + 1) % _PlayerFit.values.length];
+    _setFit(next);
+    _toast(_fitLabel(next), icon: Icons.aspect_ratio_rounded);
+  }
+
   String _fitLabel(_PlayerFit fit) {
     switch (fit) {
       case _PlayerFit.contain:
@@ -948,7 +982,7 @@ extension _PlayerControls on _PlayerPageState {
                               // that is an unrecoverable state.
                               if (isTvPlatform) ...[
                                 _IconButton(
-                                  icon: Icons.subtitles_rounded,
+                                  icon: Icons.closed_caption_rounded,
                                   onTap: _openSubtitleSheet,
                                 ),
                                 const SizedBox(width: 2),
@@ -980,7 +1014,7 @@ extension _PlayerControls on _PlayerPageState {
                                 if (hasEpisodes) ...[
                                   const SizedBox(width: 2),
                                   _IconButton(
-                                    icon: Icons.video_library_rounded,
+                                    icon: Icons.playlist_play_rounded,
                                     onTap: () =>
                                         _openPanel(_SidePanel.episodes),
                                   ),
@@ -1221,7 +1255,7 @@ extension _PlayerControls on _PlayerPageState {
                       onTap: _openSpeedSheet,
                     ),
                     _IconButton(
-                      icon: Icons.subtitles_rounded,
+                      icon: Icons.closed_caption_rounded,
                       onTap: _openSubtitleSheet,
                     ),
                     const SizedBox(width: 4),
@@ -1246,7 +1280,7 @@ extension _PlayerControls on _PlayerPageState {
                     if (hasEpisodes) ...[
                       const SizedBox(width: 4),
                       _IconButton(
-                        icon: Icons.video_library_rounded,
+                        icon: Icons.playlist_play_rounded,
                         onTap: () => _openPanel(_SidePanel.episodes),
                       ),
                     ],
@@ -1531,7 +1565,7 @@ extension _PlayerControls on _PlayerPageState {
         );
       case 'subtitles':
         return _IconButton(
-          icon: Icons.subtitles_rounded,
+          icon: Icons.closed_caption_rounded,
           onTap: _openSubtitleSheet,
         );
       case 'settings':
@@ -1541,9 +1575,7 @@ extension _PlayerControls on _PlayerPageState {
         );
       case 'orientation':
         return _IconButton(
-          icon: _isPortrait
-              ? Icons.stay_current_landscape_rounded
-              : Icons.stay_current_portrait_rounded,
+          icon: Icons.screen_rotation_rounded,
           onTap: _toggleOrientation,
         );
       case 'lock':
@@ -1567,7 +1599,11 @@ extension _PlayerControls on _PlayerPageState {
           onTap: () => setState(() => _showPlayerInfo = !_showPlayerInfo),
         );
       case 'speed':
-        return _IconButton(icon: Icons.speed_rounded, onTap: _openSpeedSheet);
+        return _IconButton(
+          icon: Icons.speed_rounded,
+          onTap: _cycleSpeed,
+          onLongPress: _openSpeedSheet,
+        );
       case 'server':
         if (!a.hasServers) return null;
         return _IconButton(icon: Icons.dns_rounded, onTap: _openServerSheet);
@@ -1580,7 +1616,7 @@ extension _PlayerControls on _PlayerPageState {
       case 'episodes':
         if (!a.hasEpisodes) return null;
         return _IconButton(
-          icon: Icons.video_library_rounded,
+          icon: Icons.playlist_play_rounded,
           onTap: () => _openPanel(_SidePanel.episodes),
         );
       case 'previous':
@@ -1607,7 +1643,8 @@ extension _PlayerControls on _PlayerPageState {
       case 'fit':
         return _IconButton(
           icon: Icons.aspect_ratio_rounded,
-          onTap: _openFitSheet,
+          onTap: _cycleFit,
+          onLongPress: _openFitSheet,
         );
       case 'sleep':
         if (_isLive) return null;
@@ -1637,7 +1674,7 @@ extension _PlayerControls on _PlayerPageState {
         // tap that did nothing.
         if (!isAndroidPlatform) return null;
         return _IconButton(
-          icon: Icons.picture_in_picture_alt_rounded,
+          icon: Icons.picture_in_picture_rounded,
           onTap: _enterPip,
         );
       case 'download':
@@ -1729,7 +1766,7 @@ extension _PlayerControls on _PlayerPageState {
         return _BottomTextButton(
           // The same glyph the top bar draws. A control that changes its face
           // when the viewer moves it stops being the control they moved.
-          icon: Icons.video_library_rounded,
+          icon: Icons.playlist_play_rounded,
           label: 'player.episodes'.tr(),
           compact: compact,
           enabled: true,

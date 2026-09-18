@@ -202,6 +202,7 @@
     "speed_short": "Kecepatan",
     "aspect": "Rasio",
     "aspect_ratio": "Rasio aspek",
+    "speed_now": "Kecepatan: {}",
     "subtitle_style": "Gaya subtitle",
     "audio_track": "Trek audio",
     "diagnostics_logs": "Diagnostik / log",

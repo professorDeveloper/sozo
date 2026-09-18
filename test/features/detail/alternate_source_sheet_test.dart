@@ -49,7 +49,7 @@ class _Service implements AlternateSourceService {
   Stream<AlternateSource> find({
     required String title,
     required String excludeProvider,
-    required String category,
+    String titleProvider = '',
     List<ProviderEntity>? candidates,
     void Function(AlternateSearchOutcome outcome)? onOutcome,
   }) async* {
@@ -603,7 +603,7 @@ class _Slow implements AlternateSourceService {
   Stream<AlternateSource> find({
     required String title,
     required String excludeProvider,
-    required String category,
+    String titleProvider = '',
     List<ProviderEntity>? candidates,
     void Function(AlternateSearchOutcome outcome)? onOutcome,
   }) => _open.stream;
@@ -618,7 +618,7 @@ class _Silent implements AlternateSourceService {
   Stream<AlternateSource> find({
     required String title,
     required String excludeProvider,
-    required String category,
+    String titleProvider = '',
     List<ProviderEntity>? candidates,
     void Function(AlternateSearchOutcome outcome)? onOutcome,
   }) async* {}

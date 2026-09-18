@@ -261,11 +261,20 @@ class _IconButton extends StatelessWidget {
   const _IconButton({
     required this.icon,
     required this.onTap,
+    this.onLongPress,
     this.color,
     this.enabled = true,
   });
   final IconData icon;
   final VoidCallback onTap;
+
+  /// The long way round, for a control whose tap is a shortcut.
+  ///
+  /// Speed and aspect ratio both used to open a full sheet over the video for
+  /// what is, nine times out of ten, "one step up". The tap now takes that step
+  /// and says so in a toast; this is how the full list is still reached when
+  /// somebody wants to jump straight to 2x.
+  final VoidCallback? onLongPress;
 
   /// Dimmed and inert rather than absent.
   ///
@@ -313,6 +322,7 @@ class _IconButton extends StatelessWidget {
           shape: const CircleBorder(),
           child: InkWell(
             onTap: enabled ? onTap : null,
+            onLongPress: enabled ? onLongPress : null,
             customBorder: const CircleBorder(),
             child: Center(
               child: Container(

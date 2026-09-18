@@ -202,6 +202,7 @@
     "speed_short": "Hız",
     "aspect": "Oran",
     "aspect_ratio": "En boy oranı",
+    "speed_now": "Hız: {}",
     "subtitle_style": "Altyazı stili",
     "audio_track": "Ses parçası",
     "diagnostics_logs": "Tanılama / günlükler",

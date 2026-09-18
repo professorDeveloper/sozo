@@ -202,6 +202,7 @@
     "speed_short": "Скорость",
     "aspect": "Формат",
     "aspect_ratio": "Соотношение сторон",
+    "speed_now": "Скорость: {}",
     "subtitle_style": "Стиль субтитров",
     "audio_track": "Аудиодорожка",
     "diagnostics_logs": "Диагностика / Логи",

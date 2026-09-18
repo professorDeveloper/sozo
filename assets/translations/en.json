@@ -202,6 +202,7 @@
     "speed_short": "Speed",
     "aspect": "Aspect",
     "aspect_ratio": "Aspect ratio",
+    "speed_now": "Speed: {}",
     "subtitle_style": "Subtitle style",
     "audio_track": "Audio track",
     "shortcuts_title": "Keyboard shortcuts",

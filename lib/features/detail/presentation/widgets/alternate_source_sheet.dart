@@ -163,6 +163,14 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// list is a network call, and without this a second tap starts a second one.
   String? _preparing;
 
+  /// The source whose Play just failed, and what to say about it.
+  ///
+  /// Shown ON the tile. This used to be a snackbar — which a modal bottom sheet
+  /// covers, so the one thing that explained why nothing happened was drawn
+  /// underneath the sheet the viewer was looking at. From the outside it was a
+  /// Play button that did nothing at all.
+  ({String provider, String message})? _failed;
+
   /// How the run ended, so the empty state can say which kind of empty.
   AlternateSearchOutcome? _outcome;
 
@@ -195,7 +203,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
         .find(
           title: widget.title,
           excludeProvider: widget.provider,
-          category: widget.category,
+          titleProvider: widget.provider,
           candidates: _candidates.isEmpty ? null : _candidates,
           onOutcome: (o) {
             if (mounted) setState(() => _outcome = o);
@@ -351,7 +359,10 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
 
   Future<void> _pick(AlternateSource source) async {
     if (_preparing != null) return;
-    setState(() => _preparing = source.provider.id);
+    setState(() {
+      _preparing = source.provider.id;
+      _failed = null;
+    });
     final args = await getIt<AlternateSourceService>().buildArgs(
       source: source,
       episodeNumber: widget.episodeNumber,
@@ -359,20 +370,17 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     );
     if (!mounted) return;
     if (args == null) {
-      setState(() => _preparing = null);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.episodeNumber != null
-                // The common failure, and worth naming precisely: the source
-                // has the show but not this episode number.
-                ? 'player.alt_no_episode'.tr(args: ['${widget.episodeNumber}'])
-                : 'player.alt_failed'.tr(),
-          ),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      setState(() {
+        _preparing = null;
+        _failed = (
+          provider: source.provider.id,
+          message: widget.episodeNumber != null
+              // The common failure, and worth naming precisely: the source has
+              // the show but not this episode number.
+              ? 'player.alt_no_episode'.tr(args: ['${widget.episodeNumber}'])
+              : 'player.alt_failed'.tr(),
+        );
+      });
       return;
     }
     Navigator.of(context).pop(args);
@@ -503,6 +511,9 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   Widget _matchTile(_Row row) {
     final busy = _preparing == row.provider.id;
     final enabled = _preparing == null;
+    final failure = _failed?.provider == row.provider.id
+        ? _failed!.message
+        : null;
     final poster = row.source.item.thumbnail;
     // Deliberately NOT an ExcludeSemantics over the whole tile: the "Wrong
     // title?" control and the confidence pill each have something of their own
@@ -583,6 +594,43 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
                       start: 4,
                       child: Wrap(spacing: 4, children: _badge(row)),
                     ),
+                    // On the tile that failed, over its own poster, where the
+                    // finger already is.
+                    if (failure != null)
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.82),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline_rounded,
+                                  color: Colors.white70,
+                                  size: 22,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  failure,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 4,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    height: 1.25,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     // The escape hatch keeps its own target in the corner: the
                     // tile's own tap is still "play this", and a cover that
                     // opened a search when somebody meant to watch would be a

@@ -72,14 +72,15 @@ MovieEntity _movie(String title) => MovieEntity(
   category: 'anime',
 );
 
-ProviderEntity _provider(String id) => ProviderEntity(
+ProviderEntity _provider(String id, {String category = 'anime'}) =>
+    ProviderEntity(
   id: id,
   name: id,
   image: '',
   url: '',
   description: '',
   domains: const [],
-  category: 'anime',
+  category: category,
 );
 
 /// Stands in for the two repositories the service never reaches in these
@@ -164,7 +165,7 @@ void main() {
           .find(
             title: 'Return of the Blossoming Blade',
             excludeProvider: 'vidapi',
-            category: 'anime',
+            titleProvider: 'vidapi',
             candidates: [_provider('an:one'), _provider('vidapi')],
           )
           .toList();
@@ -219,6 +220,87 @@ void main() {
         isNull,
       );
       expect(engine.legs, isEmpty);
+    });
+  });
+
+  group('a title is only offered sources that can carry its kind', () {
+    test('a manga title is not offered video sources', () async {
+      // The report. `category` held a content category for a backend provider
+      // but an ECOSYSTEM for an extension, and the old rule waved through any
+      // pair where either side was an ecosystem — with 'manga' being BOTH. So
+      // for a manga title the test short-circuited to true and the sheet
+      // offered every video source the app had.
+      final engine = _FanOut(rows: [_movie('Berserk')]);
+      final found = await _service(engine)
+          .find(
+            title: 'Berserk',
+            excludeProvider: 'mn:one',
+            titleProvider: 'mn:one',
+            candidates: [
+              _provider('mn:two'),
+              _provider('an:anime'),
+              _provider('cs:video'),
+              _provider('vidapi'),
+            ],
+          )
+          .toList();
+
+      expect(
+        found.map((f) => f.provider.id),
+        ['mn:two'],
+        reason: 'only the other reader source can carry a manga',
+      );
+    });
+
+    test('and a video title is not offered reader sources', () async {
+      final engine = _FanOut(rows: [_movie('Naruto')]);
+      final found = await _service(engine)
+          .find(
+            title: 'Naruto',
+            excludeProvider: 'vidapi',
+            titleProvider: 'vidapi',
+            candidates: [
+              _provider('an:anime'),
+              _provider('mn:reader'),
+              _provider('my:reader'),
+            ],
+          )
+          .toList();
+
+      expect(found.map((f) => f.provider.id), ['an:anime']);
+    });
+
+    test('a novel is offered the comic sources', () async {
+      // Deliberate: a light novel is routinely carried by a manga source, and
+      // the catalogue resolver already leans on that. Splitting them would
+      // empty the sheet for every novel.
+      final engine = _FanOut(rows: [_movie('Overlord')]);
+      final found = await _service(engine)
+          .find(
+            title: 'Overlord',
+            excludeProvider: 'cat:anilist-novel',
+            titleProvider: 'cat:anilist-novel',
+            candidates: [_provider('mn:reader'), _provider('vidapi')],
+          )
+          .toList();
+
+      expect(found.map((f) => f.provider.id), ['mn:reader']);
+    });
+
+    test('an empty title provider does not filter at all', () async {
+      // The catalogue resolver has already chosen its candidates by
+      // ContentMode before it calls; filtering again on a provider it does not
+      // have could only take away sources it deliberately put in.
+      final engine = _FanOut(rows: [_movie('Anything')]);
+      final found = await _service(engine)
+          .find(
+            title: 'Anything',
+            excludeProvider: '',
+            candidates: [_provider('mn:reader'), _provider('vidapi')],
+          )
+          .toList();
+
+      expect(found.map((f) => f.provider.id), ['mn:reader', 'vidapi']);
     });
   });
 }

@@ -202,6 +202,7 @@
     "speed_short": "Velocidad",
     "aspect": "Formato",
     "aspect_ratio": "Relación de aspecto",
+    "speed_now": "Velocidad: {}",
     "subtitle_style": "Estilo de subtítulos",
     "audio_track": "Pista de audio",
     "diagnostics_logs": "Diagnóstico / registros",

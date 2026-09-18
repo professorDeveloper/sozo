@@ -202,6 +202,7 @@
     "speed_short": "Snelheid",
     "aspect": "Verhouding",
     "aspect_ratio": "Beeldverhouding",
+    "speed_now": "Snelheid: {}",
     "subtitle_style": "Ondertitelstijl",
     "audio_track": "Audiospoor",
     "diagnostics_logs": "Diagnose / logboek",

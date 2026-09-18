@@ -202,6 +202,7 @@
     "speed_short": "Vitesse",
     "aspect": "Format",
     "aspect_ratio": "Format d’image",
+    "speed_now": "Vitesse : {}",
     "subtitle_style": "Style des sous-titres",
     "audio_track": "Piste audio",
     "diagnostics_logs": "Diagnostic / journaux",

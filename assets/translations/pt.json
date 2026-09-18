@@ -202,6 +202,7 @@
     "speed_short": "Velocidade",
     "aspect": "Proporção",
     "aspect_ratio": "Proporção de tela",
+    "speed_now": "Velocidade: {}",
     "subtitle_style": "Estilo das legendas",
     "audio_track": "Faixa de áudio",
     "diagnostics_logs": "Diagnóstico / registros",
