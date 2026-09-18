@@ -42,7 +42,17 @@ void main() {
       );
     }
     final indent = ' ' * (start - source.lastIndexOf('\n', start) - 1);
-    final end = source.indexOf('\n$indent}', start);
+    // Step over a multi-line PARAMETER list first. Its closing `) {` sits at
+    // the method's own indent, so scanning straight for `\n<indent>}` stopped
+    // at the signature and handed back a body of six lines — which then made
+    // every assertion about the method silently vacuous.
+    // The brace that opens the BODY, which is the one after the parameter
+    // list's `)`. The signature's own `{` is the parameter list's.
+    final bodyOpen = RegExp(r'\)\s*(async\s*)?\{').firstMatch(
+      source.substring(start),
+    );
+    final from = bodyOpen == null ? start : start + bodyOpen.end;
+    final end = source.indexOf('\n$indent}', from);
     if (end == -1) {
       throw StateError('no closing brace found for `$signature`');
     }
@@ -203,6 +213,73 @@ void main() {
 
     test('and the retry the viewer presses', () {
       gate('Future<void> _retry()');
+    });
+  });
+
+  group('a refusal moves to the next mirror', () {
+    final media = read(
+      'lib/features/detail/presentation/pages/player_page.media.dart',
+    );
+
+    test('the give-up branch asks RetryPolicy first', () {
+      // `_isRecoverableError` means "re-opening THIS url might help", so
+      // everything it REJECTS — a 403, a 404, a dead host — fell to the else
+      // and simply printed the error. That is exactly the case where another
+      // mirror is the answer: the file is gone from this server, not from all
+      // of them. A title with five mirrors gave up on the first that 404'd
+      // with four untried.
+      expect(
+        media,
+        contains('RetryPolicy.decide'),
+        reason:
+            'RetryPolicy encodes this decision and has its own tests, and it '
+            'had no caller at all — the page hand-rolled the same branch and '
+            'got the last case wrong',
+      );
+      expect(media, contains('RetryAction.nextSource'));
+    });
+
+    test('and marks the failed mirror before asking what is left', () {
+      // `_hasUntriedSource` asks what remains. Testing it before marking
+      // counts the mirror that just failed as a candidate, so the retry walks
+      // back to the file it already knows is refused.
+      final decide = media.indexOf('RetryPolicy.decide');
+      final mark = media.lastIndexOf('_markCurrentTried()', decide);
+      expect(mark, isNot(-1));
+      expect(mark, lessThan(decide));
+    });
+  });
+
+  group('a retry re-runs what produced the stream', () {
+    final media = read(
+      'lib/features/detail/presentation/pages/player_page.media.dart',
+    );
+
+    test('neither retry feeds the played url back to the sniffer', () {
+      // `_videoUrl` is post-sniff and post-proxy. For a movie behind an
+      // extractor directive, retrying with it re-runs the WebView sniff on a
+      // url the sniff itself produced: the "page" is a video file, nothing
+      // matches, and the retry fails for a reason unrelated to the first
+      // failure.
+      for (final fn in ['Future<void> _autoRetry()', 'Future<void> _retry()']) {
+        final body = bodyOf(media, fn);
+        if (!body.contains('_initializeWith')) continue;
+        expect(
+          body,
+          contains('_playSourceUrl'),
+          reason: '$fn still replays the post-sniff url',
+        );
+      }
+    });
+
+    test('and the source url is captured before anything rewrites it', () {
+      // Recorded at the top of _initializeWith, ahead of the sniff and the
+      // local proxy — otherwise it is just another name for _videoUrl.
+      final body = bodyOf(media, 'Future<void> _initializeWith({');
+      final capture = body.indexOf('_playSourceUrl = url');
+      final sniff = body.indexOf('WebViewStreamExtractor');
+      expect(capture, isNot(-1));
+      if (sniff != -1) expect(capture, lessThan(sniff));
     });
   });
 }

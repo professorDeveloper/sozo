@@ -105,11 +105,25 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
     return null;
   }
 
+  /// True while a [_use] is running, so a second tap cannot start another.
+  ///
+  /// The Hive write is awaited BEFORE the pop, so on a slow device two taps
+  /// both got past the await and both called `Navigator.pop` — the first
+  /// closing this page and the second closing whatever was underneath it. The
+  /// user ends up two screens back from where one tap would have left them.
+  bool _using = false;
+
   Future<void> _use(ProviderEntity source) async {
-    await getIt<HiveService>().setContentMode(source.id.contentMode.id);
-    if (!mounted) return;
-    context.read<ProviderBloc>().add(ProviderSelect(source.id));
-    Navigator.of(context).pop();
+    if (_using) return;
+    _using = true;
+    try {
+      await getIt<HiveService>().setContentMode(source.id.contentMode.id);
+      if (!mounted) return;
+      context.read<ProviderBloc>().add(ProviderSelect(source.id));
+      Navigator.of(context).pop();
+    } finally {
+      _using = false;
+    }
   }
 
   void _manage() => Navigator.of(

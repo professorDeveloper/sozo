@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -61,6 +63,17 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   SourceEcosystem? _eco;
   List<String> get _languages => getIt<HiveService>().getProviderLanguages();
 
+  /// The needle the list is actually filtered by, behind a debounce.
+  ///
+  /// `onChanged` used to call `setState` on every character. One character
+  /// rebuilt this page, which filters and sorts the installed set for ALL
+  /// THREE tabs — `_tabList` is a method call inside a list literal, so
+  /// TabBarView's laziness cannot defer it — and at a thousand sources that is
+  /// several passes of `toLowerCase` plus an n·log n comparator sort per
+  /// keystroke, on the UI isolate, while the keyboard is still animating.
+  String _query = '';
+  Timer? _searchDebounce;
+
   @override
   void initState() {
     super.initState();
@@ -109,6 +122,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       c.dispose();
     }
     _tabs.dispose();
+    _searchDebounce?.cancel();
     _search.dispose();
     super.dispose();
   }
@@ -158,7 +172,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// journey the user should watch.
   void _alignToCurrent(ContentMode mode, List<ProviderEntity> rows, String id) {
     if (_aligned.contains(mode)) return;
-    if (_search.text.trim().isNotEmpty) return;
+    if (_query.isNotEmpty) return;
     final index = rows.indexWhere((p) => p.id == id);
     if (index < 0) return;
     _aligned.add(mode);
@@ -387,20 +401,46 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// TabBarView builds all three tabs, so a swipe was doing it three times a
   /// frame over several hundred providers. That is what made the swipe crawl;
   /// the work itself is milliseconds, sixty times a second is not.
-  _TabSources _tabFor(ProviderLoaded state, ContentMode mode, String needle) {
+  /// The tab's sources, filtered and sorted, memoised.
+  ///
+  /// The needle is deliberately NOT part of the cache key and not part of the
+  /// sort. It used to be both: every character was a guaranteed miss on all
+  /// three tabs, so each keystroke re-ran the whole comparator sort. A
+  /// substring filter cannot change the ORDER of what survives it, so the
+  /// expensive half — mode filter, sort, language split — is cached once per
+  /// (providers, mode, languages) and the needle is applied as a linear pass
+  /// over the result in [_narrow].
+  _TabSources _tabFor(ProviderLoaded state, ContentMode mode, String needle) =>
+      _narrow(_tabBase(state, mode), needle);
+
+  static _TabSources _narrow(_TabSources base, String needle) {
+    if (needle.isEmpty) return base;
+    bool hit(ProviderEntity p) => p.name.toLowerCase().contains(needle);
+    final matched = base.matched.where(hit).toList();
+    final unstated = base.unstated.where(hit).toList();
+    final counts = <SourceEcosystem, int>{};
+    for (final p in [...matched, ...unstated]) {
+      final e = SourceEcosystem.of(p.id);
+      counts[e] = (counts[e] ?? 0) + 1;
+    }
+    return _TabSources(
+      matched: matched,
+      unstated: unstated,
+      counts: counts,
+    );
+  }
+
+  _TabSources _tabBase(ProviderLoaded state, ContentMode mode) {
     final languages = _languages;
     final key =
         '${identityHashCode(state.providers)}'
-        '|${state.providers.length}|${state.offline}|${mode.id}|$needle|${languages.join(',')}';
+        '|${state.providers.length}|${state.offline}|${mode.id}|${languages.join(',')}';
     final cached = _tabCache[key];
     if (cached != null) return cached;
 
     final all = [
       for (final p in state.providers)
-        if (state.isUsable(p) &&
-            p.id.contentMode == mode &&
-            (needle.isEmpty || p.name.toLowerCase().contains(needle)))
-          p,
+        if (state.isUsable(p) && p.id.contentMode == mode) p,
     ];
     // Sorted here, not upstream: the quick switcher shows the same providers in
     // the order the backend sent them, because there the list is short and its
@@ -451,9 +491,10 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       unstated: unstated,
       counts: counts,
     );
-    // Bounded: three tabs times a few search terms, and a new provider list
-    // changes the key anyway. Cleared wholesale rather than aged out, because
-    // the cost of a miss is one sort.
+    // Bounded. With the needle out of the key this is one entry per tab per
+    // language selection, so the steady state is three — the wipe that used to
+    // trip on the fourth keystroke and throw away the unfiltered lists cannot
+    // happen while typing any more.
     if (_tabCache.length > 12) _tabCache.clear();
     _tabCache[key] = built;
     return built;
@@ -480,7 +521,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
           return const Center(child: CircularProgressIndicator());
         }
         final mode = ContentMode.values[_tabs.index];
-        final needle = _search.text.trim().toLowerCase();
+        final needle = _query;
         final counts = _tabFor(state, mode, needle).counts;
         final eco = counts.containsKey(_eco) ? _eco : null;
 
@@ -544,7 +585,13 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: TextField(
         controller: _search,
-        onChanged: (_) => setState(() {}),
+        onChanged: (value) {
+          _searchDebounce?.cancel();
+          _searchDebounce = Timer(const Duration(milliseconds: 200), () {
+            if (!mounted) return;
+            setState(() => _query = value.trim().toLowerCase());
+          });
+        },
         decoration: InputDecoration(
           isDense: true,
           prefixIcon: const Icon(Icons.search_rounded, size: 20),
@@ -622,9 +669,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
 
     _alignToCurrent(mode, matched, state.currentProviderId);
     return CustomScrollView(
-      key: PageStorageKey(
-        'sources|${mode.id}|$needle|$eco|${_languages.join(",")}',
-      ),
+      // No needle in the key. A changed key destroys the element and builds a
+      // new one, so every character tore down all three lists: the scroll
+      // position reset to zero and every visible row's entrance animation
+      // started again — around three dozen AnimationControllers and timers per
+      // keystroke. That is the list "flashing" while you type.
+      key: PageStorageKey('sources|${mode.id}|$eco|${_languages.join(",")}'),
       controller: _scrolls[mode],
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [

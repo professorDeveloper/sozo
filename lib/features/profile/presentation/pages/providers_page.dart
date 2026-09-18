@@ -381,10 +381,17 @@ class _ProvidersPageState extends State<ProvidersPage> {
     // now say what they are and a French selection is entitled to drop them.
     // That is the filter finally working, not breaking — but it can empty the
     // list outright, so [_ProvidersEmpty] is told which languages did it.
-    final all = [
-      for (final p in every)
-        if (srclang.langMatches(p.displayLang, langs)) p,
-    ];
+    // `langMatches` returns true for everything when nothing is selected — but
+    // only AFTER `p.displayLang` has been evaluated for every provider, and
+    // that walks the whole name-hint table per source. On the default screen,
+    // with no language chosen, that was the single largest cost of a build and
+    // it bought nothing. Ask the cheap question first.
+    final all = langs.isEmpty
+        ? List<ProviderEntity>.of(every)
+        : [
+            for (final p in every)
+              if (srclang.langMatches(p.displayLang, langs)) p,
+          ];
     if (q.isNotEmpty) {
       return all
           .where(

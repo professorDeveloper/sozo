@@ -165,7 +165,32 @@ String shortLabelFor(String lang) => normalizeLang(lang).toUpperCase();
 /// when there is genuinely nothing to go on, and null is an answer — those
 /// sources are grouped rather than hidden, because guessing wrong and hiding is
 /// worse than admitting the gap.
+/// Answers already worked out, keyed by the four inputs.
+///
+/// The guessing below walks the whole name-hint table and then the host table
+/// for every source that declares no language — which is about half of them —
+/// and the screens that ask do so for every provider on every build. The inputs
+/// are immutable strings off an entity, so the answer cannot go stale.
+final Map<String, String?> _inferCache = {};
+
 String? inferLang({
+  required String lang,
+  required String name,
+  required String id,
+  required String url,
+}) {
+  final cacheKey = '$lang\u0000$name\u0000$id\u0000$url';
+  final hit = _inferCache[cacheKey];
+  if (hit != null || _inferCache.containsKey(cacheKey)) return hit;
+  final answer = _inferLang(lang: lang, name: name, id: id, url: url);
+  // Bounded against a caller that invents ids. Cleared wholesale rather than
+  // aged out: the cost of a miss is one pass over two small tables.
+  if (_inferCache.length > 4000) _inferCache.clear();
+  _inferCache[cacheKey] = answer;
+  return answer;
+}
+
+String? _inferLang({
   required String lang,
   required String name,
   required String id,

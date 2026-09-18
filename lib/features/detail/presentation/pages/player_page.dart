@@ -188,6 +188,22 @@ class _PlayerPageState extends State<PlayerPage>
   bool _preferPlatformPlayer = false;
   String? _currentQuality;
   String? _videoUrl;
+
+  /// The url as it was handed to `_initializeWith`, before the WebView sniff
+  /// and before the local proxy rewrote it.
+  ///
+  /// `_videoUrl` is what the PLAYER was finally given — post-sniff,
+  /// post-proxy — and every recovery path fed that back in. For a movie behind
+  /// an extractor directive that means re-running the sniff on a url the sniff
+  /// itself produced: the page it was told to scrape is a video file, nothing
+  /// matches, and the retry fails for a reason that has nothing to do with why
+  /// the first attempt did. This is the url that can usefully be re-run.
+  String? _playSourceUrl;
+
+  /// The headers that went in with [_playSourceUrl]. `_headers` is the merged
+  /// post-sniff set, and feeding those back into a re-sniff sends the CDN's own
+  /// headers to the embed page.
+  Map<String, String> _playSourceHeaders = const {};
   String? _mediaType;
 
   /// What the resolve said about the media as a whole — the format hint for

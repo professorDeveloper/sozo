@@ -77,6 +77,14 @@ class _CloudflareSolverPageState extends State<CloudflareSolverPage> {
     if (_solved || !mounted) return;
     _solved = true;
     _pollTimer?.cancel();
+    // Only if this page is still the one on top. `_checkCookies` runs on a
+    // poll timer, so it can fire in the gap after the user has already left —
+    // by pressing Back, or by the manual Done that popped a moment earlier —
+    // and a bare `pop` then closes whatever route is now current instead. The
+    // symptom is the solver appearing to "work" and taking the page behind it
+    // with it.
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
     Navigator.of(context).pop(true);
   }
 

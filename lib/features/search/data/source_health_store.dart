@@ -93,10 +93,28 @@ class SourceHealthStore {
     }
   }
 
+  /// The health map, re-keyed once and then kept.
+  ///
+  /// `raw.map(...)` builds a brand-new Map of every record. That ran on EVERY
+  /// [statusOf] — and `order()` calls statusOf once per source while
+  /// `budgetFor` calls it again per leg, so ordering a thousand sources
+  /// allocated a thousand copies of a map with a thousand entries in it, on the
+  /// UI isolate, inside a build. O(n) work per item is O(n²) per frame.
+  ///
+  /// Static, because the store is constructed in more than one place — the DI
+  /// singleton and `CrossSearchEngine`'s own default — and every instance
+  /// reads the SAME Hive key. A per-instance cache would let one instance
+  /// serve a record another had already overwritten. It is invalidated by the
+  /// writes below rather than by a listener: this class is the only thing that
+  /// writes this key, so it always knows.
+  static Map<String, dynamic>? _cache;
+
   Map<String, dynamic> _load() {
+    final cached = _cache;
+    if (cached != null) return cached;
     final raw = _box?.get(_key);
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v));
+    if (raw is! Map) return _cache = const {};
+    return _cache = raw.map((k, v) => MapEntry(k.toString(), v));
   }
 
   /// When this source's record was written, in epoch milliseconds, or null if
@@ -222,6 +240,7 @@ class SourceHealthStore {
         ? 'slow'
         : 'ok';
     map[id] = {'state': state, 'at': DateTime.now().millisecondsSinceEpoch};
+    _cache = map;
     try {
       await _box?.put(_key, map);
     } catch (_) {}
@@ -267,6 +286,7 @@ class SourceHealthStore {
   }
 
   Future<void> clear() async {
+    _cache = null;
     try {
       await _box?.delete(_key);
       await _box?.delete(_remoteKey);

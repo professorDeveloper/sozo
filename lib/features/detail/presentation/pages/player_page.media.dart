@@ -709,6 +709,9 @@ extension _PlayerMedia on _PlayerPageState {
   }) async {
     final generation = intentGeneration ?? ++_mediaGeneration;
     if (!mounted || generation != _mediaGeneration) return;
+    // Remembered before anything rewrites it — see [_playSourceUrl].
+    _playSourceUrl = url;
+    _playSourceHeaders = headers;
     var effUrl = url;
     var effHeaders = headers;
     var effType = type;
@@ -1242,6 +1245,38 @@ extension _PlayerMedia on _PlayerPageState {
         _autoRetry();
         return;
       } else {
+        // A refusal is not the end of the walk.
+        //
+        // `_isRecoverableError` above means "re-opening THIS url might help".
+        // Everything it rejects — a 403, a 404, a dead host — lands here, and
+        // that is PRECISELY the case where another mirror is the answer: the
+        // file is gone from this server, not from all of them. The branch
+        // simply printed the error, so a title with five mirrors gave up on
+        // the first one that 404'd with four untried.
+        //
+        // [RetryPolicy] already encodes this, with tests. It had no caller at
+        // all — the page hand-rolled the same decision and got the last case
+        // wrong. Marked tried first, because `_hasUntriedSource` asks what is
+        // LEFT and the mirror that just failed is not.
+        if (!_isLive) _markCurrentTried();
+        final action = RetryPolicy.decide(
+          message: raw,
+          isLive: _isLive,
+          attempts: _retryAttempts,
+          lifetime: _lifetimeRetries,
+          hasUntriedSource: _hasUntriedSource,
+        );
+        if (action == RetryAction.nextSource && _hasUntriedSource) {
+          _plog(
+            'refused here, trying another source',
+            level: LogLevel.warn,
+          );
+          _retryAttempts++;
+          _lifetimeRetries++;
+          _autoRetrying = true;
+          _autoRetry();
+          return;
+        }
         msg = raw.isEmpty
             ? PlaybackFaultKind.unknown.messageKey.tr()
             : _humanizeError(raw);
@@ -1597,8 +1632,10 @@ extension _PlayerMedia on _PlayerPageState {
       if (!mounted || generation != _mediaGeneration) return;
       await _initializeWith(
         intentGeneration: generation,
-        url: _videoUrl!,
-        headers: _headers,
+        // Same reason as the manual retry: re-run what produced the stream,
+        // not the stream. See [_playSourceUrl].
+        url: _playSourceUrl ?? _videoUrl!,
+        headers: _playSourceUrl != null ? _playSourceHeaders : _headers,
         type: _mediaType,
         resumeAt: keepPosition,
       );
@@ -1689,8 +1726,11 @@ extension _PlayerMedia on _PlayerPageState {
       if (!mounted || generation != _mediaGeneration) return;
       await _initializeWith(
         intentGeneration: generation,
-        url: _videoUrl!,
-        headers: _headers,
+        // The url that PRODUCED the stream, not the stream — see
+        // [_playSourceUrl]. Retrying with `_videoUrl` re-fed a sniffed file
+        // back into the sniffer.
+        url: _playSourceUrl ?? _videoUrl!,
+        headers: _playSourceUrl != null ? _playSourceHeaders : _headers,
         type: _mediaType,
         resumeAt: keepPosition,
       );

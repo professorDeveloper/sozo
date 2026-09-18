@@ -212,6 +212,28 @@ class CrossSearchController extends ChangeNotifier {
   /// APK. That is precisely the overload the engine's own concurrency pool
   /// exists to prevent, reached by going around it.
   Future<void> retryFailed() async {
+    // One run at a time. The pool below bounds ONE call; it does nothing about
+    // a second tap, and the button sits next to a list of failures where the
+    // natural reaction to "nothing happened yet" is to press it again. Each
+    // extra tap added another five-wide pool of its own, so three impatient
+    // taps put fifteen extension searches on a device that was already slow
+    // enough to invite them.
+    if (_retryingAll) return;
+    _retryingAll = true;
+    notifyListeners();
+    try {
+      await _retryFailed();
+    } finally {
+      _retryingAll = false;
+      notifyListeners();
+    }
+  }
+
+  /// Whether a "Retry all" is in flight, so the button can say so.
+  bool get retryingAll => _retryingAll;
+  bool _retryingAll = false;
+
+  Future<void> _retryFailed() async {
     final ids = [for (final leg in failedLegs) leg.provider.id];
     if (ids.isEmpty) return;
     final queue = List<String>.of(ids);
