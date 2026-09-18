@@ -63,24 +63,31 @@ List<Widget> searchLandingSlivers(
     if (genres.isNotEmpty) ...[
       SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
           child: _SectionTitle('search.categories'.tr()),
         ),
       ),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverGrid(
+          // One more column than the posters use, and a shorter tile.
+          //
+          // At two columns and 1.85 each genre was a landscape card the size of
+          // a small poster, and a source with forty-one genres filled several
+          // screens with them — a browsing aid taking more room than the thing
+          // it helps you browse. Three across at 1.5 keeps the artwork legible
+          // while the whole set fits in a screen and a half.
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1.85,
+            crossAxisCount: columns + 1,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 1.5,
           ),
           delegate: SliverChildBuilderDelegate((context, i) {
             final g = genres[i];
             return ItemAppear(
               index: i,
-              columns: columns,
+              columns: columns + 1,
               staggerLimit: 24,
               child: GenreTile(
                 label: g.name.isNotEmpty ? g.name : g.slug,
@@ -156,7 +163,7 @@ class _RecentSearches extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
           child: Row(
             children: [
               Expanded(child: _SectionTitle('search.recent'.tr())),
@@ -371,7 +378,7 @@ class _SourceRail extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 2),
               child: _RailHeading(
                 rail: rail,
                 // The provider the posters came from, not the one that is
@@ -384,7 +391,13 @@ class _SourceRail extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             SizedBox(
-              height: 214,
+              // Measured, not guessed. A flat 214 was some nine points short of
+              // what a 118-wide card actually needs, and the caption under a
+              // poster is the inflexible part of that card — so the shortfall
+              // came out of the POSTER, which stopped being a 2:3 rectangle and
+              // cropped further into the artwork at every text size above the
+              // default. [searchCardHeight] is the card's own arithmetic.
+              height: searchCardHeight(_railCardWidth, context),
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -397,7 +410,7 @@ class _SourceRail extends StatelessWidget {
                     axis: Axis.horizontal,
                     child: SearchResultCard(
                       movie: movie,
-                      width: 118,
+                      width: _railCardWidth,
                       provider: movie.provider.isEmpty ? null : movie.provider,
                       onTap: () => _open(context, movie),
                     ),
@@ -405,7 +418,10 @@ class _SourceRail extends StatelessWidget {
                 },
               ),
             ),
-            const SizedBox(height: 22),
+            // No trailing gap: the next heading's own top padding is the
+            // space between them. Both had one, and the two stacked into a
+            // band of empty screen wide enough to read as a missing section.
+            const SizedBox(height: 4),
           ],
         );
       },
@@ -424,6 +440,9 @@ class _SourceRail extends StatelessWidget {
     );
   }
 }
+
+/// Poster width in the rail. Named because the row's height is derived from it.
+const double _railCardWidth = 118;
 
 /// Separated from the rail so that the provider list — which the source's name
 /// has to be looked up in, and which reloads on its own schedule — is listened
@@ -458,6 +477,15 @@ class _RailHeading extends StatelessWidget {
   }
 }
 
+/// A row heading.
+///
+/// White and full size, not an 11pt letter-spaced grey caption. The old style
+/// is what a form uses to label a field — it sat *above* the content and read
+/// as metadata about it. On a browsing screen the heading is part of the
+/// content: it is what tells you what the row of artwork under it IS, and at
+/// 11pt in [AppColors.textHint] it was the quietest thing on a screen of
+/// posters. Sentence case for the same reason — SHOUTED SMALL CAPS is a label,
+/// a sentence is a name.
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
 
@@ -465,14 +493,16 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-    text.toUpperCase(),
+    text,
     maxLines: 1,
     overflow: TextOverflow.ellipsis,
     style: const TextStyle(
-      color: AppColors.textHint,
-      fontSize: 11,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 1.2,
+      color: AppColors.textPrimary,
+      fontSize: 18,
+      fontWeight: FontWeight.w800,
+      height: 1.15,
+      // Slightly tight, which is what stops a large weight reading as shouting.
+      letterSpacing: -0.3,
     ),
   );
 }
