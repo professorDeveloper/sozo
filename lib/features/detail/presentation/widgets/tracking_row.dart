@@ -11,6 +11,7 @@ import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart'
 import 'package:soplay/features/anilist/presentation/widgets/anilist_link_sheet.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_row.dart';
 import 'package:soplay/features/detail/presentation/widgets/tracking_sheet.dart';
 import 'package:soplay/features/mal/data/mal_link_store.dart';
 import 'package:soplay/features/mal/data/mal_service.dart';
@@ -674,90 +675,28 @@ class _TrackerLine extends StatelessWidget {
     // to sit in a fixed 52px box, which is exactly wide enough for "12/24" at
     // the default size and not for "121/220" at any size above it.
     final scale = MediaQuery.textScalerOf(context);
-    return Material(
-      color: Colors.white.withValues(alpha: 0.06),
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          // Roomier than it was. At (10,6,6,6) with 13pt text the whole line
-          // came out about 34px tall and the action sat six pixels from the
-          // edge of the card — on a detail page of posters and full-width
-          // buttons it read as something that had been squeezed in rather than
-          // laid out.
-          padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 8, 8),
-          child: Row(
-            children: [
-              logo,
-              const SizedBox(width: 10),
-              Expanded(
-                child: Semantics(
-                  label: status == null ? name : '$name, $status',
-                  excludeSemantics: true,
-                  child: RichText(
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textScaler: scale,
-                    text: TextSpan(
-                      style: const TextStyle(fontSize: 14),
-                      children: [
-                        TextSpan(
-                          text: name,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        if (status != null || loading)
-                          TextSpan(
-                            text: '  ·  ${status ?? '…'}',
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              if (action != null) ...[
-                const SizedBox(width: 8),
-                // A button, not a word. It was a bare `Text` in the accent
-                // colour with no padding and no target of its own: the one
-                // thing on the row you are meant to press looked like a label
-                // and was the smallest thing on it.
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: accent.withValues(alpha: 0.35)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 8, 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          action!,
-                          style: TextStyle(
-                            color: accent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          size: 18,
-                          color: accent,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ] else if (showsCounter) ...[
+    return DetailRowShell(
+      onTap: onTap,
+      child: Row(
+        children: [
+          logo,
+          const SizedBox(width: 10),
+          DetailRowTitle(
+            name: name,
+            // The placeholder is a shape standing in for a value, so it is on
+            // screen and not in the spoken line: a reader must not announce a
+            // position the app has not read yet.
+            status: status ?? (loading ? '…' : null),
+            spokenStatus: status ?? '',
+          ),
+          if (action != null) ...[
+            const SizedBox(width: 8),
+            // Shared with the source row above, and neutral rather than tinted
+            // with each tracker's blue — MyAnimeList's is dark enough that the
+            // old brand-tinted pill read as disabled directly beneath
+            // AniList's, which read as enabled.
+            DetailRowAction(label: action!, onTap: onTap),
+          ] else if (showsCounter) ...[
                 _Step(icon: Icons.remove_rounded, onTap: busy ? null : onLess),
                 SizedBox(
                   width: scale.scale(total != null ? 52 : 34),
@@ -795,11 +734,9 @@ class _TrackerLine extends StatelessWidget {
                     ],
                   ),
                 ),
-                _Step(icon: Icons.add_rounded, onTap: busy ? null : onMore),
-              ],
-            ],
-          ),
-        ),
+            _Step(icon: Icons.add_rounded, onTap: busy ? null : onMore),
+          ],
+        ],
       ),
     );
   }

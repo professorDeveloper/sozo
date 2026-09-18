@@ -99,6 +99,19 @@ class SourceHealthStore {
     return raw.map((k, v) => MapEntry(k.toString(), v));
   }
 
+  /// When this source's record was written, in epoch milliseconds, or null if
+  /// there is none.
+  ///
+  /// Exposed for the one rule that is about the record's AGE rather than its
+  /// value: a failure under a penalty budget must not renew the mark, because
+  /// renewing it is what stopped the TTL ever expiring. Nothing else needs it.
+  int? rawRecordedAt(String id) {
+    final entry = _load()[id];
+    if (entry is! Map) return null;
+    final at = entry['at'];
+    return at is int ? at : null;
+  }
+
   /// The remembered health of one source, or [SourceHealth.ok] when there is
   /// nothing to remember.
   SourceHealth statusOf(String id) => _local(id) ?? _remote(id);
@@ -180,14 +193,34 @@ class SourceHealthStore {
     required bool succeeded,
     required Duration elapsed,
     required Duration budget,
+    Duration? honestBudget,
   }) async {
+    final map = Map<String, dynamic>.of(_load());
+
+    // A failure under a SHORTENED budget teaches nothing, and writing it down
+    // was how a mark became permanent. The sequence: an extension source's
+    // first search legitimately takes most of its 45 seconds, because it has
+    // to download and dex-load an APK before it can issue one request. It
+    // exceeds the batch budget, so it is marked broken. Every later attempt is
+    // then clamped to [brokenBudget] — four seconds, less than the download it
+    // is being punished for never finishing — so it times out again, and that
+    // timeout refreshed `at` and pushed the six-hour TTL forward. Search often
+    // enough and the mark never expires: the source is dead forever, on a
+    // device where it would work.
+    //
+    // So a penalised failure leaves the existing record exactly as it is. It
+    // still counts as broken; it simply does not get to renew its own
+    // sentence, and the TTL can run out and give the source a real chance.
+    final penalised =
+        honestBudget != null && budget < honestBudget;
+    if (!succeeded && penalised && map[id] is Map) return;
+
     final state = !succeeded
         ? 'broken'
         : (budget.inMilliseconds > 0 &&
               elapsed.inMilliseconds > budget.inMilliseconds * slowFraction)
         ? 'slow'
         : 'ok';
-    final map = Map<String, dynamic>.of(_load());
     map[id] = {'state': state, 'at': DateTime.now().millisecondsSinceEpoch};
     try {
       await _box?.put(_key, map);
@@ -195,8 +228,17 @@ class SourceHealthStore {
   }
 
   /// The budget one source gets on this run.
-  Duration budgetFor(String id, Duration base) =>
-      statusOf(id) == SourceHealth.broken && base > brokenBudget
+  ///
+  /// [deliberate] turns the penalty off. It is for the retry the USER pressed
+  /// and is watching, and for the "Test this source" diagnostic — both of
+  /// which name one source, have no batch to hold up, and were the two places
+  /// the four-second leash did the most harm. Retry only ever appears beside a
+  /// source that just failed, so before this every single retry ran on the
+  /// penalty budget and confirmed the failure it inherited; the diagnostic
+  /// then reported a source as dead because it had been given four seconds to
+  /// do forty-five seconds of work.
+  Duration budgetFor(String id, Duration base, {bool deliberate = false}) =>
+      !deliberate && statusOf(id) == SourceHealth.broken && base > brokenBudget
       ? brokenBudget
       : base;
 

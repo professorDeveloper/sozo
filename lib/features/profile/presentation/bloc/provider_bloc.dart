@@ -346,6 +346,28 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         }
       }
       if (saved != null) return saved.id;
+
+      // The saved source is not in the list. That is NOT proof the user's
+      // choice is gone: `providers` is the backend's list plus whatever the
+      // four on-device hosts managed to enumerate on this launch, and each of
+      // those helpers ends in `catch (_) {}` and contributes nothing when the
+      // platform channel is not ready yet, the host process restarted, or the
+      // extension store had not finished loading. This branch used to write
+      // `providers.first.id` — vidapi — straight over the saved id, so one
+      // unlucky cold start silently and PERMANENTLY moved somebody off their
+      // CloudStream or Aniyomi source onto VidAPI, with nothing to say it had
+      // happened and no way back but finding the source again by hand.
+      //
+      // So it parks the id first, exactly as the outage branch below does. The
+      // fallback still takes effect for this session — the interceptor and
+      // everything else read the current provider straight out of Hive, so
+      // leaving those disagreeing with this bloc would be its own bug — but
+      // the restore block at the top of this branch puts the user back on
+      // their own source the moment the host enumerates again. A deliberate
+      // pick meanwhile clears the parked id (see [_onSelect]) and sticks.
+      if (savedId.isNotEmpty && hiveService.getPreOutageProvider().isEmpty) {
+        await hiveService.savePreOutageProvider(savedId);
+      }
       final fallback = providers.first.id;
       await hiveService.saveCurrentProvider(fallback);
       return fallback;

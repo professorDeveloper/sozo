@@ -46,6 +46,7 @@ class _FanOut implements SearchFanOut {
     String query, {
     int page = 1,
     Duration timeout = const Duration(seconds: 10),
+    bool deliberate = false,
   }) async {
     legs.add((ref.id, query, page));
     return ProviderSearchResult(

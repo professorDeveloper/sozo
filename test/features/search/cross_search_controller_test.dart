@@ -40,6 +40,7 @@ class _StubFanOut implements SearchFanOut {
     String query, {
     int page = 1,
     Duration timeout = const Duration(seconds: 10),
+    bool deliberate = false,
   }) async =>
       throw UnimplementedError();
 }

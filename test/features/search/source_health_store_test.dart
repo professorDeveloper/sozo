@@ -272,4 +272,128 @@ void main() {
       expect(s.statusOf('x'), SourceHealth.ok);
     });
   });
+
+  group('a penalty cannot become a life sentence', () {
+    const honest = Duration(seconds: 45);
+
+    /// The state an extension source lands in after its first search: the APK
+    /// download legitimately took most of the honest budget, the batch gave up,
+    /// and the source was marked broken.
+    Future<void> markBroken(SourceHealthStore s) => s.record(
+      'cs:some',
+      succeeded: false,
+      elapsed: honest,
+      budget: honest,
+      honestBudget: honest,
+    );
+
+    test('a failure under a shortened budget does not renew the mark', () async {
+      // The trap. Once broken, every attempt is clamped to four seconds — less
+      // than the download it is being punished for never finishing — so it
+      // times out again, and that timeout used to rewrite `at` and push the
+      // six-hour TTL forward. Search once an hour and the source is dead
+      // forever on a device where it would work.
+      final store = SourceHealthStore();
+      await markBroken(store);
+      final markedAt = store.rawRecordedAt('cs:some');
+      expect(markedAt, isNotNull);
+
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await store.record(
+        'cs:some',
+        succeeded: false,
+        elapsed: SourceHealthStore.brokenBudget,
+        budget: SourceHealthStore.brokenBudget,
+        honestBudget: honest,
+      );
+
+      expect(
+        store.rawRecordedAt('cs:some'),
+        markedAt,
+        reason: 'the sentence renewed itself, so the TTL could never run out',
+      );
+      expect(store.statusOf('cs:some'), SourceHealth.broken);
+    });
+
+    test('but a failure on the honest budget is real evidence', () async {
+      // The other half: this must not become "a broken source is never
+      // updated again", which would freeze the record instead of the TTL.
+      final store = SourceHealthStore();
+      await markBroken(store);
+      final markedAt = store.rawRecordedAt('cs:some');
+
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await store.record(
+        'cs:some',
+        succeeded: false,
+        elapsed: honest,
+        budget: honest,
+        honestBudget: honest,
+      );
+
+      expect(store.rawRecordedAt('cs:some'), isNot(markedAt));
+    });
+
+    test('and a success always lands, however short the budget was', () async {
+      // A recovered source proving itself in two seconds is the entire point
+      // of asking a broken source at all.
+      final store = SourceHealthStore();
+      await markBroken(store);
+
+      await store.record(
+        'cs:some',
+        succeeded: true,
+        elapsed: const Duration(seconds: 1),
+        budget: SourceHealthStore.brokenBudget,
+        honestBudget: honest,
+      );
+
+      expect(store.statusOf('cs:some'), SourceHealth.ok);
+    });
+  });
+
+  group('the penalty is for batches, not for what the user asked for', () {
+    test('a broken source is put on a short leash in a batch', () async {
+      final store = SourceHealthStore();
+      await store.record(
+        'cs:some',
+        succeeded: false,
+        elapsed: const Duration(seconds: 45),
+        budget: const Duration(seconds: 45),
+        honestBudget: const Duration(seconds: 45),
+      );
+      expect(
+        store.budgetFor('cs:some', const Duration(seconds: 45)),
+        SourceHealthStore.brokenBudget,
+      );
+    });
+
+    test('but not when the user asked for that source by name', () async {
+      // Retry only ever appears beside a source that just failed, so before
+      // this every retry ran on the penalty budget and confirmed the failure
+      // it inherited. The source diagnostic did the same.
+      final store = SourceHealthStore();
+      await store.record(
+        'cs:some',
+        succeeded: false,
+        elapsed: const Duration(seconds: 45),
+        budget: const Duration(seconds: 45),
+        honestBudget: const Duration(seconds: 45),
+      );
+      expect(
+        store.budgetFor(
+          'cs:some',
+          const Duration(seconds: 45),
+          deliberate: true,
+        ),
+        const Duration(seconds: 45),
+      );
+    });
+
+    test('a healthy source keeps its budget either way', () {
+      final store = SourceHealthStore();
+      expect(store.budgetFor('fresh', base), base);
+      expect(store.budgetFor('fresh', base, deliberate: true), base);
+    });
+  });
 }

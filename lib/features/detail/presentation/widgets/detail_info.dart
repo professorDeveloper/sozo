@@ -20,6 +20,7 @@ import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/home/domain/entities/view_all.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_row.dart';
 
 class DetailContentHeader extends StatefulWidget {
   const DetailContentHeader({
@@ -702,13 +703,9 @@ class _ViaRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final catalogue = Catalogue.fromId(via.catalogueId);
-    return Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(10, 6, 6, 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-      ),
+    // Same shell as the tracker rows below Play — see [DetailRowShell] for
+    // what the two used to disagree about and why it showed.
+    return DetailRowShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -716,7 +713,7 @@ class _ViaRow extends StatelessWidget {
           Row(
             children: [
               if (catalogue != null) ...[
-                CatalogueLogo(catalogue: catalogue, size: 22),
+                CatalogueLogo(catalogue: catalogue, size: kDetailRowLogoSize),
                 const SizedBox(width: 7),
                 Text(
                   catalogue.labelKey.tr(),
@@ -735,53 +732,33 @@ class _ViaRow extends StatelessWidget {
                   ),
                 ),
               ],
-              ProviderLogo(image: via.providerImage, size: 22),
-              const SizedBox(width: 7),
+              ProviderLogo(image: via.providerImage, size: kDetailRowLogoSize),
+              const SizedBox(width: 10),
               // The name and the mark share one slot, so the mark stays
               // against the name it qualifies instead of drifting off to the
               // right, and a long name gives way to it rather than pushing it
-              // off the line. Without a mark this is the Expanded it was.
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        via.providerName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    if (via.approximate) ...[
-                      const SizedBox(width: 6),
-                      _GuessPill(
+              // off the line.
+              DetailRowTitle(
+                name: via.providerName,
+                trailing: via.approximate
+                    ? _GuessPill(
                         label: 'catalogue.approximate_source'.tr(),
                         spoken: 'catalogue.approximate_source_hint'.tr(),
-                      ),
-                    ],
-                  ],
-                ),
+                      )
+                    : null,
               ),
-              if (onChange != null)
-                TextButton(
-                  onPressed: onChange,
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0, 30),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    'catalogue.change_source'.tr(),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+              if (onChange != null) ...[
+                const SizedBox(width: 8),
+                // The same control the tracker rows end in. This was a bare
+                // TextButton: accent words with no box, directly above two
+                // rows that ended in filled pills.
+                DetailRowAction(
+                  label: 'catalogue.change_source'.tr(),
+                  onTap: onChange!,
+                  // Opens the alternate-source sheet, like the tracker rows
+                  // open theirs.
                 ),
+              ],
             ],
           ),
           // The whole sentence on screen, not hidden behind a long-press:

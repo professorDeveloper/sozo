@@ -46,12 +46,42 @@ class SearchRepositoryImp extends SearchRepository {
         return Failure(Exception(e.toString()));
       }
     }
-    if (provider != null &&
-        (provider.startsWith('cs:') ||
-            provider.startsWith('an:') ||
-            provider.startsWith('mn:') ||
-            provider.startsWith('my:'))) {
+    // Extension hosts DO have genres, and Home has drawn them for a long time
+    // (see HomeRepositoryImp.loadGenres). Search returned an empty list for
+    // every one of them, so the Categories section was simply absent on the
+    // Search tab for the large majority of the installed sources — and on a
+    // device with no recent searches the landing screen fell all the way
+    // through to "nothing to browse", on a source whose Home screen was
+    // showing those very genres one tab away.
+    //
+    // Mangayomi is the one genuine exception: it exposes per-source filters
+    // rather than the flat genre list this screen draws, so it still has
+    // nothing to offer here.
+    if (provider != null && provider.startsWith('my:')) {
       return const Success(<GenreModel>[]);
+    }
+    final hostGenres = switch (provider) {
+      final p? when p.startsWith('cs:') => CloudStreamChannel.getGenres,
+      final p? when p.startsWith('an:') => AniyomiChannel.getGenres,
+      final p? when p.startsWith('mn:') => MangaChannel.getGenres,
+      _ => null,
+    };
+    if (hostGenres != null && provider != null) {
+      try {
+        final list = await hostGenres(provider.substring(3)).timeout(
+          _hostBudget,
+        );
+        return Success([
+          for (final e in list.whereType<Map>())
+            GenreModel.fromJson(Map<String, dynamic>.from(e)),
+        ]);
+      } catch (e) {
+        // A host that cannot list genres is not a broken screen: the rail and
+        // the recents above are still worth showing. Reported rather than
+        // swallowed, so the row can say the categories did not load instead of
+        // vanishing.
+        return Failure(Exception(e.toString()));
+      }
     }
     try {
       final result = await dataSource.getGenres();
@@ -67,15 +97,33 @@ class SearchRepositoryImp extends SearchRepository {
     int page = 1,
   }) async {
     try {
-      final catalogue = Catalogue.fromId(_currentProvider);
-      final result = catalogue != null
-          ? await dataSource.getCatalogueGenre(
-              catalogue.kind,
-              genre,
-              page: page,
-            )
-          : await dataSource.getMoviesByGenre(genre, page: page);
-      return Success(result);
+      final provider = _currentProvider;
+      final catalogue = Catalogue.fromId(provider);
+      if (catalogue != null) {
+        return Success(
+          await dataSource.getCatalogueGenre(catalogue.kind, genre, page: page),
+        );
+      }
+      // The other half of showing an extension source's genres: the tile has
+      // to lead somewhere. A `cs:`/`an:`/`mn:` genre browsed through the
+      // backend would be GET /contents/genre/<the extension's own slug>
+      // against a provider id the server has never heard of. `getSection` is
+      // how Home browses exactly these, and it answers in the same shape.
+      final section = switch (provider) {
+        final p? when p.startsWith('cs:') => CloudStreamChannel.getSection,
+        final p? when p.startsWith('an:') => AniyomiChannel.getSection,
+        final p? when p.startsWith('mn:') => MangaChannel.getSection,
+        _ => null,
+      };
+      if (section != null && provider != null) {
+        final map = await section(
+          provider.substring(3),
+          genre,
+          page: page,
+        ).timeout(_hostBudget);
+        return Success(SearchModel.fromJson(map));
+      }
+      return Success(await dataSource.getMoviesByGenre(genre, page: page));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }

@@ -349,6 +349,28 @@ class _FakeEngine implements CrossSearchEngine {
     yield _search(query);
   }
 
+  /// The probe searches ONE named source, deliberately — it is the diagnostic
+  /// the user runs on a source they suspect, so it must not inherit the
+  /// four-second penalty budget that a source already marked broken gets in a
+  /// batch. Before that change the probe told people a source was dead because
+  /// it had given it four seconds to do up to forty-five seconds of work, and
+  /// then re-marked it broken on the way out.
+  @override
+  Future<ProviderSearchResult> searchProvider(
+    ProviderRef ref,
+    String query, {
+    int page = 1,
+    Duration timeout = CrossSearchEngine.defaultTimeout,
+    bool deliberate = false,
+  }) async {
+    expect(
+      deliberate,
+      isTrue,
+      reason: 'the diagnostic must not run on the penalty budget',
+    );
+    return _search(query);
+  }
+
   @override
   noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
