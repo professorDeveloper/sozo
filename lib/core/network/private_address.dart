@@ -25,7 +25,8 @@ class PrivateAddress {
       // Unique local fc00::/7.
       if ((b[0] & 0xfe) == 0xfc) return true;
       // IPv4-mapped ::ffff:a.b.c.d — judge the embedded address.
-      final mapped = b.sublist(0, 10).every((x) => x == 0) &&
+      final mapped =
+          b.sublist(0, 10).every((x) => x == 0) &&
           b[10] == 0xff &&
           b[11] == 0xff;
       if (mapped) return _privateV4(b[12], b[13]) || b[12] == 127;
@@ -66,8 +67,9 @@ class PrivateAddress {
     if (hit != null && DateTime.now().isBefore(hit.$2)) return hit.$1;
     var private = false;
     try {
-      final addresses = await InternetAddress.lookup(key)
-          .timeout(const Duration(seconds: 3));
+      final addresses = await InternetAddress.lookup(
+        key,
+      ).timeout(const Duration(seconds: 3));
       private = addresses.any(isPrivateIp);
     } catch (_) {
       private = false;

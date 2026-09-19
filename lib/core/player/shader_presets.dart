@@ -48,8 +48,12 @@ class ShaderPreset {
   List<String> chainFor(String tier) =>
       _chains[tier] ?? _chains[ShaderTier.mid.id] ?? const [];
 
-  static const ShaderPreset off =
-      ShaderPreset('off', 'player.shader_off', 'player.shader_off_desc', {});
+  static const ShaderPreset off = ShaderPreset(
+    'off',
+    'player.shader_off',
+    'player.shader_off_desc',
+    {},
+  );
 
   static const List<ShaderPreset> all = [
     off,
@@ -124,9 +128,9 @@ class ShaderPreset {
   /// Every file any preset can ask for, deduplicated — what a "download all"
   /// would fetch, and what a cache cleanup may delete.
   static Set<String> get allFiles => {
-        for (final p in all)
-          for (final chain in p._chains.values) ...chain,
-      };
+    for (final p in all)
+      for (final chain in p._chains.values) ...chain,
+  };
 }
 
 /// How much GPU the chain is allowed to cost.
@@ -144,6 +148,5 @@ enum ShaderTier {
   final String labelKey;
   final String descriptionKey;
 
-  static ShaderTier fromId(String? id) =>
-      id == high.id ? high : mid;
+  static ShaderTier fromId(String? id) => id == high.id ? high : mid;
 }

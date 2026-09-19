@@ -35,8 +35,7 @@ extension _PlayerPip on _PlayerPageState {
         if (_hasPrevEpisode) _loadEpisode(_episodeIndex - 1);
       case 'next':
         if (_partyBlockEpisodeNav()) return;
-        if (widget.args.isSerial &&
-            _hasNextEpisode) {
+        if (widget.args.isSerial && _hasNextEpisode) {
           _loadEpisode(_episodeIndex + 1);
         }
     }
@@ -47,8 +46,7 @@ extension _PlayerPip on _PlayerPageState {
     if (c == null || !c.value.isInitialized) return;
     final isPlaying = c.value.isPlaying;
     final hasPrev = _hasPrevEpisode;
-    final hasNext =
-        _hasNextEpisode;
+    final hasNext = _hasNextEpisode;
     if (isPlaying == _lastPipPlaying) {
       try {
         await _pipChannel.invokeMethod('updatePiPActions', {
@@ -142,9 +140,7 @@ extension _PlayerPip on _PlayerPageState {
     _isPortrait = !_isPortrait;
     try {
       if (_isPortrait) {
-        await AppOrientation.set([
-          DeviceOrientation.portraitUp,
-        ]);
+        await AppOrientation.set([DeviceOrientation.portraitUp]);
       } else {
         await AppOrientation.set([
           DeviceOrientation.landscapeLeft,
@@ -173,9 +169,7 @@ extension _PlayerPip on _PlayerPageState {
         SystemUiMode.manual,
         overlays: SystemUiOverlay.values,
       );
-      await AppOrientation.set([
-        DeviceOrientation.portraitUp,
-      ]);
+      await AppOrientation.set([DeviceOrientation.portraitUp]);
     } catch (_) {}
     _wakelockHeld = false;
     await WakelockHolds.release(this);

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/sources/domain/source_failure.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_state.dart';
@@ -428,7 +429,12 @@ class ViewAllErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reason = message.trim();
+    // Classified rather than printed. The raw line here is whatever threw —
+    // for a 404 that is three sentences of Dio explaining what
+    // `validateStatus` is, which went to the screen under a headline that said
+    // "check your connection". Neither was true and neither was readable.
+    final failure = SourceFailure.of(message);
+    final reason = failure.detail?.trim() ?? '';
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
@@ -445,15 +451,23 @@ class ViewAllErrorView extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.06),
                 ),
               ),
-              child: const Icon(
-                Icons.wifi_off_rounded,
+              child: Icon(
+                switch (failure.kind) {
+                  SourceFailureKind.unreachable => Icons.wifi_off_rounded,
+                  SourceFailureKind.blocked => Icons.shield_outlined,
+                  SourceFailureKind.rateLimited => Icons.hourglass_empty_rounded,
+                  SourceFailureKind.incompatible ||
+                  SourceFailureKind.broken => Icons.extension_off_rounded,
+                  SourceFailureKind.gone ||
+                  SourceFailureKind.unknown => Icons.cloud_off_rounded,
+                },
                 color: AppColors.textSecondary,
                 size: 32,
               ),
             ),
             const SizedBox(height: 18),
             Text(
-              'errors.network'.tr(),
+              failure.headline,
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 16,
@@ -472,13 +486,14 @@ class ViewAllErrorView extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            // The reason was passed in and then dropped on the floor, so every
-            // failure looked like "you are offline". Matches HomeErrorView.
+            // The raw line is kept, because it is what makes a bug report
+            // worth reading — but two lines of it, under the sentence, rather
+            // than a paragraph of framework prose where the explanation goes.
             if (reason.isNotEmpty) ...[
               const SizedBox(height: 10),
               SelectableText(
                 reason,
-                maxLines: 4,
+                maxLines: 2,
                 style: const TextStyle(
                   color: AppColors.textHint,
                   fontSize: 11,

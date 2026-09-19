@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/analytics/analytics.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
@@ -14,6 +16,7 @@ import 'package:soplay/features/search/domain/usecases/genre_usecase.dart';
 import 'package:soplay/features/search/domain/services/search_relevance.dart';
 import 'package:soplay/features/search/domain/usecases/search_usecase.dart';
 import 'package:soplay/features/search/presentation/blocs/search_query_policy.dart';
+import 'package:soplay/features/sources/domain/source_failure.dart';
 
 part 'search_event.dart';
 part 'search_state.dart';
@@ -163,8 +166,19 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     }
     final token = ++_suggestToken;
     _suggestTimer = Timer(_suggestDebounce, () async {
-      final titles = await service.suggest(q);
-      if (isClosed || token != _suggestToken || titles.isEmpty) return;
+      // Read at call time, not at construction: this bloc lives for the whole
+      // session and the mode switches under it.
+      final titles = await service.suggest(
+        q,
+        mode: ContentMode.fromId(getIt<HiveService>().getContentMode()),
+      );
+      if (isClosed || token != _suggestToken) return;
+      // Emitted even when empty. Returning early on `titles.isEmpty` left the
+      // PREVIOUS query's suggestions in place, and the only thing that ever
+      // cleared them was typing fewer than two characters — so a search for
+      // something with no suggestions showed "Did you mean" chips for a query
+      // the reader had moved on from, offering titles that have nothing to do
+      // with what they asked.
       add(SearchSuggestionsUpdated(q, titles));
     });
   }
@@ -182,7 +196,14 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     _pendingText = SearchQueryPolicy.normalize(event.query);
     _debouncer.runNow(_pendingText, (value) {
       if (isClosed) return;
-      add(_SearchRun(state.criteria.copyWith(text: value)));
+      // Text and genre do not compose — see [_onGenreSelected] — and `_fetch`
+      // enforces that by taking whichever is set, silently preferring the
+      // text. `copyWith` kept the active genre alive, so pressing the keyboard
+      // Search key with a filter chip on ran a PLAIN text search underneath a
+      // chip that said it was filtered. Typing the same query and waiting for
+      // the debounce did the right thing, because `_onQueryChanged` builds a
+      // genre-less criteria. Two ways to run the same search, two answers.
+      add(_SearchRun(SearchCriteria(text: value)));
     });
   }
 
@@ -228,6 +249,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       isLoadingMore: false,
       weakResults: false,
       clearError: true,
+      clearLoadMoreFailure: true,
     ));
 
     final result = await _fetch(criteria, 1);
@@ -243,8 +265,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       // over the last good results says the same thing without taking them.
       emit(state.copyWith(
         status: SearchStatus.error,
-        errorMessage: cleanFailureMessage(raw),
-        errorKind: classifySearchFailure(raw),
+        failure: SourceFailure.of(raw),
       ));
       return;
     }
@@ -320,17 +341,29 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         !state.hasMore) {
       return;
     }
+    // The scroll listener fires this on every frame within 300px of the
+    // bottom. Once a page has failed, that is the difference between one
+    // failed request and one per frame for as long as the reader stays there —
+    // so the automatic ones are refused until the footer's retry says
+    // otherwise.
+    if (state.loadMoreFailure != null && !event.retry) return;
 
     final token = ++_runToken;
     final criteria = state.criteria;
     final nextPage = state.page + 1;
-    emit(state.copyWith(isLoadingMore: true));
+    emit(state.copyWith(isLoadingMore: true, clearLoadMoreFailure: true));
 
     final result = await _fetch(criteria, nextPage);
     if (token != _runToken || isClosed) return;
 
     if (result.isError) {
-      emit(state.copyWith(isLoadingMore: false));
+      // Reported rather than swallowed. The spinner used to appear, vanish and
+      // leave nothing behind — no new rows, no reason, and every further
+      // scroll silently trying again.
+      emit(state.copyWith(
+        isLoadingMore: false,
+        loadMoreFailure: SourceFailure.of(result.getErrorOrNull()!.toString()),
+      ));
       return;
     }
 
@@ -351,6 +384,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       page: data.page,
       totalPages: data.totalPages,
       isLoadingMore: false,
+      clearLoadMoreFailure: true,
     ));
   }
 

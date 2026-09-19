@@ -8,11 +8,18 @@
 /// 1080p of the very same stream.
 library;
 
-/// One rendition: the height a viewer would call it, and where it lives.
-typedef HlsVariant = ({int height, String url});
+/// One rendition: the height a viewer would call it, where it lives, and how
+/// many bits per second it spends getting there.
+///
+/// [bandwidth] is 0 when the packager did not declare one. It is what tells two
+/// renditions of the SAME height apart — a master routinely carries 1080p twice
+/// at different bitrates — so it is both how the list dedupes and the only
+/// honest thing to show beside a height that is otherwise identical.
+typedef HlsVariant = ({int height, int bandwidth, String url});
 
 final _namedHeight = RegExp(r'[-_/]s(\d{3,4})p\b');
 final _resolution = RegExp(r'RESOLUTION=\d+x(\d+)');
+final _bandwidth = RegExp(r'[^-]BANDWIDTH=(\d+)');
 
 /// Every rendition in [playlist], best first, resolved against [base].
 ///
@@ -38,11 +45,52 @@ List<HlsVariant> parseHlsVariants(String playlist, Uri base) {
     final height = int.tryParse(named?.group(1) ?? res?.group(1) ?? '') ?? 0;
     if (height <= 0) continue;
 
-    out.add((height: height, url: base.resolve(uri).toString()));
+    // AVERAGE-BANDWIDTH also contains the substring BANDWIDTH, so the pattern
+    // requires a non-hyphen before it: matching the average would rank two
+    // renditions by the wrong number.
+    final bw = int.tryParse(_bandwidth.firstMatch(tag)?.group(1) ?? '') ?? 0;
+
+    out.add((
+      height: height,
+      bandwidth: bw,
+      url: base.resolve(uri).toString(),
+    ));
   }
-  // Best first. A master often carries one resolution twice at different
-  // bitrates; callers that show a list dedupe by height, callers that just want
-  // the best do not care which of the two they get.
-  out.sort((a, b) => b.height.compareTo(a.height));
+  // Best first, and by bitrate within a height — so the 1080p a caller takes
+  // when it just wants "the best" is the better of the two 1080p renditions
+  // rather than whichever the packager happened to list first.
+  out.sort((a, b) {
+    final byHeight = b.height.compareTo(a.height);
+    return byHeight != 0 ? byHeight : b.bandwidth.compareTo(a.bandwidth);
+  });
   return out;
+}
+
+/// One rendition per height, keeping the best bitrate of each.
+///
+/// For a list somebody has to choose from. A master commonly offers the same
+/// resolution two or three times at different bitrates, and rendering those
+/// raw gives "1080p, 1080p, 720p, 720p" — rows that are identical on screen
+/// and are not the same file. Since [parseHlsVariants] already orders by
+/// bitrate within a height, the first of each height is the best one.
+List<HlsVariant> bestPerHeight(List<HlsVariant> variants) {
+  final seen = <int>{};
+  return [
+    for (final v in variants)
+      if (seen.add(v.height)) v,
+  ];
+}
+
+/// `1080p`, plus the bitrate when there is one to show.
+///
+/// The number alone is what a viewer calls the quality; the bitrate is what
+/// makes two same-height rows distinguishable, and is the closest thing to an
+/// honest answer about which is actually better.
+String describeVariant(HlsVariant v) {
+  if (v.bandwidth <= 0) return '${v.height}p';
+  final mbps = v.bandwidth / 1000000;
+  final rate = mbps >= 1
+      ? '${mbps.toStringAsFixed(mbps >= 10 ? 0 : 1)} Mbps'
+      : '${(v.bandwidth / 1000).round()} kbps';
+  return '${v.height}p · $rate';
 }

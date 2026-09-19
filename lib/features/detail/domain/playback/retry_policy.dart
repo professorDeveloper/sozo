@@ -65,8 +65,8 @@ abstract final class RetryPolicy {
   static bool isDecoderError(String raw) {
     final l = raw.toLowerCase();
     return
-        // iOS / AVFoundation.
-        l.contains('cannot decode') ||
+    // iOS / AVFoundation.
+    l.contains('cannot decode') ||
         l.contains('-12906') ||
         l.contains('-12939') ||
         l.contains('coremediaerror') ||
@@ -123,7 +123,9 @@ abstract final class RetryPolicy {
     // and the next playlist fetch has the current one. On a file the same code
     // is fatal.
     if (isLive) {
-      return lifetime < maxLiveRetries ? RetryAction.reconnect : RetryAction.giveUp;
+      return lifetime < maxLiveRetries
+          ? RetryAction.reconnect
+          : RetryAction.giveUp;
     }
     if (lifetime >= maxLifetimeRetries) return RetryAction.giveUp;
 

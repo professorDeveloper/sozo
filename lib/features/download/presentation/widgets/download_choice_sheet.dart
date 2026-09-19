@@ -143,7 +143,13 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
       );
       if (!mounted || revision != _revision) return;
       setState(() {
-        _variants = parseHlsVariants(result.data ?? '', result.realUri);
+        // One row per height. A master routinely carries the same resolution
+        // two or three times at different bitrates, and listing those raw gave
+        // "1080p, 1080p, 720p, 720p" — rows identical on screen that are not
+        // the same file, with no way to tell which one you were choosing.
+        _variants = bestPerHeight(
+          parseHlsVariants(result.data ?? '', result.realUri),
+        );
         _loading = false;
       });
     } catch (_) {
@@ -153,6 +159,56 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
         _loading = false;
       });
     }
+  }
+
+  /// What to say when there are no renditions to choose between.
+  ///
+  /// "Quality unknown" over a single Download button reads as the app having
+  /// failed to work something out. For an HLS MEDIA playlist — segments rather
+  /// than #EXT-X-STREAM-INF — there was nothing to work out: that playlist IS
+  /// one quality. But only when this is also the only source; with other
+  /// mirrors on offer, "only one quality available" would be a claim about the
+  /// title that the list above it contradicts, and unknown is then the honest
+  /// word.
+  String _noVariantLabel(VideoSourceEntity source) {
+    final h = source.height ?? VideoOptionGroups.resolutionOf(source.quality);
+    if (h != null && h > 0) return '${h}p';
+    if (source.quality.isNotEmpty) return source.quality;
+    return _sources.length == 1
+        ? 'ux.single_quality'.tr()
+        : 'ux.quality_unknown'.tr();
+  }
+
+  /// `1080p` when the height is known, the provider's label when it is not.
+  String _sourceTitle(VideoSourceEntity source, int index) {
+    final h = source.height ?? VideoOptionGroups.resolutionOf(source.quality);
+    if (h != null && h > 0) return '${h}p';
+    if (source.quality.isNotEmpty) return source.quality;
+    return 'ux.source_number'.tr(args: ['${index + 1}']);
+  }
+
+  /// What the source called it, kept under the resolution rather than instead
+  /// of it — it still names the server, the dub and the container, which is
+  /// how somebody tells two 1080p mirrors apart.
+  Widget? _sourceSubtitle(VideoSourceEntity source) {
+    final h = source.height ?? VideoOptionGroups.resolutionOf(source.quality);
+    final size = DownloadChoices.formatSize(source.sizeBytes);
+    // Not when the label IS the resolution. Plenty of sources call their
+    // renditions exactly "720p", and repeating it under a title that already
+    // says 720p is noise in the one place the viewer is reading carefully.
+    final label = source.quality.trim();
+    final saysHeight = h != null && h > 0 && label.toLowerCase() == '${h}p';
+    final parts = <String>[
+      if (h != null && h > 0 && label.isNotEmpty && !saysHeight) label,
+      if (size != null && size.isNotEmpty) size,
+    ];
+    if (parts.isEmpty) return null;
+    return Text(
+      parts.join(' · '),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+    );
   }
 
   @override
@@ -192,11 +248,14 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
                     const SizedBox(height: 12),
                     for (var i = 0; i < _sources.length; i++)
                       ListTile(
-                        title: Text(
-                          _sources[i].quality.isEmpty
-                              ? 'ux.source_number'.tr(args: ['${i + 1}'])
-                              : _sources[i].quality,
-                        ),
+                        // The resolution first, when it can be known, and the
+                        // provider's own words under it. `quality` is whatever
+                        // the source chose to call this — "SUB HLS", "FHD",
+                        // "Server 2" — so a list of them tells you which
+                        // button you are pressing and nothing about what you
+                        // are about to download.
+                        title: Text(_sourceTitle(_sources[i], i)),
+                        subtitle: _sourceSubtitle(_sources[i]),
                         trailing: i == _source ? const Icon(Icons.check) : null,
                         selected: i == _source,
                         onTap: () {
@@ -219,7 +278,7 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
                   ] else if (_variants.isNotEmpty)
                     for (var i = 0; i < _variants.length; i++)
                       ListTile(
-                        title: Text('${_variants[i].height}p'),
+                        title: Text(describeVariant(_variants[i])),
                         selected: i == _variant,
                         trailing: i == _variant
                             ? const Icon(Icons.check)
@@ -227,11 +286,15 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
                         onTap: () => setState(() => _variant = i),
                       )
                   else
-                    Text(
-                      source.height == null
-                          ? 'ux.quality_unknown'.tr()
-                          : '${source.height}p',
-                    ),
+                    // One rendition, not an unknown one.
+                    //
+                    // A playlist with segments rather than #EXT-X-STREAM-INF
+                    // offers exactly one quality — that is what it IS, and the
+                    // sheet said "Quality unknown" over a single Download
+                    // button, which reads as the app having failed to work
+                    // something out. It had nothing to work out. The height is
+                    // still shown whenever it can be derived at all.
+                    Text(_noVariantLabel(source)),
                   const SizedBox(height: 12),
                   // A master size cannot describe a selected rendition; never reuse it.
                   Text(
@@ -257,9 +320,19 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
                           DownloadSelection(
                             url: variant?.url ?? source.videoUrl,
                             headers: source.headers,
+                            // The label is a last resort, but it is a real
+                            // one: plenty of sources declare no height and
+                            // call the rendition "1080p" in words. Without
+                            // this the downloads list said "quality unknown"
+                            // about a file whose quality was written on the
+                            // row the viewer had just tapped.
                             height: _failed
                                 ? null
-                                : variant?.height ?? source.height,
+                                : variant?.height ??
+                                      source.height ??
+                                      VideoOptionGroups.resolutionOf(
+                                        source.quality,
+                                      ),
                           ),
                         );
                       },

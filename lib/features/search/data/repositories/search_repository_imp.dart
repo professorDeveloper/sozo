@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
@@ -8,6 +12,7 @@ import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/search/data/model/genre_model.dart';
 import 'package:soplay/features/search/data/model/search_model.dart';
 import 'package:soplay/features/search/domain/repositories/search_repository.dart';
+import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
 
 import '../datasources/search_data_source.dart';
 
@@ -33,12 +38,50 @@ class SearchRepositoryImp extends SearchRepository {
   @override
   Future<Result<List<GenreModel>>> getGenres() async {
     final provider = _currentProvider;
-    if (provider != null &&
-        (provider.startsWith('cs:') ||
-            provider.startsWith('an:') ||
-            provider.startsWith('mn:') ||
-            provider.startsWith('my:'))) {
+    final catalogue = Catalogue.fromId(provider);
+    if (catalogue != null) {
+      try {
+        return Success(await dataSource.getCatalogueGenres(catalogue.kind));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
+    // Extension hosts DO have genres, and Home has drawn them for a long time
+    // (see HomeRepositoryImp.loadGenres). Search returned an empty list for
+    // every one of them, so the Categories section was simply absent on the
+    // Search tab for the large majority of the installed sources — and on a
+    // device with no recent searches the landing screen fell all the way
+    // through to "nothing to browse", on a source whose Home screen was
+    // showing those very genres one tab away.
+    //
+    // Mangayomi is the one genuine exception: it exposes per-source filters
+    // rather than the flat genre list this screen draws, so it still has
+    // nothing to offer here.
+    if (provider != null && provider.startsWith('my:')) {
       return const Success(<GenreModel>[]);
+    }
+    final hostGenres = switch (provider) {
+      final p? when p.startsWith('cs:') => CloudStreamChannel.getGenres,
+      final p? when p.startsWith('an:') => AniyomiChannel.getGenres,
+      final p? when p.startsWith('mn:') => MangaChannel.getGenres,
+      _ => null,
+    };
+    if (hostGenres != null && provider != null) {
+      try {
+        final list = await hostGenres(provider.substring(3)).timeout(
+          _hostBudget,
+        );
+        return Success([
+          for (final e in list.whereType<Map>())
+            GenreModel.fromJson(Map<String, dynamic>.from(e)),
+        ]);
+      } catch (e) {
+        // A host that cannot list genres is not a broken screen: the rail and
+        // the recents above are still worth showing. Reported rather than
+        // swallowed, so the row can say the categories did not load instead of
+        // vanishing.
+        return Failure(Exception(e.toString()));
+      }
     }
     try {
       final result = await dataSource.getGenres();
@@ -54,8 +97,33 @@ class SearchRepositoryImp extends SearchRepository {
     int page = 1,
   }) async {
     try {
-      final result = await dataSource.getMoviesByGenre(genre, page: page);
-      return Success(result);
+      final provider = _currentProvider;
+      final catalogue = Catalogue.fromId(provider);
+      if (catalogue != null) {
+        return Success(
+          await dataSource.getCatalogueGenre(catalogue.kind, genre, page: page),
+        );
+      }
+      // The other half of showing an extension source's genres: the tile has
+      // to lead somewhere. A `cs:`/`an:`/`mn:` genre browsed through the
+      // backend would be GET /contents/genre/<the extension's own slug>
+      // against a provider id the server has never heard of. `getSection` is
+      // how Home browses exactly these, and it answers in the same shape.
+      final section = switch (provider) {
+        final p? when p.startsWith('cs:') => CloudStreamChannel.getSection,
+        final p? when p.startsWith('an:') => AniyomiChannel.getSection,
+        final p? when p.startsWith('mn:') => MangaChannel.getSection,
+        _ => null,
+      };
+      if (section != null && provider != null) {
+        final map = await section(
+          provider.substring(3),
+          genre,
+          page: page,
+        ).timeout(_hostBudget);
+        return Success(SearchModel.fromJson(map));
+      }
+      return Success(await dataSource.getMoviesByGenre(genre, page: page));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -83,6 +151,41 @@ class SearchRepositoryImp extends SearchRepository {
     return Success(model);
   }
 
+  /// The budget an on-device host search gets.
+  ///
+  /// There was none. The backend path goes through Dio, which has connect,
+  /// send and receive timeouts; the five host paths below had nothing at all,
+  /// so an extension whose `search()` never returns — a dead host, a Cloudflare
+  /// challenge page that never resolves, a socket the plugin opened with no
+  /// read timeout of its own — left the Search tab spinning forever, with no
+  /// error, no empty state and no way out but leaving the screen.
+  ///
+  /// Borrowed from [CrossSearchEngine.channelTimeout] rather than picked again
+  /// here, so the two paths that search the same extension agree about how long
+  /// it may take. It is generous for the reason recorded there: the first
+  /// search against a freshly-installed source has to download and dex-load its
+  /// APK before it can issue a single request.
+  static const Duration _hostBudget = CrossSearchEngine.channelTimeout;
+
+  /// Runs one on-device host search under [_hostBudget].
+  Future<Result<SearchModel>> _viaHost(
+    String label,
+    Future<Map<String, dynamic>> Function() search,
+  ) async {
+    try {
+      return _fromChannel(await search().timeout(_hostBudget), label);
+    } on TimeoutException {
+      // Its own message, and not the channel's: a host that never answered is
+      // a different thing from one that answered with a failure, and only this
+      // one is worth suggesting another source for.
+      return Failure(
+        Exception('$label: no answer after ${_hostBudget.inSeconds}s'),
+      );
+    } catch (e) {
+      return Failure(Exception(e.toString()));
+    }
+  }
+
   @override
   Future<Result<SearchModel>> searchMovies(
     String query, {
@@ -91,51 +194,82 @@ class SearchRepositoryImp extends SearchRepository {
   }) async {
     final js = jsRuntime;
     final provider = _currentProvider;
-    if (provider != null && provider.startsWith('cs:')) {
+    // A catalogue is searched on the backend, in the provider search's shape.
+    // Before this, a search with AniList or TMDB as the "source" went to the
+    // provider route with an id it had never heard of.
+    final catalogue = Catalogue.fromId(provider);
+    if (catalogue != null) {
       try {
-        final map = await CloudStreamChannel.search(provider.substring(3), query, page: page);
-        return _fromChannel(map, 'CloudStream');
+        return Success(
+          await dataSource.searchCatalogue(catalogue.kind, query, page: page),
+        );
+      } on DioException catch (e) {
+        final raw = e.response?.data;
+        final message = (raw is Map ? raw['message'] : null) ?? e.message;
+        return Failure(Exception(message.toString()));
       } catch (e) {
         return Failure(Exception(e.toString()));
       }
+    }
+    if (provider != null && provider.startsWith('cs:')) {
+      return _viaHost(
+        'CloudStream',
+        () => CloudStreamChannel.search(provider.substring(3), query, page: page),
+      );
     }
     if (provider != null && provider.startsWith('an:')) {
-      try {
-        final map = await AniyomiChannel.search(provider.substring(3), query, page: page);
-        return _fromChannel(map, 'Aniyomi');
-      } catch (e) {
-        return Failure(Exception(e.toString()));
-      }
+      return _viaHost(
+        'Aniyomi',
+        () => AniyomiChannel.search(provider.substring(3), query, page: page),
+      );
     }
     if (provider != null && provider.startsWith('mn:')) {
-      try {
-        final map = await MangaChannel.search(provider.substring(3), query, page: page);
-        return _fromChannel(map, 'Manga');
-      } catch (e) {
-        return Failure(Exception(e.toString()));
-      }
+      return _viaHost(
+        'Manga',
+        () => MangaChannel.search(provider.substring(3), query, page: page),
+      );
     }
     if (provider != null && provider.startsWith('my:')) {
-      try {
-        final map = await mangayomi.search(provider.substring(3), query, page: page);
-        return _fromChannel(map, 'Mangayomi');
-      } catch (e) {
-        return Failure(Exception(e.toString()));
-      }
+      return _viaHost(
+        'Mangayomi',
+        () => mangayomi.search(provider.substring(3), query, page: page),
+      );
     }
+    // Why the JS extractor said no, when it said no at all. Kept so that if
+    // the backend cannot answer either, the reader is told the real reason —
+    // a Cloudflare challenge, say — instead of whatever Dio then reports.
+    Object? jsFailure;
     if (js != null && provider != null) {
+      // The JS runtime falls THROUGH to the backend when it has no answer, so
+      // it cannot use _viaHost — but it can still be bounded.
       try {
-        final map = await js.trySearch(provider, query, page);
+        final map = await js.trySearch(provider, query, page).timeout(
+          _hostBudget,
+        );
         if (map != null) return Success(SearchModel.fromJson(map));
+      } on TimeoutException {
+        jsFailure = Exception(
+          '$provider: no answer after ${_hostBudget.inSeconds}s',
+        );
       } catch (e) {
-        return Failure(Exception(e.toString()));
+        // A THROW used to end the search here, while a null fell through to
+        // the backend — two outcomes that mean the same thing to the reader,
+        // given opposite treatment. So a Cloudflare challenge that survived
+        // the one retry, a CDN hiccup fetching the extractor, or an extractor
+        // that simply has no search() turned the Search tab red for a provider
+        // the backend could have answered perfectly well. ProviderManager does
+        // the opposite for these same providers when resolving media: it logs
+        // and falls back to the server. This is now the same policy.
+        jsFailure = e;
       }
     }
     try {
       final result = await dataSource.searchMovies(query, page: page);
       return Success(result);
     } catch (e) {
-      return Failure(Exception(e.toString()));
+      // Both legs failed. The extractor's reason is the more specific one and
+      // the one the reader can act on, so it wins.
+      return Failure(Exception((jsFailure ?? e).toString()));
     }
   }
 }

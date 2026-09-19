@@ -12,18 +12,17 @@ VideoSourceEntity src({
   bool atmos = false,
   int? sizeBytes,
   String? type,
-}) =>
-    VideoSourceEntity(
-      quality: quality,
-      videoUrl: 'https://cdn.test/a.m3u8',
-      isDefault: false,
-      accessible: true,
-      codec: codec,
-      hdr: hdr,
-      atmos: atmos,
-      sizeBytes: sizeBytes,
-      type: type,
-    );
+}) => VideoSourceEntity(
+  quality: quality,
+  videoUrl: 'https://cdn.test/a.m3u8',
+  isDefault: false,
+  accessible: true,
+  codec: codec,
+  hdr: hdr,
+  atmos: atmos,
+  sizeBytes: sizeBytes,
+  type: type,
+);
 
 List<PlaybackReadoutRow> build({
   int width = 1920,
@@ -44,24 +43,23 @@ List<PlaybackReadoutRow> build({
   // the readout can COMPUTE, which is a separate question from what a viewer
   // has chosen to see. The picker has its own tests for that.
   Set<String>? fields,
-}) =>
-    PlaybackReadout.rows(
-      fields: fields ?? {for (final f in PlayerInfoFields.all) f.id},
-      videoWidth: width,
-      videoHeight: height,
-      position: position,
-      duration: duration,
-      bufferedTo: bufferedTo,
-      playbackSpeed: speed,
-      isLive: isLive,
-      isBuffering: isBuffering,
-      engineId: engineId,
-      providerId: providerId,
-      serverLabel: serverLabel,
-      mediaType: mediaType,
-      source: source,
-      streamUrl: streamUrl,
-    );
+}) => PlaybackReadout.rows(
+  fields: fields ?? {for (final f in PlayerInfoFields.all) f.id},
+  videoWidth: width,
+  videoHeight: height,
+  position: position,
+  duration: duration,
+  bufferedTo: bufferedTo,
+  playbackSpeed: speed,
+  isLive: isLive,
+  isBuffering: isBuffering,
+  engineId: engineId,
+  providerId: providerId,
+  serverLabel: serverLabel,
+  mediaType: mediaType,
+  source: source,
+  streamUrl: streamUrl,
+);
 
 String? valueFor(List<PlaybackReadoutRow> rows, String key) {
   for (final r in rows) {
@@ -74,20 +72,26 @@ void main() {
   group('what the panel says', () {
     test('resolution carries both the numbers and the name', () {
       expect(valueFor(build(), 'player.info_resolution'), '1920×1080 · 1080p');
-      expect(valueFor(build(width: 3840, height: 2160), 'player.info_resolution'),
-          '3840×2160 · 4K');
+      expect(
+        valueFor(build(width: 3840, height: 2160), 'player.info_resolution'),
+        '3840×2160 · 4K',
+      );
     });
 
     test('an odd size still reports its numbers', () {
       // Anamorphic and cropped encodes are common; a missing name must not
       // cost the row.
-      expect(valueFor(build(width: 1024, height: 436), 'player.info_resolution'),
-          '1024×436');
+      expect(
+        valueFor(build(width: 1024, height: 436), 'player.info_resolution'),
+        '1024×436',
+      );
     });
 
     test('an uninitialised player reports no resolution at all', () {
-      expect(valueFor(build(width: 0, height: 0), 'player.info_resolution'),
-          isNull);
+      expect(
+        valueFor(build(width: 0, height: 0), 'player.info_resolution'),
+        isNull,
+      );
     });
 
     test('buffer ahead is the number that explains a stutter', () {
@@ -133,8 +137,10 @@ void main() {
 
     test('buffering is stated while it is happening', () {
       expect(valueFor(build(), 'player.info_state'), isNull);
-      expect(valueFor(build(isBuffering: true), 'player.info_state'),
-          'buffering');
+      expect(
+        valueFor(build(isBuffering: true), 'player.info_state'),
+        'buffering',
+      );
     });
   });
 
@@ -142,20 +148,27 @@ void main() {
     test('is the host alone — never the url, which carries tokens', () {
       // This panel is made to be screenshotted into a bug report.
       final rows = build(
-          streamUrl: 'https://cdn.example.test/x/a.m3u8?token=secret');
+        streamUrl: 'https://cdn.example.test/x/a.m3u8?token=secret',
+      );
       expect(valueFor(rows, 'player.info_host'), 'cdn.example.test');
       expect(rows.every((r) => !r.value.contains('secret')), isTrue);
     });
 
     test('a url that will not parse costs the row, not the panel', () {
-      expect(valueFor(build(streamUrl: 'not a url'), 'player.info_host'), isNull);
+      expect(
+        valueFor(build(streamUrl: 'not a url'), 'player.info_host'),
+        isNull,
+      );
       expect(valueFor(build(streamUrl: ''), 'player.info_host'), isNull);
     });
   });
 
   group('container', () {
     test('the source wins over what the player was told', () {
-      final rows = build(mediaType: 'video', source: src(type: 'hls'));
+      final rows = build(
+        mediaType: 'video',
+        source: src(type: 'hls'),
+      );
       expect(valueFor(rows, 'player.info_container'), 'HLS');
     });
 
@@ -171,8 +184,10 @@ void main() {
   group('helpers', () {
     test('the clock drops the hour until there is one', () {
       expect(PlaybackReadout.formatClock(const Duration(seconds: 65)), '01:05');
-      expect(PlaybackReadout.formatClock(const Duration(hours: 2, minutes: 3)),
-          '2:03:00');
+      expect(
+        PlaybackReadout.formatClock(const Duration(hours: 2, minutes: 3)),
+        '2:03:00',
+      );
       expect(PlaybackReadout.formatClock(const Duration(seconds: -5)), '00:00');
     });
 
@@ -185,7 +200,9 @@ void main() {
   });
 
   test('every row has a player.info_* key the locales must define', () {
-    final rows = build(source: src(codec: 'h264', sizeBytes: 1 << 30));
+    final rows = build(
+      source: src(codec: 'h264', sizeBytes: 1 << 30),
+    );
     expect(rows, isNotEmpty);
     for (final r in rows) {
       expect(r.labelKey, startsWith('player.info_'));
@@ -194,8 +211,11 @@ void main() {
       final text = File('assets/translations/$locale.json').readAsStringSync();
       for (final r in rows) {
         final leaf = r.labelKey.split('.').last;
-        expect(text.contains('"$leaf"'), isTrue,
-            reason: '$locale.json is missing ${r.labelKey}');
+        expect(
+          text.contains('"$leaf"'),
+          isTrue,
+          reason: '$locale.json is missing ${r.labelKey}',
+        );
       }
     }
   });

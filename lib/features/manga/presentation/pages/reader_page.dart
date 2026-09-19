@@ -14,6 +14,7 @@ import 'package:soplay/core/network/http_headers.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/system/system_controls.dart';
+import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/detail/domain/playback/wakelock_holds.dart';
 import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
 import 'package:soplay/core/error/result.dart';
@@ -28,6 +29,7 @@ import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/manga/presentation/widgets/novel_text.dart';
 import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:soplay/features/manga/domain/reading/chapter_progress.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
 class ReaderPage extends StatefulWidget {
@@ -98,6 +100,27 @@ class _ReaderPageState extends State<ReaderPage> {
       ItemPositionsListener.create();
   int _initialIndex = 0;
   Timer? _saveDebounce;
+
+  /// Which chapters of this sitting have been read far enough to report, and
+  /// which have already been reported. Per reader session, like the player's
+  /// WatchProgress: leaving and coming back starts a fresh ledger, and the
+  /// tracker's own refusal to move progress backwards catches the repeat.
+  final ChapterProgress _progress = ChapterProgress();
+
+  /// The furthest page of this chapter that has been on screen, as a
+  /// high-water mark.
+  ///
+  /// Only the continuous reader moves this. Its notion of the current page is
+  /// whatever straddles the top of the viewport, which goes backwards as
+  /// freely as it goes forwards and, for the last page of a chapter, may never
+  /// be true at all: a final page shorter than the viewport sits under the top
+  /// of the screen with the end-of-chapter footer below it, so the chapter
+  /// ends with some middle page at the top. A mark that only ever rises is the
+  /// only thing here that can answer "was this chapter read".
+  ///
+  /// Reset to the start page by [_resetPageControllers], because it describes
+  /// one chapter and not the sitting.
+  int _furthestSeenPage = 0;
 
   /// Bumped by every [_loadChapter]. A chapter answer that arrives after the
   /// reader has already moved on — two quick taps on "next", a pick from the
@@ -196,6 +219,7 @@ class _ReaderPageState extends State<ReaderPage> {
       initialPage: _slotForPage(page),
     );
     _page.value = page;
+    _furthestSeenPage = page;
     _initialIndex = page;
   }
 
@@ -243,6 +267,7 @@ class _ReaderPageState extends State<ReaderPage> {
       _html = null;
     });
     _page.value = 0;
+    _furthestSeenPage = 0;
     final ch = widget.args.chapters[index];
     final ref = ch.mediaRef;
 
@@ -298,6 +323,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   void _onItemPositions() {
     if (_mode != 'vertical' || _pageCount == 0) return;
+    _markSeenPages(_itemPositionsListener.itemPositions.value);
     final positions = _itemPositionsListener.itemPositions.value.where(
       (p) => p.index < _pageCount && p.itemTrailingEdge > 0,
     );
@@ -316,6 +342,51 @@ class _ReaderPageState extends State<ReaderPage> {
       _page.value = page;
       _scheduleSave();
     }
+  }
+
+  /// Raises [_furthestSeenPage] to the furthest page [positions] shows the
+  /// bottom of, and schedules a save when it moves.
+  ///
+  /// The bottom edge rather than any part of the page, because in a continuous
+  /// reader the top of a page arrives long before the page is read: a flick
+  /// that brings the last page's first centimetre into view would otherwise
+  /// finish the chapter. A page whose trailing edge has been inside the
+  /// viewport is a page that has been scrolled through.
+  ///
+  /// A page only partly on screen is reported too, with whichever edge is off
+  /// the screen outside 0..1 — the last page arriving with its top showing
+  /// and its bottom below the fold reports a trailing edge past 1 — so the
+  /// edge has to be tested against both ends of the viewport and not merely
+  /// for being a position at all.
+  ///
+  /// Zero-height items do not count. An image the reader has not measured yet
+  /// lays out flat, so a chapter that has just opened is briefly the pages it
+  /// has not measured stacked on one line under the ones it has, every one of
+  /// their bottom edges on screen at the same height. Counting that frame
+  /// would report every chapter the moment it was opened, which is the one
+  /// thing this rule exists to prevent.
+  ///
+  /// A chapter short enough to fit on the screen is therefore read as soon as
+  /// it is open, which matches the one-page comic in [ChapterProgress]: there
+  /// is no scrolling left to do and no more of it to see.
+  ///
+  /// Saves on its own rather than leaving that to the page-changed path,
+  /// because the two do not move together: scrolling the end of a tall last
+  /// page into view advances this while the page at the top of the viewport
+  /// stays exactly where it was.
+  void _markSeenPages(Iterable<ItemPosition> positions) {
+    var furthest = _furthestSeenPage;
+    for (final position in positions) {
+      if (position.index >= _pageCount) continue;
+      final bottom = position.itemTrailingEdge;
+      if (bottom <= 0 || bottom > 1 || bottom <= position.itemLeadingEdge) {
+        continue;
+      }
+      if (position.index > furthest) furthest = position.index;
+    }
+    if (furthest == _furthestSeenPage) return;
+    _furthestSeenPage = furthest;
+    _scheduleSave();
   }
 
   void _jumpVerticalTo(int page) {
@@ -381,6 +452,101 @@ class _ReaderPageState extends State<ReaderPage> {
         durationMs: isNovel ? 1000 : (_pageCount > 1 ? _pageCount - 1 : 0),
         watchedAt: DateTime.now().millisecondsSinceEpoch,
       ),
+    );
+    // On the same tick as the history write, because the two answer questions
+    // about the same moment: this is where the reader's position is known to
+    // have changed, and every path that moves it already comes through here.
+    _maybeReportChapter();
+  }
+
+  /// The furthest page of this chapter that has been on screen.
+  ///
+  /// Each reader needs a different answer, and none of them is the current
+  /// page on its own:
+  ///
+  /// - The double-page reader reports the FIRST page of the pair, so the
+  ///   second half of the last slot is just as read and a chapter whose last
+  ///   slot holds two would otherwise never reach its last page at all.
+  /// - The continuous reader's current page is whatever straddles the top of
+  ///   the viewport, which is never the last page of a long chapter; it keeps
+  ///   [_furthestSeenPage] instead. That mark starts at the current page and
+  ///   only rises, so the max of the two is right whether or not the listener
+  ///   has fired yet.
+  /// - The page-at-a-time reader turns one page at a time and the current page
+  ///   is already the furthest.
+  ///
+  /// Reads [_spreadLayout] rather than [_spread] because this is reachable
+  /// from dispose, where there is no MediaQuery left to ask.
+  int get _furthestVisiblePage {
+    if (_pages.isEmpty) return _currentPage;
+    if (_spreadLayout) {
+      final slots = _spreadSlots;
+      final slot = _slotForPage(_currentPage);
+      return slot < slots.length ? slots[slot].last : _currentPage;
+    }
+    return _furthestSeenPage > _currentPage ? _furthestSeenPage : _currentPage;
+  }
+
+  /// Tells AniList this chapter has been read, once it has been.
+  ///
+  /// The reader's half of the player's `_maybeReportTrackers`, and deliberately
+  /// the same design: a threshold rather than the first page, one report per
+  /// chapter however many times that threshold is crossed, nothing awaited on
+  /// a path the reader is on, and no error surfaced. A tracker being down, a
+  /// token having expired or there being no network at all must cost the
+  /// reader nothing — they are reading, not syncing.
+  ///
+  /// AniList only. MyAnimeList's client here speaks anime endpoints and anime
+  /// ids exclusively, so a manga's `idMal` sent through it would write chapters
+  /// onto an unrelated anime; see MalTracker's own note. That is also why the
+  /// detail page keeps MAL off manga titles.
+  ///
+  /// Incognito covers the trackers for the reason it covers history: pushing
+  /// the chapter to somebody's public list while hiding it locally would put
+  /// the record in the one place the reader cannot quietly clear.
+  ///
+  /// The ledger is marked before the write is sent, not after it succeeds, so
+  /// a write that fails — offline, expired token, tracker down — is not tried
+  /// again for the rest of the sitting. That is the player's rule too, and for
+  /// its reason: one chapter is one event. Once the threshold is crossed it
+  /// stays crossed, so without the ledger every later save on this chapter —
+  /// every scroll, every page turn, the write on the way out — would send the
+  /// chapter again, and somebody reading back and forth over the end would aim
+  /// a burst of them at a tracker that is already not answering. None of it is
+  /// ever shown to them. The chapter is picked up again on the next sitting,
+  /// where the ledger starts empty.
+  void _maybeReportChapter() {
+    if (_hive.isIncognito) return;
+    if (widget.args.contentUrl.trim().isEmpty) return;
+
+    final read = _html != null
+        ? ChapterProgress.isProseRead(_novelPermille)
+        : ChapterProgress.isComicRead(
+            furthestPage: _furthestVisiblePage,
+            pageCount: _pageCount,
+          );
+    if (!read) return;
+
+    // Asked before the ledger is marked: a chapter finished while no tracker
+    // is connected must still be reportable if one is connected later in the
+    // same sitting.
+    final anilist = getIt<AnilistTracker>();
+    if (!anilist.isConnected) return;
+
+    final number = _progress.chapterToReport(
+      widget.args.chapters[_chapterIndex].episode,
+    );
+    if (number == null) return;
+
+    unawaited(
+      anilist
+          .reportChapter(
+            provider: widget.args.provider,
+            contentUrl: widget.args.contentUrl,
+            title: widget.args.title,
+            chapterNumber: number,
+          )
+          .catchError((Object _) => null),
     );
   }
 

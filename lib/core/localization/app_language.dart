@@ -35,6 +35,7 @@ abstract final class AppLanguage {
     'fr': 'Français',
     'tr': 'Türkçe',
     'id': 'Bahasa Indonesia',
+    'yue': '廣東話',
   };
 
   static String labelOf(String code) => names[code] ?? code;
@@ -51,6 +52,7 @@ abstract final class AppLanguage {
     'fr': '🇫🇷',
     'tr': '🇹🇷',
     'id': '🇮🇩',
+    'yue': '🇭🇰',
   };
 
   static String flagOf(String code) => flags[code] ?? '🌐';

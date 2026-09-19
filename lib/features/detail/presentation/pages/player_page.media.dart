@@ -43,6 +43,38 @@ extension _PlayerMedia on _PlayerPageState {
     final defaultReferer = _defaultRefererFor(widget.args.provider);
     if (defaultReferer != null) merged['Referer'] = defaultReferer;
     merged.addAll(sourceHeaders);
+    addFetchMetadata(merged, uri);
+    return merged;
+  }
+
+  /// The same headers, plus any Cloudflare clearance already earned for this
+  /// host.
+  ///
+  /// The app can solve a challenge — [CfBypassService] does it headlessly and
+  /// the interactive solver does it in front of the viewer — and the Dio
+  /// client and the JS runtime both send the result. The PLAYER never did. So
+  /// a stream host behind Cloudflare was fetched with no cookie at all, by the
+  /// one part of the app that has to fetch it dozens of times per episode, and
+  /// solving the challenge changed nothing about playback. The jar travels
+  /// whole because Cloudflare pairs cf_clearance with the `__cf_bm` and
+  /// `_cfuvid` it was issued alongside; the User-Agent above is already the
+  /// one those were issued to, which is the other half of making them work.
+  ///
+  /// Best-effort: a host with nothing in the jar is the ordinary case and adds
+  /// no header at all.
+  Future<Map<String, String>> _streamHeaders(
+    Uri uri,
+    Map<String, String> sourceHeaders,
+  ) async {
+    final merged = _mergedStreamHeaders(uri, sourceHeaders);
+    if (merged.isEmpty || merged.containsKey('Cookie')) return merged;
+    try {
+      final jar = await getIt<CfBypassService>().readClearance(uri.host);
+      if (jar != null && jar.isNotEmpty) merged['Cookie'] = jar;
+    } catch (_) {
+      // A stream that plays without a cookie must not fail because the jar
+      // could not be read.
+    }
     return merged;
   }
 
@@ -105,6 +137,7 @@ extension _PlayerMedia on _PlayerPageState {
       _initializing = true;
       _stage = _LoadingStage.resolving;
       _errorMessage = null;
+      _errorRaw = null;
     });
 
     final result = await getIt<GetEpisodesUseCase>()(
@@ -231,6 +264,7 @@ extension _PlayerMedia on _PlayerPageState {
       _initializing = true;
       _stage = _LoadingStage.resolving;
       _errorMessage = null;
+      _errorRaw = null;
       _isCodecError = false;
       _window = _window.at(index);
       _panel = _SidePanel.none;
@@ -490,6 +524,7 @@ extension _PlayerMedia on _PlayerPageState {
       _initializing = true;
       _stage = _LoadingStage.loading;
       _errorMessage = null;
+      _errorRaw = null;
       _isCodecError = false;
       _currentQuality = source.quality;
       _currentSourceIndex = idx >= 0 ? idx : _currentSourceIndex;
@@ -709,6 +744,9 @@ extension _PlayerMedia on _PlayerPageState {
   }) async {
     final generation = intentGeneration ?? ++_mediaGeneration;
     if (!mounted || generation != _mediaGeneration) return;
+    // Remembered before anything rewrites it — see [_playSourceUrl].
+    _playSourceUrl = url;
+    _playSourceHeaders = headers;
     var effUrl = url;
     var effHeaders = headers;
     var effType = type;
@@ -986,6 +1024,7 @@ extension _PlayerMedia on _PlayerPageState {
       setState(() {
         _initializing = false;
         _errorMessage = null;
+      _errorRaw = null;
         _isCodecError = false;
       });
       await _handOffToExternalPlayer();
@@ -999,6 +1038,7 @@ extension _PlayerMedia on _PlayerPageState {
           : Uri.file(effectiveUrl);
       controller = PlayerController.networkUrl(
         fileUri,
+        preferPlatform: _preferPlatformPlayer,
         formatHint: VideoFormat.hls,
         videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
       );
@@ -1009,12 +1049,14 @@ extension _PlayerMedia on _PlayerPageState {
           : File(effectiveUrl);
       controller = PlayerController.file(
         file,
+        preferPlatform: _preferPlatformPlayer,
         videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
       );
       _headers = const {};
     } else {
       final uri = Uri.parse(effectiveUrl);
-      final mergedHeaders = _mergedStreamHeaders(uri, effectiveHeaders);
+      final mergedHeaders = await _streamHeaders(uri, effectiveHeaders);
+      if (!mounted || generation != _mediaGeneration) return;
 
       _plog('provider: ${widget.args.provider}');
       _plog('headers (${mergedHeaders.length}):');
@@ -1035,6 +1077,7 @@ extension _PlayerMedia on _PlayerPageState {
       controller = PlayerController.networkUrl(
         uri,
         httpHeaders: mergedHeaders,
+        preferPlatform: _preferPlatformPlayer,
         formatHint: isHls
             ? VideoFormat.hls
             : isDash
@@ -1173,6 +1216,7 @@ extension _PlayerMedia on _PlayerPageState {
       setState(() {
         _initializing = false;
         _errorMessage = null;
+      _errorRaw = null;
         _isCodecError = false;
       });
       _scheduleHide();
@@ -1239,6 +1283,38 @@ extension _PlayerMedia on _PlayerPageState {
         _autoRetry();
         return;
       } else {
+        // A refusal is not the end of the walk.
+        //
+        // `_isRecoverableError` above means "re-opening THIS url might help".
+        // Everything it rejects — a 403, a 404, a dead host — lands here, and
+        // that is PRECISELY the case where another mirror is the answer: the
+        // file is gone from this server, not from all of them. The branch
+        // simply printed the error, so a title with five mirrors gave up on
+        // the first one that 404'd with four untried.
+        //
+        // [RetryPolicy] already encodes this, with tests. It had no caller at
+        // all — the page hand-rolled the same decision and got the last case
+        // wrong. Marked tried first, because `_hasUntriedSource` asks what is
+        // LEFT and the mirror that just failed is not.
+        if (!_isLive) _markCurrentTried();
+        final action = RetryPolicy.decide(
+          message: raw,
+          isLive: _isLive,
+          attempts: _retryAttempts,
+          lifetime: _lifetimeRetries,
+          hasUntriedSource: _hasUntriedSource,
+        );
+        if (action == RetryAction.nextSource && _hasUntriedSource) {
+          _plog(
+            'refused here, trying another source',
+            level: LogLevel.warn,
+          );
+          _retryAttempts++;
+          _lifetimeRetries++;
+          _autoRetrying = true;
+          _autoRetry();
+          return;
+        }
         msg = raw.isEmpty
             ? PlaybackFaultKind.unknown.messageKey.tr()
             : _humanizeError(raw);
@@ -1246,6 +1322,7 @@ extension _PlayerMedia on _PlayerPageState {
       setState(() {
         _initializing = false;
         _errorMessage = msg;
+        _errorRaw = raw;
       });
     } catch (e) {
       _plog('init threw: $e', level: LogLevel.error);
@@ -1390,7 +1467,7 @@ extension _PlayerMedia on _PlayerPageState {
         _scheduleHistorySave();
       } else {
         _playbackWatch.stop();
-        _saveHistory();
+        _stopHistorySaves();
       }
     }
     if (!_streakPingScheduled && _playbackWatch.elapsed.inSeconds >= 60) {
@@ -1490,6 +1567,7 @@ extension _PlayerMedia on _PlayerPageState {
     setState(() {
       _stage = _LoadingStage.loading;
       _errorMessage = null;
+      _errorRaw = null;
       _isCodecError = false;
     });
 
@@ -1515,6 +1593,20 @@ extension _PlayerMedia on _PlayerPageState {
   Future<void> _autoRetry() async {
     if (!mounted) return;
 
+    // Where they were, read before anything tears the controller down.
+    //
+    // A recoverable error is usually a connection that went away — a lift, a
+    // tunnel, a handover — and the viewer has not asked to start again. Every
+    // branch below re-initialises, and until this was captured all three did
+    // it at zero: a drop thirty-eight minutes into an episode restarted it,
+    // and then the five-second save wrote 0:05 over the position on disk and
+    // `dispose`'s sync pushed that to every other device. Quality and language
+    // switches have always carried the position through; a retry is the same
+    // move for a worse reason.
+    final keepPosition = _isLive
+        ? Duration.zero
+        : (_controller?.value.position ?? Duration.zero);
+
     // Every remaining mirror, in ladder order — not `+ 1` once and done.
     _markCurrentTried();
     final nextIdx = _ladder(
@@ -1527,6 +1619,7 @@ extension _PlayerMedia on _PlayerPageState {
         _initializing = true;
         _stage = _LoadingStage.loading;
         _errorMessage = null;
+      _errorRaw = null;
         _isCodecError = false;
         _currentSourceIndex = nextIdx;
         _currentQuality = next.quality;
@@ -1551,6 +1644,7 @@ extension _PlayerMedia on _PlayerPageState {
             ? next.headers
             : (_headers.isNotEmpty ? _headers : widget.args.headers),
         type: _typeOf(next),
+        resumeAt: keepPosition,
       );
       if (mounted && generation == _mediaGeneration) _autoRetrying = false;
       return;
@@ -1562,6 +1656,7 @@ extension _PlayerMedia on _PlayerPageState {
           ? _LoadingStage.resolving
           : _LoadingStage.loading;
       _errorMessage = null;
+      _errorRaw = null;
       _isCodecError = false;
     });
     final generation = await _disposeController();
@@ -1569,15 +1664,22 @@ extension _PlayerMedia on _PlayerPageState {
     if (!mounted || generation != _mediaGeneration) return;
     if (widget.args.isSerial) {
       _autoRetrying = false;
-      await _loadEpisode(_episodeIndex, keepRetryCount: true);
+      await _loadEpisode(
+        _episodeIndex,
+        keepRetryCount: true,
+        resumeAt: keepPosition,
+      );
       return;
     } else if (_videoUrl != null) {
       if (!mounted || generation != _mediaGeneration) return;
       await _initializeWith(
         intentGeneration: generation,
-        url: _videoUrl!,
-        headers: _headers,
+        // Same reason as the manual retry: re-run what produced the stream,
+        // not the stream. See [_playSourceUrl].
+        url: _playSourceUrl ?? _videoUrl!,
+        headers: _playSourceUrl != null ? _playSourceHeaders : _headers,
         type: _mediaType,
+        resumeAt: keepPosition,
       );
     } else {
       _autoRetrying = false;
@@ -1621,23 +1723,60 @@ extension _PlayerMedia on _PlayerPageState {
     return '${widget.args.title} · $label';
   }
 
+  Future<void> _playWithSystemPlayer() async {
+    final url = _videoUrl;
+    if (url == null || _preferPlatformPlayer) return;
+    final headers = Map<String, String>.of(_headers);
+    final type = _mediaType;
+    final position = _controller?.value.position ?? Duration.zero;
+    setState(() {
+      _preferPlatformPlayer = true;
+      _initializing = true;
+      _stage = _LoadingStage.loading;
+      _errorMessage = null;
+      _errorRaw = null;
+      _isCodecError = false;
+    });
+    final generation = await _disposeController();
+    if (!mounted || generation != _mediaGeneration) return;
+    await _initializeWith(
+      url: url,
+      headers: headers,
+      type: type,
+      resumeAt: position,
+      intentGeneration: generation,
+    );
+  }
+
   Future<void> _retry() async {
+    // Read the position before the reload tears the controller down: a manual
+    // retry is nearly always a mid-episode drop-out, and reloading from zero
+    // would throw away however far the viewer had got. A live stream has no
+    // meaningful position to come back to, so it starts at the edge.
+    final keepPosition = _isLive
+        ? Duration.zero
+        : (_controller?.value.position ?? Duration.zero);
     if (widget.args.isSerial) {
-      await _loadEpisode(_episodeIndex);
+      await _loadEpisode(_episodeIndex, resumeAt: keepPosition);
     } else if (_videoUrl != null) {
       setState(() {
         _initializing = true;
         _stage = _LoadingStage.loading;
         _errorMessage = null;
+      _errorRaw = null;
         _isCodecError = false;
       });
       final generation = await _disposeController();
       if (!mounted || generation != _mediaGeneration) return;
       await _initializeWith(
         intentGeneration: generation,
-        url: _videoUrl!,
-        headers: _headers,
+        // The url that PRODUCED the stream, not the stream — see
+        // [_playSourceUrl]. Retrying with `_videoUrl` re-fed a sniffed file
+        // back into the sniffer.
+        url: _playSourceUrl ?? _videoUrl!,
+        headers: _playSourceUrl != null ? _playSourceHeaders : _headers,
         type: _mediaType,
+        resumeAt: keepPosition,
       );
     }
   }

@@ -29,8 +29,9 @@ class TokenRefresher {
     if (token == null || token.isEmpty) return null;
     if (!force && !_needsRefresh(token)) return token;
 
-    final refreshed = await (_inFlight ??=
-        _performRefresh().whenComplete(() => _inFlight = null));
+    final refreshed = await (_inFlight ??= _performRefresh().whenComplete(
+      () => _inFlight = null,
+    ));
     if (refreshed != null && refreshed.isNotEmpty) return refreshed;
 
     // Non-forced refresh failure: fall back to the (still possibly valid)
@@ -41,8 +42,10 @@ class TokenRefresher {
   bool _needsRefresh(String token) {
     final exp = _decodeExp(token);
     if (exp == null) return false; // can't tell — leave it to the server.
-    final expiresAt =
-        DateTime.fromMillisecondsSinceEpoch(exp * 1000, isUtc: true);
+    final expiresAt = DateTime.fromMillisecondsSinceEpoch(
+      exp * 1000,
+      isUtc: true,
+    );
     final threshold = expiresAt.subtract(const Duration(seconds: 60));
     return DateTime.now().toUtc().isAfter(threshold);
   }

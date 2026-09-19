@@ -57,12 +57,14 @@ class TorrentEngine {
 
   /// Localhost only, so timeouts are about the server being busy fetching
   /// metadata rather than about the network.
-  static Dio _buildDio() => Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 5),
-        receiveTimeout: const Duration(seconds: 15),
-        responseType: ResponseType.json,
-        validateStatus: (status) => status != null && status < 500,
-      ));
+  static Dio _buildDio() => Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 15),
+      responseType: ResponseType.json,
+      validateStatus: (status) => status != null && status < 500,
+    ),
+  );
 
   String get _base {
     final port = _port;
@@ -142,7 +144,10 @@ class TorrentEngine {
     // Refuse while the server is live: its cache directory is open files, and
     // deleting them under a running torrent breaks playback that is working.
     if (await isServerRunningInProcess()) {
-      developer.log('cache cleanup skipped — server is running', name: 'torrent');
+      developer.log(
+        'cache cleanup skipped — server is running',
+        name: 'torrent',
+      );
       return;
     }
     try {
@@ -283,7 +288,8 @@ class TorrentEngine {
         data: {'action': 'get'},
       );
       final sets = <String, dynamic>{
-        if (current.data is Map) ...Map<String, dynamic>.from(current.data as Map),
+        if (current.data is Map)
+          ...Map<String, dynamic>.from(current.data as Map),
         ...recommendedSettings,
         'TorrentsSavePath': savePath,
       };
@@ -324,9 +330,10 @@ class TorrentEngine {
               receiveTimeout: const Duration(minutes: 5),
             ),
           )
-          .catchError((Object _) => Response<dynamic>(
-                requestOptions: RequestOptions(path: ''),
-              )),
+          .catchError(
+            (Object _) =>
+                Response<dynamic>(requestOptions: RequestOptions(path: '')),
+          ),
     );
   }
 

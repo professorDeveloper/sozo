@@ -16,6 +16,26 @@
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<!--
+	  DeeplinkService is started on every platform and handles the custom `sozo`
+	  scheme, but on macOS Launch Services only routes a URL to an app that has
+	  claimed the scheme in its bundle. Without this key a sozo:// link opened
+	  nothing at all here, while the same link worked on Android and iOS.
+	  The scheme must stay in step with DeeplinkService._scheme.
+	-->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>sozo</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleShortVersionString</key>
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleVersion</key>

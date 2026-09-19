@@ -14,19 +14,14 @@ class EpisodesBloc extends Bloc<EpisodesEvent, EpisodesState> {
     on<EpisodesReset>((_, emit) => emit(const EpisodesInitial()));
   }
 
-  Future<void> _onLoad(
-    EpisodesLoad event,
-    Emitter<EpisodesState> emit,
-  ) async {
+  Future<void> _onLoad(EpisodesLoad event, Emitter<EpisodesState> emit) async {
     emit(const EpisodesLoading());
     final result = await useCase(event.contentUrl, provider: event.provider);
     switch (result) {
       case Success(:final value):
         emit(EpisodesLoaded(value));
       case Failure(:final error):
-        emit(
-          EpisodesError(error.toString().replaceFirst('Exception: ', '')),
-        );
+        emit(EpisodesError(error.toString().replaceFirst('Exception: ', '')));
     }
   }
 }

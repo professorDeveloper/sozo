@@ -1,6 +1,8 @@
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
 import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
+import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/content/content_mode.dart';
 
 /// Whether a provider's "episodes" are pages to read or a stream to play.
 ///
@@ -27,6 +29,11 @@ extension ProviderMediaKindX on String {
   /// and the historical behaviour.
   ProviderMediaKind get mediaKind {
     if (startsWith('mn:')) return ProviderMediaKind.reader;
+    if (Catalogue.isId(this)) {
+      return Catalogue.fromId(this)?.mode == ContentMode.video
+          ? ProviderMediaKind.video
+          : ProviderMediaKind.reader;
+    }
     if (startsWith('my:')) {
       // Resolve per source — a Mangayomi repo mixes manga, anime and novels.
       // Falls back to reader because the manga index is by far the largest and

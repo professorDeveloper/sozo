@@ -18,6 +18,20 @@ class DetailDataSource {
     return DetailModel.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// A catalogue's own record of a title, with `extra.about` alongside the
+  /// usual detail. Only TMDB is served this way; AniList answers the device
+  /// directly.
+  Future<Map<String, dynamic>> getCatalogueDetail(
+    String kind,
+    String contentUrl,
+  ) async {
+    final response = await dio.get(
+      '/catalogue/$kind/detail',
+      queryParameters: {'url': contentUrl},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<PlaybackModel> getEpisodes(
     String contentUrl, {
     int page = 1,

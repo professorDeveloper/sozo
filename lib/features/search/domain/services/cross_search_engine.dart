@@ -52,11 +52,15 @@ abstract interface class SearchFanOut {
     Duration perProviderTimeout,
   });
 
+  /// [deliberate] marks a run the user asked for by name — the Retry beside a
+  /// failed source, or the source diagnostic — which is exempt from the
+  /// broken-source penalty budget. See [SourceHealthStore.budgetFor].
   Future<ProviderSearchResult> searchProvider(
     ProviderRef ref,
     String query, {
     int page,
     Duration timeout,
+    bool deliberate,
   });
 }
 
@@ -113,7 +117,10 @@ class CrossSearchEngine implements SearchFanOut {
   @override
   List<ProviderRef> planLegs(List<ProviderRef> set, {int limit = maxLegs}) {
     if (set.length <= limit) return set;
-    return health.order(List<ProviderRef>.of(set), (r) => r.id).take(limit).toList();
+    return health
+        .order(List<ProviderRef>.of(set), (r) => r.id)
+        .take(limit)
+        .toList();
   }
 
   @override
@@ -128,6 +135,8 @@ class CrossSearchEngine implements SearchFanOut {
     // dead source at the head of the queue occupies a worker for its full
     // budget while results that were ready in 400ms wait behind it.
     final tasks = health.order(List<ProviderRef>.of(set), (r) => r.id);
+    // For the next run, not this one — see [SourceHealthStore.refreshRemote].
+    unawaited(health.refreshRemote());
     final controller = StreamController<ProviderSearchResult>();
     var cancelled = false;
     controller.onCancel = () => cancelled = true;
@@ -166,21 +175,33 @@ class CrossSearchEngine implements SearchFanOut {
     String query, {
     int page = 1,
     Duration timeout = defaultTimeout,
+    bool deliberate = false,
   }) async {
-    // Extension hosts get the longer budget — see [channelTimeout].
-    final full = ref.kind == ProviderKind.channel && timeout < channelTimeout
-        ? channelTimeout
-        : timeout;
+    // Both on-device kinds get the longer budget. `js` was left out, although
+    // the JS runtime declares its own ceiling well above the ten seconds this
+    // defaulted to and needs the same head start for the same reason — it
+    // fetches the extension before it can answer. So a JS source that works
+    // perfectly when selected on its own timed out in all-source search, got
+    // marked broken, and from then on ran on four seconds. That is exactly the
+    // shape of "search only works on one source".
+    final onDevice =
+        ref.kind == ProviderKind.channel || ref.kind == ProviderKind.js;
+    final full = onDevice && timeout < channelTimeout ? channelTimeout : timeout;
     // A source that broke last time is still asked, on a shorter leash. Enough
     // for a recovered source to prove it; not enough to hold up the batch.
-    final effective = health.budgetFor(ref.id, full);
+    // Never for a run the user asked for by name.
+    final effective = health.budgetFor(ref.id, full, deliberate: deliberate);
     final started = DateTime.now();
     Future<void> mark(bool succeeded) => health.record(
-          ref.id,
-          succeeded: succeeded,
-          elapsed: DateTime.now().difference(started),
-          budget: effective,
-        );
+      ref.id,
+      succeeded: succeeded,
+      elapsed: DateTime.now().difference(started),
+      budget: effective,
+      // What the source would have got with no penalty, so a failure under a
+      // shortened budget is recognised as teaching nothing and does not renew
+      // the mark that shortened it.
+      honestBudget: full,
+    );
     try {
       final leg = await _dispatch(ref, query, page).timeout(effective);
       unawaited(mark(true));

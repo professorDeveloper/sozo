@@ -4,6 +4,7 @@ import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/mal/data/mal_link_store.dart';
 import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
+import 'package:soplay/features/anilist/domain/entities/tracker_lookup.dart';
 
 /// Turns "an episode finished playing" into "MyAnimeList knows about it".
 ///
@@ -18,6 +19,15 @@ import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
 /// the MAL id for the same entry, so the AniList match is reused and `idMal`
 /// read off it. MAL's search is only the fallback for entries AniList has no
 /// counterpart for.
+///
+/// Anime only, and that is a limit rather than an oversight: every id here is
+/// an ANIME id and every call below is an anime endpoint, while MAL numbers
+/// manga in a separate space and reads their progress from `num_chapters_read`
+/// on `/manga/{id}`. Handing a manga's `idMal` to `updateProgress` would
+/// therefore write a chapter count onto whatever anime happens to hold that
+/// number. The reader reports to AniList alone for this reason; adding manga
+/// here means adding the manga endpoints to MalApi first, not calling these
+/// with a different id.
 class MalTracker {
   MalTracker({
     required MalService service,
@@ -105,10 +115,17 @@ class MalTracker {
       total = linked.totalEpisodes;
     }
 
+    // Whether every catalogue asked actually answered. Two lookups follow, and
+    // either can fail for a reason that says nothing about the title: it takes
+    // only one unanswered request to make giving up permanently wrong.
+    var allAnswered = true;
+
     // No hand-made link, or AniList has no MAL counterpart for the one there
     // is. Fall back to matching by title.
     if (animeId == null) {
-      final match = await _anilist.findExactMatch(title);
+      final lookup = await _anilist.lookUpExactMatch(title);
+      allAnswered = allAnswered && lookup.answered;
+      final match = lookup.value;
       // AniList matched, and knows the MAL counterpart — the free path, and the
       // one that runs for almost every anime.
       animeId = match?.idMal;
@@ -123,9 +140,14 @@ class MalTracker {
     // same exact-title rule — a fuzzy best-result would quietly attach season 2
     // to season 1 and write into it for months.
     if (animeId == null) {
-      final fallback = await _searchMal(title);
+      final lookup = await _lookUpMal(title);
+      allAnswered = allAnswered && lookup.answered;
+      final fallback = lookup.value;
       if (fallback == null) {
-        _autoMatchFailed.add(key);
+        // Remembered as hopeless only when both catalogues actually said so.
+        // Recording an unanswered request here stopped the title ever
+        // auto-linking again for the life of the process.
+        if (allAnswered) _autoMatchFailed.add(key);
         return null;
       }
       animeId = fallback.id;
@@ -164,24 +186,32 @@ class MalTracker {
 
   /// Searches MAL and returns a result only when one of its titles matches
   /// [title] EXACTLY once normalized.
-  Future<MalAnime?> _searchMal(String title) async {
+  ///
+  /// Reports whether MAL answered, not just what it answered — see
+  /// [TrackerLookup].
+  Future<TrackerLookup<MalAnime>> _lookUpMal(String title) async {
     final token = _service.token;
-    if (token == null) return null;
+    // No token is not a miss and not a network failure: there is nobody to ask.
+    // Treated as unanswered so a signed-out moment cannot poison the set.
+    if (token == null) return const TrackerLookup.unreachable();
 
     final wanted = AnilistTracker.normalizeTitle(title);
-    if (wanted.isEmpty) return null;
+    if (wanted.isEmpty) return const TrackerLookup.noMatch();
 
     try {
       final results = await _service.api.search(title, token: token);
       for (final anime in results) {
         for (final candidate in anime.searchTitles) {
-          if (AnilistTracker.normalizeTitle(candidate) == wanted) return anime;
+          if (AnilistTracker.normalizeTitle(candidate) == wanted) {
+            return TrackerLookup.found(anime);
+          }
         }
       }
+      return const TrackerLookup.noMatch();
     } catch (e) {
       debugPrint('$_tag search failed for "$title": $e');
+      return const TrackerLookup.unreachable();
     }
-    return null;
   }
 
   /// Reads the account's current position, then writes only if this episode is

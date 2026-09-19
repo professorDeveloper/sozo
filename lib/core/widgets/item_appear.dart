@@ -112,7 +112,9 @@ class _ItemAppearState extends State<ItemAppear>
     final column = widget.index % columns;
     final slots = row + column * 0.25;
     final ms = (ItemAppear.rowStep.inMilliseconds * slots).round();
-    return Duration(milliseconds: math.min(ms, ItemAppear.maxDelay.inMilliseconds));
+    return Duration(
+      milliseconds: math.min(ms, ItemAppear.maxDelay.inMilliseconds),
+    );
   }
 
   @override

@@ -121,8 +121,9 @@ extension _PlayerCast on _PlayerPageState {
     Duration? reached;
     if (!_isLive) {
       try {
-        reached = await _cast.positionStream?.first
-            .timeout(const Duration(seconds: 2));
+        reached = await _cast.positionStream?.first.timeout(
+          const Duration(seconds: 2),
+        );
       } catch (_) {}
     }
     await _cast.stopCasting();
@@ -154,7 +155,6 @@ extension _PlayerCast on _PlayerPageState {
           : const SizedBox.shrink(),
     );
   }
-
 }
 
 class _CastSheet extends StatelessWidget {
@@ -257,8 +257,11 @@ class _CastOverlay extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cast_connected_rounded,
-                  size: 44, color: Colors.white70),
+              const Icon(
+                Icons.cast_connected_rounded,
+                size: 44,
+                color: Colors.white70,
+              ),
               const SizedBox(height: 14),
               Text(
                 'player.cast_active'.tr(args: [cast.device?.name ?? 'TV']),
@@ -340,8 +343,8 @@ class _CastButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => IconButton(
-        onPressed: onTap,
-        icon: Icon(icon, size: big ? 40 : 28),
-        color: Colors.white,
-      );
+    onPressed: onTap,
+    icon: Icon(icon, size: big ? 40 : 28),
+    color: Colors.white,
+  );
 }

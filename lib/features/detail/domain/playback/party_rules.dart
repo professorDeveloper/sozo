@@ -57,8 +57,7 @@ abstract final class PartyRules {
     required bool inParty,
     required bool canControl,
     required bool applyingRemote,
-  }) =>
-      inParty && !canControl && !applyingRemote;
+  }) => inParty && !canControl && !applyingRemote;
 
   /// Whether changing episode must be refused.
   ///
@@ -69,8 +68,7 @@ abstract final class PartyRules {
     required bool inParty,
     required bool isHost,
     required bool applyingRemote,
-  }) =>
-      inParty && !isHost && !applyingRemote;
+  }) => inParty && !isHost && !applyingRemote;
 
   /// Whether a local action should be broadcast.
   ///
@@ -81,8 +79,7 @@ abstract final class PartyRules {
     required bool inParty,
     required bool canControl,
     required bool applyingRemote,
-  }) =>
-      inParty && canControl && !applyingRemote;
+  }) => inParty && canControl && !applyingRemote;
 
   /// Whether this device should be announcing its position.
   ///
@@ -93,20 +90,15 @@ abstract final class PartyRules {
     required bool inParty,
     required bool isHost,
     required bool isLive,
-  }) =>
-      inParty && isHost && !isLive;
+  }) => inParty && isHost && !isLive;
 
   /// Whether this device should be following someone else's playback.
-  static bool followsRemote({
-    required bool inParty,
-    required bool isHost,
-  }) =>
+  static bool followsRemote({required bool inParty, required bool isHost}) =>
       inParty && !isHost;
 
   /// Whether the local position is far enough out to be worth a seek.
   static bool needsSeek(double actualSec, double expectedSec) =>
-      (actualSec - expectedSec).abs() >
-      driftTolerance.inMilliseconds / 1000.0;
+      (actualSec - expectedSec).abs() > driftTolerance.inMilliseconds / 1000.0;
 
   /// Whether the rate differs enough to be worth setting.
   static bool needsRateChange(double current, double target) =>
@@ -140,6 +132,5 @@ abstract final class PartyRules {
     required bool isBound,
     required bool hadControl,
     required bool hasControl,
-  }) =>
-      wasBound != isBound || hadControl != hasControl;
+  }) => wasBound != isBound || hadControl != hasControl;
 }

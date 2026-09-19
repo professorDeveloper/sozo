@@ -58,7 +58,10 @@ class DiscordBrand {
   /// Used for an "off" state: the chip loses its colour, the mark does not
   /// lose its own.
   static Widget muted({double size = 22, MarkColor color = MarkColor.white}) =>
-      Opacity(opacity: 0.55, child: mark(size: size, color: color));
+      Opacity(
+        opacity: 0.55,
+        child: mark(size: size, color: color),
+      );
 
   /// The composed SVG, so a test can parse it without a widget tree.
   @visibleForTesting

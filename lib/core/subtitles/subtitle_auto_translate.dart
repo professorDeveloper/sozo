@@ -58,7 +58,9 @@ abstract final class SubtitleAutoTranslate {
     // subtitle with a machine one, which is a downgrade, not a service.
     if (hasTargetTrack) return AutoTranslateAction.none;
     if (hasReadyTranslation) return AutoTranslateAction.loadReady;
-    return enabled ? AutoTranslateAction.translateNow : AutoTranslateAction.none;
+    return enabled
+        ? AutoTranslateAction.translateNow
+        : AutoTranslateAction.none;
   }
 
   /// Whether a subtitle track already reads in [code].
@@ -105,10 +107,26 @@ abstract final class SubtitleAutoTranslate {
 
   /// The three-letter codes subtitle sites use, mapped to two-letter ones.
   static const Map<String, String> _threeLetter = {
-    'eng': 'en', 'rus': 'ru', 'spa': 'es', 'fra': 'fr', 'fre': 'fr',
-    'deu': 'de', 'ger': 'de', 'ita': 'it', 'por': 'pt', 'jpn': 'ja',
-    'kor': 'ko', 'zho': 'zh', 'chi': 'zh', 'ara': 'ar', 'tur': 'tr',
-    'ukr': 'uk', 'nld': 'nl', 'dut': 'nl', 'pol': 'pl', 'ind': 'id',
+    'eng': 'en',
+    'rus': 'ru',
+    'spa': 'es',
+    'fra': 'fr',
+    'fre': 'fr',
+    'deu': 'de',
+    'ger': 'de',
+    'ita': 'it',
+    'por': 'pt',
+    'jpn': 'ja',
+    'kor': 'ko',
+    'zho': 'zh',
+    'chi': 'zh',
+    'ara': 'ar',
+    'tur': 'tr',
+    'ukr': 'uk',
+    'nld': 'nl',
+    'dut': 'nl',
+    'pol': 'pl',
+    'ind': 'id',
     'uzb': 'uz',
   };
 

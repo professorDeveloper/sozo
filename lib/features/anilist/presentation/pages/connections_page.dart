@@ -459,10 +459,8 @@ class _Avatar extends StatelessWidget {
           ? CachedNetworkImage(
               imageUrl: url!,
               fit: BoxFit.cover,
-              errorWidget: (_, _, _) => const Icon(
-                Icons.person_rounded,
-                color: AppColors.textHint,
-              ),
+              errorWidget: (_, _, _) =>
+                  const Icon(Icons.person_rounded, color: AppColors.textHint),
             )
           : Center(child: placeholder),
     );
@@ -497,7 +495,11 @@ class _Row extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           child: Row(
             children: [
-              Icon(icon, color: enabled ? accent : AppColors.textHint, size: 21),
+              Icon(
+                icon,
+                color: enabled ? accent : AppColors.textHint,
+                size: 21,
+              ),
               const SizedBox(width: 13),
               Expanded(
                 child: Column(
@@ -527,8 +529,11 @@ class _Row extends StatelessWidget {
                 ),
               ),
               if (enabled)
-                const Icon(Icons.chevron_right_rounded,
-                    color: AppColors.textHint, size: 20),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textHint,
+                  size: 20,
+                ),
             ],
           ),
         ),

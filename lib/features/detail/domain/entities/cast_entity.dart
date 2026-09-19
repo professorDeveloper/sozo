@@ -3,9 +3,5 @@ class CastEntity {
   final String name;
   final String image;
 
-  const CastEntity({
-    required this.id,
-    required this.name,
-    required this.image,
-  });
+  const CastEntity({required this.id, required this.name, required this.image});
 }

@@ -190,7 +190,11 @@ class CrossSearchController extends ChangeNotifier {
     _retrying.add(providerId);
     notifyListeners();
 
-    final result = await engine.searchProvider(ref, _query);
+    // The user pressed this, on one named source, and is watching it. It gets
+    // the source's honest budget rather than the four-second penalty leash —
+    // which Retry always inherited, because Retry only ever appears beside a
+    // source that has just been marked broken.
+    final result = await engine.searchProvider(ref, _query, deliberate: true);
     _retrying.remove(providerId);
     if (token != _token) return;
 
@@ -199,11 +203,48 @@ class CrossSearchController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Every leg that failed or timed out, at once.
+  /// Every leg that failed or timed out, a few at a time.
+  ///
+  /// Bounded, because `Future.wait` over every failed id was not. When most of
+  /// a run fails — which is the ordinary case on a device whose extension
+  /// sources are cold — "Retry all" launched up to [CrossSearchEngine.maxLegs]
+  /// simultaneous searches, each of which can boot a WebView or dex-load an
+  /// APK. That is precisely the overload the engine's own concurrency pool
+  /// exists to prevent, reached by going around it.
   Future<void> retryFailed() async {
+    // One run at a time. The pool below bounds ONE call; it does nothing about
+    // a second tap, and the button sits next to a list of failures where the
+    // natural reaction to "nothing happened yet" is to press it again. Each
+    // extra tap added another five-wide pool of its own, so three impatient
+    // taps put fifteen extension searches on a device that was already slow
+    // enough to invite them.
+    if (_retryingAll) return;
+    _retryingAll = true;
+    notifyListeners();
+    try {
+      await _retryFailed();
+    } finally {
+      _retryingAll = false;
+      notifyListeners();
+    }
+  }
+
+  /// Whether a "Retry all" is in flight, so the button can say so.
+  bool get retryingAll => _retryingAll;
+  bool _retryingAll = false;
+
+  Future<void> _retryFailed() async {
     final ids = [for (final leg in failedLegs) leg.provider.id];
     if (ids.isEmpty) return;
-    await Future.wait(ids.map(retryProvider));
+    final queue = List<String>.of(ids);
+    await Future.wait([
+      for (var i = 0; i < CrossSearchEngine.defaultConcurrency; i++)
+        () async {
+          while (queue.isNotEmpty) {
+            await retryProvider(queue.removeAt(0));
+          }
+        }(),
+    ]);
   }
 
   /// Whether a [loadMore] is in flight, so the button can say so and refuse a

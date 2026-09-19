@@ -9,8 +9,10 @@ void main() {
     test('is a handful, not the whole list', () {
       // Fifteen rows over the picture is furniture. The ones on by default are
       // the ones that answer a complaint.
-      expect(PlayerInfoFields.defaults.length,
-          lessThan(PlayerInfoFields.all.length));
+      expect(
+        PlayerInfoFields.defaults.length,
+        lessThan(PlayerInfoFields.all.length),
+      );
       expect(PlayerInfoFields.defaults, isNotEmpty);
     });
 
@@ -43,23 +45,32 @@ void main() {
       final stored = PlayerInfoFields.toStored({'resolution'});
       final back = PlayerInfoFields.fromStored(stored);
       expect(back, {'resolution'});
-      expect(back, isNot(contains('buffer')),
-          reason: 'on by default, but explicitly turned off');
+      expect(
+        back,
+        isNot(contains('buffer')),
+        reason: 'on by default, but explicitly turned off',
+      );
     });
 
-    test('a field added since the choices were saved takes its own default',
-        () {
-      // The reason storage is explicit answers rather than a list of enabled
-      // ids: with a list, "absent" would mean both "turned off" and "did not
-      // exist yet", so every new row would arrive off for everyone who had
-      // ever opened the screen, with nothing on screen to explain it.
-      final stored = PlayerInfoFields.toStored(PlayerInfoFields.defaults)
-        ..remove('resolution')
-        ..remove('engine');
-      final back = PlayerInfoFields.fromStored(stored);
-      expect(back, contains('resolution'), reason: 'new and on by default');
-      expect(back, isNot(contains('engine')), reason: 'new and off by default');
-    });
+    test(
+      'a field added since the choices were saved takes its own default',
+      () {
+        // The reason storage is explicit answers rather than a list of enabled
+        // ids: with a list, "absent" would mean both "turned off" and "did not
+        // exist yet", so every new row would arrive off for everyone who had
+        // ever opened the screen, with nothing on screen to explain it.
+        final stored = PlayerInfoFields.toStored(PlayerInfoFields.defaults)
+          ..remove('resolution')
+          ..remove('engine');
+        final back = PlayerInfoFields.fromStored(stored);
+        expect(back, contains('resolution'), reason: 'new and on by default');
+        expect(
+          back,
+          isNot(contains('engine')),
+          reason: 'new and off by default',
+        );
+      },
+    );
 
     test('a field that no longer exists is dropped', () {
       final back = PlayerInfoFields.fromStored({

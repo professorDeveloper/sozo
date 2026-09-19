@@ -213,9 +213,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
-  testWidgets('tabs and categories remain together after search scrolls away', (
+  testWidgets('the header stays put while the list under it scrolls', (
     tester,
   ) async {
+    // This used to assert the opposite mechanic: search scrolled away and the
+    // category chips rose to sit under the tabs, because everything lived in
+    // one scroll view with the app bar. That is the design that had no
+    // TabBarView at all — swiping did nothing and the chips slid out of line
+    // with the tabs they describe. Search, language and chips are a fixed
+    // header now, so the contract is that they do not move.
     final bloc = _Providers(
       ProviderLoaded(
         providers: [
@@ -231,21 +237,18 @@ void main() {
     final tabs = find.byType(TabBar);
     final categories = find.text('All');
     final tabsTop = tester.getTopLeft(tabs).dy;
-    expect(
-      tester.getTopLeft(categories).dy,
-      greaterThan(tester.getBottomLeft(tabs).dy + 50),
+    final categoriesTop = tester.getTopLeft(categories).dy;
+    expect(categoriesTop, greaterThan(tester.getBottomLeft(tabs).dy));
+
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, -480),
     );
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -480));
     await tester.pumpAndSettle();
+
     expect(tester.takeException(), isNull);
     expect(tester.getTopLeft(tabs).dy, closeTo(tabsTop, 1));
-    expect(
-      tester.getTopLeft(categories).dy,
-      inInclusiveRange(
-        tester.getBottomLeft(tabs).dy,
-        tester.getBottomLeft(tabs).dy + 22,
-      ),
-    );
+    expect(tester.getTopLeft(categories).dy, closeTo(categoriesTop, 1));
   });
 
   testWidgets('HUB-01 Manga tab must replace video sources immediately', (

@@ -165,13 +165,13 @@ class _TvFocusableState extends State<TvFocusable> {
     // TV boxes can have a pointer (mouse mode, some remotes), so keep taps too.
     final Widget tappable =
         (widget.onPressed == null && widget.onLongPressed == null)
-            ? widget.child
-            : GestureDetector(
-                onTap: widget.onPressed,
-                onLongPress: widget.onLongPressed,
-                behavior: widget.behavior,
-                child: widget.child,
-              );
+        ? widget.child
+        : GestureDetector(
+            onTap: widget.onPressed,
+            onLongPress: widget.onLongPressed,
+            behavior: widget.behavior,
+            child: widget.child,
+          );
 
     return Focus(
       focusNode: _node,

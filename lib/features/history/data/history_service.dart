@@ -8,10 +8,10 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
+import 'package:soplay/features/history/domain/history_trim.dart';
 import 'package:soplay/features/my_list/data/private_list_service.dart';
 
 class HistoryService {
-  static const int _maxItems = 50;
 
   final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
@@ -157,13 +157,24 @@ class HistoryService {
     revision.value++;
   }
 
+  /// Drops what the store no longer has room for — see [HistoryTrim] for which
+  /// rows those are and why the rule is not a single number any more.
+  ///
+  /// Deliberately not tombstoned: a trim is this device running out of room,
+  /// not the viewer deleting something. Telling the server would erase the row
+  /// from the account and from every other device too.
   Future<void> _trimIfNeeded() async {
-    if (_box.length <= _maxItems) return;
-    final items = getAll();
-    if (items.length <= _maxItems) return;
-    final toRemove = items.sublist(_maxItems);
-    for (final item in toRemove) {
-      await _box.delete(item.storageKey);
+    if (_box.length <= HistoryTrim.maxRows) return;
+    final doomed = HistoryTrim.keysToDrop([
+      for (final item in getAll())
+        (
+          key: item.storageKey,
+          contentUrl: item.contentUrl,
+          watchedAt: item.watchedAt,
+        ),
+    ]);
+    for (final key in doomed) {
+      await _box.delete(key);
     }
   }
 }

@@ -51,8 +51,11 @@ void main() {
     await s.rememberLang('p', 'u', 'dub');
     await s.rememberQuality('p', 'u', 'Server 3');
     expect(s.langFor('p', 'u'), 'dub');
-    expect(s.qualityFor('p', 'u'), 'Server 3',
-        reason: 'writing one field must not wipe the other');
+    expect(
+      s.qualityFor('p', 'u'),
+      'Server 3',
+      reason: 'writing one field must not wipe the other',
+    );
   });
 
   test('a later choice replaces the earlier one', () async {
@@ -101,8 +104,9 @@ void main() {
   });
 
   test('a corrupt store reads as empty instead of throwing', () async {
-    await Hive.box(AppConstants.settingsBox)
-        .put(AppConstants.titlePrefsKey, 'not a map');
+    await Hive.box(
+      AppConstants.settingsBox,
+    ).put(AppConstants.titlePrefsKey, 'not a map');
     expect(TitlePrefsStore().langFor('p', 'u'), isNull);
   });
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/search/data/datasources/search_data_source.dart';
 
@@ -62,19 +63,44 @@ class TitleSuggestionService {
   /// thing anyone does in a search field.
   final LinkedHashMap<String, List<String>> _cache = LinkedHashMap();
 
-  /// Up to [limit] distinct titles for [query]. Never throws.
-  Future<List<String>> suggest(String query, {int limit = 8}) async {
+  /// Up to [limit] distinct titles for [query], in the shelf [mode] names.
+  /// Never throws.
+  ///
+  /// [mode] matters because these titles are what the empty state and the
+  /// weak-results banner offer as "Did you mean" — and tapping one re-runs the
+  /// search on the SELECTED source. This asked AniList's anime index and two
+  /// hard-coded film providers whatever the mode was, so on a manga or novel
+  /// source the one recovery affordance on an empty screen suggested films and
+  /// anime that source cannot carry, and every one of them was guaranteed to
+  /// come back empty. It also spent a round trip on a film provider to do it.
+  Future<List<String>> suggest(
+    String query, {
+    int limit = 8,
+    ContentMode mode = ContentMode.video,
+  }) async {
     final q = query.trim();
     if (q.length < _minLength) return const [];
 
-    final key = q.toLowerCase();
+    // Keyed by mode as well as query: without it a video-mode lookup for
+    // "naruto" would be served back verbatim after switching to a manga
+    // source, which is the bug this method is fixing.
+    final key = '${mode.id}:${q.toLowerCase()}';
     final hit = _cache.remove(key);
     if (hit != null) {
       _cache[key] = hit; // most-recently-used
       return hit;
     }
 
-    final both = await Future.wait([_anime(q, limit), _film(q, limit)]);
+    // AniList calls a light novel MANGA with a NOVEL format — there is no
+    // NOVEL MediaType — so asking for one would make AniList reject the query
+    // and leave novel mode with no suggestions at all.
+    final anilistType = mode == ContentMode.video ? 'ANIME' : 'MANGA';
+    final both = await Future.wait([
+      _anime(q, limit, type: anilistType),
+      // No film catalogue outside video mode: there is nothing there a manga
+      // source could open.
+      if (mode == ContentMode.video) _film(q, limit) else Future.value(const <String>[]),
+    ]);
     final merged = _interleave(both[1], both[0], limit);
 
     // Only a real answer is remembered. Caching an empty list would make one
@@ -111,10 +137,10 @@ class TitleSuggestionService {
     return out;
   }
 
-  Future<List<String>> _anime(String q, int limit) async {
+  Future<List<String>> _anime(String q, int limit, {String type = 'ANIME'}) async {
     try {
       final media = await _anilist
-          .searchMedia(q, perPage: limit)
+          .searchMedia(q, perPage: limit, type: type)
           .timeout(budget);
       return [
         for (final m in media)

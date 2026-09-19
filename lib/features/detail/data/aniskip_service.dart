@@ -49,15 +49,16 @@ class SkipInterval {
 /// episode never change while it is being watched.
 class AniSkipService {
   AniSkipService({Dio? dio})
-      : _dio = dio ??
-            Dio(
-              BaseOptions(
-                connectTimeout: const Duration(seconds: 8),
-                receiveTimeout: const Duration(seconds: 8),
-                headers: {'User-Agent': kSozoUserAgent},
-                validateStatus: (_) => true,
-              ),
-            );
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 8),
+              receiveTimeout: const Duration(seconds: 8),
+              headers: {'User-Agent': kSozoUserAgent},
+              validateStatus: (_) => true,
+            ),
+          );
 
   static const String _tag = '[aniskip]';
   static const String _base = 'https://api.aniskip.com/v2/skip-times';
@@ -133,8 +134,10 @@ class AniSkipService {
       out.sort((a, b) => a.start.compareTo(b.start));
       _episodes[cacheKey] = out;
       if (out.isNotEmpty) {
-        debugPrint('$_tag mal=$malId ep=$episodeNumber -> '
-            '${out.map((e) => '${e.type} ${e.start.inSeconds}-${e.end.inSeconds}s').join(', ')}');
+        debugPrint(
+          '$_tag mal=$malId ep=$episodeNumber -> '
+          '${out.map((e) => '${e.type} ${e.start.inSeconds}-${e.end.inSeconds}s').join(', ')}',
+        );
       }
       return out;
     } catch (e) {
@@ -164,7 +167,11 @@ class AniSkipService {
       }
 
       if (malId == null && title.trim().isNotEmpty) {
-        final results = await api.searchMedia(title, perPage: 5);
+        // Anime, said out loud rather than left to the default: MyAnimeList
+        // numbers manga separately, so a manga match here would hand AniSkip
+        // a manga's id as though it were an anime's and get somebody else's
+        // opening timings.
+        final results = await api.searchMedia(title, perPage: 5, type: 'ANIME');
         for (final m in results) {
           if (m.idMal != null && m.idMal! > 0) {
             malId = m.idMal;

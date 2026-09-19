@@ -24,6 +24,7 @@ class JsRuntimeService {
   InAppWebViewController? _controller;
   Future<void>? _ready;
   ExtractorManifest? _manifest;
+
   /// Extractors already evaluated into the page, keyed `name@version`.
   ///
   /// Each is registered ONCE per session. The previous design kept a single
@@ -90,25 +91,18 @@ class JsRuntimeService {
     String provider,
     String slug,
     int page,
-  ) =>
-      _callObject(
-        provider,
-        'getCategory',
-        requireAll: true,
-        args: [slug, page],
-      );
+  ) => _callObject(
+    provider,
+    'getCategory',
+    requireAll: true,
+    args: [slug, page],
+  );
 
   Future<Map<String, dynamic>?> trySearch(
     String provider,
     String query,
     int page,
-  ) =>
-      _callObject(
-        provider,
-        'search',
-        requireAll: true,
-        args: [query, page],
-      );
+  ) => _callObject(provider, 'search', requireAll: true, args: [query, page]);
 
   Future<Map<String, dynamic>?> tryGetDetail(String provider, String url) =>
       _callObject(provider, 'getDetail', requireAll: true, args: [url]);
@@ -120,13 +114,15 @@ class JsRuntimeService {
     required String provider,
     required String ref,
     String? lang,
-  }) =>
-      _callObject(
-        provider,
-        'resolveMedia',
-        requireAll: false,
-        args: [ref, {'lang': lang ?? 'sub'}],
-      );
+  }) => _callObject(
+    provider,
+    'resolveMedia',
+    requireAll: false,
+    args: [
+      ref,
+      {'lang': lang ?? 'sub'},
+    ],
+  );
 
   // Runs [action] after any in-flight locked section completes, so only one
   // holds the shared `Provider` at a time. A failing action never poisons the
@@ -170,8 +166,10 @@ class JsRuntimeService {
       // webview and one globalThis.Provider, so without this a second leg could
       // swap Provider between this leg's setup and its call — returning one
       // provider's results under another's name.
-      await _ensureExtractor(extractor.name, extractor.version)
-          .timeout(kJsCallTimeout);
+      await _ensureExtractor(
+        extractor.name,
+        extractor.version,
+      ).timeout(kJsCallTimeout);
       // Refusals and challenges are numbered on DartFetch; everything after
       // this mark happened while THIS call was running. Other calls may be in
       // flight too, which is why the provider's own domains are preferred
@@ -182,8 +180,9 @@ class JsRuntimeService {
       // cross-search legs can be in flight at once and their network waits
       // overlap instead of queueing — which is what made searching several
       // sources feel frozen.
-      var result = await _controller!.callAsyncJavaScript(
-        functionBody: r'''
+      var result = await _controller!
+          .callAsyncJavaScript(
+            functionBody: r'''
             const __registry = (globalThis.__sozo || {}).providers || {};
             const __p = __registry[providerName];
             if (!__p) {
@@ -196,12 +195,13 @@ class JsRuntimeService {
             const __r = await __fn.apply(__p, fnArgs);
             return __r === undefined ? null : __r;
           ''',
-        arguments: {
-          'providerName': extractor.name,
-          'fnName': fn,
-          'fnArgs': args,
-        },
-      ).timeout(kJsCallTimeout);
+            arguments: {
+              'providerName': extractor.name,
+              'fnName': fn,
+              'fnArgs': args,
+            },
+          )
+          .timeout(kJsCallTimeout);
 
       // Solve a Cloudflare challenge here rather than where it was met.
       //
@@ -218,8 +218,9 @@ class JsRuntimeService {
       if (challenged.isNotEmpty) {
         if (await dartFetch.solveCfHosts(challenged)) {
           JsLog.info(tag, 'retrying $fn with a fresh clearance');
-          result = await _controller!.callAsyncJavaScript(
-            functionBody: r'''
+          result = await _controller!
+              .callAsyncJavaScript(
+                functionBody: r'''
                 const __registry = (globalThis.__sozo || {}).providers || {};
                 const __p = __registry[providerName];
                 if (!__p) {
@@ -232,12 +233,13 @@ class JsRuntimeService {
                 const __r = await __fn.apply(__p, fnArgs);
                 return __r === undefined ? null : __r;
               ''',
-            arguments: {
-              'providerName': extractor.name,
-              'fnName': fn,
-              'fnArgs': args,
-            },
-          ).timeout(kJsCallTimeout);
+                arguments: {
+                  'providerName': extractor.name,
+                  'fnName': fn,
+                  'fnArgs': args,
+                },
+              )
+              .timeout(kJsCallTimeout);
         }
       }
 
@@ -252,7 +254,10 @@ class JsRuntimeService {
         // the network layer refused something during this call, that refusal is
         // the cause and the only half a user can act on.
         final blocked = dartFetch.blockSince(mark, preferHosts: ownHosts);
-        JsLog.err(tag, '$fn threw: $error${blocked == null ? '' : ' ($blocked)'}');
+        JsLog.err(
+          tag,
+          '$fn threw: $error${blocked == null ? '' : ' ($blocked)'}',
+        );
         throw Exception(blocked ?? error);
       }
       final map = _coerceMap(result.value);
@@ -430,7 +435,8 @@ class JsRuntimeService {
     // this IIFE, so an extractor's own methods referring to it by name still
     // resolve to their own object rather than to whoever registered last.
     final slot = jsonEncode(name);
-    final wrapped = '''
+    final wrapped =
+        '''
 (function(){
   const __sozo = globalThis.__sozo || (globalThis.__sozo = {});
   const __providers = __sozo.providers || (__sozo.providers = {});

@@ -56,6 +56,71 @@ void main() {
 }
 
 void _prefixTests() {
+  group('SourceFailure speaks both sides of the platform channel', () {
+    // A source failure arrives in whichever language the layer that threw it
+    // speaks: the JVM's, from an extension on Android, or Dart's and Dio's,
+    // from the app's own client. Only the JVM half was recognised, so being
+    // offline — the single most common failure there is — came out as
+    // `unknown` and put a `DioException` on the screen.
+    //
+    // These are the real strings, not invented ones.
+    const dartSide = <String>[
+      "SocketException: Failed host lookup: 'api.example.com' "
+          '(OS Error: nodename nor servname provided, or not known, errno = 8)',
+      'DioException [connection error]: The connection errored: '
+          'Connection refused',
+      'DioException [connection timeout]: The request connection took longer '
+          'than 0:00:15.000000',
+      'DioException [receive timeout]: The request took longer than '
+          '0:00:20.000000 to receive data',
+      'SocketException: Connection reset by peer',
+      'HandshakeException: Connection terminated during handshake',
+    ];
+
+    for (final raw in dartSide) {
+      test('offline reads as unreachable: ${raw.split(':').first}', () {
+        final f = SourceFailure.of(raw);
+        expect(
+          f.kind,
+          SourceFailureKind.unreachable,
+          reason: 'classified as ${f.kind} — the reader is told the source is '
+              'broken when in fact their connection is:\n$raw',
+        );
+        expect(f.headline, isNot(contains('Exception')));
+        expect(f.detail, contains(raw));
+      });
+    }
+
+    test('a Dio status code still beats the connection wording', () {
+      // Dio phrases a 404 as an "invalid status code", with no word from the
+      // unreachable list in it — but the ordering is what guarantees that,
+      // and the ordering is easy to lose.
+      final f = SourceFailure.of(
+        'DioException [bad response]: This exception was thrown because the '
+        'response has a status code of 404.',
+      );
+      expect(f.kind, SourceFailureKind.gone);
+    });
+  });
+
+  group('SourceFailure is a value', () {
+    test('two failures that say the same thing are the same state', () {
+      // Blocs carry one in their state. Compared by identity, every rebuild
+      // reported a change.
+      expect(
+        SourceFailure.of('SocketException: Failed host lookup'),
+        SourceFailure.of('SocketException: Failed host lookup'),
+      );
+    });
+
+    test('and two that do not, are not', () {
+      expect(
+        SourceFailure.of('HTTP error 404'),
+        isNot(SourceFailure.of('HTTP error 403')),
+      );
+    });
+  });
+
   group('SourceFailure prefixes', () {
     test("Dart's own Exception: prefix is not part of the message", () {
       final f = SourceFailure.of('Exception: Manga: source unavailable: mn:497');

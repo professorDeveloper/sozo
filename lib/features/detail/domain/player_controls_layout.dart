@@ -229,6 +229,22 @@ class PlayerControlsLayout {
   /// tries, which reads as a broken screen rather than a full bar.
   static const int topBarCapacity = 6;
 
+  /// The same ceiling for a phone held sideways.
+  ///
+  /// Six is a PORTRAIT number — the doc above derives it from ~234pt of room
+  /// beside the title on the narrowest phone this ships to. Turned sideways
+  /// that phone has roughly double the width, so the bar that could not hold a
+  /// seventh button in portrait holds nine comfortably, and the landscape
+  /// bottom row is the one that is actually crowded.
+  ///
+  /// Only the DRAWING reads this. The editor and the overflow spill in
+  /// [PlayerControlsLayout.fromStored] keep using [topBarCapacity], because a
+  /// stored arrangement has no orientation in it: spilling against the
+  /// landscape number would push a control into `hidden` the moment somebody
+  /// turned their phone, and hiding is a decision the viewer makes, not one a
+  /// rotation makes for them.
+  static const int landscapeTopBarCapacity = 9;
+
   /// The arrangement for a viewer who has never edited it.
   factory PlayerControlsLayout.defaults() {
     final slots = <PlayerControlSlot, List<String>>{

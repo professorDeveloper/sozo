@@ -45,15 +45,27 @@ void main() {
       expect(VideoOptionGroups.servers(labels), ['Vidstream', 'Doodstream']);
     });
 
-    test('a host collects its entries whichever way its labels are written', () {
-      // Doodstream appears once with the quality first and once with it last.
-      expect(VideoOptionGroups.indicesFor(labels, 'Doodstream'), [2, 3]);
-      expect(VideoOptionGroups.qualitiesFor(labels, 'Doodstream'), ['480p', '1080p']);
-    });
+    test(
+      'a host collects its entries whichever way its labels are written',
+      () {
+        // Doodstream appears once with the quality first and once with it last.
+        expect(VideoOptionGroups.indicesFor(labels, 'Doodstream'), [2, 3]);
+        expect(VideoOptionGroups.qualitiesFor(labels, 'Doodstream'), [
+          '480p',
+          '1080p',
+        ]);
+      },
+    );
   });
 
   group('switching host', () {
-    final labels = ['A · 720p', 'A · 1080p', 'B · 360p', 'B · 720p', 'B · 1080p'];
+    final labels = [
+      'A · 720p',
+      'A · 1080p',
+      'B · 360p',
+      'B · 720p',
+      'B · 1080p',
+    ];
 
     test('keeps the resolution you were on', () {
       expect(VideoOptionGroups.switchTo(labels, 0, 'B'), 3);

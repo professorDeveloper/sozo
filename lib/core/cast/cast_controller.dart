@@ -32,11 +32,12 @@ import 'package:flutter/foundation.dart';
 /// provider plus its session type.
 class CastController extends ChangeNotifier {
   CastController({CastService? service})
-      : _service = service ??
-            CastService(
-              discoveryProviders: [ChromecastDiscoveryProvider()],
-              sessionFactory: (device) => ChromecastSession(device: device),
-            );
+    : _service =
+          service ??
+          CastService(
+            discoveryProviders: [ChromecastDiscoveryProvider()],
+            sessionFactory: (device) => ChromecastSession(device: device),
+          );
 
   static const String _tag = '[cast]';
 
@@ -222,12 +223,16 @@ CastMediaType? castTypeFor(String url, {String? hint}) {
   // so a path on this phone's disk or a content:// handle is out regardless of
   // what it ends in — and a downloaded episode ends in .mp4 like any other,
   // which is exactly how "castable" would otherwise be answered wrongly.
-  if (!lower.startsWith('http://') && !lower.startsWith('https://')) return null;
+  if (!lower.startsWith('http://') && !lower.startsWith('https://')) {
+    return null;
+  }
   if (hint == 'hls' || lower.contains('.m3u8')) return CastMediaType.hls;
   if (lower.contains('.mpd')) return null; // DASH: no receiver support here.
   if (lower.contains('.mkv')) return CastMediaType.mkv;
   if (lower.contains('.ts')) return CastMediaType.mpegTs;
-  if (lower.contains('.mp4') || lower.contains('.m4v')) return CastMediaType.mp4;
+  if (lower.contains('.mp4') || lower.contains('.m4v')) {
+    return CastMediaType.mp4;
+  }
   // Unknown extension over http(s) is usually an mp4 behind a redirect, which
   // is the one guess a receiver recovers from on its own.
   return CastMediaType.mp4;

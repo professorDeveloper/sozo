@@ -14,10 +14,6 @@ enum SearchStatus {
   error,
 }
 
-/// Why a search failed, so the view can stop blaming the user's wifi for a
-/// broken extension source.
-enum SearchFailureKind { network, source, unknown }
-
 /// What the user is asking for. Text and genre are composable: either one, both
 /// or neither, and every change re-runs through the same path.
 class SearchCriteria extends Equatable {
@@ -48,8 +44,8 @@ class SearchState extends Equatable {
     this.page = 1,
     this.totalPages = 1,
     this.isLoadingMore = false,
-    this.errorMessage = '',
-    this.errorKind = SearchFailureKind.unknown,
+    this.failure,
+    this.loadMoreFailure,
     this.genres = const [],
     this.genresLoading = false,
     this.genresFailed = false,
@@ -65,8 +61,25 @@ class SearchState extends Equatable {
   final int totalPages;
   final bool isLoadingMore;
 
-  final String errorMessage;
-  final SearchFailureKind errorKind;
+  /// Why the last search failed, already classified and already phrased.
+  ///
+  /// Null when nothing has failed. [SourceFailure] rather than a string and a
+  /// local enum: the Search tab used to carry its own three-way classifier
+  /// with its own list of substrings, which is exactly the duplication
+  /// [SourceFailureKind] exists to end. It knew "network" and "source" and
+  /// nothing else, so a source that had shut down, a source behind Cloudflare
+  /// and a source whose extension no longer matches the app all came out as
+  /// "Search failed" with a Java stack line underneath.
+  final SourceFailure? failure;
+
+  /// Why the NEXT page failed, when the pages already on screen are fine.
+  ///
+  /// Separate from [failure] because they want opposite treatments: a first
+  /// page that fails has nothing to show and takes the screen, while a second
+  /// page that fails must not disturb the results the reader is looking at.
+  /// This used to be neither — the failure was dropped on the floor, the
+  /// spinner vanished, no row arrived and no reason was given.
+  final SourceFailure? loadMoreFailure;
 
   /// Genres are a *field*, not a state: a failed genre fetch must never be able
   /// to paint the search screen as broken, and clearing the box must never be
@@ -105,8 +118,9 @@ class SearchState extends Equatable {
     int? page,
     int? totalPages,
     bool? isLoadingMore,
-    String? errorMessage,
-    SearchFailureKind? errorKind,
+    SourceFailure? failure,
+    SourceFailure? loadMoreFailure,
+    bool clearLoadMoreFailure = false,
     List<GenreEntity>? genres,
     bool? genresLoading,
     bool? genresFailed,
@@ -122,10 +136,10 @@ class SearchState extends Equatable {
         page: page ?? this.page,
         totalPages: totalPages ?? this.totalPages,
         isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-        errorMessage: clearError ? '' : (errorMessage ?? this.errorMessage),
-        errorKind: clearError
-            ? SearchFailureKind.unknown
-            : (errorKind ?? this.errorKind),
+        failure: clearError ? null : (failure ?? this.failure),
+        loadMoreFailure: clearLoadMoreFailure
+            ? null
+            : (loadMoreFailure ?? this.loadMoreFailure),
         genres: genres ?? this.genres,
         genresLoading: genresLoading ?? this.genresLoading,
         genresFailed: genresFailed ?? this.genresFailed,
@@ -142,8 +156,8 @@ class SearchState extends Equatable {
         page,
         totalPages,
         isLoadingMore,
-        errorMessage,
-        errorKind,
+        failure,
+        loadMoreFailure,
         genres,
         genresLoading,
         genresFailed,
@@ -151,38 +165,4 @@ class SearchState extends Equatable {
         weakResults,
         suggestions,
       ];
-}
-
-/// Best-effort classification of a repository failure.
-///
-/// The repository and the extension hosts already distinguish "source
-/// unavailable" from "no match"; this keeps that distinction alive up to the
-/// view instead of collapsing everything into "check your connection".
-SearchFailureKind classifySearchFailure(String raw) {
-  final m = raw.toLowerCase();
-  if (m.contains('socketexception') ||
-      m.contains('failed host lookup') ||
-      m.contains('connection error') ||
-      m.contains('connection refused') ||
-      m.contains('connection closed') ||
-      m.contains('network is unreachable') ||
-      m.contains('timeout') ||
-      m.contains('timed out')) {
-    return SearchFailureKind.network;
-  }
-  if (m.contains('source unavailable') ||
-      m.contains('platformexception') ||
-      m.contains('extension') ||
-      m.contains('extractor')) {
-    return SearchFailureKind.source;
-  }
-  return SearchFailureKind.unknown;
-}
-
-String cleanFailureMessage(String raw) {
-  var m = raw.trim();
-  while (m.startsWith('Exception:')) {
-    m = m.substring('Exception:'.length).trim();
-  }
-  return m;
 }

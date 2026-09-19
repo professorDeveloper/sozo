@@ -80,19 +80,21 @@ class OnlineSubtitlesService {
           if (isSerial && episode != null) 'episode': episode,
         },
       );
-      final items = (res.data is Map ? res.data['items'] : null) as List? ??
-          const [];
+      final items =
+          (res.data is Map ? res.data['items'] : null) as List? ?? const [];
       final out = <OnlineSubtitle>[];
       for (final m in items) {
         if (m is! Map) continue;
         final url = '${m['file'] ?? m['url'] ?? ''}';
         if (url.isEmpty) continue;
         final lang = '${m['language'] ?? m['lang'] ?? ''}'.toUpperCase();
-        out.add(OnlineSubtitle(
-          url: url,
-          language: lang,
-          display: '${m['label'] ?? m['display'] ?? lang}',
-        ));
+        out.add(
+          OnlineSubtitle(
+            url: url,
+            language: lang,
+            display: '${m['label'] ?? m['display'] ?? lang}',
+          ),
+        );
       }
       return out;
     } catch (_) {

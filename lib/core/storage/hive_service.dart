@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/app_constants.dart';
+import '../subtitles/subtitle_languages.dart';
 import '../../features/auth/data/models/user_model.dart';
 import '../../features/detail/domain/entities/subtitle_style.dart';
 
@@ -94,20 +95,41 @@ class HiveService {
       _authBox.delete(AppConstants.malViewerKey);
 
   String getCurrentProvider() {
-    final saved = _settingsBox.get(
-      AppConstants.currentProviderKey,
-      defaultValue: '',
-    ) as String;
+    final saved =
+        _settingsBox.get(AppConstants.currentProviderKey, defaultValue: '')
+            as String;
 
     return saved.isEmpty ? AppConstants.defaultProviderId : saved;
   }
 
+  /// Fires whenever the current source changes, whoever changed it.
+  ///
+  /// [ProviderBloc] is registered as a FACTORY, so there is no single live
+  /// instance to dispatch a `ProviderSelect` to from outside the widget tree —
+  /// and three places did the only thing left to them and wrote the id
+  /// straight into Hive: the Shorts tab (twice, since a short may carry its
+  /// provider or have to fetch it) and the deep-link handler. The source
+  /// changed app-wide and nothing was told: the picker chip still named the
+  /// old source, Home was not reloaded, and the Search tab kept the previous
+  /// source's genre grid — whose tiles then browsed the NEW source with the
+  /// OLD source's slugs.
+  ///
+  /// So the notification lives at the write, where it cannot be forgotten.
+  final ValueNotifier<String> currentProviderChanged = ValueNotifier<String>('');
+
   Future<void> saveCurrentProvider(String providerId) async {
+    final before = getCurrentProvider();
     await _settingsBox.put(AppConstants.currentProviderKey, providerId);
+    // Only a real change, so a re-save of the same id does not reload
+    // everything for nothing.
+    if (before != providerId) currentProviderChanged.value = providerId;
   }
 
   String getPreOutageProvider() {
-    return _settingsBox.get(AppConstants.preOutageProviderKey, defaultValue: '');
+    return _settingsBox.get(
+      AppConstants.preOutageProviderKey,
+      defaultValue: '',
+    );
   }
 
   Future<void> savePreOutageProvider(String providerId) async {
@@ -192,6 +214,7 @@ class HiveService {
     }
     await _settingsBox.put('favorite_providers', list);
   }
+
   List<String> getCrossSearchProviders() {
     return (_settingsBox.get('cross_search_providers') as List?)
             ?.map((e) => e.toString())
@@ -201,6 +224,30 @@ class HiveService {
 
   Future<void> setCrossSearchProviders(List<String> ids) async {
     await _settingsBox.put('cross_search_providers', ids);
+  }
+
+  /// Which source a catalogue title was found on, keyed by catalogue id and
+  /// the title's id there. Local on purpose: what somebody looks up stays on
+  /// their phone.
+  String? getCatalogueLink(String key) {
+    final raw = _settingsBox.get('catalogue_links');
+    if (raw is! Map) return null;
+    final v = raw[key];
+    return v is String && v.isNotEmpty ? v : null;
+  }
+
+  Future<void> setCatalogueLink(String key, String? value) async {
+    final raw = _settingsBox.get('catalogue_links');
+    final map = <String, String>{
+      if (raw is Map)
+        for (final e in raw.entries) e.key.toString(): e.value.toString(),
+    };
+    if (value == null) {
+      map.remove(key);
+    } else {
+      map[key] = value;
+    }
+    await _settingsBox.put('catalogue_links', map);
   }
 
   List<Map<String, dynamic>> getFollowedRaw() {
@@ -302,7 +349,9 @@ class HiveService {
 
   /// Notified when the setting changes, so a queue that is holding can start
   /// the moment it is switched off rather than at the next app launch.
-  final ValueNotifier<bool> downloadWifiOnlyChanged = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> downloadWifiOnlyChanged = ValueNotifier<bool>(
+    false,
+  );
 
   /// The volume downloads are kept on, or empty for the app's own directory.
   String getDownloadLocation() =>
@@ -369,6 +418,7 @@ class HiveService {
   Future<void> setShaderTier(String id) async {
     await _settingsBox.put(AppConstants.shaderTierKey, id);
   }
+
   bool get askEngineOnPlay {
     return _settingsBox.get(
           AppConstants.askEngineOnPlayKey,
@@ -445,8 +495,7 @@ class HiveService {
   /// actually is, and that is the home screen — not a sheet inside the player,
   /// which nobody opens to check whether they are being recorded. Anything
   /// showing the state listens here rather than polling.
-  final ValueNotifier<bool> incognitoChanged =
-      ValueNotifier<bool>(false);
+  final ValueNotifier<bool> incognitoChanged = ValueNotifier<bool>(false);
 
   Future<void> setIncognito(bool value) async {
     await _settingsBox.put(AppConstants.incognitoKey, value);
@@ -459,7 +508,10 @@ class HiveService {
   /// the viewer ninety seconds into the episode is a far worse first impression
   /// than a button they chose not to press.
   bool get autoSkipIntro {
-    return _settingsBox.get(AppConstants.autoSkipIntroKey, defaultValue: false) ==
+    return _settingsBox.get(
+          AppConstants.autoSkipIntroKey,
+          defaultValue: false,
+        ) ==
         true;
   }
 
@@ -508,7 +560,8 @@ class HiveService {
 
   /// Whether to remind before an episode on the AniList list airs.
   bool get airingRemindersEnabled =>
-      _settingsBox.get(AppConstants.airingRemindersKey, defaultValue: false) == true;
+      _settingsBox.get(AppConstants.airingRemindersKey, defaultValue: false) ==
+      true;
 
   Future<void> setAiringRemindersEnabled(bool value) =>
       _settingsBox.put(AppConstants.airingRemindersKey, value);
@@ -516,12 +569,17 @@ class HiveService {
   /// How many reminders were scheduled last time, so exactly those can be
   /// cancelled before the next batch.
   int get airingReminderCount {
-    final raw = _settingsBox.get(AppConstants.airingReminderCountKey, defaultValue: 0);
+    final raw = _settingsBox.get(
+      AppConstants.airingReminderCountKey,
+      defaultValue: 0,
+    );
     return raw is int && raw >= 0 ? raw : 0;
   }
 
-  Future<void> setAiringReminderCount(int value) =>
-      _settingsBox.put(AppConstants.airingReminderCountKey, value < 0 ? 0 : value);
+  Future<void> setAiringReminderCount(int value) => _settingsBox.put(
+    AppConstants.airingReminderCountKey,
+    value < 0 ? 0 : value,
+  );
 
   /// Channels the user pinned to the top of Live TV.
   ///
@@ -548,8 +606,16 @@ class HiveService {
   }
 
   /// Bounded: a history of everything ever watched is not a shortcut any more.
-  Future<void> pushLiveTvRecent(String id) {
-    final ids = [id, ...getLiveTvRecent().where((e) => e != id)].take(12).toList();
+  ///
+  /// Nothing in incognito. This is history by another name — it is drawn on
+  /// the home screen as a row of channels you were just watching — and it was
+  /// the only shelf in the app the mode did not cover.
+  Future<void> pushLiveTvRecent(String id) async {
+    if (isIncognito) return;
+    final ids = [
+      id,
+      ...getLiveTvRecent().where((e) => e != id),
+    ].take(12).toList();
     return _settingsBox.put(AppConstants.liveTvRecentKey, ids);
   }
 
@@ -567,7 +633,8 @@ class HiveService {
     raw.forEach((key, value) {
       if (value is Map) {
         out[key.toString()] = {
-          for (final e in value.entries) e.key.toString(): e.value?.toString() ?? '',
+          for (final e in value.entries)
+            e.key.toString(): e.value?.toString() ?? '',
         };
       }
     });
@@ -616,7 +683,9 @@ class HiveService {
 
   /// So an open detail page stops its preview the moment the setting is turned
   /// off, rather than on the next visit.
-  final ValueNotifier<bool> heroTrailerAutoplayChanged = ValueNotifier<bool>(true);
+  final ValueNotifier<bool> heroTrailerAutoplayChanged = ValueNotifier<bool>(
+    true,
+  );
 
   bool get volumeGestureEnabled {
     return _settingsBox.get(
@@ -656,7 +725,10 @@ class HiveService {
     final out = <String, List<String>>{};
     raw.forEach((k, v) {
       if (k is! String || v is! List) return;
-      out[k] = [for (final e in v) if (e is String) e];
+      out[k] = [
+        for (final e in v)
+          if (e is String) e,
+      ];
     });
     return out;
   }
@@ -668,10 +740,7 @@ class HiveService {
       _settingsBox.delete(AppConstants.playerControlsLayoutKey);
 
   bool get keepScreenOn {
-    return _settingsBox.get(
-          AppConstants.keepScreenOnKey,
-          defaultValue: true,
-        ) ==
+    return _settingsBox.get(AppConstants.keepScreenOnKey, defaultValue: true) ==
         true;
   }
 
@@ -690,10 +759,10 @@ class HiveService {
   bool get hasTelegramPromoSeen {
     return _telegramPromoSeen ??=
         _settingsBox.get(
-              AppConstants.telegramPromoSeenKey,
-              defaultValue: false,
-            ) ==
-            true;
+          AppConstants.telegramPromoSeenKey,
+          defaultValue: false,
+        ) ==
+        true;
   }
 
   Future<void> setTelegramPromoSeen(bool value) async {
@@ -704,7 +773,8 @@ class HiveService {
   Future<void> markTelegramPromoSeen() => setTelegramPromoSeen(true);
 
   bool get isAmoledMode {
-    return _settingsBox.get(AppConstants.amoledModeKey, defaultValue: false) == true;
+    return _settingsBox.get(AppConstants.amoledModeKey, defaultValue: false) ==
+        true;
   }
 
   Future<void> setAmoledMode(bool enabled) async {
@@ -744,7 +814,11 @@ class HiveService {
   }
 
   bool get hasOnboardingSeen {
-    return _settingsBox.get(AppConstants.onboardingSeenKey, defaultValue: false) == true;
+    return _settingsBox.get(
+          AppConstants.onboardingSeenKey,
+          defaultValue: false,
+        ) ==
+        true;
   }
 
   Future<void> markOnboardingSeen() async {
@@ -788,7 +862,10 @@ class HiveService {
   }
 
   int get appLockPinLength {
-    final v = _settingsBox.get(AppConstants.appLockPinLengthKey, defaultValue: 4);
+    final v = _settingsBox.get(
+      AppConstants.appLockPinLengthKey,
+      defaultValue: 4,
+    );
     return (v is int && (v == 4 || v == 6)) ? v : 4;
   }
 
@@ -807,7 +884,6 @@ class HiveService {
   Future<void> setAppLockBiometricEnabled(bool enabled) async {
     await _settingsBox.put(AppConstants.appLockBiometricKey, enabled);
   }
-
 
   bool get useNativeTitleBar =>
       _settingsBox.get('use_native_title_bar', defaultValue: false) == true;
@@ -835,7 +911,6 @@ class HiveService {
   Future<void> setTabOrder(List<String> ids) =>
       _settingsBox.put('tab_order', ids);
 
-
   bool get hasSeenPrivateShowcase =>
       _settingsBox.get('private_showcase_seen', defaultValue: false) == true;
 
@@ -848,14 +923,20 @@ class HiveService {
   Future<void> setPrivateAlwaysAsk(bool value) async =>
       _settingsBox.put('private_always_ask', value);
 
-  /// Whether adult manga sources are shown. Off unless the user opts in, and
-  /// read by both the manga sources list and [ProviderBloc] — the picker builds
-  /// its manga entries from the same plugin list, so a source hidden in one
-  /// place has to be hidden in the other or the opt-out means nothing.
+  /// Whether adult manga sources are shown. On by default, and read by both the
+  /// manga sources list and [ProviderBloc] — the picker builds its manga
+  /// entries from the same plugin list, so a source hidden in one place has to
+  /// be hidden in the other or the setting means nothing.
+  ///
+  /// It used to default off, which hid a large part of the installable
+  /// catalogue behind a switch nobody knew to look for: a source searched for
+  /// by name simply was not in the list, with nothing to say it had been
+  /// filtered. The toggle stays — this is the default it starts from, not a
+  /// removal of the choice.
   bool get showNsfwMangaSources {
     return _settingsBox.get(
           AppConstants.showNsfwMangaSourcesKey,
-          defaultValue: false,
+          defaultValue: true,
         ) ==
         true;
   }
@@ -865,13 +946,17 @@ class HiveService {
   }
 
   bool get readerSpread =>
-      _settingsBox.get(AppConstants.readerSpreadKey, defaultValue: false) == true;
+      _settingsBox.get(AppConstants.readerSpreadKey, defaultValue: false) ==
+      true;
 
   Future<void> setReaderSpread(bool value) async =>
       _settingsBox.put(AppConstants.readerSpreadKey, value);
 
   String getReaderMode(String contentUrl) {
-    return _settingsBox.get('reader_mode::$contentUrl', defaultValue: 'vertical');
+    return _settingsBox.get(
+      'reader_mode::$contentUrl',
+      defaultValue: 'vertical',
+    );
   }
 
   Future<void> saveReaderMode(String contentUrl, String mode) async {
@@ -879,7 +964,8 @@ class HiveService {
   }
 
   bool getReaderRtl(String contentUrl) {
-    return _settingsBox.get('reader_rtl::$contentUrl', defaultValue: false) == true;
+    return _settingsBox.get('reader_rtl::$contentUrl', defaultValue: false) ==
+        true;
   }
 
   Future<void> saveReaderRtl(String contentUrl, bool rtl) async {
@@ -903,7 +989,8 @@ class HiveService {
   // these are how a person reads, not how one book is laid out.
 
   double getNovelFontSize() =>
-      (_settingsBox.get('novel_font_size', defaultValue: 17.0) as num).toDouble();
+      (_settingsBox.get('novel_font_size', defaultValue: 17.0) as num)
+          .toDouble();
 
   Future<void> saveNovelFontSize(double v) async =>
       _settingsBox.put('novel_font_size', v);
@@ -943,12 +1030,28 @@ class HiveService {
   }
 
   /// Target language for subtitle translation. Falls back to the app language,
-  /// which is the one the person already reads the interface in.
+  /// which is the one the person already reads the interface in — but only
+  /// when the translators can actually produce it.
+  ///
+  /// The two lists are not the same list and were never going to be. The
+  /// interface is translated by people, once; a subtitle is translated at
+  /// playback by whichever of Azure, DeepL and Google the deployment holds a
+  /// key for. Cantonese is the case that made the difference matter: it is a
+  /// perfectly good interface language and none of the three takes `yue` as a
+  /// target, so falling straight through would have posted a code the provider
+  /// rejects and shown the viewer a translation that silently never arrived.
   String getSubtitleTranslateLang() {
     final saved = _settingsBox.get(AppConstants.subtitleTranslateLangKey);
     if (saved is String && saved.isNotEmpty) return saved;
-    return getLanguage();
+    final ui = getLanguage();
+    if (kSubtitleTranslateLanguages.any((l) => l.$1 == ui)) return ui;
+    return _kNearestTranslateTarget[ui] ?? 'en';
   }
+
+  /// What to translate into for an interface language the translators do not
+  /// offer. Readable rather than right: a Cantonese reader reads Chinese
+  /// subtitles, which is a great deal better than none.
+  static const Map<String, String> _kNearestTranslateTarget = {'yue': 'zh'};
 
   Future<void> setSubtitleTranslateLang(String lang) async {
     await _settingsBox.put(AppConstants.subtitleTranslateLangKey, lang.trim());
@@ -963,10 +1066,7 @@ class HiveService {
   }
 
   Future<void> saveSubtitleStyle(SubtitleStyle style) async {
-    await _settingsBox.put(
-      AppConstants.subtitleStyleKey,
-      style.toJsonString(),
-    );
+    await _settingsBox.put(AppConstants.subtitleStyleKey, style.toJsonString());
   }
 
   /// Subtitle sync is tuned per title+episode: a shift that fixes episode 1 is

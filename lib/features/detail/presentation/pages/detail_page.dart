@@ -1,3 +1,6 @@
+import 'package:soplay/features/detail/presentation/widgets/detail_about_tab.dart';
+import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
@@ -44,6 +47,7 @@ import 'package:soplay/features/detail/presentation/widgets/detail_comments_tab.
 import 'package:soplay/features/detail/presentation/widgets/detail_hero.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_info.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_more_menu.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_save_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_related.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_screenshots.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_skeleton.dart';
@@ -67,9 +71,14 @@ class DetailPage extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) =>
-              getIt<DetailBloc>()
-                ..add(DetailLoad(args.contentUrl, provider: args.provider)),
+          create: (_) => getIt<DetailBloc>()
+            ..add(
+              DetailLoad(
+                args.contentUrl,
+                provider: args.provider,
+                hint: args.preview,
+              ),
+            ),
         ),
         BlocProvider(create: (_) => getIt<EpisodesBloc>()),
         BlocProvider(create: (_) => getIt<FavoriteBloc>()),
@@ -165,11 +174,15 @@ class _DetailScaffold extends StatelessWidget {
                 // showListAction. It also removes a latent lock-up — a silent
                 // DetailLoaded refresh that skips DetailLoading would strand
                 // the page on the skeleton for good.
-                DetailLoaded(:final detail) => Builder(
+                DetailLoaded(:final detail, :final via) => Builder(
                   builder: (context) {
                     return _DetailView(
                       detail: detail,
-                      provider: provider,
+                      // A catalogue title was loaded from the source found
+                      // for it, and everything downstream — episodes, play,
+                      // download — must ask that source, not the catalogue.
+                      provider: via?.providerId ?? provider,
+                      via: via,
                       autoPlay: autoPlay,
                       resumeEpisodeIndex: resumeEpisodeIndex,
                       heroTag: heroTag,
@@ -177,9 +190,11 @@ class _DetailScaffold extends StatelessWidget {
                   },
                 ),
                 DetailError(:final message) => _ErrorView(
-                  message: message,
+                  message: message.startsWith('catalogue.')
+                      ? message.tr()
+                      : message,
                   onRetry: () => context.read<DetailBloc>().add(
-                    DetailLoad(contentUrl, provider: provider),
+                    DetailLoad(contentUrl, provider: provider, hint: preview),
                   ),
                   onSolveCloudflare: isCloudflareError(message)
                       ? () async {
@@ -222,12 +237,16 @@ class _DetailView extends StatefulWidget {
   const _DetailView({
     required this.detail,
     this.provider,
+    this.via,
     this.autoPlay = false,
     this.resumeEpisodeIndex,
     this.heroTag,
   });
   final DetailEntity detail;
   final String? provider;
+
+  /// The source this title was found on, when it came from a catalogue.
+  final CatalogueLink? via;
   final bool autoPlay;
   final int? resumeEpisodeIndex;
   final String? heroTag;
@@ -284,7 +303,8 @@ class _DetailViewState extends State<_DetailView>
   /// episode history points at. True only for the auto-play that Continue
   /// Watching starts, and spent by the first list it opens: a later Play from
   /// this page is somebody choosing to browse.
-  late bool _resumeOnOpen = widget.autoPlay && widget.resumeEpisodeIndex != null;
+  late bool _resumeOnOpen =
+      widget.autoPlay && widget.resumeEpisodeIndex != null;
 
   @override
   void initState() {
@@ -295,6 +315,9 @@ class _DetailViewState extends State<_DetailView>
     _hasShots = widget.detail.screenshots.isNotEmpty;
     _isFollowing = getIt<FollowService>().isFollowed(widget.detail.contentUrl);
     _tabs = [
+      // First for a title that came with a record: the record is the point
+      // of a catalogue page. A source's page has no such tab.
+      if (widget.detail.record != null) 'About',
       'Similar',
       // Always offered, because whether there is anything to show cannot be
       // known without asking AniList — and asking on every detail load would
@@ -437,6 +460,7 @@ class _DetailViewState extends State<_DetailView>
   }
 
   String _tabLabel(String tab) => switch (tab) {
+    'About' => 'detail.about'.tr(),
     'Similar' => 'detail.similar'.tr(),
     'Relations' => 'detail.relations'.tr(),
     'Cast' => 'movie.cast'.tr(),
@@ -462,6 +486,7 @@ class _DetailViewState extends State<_DetailView>
       child: KeyedSubtree(
         key: ValueKey('detail-tab-$tab'),
         child: switch (tab) {
+          'About' => DetailAboutTab(record: detail.record!),
           'Similar' => DetailRelatedSection(related: detail.related),
           'Relations' => DetailRelationsTab(
             provider: detail.provider,
@@ -502,6 +527,13 @@ class _DetailViewState extends State<_DetailView>
   }
 
   void _onPrimaryAction() {
+    // A catalogue title with no source has nothing to play yet. The app bar
+    // pill reaches here too, so the redirect lives here rather than only on
+    // the body's button.
+    if (Catalogue.isId(widget.detail.provider)) {
+      _onFindOtherSources();
+      return;
+    }
     final state = context.read<EpisodesBloc>().state;
     if (state is EpisodesLoading) return;
     _pendingDownload = false;
@@ -517,6 +549,10 @@ class _DetailViewState extends State<_DetailView>
   bool _pendingDownload = false;
 
   void _onDownloadAction() {
+    if (Catalogue.isId(widget.detail.provider)) {
+      _onFindOtherSources();
+      return;
+    }
     final state = context.read<EpisodesBloc>().state;
     if (state is EpisodesLoading) return;
     _pendingDownload = true;
@@ -760,6 +796,26 @@ class _DetailViewState extends State<_DetailView>
   ///
   /// Falls back to the old screen when nothing matched, rather than leaving a
   /// dead end: cross-search casts a wider net and lets them look by hand.
+  /// The viewer disagrees with the source that was picked for a catalogue
+  /// title. Forget the pick, so it is not repeated, and let them choose.
+  Future<void> _changeSource() async {
+    final via = widget.via;
+    if (via != null) {
+      // The catalogue id and the title's id in it are what the link was
+      // remembered under; the page only knows the source it landed on, so the
+      // key is rebuilt from the route it was opened with.
+      final args = GoRouterState.of(context).extra;
+      if (args is DetailArgs && Catalogue.isId(args.provider)) {
+        await getIt<CatalogueResolver>().forget(
+          args.provider!,
+          args.contentUrl,
+        );
+      }
+    }
+    if (!mounted) return;
+    await _onFindOtherSources();
+  }
+
   Future<void> _onFindOtherSources() async {
     final detail = widget.detail;
     final history = getIt<HistoryService>().get(detail.contentUrl);
@@ -811,6 +867,30 @@ class _DetailViewState extends State<_DetailView>
 
   void _onShare() {
     Share.share('${widget.detail.title}\n$_shareLink');
+  }
+
+  /// Everything this title could be saved into, from the tick that already
+  /// means "keep this".
+  void _openSaveSheet() {
+    final detail = widget.detail;
+    final favState = context.read<FavoriteBloc>().state;
+    showDetailSaveSheet(
+      context,
+      entity: FavoriteEntity(
+        provider: detail.provider,
+        contentUrl: detail.contentUrl,
+        title: detail.title,
+        thumbnail: detail.thumbnail ?? '',
+      ),
+      isInList: favState is FavoriteReady && favState.isInList,
+      inPrivate: favState is FavoriteReady && favState.inPrivate,
+      showFollow: detail.isSerial,
+      following: _isFollowing,
+      onToggleMyList: _toggleMyList,
+      onToggleFollow: _toggleFollow,
+      onMoveToPrivate: _onMoveToPrivate,
+      onPrivateActions: _showPrivateActions,
+    );
   }
 
   void _showMoreMenu() {
@@ -1197,6 +1277,9 @@ class _DetailViewState extends State<_DetailView>
                   onPrimaryAction: _onPrimaryAction,
                   onDownload: _onDownloadAction,
                   playButtonKey: _bodyPlayKey,
+                  via: widget.via,
+                  onChangeSource: widget.via == null ? null : _changeSource,
+                  onFindSource: _onFindOtherSources,
                 ),
               ),
               // Sponsor/CMS banner (detail_top placement). Opt-in: self-collapses
@@ -1304,7 +1387,7 @@ class _DetailViewState extends State<_DetailView>
                             showcaseScope: _showcaseScope,
                             onBack: _goBack,
                             onPrimaryAction: _onPrimaryAction,
-                            onAddToList: _toggleMyList,
+                            onSave: _openSaveSheet,
                             onMoveToPrivate: _onMoveToPrivate,
                             onPrivateActions: _showPrivateActions,
                             moreButtonKey: _moreButtonKey,
@@ -1369,7 +1452,7 @@ class _AnimatedTopBar extends StatelessWidget {
     required this.moreButtonKey,
     required this.onBack,
     required this.onPrimaryAction,
-    required this.onAddToList,
+    required this.onSave,
     required this.onMoveToPrivate,
     required this.onPrivateActions,
     required this.onMore,
@@ -1391,7 +1474,7 @@ class _AnimatedTopBar extends StatelessWidget {
   final GlobalKey moreButtonKey;
   final VoidCallback onBack;
   final VoidCallback onPrimaryAction;
-  final VoidCallback onAddToList;
+  final VoidCallback onSave;
   final VoidCallback onMoveToPrivate;
   final VoidCallback onPrivateActions;
   final VoidCallback onMore;
@@ -1506,16 +1589,18 @@ class _AnimatedTopBar extends StatelessWidget {
                       // The icon has four states and the label follows it —
                       // "Add to list" announced on a button that would in fact
                       // remove it is worse than no label.
+                      // One label, because the tap now opens the lists
+                      // rather than committing to one of them. It used to
+                      // announce "Remove from My List" on a button that, after
+                      // the sheet, might do nothing of the sort.
                       semanticLabel: inPrivate
                           ? 'detail.in_private_list'.tr()
-                          : isInList
-                          ? 'detail.remove_from_my_list_action'.tr()
-                          : 'detail.add_to_my_list_action'.tr(),
+                          : 'detail.save_action'.tr(),
                       onTap: isListActionLoading
                           ? null
                           : inPrivate
                           ? onPrivateActions
-                          : onAddToList,
+                          : onSave,
                       onLongPress: isListActionLoading || inPrivate
                           ? null
                           : onMoveToPrivate,

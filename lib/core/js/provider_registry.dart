@@ -23,14 +23,17 @@ class ProviderRegistry {
 
   Future<List<ProviderModel>> _ensure() {
     if (_cache != null) return Future.value(_cache);
-    return _loading ??= source.getProviders().then((list) {
-      _cache = list;
-      _loading = null;
-      return list;
-    }).catchError((Object _) {
-      _loading = null;
-      return <ProviderModel>[];
-    });
+    return _loading ??= source
+        .getProviders()
+        .then((list) {
+          _cache = list;
+          _loading = null;
+          return list;
+        })
+        .catchError((Object _) {
+          _loading = null;
+          return <ProviderModel>[];
+        });
   }
 
   void invalidate() {

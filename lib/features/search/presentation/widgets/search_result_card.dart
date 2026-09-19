@@ -8,7 +8,32 @@ import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.da
 import 'package:soplay/core/widgets/poster_hero.dart';
 
 const double _posterRatio = 2 / 3;
-const double _captionHeight = 48;
+
+/// The height the caption strip under a poster needs: the 6pt gap, two lines
+/// of the 12pt title at a line height of 1.15, and one line of the 10.5pt
+/// subtitle at 1.2 — the caption exactly as it is built below.
+///
+/// Derived rather than declared, because as a flat 48 it was only correct at
+/// the default text size. One notch up on the system text slider and the grid
+/// still handed every tile 48dp for a caption that now wanted 58.
+///
+/// Nothing was clipped by that — the caption is the inflexible part of the
+/// card's Column and the poster above it is the [Expanded] one, so the ten
+/// missing points came out of the POSTER instead. Every cover in the grid lost
+/// height it was owed, stopped being a 2:3 rectangle, and cropped further into
+/// the artwork the larger the text got; at accessibility sizes the poster is
+/// squeezed hard while the tile it sits in never grows. Reserving the caption's
+/// real height is what keeps the poster the shape the grid was built around.
+///
+/// [context] is optional only because one caller outside this feature has no
+/// BuildContext to give; without it the caption falls back to its unscaled
+/// height and the poster is squeezed again at large text sizes.
+double _captionHeight(BuildContext? context) {
+  final scaler = context == null
+      ? TextScaler.noScaling
+      : MediaQuery.textScalerOf(context);
+  return 6 + scaler.scale(12) * 1.15 * 2 + scaler.scale(10.5) * 1.2;
+}
 
 /// Poster grid shared by single-source and cross-source search.
 ///
@@ -29,7 +54,7 @@ SliverGridDelegate searchGridDelegate(
     crossAxisCount: columns,
     crossAxisSpacing: spacing,
     mainAxisSpacing: 16,
-    mainAxisExtent: tile / _posterRatio + _captionHeight,
+    mainAxisExtent: tile / _posterRatio + _captionHeight(context),
   );
 }
 
@@ -41,8 +66,8 @@ int searchGridColumns(double width) {
   return 7;
 }
 
-double searchCardHeight(double tileWidth) =>
-    tileWidth / _posterRatio + _captionHeight;
+double searchCardHeight(double tileWidth, [BuildContext? context]) =>
+    tileWidth / _posterRatio + _captionHeight(context);
 
 class SearchResultCard extends StatelessWidget {
   const SearchResultCard({
@@ -98,18 +123,22 @@ class SearchResultCard extends StatelessWidget {
                   placeholderIcon: Icons.movie_rounded,
                 ),
               ),
-              Positioned(
+              // Directional, not physical. Arabic is the app's largest
+              // translation and it mirrors the whole card, so a badge pinned
+              // to `left` ends up over the middle of the title's artwork
+              // rather than in the corner it was designed for.
+              PositionedDirectional(
                 top: 6,
-                left: 6,
+                start: 6,
                 child: AnilistLinkedBadge(
                   contentUrl: movie.url,
                   provider: provider,
                 ),
               ),
               if (movie.rating != null)
-                Positioned(
+                PositionedDirectional(
                   top: 6,
-                  right: 6,
+                  end: 6,
                   child: _Pill(
                     color: Colors.black.withValues(alpha: 0.72),
                     child: Row(
@@ -134,8 +163,8 @@ class SearchResultCard extends StatelessWidget {
                   ),
                 ),
               if (sourceCount > 1)
-                Positioned(
-                  left: 6,
+                PositionedDirectional(
+                  start: 6,
                   bottom: 6,
                   child: _Pill(
                     color: AppColors.primary.withValues(alpha: 0.92),
@@ -180,6 +209,11 @@ class SearchResultCard extends StatelessWidget {
 
     final tappable = HoverTap(
       behavior: HitTestBehavior.opaque,
+      // Opening a title is the tap on this screen that commits to something,
+      // which is the bar HoverTap's opt-in haptic sets. It is opt-in and off by
+      // default, so the card has to ask: the search grid and the trending rail
+      // both reach the detail page through here and neither was being felt.
+      haptic: true,
       onTap: onTap,
       child: card,
     );

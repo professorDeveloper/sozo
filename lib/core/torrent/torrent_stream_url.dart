@@ -51,7 +51,6 @@ class TorrentStreamUrl {
   }
 }
 
-
 /// Recognises links that are torrents rather than streams.
 ///
 /// The player funnels every URL through one place, so asking the question there

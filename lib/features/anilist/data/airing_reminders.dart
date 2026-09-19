@@ -69,7 +69,8 @@ class AiringReminders {
         final airing = entry.media.nextAiring;
         if (airing == null) continue;
         if (airing.airsAt.isAfter(until)) continue;
-        final title = entry.media.englishTitle ??
+        final title =
+            entry.media.englishTitle ??
             entry.media.romajiTitle ??
             entry.media.nativeTitle ??
             '';
@@ -81,11 +82,21 @@ class AiringReminders {
         // a reminder ten minutes early is a promise, not the thing itself.
         final ahead = airing.airsAt.subtract(lead);
         if (ahead.isAfter(now)) {
-          due.add((at: ahead, title: title, episode: airing.episode, released: false));
+          due.add((
+            at: ahead,
+            title: title,
+            episode: airing.episode,
+            released: false,
+          ));
         }
         final out = airing.airsAt.add(releaseDelay);
         if (out.isAfter(now)) {
-          due.add((at: out, title: title, episode: airing.episode, released: true));
+          due.add((
+            at: out,
+            title: title,
+            episode: airing.episode,
+            released: true,
+          ));
         }
       }
 
@@ -98,10 +109,11 @@ class AiringReminders {
           id: _idBase + scheduled,
           when: item.at,
           title: item.title,
-          body: (item.released
-                  ? 'anilist.released_body'
-                  : 'anilist.reminder_body')
-              .tr(namedArgs: {'episode': '${item.episode}'}),
+          body:
+              (item.released
+                      ? 'anilist.released_body'
+                      : 'anilist.reminder_body')
+                  .tr(namedArgs: {'episode': '${item.episode}'}),
         );
         scheduled++;
       }
@@ -119,9 +131,9 @@ class AiringReminders {
   Future<void> _cancelAll() async {
     final count = _hive.airingReminderCount;
     if (count <= 0) return;
-    await _notifications.cancelAllScheduled(
-      [for (var i = 0; i < count; i++) _idBase + i],
-    );
+    await _notifications.cancelAllScheduled([
+      for (var i = 0; i < count; i++) _idBase + i,
+    ]);
     await _hive.setAiringReminderCount(0);
   }
 }

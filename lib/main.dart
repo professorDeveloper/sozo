@@ -27,6 +27,7 @@ import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/router/app_router.dart';
+import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/extensions/presentation/repo_file_import.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/player/media_controller.dart' show warmUpPlayerEngine;
@@ -41,7 +42,18 @@ import 'package:soplay/features/app_lock/presentation/app_lock_gate.dart';
 import 'app.dart';
 
 
-void main() async {
+/// [args] is what the OS handed the process, and on Windows and Linux that is
+/// how "Open with Sozo" arrives: both runners hand `argv` to the engine as the
+/// Dart entrypoint arguments, so the file the user double-clicked was reaching
+/// Dart and being dropped by an entrypoint that took no parameters.
+///
+/// macOS is NOT covered. Its runner has no equivalent call, and AppKit does not
+/// put opened files in `argv` at all — it delivers them to
+/// `NSApplicationDelegate application(_:open:)` after launch. So a file opened
+/// with Sozo on macOS still goes nowhere; wiring that up is a change in
+/// `macos/Runner/`, not here. Android and iOS never pass anything, so the list
+/// is simply empty there.
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
    await initTvPlatform();
   if (isDesktopPlatform) {
@@ -78,9 +90,14 @@ void main() async {
         native ? TitleBarStyle.normal : TitleBarStyle.hidden,
            windowButtonVisibility: Platform.isMacOS ? true : native,
       );
-      await windowManager.setMinimumSize(const Size(800, 560));
+      await windowManager.setMinimumSize(DesktopWindow.minimumSize);
     } catch (_) {}
     DesktopWindow.nativeTitleBar.value = native;
+    // Geometry first, listener second: restoring fires resize and move events
+    // of its own, and there is nothing to learn from the app moving its own
+    // window back to where the user already put it.
+    await DesktopWindow.restoreGeometry();
+    DesktopWindow.trackWindow();
   }
 
   PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
@@ -89,6 +106,14 @@ void main() async {
   // Before anything can navigate — the deep-link and push handlers below, and
   // the first frame — so every way in lands under the lock.
   getIt<AppLockGate>().start();
+  // Resolved here, opened after the first frame. What it needs from this point
+  // in startup is the dependency graph — the player reads history, settings and
+  // the engine preference out of it — but pushing a route before there is a
+  // Navigator to push onto is a different question, which is why the actual
+  // navigation waits for the post-frame callback at the bottom of this
+  // function. Resolving it now also means a file that does not exist costs
+  // nothing later.
+  final launchFile = isDesktopPlatform ? _playableLaunchArg(args) : null;
   if (!Platform.isAndroid) {
     ExtensionBridge.setUrl(getIt<HiveService>().getBridgeUrl());
   }
@@ -160,6 +185,11 @@ void main() async {
       Locale('fr'),
       Locale('tr'),
       Locale('id'),
+      // Cantonese, in Traditional characters. `yue` rather than `zh-HK`
+      // because the copy is written in Cantonese — 睇, 嘅, 冇 — and not in the
+      // Standard Written Chinese a `zh` tag promises; a reader who set their
+      // phone to Mandarin should not land here by a region match.
+      Locale('yue'),
     ],
     path: 'assets/translations',
     fallbackLocale: const Locale('en'),
@@ -201,7 +231,115 @@ void main() async {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     _fireAndForget(getIt<JsRuntimeService>().ensureReady(), 'js');
     _fireAndForget(warmUpPlayerEngine(), 'player-engine');
+    // `push`, not `go`: the shell stays underneath, so closing the file the app
+    // was opened with leaves the user in the app rather than on a blank stack.
+    if (launchFile != null) AppRouter.router.push('/player', extra: launchFile);
   });
+}
+
+/// Container formats libmpv plays and the OS is likely to hand us.
+///
+/// An allow-list rather than "anything that exists": the same argv carries
+/// Flutter's own `--dart-entrypoint`-style switches and, on Linux, whatever a
+/// desktop file or a shell glob felt like passing, and opening the player on
+/// one of those would be worse than ignoring it.
+const Set<String> _playableExtensions = {
+  '.mkv', '.mp4', '.m4v', '.mov', '.avi', '.webm', '.wmv', '.flv', '.ts',
+  '.m2ts', '.mpg', '.mpeg', '.ogv', '.3gp', '.m3u8',
+  '.mp3', '.flac', '.aac', '.wav', '.ogg', '.opus', '.m4a',
+};
+
+/// `.ts` is the one extension in [_playableExtensions] that is far more often
+/// TypeScript source than an MPEG transport stream. Registering Sozo as an
+/// "Open with" handler, or a `sozo *.ts` glob in a source tree, would otherwise
+/// be enough to open a video player on somebody's code.
+///
+/// So this extension alone has to corroborate itself from the bytes rather than
+/// from the name. A transport stream is a run of fixed-length packets each
+/// beginning with the sync byte 0x47 — 188 bytes for plain TS, 192 for the
+/// timecode-prefixed variant — so three of those in a row at the same stride is
+/// the format identifying itself. `G` at one offset is an accident a text file
+/// can have; `G` at three offsets exactly one packet apart is not.
+///
+/// The leading offset is searched rather than assumed because captures and
+/// partial downloads routinely start mid-packet.
+bool _isTransportStream(String path) {
+  const strides = [188, 192];
+  RandomAccessFile? handle;
+  try {
+    handle = File(path).openSync();
+    final head = handle.readSync(192 + 2 * 192 + 1);
+    for (var start = 0; start < 192; start++) {
+      for (final stride in strides) {
+        final last = start + 2 * stride;
+        if (last >= head.length) continue;
+        if (head[start] == 0x47 &&
+            head[start + stride] == 0x47 &&
+            head[last] == 0x47) {
+          return true;
+        }
+      }
+    }
+    return false;
+  } catch (_) {
+    // Unreadable is not playable either, so the answer is the same.
+    return false;
+  } finally {
+    try {
+      handle?.closeSync();
+    } catch (_) {}
+  }
+}
+
+/// The first launch argument that is a media file on disk, as the player's own
+/// arguments — or null when the app was started normally.
+PlayerArgs? _playableLaunchArg(List<String> args) {
+  for (final raw in args) {
+    final arg = raw.trim();
+    if (arg.isEmpty || arg.startsWith('-')) continue;
+    final path = _asLocalPath(arg);
+    if (path == null) continue;
+    final dot = path.lastIndexOf('.');
+    if (dot < 0) continue;
+    final extension = path.substring(dot).toLowerCase();
+    if (!_playableExtensions.contains(extension)) continue;
+    if (!File(path).existsSync()) continue;
+    if (extension == '.ts' && !_isTransportStream(path)) continue;
+    final isHls = extension == '.m3u8';
+    return PlayerArgs(
+      // The file name is the only title there is. Everything downstream keys
+      // history and the trackers on the title/provider pair, so a local file
+      // gets its own provider rather than borrowing an extension's.
+      title: path.split(Platform.pathSeparator).last,
+      provider: 'local',
+      headers: const {},
+      // A playlist has to go in as a URL for the HLS demuxer to resolve its
+      // segment paths; a plain container is handed over as the path it is.
+      movieUrl: isHls ? Uri.file(path).toString() : path,
+      type: isHls ? 'hls' : null,
+      // It is already on this machine.
+      showDownloadAction: false,
+    );
+  }
+  return null;
+}
+
+/// A launch argument read as a path on disk, or null when it is something else.
+///
+/// The scheme test has a length bound because `C:\films\ep1.mkv` parses as a
+/// URI whose scheme is `c` — a one-letter scheme is a Windows drive, never a
+/// protocol. Anything with a real scheme is a link rather than a file, and
+/// `sozo://` and `https://` belong to DeeplinkService; claiming them here as
+/// well would open the same link twice.
+String? _asLocalPath(String arg) {
+  final uri = Uri.tryParse(arg);
+  if (uri == null || uri.scheme.length < 2) return arg;
+  if (!uri.isScheme('file')) return null;
+  try {
+    return uri.toFilePath();
+  } catch (_) {
+    return null;
+  }
 }
 
 Future<void> _initHive() async {

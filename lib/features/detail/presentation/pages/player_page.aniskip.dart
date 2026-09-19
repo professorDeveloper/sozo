@@ -196,9 +196,8 @@ extension _PlayerAlternateSources on _PlayerPageState {
   /// which is what makes switching worth doing instead of going back.
   Future<void> _openAlternateSources({bool keepPosition = false}) async {
     final controller = _controller;
-    final resumeAt = keepPosition &&
-            controller != null &&
-            controller.value.isInitialized
+    final resumeAt =
+        keepPosition && controller != null && controller.value.isInitialized
         ? controller.value.position
         : Duration.zero;
 

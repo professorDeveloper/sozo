@@ -204,10 +204,21 @@ class _ProvidersPageState extends State<ProvidersPage> {
                   // of a page that rebuilds on every keystroke in the search
                   // box.
                   counts: _languageCounts(state.providers),
-                  languages: srclang.orderedLanguages(
-                    _languageCounts(state.providers).keys,
-                    _languages,
-                  ),
+                  // `all` is dropped the way the sources hub drops it from its
+                  // menu. It is not a language a user can want: selecting it
+                  // asks for the sources that belong to every selection and
+                  // hides the ones that named a language, which is the
+                  // opposite of what a chip reading "ALL" promises — and the
+                  // row already opens with a clear button that says it
+                  // properly. KissKH and UHD Movies put the code in reach of
+                  // every install the day the backend started declaring it.
+                  languages: srclang
+                      .orderedLanguages(
+                        _languageCounts(state.providers).keys,
+                        _languages,
+                      )
+                      .where((l) => l != srclang.kAllLanguages)
+                      .toList(),
                   selected: _languages,
                   onToggle: _toggleLanguage,
                   onClear: _languages.isEmpty ? null : _clearLanguages,
@@ -247,7 +258,12 @@ class _ProvidersPageState extends State<ProvidersPage> {
                 child: switch (state) {
                   ProviderLoaded() =>
                     filtered.isEmpty
-                        ? const _ProvidersEmpty()
+                        ? _ProvidersEmpty(
+                            reason: _emptyReason(state.providers),
+                            languages: _languages,
+                            query: _query.trim(),
+                            onClear: _clearLanguages,
+                          )
                         : _ProvidersList(
                             providers: filtered,
                             currentProviderId: state.currentProviderId,
@@ -281,7 +297,25 @@ class _ProvidersPageState extends State<ProvidersPage> {
   /// short. Scoping the search box to that same subset meant typing an
   /// installed extension's name in the default view found nothing at all —
   /// the one place a user with hundreds of sources actually needs search.
-  /// How many providers carry each language, computed once per provider list.
+  /// How many installed sources carry each language, computed once per
+  /// provider list.
+  ///
+  /// A tally of the whole catalogue, not of the rows on screen. It counts the
+  /// 260+ extension sources the default category hides at [_filteredProviders]
+  /// on purpose: the language row is a standing statement about what the user
+  /// watches rather than a view toggle on the open category, and a chip
+  /// reading `0` because Favourites is open would be telling somebody they own
+  /// no French sources when they own forty. So the number is a count of what
+  /// the user owns, not a preview of what tapping the chip leaves behind, and
+  /// it misses in both directions: a category or a search narrows the list
+  /// below it, while a source whose [ProviderLanguage.displayLang] is empty or
+  /// `all` passes every selection and lands in a list it was never counted
+  /// for. That last one is also why the numbers never sum to the list length.
+  ///
+  /// Counted on displayLang, the value the row badges and the filter tests, so
+  /// the chip and the badge at least agree on what language a source is in.
+  /// Counting the raw field instead built a row out of languages half the list
+  /// had never claimed.
   ///
   /// Cached on identity: `ProviderLoaded` hands out the same list instance
   /// until providers are reloaded, so a rebuild driven by typing, favouriting
@@ -294,7 +328,7 @@ class _ProvidersPageState extends State<ProvidersPage> {
     if (identical(_countsFor, providers)) return _countsCache;
     final out = <String, int>{};
     for (final p in providers) {
-      final key = srclang.normalizeLang(p.lang);
+      final key = p.displayLang;
       if (key.isEmpty) continue;
       out[key] = (out[key] ?? 0) + 1;
     }
@@ -327,16 +361,37 @@ class _ProvidersPageState extends State<ProvidersPage> {
     context.read<ProviderBloc>().add(const ProviderLoad());
   }
 
-  List<ProviderEntity> _filteredProviders(List<ProviderEntity> every) {
+  /// [languages] overrides the live selection, which is how [_emptyReason]
+  /// asks what the list would look like without it.
+  List<ProviderEntity> _filteredProviders(
+    List<ProviderEntity> every, {
+    List<String>? languages,
+  }) {
+    final langs = languages ?? _languages;
     final q = _query.trim().toLowerCase();
     // The language row narrows a search too, unlike the category chips. A
     // category is a place to browse and a search deliberately escapes it; a
     // language is a statement about what the user can actually watch, and a
     // result they cannot read is not a better result for being findable.
-    final all = [
-      for (final p in every)
-        if (srclang.langMatches(p.lang, _languages)) p,
-    ];
+    //
+    // Tested on displayLang, which is the label the row shows. That does mean
+    // this list got SHORTER the day the backend started declaring `lang`:
+    // Sozo's own two dozen providers used to arrive untagged, and an untagged
+    // source passes every selection, so picking French kept all of them. They
+    // now say what they are and a French selection is entitled to drop them.
+    // That is the filter finally working, not breaking — but it can empty the
+    // list outright, so [_ProvidersEmpty] is told which languages did it.
+    // `langMatches` returns true for everything when nothing is selected — but
+    // only AFTER `p.displayLang` has been evaluated for every provider, and
+    // that walks the whole name-hint table per source. On the default screen,
+    // with no language chosen, that was the single largest cost of a build and
+    // it bought nothing. Ask the cheap question first.
+    final all = langs.isEmpty
+        ? List<ProviderEntity>.of(every)
+        : [
+            for (final p in every)
+              if (srclang.langMatches(p.displayLang, langs)) p,
+          ];
     if (q.isNotEmpty) {
       return all
           .where(
@@ -369,7 +424,31 @@ class _ProvidersPageState extends State<ProvidersPage> {
     }
     return list.toList();
   }
+
+  /// Which of the three filters actually emptied the list.
+  ///
+  /// Three of them can, and the message has to name the right one or it sends
+  /// the user to undo something that was not in their way: tapping Favourites
+  /// with no favourites saved used to be blamed on the language row purely
+  /// because a language was selected.
+  ///
+  /// The language row answers only when lifting it brings rows back, which is
+  /// the honest test — it is also the only one of the three this screen can
+  /// undo on the user's behalf. A query outranks the category because a query
+  /// already ignores the category chip. Runs one extra pass over the list, and
+  /// only ever on a list that came back empty.
+  _EmptyReason _emptyReason(List<ProviderEntity> every) {
+    if (_languages.isNotEmpty &&
+        _filteredProviders(every, languages: const []).isNotEmpty) {
+      return _EmptyReason.language;
+    }
+    if (_query.trim().isNotEmpty) return _EmptyReason.search;
+    return _EmptyReason.category;
+  }
 }
+
+/// Why the provider list came back empty — see [_ProvidersEmpty].
+enum _EmptyReason { language, search, category }
 
 /// Horizontal language chips over the provider list.
 ///
@@ -763,11 +842,60 @@ class _ProvidersListState extends State<_ProvidersList> {
   }
 }
 
+/// What is left when the filters agree on nothing.
+///
+/// It names the filter that actually emptied the list, which [_emptyReason]
+/// works out rather than this widget guessing from what happens to be set. The
+/// guess it replaces was "a language is selected, so the language did it", and
+/// that told a user who opened Favourites with nothing saved that English was
+/// hiding their sources — an accusation they could act on, uselessly, while
+/// the real reason went unsaid.
+///
+/// The language case is the one worth an escape hatch. An empty category is an
+/// ordinary browsing dead end and an empty search is self-explanatory, but a
+/// language selection is sticky and invisible once scrolled past: until the
+/// backend declared a language per provider, Sozo's own sources were untagged
+/// and untagged passes every selection, so no language choice could ever clear
+/// the list. Now one can, and a user who picked French and got a blank page has
+/// no way of knowing French is why unless this says so and hands back the
+/// switch.
 class _ProvidersEmpty extends StatelessWidget {
-  const _ProvidersEmpty();
+  const _ProvidersEmpty({
+    required this.reason,
+    required this.languages,
+    required this.query,
+    required this.onClear,
+  });
+
+  final _EmptyReason reason;
+
+  /// The language selection in force, named rather than counted — "French"
+  /// tells the user what to undo, "1 filter" does not.
+  final List<String> languages;
+
+  /// Quoted back so the message is about the thing they typed, not about
+  /// searching in general.
+  final String query;
+
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
+    final byLanguage = reason == _EmptyReason.language;
+    final (title, detail) = switch (reason) {
+      _EmptyReason.language => (
+        'search.no_results'.tr(),
+        languages.map(srclang.labelFor).join(' · '),
+      ),
+      _EmptyReason.search => (
+        'search.no_results_for'.tr(namedArgs: {'query': query}),
+        'ux.no_source_match'.tr(),
+      ),
+      _EmptyReason.category => (
+        'profile.no_providers_in_category'.tr(),
+        'profile.try_select_all'.tr(),
+      ),
+    };
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
@@ -775,13 +903,14 @@ class _ProvidersEmpty extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.search_off_rounded,
+              byLanguage ? Icons.translate_rounded : Icons.search_off_rounded,
               size: 44,
               color: AppColors.textHint.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 12),
             Text(
-              'profile.no_providers_in_category'.tr(),
+              title,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 14,
@@ -790,13 +919,20 @@ class _ProvidersEmpty extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'profile.try_select_all'.tr(),
+              detail,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.textHint.withValues(alpha: 0.85),
                 fontSize: 12,
               ),
             ),
+            if (byLanguage) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: onClear,
+                child: Text('profile.all_languages'.tr()),
+              ),
+            ],
           ],
         ),
       ),
@@ -821,10 +957,19 @@ class _ProviderListTile extends StatelessWidget {
   final VoidCallback onToggleFavorite;
   final VoidCallback onTap;
 
+  /// Which sources the Cloudflare solver can be run for.
+  ///
+  /// `my:` was missing, and it is the ecosystem that needs it most:
+  /// Mangayomi sources run in the app's own JS runtime rather than behind an
+  /// Android host, so [requestCloudflareSolve] has a whole separate branch for
+  /// them — `_solveForMangayomi` — that nothing could ever reach, because this
+  /// gate disabled the action before it was called. A Mangayomi source stuck
+  /// behind a challenge had no way out at all.
   bool get _canSolveCloudflare =>
       provider.id.startsWith('an:') ||
       provider.id.startsWith('mn:') ||
-      provider.id.startsWith('cs:');
+      provider.id.startsWith('cs:') ||
+      provider.id.startsWith('my:');
 
   Future<void> _solveCloudflare(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -845,6 +990,10 @@ class _ProviderListTile extends StatelessWidget {
   }
 
   Widget _tile(BuildContext context) {
+    // The same answer the filter above this list hides rows by. Badging the raw
+    // field while filtering on the inferred one meant a row could be hidden by
+    // a language it never displayed, which reads as the filter losing sources.
+    final lang = provider.displayLang;
     return Material(
       color: selected
           ? AppColors.primary.withValues(alpha: 0.10)
@@ -901,9 +1050,9 @@ class _ProviderListTile extends StatelessWidget {
                           // filter cleared a multi-language aggregator now
                           // occupies several rows under one name, and the code
                           // is the only thing telling them apart.
-                          if (provider.lang.isNotEmpty &&
-                              !provider.isAllLanguages) ...[
-                            _ProviderLangBadge(lang: provider.lang),
+                          if (lang.isNotEmpty &&
+                              lang != srclang.kAllLanguages) ...[
+                            _ProviderLangBadge(lang: lang),
                             const SizedBox(width: 4),
                           ],
                           if (unavailable)

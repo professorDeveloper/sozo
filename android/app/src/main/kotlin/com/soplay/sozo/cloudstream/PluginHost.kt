@@ -433,14 +433,23 @@ class PluginHost(private val appContext: Context) {
         val items = JSONArray()
         // CloudStream's MainAPI.search(query) has no paging — return the full
         // result set on page 1 only; never advertise further pages.
+        var searchError: String? = null
         if (api != null && page == 1) {
             val results = try { api.search(query) } catch (t: Throwable) {
+                searchError = "${t.javaClass.simpleName}: ${t.message}"
                 Log.e(TAG, "search ${api.name}: ${t.javaClass.simpleName}: ${t.message}"); null
             } ?: emptyList()
             for (r in results) items.put(cardJson(r, api.name))
         }
         return JSONObject().apply {
             put("provider", providerName); put("items", items)
+            // Same reasoning as getMainPageJson above: without this, a plugin
+            // that threw is indistinguishable from a source that genuinely has
+            // nothing matching the query — so the screen said "no results" and
+            // offered spelling suggestions for a source that never ran.
+            if (items.length() == 0) {
+                searchError?.let { put("error", "${api?.name ?: providerName}: $it") }
+            }
             put("query", query); put("page", page); put("totalPages", page)
         }.toString()
     }

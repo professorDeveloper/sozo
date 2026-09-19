@@ -130,7 +130,9 @@ class _UpcomingPageState extends State<UpcomingPage> {
     // flat run of timestamps.
     final groups = <String, List<AnilistListEntry>>{};
     for (final entry in entries) {
-      groups.putIfAbsent(_dayKey(entry.media.nextAiring!.airsAt), () => []).add(entry);
+      groups
+          .putIfAbsent(_dayKey(entry.media.nextAiring!.airsAt), () => [])
+          .add(entry);
     }
 
     return RefreshIndicator(
@@ -180,9 +182,9 @@ class _UpcomingPageState extends State<UpcomingPage> {
     final delta = day.difference(today).inDays;
     if (delta <= 0) return 'anilist.today'.tr().toUpperCase();
     if (delta == 1) return 'anilist.tomorrow'.tr().toUpperCase();
-    return DateFormat.MMMEd(context.locale.toString())
-        .format(airsAt)
-        .toUpperCase();
+    return DateFormat.MMMEd(
+      context.locale.toString(),
+    ).format(airsAt).toUpperCase();
   }
 }
 
@@ -231,7 +233,9 @@ class _UpcomingCard extends StatelessWidget {
                       runSpacing: 6,
                       children: [
                         AnilistChip(
-                          label: 'anilist.episode_n'.tr(args: ['${airing.episode}']),
+                          label: 'anilist.episode_n'.tr(
+                            args: ['${airing.episode}'],
+                          ),
                           icon: Icons.play_arrow_rounded,
                         ),
                         AnilistChip(
@@ -241,7 +245,9 @@ class _UpcomingCard extends StatelessWidget {
                           icon: aired
                               ? Icons.check_rounded
                               : Icons.schedule_rounded,
-                          color: aired ? AppColors.success : AppColors.textSecondary,
+                          color: aired
+                              ? AppColors.success
+                              : AppColors.textSecondary,
                         ),
                       ],
                     ),
@@ -268,7 +274,9 @@ class _UpcomingCard extends StatelessWidget {
   /// precise time is already shown to the right.
   static String _countdown(Duration left) {
     if (left.inDays >= 1) return 'anilist.in_days'.tr(args: ['${left.inDays}']);
-    if (left.inHours >= 1) return 'anilist.in_hours'.tr(args: ['${left.inHours}']);
+    if (left.inHours >= 1) {
+      return 'anilist.in_hours'.tr(args: ['${left.inHours}']);
+    }
     final minutes = left.inMinutes < 1 ? 1 : left.inMinutes;
     return 'anilist.in_minutes'.tr(args: ['$minutes']);
   }

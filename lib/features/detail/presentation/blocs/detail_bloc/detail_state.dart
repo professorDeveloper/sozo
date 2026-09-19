@@ -14,7 +14,11 @@ class DetailLoading extends DetailState {
 
 class DetailLoaded extends DetailState {
   final DetailEntity detail;
-  const DetailLoaded(this.detail);
+
+  /// Set when the title was opened from a catalogue and this is the source
+  /// that was found for it. The page names it under Play.
+  final CatalogueLink? via;
+  const DetailLoaded(this.detail, {this.via});
 }
 
 class DetailError extends DetailState {

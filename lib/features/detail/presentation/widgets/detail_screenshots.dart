@@ -70,7 +70,9 @@ class _ScreenshotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = screenshot.thumb.isNotEmpty ? screenshot.thumb : screenshot.full;
+    final url = screenshot.thumb.isNotEmpty
+        ? screenshot.thumb
+        : screenshot.full;
     return HoverTap(
       onTap: onTap,
       child: Container(
@@ -279,9 +281,10 @@ class _ZoomablePhotoState extends State<_ZoomablePhoto>
   }
 
   void _animateTo(Matrix4 target) {
-    _animation = Matrix4Tween(begin: _transform.value, end: target).animate(
-      CurvedAnimation(parent: _animator, curve: Curves.easeOutCubic),
-    );
+    _animation = Matrix4Tween(
+      begin: _transform.value,
+      end: target,
+    ).animate(CurvedAnimation(parent: _animator, curve: Curves.easeOutCubic));
     _animator
       ..stop()
       ..value = 0
@@ -296,12 +299,8 @@ class _ZoomablePhotoState extends State<_ZoomablePhoto>
     }
     final tapPos = _lastTap?.localPosition;
     if (tapPos == null) {
-      final centered = Matrix4.identity()..scaleByDouble(
-        _doubleTapScale,
-        _doubleTapScale,
-        1,
-        1,
-      );
+      final centered = Matrix4.identity()
+        ..scaleByDouble(_doubleTapScale, _doubleTapScale, 1, 1);
       _animateTo(centered);
       return;
     }

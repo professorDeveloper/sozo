@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/material.dart';
+import 'package:soplay/core/localization/yue_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/localization/app_language.dart';
@@ -198,7 +199,13 @@ class _MyAppState extends State<MyApp> {
             child: Focus(autofocus: true, child: shell),
           );
         },
-        localizationsDelegates: context.localizationDelegates,
+        // Cantonese first: it is the one locale Flutter itself does not
+        // ship, and these delegates claim nothing else. See
+        // [kYueLocalizationsDelegates].
+        localizationsDelegates: [
+          ...kYueLocalizationsDelegates,
+          ...context.localizationDelegates,
+        ],
         supportedLocales: context.supportedLocales,
         locale: context.locale,
       ),

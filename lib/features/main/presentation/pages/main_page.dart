@@ -15,7 +15,7 @@ import 'package:soplay/core/deeplink/deeplink_opt_in.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/nav_prefs.dart';
-import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/app_updater/presentation/services/update_checker.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
@@ -82,6 +82,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     super.initState();
     _navController = getIt<NavController>();
     _hiveService = getIt<HiveService>();
+    // The source can also change without ProviderBloc ever hearing: a Short
+    // and a deep link both carry one and write it straight to storage, because
+    // ProviderBloc is a factory and they have no live instance to tell. The
+    // listener below reloads the shell for those too — otherwise Home kept the
+    // old source's rows and Search kept the old source's genre grid, whose
+    // tiles then browsed the NEW source with the OLD source's slugs.
+    _hiveService.currentProviderChanged.addListener(_onProviderStored);
     // Reflect the persisted nav-style preference into the shared notifier the
     // nav listens to (so it renders correctly on first frame).
     NavPrefs.navStyle.value = _hiveService.navStyle;
@@ -152,10 +159,24 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     NavPrefs.tabOrder.removeListener(_onTabSetChange);
     ShowcaseView.getNamed(_showcaseScope).unregister();
     _tvRailScope.dispose();
+    _hiveService.currentProviderChanged.removeListener(_onProviderStored);
     for (final n in _tvTabScopes.values) {
       n.dispose();
     }
     super.dispose();
+  }
+
+  /// The source changed underneath us, outside [ProviderBloc].
+  void _onProviderStored() {
+    if (!mounted) return;
+    final newId = _hiveService.currentProviderChanged.value;
+    if (newId.isEmpty || _lastProviderId == newId) return;
+    // Null means the shell has not seen its first provider yet; the bloc's own
+    // listener owns that case and will do the initial load.
+    if (_lastProviderId == null) return;
+    _lastProviderId = newId;
+    context.read<HomeBloc>().add(HomeLoad(silent: true));
+    context.read<SearchBloc>().add(const SearchLoad());
   }
 
   void _onProviderStateChange(BuildContext context, ProviderState state) {
@@ -279,7 +300,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           // over the top of it (see below), so gaining focus never reflows the
           // page underneath.
           Positioned.fill(
-            left: _TvNavRail.collapsedWidth,
+            left: _SozoNavRail.collapsedWidth,
             child: Focus(
               // Not focusable itself — it exists purely to observe whether
               // focus is anywhere inside the tab body, which BACK keys off.
@@ -296,14 +317,79 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             left: 0,
             top: 0,
             bottom: 0,
-            child: _TvNavRail(
+            child: _SozoNavRail(
               index: _index,
               items: defs,
               scope: _tvRailScope,
-              onFocusItem: _tvFocusTab,
+              onSelect: _tvFocusTab,
               onEnterContent: _tvEnterContent,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ----------------------------------------------------------- desktop shell
+
+  /// Desktop's two shells: the side rail from [SozoWidth.expanded] upwards, the
+  /// floating pill it has always had below that.
+  ///
+  /// The tier comes from `SozoWidth` rather than a number kept here, because a
+  /// second set of breakpoints in a page is how two parts of the app end up
+  /// disagreeing about what "wide" means. This is the same `expanded` tier the
+  /// local placeholder was always meant to be replaced by.
+  ///
+  /// Same tabs, same [IndexedStack], same state — only where the navigation
+  /// sits changes, so crossing the breakpoint by dragging the window edge never
+  /// re-mounts a page or loses a scroll offset.
+  ///
+  /// The rail overlays the content and the content is inset by the rail's
+  /// COLLAPSED width, exactly as on television: the rail widens on hover, and
+  /// insetting by the expanded width instead would leave a permanent 232px of
+  /// dead space, while reflowing on hover would shove the page sideways every
+  /// time the pointer crossed it.
+  Widget _buildDesktopShell(List<Widget> tabs, List<AppTabDef> defs) {
+    final wide = SozoWidth.of(context).isExpanded;
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          if (wide) ...[
+            PositionedDirectional(
+              start: _SozoNavRail.collapsedWidth,
+              end: 0,
+              top: 0,
+              bottom: 0,
+              child: IndexedStack(index: _index, children: tabs),
+            ),
+            PositionedDirectional(
+              start: 0,
+              top: 0,
+              bottom: 0,
+              child: _SozoNavRail(
+                index: _index,
+                items: defs,
+                onSelect: _onTabTap,
+              ),
+            ),
+          ] else ...[
+            Positioned.fill(
+              child: IndexedStack(index: _index, children: tabs),
+            ),
+            // Sozo-Desktop: floating bottom-center rounded pill nav
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: _SoplayFloatingNav(
+                  index: _index,
+                  onTap: _onTabTap,
+                  items: defs,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -318,7 +404,22 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           // Stable per-tab key so reordering the bar MOVES a page (keeping its
           // State) instead of rebuilding it at a new index — which was
           // re-mounting Home and re-firing its "Join Telegram" sheet.
-          key: ValueKey(defs[i].id),
+          //
+          // The language is part of the key because `easy_localization`'s
+          // `.tr()` reads a singleton and registers no dependency, so changing
+          // it marks nothing dirty. A row like
+          // `SettingsNavTile(title: 'profile.downloads'.tr())` has its words
+          // computed in its PARENT's build, and the parent does not re-run — so
+          // switching from Cantonese to English left a Profile tab reading
+          // "Downloads" and "Activity" beside 連接 and 來源, which have their
+          // own builds and did re-run. Tearing the tab down and building it
+          // again is what makes the whole page speak one language.
+          //
+          // Keyed here, below the Navigator, and not around the app: GoRouter
+          // is a single long-lived instance holding a GlobalKey, and rebuilding
+          // the Router around it puts that key in two live trees at once —
+          // which asserts, immediately, on the first switch.
+          key: ValueKey('${defs[i].id}:${context.locale.languageCode}'),
           // No-op off TV: returns the page widget unchanged.
           child: _tvWrapTab(
             defs[i].builder(
@@ -365,28 +466,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           child: isTvPlatform
               ? _buildTvShell(tabs, defs)
               : isDesktopPlatform
-              ? Scaffold(
-                  backgroundColor: AppColors.background,
-                  body: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: IndexedStack(index: _index, children: tabs),
-                      ),
-                      // Sozo-Desktop: floating bottom-center rounded pill nav
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 18),
-                          child: _SoplayFloatingNav(
-                            index: _index,
-                            onTap: _onTabTap,
-                            items: defs,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
+              ? _buildDesktopShell(tabs, defs)
               : Scaffold(
                   backgroundColor: AppColors.background,
                   extendBody: !readableNav,
@@ -1315,91 +1395,130 @@ class _NavCircleState extends State<_NavCircle> {
   }
 }
 
-/// Android-TV navigation rail — the THIRD shell, mounted only when
-/// [isTvPlatform]. The bottom pill (mobile glass capsule, desktop floating pill)
-/// is a touch idiom; a 10-foot D-pad UI wants a vertical rail on the leading
-/// edge, so this is a genuine third arm rather than a reuse of either.
+/// The vertical navigation rail: Android TV's only shell, and the desktop shell
+/// once the window is wide enough to carry one.
 ///
-/// It lives in a Stack ABOVE the content and animates 92 → 232 wide while it
-/// holds focus, so showing the labels never reflows the page underneath.
+/// The bottom pill (mobile glass capsule, desktop floating pill) is a touch
+/// idiom. It reads correctly on a phone and on a small window; across a 1400px
+/// one it is a capsule stranded in the middle of an empty strip, with every tab
+/// as far from the content as it is possible to put it. A rail on the leading
+/// edge is what a window that wide has always wanted, and the 10-foot shell had
+/// already built one.
 ///
-/// Interaction model: focus-follows-selection (arrowing the rail switches the
-/// tab live), OK or arrow-right hands focus to the tab body, BACK brings it back
-/// (see [_MainPageState._buildTvShell] and the PopScope above it).
-class _TvNavRail extends StatefulWidget {
-  const _TvNavRail({
+/// It lives in a Stack ABOVE the content and animates 92 → 232 wide, so showing
+/// the labels never reflows the page underneath — on a television because
+/// reflowing under a moving D-pad cursor is disorienting, on a desktop because
+/// the rail widens on hover and a page that jumps sideways whenever the pointer
+/// drifts past it would be unusable.
+///
+/// The two arms differ only in what widens the rail and what reaching a button
+/// means. A television drives it with a D-pad: the rail owns a [FocusScope],
+/// widens while it holds focus, switches the tab as focus moves over it
+/// (focus-follows-selection), and hands focus to the page body on OK, which
+/// BACK then takes back — see [_MainPageState._buildTvShell] and the PopScope
+/// above it. A desktop drives it with a pointer: it widens on hover and
+/// switches the tab on click. Everything D-pad hangs off [scope], which is null
+/// on desktop, so none of it can fire there.
+class _SozoNavRail extends StatefulWidget {
+  const _SozoNavRail({
     required this.index,
     required this.items,
-    required this.scope,
-    required this.onFocusItem,
-    required this.onEnterContent,
+    required this.onSelect,
+    this.scope,
+    this.onEnterContent,
   });
 
   final int index;
   final List<AppTabDef> items;
-  final FocusScopeNode scope;
-  final ValueChanged<int> onFocusItem;
-  final VoidCallback onEnterContent;
+
+  /// TV: fired as D-pad focus lands on a button. Desktop: fired on click.
+  final ValueChanged<int> onSelect;
+
+  /// TV only — the scope the rail's buttons live in, so BACK can put focus back
+  /// on the item the remote last sat on. Null on desktop, which has no focus
+  /// model of its own to keep.
+  final FocusScopeNode? scope;
+
+  /// TV only: what OK does once a tab is already selected.
+  final VoidCallback? onEnterContent;
 
   static const double collapsedWidth = 92;
   static const double expandedWidth = 232;
 
   @override
-  State<_TvNavRail> createState() => _TvNavRailState();
+  State<_SozoNavRail> createState() => _SozoNavRailState();
 }
 
-class _TvNavRailState extends State<_TvNavRail> {
+class _SozoNavRailState extends State<_SozoNavRail> {
   bool _expanded = false;
+
+  void _setExpanded(bool value) {
+    if (_expanded == value) return;
+    setState(() => _expanded = value);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FocusScope(
-      node: widget.scope,
-      onFocusChange: (hasFocus) {
-        if (_expanded == hasFocus) return;
-        setState(() => _expanded = hasFocus);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        width: _expanded ? _TvNavRail.expandedWidth : _TvNavRail.collapsedWidth,
-        decoration: BoxDecoration(
-          color: AppColors.navBackground,
-          border: Border(
-            right: BorderSide(color: AppColors.border, width: 0.6),
-          ),
-          boxShadow: _expanded
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: 36,
-                    offset: const Offset(10, 0),
-                  ),
-                ]
-              : null,
+    final scope = widget.scope;
+    final rail = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      width: _expanded
+          ? _SozoNavRail.expandedWidth
+          : _SozoNavRail.collapsedWidth,
+      decoration: BoxDecoration(
+        color: AppColors.navBackground,
+        // Directional, to match the PositionedDirectional the desktop shell
+        // places this rail with: the hairline belongs on the edge the content
+        // is on, which is the right one in English and the left one in Arabic.
+        border: BorderDirectional(
+          end: BorderSide(color: AppColors.border, width: 0.6),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var i = 0; i < widget.items.length; i++)
-              _TvRailButton(
-                item: widget.items[i],
-                selected: widget.index == i,
-                expanded: _expanded,
-                // Initial focus for the whole app lands on the active tab.
-                autofocus: widget.index == i,
-                onFocused: () => widget.onFocusItem(i),
-                onActivate: widget.onEnterContent,
-              ),
-          ],
-        ),
+        boxShadow: _expanded
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 36,
+                  offset: const Offset(10, 0),
+                ),
+              ]
+            : null,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (var i = 0; i < widget.items.length; i++)
+            _SozoRailButton(
+              item: widget.items[i],
+              selected: widget.index == i,
+              expanded: _expanded,
+              // Initial focus for the whole app lands on the active tab — on a
+              // television, where there is nothing else to drive it. A desktop
+              // rail must not claim the first focus of the window away from the
+              // page the user is actually looking at.
+              autofocus: scope != null && widget.index == i,
+              onFocused: scope == null ? null : () => widget.onSelect(i),
+              // OK on a television means "into the content": the tab is already
+              // selected, because focus landing on the button selected it. A
+              // click is the whole gesture on a desktop, so it has to select.
+              onActivate: widget.onEnterContent ?? () => widget.onSelect(i),
+            ),
+        ],
       ),
     );
+    if (scope == null) {
+      return MouseRegion(
+        onEnter: (_) => _setExpanded(true),
+        onExit: (_) => _setExpanded(false),
+        child: rail,
+      );
+    }
+    return FocusScope(node: scope, onFocusChange: _setExpanded, child: rail);
   }
 }
 
-class _TvRailButton extends StatefulWidget {
-  const _TvRailButton({
+class _SozoRailButton extends StatefulWidget {
+  const _SozoRailButton({
     required this.item,
     required this.selected,
     required this.expanded,
@@ -1412,19 +1531,26 @@ class _TvRailButton extends StatefulWidget {
   final bool selected;
   final bool expanded;
   final bool autofocus;
-  final VoidCallback onFocused;
+
+  /// Null where focus does not select — i.e. everywhere but the television.
+  final VoidCallback? onFocused;
   final VoidCallback onActivate;
 
   @override
-  State<_TvRailButton> createState() => _TvRailButtonState();
+  State<_SozoRailButton> createState() => _SozoRailButtonState();
 }
 
-class _TvRailButtonState extends State<_TvRailButton> {
+class _SozoRailButtonState extends State<_SozoRailButton> {
   bool _focused = false;
+
+  /// Only ever true on desktop: a television has no pointer to hover with, so
+  /// this needs no platform test to stay out of the 10-foot shell's way.
+  bool _hover = false;
 
   @override
   Widget build(BuildContext context) {
-    final active = widget.selected || _focused;
+    final highlighted = _focused || _hover;
+    final active = widget.selected || highlighted;
     final color = active ? AppColors.textPrimary : AppColors.textSecondary;
 
     return Padding(
@@ -1437,8 +1563,9 @@ class _TvRailButtonState extends State<_TvRailButton> {
         onTap: widget.onActivate,
         onFocusChange: (v) {
           setState(() => _focused = v);
-          if (v) widget.onFocused();
+          if (v) widget.onFocused?.call();
         },
+        onHover: (v) => setState(() => _hover = v),
         borderRadius: BorderRadius.circular(12),
         // The focus ring below is the affordance; suppress the default wash.
         focusColor: Colors.transparent,
@@ -1449,10 +1576,10 @@ class _TvRailButtonState extends State<_TvRailButton> {
           height: 54,
           padding: const EdgeInsets.symmetric(horizontal: 13),
           decoration: BoxDecoration(
-            color: _focused ? AppColors.surface : Colors.transparent,
+            color: highlighted ? AppColors.surface : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _focused ? AppColors.border : Colors.transparent,
+              color: highlighted ? AppColors.border : Colors.transparent,
               width: 0.6,
             ),
           ),

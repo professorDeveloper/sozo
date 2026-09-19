@@ -8,8 +8,8 @@ class CastModel extends CastEntity {
   });
 
   factory CastModel.fromJson(Map<String, dynamic> json) => CastModel(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        image: json['image'] as String? ?? '',
-      );
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    image: json['image'] as String? ?? '',
+  );
 }

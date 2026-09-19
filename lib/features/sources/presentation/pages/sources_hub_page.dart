@@ -1,6 +1,10 @@
+import 'dart:async';
+
+import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_source_settings_page.dart';
@@ -59,6 +63,35 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   SourceEcosystem? _eco;
   List<String> get _languages => getIt<HiveService>().getProviderLanguages();
 
+  /// The needle the list is actually filtered by, behind a debounce.
+  ///
+  /// `onChanged` used to call `setState` on every character. One character
+  /// rebuilt this page, which filters and sorts the installed set for ALL
+  /// THREE tabs — `_tabList` is a method call inside a list literal, so
+  /// TabBarView's laziness cannot defer it — and at a thousand sources that is
+  /// several passes of `toLowerCase` plus an n·log n comparator sort per
+  /// keystroke, on the UI isolate, while the keyboard is still animating.
+  String _query = '';
+  Timer? _searchDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastTab = _tabs.index;
+    // The search field, the language filter and the ecosystem chips sit ABOVE
+    // the tabs now and describe whichever tab is showing, so they have to
+    // follow a swipe as well as a tap. Only on arrival: rebuilding through the
+    // animation would re-sort three tabs' worth of sources on every frame of
+    // it, which is the cost this page was already paying before.
+    _tabs.addListener(_onTabMoved);
+  }
+
+  void _onTabMoved() {
+    if (_tabs.indexIsChanging || _tabs.index == _lastTab) return;
+    _lastTab = _tabs.index;
+    setState(() => _eco = null);
+  }
+
   Future<void> _filterLanguage(String code) async {
     await getIt<HiveService>().setProviderLanguages(
       code == '*' ? const [] : [code],
@@ -84,7 +117,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
 
   @override
   void dispose() {
+    _tabs.removeListener(_onTabMoved);
+    for (final c in _scrolls.values) {
+      c.dispose();
+    }
     _tabs.dispose();
+    _searchDebounce?.cancel();
     _search.dispose();
     super.dispose();
   }
@@ -97,25 +135,64 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     context,
   ).push(MaterialPageRoute<void>(builder: (_) => const SourcesPage()));
 
-  Future<void> _openInstaller(ContentMode mode) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SourceCatalogPage(
-          initialItemType: switch (mode) {
-            ContentMode.manga => CatalogItemType.manga,
-            ContentMode.novel => CatalogItemType.novel,
-            ContentMode.video => null,
-          },
-        ),
-      ),
-    );
-    if (!mounted) return;
-    // "Use this source" can choose a different content type in the catalog.
-    // Return to its tab so the newly selected source is actually visible.
-    _tabs.index = ContentMode.fromId(
-      getIt<HiveService>().getContentMode(),
-    ).index;
-    setState(() => _eco = null);
+  /// One per tab. A shared controller would carry the Manga tab's offset into
+  /// the Watch tab the moment the two were alive at once, which is every
+  /// swipe.
+  late final Map<ContentMode, ScrollController> _scrolls = {
+    for (final m in ContentMode.values) m: ScrollController(),
+  };
+
+  /// The row for the source in use, so each list can be corrected onto it once
+  /// it has actually been built.
+  final Map<ContentMode, GlobalKey> _currentRows = {
+    for (final m in ContentMode.values) m: GlobalKey(),
+  };
+
+  int _lastTab = -1;
+
+  /// Which half of the screen you are in: what you have, or what you could
+  /// have. They were two screens with the same name and a button between
+  /// them — "Sources" listing what was installed, "Add source" listing what
+  /// could be, and a third page behind that for the repositories both came
+  /// from.
+  bool _adding = false;
+
+  /// Opening on the source in use is a one-time move, per tab. Re-running it
+  /// after a keystroke in the search field would drag the list out from under
+  /// the typing.
+  final Set<ContentMode> _aligned = {};
+
+  /// Puts the list on the source in use rather than at the alphabetical top.
+  ///
+  /// Two steps, because the rows are cards whose height follows the text
+  /// scale and the list is lazy — a row far down has not been built, so
+  /// `ensureVisible` alone has nothing to aim at. The estimate gets close
+  /// enough to build it, and the second pass corrects whatever the estimate
+  /// got wrong. Neither step animates: this is where the list opens, not a
+  /// journey the user should watch.
+  void _alignToCurrent(ContentMode mode, List<ProviderEntity> rows, String id) {
+    if (_aligned.contains(mode)) return;
+    if (_query.isNotEmpty) return;
+    final index = rows.indexWhere((p) => p.id == id);
+    if (index < 0) return;
+    _aligned.add(mode);
+    if (index < 3) return; // already on screen; moving would be noise
+    final scroll = _scrolls[mode]!;
+    final key = _currentRows[mode]!;
+    final extent = 74 * MediaQuery.textScalerOf(context).scale(1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !scroll.hasClients) return;
+      // Two rows of lead-in, so it reads as one entry in a list rather than as
+      // the first thing in it.
+      scroll.jumpTo(
+        ((index - 2) * extent).clamp(0.0, scroll.position.maxScrollExtent),
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = key.currentContext;
+        if (ctx == null) return;
+        Scrollable.ensureVisible(ctx, alignment: 0.18);
+      });
+    });
   }
 
   @override
@@ -128,36 +205,48 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
-        appBar: open == null ? null : _browseBar(open),
+        appBar: open == null ? _hubBar() : _browseBar(open),
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 180),
-          child: open == null
-              ? _list()
-              : _SourceBrowseView(key: ValueKey(open.id), source: open),
+          // The default layout stacks the outgoing and incoming children in a
+          // Stack that sizes itself to the LARGER of the two and centres both.
+          // These are three whole pages of different heights, so for the
+          // length of the crossfade you saw two headers overlapping and the
+          // shorter one floating in the middle of the taller one's box — which
+          // read as the filter row landing on top of the list. Each child gets
+          // the whole body and sits at the top, so the only thing that changes
+          // during the switch is opacity.
+          layoutBuilder: (current, previous) => Stack(
+            alignment: AlignmentDirectional.topStart,
+            children: [
+              for (final child in previous)
+                Positioned.fill(child: child),
+              if (current != null) Positioned.fill(child: current),
+            ],
+          ),
+          child: open != null
+              ? _SourceBrowseView(key: ValueKey(open.id), source: open)
+              : _adding
+              ? _addLevel()
+              : _hub(),
         ),
       ),
     );
   }
 
-  Widget _listBar() {
-    return SliverAppBar(
-      pinned: true,
+  /// The title and the tabs, in a real app bar.
+  ///
+  /// They used to be a `SliverAppBar` INSIDE the list, and there was no
+  /// `TabBarView` under them at all — the body was one scroll view rebuilt
+  /// from `_tabs.index`. So swiping did nothing, changing tab threw the whole
+  /// list away and rebuilt it, and the app bar scrolled with the content it
+  /// was supposed to be above.
+  PreferredSizeWidget _hubBar() {
+    return AppBar(
       surfaceTintColor: Colors.transparent,
       title: Text('profile.sources_title'.tr()),
       backgroundColor: AppColors.background,
       actions: [
-        // Labelled, not a sliders icon with a tooltip nobody long-presses.
-        // Installing a source is the reason most people open this screen, and
-        // it was the one thing on it with no words — indistinguishable from a
-        // settings button, which is what a tune icon means everywhere else.
-        Padding(
-          padding: const EdgeInsets.only(right: 6),
-          child: TextButton.icon(
-            onPressed: () => _openInstaller(ContentMode.values[_tabs.index]),
-            icon: const Icon(Icons.add_rounded, size: 20),
-            label: Text('manga.add_source'.tr()),
-          ),
-        ),
         PopupMenuButton<String>(
           onSelected: (_) => _openExtensions(),
           itemBuilder: (_) => [
@@ -168,12 +257,80 @@ class _SourcesHubPageState extends State<SourcesHubPage>
           ],
         ),
       ],
-      bottom: AppTabBar(
-        controller: _tabs,
-        onChanged: (_) => setState(() => _eco = null),
-        isScrollable: false,
-        labels: [for (final m in ContentMode.values) m.labelKey.tr()],
+      // Two pills rather than a second row of tabs. Tabs below tabs read as
+      // one navigation four levels deep; these two are a switch between what
+      // you have and what you could have, and they should not look the same
+      // as the modes inside one of them.
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(46),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _LevelPill(
+                  label: 'sources.installed'.tr(),
+                  active: !_adding,
+                  onTap: () => setState(() => _adding = false),
+                ),
+                const SizedBox(width: 6),
+                // Manage, not "Add source".
+                //
+                // This pill used to flip the same screen over to the
+                // installable catalogue — a second list, on the same page,
+                // under the same title, with its own search and its own
+                // chips. Two lists behind one pair of pills is where this
+                // screen got confusing, and it buried the page that actually
+                // organises sources: the ecosystems, the by-language browser
+                // and DNS all live on [SourcesPage], which had become
+                // reachable only through an overflow menu on a page you had
+                // to flip to first. The pill opens that instead, and the
+                // catalogue is reached from there, where it belongs.
+                _LevelPill(
+                  label: 'source_manager.manage'.tr(),
+                  active: false,
+                  onTap: _openExtensions,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
+    );
+  }
+
+  /// Everything you could install, and the repositories it comes from.
+  ///
+  /// The catalogue is the same screen it always was, minus its app bar: this
+  /// one already has a title, and two stacked app bars is not a screen. The
+  /// repositories are a row under it rather than a page behind a ⋯ button in
+  /// a corner of it.
+  Widget _addLevel() {
+    return Column(
+      children: [
+        Expanded(
+          child: SourceCatalogPage(
+            embedded: true,
+            initialItemType: switch (ContentMode.values[_tabs.index]) {
+              ContentMode.manga => CatalogItemType.manga,
+              ContentMode.novel => CatalogItemType.novel,
+              ContentMode.video => null,
+            },
+          ),
+        ),
+        const Divider(height: 1),
+        SafeArea(
+          top: false,
+          child: ListTile(
+            leading: const Icon(Icons.folder_copy_outlined),
+            title: Text('source_manager.manage_repositories'.tr()),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: _openExtensions,
+          ),
+        ),
+      ],
     );
   }
 
@@ -256,21 +413,46 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// TabBarView builds all three tabs, so a swipe was doing it three times a
   /// frame over several hundred providers. That is what made the swipe crawl;
   /// the work itself is milliseconds, sixty times a second is not.
-  _TabSources _tabFor(ProviderLoaded state, ContentMode mode, String needle) {
+  /// The tab's sources, filtered and sorted, memoised.
+  ///
+  /// The needle is deliberately NOT part of the cache key and not part of the
+  /// sort. It used to be both: every character was a guaranteed miss on all
+  /// three tabs, so each keystroke re-ran the whole comparator sort. A
+  /// substring filter cannot change the ORDER of what survives it, so the
+  /// expensive half — mode filter, sort, language split — is cached once per
+  /// (providers, mode, languages) and the needle is applied as a linear pass
+  /// over the result in [_narrow].
+  _TabSources _tabFor(ProviderLoaded state, ContentMode mode, String needle) =>
+      _narrow(_tabBase(state, mode), needle);
+
+  static _TabSources _narrow(_TabSources base, String needle) {
+    if (needle.isEmpty) return base;
+    bool hit(ProviderEntity p) => p.name.toLowerCase().contains(needle);
+    final matched = base.matched.where(hit).toList();
+    final unstated = base.unstated.where(hit).toList();
+    final counts = <SourceEcosystem, int>{};
+    for (final p in [...matched, ...unstated]) {
+      final e = SourceEcosystem.of(p.id);
+      counts[e] = (counts[e] ?? 0) + 1;
+    }
+    return _TabSources(
+      matched: matched,
+      unstated: unstated,
+      counts: counts,
+    );
+  }
+
+  _TabSources _tabBase(ProviderLoaded state, ContentMode mode) {
     final languages = _languages;
     final key =
         '${identityHashCode(state.providers)}'
-        '|${state.providers.length}|${state.offline}|${mode.id}|$needle|${languages.join(',')}';
+        '|${state.providers.length}|${state.offline}|${mode.id}|${languages.join(',')}';
     final cached = _tabCache[key];
     if (cached != null) return cached;
 
     final all = [
       for (final p in state.providers)
-        if (state.isUsable(p) &&
-            p.id.contentMode == mode &&
-            srclang.langMatches(p.lang, languages) &&
-            (needle.isEmpty || p.name.toLowerCase().contains(needle)))
-          p,
+        if (state.isUsable(p) && p.id.contentMode == mode) p,
     ];
     // Sorted here, not upstream: the quick switcher shows the same providers in
     // the order the backend sent them, because there the list is short and its
@@ -278,218 +460,291 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     // alphabetical list is the only kind you can find a name in.
     all.sort((a, b) => compareForIndex(a.name, b.name));
 
-    final counts = <SourceEcosystem, int>{};
+    // A chosen language SPLITS the list rather than filtering it.
+    //
+    // Half the sources here declare no language at all, and the old filter let
+    // every one of them through — so picking English left the list almost as
+    // long as it was and read as a filter that did nothing. Hiding them is the
+    // other wrong answer: it would take away Sozo's own two dozen providers,
+    // which are the ones most people came for.
+    //
+    // So: match on what the source declares, or on what its name, id and host
+    // give away. What is left says nothing either way, and it goes to the end
+    // under a heading that admits as much.
+    //
+    // The value tested is displayLang — the one the row's own subtitle shows,
+    // and the one the filter menu above was built from. `all` is a declaration
+    // and matches every selection; it used to reach the guessing stage, find
+    // no hint in "KissKH" or "UHD Movies" and land those two under "language
+    // not stated", which is the opposite of what they said about themselves.
+    final matched = <ProviderEntity>[];
+    final unstated = <ProviderEntity>[];
     for (final p in all) {
+      if (languages.isEmpty) {
+        matched.add(p);
+        continue;
+      }
+      final lang = p.displayLang;
+      if (lang.isEmpty) {
+        unstated.add(p);
+      } else if (lang == srclang.kAllLanguages ||
+          languages.any((l) => srclang.normalizeLang(l) == lang)) {
+        matched.add(p);
+      }
+    }
+
+    final counts = <SourceEcosystem, int>{};
+    for (final p in [...matched, ...unstated]) {
       final e = SourceEcosystem.of(p.id);
       counts[e] = (counts[e] ?? 0) + 1;
     }
-    final built = _TabSources(all: all, counts: counts);
-    // Bounded: three tabs times a few search terms, and a new provider list
-    // changes the key anyway. Cleared wholesale rather than aged out, because
-    // the cost of a miss is one sort.
+    final built = _TabSources(
+      matched: matched,
+      unstated: unstated,
+      counts: counts,
+    );
+    // Bounded. With the needle out of the key this is one entry per tab per
+    // language selection, so the steady state is three — the wipe that used to
+    // trip on the fourth keystroke and throw away the unfiltered lists cannot
+    // happen while typing any more.
     if (_tabCache.length > 12) _tabCache.clear();
     _tabCache[key] = built;
     return built;
   }
 
-  Widget _list() {
+  /// The fixed half of the page, over the three lists.
+  ///
+  /// Search, the language filter and the ecosystem chips describe whichever
+  /// tab is showing and are shared by all three, so they sit here rather than
+  /// inside each list. Inside, they scrolled away with the content and, on a
+  /// swipe, slid sideways out of line with the tabs they belonged to.
+  Widget _hub() {
     return BlocBuilder<ProviderBloc, ProviderState>(
       builder: (context, state) {
         if (state is ProviderError) {
-          return CustomScrollView(
-            slivers: [
-              _listBar(),
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _Message(
-                  text: 'profile.providers_error'.tr(),
-                  actionLabel: 'general.retry'.tr(),
-                  onAction: () =>
-                      context.read<ProviderBloc>().add(const ProviderLoad()),
-                ),
-              ),
-            ],
+          return _Message(
+            text: 'profile.providers_error'.tr(),
+            actionLabel: 'general.retry'.tr(),
+            onAction: () =>
+                context.read<ProviderBloc>().add(const ProviderLoad()),
           );
         }
         if (state is! ProviderLoaded) {
-          return CustomScrollView(
-            slivers: [
-              _listBar(),
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            ],
-          );
+          return const Center(child: CircularProgressIndicator());
         }
         final mode = ContentMode.values[_tabs.index];
-        final needle = _search.text.trim().toLowerCase();
-        final tab = _tabFor(state, mode, needle);
-        final counts = tab.counts;
+        final needle = _query;
+        final counts = _tabFor(state, mode, needle).counts;
         final eco = counts.containsKey(_eco) ? _eco : null;
-        final sources = eco == null
-            ? tab.all
-            : [
-                for (final p in tab.all)
-                  if (SourceEcosystem.of(p.id) == eco) p,
-              ];
 
-        return CustomScrollView(
-          key: PageStorageKey(
-            'sources|${mode.id}|$needle|$eco|${_languages.join(",")}',
-          ),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          slivers: [
-            _listBar(),
-            SliverToBoxAdapter(
-              child: Column(
+        return Column(
+          children: [
+            AppTabBar(
+              controller: _tabs,
+              onChanged: (_) => setState(() => _eco = null),
+              isScrollable: false,
+              labels: [for (final m in ContentMode.values) m.labelKey.tr()],
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  'source_manager.selection_hint'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+            _searchField(state, mode),
+            // The row comes and goes — a search that narrows to one ecosystem
+            // removes it, changing tab can add it back — and it used to do
+            // that by simply not being in the Column, so the whole list under
+            // it jumped 34 pixels with no warning. It grows and shrinks now,
+            // which is the same information arriving at a speed the eye can
+            // follow.
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: counts.length > 1
+                  ? _EcosystemFilter(
+                      counts: counts,
+                      active: eco,
+                      onPick: (picked) => setState(() => _eco = picked),
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabs,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: Text(
-                        'source_manager.selection_hint'.tr(),
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    child: TextField(
-                      controller: _search,
-                      onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                        suffixIcon: PopupMenuButton<String>(
-                          tooltip: 'profile.all_languages'.tr(),
-                          icon: Icon(
-                            Icons.translate,
-                            color: _languages.isEmpty
-                                ? null
-                                : AppColors.primary,
-                          ),
-                          onSelected: _filterLanguage,
-                          itemBuilder: (_) => [
-                            PopupMenuItem(
-                              value: '*',
-                              child: Text('profile.all_languages'.tr()),
-                            ),
-                            for (final language
-                                in srclang
-                                    .orderedLanguages(
-                                      state.providers
-                                          .where(
-                                            (p) => p.id.contentMode == mode,
-                                          )
-                                          .map((p) => p.lang),
-                                      _languages,
-                                    )
-                                    .where((language) => language != 'all'))
-                              CheckedPopupMenuItem(
-                                value: language,
-                                checked: _languages.contains(language),
-                                child: Text(srclang.labelFor(language)),
-                              ),
-                          ],
-                        ),
-                        hintText: 'profile.search_providers_hint'.tr(),
-                        filled: true,
-                        fillColor: AppColors.card,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
+                  for (final m in ContentMode.values)
+                    _tabList(state, m, needle),
                 ],
               ),
             ),
-            if (counts.length > 1)
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _SourceCategoriesHeader(
-                  child: _EcosystemFilter(
-                    counts: counts,
-                    active: eco,
-                    onPick: (picked) => setState(() => _eco = picked),
-                  ),
-                ),
-              ),
-            if (sources.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _Message(
-                  text: needle.isEmpty && _languages.isEmpty
-                      ? 'mode.none_installed'.tr(args: [mode.labelKey.tr()])
-                      : 'profile.no_providers_in_category'.tr(),
-                  hint: needle.isEmpty ? _modeHint(mode) : null,
-                  // An empty mode is a dead end without this. Manga and
-                  // novels are both extension ecosystems, so a fresh
-                  // install has nothing in either tab and the only way out
-                  // is a gear icon the message never mentions.
-                  actionLabel: needle.isEmpty ? 'manga.add_source'.tr() : null,
-                  onAction: needle.isEmpty ? () => _openInstaller(mode) : null,
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-                sliver: SliverList.separated(
-                  itemCount: sources.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) => _SourceTile(
-                    source: sources[i],
-                    current: sources[i].id == state.currentProviderId,
-                    onTap: () => _use(sources[i]),
-                    onBrowse: () => setState(() => _open = sources[i]),
-                  ),
-                ),
-              ),
           ],
         );
       },
     );
   }
-}
 
-/// Categories move up underneath the pinned tabs as search scrolls away.
-/// Keeping both rows available lets the user refine a long list in place.
-class _SourceCategoriesHeader extends SliverPersistentHeaderDelegate {
-  _SourceCategoriesHeader({required this.child});
-
-  final Widget child;
-
-  // The chip row plus its bottom padding, exactly. It used to be 52 against a
-  // 44-high row, so the strip carried ten points of nothing at the top of every
-  // scroll.
-  @override
-  double get minExtent => 42;
-  @override
-  double get maxExtent => 42;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return ColoredBox(
-      color: AppColors.background,
-      child: Padding(padding: const EdgeInsets.only(bottom: 8), child: child),
+  Widget _searchField(ProviderLoaded state, ContentMode mode) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: TextField(
+        controller: _search,
+        onChanged: (value) {
+          _searchDebounce?.cancel();
+          _searchDebounce = Timer(const Duration(milliseconds: 200), () {
+            if (!mounted) return;
+            setState(() => _query = value.trim().toLowerCase());
+          });
+        },
+        decoration: InputDecoration(
+          isDense: true,
+          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+          suffixIcon: PopupMenuButton<String>(
+            tooltip: 'profile.all_languages'.tr(),
+            icon: Icon(
+              Icons.translate,
+              color: _languages.isEmpty ? null : AppColors.primary,
+            ),
+            onSelected: _filterLanguage,
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: '*',
+                child: Text('profile.all_languages'.tr()),
+              ),
+              // Offered from displayLang, not the raw field, because that is
+              // what the list below filters on: built from `lang` alone the
+              // menu could never offer a language that exists only as an
+              // inference, so the several hundred untagged extension sources
+              // were unreachable — their language was in their name and the
+              // one control that could have used it did not know it was there.
+              for (final language
+                  in srclang
+                      .orderedLanguages(
+                        state.providers
+                            .where((p) => p.id.contentMode == mode)
+                            .map((p) => p.displayLang),
+                        _languages,
+                      )
+                      .where((language) => language != srclang.kAllLanguages))
+                CheckedPopupMenuItem(
+                  value: language,
+                  checked: _languages.contains(language),
+                  child: Text(srclang.labelFor(language)),
+                ),
+            ],
+          ),
+          hintText: 'general.search'.tr(),
+          filled: true,
+          fillColor: AppColors.card,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
     );
   }
 
-  @override
-  bool shouldRebuild(_SourceCategoriesHeader oldDelegate) => true;
+  Widget _tabList(ProviderLoaded state, ContentMode mode, String needle) {
+    final tab = _tabFor(state, mode, needle);
+    final eco = tab.counts.containsKey(_eco) ? _eco : null;
+    List<ProviderEntity> narrow(List<ProviderEntity> rows) => eco == null
+        ? rows
+        : [
+            for (final p in rows)
+              if (SourceEcosystem.of(p.id) == eco) p,
+          ];
+    final matched = narrow(tab.matched);
+    final unstated = narrow(tab.unstated);
+
+    if (matched.isEmpty && unstated.isEmpty) {
+      return _Message(
+        text: needle.isEmpty && _languages.isEmpty
+            ? 'mode.none_installed'.tr(args: [mode.labelKey.tr()])
+            : 'profile.no_providers_in_category'.tr(),
+        hint: needle.isEmpty ? _modeHint(mode) : null,
+        // An empty mode is a dead end without this. Manga and novels are both
+        // extension ecosystems, so a fresh install has nothing in either tab
+        // and the only way out is a gear icon the message never mentions.
+        actionLabel: needle.isEmpty ? 'source_manager.manage'.tr() : null,
+        onAction: needle.isEmpty ? _openExtensions : null,
+      );
+    }
+
+    _alignToCurrent(mode, matched, state.currentProviderId);
+    return CustomScrollView(
+      // No needle in the key. A changed key destroys the element and builds a
+      // new one, so every character tore down all three lists: the scroll
+      // position reset to zero and every visible row's entrance animation
+      // started again — around three dozen AnimationControllers and timers per
+      // keystroke. That is the list "flashing" while you type.
+      key: PageStorageKey('sources|${mode.id}|$eco|${_languages.join(",")}'),
+      controller: _scrolls[mode],
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(12, 4, 12, unstated.isEmpty ? 24 : 4),
+          sliver: _rows(matched, state, mode),
+        ),
+        if (unstated.isNotEmpty) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'sources.language_not_stated'.tr(args: ['${unstated.length}']),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+            sliver: _rows(unstated, state, mode),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _rows(
+    List<ProviderEntity> rows,
+    ProviderLoaded state,
+    ContentMode mode,
+  ) {
+    return SliverList.separated(
+      itemCount: rows.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (_, i) => ItemAppear(
+        index: i,
+        child: _SourceTile(
+          key: rows[i].id == state.currentProviderId
+              ? _currentRows[mode]
+              : null,
+          source: rows[i],
+          current: rows[i].id == state.currentProviderId,
+          onTap: () => _use(rows[i]),
+          onBrowse: () => setState(() => _open = rows[i]),
+        ),
+      ),
+    );
+  }
 }
 
 class _SourceTile extends StatelessWidget {
   const _SourceTile({
+    super.key,
     required this.source,
     required this.onTap,
     required this.onBrowse,
@@ -505,9 +760,14 @@ class _SourceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The row says the same language the filter menu offers and the split
+    // above sorts by. `all` is left out on purpose: "this catalogue is in
+    // every language" is not something a two-letter chip can say, and the row
+    // appears under every selection anyway.
+    final lang = source.displayLang;
     final subtitle = [
-      if (source.lang.isNotEmpty && source.lang != 'all')
-        source.lang.toUpperCase(),
+      if (lang.isNotEmpty && lang != srclang.kAllLanguages)
+        srclang.shortLabelFor(lang),
       if (source.category.isNotEmpty) source.category,
       if (source.browseOnly) 'profile.provider'.tr(),
     ].join(' · ');
@@ -519,6 +779,11 @@ class _SourceTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(14),
+          // The list opens on this row, and a row you were scrolled to but
+          // cannot pick out is the same as not having been scrolled at all.
+          border: current
+              ? Border.all(color: AppColors.primary.withValues(alpha: 0.55))
+              : null,
         ),
         child: Row(
           children: [
@@ -813,68 +1078,155 @@ class _EcosystemFilter extends StatelessWidget {
         if (counts.containsKey(e)) e,
     ];
     final total = counts.values.fold(0, (a, b) => a + b);
-    return SizedBox(
-      height: 34,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: chips.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 6),
-        itemBuilder: (context, i) {
-          final e = chips[i];
-          final selected = e == active;
-          final count = e == null ? total : counts[e] ?? 0;
-          return Center(
-            child: Material(
-              color: selected ? AppColors.primary : AppColors.card,
-              borderRadius: BorderRadius.circular(999),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => onPick(e),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        e?.label ?? 'sources.eco_all'.tr(),
-                        style: TextStyle(
+    // Scaled, because this row is the one control on the page that is read at
+    // a glance and it was laid out at a size meant for a badge: 34 high with
+    // 12pt type is under the 44dp anyone actually hits, and the count beside
+    // it was small enough to be taken for decoration.
+    final scale = MediaQuery.textScalerOf(context);
+    final height = scale.scale(13) * 2.0 + 18;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 2),
+      child: SizedBox(
+        height: height,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsetsDirectional.only(start: 12, end: 12),
+          itemCount: chips.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, i) {
+            final e = chips[i];
+            final selected = e == active;
+            final count = e == null ? total : counts[e] ?? 0;
+            final label = e?.label ?? 'sources.eco_all'.tr();
+            return Center(
+              child: Semantics(
+                button: true,
+                selected: selected,
+                label: '$label, $count',
+                child: ExcludeSemantics(
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      onPick(e);
+                    },
+                    borderRadius: BorderRadius.circular(999),
+                    // Selection used to be a hard cut between two colours and
+                    // two weights, which on a row of five chips reads as the
+                    // list redrawing rather than as one of them being chosen.
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      curve: Curves.easeOut,
+                      padding: const EdgeInsets.fromLTRB(13, 7, 13, 7),
+                      decoration: BoxDecoration(
+                        color: selected ? AppColors.primary : AppColors.card,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
                           color: selected
-                              ? Colors.white
-                              : AppColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
+                              ? AppColors.primary
+                              : Colors.white.withValues(alpha: 0.06),
                         ),
                       ),
-                      const SizedBox(width: 5),
-                      Text(
-                        '$count',
-                        style: TextStyle(
-                          color: selected
-                              ? Colors.white70
-                              : AppColors.textSecondary.withValues(alpha: 0.55),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 160),
+                            style: TextStyle(
+                              color: selected
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                              fontSize: 13,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              decoration: TextDecoration.none,
+                            ),
+                            child: Text(label),
+                          ),
+                          const SizedBox(width: 6),
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 160),
+                            style: TextStyle(
+                              color: selected
+                                  ? Colors.white70
+                                  : AppColors.textSecondary.withValues(
+                                      alpha: 0.6,
+                                    ),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.none,
+                            ),
+                            child: Text('$count'),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 }
 
-/// One tab's sources, and how many come from each ecosystem.
+/// One tab's sources, split by whether they answer the language filter, and
+/// how many come from each ecosystem.
 class _TabSources {
-  const _TabSources({required this.all, required this.counts});
+  const _TabSources({
+    required this.matched,
+    required this.unstated,
+    required this.counts,
+  });
 
-  final List<ProviderEntity> all;
+  /// Everything, when no language is chosen; otherwise what matched one.
+  final List<ProviderEntity> matched;
+
+  /// Sources with no language to go on. Empty unless a language is chosen.
+  final List<ProviderEntity> unstated;
+
   final Map<SourceEcosystem, int> counts;
+}
+
+/// One of the two things this screen is: what you have, or what you could
+/// have.
+class _LevelPill extends StatelessWidget {
+  const _LevelPill({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: active,
+      child: Material(
+        color: active ? AppColors.primary : AppColors.card,
+        borderRadius: BorderRadius.circular(999),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: active ? null : onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: active ? Colors.white : AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

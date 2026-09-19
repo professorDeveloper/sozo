@@ -9,20 +9,28 @@ void main() {
       // Somebody who stops during the credits has watched the episode. A
       // tracker that only fires at 100% never fires for them.
       const total = Duration(minutes: 100);
-      expect(WatchProgress.isWatched(const Duration(minutes: 84), total),
-          isFalse);
-      expect(WatchProgress.isWatched(const Duration(minutes: 85), total),
-          isTrue);
+      expect(
+        WatchProgress.isWatched(const Duration(minutes: 84), total),
+        isFalse,
+      );
+      expect(
+        WatchProgress.isWatched(const Duration(minutes: 85), total),
+        isTrue,
+      );
     });
 
     test('an unknown duration never counts', () {
       // A live channel reports zero. "85% of nothing" would mark it watched
       // the instant it opened.
-      expect(WatchProgress.isWatched(const Duration(minutes: 5), Duration.zero),
-          isFalse);
+      expect(
+        WatchProgress.isWatched(const Duration(minutes: 5), Duration.zero),
+        isFalse,
+      );
       expect(
         WatchProgress.isWatched(
-            const Duration(minutes: 5), const Duration(seconds: -1)),
+          const Duration(minutes: 5),
+          const Duration(seconds: -1),
+        ),
         isFalse,
       );
     });
@@ -82,8 +90,11 @@ void main() {
       final p = WatchProgress();
       p.bank(const Duration(seconds: 10));
       expect(p.bank(const Duration(seconds: 10)), 0);
-      expect(p.bank(const Duration(seconds: 9)), 0,
-          reason: 'and a clock going backwards never credits negative time');
+      expect(
+        p.bank(const Duration(seconds: 9)),
+        0,
+        reason: 'and a clock going backwards never credits negative time',
+      );
       expect(p.bankedSeconds, 10);
     });
 
@@ -111,6 +122,41 @@ void main() {
       p.episodeToReport(isSerial: true, episodeNumber: 1);
       p.reset();
       expect(p.episodeToReport(isSerial: true, episodeNumber: 1), 1);
+    });
+  });
+
+  group('a viewing has to last to be worth remembering', () {
+    test('a few seconds on the wrong title leaves no row', () {
+      // The reason the floor exists: tapping the wrong poster, or bouncing off
+      // a dead source, should not put anything on Continue watching.
+      expect(
+        WatchProgress.countsAsAViewing(const Duration(seconds: 3)),
+        isFalse,
+      );
+      expect(
+        WatchProgress.countsAsAViewing(const Duration(seconds: 9)),
+        isFalse,
+      );
+    });
+
+    test('ten seconds is watching', () {
+      // Inclusive on purpose. The tick that carries the save runs every five
+      // seconds, so the second one lands exactly on the boundary — an
+      // exclusive comparison would push the first real save out to fifteen.
+      expect(
+        WatchProgress.countsAsAViewing(
+          Duration(seconds: WatchProgress.minimumSessionSeconds),
+        ),
+        isTrue,
+      );
+      expect(
+        WatchProgress.countsAsAViewing(const Duration(minutes: 24)),
+        isTrue,
+      );
+    });
+
+    test('nothing watched is not a viewing', () {
+      expect(WatchProgress.countsAsAViewing(Duration.zero), isFalse);
     });
   });
 

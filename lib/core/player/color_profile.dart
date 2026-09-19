@@ -48,18 +48,25 @@ class ColorProfile {
   /// True when this profile changes nothing, and can therefore be applied by
   /// clearing the equalizer rather than by setting it.
   bool get isNeutral =>
-      brightness == 0 && contrast == 0 && saturation == 0 && gamma == 0 && hue == 0;
+      brightness == 0 &&
+      contrast == 0 &&
+      saturation == 0 &&
+      gamma == 0 &&
+      hue == 0;
 
   /// mpv property names to values, ready to be set one at a time.
   Map<String, int> get properties => {
-        'brightness': brightness,
-        'contrast': contrast,
-        'saturation': saturation,
-        'gamma': gamma,
-        'hue': hue,
-      };
+    'brightness': brightness,
+    'contrast': contrast,
+    'saturation': saturation,
+    'gamma': gamma,
+    'hue': hue,
+  };
 
-  static const ColorProfile natural = ColorProfile('natural', 'player.color_natural');
+  static const ColorProfile natural = ColorProfile(
+    'natural',
+    'player.color_natural',
+  );
 
   /// The list, in the order it is offered.
   ///

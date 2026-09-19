@@ -81,7 +81,8 @@ class SubtitleTranslationService {
           'episode': ?episode,
         },
       );
-      final items = (response.data is Map ? response.data['items'] : null) as List? ??
+      final items =
+          (response.data is Map ? response.data['items'] : null) as List? ??
           const [];
       return [
         for (final m in items)
@@ -217,7 +218,9 @@ class SubtitleTranslationService {
 
   String _messageFrom(DioException e) {
     final data = e.response?.data;
-    if (data is Map && data['message'] is String) return data['message'] as String;
+    if (data is Map && data['message'] is String) {
+      return data['message'] as String;
+    }
     return e.message ?? 'Tarjima qilib bo\'lmadi';
   }
 }

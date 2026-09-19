@@ -29,57 +29,72 @@ class GenreCard extends StatelessWidget {
         '/view-all',
         extra: ViewAllEntity(type: 'genre', slug: genre.slug, name: _label),
       ),
+      haptic: true,
+      borderRadius: 10,
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: desktop ? 7 : 4),
+        padding: EdgeInsets.symmetric(horizontal: desktop ? 6 : 4),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(desktop ? 12 : 10),
+          borderRadius: BorderRadius.circular(10),
           child: SizedBox(
-            width: desktop ? 190 : 110,
-            height: desktop ? 90 : 72,
+            width: desktop ? 176 : 124,
+            height: desktop ? 84 : 68,
             child: Stack(
               fit: StackFit.expand,
               children: [
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF242426), Color(0xFF151517)],
+                    ),
+                  ),
+                ),
                 HomeNetworkImage(
                   url: genre.image,
                   borderRadius: BorderRadius.zero,
                   placeholderIcon: Icons.category_outlined,
                 ),
-                // The scrim leans onto the accent as it deepens, so a wall of
-                // genre thumbnails carries the chosen colour instead of being
-                // twelve identical black fades.
-                DecoratedBox(
+                // Black, not the accent.
+                //
+                // The scrim used to lean onto AppColors.primaryDark as it
+                // deepened, so a row of genres carried a red wash over whatever
+                // the artwork actually was — and the search grid did the same
+                // thing in nine other hues. A tint keyed on nothing is noise
+                // dressed as information, and over a photograph it leaves the
+                // card neither the artwork's colour nor the app's. The covers
+                // supply the colour; this only has to make the name readable.
+                const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.18),
-                        AppColors.primaryDark.withValues(alpha: 0.30),
-                        Colors.black.withValues(alpha: 0.78),
+                        Color(0x00000000),
+                        Color(0x80000000),
+                        Color(0xE6000000),
                       ],
-                      stops: const [0, 0.55, 1],
+                      stops: [0, 0.5, 1],
                     ),
                   ),
                 ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(height: 2.5, color: AppColors.primary),
-                ),
-                Positioned(
-                  left: desktop ? 12 : 8,
-                  right: desktop ? 12 : 8,
-                  bottom: desktop ? 10 : 7,
+                PositionedDirectional(
+                  start: desktop ? 12 : 9,
+                  end: desktop ? 12 : 9,
+                  bottom: desktop ? 9 : 7,
                   child: Text(
                     _label,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: desktop ? 15 : 11,
-                      fontWeight: desktop ? FontWeight.w800 : FontWeight.w700,
-                      height: 1.2,
+                      color: AppColors.textPrimary,
+                      fontSize: desktop ? 14 : 12,
+                      fontWeight: FontWeight.w700,
+                      height: 1.15,
+                      letterSpacing: -0.2,
+                      shadows: const [
+                        Shadow(color: Colors.black87, blurRadius: 6),
+                      ],
                     ),
                   ),
                 ),

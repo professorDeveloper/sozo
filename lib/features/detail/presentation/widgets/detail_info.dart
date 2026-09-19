@@ -1,3 +1,11 @@
+import 'package:soplay/features/detail/domain/entities/record_info.dart';
+import 'package:soplay/features/detail/presentation/widgets/tracking_row.dart';
+import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/widgets/item_appear.dart';
+import 'package:soplay/core/content/catalogue_logo.dart';
+import 'package:soplay/features/profile/presentation/widgets/provider_quick_switch.dart'
+    show ProviderLogo;
+import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:soplay/core/extensions/provider_media_kind.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +20,7 @@ import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/home/domain/entities/view_all.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_row.dart';
 
 class DetailContentHeader extends StatefulWidget {
   const DetailContentHeader({
@@ -20,11 +29,23 @@ class DetailContentHeader extends StatefulWidget {
     required this.onPrimaryAction,
     required this.playButtonKey,
     this.onDownload,
+    this.via,
+    this.onChangeSource,
+    this.onFindSource,
   });
 
   final DetailEntity detail;
   final VoidCallback onPrimaryAction;
   final Key playButtonKey;
+
+  /// The source a catalogue title was found on. Named under the button,
+  /// because a Play that silently picked a source is a Play the viewer cannot
+  /// question — and the pick is a guess, however good.
+  final CatalogueLink? via;
+  final VoidCallback? onChangeSource;
+
+  /// For a catalogue title with no source yet: opens the search.
+  final VoidCallback? onFindSource;
 
   /// Queues the title for offline viewing, or opens the episode list when
   /// "which episodes" is a question only the user can answer.
@@ -62,55 +83,118 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
     final item = _item;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      // Each block lands a beat after the one above it, top to bottom, so
+      // the page assembles under the poster rather than appearing whole.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _MetaLine(detail: widget.detail),
+          ItemAppear(index: 0, child: _MetaLine(detail: widget.detail)),
           if (widget.detail.genres.isNotEmpty) ...[
             const SizedBox(height: 10),
-            _GenresRow(genres: widget.detail.genres),
+            ItemAppear(
+              index: 1,
+              child: _GenresRow(genres: widget.detail.genres),
+            ),
           ],
           if (widget.detail.description.trim().isNotEmpty) ...[
             const SizedBox(height: 14),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: isDesktopPlatform ? 900 : double.infinity,
-              ),
-              child: _ExpandableDescription(
-                text: widget.detail.description.trim(),
+            ItemAppear(
+              index: 2,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isDesktopPlatform ? 900 : double.infinity,
+                ),
+                child: _ExpandableDescription(
+                  text: widget.detail.description.trim(),
+                ),
               ),
             ),
           ],
           const SizedBox(height: 18),
+          // Where this title came from and where it was found, ABOVE the
+          // button that will play it. Below, it read as a footnote to a
+          // decision already made; above, it is the decision, and the marks
+          // say who made it: "TMDB › VidAPI".
+          if (widget.via != null) ...[
+            ItemAppear(
+              index: 3,
+              child: _ViaRow(via: widget.via!, onChange: widget.onChangeSource),
+            ),
+            const SizedBox(height: 12),
+          ],
           // Download and trailer sit BESIDE the primary button, resuming or
           // not. They used to be their own row underneath, because Continue
           // came as a block with its progress bar and caption attached — so
           // starting a title showed three controls on one line and coming back
           // to it showed one, with the other two stranded below the caption.
-          _ContinueWatchingCard(
-            item: item,
-            onTap: widget.onPrimaryAction,
-            reader: widget.detail.provider.opensReader,
-            playButtonKey: widget.playButtonKey,
-            trailing: [
-              // Offline used to be reachable only from inside the player:
-              // open the title, wait for a source to resolve, start playing,
-              // then find it in a menu. Four steps and a started stream to
-              // save something for the train.
-              if (widget.onDownload != null) ...[
-                const SizedBox(width: 10),
-                _SquareAction(
-                  icon: Icons.download_rounded,
-                  tooltip: 'detail.download_action'.tr(),
-                  onTap: widget.onDownload!,
+          if (widget.detail.record?.nextAiringAt != null) ...[
+            ItemAppear(
+              index: 4,
+              child: _NextEpisode(record: widget.detail.record!),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (Catalogue.isId(widget.detail.provider))
+            // A catalogue title nothing installed carries. Not a Play that
+            // fails; the honest button is the one that goes and looks.
+            ItemAppear(
+              index: 5,
+              child: SizedBox(
+                width: isDesktopPlatform ? 360 : double.infinity,
+                height: 46,
+                child: OutlinedButton.icon(
+                  onPressed: widget.onFindSource,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.35),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(kButtonRadius),
+                    ),
+                  ),
+                  icon: const Icon(Icons.travel_explore_rounded, size: 22),
+                  label: Text(
+                    'catalogue.find_source'.tr(),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
-              ],
-              // Appears on its own once a trailer has been found, and takes
-              // no space at all when there is none — so a title without one
-              // never shows a button that cannot do anything.
-              TrailerAction(detail: widget.detail),
-            ],
-          ),
+              ),
+            )
+          else
+            ItemAppear(
+              index: 5,
+              child: _ContinueWatchingCard(
+                item: item,
+                onTap: widget.onPrimaryAction,
+                reader: widget.detail.provider.opensReader,
+                playButtonKey: widget.playButtonKey,
+                trailing: [
+                  // Offline used to be reachable only from inside the player:
+                  // open the title, wait for a source to resolve, start playing,
+                  // then find it in a menu. Four steps and a started stream to
+                  // save something for the train.
+                  if (widget.onDownload != null) ...[
+                    const SizedBox(width: 10),
+                    _SquareAction(
+                      icon: Icons.download_rounded,
+                      tooltip: 'detail.download_action'.tr(),
+                      onTap: widget.onDownload!,
+                    ),
+                  ],
+                  // Appears on its own once a trailer has been found, and takes
+                  // no space at all when there is none — so a title without one
+                  // never shows a button that cannot do anything.
+                  TrailerAction(detail: widget.detail),
+                ],
+              ),
+            ),
+          // Brings its own gap, so a page with nothing to track has no
+          // blank band under the buttons.
+          ItemAppear(index: 6, child: TrackingRow(detail: widget.detail)),
         ],
       ),
     );
@@ -206,15 +290,17 @@ class _ContinueWatchingCard extends StatelessWidget {
                             foregroundColor: Colors.black,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(kButtonRadius),
+                              borderRadius: BorderRadius.circular(
+                                kButtonRadius,
+                              ),
                             ),
                           ),
                           icon: const Icon(Icons.play_arrow_rounded, size: 26),
                           label: Text(
                             item.isSerial && item.episodeNumber != null
-                                ? 'detail.continue_ep'
-                                      .tr(args: ['${item.episodeNumber}'])
+                                ? 'detail.continue_ep'.tr(
+                                    args: ['${item.episodeNumber}'],
+                                  )
                                 : 'detail.continue_watching'.tr(),
                             style: const TextStyle(
                               fontSize: 15,
@@ -265,6 +351,8 @@ class _MetaLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parts = <String>[
+      if (detail.record?.score != null)
+        '\u2605 ${detail.record!.score!.toStringAsFixed(1)}',
       if (detail.year != null) detail.year.toString(),
       if (detail.duration != null && detail.duration!.trim().isNotEmpty)
         detail.duration!.trim(),
@@ -590,5 +678,204 @@ class _PlayButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// "TMDB › VidAPI · Change" — the hand-off, with both marks.
+///
+/// The catalogue's own logo and the source's own logo, so the line reads at
+/// a glance without a word being read: this came from there, and it plays
+/// from here. Change is the one control, because the pick is a guess.
+///
+/// When the pick is [CatalogueLink.approximate] it is a guess of a second,
+/// worse kind, and it is caveated here rather than anywhere else because here
+/// is where Play is decided. The light-novel shelf falls back to the manga
+/// readers on an install with no novel source, and what a manga source carries
+/// under a light novel's name is usually the adaptation — a different work
+/// with the same title. Naming the source without that is telling somebody a
+/// source was found for their novel when one was not.
+class _ViaRow extends StatelessWidget {
+  const _ViaRow({required this.via, this.onChange});
+
+  final CatalogueLink via;
+  final VoidCallback? onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    final catalogue = Catalogue.fromId(via.catalogueId);
+    // Same shell as the tracker rows below Play — see [DetailRowShell] for
+    // what the two used to disagree about and why it showed.
+    return DetailRowShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              if (catalogue != null) ...[
+                CatalogueLogo(catalogue: catalogue, size: kDetailRowLogoSize),
+                const SizedBox(width: 7),
+                Text(
+                  catalogue.labelKey.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 16,
+                    color: AppColors.textHint,
+                  ),
+                ),
+              ],
+              ProviderLogo(image: via.providerImage, size: kDetailRowLogoSize),
+              const SizedBox(width: 10),
+              // The name and the mark share one slot, so the mark stays
+              // against the name it qualifies instead of drifting off to the
+              // right, and a long name gives way to it rather than pushing it
+              // off the line.
+              DetailRowTitle(
+                name: via.providerName,
+                trailing: via.approximate
+                    ? _GuessPill(
+                        label: 'catalogue.approximate_source'.tr(),
+                        spoken: 'catalogue.approximate_source_hint'.tr(),
+                      )
+                    : null,
+              ),
+              if (onChange != null) ...[
+                const SizedBox(width: 8),
+                // The same control the tracker rows end in. This was a bare
+                // TextButton: accent words with no box, directly above two
+                // rows that ended in filled pills.
+                DetailRowAction(
+                  label: 'catalogue.change_source'.tr(),
+                  onTap: onChange!,
+                  // Opens the alternate-source sheet, like the tracker rows
+                  // open theirs.
+                ),
+              ],
+            ],
+          ),
+          // The whole sentence on screen, not hidden behind a long-press:
+          // "Best guess" alone does not tell anybody WHICH work they are about
+          // to open, and the choice in front of them is Play or Change.
+          //
+          // Silent to a screen reader because the pill above already speaks
+          // this exact sentence as its label, and hearing it twice in a row is
+          // worse than hearing it once.
+          if (via.approximate) ...[
+            const SizedBox(height: 7),
+            ExcludeSemantics(
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(end: 4),
+                child: Text(
+                  'catalogue.approximate_source_hint'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11.5,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A word and a mark, in a box — "❓ Best guess".
+///
+/// Deliberately the same shape as the pill the alternate-source sheet puts on
+/// its uncertain rows: an icon AND a word, never a tint on its own, so the
+/// mark survives a greyscale screenshot, a colour-blind reader and a screen
+/// reader alike. It is a second copy rather than that one because that one is
+/// private to its file; a third should be the one that moves them into
+/// core/widgets.
+class _GuessPill extends StatelessWidget {
+  const _GuessPill({required this.label, required this.spoken});
+
+  final String label;
+
+  /// Said instead of [label], because two words are all the line has room for
+  /// and they are not the part a reader needs.
+  final String spoken;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: spoken,
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.white12,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.help_outline_rounded,
+              size: 11,
+              color: Colors.white70,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The next episode, alone. It is the one fact on the page with a date on
+/// it, and the one worth glancing back for.
+class _NextEpisode extends StatelessWidget {
+  const _NextEpisode({required this.record});
+
+  final RecordInfo record;
+
+  @override
+  Widget build(BuildContext context) {
+    final at = record.nextAiringAt!;
+    return Row(
+      children: [
+        Icon(Icons.schedule_rounded, size: 16, color: AppColors.primary),
+        const SizedBox(width: 6),
+        Text(
+          'detail.next_episode_in'.tr(
+            args: ['${record.nextEpisode}', _untilText(at)],
+          ),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// "3d 4h", "6h", "42m" — what fits in a line.
+  static String _untilText(DateTime at) {
+    final d = at.difference(DateTime.now());
+    if (d.isNegative) return '0m';
+    if (d.inDays >= 1) return '${d.inDays}d ${d.inHours % 24}h';
+    if (d.inHours >= 1) return '${d.inHours}h';
+    return '${d.inMinutes}m';
   }
 }

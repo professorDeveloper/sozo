@@ -1,4 +1,5 @@
 import 'package:soplay/core/trailer/trailer_query.dart';
+import 'record_info.dart';
 
 import 'cast_entity.dart';
 import 'screenshot_entity.dart';
@@ -33,6 +34,9 @@ class DetailEntity {
   /// YouTube's app, with its ads and its own fullscreen, from inside ours.
   final String? trailerYoutubeId;
 
+  /// See [RecordInfo]. Null unless the page was built from a catalogue.
+  final RecordInfo? record;
+
   const DetailEntity({
     required this.provider,
     required this.contentId,
@@ -53,6 +57,7 @@ class DetailEntity {
     required this.screenshots,
     required this.related,
     this.trailerYoutubeId,
+    this.record,
   });
 
   /// What the trailer lookup has to go on for this title.
@@ -62,9 +67,9 @@ class DetailEntity {
   /// one lookup. [trailerYoutubeId] rides along, so a provider that already
   /// knows the video never triggers a search for its name.
   TrailerQuery get trailerQuery => TrailerQuery(
-        youtubeId: trailerYoutubeId,
-        title: title,
-        year: year,
-        isSerial: isSerial,
-      );
+    youtubeId: trailerYoutubeId,
+    title: title,
+    year: year,
+    isSerial: isSerial,
+  );
 }

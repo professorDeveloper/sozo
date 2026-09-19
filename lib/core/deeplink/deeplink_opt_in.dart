@@ -120,8 +120,7 @@ class _OptInSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(kButtonRadius),
                 ),
               ),
-              onPressed: () =>
-                  Navigator.of(context).pop(_OptInResult.enable),
+              onPressed: () => Navigator.of(context).pop(_OptInResult.enable),
               child: Text(
                 'deeplink.opt_in_enable'.tr(),
                 style: const TextStyle(

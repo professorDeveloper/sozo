@@ -62,10 +62,7 @@ extension _PlayerParty on _PlayerPageState {
       PartyRules.heartbeatPeriod,
       (_) => _onHeartbeatTick(),
     );
-    _partyDrift = Timer.periodic(
-      PartyRules.driftPeriod,
-      (_) => _onDriftTick(),
-    );
+    _partyDrift = Timer.periodic(PartyRules.driftPeriod, (_) => _onDriftTick());
     // As host, announce what this player is showing so guests can resolve it on
     // their own device (covers "create a party while already watching").
     if (_isPartyHost) _partyEmitCurrentContent();
@@ -368,7 +365,8 @@ extension _PlayerParty on _PlayerPageState {
         // A guest took `sources[0]`, so a party could be watching an embed
         // page while the host watched the stream. Same ladder as everywhere.
         _resetLadder();
-        final pickedIdx = _ladder(
+        final pickedIdx =
+            _ladder(
               sources,
               hasDirective: value.extractor != null,
             ).initialPick() ??

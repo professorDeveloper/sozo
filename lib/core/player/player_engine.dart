@@ -87,9 +87,10 @@ PlayerEngine resolvePlayerEngine() {
     final box = Hive.box(AppConstants.settingsBox);
     chosen = PlayerEngine.fromId(
       box.get(
-        AppConstants.playerEngineKey,
-        defaultValue: AppConstants.defaultPlayerEngine,
-      ) as String?,
+            AppConstants.playerEngineKey,
+            defaultValue: AppConstants.defaultPlayerEngine,
+          )
+          as String?,
     );
   } catch (_) {
     return PlayerEngine.native;

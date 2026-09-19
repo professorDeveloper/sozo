@@ -83,8 +83,9 @@ class _AnilistTrackButtonState extends State<AnilistTrackButton> {
 
     final linked = _link != null;
     return Tooltip(
-      message:
-          linked ? 'anilist.tracking_on'.tr() : 'anilist.track_on_anilist'.tr(),
+      message: linked
+          ? 'anilist.tracking_on'.tr()
+          : 'anilist.track_on_anilist'.tr(),
       child: Material(
         color: linked
             ? kAnilistBlue.withValues(alpha: 0.18)
@@ -97,7 +98,9 @@ class _AnilistTrackButtonState extends State<AnilistTrackButton> {
             width: 38,
             height: 38,
             child: Icon(
-              linked ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
+              linked
+                  ? Icons.bookmark_added_rounded
+                  : Icons.bookmark_add_outlined,
               size: 19,
               color: linked ? kAnilistBlue : AppColors.textPrimary,
             ),

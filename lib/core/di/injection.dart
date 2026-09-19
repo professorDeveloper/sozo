@@ -1,3 +1,4 @@
+import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
@@ -120,6 +121,7 @@ import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/search/data/datasources/search_data_source.dart';
 import 'package:soplay/features/search/data/title_suggestion_service.dart';
 import 'package:soplay/features/search/data/repositories/search_repository_imp.dart';
+import 'package:soplay/features/search/data/source_health_store.dart';
 import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
 import 'package:soplay/features/search/domain/repositories/search_repository.dart';
@@ -384,14 +386,14 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<ProviderRegistry>(
     ProviderRegistry(source: getIt<ProviderDataSource>()),
   );
-  getIt.registerSingleton<ExtractorRemote>(
-    ExtractorRemote(dio: getIt<Dio>()),
-  );
+  getIt.registerSingleton<ExtractorRemote>(ExtractorRemote(dio: getIt<Dio>()));
   getIt.registerSingleton<ExtractorCache>(ExtractorCache());
-  getIt.registerSingleton<DartFetch>(DartFetch.create(
-    cfService:  getIt<CfBypassService>(),
-    backendDio: getIt<Dio>(),
-  ));
+  getIt.registerSingleton<DartFetch>(
+    DartFetch.create(
+      cfService: getIt<CfBypassService>(),
+      backendDio: getIt<Dio>(),
+    ),
+  );
   getIt.registerSingleton<StreakRemoteDataSource>(
     StreakRemoteDataSource(dio: getIt<Dio>()),
   );
@@ -504,6 +506,9 @@ Future<void> configureDependencies() async {
       jsRuntime: getIt<JsRuntimeService>(),
       dataSource: getIt<SearchDataSource>(),
       mangayomi: getIt<MangayomiBridge>(),
+      health: SourceHealthStore(
+        remote: getIt<SearchDataSource>().providerHealth,
+      ),
     ),
   );
   getIt.registerSingleton<WebViewStreamExtractor>(WebViewStreamExtractor());
@@ -572,9 +577,7 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<MyListRemoteDataSource>(
     MyListRemoteDataSource(dio: getIt<Dio>()),
   );
-  getIt.registerSingleton<MyListLocalDataSource>(
-    MyListLocalDataSource(),
-  );
+  getIt.registerSingleton<MyListLocalDataSource>(MyListLocalDataSource());
   getIt.registerSingleton<PrivateListService>(PrivateListService());
   getIt.registerSingleton<MyListRepository>(
     MyListRepositoryImpl(
@@ -741,7 +744,22 @@ Future<void> configureDependencies() async {
   getIt.registerFactory(
     () => BannersBloc(repository: getIt<BannersRepository>()),
   );
-  getIt.registerFactory(() => DetailBloc(useCase: getIt<GetDetailUseCase>()));
+  getIt.registerLazySingleton<CatalogueResolver>(
+    () => CatalogueResolver.using(
+      getIt<AlternateSourceService>(),
+      getIt<HiveService>(),
+      getIt<GetProvidersUseCase>(),
+    ),
+  );
+  getIt.registerFactory(
+    () => DetailBloc(
+      useCase: getIt<GetDetailUseCase>(),
+      resolver: getIt<CatalogueResolver>(),
+      anilist: getIt<AnilistService>().api,
+      tmdbDetail: (url) =>
+          getIt<DetailDataSource>().getCatalogueDetail('tmdb', url),
+    ),
+  );
   getIt.registerFactory(
     () => FavoriteBloc(
       addFavorite: getIt<AddFavoriteUseCase>(),
@@ -822,9 +840,7 @@ Future<void> configureDependencies() async {
       wipeProtected: () => getIt<PrivateListService>().clearAll(),
     ),
   );
-  getIt.registerSingleton<AppLockGate>(
-    AppLockGate(getIt<AppLockRepository>()),
-  );
+  getIt.registerSingleton<AppLockGate>(AppLockGate(getIt<AppLockRepository>()));
 
   getIt.registerLazySingleton<NavController>(() => NavController());
 }

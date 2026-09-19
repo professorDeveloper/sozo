@@ -153,10 +153,9 @@ abstract final class DownloadChoices {
 
     // The playing stream leads: it is resolved, so it is the one offer that
     // cannot be an embed page.
-    final current =
-        (currentIndex >= 0 && currentIndex < sources.length)
-            ? sources[currentIndex]
-            : null;
+    final current = (currentIndex >= 0 && currentIndex < sources.length)
+        ? sources[currentIndex]
+        : null;
     if (currentUrl != null) {
       // The resolved headers, which is what the sniff produced where one ran.
       add(current, currentUrl, isCurrent: true, headers: currentHeaders);

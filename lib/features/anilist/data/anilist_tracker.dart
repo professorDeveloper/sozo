@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
+import 'package:soplay/features/anilist/domain/entities/tracker_lookup.dart';
 
 /// Turns "an episode finished playing" into "AniList knows about it".
 ///
@@ -17,9 +19,11 @@ import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
 ///      further ahead, must not undo real progress;
 ///   3. never surface a failure to the viewer — this runs during playback.
 class AnilistTracker {
-  AnilistTracker({required AnilistService service, required AnilistLinkStore links})
-      : _service = service,
-        _links = links;
+  AnilistTracker({
+    required AnilistService service,
+    required AnilistLinkStore links,
+  }) : _service = service,
+       _links = links;
 
   final AnilistService _service;
   final AnilistLinkStore _links;
@@ -66,6 +70,29 @@ class AnilistTracker {
         : null;
   }
 
+  /// Records that [chapterNumber] of a local title has been read.
+  ///
+  /// Delegates to [reportEpisode] because on AniList they are the same write:
+  /// a list entry has one `progress` field, counting whichever unit the media
+  /// has, and `entryState` already reads `chapters` as the total for a title
+  /// that has no episodes. What keeps the two apart is [_resolveMediaId],
+  /// which searches the MANGA half of the catalogue for a reader's provider.
+  ///
+  /// It is still its own method: a reader calling `reportEpisode` would read
+  /// as a mistake at the call site, and the next person to need a
+  /// chapter-specific rule would have nowhere to put it.
+  Future<int?> reportChapter({
+    required String provider,
+    required String contentUrl,
+    required String title,
+    required int chapterNumber,
+  }) => reportEpisode(
+    provider: provider,
+    contentUrl: contentUrl,
+    title: title,
+    episodeNumber: chapterNumber,
+  );
+
   /// Finds the AniList id for a local title: an existing link first, then an
   /// exact title match.
   Future<int?> _resolveMediaId({
@@ -79,9 +106,20 @@ class AnilistTracker {
     final key = AnilistLinkStore.keyFor(provider, contentUrl);
     if (_autoMatchFailed.contains(key)) return null;
 
-    final match = await findExactMatch(title);
+    // Which half of AniList to look in, taken from the source: a reader's
+    // title is not in the anime index at all, so searching it there would
+    // fail every time and then be remembered as hopeless.
+    final lookup = await lookUpExactMatch(
+      title,
+      type: provider.contentMode == ContentMode.video ? 'ANIME' : 'MANGA',
+    );
+    final match = lookup.value;
     if (match == null) {
-      _autoMatchFailed.add(key);
+      // Only an answer of "nothing matches" is a fact about the title. A
+      // request that never landed is a fact about the network, and recording
+      // it here would stop this title ever auto-linking again for the life of
+      // the process — the next episode simply tries again instead.
+      if (lookup.isSettledMiss) _autoMatchFailed.add(key);
       return null;
     }
 
@@ -92,7 +130,10 @@ class AnilistTracker {
         mediaId: match.id,
         title: match.displayTitle,
         coverImage: match.coverImage,
-        totalEpisodes: match.episodes,
+        // Episodes for an anime, chapters for a manga — the same unit the
+        // progress written against this link is counted in, chosen once on the
+        // media rather than again here.
+        totalEpisodes: match.totalUnits,
         linkedAt: DateTime.now().millisecondsSinceEpoch,
         auto: true,
       ),
@@ -107,30 +148,59 @@ class AnilistTracker {
   /// 1, or a recap film to the series, and then quietly write episode numbers
   /// into it for months. When there is no exact match the user is asked instead
   /// — being unlinked is recoverable, being wrongly linked is not obvious.
-  Future<AnilistMedia?> findExactMatch(String title) async {
+  ///
+  /// [type] defaults to ANIME because that is what the MyAnimeList tracker
+  /// borrows this for, and MAL numbers manga separately.
+  Future<AnilistMedia?> findExactMatch(String title, {String type = 'ANIME'}) =>
+      lookUpExactMatch(title, type: type).then((r) => r.value);
+
+  /// The same search, keeping the difference between "AniList has nothing like
+  /// this" and "AniList did not answer".
+  ///
+  /// [findExactMatch] throws that difference away, which is fine for a caller
+  /// that only wants the media and not fine for one deciding whether to give
+  /// up on a title permanently.
+  Future<TrackerLookup<AnilistMedia>> lookUpExactMatch(
+    String title, {
+    String type = 'ANIME',
+  }) async {
     final wanted = normalizeTitle(title);
-    if (wanted.isEmpty) return null;
+    if (wanted.isEmpty) return const TrackerLookup.noMatch();
     try {
-      final results = await _service.api.searchMedia(title, perPage: 10);
+      final results = await _service.api.searchMedia(
+        title,
+        perPage: 10,
+        type: type,
+      );
       for (final media in results) {
         for (final candidate in media.searchTitles) {
-          if (normalizeTitle(candidate) == wanted) return media;
+          if (normalizeTitle(candidate) == wanted) {
+            return TrackerLookup.found(media);
+          }
         }
       }
+      // AniList answered. Whatever it sent back, none of it is this title.
+      return const TrackerLookup.noMatch();
     } catch (e) {
       debugPrint('$_tag auto-match failed for "$title": $e');
+      return const TrackerLookup.unreachable();
     }
-    return null;
   }
 
   /// Reads the account's current position, then writes only if this episode is
   /// genuinely ahead of it.
-  Future<bool> _write({required int mediaId, required int episodeNumber}) async {
+  Future<bool> _write({
+    required int mediaId,
+    required int episodeNumber,
+  }) async {
     final token = _service.token;
     if (token == null) return false;
 
     try {
-      final state = await _service.api.entryState(token: token, mediaId: mediaId);
+      final state = await _service.api.entryState(
+        token: token,
+        mediaId: mediaId,
+      );
       if (state != null && episodeNumber <= state.progress) {
         // Already at or beyond this episode — a rewatch, or another device got
         // here first. Writing would move the list backwards.
@@ -142,9 +212,15 @@ class AnilistTracker {
         token: token,
         mediaId: mediaId,
         progress: episodeNumber,
-        status: _statusFor(current: state?.status, episode: episodeNumber, total: total),
+        status: _statusFor(
+          current: state?.status,
+          episode: episodeNumber,
+          total: total,
+        ),
       );
-      debugPrint('$_tag media $mediaId → episode ${result.progress} (${result.status})');
+      debugPrint(
+        '$_tag media $mediaId → episode ${result.progress} (${result.status})',
+      );
       return true;
     } catch (e) {
       // Playback must not be disturbed by a tracker outage.
@@ -185,8 +261,9 @@ class AnilistTracker {
     return s.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
-  static final RegExp _punctuation =
-      RegExp(r'''[.,:;!?'"`~@#$%^&*_+=<>/\\|{}\[\]()·・…—–-]+''');
+  static final RegExp _punctuation = RegExp(
+    r'''[.,:;!?'"`~@#$%^&*_+=<>/\\|{}\[\]()·・…—–-]+''',
+  );
 
   /// Bracketed tags (`[1080p]`, `(TV)`), quality markers and subtitle labels —
   /// all of which appear in source-site titles and never in an AniList one.

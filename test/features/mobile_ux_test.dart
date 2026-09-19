@@ -341,6 +341,52 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('catalogue cards take the room big type needs, in both scripts', (
+    tester,
+  ) async {
+    double cardHeight() => tester
+        .getSize(
+          find
+              .ancestor(
+                of: find.text('TMDB'),
+                matching: find.byType(AnimatedContainer),
+              )
+              .first,
+        )
+        .height;
+
+    Future<void> open(String language, double scale) => pump(
+      tester,
+      Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: ProviderQuickSwitchSheet(
+          favorites: const [],
+          all: providers,
+          mode: ContentMode.video,
+          currentProviderId: 'cat:tmdb',
+        ),
+      ),
+      width: 320,
+      height: 600,
+      scale: scale,
+      language: language,
+    );
+
+    await open('en', 1);
+    expect(tester.takeException(), isNull);
+    // Unchanged at normal type: the card is still the one the sheet was
+    // drawn with, it just stopped being only that.
+    expect(cardHeight(), 68);
+
+    for (final language in ['en', 'ar']) {
+      await open(language, 2);
+      expect(tester.takeException(), isNull, reason: language);
+      // At 200% the name and the hint are what say how tall the card is, so
+      // it grows instead of spilling them out of the bottom.
+      expect(cardHeight(), greaterThan(68), reason: language);
+    }
+  });
+
   testWidgets('six navigation destinations remain readable at 200 percent', (
     tester,
   ) async {
@@ -396,10 +442,14 @@ void main() {
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
-      expect(find.text('1080p'), findsOneWidget);
-      expect(find.text('480p'), findsOneWidget);
+      // The bitrate rides along with the height. It is what tells two
+      // renditions of the SAME resolution apart — a master routinely carries
+      // 1080p twice — and without it those rows were identical on screen while
+      // being different files.
+      expect(find.text('1080p · 4.0 Mbps'), findsOneWidget);
+      expect(find.text('480p · 900 kbps'), findsOneWidget);
       expect(adapter.request?.headers['Referer'], 'required');
-      await tester.tap(find.text('480p'));
+      await tester.tap(find.text('480p · 900 kbps'));
       await tester.pump();
       await tester.tap(find.byType(FilledButton));
       await tester.pumpAndSettle();

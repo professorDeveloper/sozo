@@ -58,7 +58,8 @@ class AppAccent {
   final bool isCustom;
 
   /// Translation key for the swatch label.
-  String get labelKey => isCustom ? 'appearance.accent_custom' : 'appearance.accent_$id';
+  String get labelKey =>
+      isCustom ? 'appearance.accent_custom' : 'appearance.accent_$id';
 
   /// The id stored for a custom colour. Its actual value lives under
   /// [AppConstants.customAccentKey].

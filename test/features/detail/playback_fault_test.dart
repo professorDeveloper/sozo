@@ -11,8 +11,11 @@ void main() {
         'Decoder init failed',
         'RendererException',
       ]) {
-        expect(PlaybackFault.classify(raw).kind, PlaybackFaultKind.decoder,
-            reason: raw);
+        expect(
+          PlaybackFault.classify(raw).kind,
+          PlaybackFaultKind.decoder,
+          reason: raw,
+        );
       }
     });
 
@@ -113,7 +116,9 @@ void main() {
       // The point of the whole file: a failure must not fall back to English
       // for the three audiences who did not choose it.
       for (final locale in const ['en', 'uz', 'ru', 'ar']) {
-        final text = File('assets/translations/$locale.json').readAsStringSync();
+        final text = File(
+          'assets/translations/$locale.json',
+        ).readAsStringSync();
         for (final kind in PlaybackFaultKind.values) {
           final leaf = kind.messageKey.split('.').last;
           expect(

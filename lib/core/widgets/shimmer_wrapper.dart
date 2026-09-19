@@ -39,11 +39,40 @@ class ShimmerWrapper extends StatelessWidget {
   /// screen that is only waiting.
   static const Duration period = Duration(milliseconds: 1650);
 
+  /// The one fade a decoded image gets as it replaces the skeleton underneath
+  /// it. It lives here, next to the skeleton's own colours, because the two are
+  /// halves of the same hand-off and the app currently spells it eleven
+  /// different ways — 120ms in one grid, 240ms in the poster beside it, so a
+  /// single screen dissolves at three speeds. 180ms is long enough to read as a
+  /// dissolve rather than a pop, short enough not to look like the image is
+  /// still loading once it is already there.
+  static const Duration imageFade = Duration(milliseconds: 180);
+
   @override
-  Widget build(BuildContext context) => Shimmer.fromColors(
-    baseColor: base,
-    highlightColor: highlight,
-    period: period,
-    child: child,
-  );
+  Widget build(BuildContext context) {
+    // The skeleton's whole job is to say "content is coming", and the colour
+    // blocks alone still say it. What reduce-motion removes is the sweep — and
+    // with it an AnimationController on infinite repeat plus a ShaderMaskLayer
+    // per paint, on a screen that by definition has nothing else to show yet.
+    //
+    // It has to be the same `srcIn` composite the package uses, not a colour
+    // painted behind the blocks: the placeholders inside are plain white
+    // rectangles, and the only reason they ever read as [base] is that the
+    // sweep paints THROUGH them. A ColoredBox underneath leaves the white
+    // showing, i.e. reduce-motion turns every skeleton into a wall of white
+    // slabs on a near-black app. A colour filter is the sweep's still frame:
+    // one layer, painted once, with nothing ticking behind it.
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return ColorFiltered(
+        colorFilter: const ColorFilter.mode(base, BlendMode.srcIn),
+        child: child,
+      );
+    }
+    return Shimmer.fromColors(
+      baseColor: base,
+      highlightColor: highlight,
+      period: period,
+      child: child,
+    );
+  }
 }

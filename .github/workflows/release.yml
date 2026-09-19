@@ -579,10 +579,23 @@ jobs:
       - run: flutter --version
       - run: flutter pub get
       - run: flutter build windows --release
+      # /DMyAppVersion, because the .iss cannot read pubspec.yaml. Without it the
+      # installer falls back to its own placeholder and every release would show
+      # up under the same version in Add/Remove Programs.
       - name: Build installer (Inno Setup)
+        shell: pwsh
+        env:
+          NAME: ${{ needs.version.outputs.name }}
         run: |
           choco install innosetup --no-progress -y
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "windows\installer\Sozo.iss"
+          # /D emulates `#define public <name> <value>`, and the value is handed
+          # to the preprocessor as source: a bare 3.0.4 is not something ISPP can
+          # parse, so the version has to arrive already wrapped in literal double
+          # quotes to be unambiguously a string. PowerShell re-quotes arguments on
+          # their way to a native command and would eat those quotes, so --% hands
+          # the rest of the line to ISCC verbatim — which also means the version
+          # has to come in as cmd-style %NAME%, the one expansion --% still does.
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" --% /DMyAppVersion="%NAME%" windows\installer\Sozo.iss
       - name: Also zip the raw build (portable)
         shell: pwsh
         run: |
@@ -648,9 +661,32 @@ jobs:
       - run: flutter --version
       - run: flutter pub get
       - run: flutter build linux --release
+      # The bundle on its own is a binary in a folder: no menu entry, no icon,
+      # and nothing claiming the sozo:// scheme, so a Linux user got a strictly
+      # worse app than the Windows and macOS ones from the same release. The
+      # three files from linux/packaging travel with it and install.sh wires
+      # them into the user's session without root — which is the only kind of
+      # install a tarball can honestly offer.
       - name: Package (tar.gz)
         run: |
-          cd build/linux/x64/release/bundle
+          set -euo pipefail
+          BUNDLE=build/linux/x64/release/bundle
+          # Copied one at a time, and only when present. A missing packaging file
+          # costs the desktop integration; it does not make the build unusable,
+          # and under `set -e` a single `cp` of all three would turn that into a
+          # failed release. ::warning:: surfaces it on the run summary instead, so
+          # a file that never got committed is visible rather than fatal.
+          for f in sozo.desktop sozo.png install.sh; do
+            if [ -f "linux/packaging/$f" ]; then
+              cp "linux/packaging/$f" "$BUNDLE/"
+            else
+              echo "::warning::linux/packaging/$f is missing from the checkout — the Linux tarball ships without it."
+            fi
+          done
+          if [ -f "$BUNDLE/install.sh" ]; then
+            chmod +x "$BUNDLE/install.sh"
+          fi
+          cd "$BUNDLE"
           tar -czf "$GITHUB_WORKSPACE/Sozo-Linux-x64.tar.gz" .
       - uses: actions/upload-artifact@v4
         with:

@@ -1,3 +1,5 @@
+import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/content/catalogue_logo.dart';
 import 'dart:async';
 import 'dart:ui';
 
@@ -137,6 +139,7 @@ class _ProviderSwitcher extends StatelessWidget {
       builder: (context, state) {
         if (state is! ProviderLoaded) return const SizedBox.shrink();
         final current = state.currentProvider;
+        final catalogue = Catalogue.fromId(state.currentProviderId);
         return Material(
           color: Colors.transparent,
           child: InkWell(
@@ -158,11 +161,14 @@ class _ProviderSwitcher extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    ProviderLogo(image: current?.image ?? '', size: 22),
+                    if (catalogue != null)
+                      CatalogueLogo(catalogue: catalogue, size: 22)
+                    else
+                      ProviderLogo(image: current?.image ?? '', size: 22),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        current?.name ?? '—',
+                        catalogue?.labelKey.tr() ?? current?.name ?? '—',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

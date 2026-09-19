@@ -11,7 +11,9 @@ void main() {
     });
 
     test('every other option names a family', () {
-      for (final f in SubtitleFont.values.where((f) => f != SubtitleFont.system)) {
+      for (final f in SubtitleFont.values.where(
+        (f) => f != SubtitleFont.system,
+      )) {
         expect(f.family, isNotNull, reason: f.id);
         expect(f.family, isNotEmpty, reason: f.id);
       }
@@ -41,8 +43,12 @@ void main() {
     test('the font is stored by id, not by position', () {
       // An enum written down as an index breaks the moment a value is inserted
       // — and this one is a list that will grow.
-      expect(SubtitleStyle.defaults().copyWith(font: SubtitleFont.mono)
-          .toJsonString(), contains('"font":"mono"'));
+      expect(
+        SubtitleStyle.defaults()
+            .copyWith(font: SubtitleFont.mono)
+            .toJsonString(),
+        contains('"font":"mono"'),
+      );
     });
 
     test('a style saved before fonts existed reads as the default', () {
@@ -63,7 +69,9 @@ void main() {
     });
 
     test('copyWith leaves the font alone unless asked', () {
-      final style = SubtitleStyle.defaults().copyWith(font: SubtitleFont.condensed);
+      final style = SubtitleStyle.defaults().copyWith(
+        font: SubtitleFont.condensed,
+      );
       expect(style.copyWith(fontSize: 24).font, SubtitleFont.condensed);
     });
   });

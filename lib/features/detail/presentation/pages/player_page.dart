@@ -9,6 +9,8 @@ import 'package:soplay/core/player/shader_store.dart';
 import 'package:soplay/features/detail/data/title_prefs_store.dart';
 import 'package:soplay/features/stats/data/watch_stats_store.dart';
 import 'package:soplay/core/network/external_dio.dart';
+import 'package:soplay/core/network/cf_bypass_service.dart';
+import 'package:soplay/core/network/fetch_metadata.dart';
 import 'package:soplay/core/network/user_agent.dart';
 import 'dart:async';
 import 'dart:io';
@@ -185,8 +187,25 @@ class _PlayerPageState extends State<PlayerPage>
   bool _lastPipPlaying = false;
 
   PlayerController? _controller;
+  bool _preferPlatformPlayer = false;
   String? _currentQuality;
   String? _videoUrl;
+
+  /// The url as it was handed to `_initializeWith`, before the WebView sniff
+  /// and before the local proxy rewrote it.
+  ///
+  /// `_videoUrl` is what the PLAYER was finally given — post-sniff,
+  /// post-proxy — and every recovery path fed that back in. For a movie behind
+  /// an extractor directive that means re-running the sniff on a url the sniff
+  /// itself produced: the page it was told to scrape is a video file, nothing
+  /// matches, and the retry fails for a reason that has nothing to do with why
+  /// the first attempt did. This is the url that can usefully be re-run.
+  String? _playSourceUrl;
+
+  /// The headers that went in with [_playSourceUrl]. `_headers` is the merged
+  /// post-sniff set, and feeding those back into a re-sniff sends the CDN's own
+  /// headers to the embed page.
+  Map<String, String> _playSourceHeaders = const {};
   String? _mediaType;
 
   /// What the resolve said about the media as a whole — the format hint for
@@ -283,6 +302,16 @@ class _PlayerPageState extends State<PlayerPage>
   );
 
   String? _errorMessage;
+
+  /// The failure as the engine reported it, before translation.
+  ///
+  /// [_errorMessage] is what the viewer reads — a `PlaybackFaultKind` sentence
+  /// or a humanised line — and by then the words the classifiers key on are
+  /// gone. `isCloudflareError(_errorMessage)` therefore never matched anything
+  /// and the "Solve Cloudflare" button on the error screen was unreachable
+  /// code: the one screen where a challenge is visible to the viewer was the
+  /// one screen that could not offer to solve it.
+  String? _errorRaw;
   bool _isCodecError = false;
   bool _initializing = true;
   _LoadingStage _stage = _LoadingStage.loading;
@@ -607,6 +636,12 @@ class _PlayerPageState extends State<PlayerPage>
           _resumeAfterPause = true;
           c.pause();
         }
+        // Backgrounded is the last callback Android reliably delivers before
+        // it is free to kill the process, and `dispose` is not delivered at
+        // all when it does. Keeping playing in PiP or on the desktop does not
+        // reach the pause above either, so the flush is unconditional: at
+        // worst it rewrites a row the tick just wrote.
+        _saveHistory();
         break;
       case AppLifecycleState.resumed:
         if (_isPip && mounted) {
@@ -618,6 +653,8 @@ class _PlayerPageState extends State<PlayerPage>
         _resumeAfterPause = false;
         break;
       case AppLifecycleState.detached:
+        // The engine is going away and dispose may never run. Last chance.
+        _saveHistory();
         break;
     }
   }
@@ -853,57 +890,453 @@ class _PlayerPageState extends State<PlayerPage>
   KeyEventResult _onPlayerKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
     final k = event.logicalKey;
-    // Block playback-control keys (play/pause + seek) when not allowed to
-    // control the party; consume the event so no local action happens.
-    final isPartyControlKey =
-        k == LogicalKeyboardKey.space ||
-        k == LogicalKeyboardKey.mediaPlayPause ||
-        k == LogicalKeyboardKey.arrowLeft ||
-        k == LogicalKeyboardKey.arrowRight;
-    if (isPartyControlKey && _partyBlockLocal()) {
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.space ||
-        k == LogicalKeyboardKey.mediaPlayPause) {
-      _togglePlay();
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.arrowLeft) {
-      _seekRelative(-_seekStep);
-      _showSeekRipple(-1);
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.arrowRight) {
-      _seekRelative(_seekStep);
-      _showSeekRipple(1);
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.arrowUp) {
-      _setPlayerVolume(_volume + 0.1);
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.arrowDown) {
-      _setPlayerVolume(_volume - 0.1);
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.keyM) {
-      _toggleMute();
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.keyF) {
-      _toggleFullscreen();
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.escape) {
-      if (_panel != _SidePanel.none) {
-        _closePanel();
-      } else if (_isFullscreen) {
-        _toggleFullscreen();
-      } else {
-        _exit();
+    for (final shortcut in _playerShortcuts) {
+      if (!shortcut.keys.contains(k)) continue;
+      // Swallowed rather than ignored when the party forbids it: the press was
+      // aimed at the player, and passing it on would hand a seek to whatever
+      // happens to be behind.
+      if (shortcut.drivesPlayback && _partyBlockLocal()) {
+        return KeyEventResult.handled;
       }
+      // Autorepeat is welcome on a seek and fatal almost everywhere else: the
+      // key arrives at the OS repeat rate, so a held N walks the season,
+      // tearing down and re-resolving a stream per hop, a held S stacks a
+      // modal sheet on itself, and a held Esc closes the panel, leaves
+      // fullscreen and exits the player in one press. Only the bindings that
+      // asked for it repeat; the rest fire once and swallow the rest of the
+      // burst.
+      if (!shortcut.repeats && event is KeyRepeatEvent) {
+        return KeyEventResult.handled;
+      }
+      shortcut.onKey(k);
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }
+
+  /// Whether there is a stream to act on yet.
+  ///
+  /// Every binding that moves the picture goes through a controller that
+  /// refuses while nothing is initialized, so during a load those keys are
+  /// dead however long the sheet says otherwise.
+  bool get _playbackReady => _controller?.value.isInitialized ?? false;
+
+  /// Whether the timeline can be moved at all.
+  ///
+  /// A broadcast has no timeline to move around in: [_seekRelative] returns
+  /// outright while [_isLive], and [_seekTo] accepts nothing but the live
+  /// edge. That kills every seek binding — the arrows, J and L, the frame
+  /// step, the deciles and Home — and turns End into "go live", which is not
+  /// what the line printed beside it says.
+  bool get _canSeekByKey => _playbackReady && !_isLive;
+
+  /// Whether the audio-track sheet has anything to show.
+  ///
+  /// Mirrors [_openAudioTrackSheet]'s own guard, and the common case is that
+  /// it does not: only media_kit reports tracks at all, and most streams carry
+  /// a single one.
+  bool get _hasAudioTrackChoice {
+    final c = _controller;
+    return c != null && c.supportsAudioTracks && c.audioTracks.length > 1;
+  }
+
+  /// Every desktop keyboard binding, in the order the cheat-sheet prints them.
+  ///
+  /// The handler and the sheet are built from this one list, because the eight
+  /// keys that came before were spelled out in an if-chain and written down
+  /// nowhere — a shortcut nobody can discover is a shortcut nobody has. A
+  /// binding that is not here does not exist; one that is here is live, and is
+  /// printed for as long as it can actually do something — see
+  /// [_PlayerShortcut.available].
+  List<_PlayerShortcut> get _playerShortcuts => [
+    _PlayerShortcut(
+      keys: const [
+        LogicalKeyboardKey.space,
+        LogicalKeyboardKey.mediaPlayPause,
+        LogicalKeyboardKey.keyK,
+      ],
+      hint: '${'player.key_space'.tr()}  ·  K',
+      label: 'player.shortcut_play_pause'.tr(),
+      drivesPlayback: true,
+      available: _playbackReady,
+      onKey: (_) => _togglePlay(),
+    ),
+    _PlayerShortcut(
+      keys: const [LogicalKeyboardKey.arrowLeft, LogicalKeyboardKey.arrowRight],
+      hint: '←  /  →',
+      label: 'player.shortcut_seek'.tr(args: ['$_seekSeconds']),
+      drivesPlayback: true,
+      available: _canSeekByKey,
+      repeats: true,
+      onKey: (k) => _seekByKey(k == LogicalKeyboardKey.arrowRight ? 1 : -1),
+    ),
+    _PlayerShortcut(
+      keys: const [LogicalKeyboardKey.keyJ, LogicalKeyboardKey.keyL],
+      hint: 'J  /  L',
+      label: 'player.shortcut_seek_long'.tr(
+        args: ['${_seekSeconds * _kLongSeekSteps}'],
+      ),
+      drivesPlayback: true,
+      available: _canSeekByKey,
+      repeats: true,
+      onKey: (k) => _seekByKey(
+        k == LogicalKeyboardKey.keyL ? _kLongSeekSteps : -_kLongSeekSteps,
+      ),
+    ),
+    _PlayerShortcut(
+      keys: const [LogicalKeyboardKey.comma, LogicalKeyboardKey.period],
+      hint: ',  /  .',
+      label: 'player.shortcut_frame'.tr(),
+      drivesPlayback: true,
+      available: _canSeekByKey,
+      repeats: true,
+      onKey: (k) => _stepFrame(k == LogicalKeyboardKey.period ? 1 : -1),
+    ),
+    _PlayerShortcut(
+      keys: _kDecileKeys,
+      hint: '0 – 9',
+      label: 'player.shortcut_decile'.tr(),
+      drivesPlayback: true,
+      available: _canSeekByKey,
+      onKey: _seekToDecile,
+    ),
+    _PlayerShortcut(
+      keys: const [LogicalKeyboardKey.arrowUp, LogicalKeyboardKey.arrowDown],
+      hint: '↑  /  ↓',
+      label: 'player.shortcut_volume'.tr(),
+      repeats: true,
+      onKey: (k) => _setPlayerVolume(
+        _volume + (k == LogicalKeyboardKey.arrowUp ? 0.1 : -0.1),
+      ),
+    ),
+    _PlayerShortcut(
+      keys: const [LogicalKeyboardKey.keyM],
+      hint: 'M',
+      label: 'player.shortcut_mute'.tr(),
+      onKey: (_) => _toggleMute(),
+    ),
+    _PlayerShortcut(
+      keys: const [
+        LogicalKeyboardKey.bracketLeft,
+        LogicalKeyboardKey.bracketRight,
+        LogicalKeyboardKey.minus,
+        LogicalKeyboardKey.equal,
+      ],
+      // The unshifted legends, because those are the keys that are bound:
+      // `equal`, not the `+` that needs Shift, and the hyphen-minus engraved
+      // on the key rather than a typographic minus sign.
+      hint: '[  /  ]   ·   -  /  =',
+      label: 'player.shortcut_speed'.tr(),
+      drivesPlayback: true,
+      onKey: (k) => _stepSpeed(
+        k == LogicalKeyboardKey.bracketRight || k == LogicalKeyboardKey.equal
+            ? 1
+            : -1,
+      ),
+    ),
+    _PlayerShortcut(
+      keys: const [LogicalKeyboardKey.keyF],
+      hint: 'F',
+      label: 'player.fullscreen'.tr(),
+      onKey: (_) => _toggleFullscreen(),
+    ),
+    _PlayerShortcut(
+      keys: const [LogicalKeyboardKey.keyS],
+      hint: 'S',
+      label: 'player.subtitles'.tr(),
+      onKey: (_) => _openSubtitleSheet(),
+    ),
+    _PlayerShortcut(
+      keys: const [LogicalKeyboardKey.keyA],
+      hint: 'A',
+      label: 'player.audio_track'.tr(),
+      // Printed only when the sheet would open. A stream with one audio track
+      // — which is most of them — and every engine but media_kit leave this
+      // key silent, and a silent key on the sheet is the lie the sheet exists
+      // to avoid.
+      available: _hasAudioTrackChoice,
+      onKey: (_) => _openAudioTrackSheet(),
+    ),
+    _PlayerShortcut(
+      keys: const [LogicalKeyboardKey.keyP, LogicalKeyboardKey.keyN],
+      hint: 'P  /  N',
+      label: 'player.shortcut_episode'.tr(),
+      // Unprinted on a film, where both keys would be dead: a printed line
+      // that does nothing teaches the viewer to distrust the rest of the
+      // sheet.
+      available: _affordances.hasEpisodes,
+      onKey: (k) {
+        final forward = k == LogicalKeyboardKey.keyN;
+        if (forward ? _hasNextEpisode : _hasPrevEpisode) {
+          _partyEpisodeNav(_episodeIndex + (forward ? 1 : -1));
+        }
+      },
+    ),
+    _PlayerShortcut(
+      keys: const [LogicalKeyboardKey.home, LogicalKeyboardKey.end],
+      hint: 'Home  /  End',
+      label: 'player.shortcut_start_end'.tr(),
+      drivesPlayback: true,
+      available: _canSeekByKey,
+      onKey: (k) {
+        final c = _controller;
+        if (c == null || !c.value.isInitialized) return;
+        _seekTo(
+          k == LogicalKeyboardKey.home ? Duration.zero : c.value.duration,
+        );
+      },
+    ),
+    _PlayerShortcut(
+      // Shift+/ arrives as the question mark on some platforms and as the
+      // slash on others; it is one press either way.
+      keys: const [LogicalKeyboardKey.question, LogicalKeyboardKey.slash],
+      hint: '?',
+      label: 'player.shortcut_help'.tr(),
+      onKey: (_) => _openShortcutsSheet(),
+    ),
+    _PlayerShortcut(
+      keys: const [LogicalKeyboardKey.escape],
+      hint: 'Esc',
+      label: 'player.shortcut_escape'.tr(),
+      // Deliberately not marked as driving playback: a guest who may not touch
+      // the stream still has to be able to leave the room.
+      onKey: (_) {
+        if (_panel != _SidePanel.none) {
+          _closePanel();
+        } else if (_isFullscreen) {
+          _toggleFullscreen();
+        } else {
+          _exit();
+        }
+      },
+    ),
+  ];
+
+  /// Both seek bindings, counted in arrow-steps: the arrows move one, J and L
+  /// move [_kLongSeekSteps].
+  ///
+  /// Steps rather than seconds because the ripple counts in steps too — it
+  /// adds one step's worth per call, which is what makes a double tap read
+  /// "+20s". A long jump therefore has to announce itself once per step it
+  /// took, or it lands thirty seconds away under an overlay that says ten.
+  void _seekByKey(int steps) {
+    _seekRelative(_seekStep * steps);
+    for (var i = 0; i < steps.abs(); i++) {
+      _showSeekRipple(steps.isNegative ? -1 : 1);
+    }
+  }
+
+  /// No engine here exposes a frame step, so this nudges by roughly one frame
+  /// at 24fps — close enough to walk through a shot, far enough that the seek
+  /// actually lands somewhere new.
+  void _stepFrame(int direction) =>
+      _seekRelative(Duration(milliseconds: 42 * direction));
+
+  void _seekToDecile(LogicalKeyboardKey key) {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    final total = c.value.duration;
+    if (total <= Duration.zero) return;
+    // The numpad row is listed straight after the digit row, so the remainder
+    // is the digit whichever half of the keyboard it came from.
+    final index = _kDecileKeys.indexOf(key);
+    if (index < 0) return;
+    _seekTo(total * ((index % 10) / 10));
+  }
+
+  void _stepSpeed(int direction) {
+    // Nearest rung rather than an exact match: a party host can set a rate that
+    // is not on the ladder, and the key still has to do something sensible.
+    var from = 0;
+    for (var i = 1; i < _kKeyboardSpeeds.length; i++) {
+      if ((_kKeyboardSpeeds[i] - _playbackSpeed).abs() <
+          (_kKeyboardSpeeds[from] - _playbackSpeed).abs()) {
+        from = i;
+      }
+    }
+    final next = (from + direction).clamp(0, _kKeyboardSpeeds.length - 1);
+    if (_kKeyboardSpeeds[next] != _playbackSpeed) {
+      _setSpeed(_kKeyboardSpeeds[next]);
+    }
+  }
+
+  void _openShortcutsSheet() {
+    // Only the lines that would do something if pressed right now. The whole
+    // point of a cheat-sheet is that what is printed is what you get, and the
+    // filtered bindings stay bound — the key is still swallowed rather than
+    // escaping into focus traversal behind the player.
+    final shortcuts = [
+      for (final shortcut in _playerShortcuts)
+        if (shortcut.available) shortcut,
+    ];
+    showAdaptiveModal<void>(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      desktopMaxWidth: 520,
+      builder: (_) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.keyboard_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'player.shortcuts_title'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(color: Colors.white12, height: 1),
+              for (final shortcut in shortcuts)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 9,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 128,
+                        child: Text(
+                          shortcut.hint,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          shortcut.label,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
+
+/// One desktop keyboard binding: the keys that fire it, how those keys are
+/// written down, and what they do.
+///
+/// See [_PlayerPageState._playerShortcuts] for why the key handler and the
+/// cheat-sheet are the same list.
+class _PlayerShortcut {
+  const _PlayerShortcut({
+    required this.keys,
+    required this.hint,
+    required this.label,
+    required this.onKey,
+    this.drivesPlayback = false,
+    this.available = true,
+    this.repeats = false,
+  });
+
+  final List<LogicalKeyboardKey> keys;
+
+  /// The keys as the cheat-sheet prints them, e.g. "J / L". Key legends are
+  /// left untranslated — what is engraved on the key does not change with the
+  /// app's language — so the one entry that is a word rather than a legend,
+  /// the space bar, goes through `tr` at the call site.
+  final String hint;
+
+  /// Already localised.
+  final String label;
+
+  /// Handed the key that matched, so a single entry can cover a range: the ten
+  /// digits are one binding here and one line on the sheet.
+  final void Function(LogicalKeyboardKey key) onKey;
+
+  /// Moves the picture, so a party guest who may not drive playback must not
+  /// reach it. Volume, mute and the panels are local to this screen and stay
+  /// open to everyone.
+  final bool drivesPlayback;
+
+  /// Whether this binding can do anything in the state the player is in right
+  /// now — there is a stream, the timeline can be moved, the sheet behind the
+  /// key has rows in it.
+  ///
+  /// It governs the cheat-sheet only. The binding stays live either way, both
+  /// because the underlying action guards itself anyway and because a key the
+  /// player owns should not escape into focus traversal behind it on the one
+  /// frame this getter says no.
+  final bool available;
+
+  /// Whether holding the key should keep firing it.
+  ///
+  /// Off by default, because that is the answer everywhere except seeking and
+  /// volume: autorepeat arrives at the OS repeat rate, and thirty presses a
+  /// second flaps a toggle, stacks a modal sheet on itself, walks the speed
+  /// ladder end to end, and — on the episode keys — tears down and
+  /// re-resolves a stream per hop. Seek and volume are the two where a press
+  /// is cheap and cumulative, and where holding the key is how the control is
+  /// meant to be used.
+  final bool repeats;
+}
+
+/// How much further J and L go than the arrows. A multiple of the viewer's own
+/// seek step rather than a fixed thirty seconds, so the long jump stays
+/// clearly longer than the short one however the step was set in Settings.
+const _kLongSeekSteps = 3;
+
+/// The digit row followed by the numpad in the same order, so the index modulo
+/// ten is the digit whichever half was pressed.
+const _kDecileKeys = <LogicalKeyboardKey>[
+  LogicalKeyboardKey.digit0,
+  LogicalKeyboardKey.digit1,
+  LogicalKeyboardKey.digit2,
+  LogicalKeyboardKey.digit3,
+  LogicalKeyboardKey.digit4,
+  LogicalKeyboardKey.digit5,
+  LogicalKeyboardKey.digit6,
+  LogicalKeyboardKey.digit7,
+  LogicalKeyboardKey.digit8,
+  LogicalKeyboardKey.digit9,
+  LogicalKeyboardKey.numpad0,
+  LogicalKeyboardKey.numpad1,
+  LogicalKeyboardKey.numpad2,
+  LogicalKeyboardKey.numpad3,
+  LogicalKeyboardKey.numpad4,
+  LogicalKeyboardKey.numpad5,
+  LogicalKeyboardKey.numpad6,
+  LogicalKeyboardKey.numpad7,
+  LogicalKeyboardKey.numpad8,
+  LogicalKeyboardKey.numpad9,
+];
+
+/// The rungs [ and ] climb. Deliberately the same set the speed sheet offers
+/// (player_page.panels.dart): a key that landed between its rows would leave
+/// the sheet open with nothing selected.
+const _kKeyboardSpeeds = <double>[0.5, 0.75, 1.0, 1.25, 1.5, 2.0];

@@ -350,7 +350,7 @@ class _GenreSection extends StatelessWidget {
             ),
           ),
           SizedBox(
-            height: isDesktopPlatform ? 90 : 72,
+            height: isDesktopPlatform ? 84 : 68,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               // Don't clip the hover scale on desktop, as MovieSection does.

@@ -13,8 +13,8 @@ class AnilistLinksPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TrackerLinksPage(
-        store: getIt<AnilistLinkStore>(),
-        title: 'anilist.linked_titles'.tr(),
-        accent: kAnilistBlue,
-      );
+    store: getIt<AnilistLinkStore>(),
+    title: 'anilist.linked_titles'.tr(),
+    accent: kAnilistBlue,
+  );
 }

@@ -42,11 +42,7 @@ import 'package:soplay/core/widgets/app_tab_bar.dart';
 /// `_PosterGridSk` in `detail_skeleton.dart`), or the placeholder stops being
 /// a placeholder and becomes a different layout that gets replaced.
 class DetailPreviewSkeleton extends StatelessWidget {
-  const DetailPreviewSkeleton({
-    super.key,
-    required this.preview,
-    this.heroTag,
-  });
+  const DetailPreviewSkeleton({super.key, required this.preview, this.heroTag});
 
   final MovieEntity preview;
   final String? heroTag;
@@ -66,44 +62,47 @@ class DetailPreviewSkeleton extends StatelessWidget {
     // across its own rectangle.
     return ShimmerWrapper(
       child: CustomScrollView(
-      // The list underneath is placeholder content; letting somebody fling it
-      // and then swapping in the real page mid-scroll is disorienting.
-      physics: const NeverScrollableScrollPhysics(),
-      slivers: [
-        SliverToBoxAdapter(
-          child: SizedBox(
-            height: height,
-            // Identical to the loaded page's header, deliberately: this widget
-            // exists to be indistinguishable from what replaces it.
-            child: DetailHeroBackground(
-              thumbnail: preview.thumbnail,
-              title: preview.title,
-              heroTag: heroTag,
+        // The list underneath is placeholder content; letting somebody fling it
+        // and then swapping in the real page mid-scroll is disorienting.
+        physics: const NeverScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: height,
+              // Identical to the loaded page's header, deliberately: this widget
+              // exists to be indistinguishable from what replaces it.
+              child: DetailHeroBackground(
+                thumbnail: preview.thumbnail,
+                title: preview.title,
+                heroTag: heroTag,
+              ),
             ),
           ),
-        ),
-        SliverToBoxAdapter(
-          // The placeholders arrive after the poster, not with it. Painted
-          // from the first frame they are grey bars sitting under an image
-          // that is still crossing the screen, which is exactly the
-          // "something is covering it" the flight was meant to avoid.
-          child: _LateFade(hasFlight: flying, child: const _HeaderSk()),
-        ),
-        SliverToBoxAdapter(
-          child: _LateFade(hasFlight: flying, child: const _TabStripSk()),
-        ),
-        SliverPadding(
-          // The loaded page's own padding around the tab body.
-          padding: EdgeInsets.only(
-            top: 4,
-            bottom: MediaQuery.paddingOf(context).bottom + 32,
+          SliverToBoxAdapter(
+            // The placeholders arrive after the poster, not with it. Painted
+            // from the first frame they are grey bars sitting under an image
+            // that is still crossing the screen, which is exactly the
+            // "something is covering it" the flight was meant to avoid.
+            child: _LateFade(hasFlight: flying, child: const _HeaderSk()),
           ),
-          sliver: SliverToBoxAdapter(
-            child: _LateFade(hasFlight: flying, child: const _RelatedGridSk()),
+          SliverToBoxAdapter(
+            child: _LateFade(hasFlight: flying, child: const _TabStripSk()),
           ),
-        ),
-      ],
-    ),
+          SliverPadding(
+            // The loaded page's own padding around the tab body.
+            padding: EdgeInsets.only(
+              top: 4,
+              bottom: MediaQuery.paddingOf(context).bottom + 32,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: _LateFade(
+                hasFlight: flying,
+                child: const _RelatedGridSk(),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -291,11 +290,7 @@ class _RelatedCardSk extends StatelessWidget {
 /// standard signal that something is on its way, and removing it everywhere
 /// would leave the lower half of the page looking simply empty.
 class _Block extends StatelessWidget {
-  const _Block({
-    this.width,
-    required this.height,
-    this.radius = 6,
-  });
+  const _Block({this.width, required this.height, this.radius = 6});
 
   final double? width;
   final double height;
@@ -375,4 +370,3 @@ class _LateFadeState extends State<_LateFade> {
     return FadeTransition(opacity: curve, child: widget.child);
   }
 }
-
