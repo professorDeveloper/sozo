@@ -1894,6 +1894,7 @@
     "checking_quality": "Comprobando la calidad disponible…",
     "quality_unavailable": "No se pudo comprobar la calidad. Reintenta o descarga la transmisión original sin garantía de calidad.",
     "quality_unknown": "Calidad desconocida",
+    "single_quality": "Solo hay una calidad",
     "size_unknown": "La fuente no indica el tamaño",
     "interface_language_note": "Solo cambia la interfaz de la aplicación. Los títulos, las descripciones y el resto del contenido de las fuentes permanecen en su idioma original.",
     "continue": "Continuar",

@@ -291,7 +291,10 @@ extension _PlayerPanels on _PlayerPageState {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (sheetContext) => SafeArea(
+      // StatefulBuilder so a row can change its own value without the sheet
+      // closing and reopening — see the aspect-ratio tile below.
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -360,13 +363,20 @@ extension _PlayerPanels on _PlayerPageState {
                     _startDownload();
                   },
                 ),
+              // Three values, stepped in place.
+              //
+              // This opened a SECOND sheet over the first to choose one of
+              // three — a whole modal, covering the video, for a setting whose
+              // entire interaction is "the next one". The row cycles now and
+              // shows where it landed, and the sheet it is in stays open so
+              // two steps cost two taps.
               _SettingsTile(
                 icon: Icons.aspect_ratio_rounded,
                 label: 'player.aspect'.tr(),
                 value: _fitLabel(_fit),
                 onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _openFitSheet();
+                  _cycleFit(toast: false);
+                  setSheetState(() {});
                 },
               ),
               if (!isDesktopPlatform &&
@@ -617,6 +627,7 @@ extension _PlayerPanels on _PlayerPageState {
             ],
           ),
         ),
+      ),
       ),
     );
   }

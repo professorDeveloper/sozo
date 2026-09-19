@@ -1894,6 +1894,7 @@
     "checking_quality": "Mavjud sifatlar tekshirilmoqda…",
     "quality_unavailable": "Sifatni tekshirib bo‘lmadi. Qayta urinib ko‘ring yoki asl oqimni sifat kafolatisiz yuklang.",
     "quality_unknown": "Sifat noma’lum",
+    "single_quality": "Faqat bitta sifat mavjud",
     "size_unknown": "Manba fayl hajmini bermagan",
     "interface_language_note": "Faqat ilova interfeysi o‘zgaradi. Film nomlari, tavsiflari va manbadagi boshqa kontent asl tilida qoladi.",
     "continue": "Davom etish",

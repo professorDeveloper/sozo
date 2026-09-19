@@ -1894,6 +1894,7 @@
     "checking_quality": "Verificando a qualidade disponível…",
     "quality_unavailable": "Não foi possível verificar a qualidade. Tente novamente ou baixe a transmissão original sem garantia de qualidade.",
     "quality_unknown": "Qualidade desconhecida",
+    "single_quality": "Apenas uma qualidade disponível",
     "size_unknown": "A fonte não informou o tamanho",
     "interface_language_note": "Apenas a interface do aplicativo muda. Títulos de filmes, descrições e outros conteúdos das fontes permanecem no idioma original.",
     "continue": "Continuar",

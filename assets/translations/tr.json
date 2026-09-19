@@ -1894,6 +1894,7 @@
     "checking_quality": "Mevcut kalite kontrol ediliyor…",
     "quality_unavailable": "Kalite kontrol edilemedi. Yeniden deneyin veya orijinal yayını kalite garantisi olmadan indirin.",
     "quality_unknown": "Kalite bilinmiyor",
+    "single_quality": "Tek kalite mevcut",
     "size_unknown": "Kaynak dosya boyutunu belirtmedi",
     "interface_language_note": "Yalnızca uygulama arayüzü değişir. Film adları, açıklamalar ve diğer kaynak içerikleri orijinal dilinde kalır.",
     "continue": "Devam et",

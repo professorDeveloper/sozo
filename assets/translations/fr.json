@@ -1894,6 +1894,7 @@
     "checking_quality": "Vérification de la qualité disponible…",
     "quality_unavailable": "Impossible de vérifier la qualité. Réessayez ou téléchargez le flux d’origine sans garantie de qualité.",
     "quality_unknown": "Qualité inconnue",
+    "single_quality": "Une seule qualité disponible",
     "size_unknown": "La source ne précise pas la taille",
     "interface_language_note": "Seule l’interface de l’application change. Les titres, descriptions et autres contenus des sources restent dans leur langue d’origine.",
     "continue": "Continuer",

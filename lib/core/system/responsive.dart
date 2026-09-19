@@ -598,6 +598,22 @@ Future<T?> showAdaptiveModal<T>({
     isScrollControlled: isScrollControlled,
     shape: shape,
     showDragHandle: showDragHandle,
+    // Faster in, and with a curve that settles rather than slides.
+    //
+    // Material's default is 250ms in and 200ms out on a plain accelerate /
+    // decelerate pair. On a player, where a sheet is opened to change one
+    // thing and dismissed immediately, a quarter of a second of travel is the
+    // difference between a control and a wait — and the app opens these from
+    // a bar that is itself on a hide timer. 180ms in on an emphasised
+    // decelerate reads as the sheet ARRIVING, which is what makes a short
+    // animation feel fast rather than clipped, and 140ms out gets out of the
+    // way of whatever the tap was for.
+    sheetAnimationStyle: AnimationStyle(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      reverseDuration: const Duration(milliseconds: 140),
+      reverseCurve: Curves.easeInCubic,
+    ),
     builder: builder,
   );
 }

@@ -23,7 +23,7 @@ const Map<String, IconData> _kControlIcons = <String, IconData>{
   'speed': Icons.speed_rounded,
   'server': Icons.dns_rounded,
   'quality': Icons.high_quality_rounded,
-  'episodes': Icons.playlist_play_rounded,
+  'episodes': Icons.video_library_rounded,
   'shader': Icons.auto_awesome_rounded,
   'fit': Icons.aspect_ratio_rounded,
   'sleep': Icons.bedtime_rounded,

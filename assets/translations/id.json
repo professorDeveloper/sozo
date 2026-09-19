@@ -1894,6 +1894,7 @@
     "checking_quality": "Memeriksa kualitas yang tersedia…",
     "quality_unavailable": "Kualitas tidak dapat diperiksa. Coba lagi atau unduh streaming asli tanpa jaminan kualitas.",
     "quality_unknown": "Kualitas tidak diketahui",
+    "single_quality": "Hanya satu kualitas tersedia",
     "size_unknown": "Sumber tidak memberikan ukuran berkas",
     "interface_language_note": "Hanya antarmuka aplikasi yang berubah. Judul film, deskripsi, dan konten sumber lainnya tetap dalam bahasa aslinya.",
     "continue": "Lanjutkan",

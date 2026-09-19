@@ -1894,6 +1894,7 @@
     "checking_quality": "檢查緊有咩畫質…",
     "quality_unavailable": "檢查唔到畫質。可以重試，或者直接下載原本嘅串流，但唔保證畫質。",
     "quality_unknown": "畫質不明",
+    "single_quality": "只有一種畫質",
     "size_unknown": "來源冇提供檔案大細",
     "interface_language_note": "只係轉 app 介面嘅語言。影片名稱、簡介同其他來源內容仍然保持原本語言。",
     "continue": "繼續",

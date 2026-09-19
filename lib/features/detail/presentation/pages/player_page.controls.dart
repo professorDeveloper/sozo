@@ -316,11 +316,14 @@ extension _PlayerControls on _PlayerPageState {
 
   /// The next fill mode, wrapping. Three of them, so stepping is the whole
   /// interaction and the sheet was pure overhead.
-  void _cycleFit() {
+  /// [toast] is off when the caller already shows the new value — the
+  /// settings row does, right where the finger is, and a snackbar on top of
+  /// the sheet that is showing it is one message too many.
+  void _cycleFit({bool toast = true}) {
     final next =
         _PlayerFit.values[(_fit.index + 1) % _PlayerFit.values.length];
     _setFit(next);
-    _toast(_fitLabel(next), icon: Icons.aspect_ratio_rounded);
+    if (toast) _toast(_fitLabel(next), icon: Icons.aspect_ratio_rounded);
   }
 
   String _fitLabel(_PlayerFit fit) {
@@ -1038,7 +1041,7 @@ extension _PlayerControls on _PlayerPageState {
                                 if (hasEpisodes) ...[
                                   const SizedBox(width: 2),
                                   _IconButton(
-                                    icon: Icons.playlist_play_rounded,
+                                    icon: Icons.video_library_rounded,
                                     onTap: () =>
                                         _openPanel(_SidePanel.episodes),
                                   ),
@@ -1304,7 +1307,7 @@ extension _PlayerControls on _PlayerPageState {
                     if (hasEpisodes) ...[
                       const SizedBox(width: 4),
                       _IconButton(
-                        icon: Icons.playlist_play_rounded,
+                        icon: Icons.video_library_rounded,
                         onTap: () => _openPanel(_SidePanel.episodes),
                       ),
                     ],
@@ -1640,7 +1643,7 @@ extension _PlayerControls on _PlayerPageState {
       case 'episodes':
         if (!a.hasEpisodes) return null;
         return _IconButton(
-          icon: Icons.playlist_play_rounded,
+          icon: Icons.video_library_rounded,
           onTap: () => _openPanel(_SidePanel.episodes),
         );
       case 'previous':
@@ -1790,7 +1793,7 @@ extension _PlayerControls on _PlayerPageState {
         return _BottomTextButton(
           // The same glyph the top bar draws. A control that changes its face
           // when the viewer moves it stops being the control they moved.
-          icon: Icons.playlist_play_rounded,
+          icon: Icons.video_library_rounded,
           label: 'player.episodes'.tr(),
           compact: compact,
           enabled: true,

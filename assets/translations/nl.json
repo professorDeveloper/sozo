@@ -1894,6 +1894,7 @@
     "checking_quality": "Beschikbare kwaliteit controleren…",
     "quality_unavailable": "De kwaliteit kon niet worden gecontroleerd. Probeer opnieuw of download de oorspronkelijke stream zonder kwaliteitsgarantie.",
     "quality_unknown": "Kwaliteit onbekend",
+    "single_quality": "Slechts één kwaliteit beschikbaar",
     "size_unknown": "De bron geeft geen bestandsgrootte op",
     "interface_language_note": "Alleen de app-interface verandert. Filmtitels, beschrijvingen en andere broninhoud blijven in de oorspronkelijke taal.",
     "continue": "Doorgaan",

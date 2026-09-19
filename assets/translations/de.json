@@ -1894,6 +1894,7 @@
     "checking_quality": "Verfügbare Qualität wird geprüft…",
     "quality_unavailable": "Die Qualität konnte nicht geprüft werden. Versuche es erneut oder lade den ursprünglichen Stream ohne Qualitätsgarantie herunter.",
     "quality_unknown": "Qualität unbekannt",
+    "single_quality": "Nur eine Qualität verfügbar",
     "size_unknown": "Die Quelle gibt keine Dateigröße an",
     "interface_language_note": "Nur die App-Oberfläche ändert sich. Filmtitel, Beschreibungen und andere Quelleninhalte bleiben in ihrer Originalsprache.",
     "continue": "Weiter",

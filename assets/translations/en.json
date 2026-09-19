@@ -1894,6 +1894,7 @@
     "checking_quality": "Checking available quality…",
     "quality_unavailable": "Quality could not be checked. Retry, or download the original stream without a quality guarantee.",
     "quality_unknown": "Quality unknown",
+    "single_quality": "Only one quality available",
     "size_unknown": "Size not provided by the source",
     "interface_language_note": "Only the app interface changes. Film titles, descriptions and other source content stay in their original language.",
     "continue": "Continue",

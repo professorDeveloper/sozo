@@ -161,6 +161,24 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
     }
   }
 
+  /// What to say when there are no renditions to choose between.
+  ///
+  /// "Quality unknown" over a single Download button reads as the app having
+  /// failed to work something out. For an HLS MEDIA playlist — segments rather
+  /// than #EXT-X-STREAM-INF — there was nothing to work out: that playlist IS
+  /// one quality. But only when this is also the only source; with other
+  /// mirrors on offer, "only one quality available" would be a claim about the
+  /// title that the list above it contradicts, and unknown is then the honest
+  /// word.
+  String _noVariantLabel(VideoSourceEntity source) {
+    final h = source.height ?? VideoOptionGroups.resolutionOf(source.quality);
+    if (h != null && h > 0) return '${h}p';
+    if (source.quality.isNotEmpty) return source.quality;
+    return _sources.length == 1
+        ? 'ux.single_quality'.tr()
+        : 'ux.quality_unknown'.tr();
+  }
+
   /// `1080p` when the height is known, the provider's label when it is not.
   String _sourceTitle(VideoSourceEntity source, int index) {
     final h = source.height ?? VideoOptionGroups.resolutionOf(source.quality);
@@ -268,11 +286,15 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
                         onTap: () => setState(() => _variant = i),
                       )
                   else
-                    Text(
-                      source.height == null
-                          ? 'ux.quality_unknown'.tr()
-                          : '${source.height}p',
-                    ),
+                    // One rendition, not an unknown one.
+                    //
+                    // A playlist with segments rather than #EXT-X-STREAM-INF
+                    // offers exactly one quality — that is what it IS, and the
+                    // sheet said "Quality unknown" over a single Download
+                    // button, which reads as the app having failed to work
+                    // something out. It had nothing to work out. The height is
+                    // still shown whenever it can be derived at all.
+                    Text(_noVariantLabel(source)),
                   const SizedBox(height: 12),
                   // A master size cannot describe a selected rendition; never reuse it.
                   Text(
