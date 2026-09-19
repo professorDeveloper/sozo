@@ -258,6 +258,7 @@
     "engine_sheet_play": "Lire",
     "subtitle_preview_text": "Portez ce vieux whisky au juge blond qui fume",
     "server": "Serveur",
+    "change_server": "Changer de serveur",
     "stream_not_found": "Cette source cache son flux derrière un lecteur protégé. Essaie une autre source, ou ouvre-la dans ton navigateur.",
     "subtitle_translation": "Traduction des sous-titres",
     "auto_translate": "Traduction automatique",
@@ -1932,6 +1933,7 @@
   "source_manager": {
     "profile_hint": "Choisir, ajouter et gérer les sources",
     "manage_repositories": "Gérer les dépôts",
+    "manage": "Gérer",
     "browse": "Explorer",
     "catalog_title": "Catalogue de sources",
     "add_short": "Ajouter",

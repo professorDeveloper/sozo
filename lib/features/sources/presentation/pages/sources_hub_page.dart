@@ -276,10 +276,22 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                   onTap: () => setState(() => _adding = false),
                 ),
                 const SizedBox(width: 6),
+                // Manage, not "Add source".
+                //
+                // This pill used to flip the same screen over to the
+                // installable catalogue — a second list, on the same page,
+                // under the same title, with its own search and its own
+                // chips. Two lists behind one pair of pills is where this
+                // screen got confusing, and it buried the page that actually
+                // organises sources: the ecosystems, the by-language browser
+                // and DNS all live on [SourcesPage], which had become
+                // reachable only through an overflow menu on a page you had
+                // to flip to first. The pill opens that instead, and the
+                // catalogue is reached from there, where it belongs.
                 _LevelPill(
-                  label: 'manga.add_source'.tr(),
-                  active: _adding,
-                  onTap: () => setState(() => _adding = true),
+                  label: 'source_manager.manage'.tr(),
+                  active: false,
+                  onTap: _openExtensions,
                 ),
               ],
             ),
@@ -662,8 +674,8 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         // An empty mode is a dead end without this. Manga and novels are both
         // extension ecosystems, so a fresh install has nothing in either tab
         // and the only way out is a gear icon the message never mentions.
-        actionLabel: needle.isEmpty ? 'manga.add_source'.tr() : null,
-        onAction: needle.isEmpty ? () => setState(() => _adding = true) : null,
+        actionLabel: needle.isEmpty ? 'source_manager.manage'.tr() : null,
+        onAction: needle.isEmpty ? _openExtensions : null,
       );
     }
 

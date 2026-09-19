@@ -258,6 +258,7 @@
     "engine_sheet_play": "Abspielen",
     "subtitle_preview_text": "Franz jagt im komplett verwahrlosten Taxi quer durch Bayern",
     "server": "Server",
+    "change_server": "Server wechseln",
     "stream_not_found": "Diese Quelle versteckt ihren Stream hinter einem geschützten Player. Probiere eine andere Quelle oder öffne sie im Browser.",
     "subtitle_translation": "Untertitelübersetzung",
     "auto_translate": "Automatisch übersetzen",
@@ -1932,6 +1933,7 @@
   "source_manager": {
     "profile_hint": "Quellen auswählen, hinzufügen und verwalten",
     "manage_repositories": "Repositorys verwalten",
+    "manage": "Verwalten",
     "browse": "Ansehen",
     "catalog_title": "Quellen durchsuchen",
     "add_short": "Hinzufügen",

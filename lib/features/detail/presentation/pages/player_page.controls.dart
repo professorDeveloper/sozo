@@ -429,6 +429,28 @@ extension _PlayerControls on _PlayerPageState {
                 // different ways, and from the viewer's chair they are one
                 // problem: this show will not play here. The answer is the same
                 // in all of them.
+                // The mirrors this source already has, BEFORE offering to go
+                // looking at other sources.
+                //
+                // The screen jumped straight to "Try another source", which
+                // searches every other provider in the app — a slow, uncertain
+                // thing to do when the title in front of you is carried on
+                // four servers and only the one that was tried has failed. A
+                // title with several servers had no way to pick a different
+                // one from the error screen at all: the control exists, on the
+                // bar, which is not on screen when playback never started.
+                if (_affordances.hasServers && !(_inParty && !_isPartyHost)) ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: _openServerSheet,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white38),
+                    ),
+                    icon: const Icon(Icons.dns_rounded, size: 18),
+                    label: Text('player.change_server'.tr()),
+                  ),
+                ],
                 if (!_isLive && !(_inParty && !_isPartyHost)) ...[
                   const SizedBox(height: 10),
                   OutlinedButton.icon(

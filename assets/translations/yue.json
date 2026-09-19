@@ -272,6 +272,7 @@
     "engine_sheet_play": "播放",
     "subtitle_preview_text": "敏捷嘅棕色狐狸跳過隻懶狗",
     "server": "伺服器",
+    "change_server": "更換伺服器",
     "stream_not_found": "呢個來源將串流收埋喺受保護嘅播放器後面。試下另一個來源，或者喺瀏覽器度開。",
     "subtitle_translation": "字幕翻譯",
     "auto_translate": "自動翻譯",
@@ -1932,6 +1933,7 @@
   "source_manager": {
     "profile_hint": "揀、加同管理來源",
     "manage_repositories": "管理儲存庫",
+    "manage": "管理",
     "browse": "瀏覽",
     "catalog_title": "瀏覽來源",
     "add_short": "加入",

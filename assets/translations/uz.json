@@ -258,6 +258,7 @@
     "engine_sheet_play": "Ijro etish",
     "subtitle_preview_text": "Tez qo’ng’ir tulki yalqov itning ustidan sakraydi",
     "server": "Server",
+    "change_server": "Serverni almashtirish",
     "stream_not_found": "Bu manba oqimini himoyalangan pleyer ortida yashiradi. Boshqa manbani tanlang yoki brauzerda oching.",
     "subtitle_translation": "Subtitr tarjimasi",
     "auto_translate": "Avtomatik tarjima",
@@ -1932,6 +1933,7 @@
   "source_manager": {
     "profile_hint": "Manbani tanlash, qo‘shish va boshqarish",
     "manage_repositories": "Repo boshqaruvi",
+    "manage": "Boshqarish",
     "browse": "Ko‘rish",
     "catalog_title": "Manbalar katalogi",
     "add_short": "Qo‘shish",

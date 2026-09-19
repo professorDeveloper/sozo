@@ -258,6 +258,7 @@
     "engine_sheet_play": "Oynat",
     "subtitle_preview_text": "Pijamalı hasta yağız şoföre çabucak güvendi",
     "server": "Sunucu",
+    "change_server": "Sunucuyu değiştir",
     "stream_not_found": "Bu kaynak akışını korumalı bir oynatıcının arkasına saklıyor. Başka bir kaynak dene ya da tarayıcında aç.",
     "subtitle_translation": "Altyazı çevirisi",
     "auto_translate": "Otomatik çevir",
@@ -1932,6 +1933,7 @@
   "source_manager": {
     "profile_hint": "Kaynak seç, ekle ve yönet",
     "manage_repositories": "Depoları yönet",
+    "manage": "Yönet",
     "browse": "Göz at",
     "catalog_title": "Kaynak kataloğu",
     "add_short": "Ekle",

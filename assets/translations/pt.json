@@ -258,6 +258,7 @@
     "engine_sheet_play": "Reproduzir",
     "subtitle_preview_text": "Um pequeno jabuti xereta viu dez cegonhas felizes",
     "server": "Servidor",
+    "change_server": "Trocar de servidor",
     "stream_not_found": "Esta fonte esconde o stream atrás de um player protegido. Tente outra fonte ou abra no navegador.",
     "subtitle_translation": "Tradução de legendas",
     "auto_translate": "Traduzir automaticamente",
@@ -1932,6 +1933,7 @@
   "source_manager": {
     "profile_hint": "Escolher, adicionar e gerir fontes",
     "manage_repositories": "Gerir repositórios",
+    "manage": "Gerenciar",
     "browse": "Explorar",
     "catalog_title": "Catálogo de fontes",
     "add_short": "Adicionar",

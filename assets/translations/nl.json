@@ -258,6 +258,7 @@
     "engine_sheet_play": "Afspelen",
     "subtitle_preview_text": "Pa's wijze lynx bezag vroom het fikse aquaduct",
     "server": "Server",
+    "change_server": "Server wisselen",
     "stream_not_found": "Deze bron verstopt zijn stream achter een beveiligde speler. Probeer een andere bron of open hem in je browser.",
     "subtitle_translation": "Ondertitelvertaling",
     "auto_translate": "Automatisch vertalen",
@@ -1932,6 +1933,7 @@
   "source_manager": {
     "profile_hint": "Bronnen kiezen, toevoegen en beheren",
     "manage_repositories": "Repository’s beheren",
+    "manage": "Beheren",
     "browse": "Bekijken",
     "catalog_title": "Bronnen verkennen",
     "add_short": "Toevoegen",

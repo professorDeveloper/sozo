@@ -272,6 +272,7 @@
     "engine_sheet_play": "Play",
     "subtitle_preview_text": "The quick brown fox jumps over the lazy dog",
     "server": "Server",
+    "change_server": "Change server",
     "stream_not_found": "This source hides its stream behind a protected player. Try another source, or open it in your browser.",
     "subtitle_translation": "Subtitle translation",
     "auto_translate": "Auto-translate",
@@ -1932,6 +1933,7 @@
   "source_manager": {
     "profile_hint": "Choose, add and manage sources",
     "manage_repositories": "Manage repositories",
+    "manage": "Manage",
     "browse": "Browse",
     "catalog_title": "Browse sources",
     "add_short": "Add",

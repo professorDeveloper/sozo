@@ -258,6 +258,7 @@
     "engine_sheet_play": "Reproducir",
     "subtitle_preview_text": "El veloz murciélago hindú comía feliz cardillo y kiwi",
     "server": "Servidor",
+    "change_server": "Cambiar servidor",
     "stream_not_found": "Esta fuente esconde su flujo detrás de un reproductor protegido. Prueba otra fuente o ábrela en el navegador.",
     "subtitle_translation": "Traducción de subtítulos",
     "auto_translate": "Traducir automáticamente",
@@ -1932,6 +1933,7 @@
   "source_manager": {
     "profile_hint": "Elegir, añadir y gestionar fuentes",
     "manage_repositories": "Gestionar repositorios",
+    "manage": "Gestionar",
     "browse": "Explorar",
     "catalog_title": "Catálogo de fuentes",
     "add_short": "Añadir",

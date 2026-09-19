@@ -258,6 +258,7 @@
     "engine_sheet_play": "تشغيل",
     "subtitle_preview_text": "نصٌّ تجريبيٌّ لمعاينة شكل الترجمة",
     "server": "الخادم",
+    "change_server": "تغيير الخادم",
     "stream_not_found": "يُخفي هذا المصدر بثّه خلف مشغّل محمي. جرّب مصدراً آخر، أو افتحه في متصفّحك.",
     "subtitle_translation": "ترجمة النصوص",
     "auto_translate": "الترجمة التلقائية",
@@ -1936,6 +1937,7 @@
   "source_manager": {
     "profile_hint": "اختيار المصادر وإضافتها وإدارتها",
     "manage_repositories": "إدارة المستودعات",
+    "manage": "إدارة",
     "browse": "تصفح",
     "catalog_title": "تصفّح المصادر",
     "add_short": "إضافة",
