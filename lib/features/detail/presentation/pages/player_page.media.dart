@@ -43,6 +43,7 @@ extension _PlayerMedia on _PlayerPageState {
     final defaultReferer = _defaultRefererFor(widget.args.provider);
     if (defaultReferer != null) merged['Referer'] = defaultReferer;
     merged.addAll(sourceHeaders);
+    addFetchMetadata(merged, uri);
     return merged;
   }
 

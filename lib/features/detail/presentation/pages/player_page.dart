@@ -10,6 +10,7 @@ import 'package:soplay/features/detail/data/title_prefs_store.dart';
 import 'package:soplay/features/stats/data/watch_stats_store.dart';
 import 'package:soplay/core/network/external_dio.dart';
 import 'package:soplay/core/network/cf_bypass_service.dart';
+import 'package:soplay/core/network/fetch_metadata.dart';
 import 'package:soplay/core/network/user_agent.dart';
 import 'dart:async';
 import 'dart:io';
