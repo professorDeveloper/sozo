@@ -442,10 +442,14 @@ void main() {
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
-      expect(find.text('1080p'), findsOneWidget);
-      expect(find.text('480p'), findsOneWidget);
+      // The bitrate rides along with the height. It is what tells two
+      // renditions of the SAME resolution apart — a master routinely carries
+      // 1080p twice — and without it those rows were identical on screen while
+      // being different files.
+      expect(find.text('1080p · 4.0 Mbps'), findsOneWidget);
+      expect(find.text('480p · 900 kbps'), findsOneWidget);
       expect(adapter.request?.headers['Referer'], 'required');
-      await tester.tap(find.text('480p'));
+      await tester.tap(find.text('480p · 900 kbps'));
       await tester.pump();
       await tester.tap(find.byType(FilledButton));
       await tester.pumpAndSettle();
