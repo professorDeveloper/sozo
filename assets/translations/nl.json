@@ -1909,6 +1909,7 @@
     "fail_rate_limited": "De site weigert vanwege zijn verzoeklimiet",
     "fail_unreachable": "Kon de site niet bereiken",
     "fail_incompatible": "Deze bron vereist een nieuwere versie van de app",
+    "fail_outdated": "Deze bron moet worden bijgewerkt — de site is veranderd en de geïnstalleerde versie kan hem niet meer lezen.",
     "fail_broken": "Deze bron is op zichzelf vastgelopen",
     "eco_sozo": "Sozo",
     "eco_cloudstream": "CloudStream",

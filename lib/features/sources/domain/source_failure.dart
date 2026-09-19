@@ -36,6 +36,12 @@ enum SourceFailureKind {
   /// The extension and the app disagree about the API between them.
   incompatible,
 
+  /// The extension and its own SITE disagree: the site changed its response
+  /// and the installed version still expects the old one. Different from
+  /// [incompatible] in the only way that matters — the fix is updating the
+  /// source, not the app.
+  outdated,
+
   /// The source's own code threw.
   broken,
 
@@ -74,7 +80,9 @@ class SourceFailure extends Equatable {
         text = text.substring(prefix.length).trim();
       }
     }
-    if (text.isEmpty) return SourceFailure(headline: 'search.source_failed'.tr());
+    if (text.isEmpty) {
+      return SourceFailure(headline: 'search.source_failed'.tr());
+    }
     final lower = text.toLowerCase();
 
     // The site answered, and said no. 404 and 410 on a source's own landing
@@ -149,6 +157,27 @@ class SourceFailure extends Equatable {
         kind: SourceFailureKind.incompatible,
       );
     }
+    // The extension is behind its own site.
+    //
+    // A Tachiyomi source parses the site's JSON into a declared shape, so when
+    // the site adds or drops a field the installed extension throws
+    // `MissingFieldException: Fields [artists, authors, ...] are required for
+    // type with serial name '...MangaDto'` — measured, on a reader whose whole
+    // home screen was that sentence. It is not the app, not the network and not
+    // the site being down: the source needs a newer build, which its repo
+    // usually already has.
+    if (lower.contains('missingfield') ||
+        lower.contains('serializationexception') ||
+        lower.contains('jsondecodingexception') ||
+        lower.contains('jsonconvertexception') ||
+        lower.contains('unknown key') ||
+        lower.contains('jsonsyntaxexception')) {
+      return SourceFailure(
+        headline: 'sources.fail_outdated'.tr(),
+        detail: text,
+        kind: SourceFailureKind.outdated,
+      );
+    }
     // The source's own code threw. Not something the reader can act on beyond
     // trying another source, and saying so beats reprinting a Java class name.
     if (lower.contains('invocationtarget') ||
@@ -162,7 +191,39 @@ class SourceFailure extends Equatable {
         kind: SourceFailureKind.broken,
       );
     }
-    return SourceFailure(headline: text);
+    // Nothing recognised it, so the raw line is the headline — minus the class
+    // name in front of it, if a readable sentence follows. See [_unwrapJvm].
+    return SourceFailure(headline: _unwrapJvm(text));
+  }
+
+  /// Drops a leading JVM class name when a readable sentence follows it.
+  ///
+  /// Some extensions write their message FOR the reader — a gallery source
+  /// answers a browse with `java.lang.UnsupportedOperationException: Please
+  /// enter a query in the format of gallery:{username}`, which is the most
+  /// useful thing anything said about that screen. It arrived with a Java class
+  /// name bolted to the front, so the one message written to be read looked
+  /// like a crash.
+  ///
+  /// Only ever the headline, and only at the very end. Every classifier above
+  /// keys on exactly these class names — `UnknownHostException`,
+  /// `NullPointerException` — so unwrapping before them would hide from each
+  /// rule the word it exists to match, and a source's own crash would come back
+  /// as unrecognised.
+  ///
+  /// Prose only: something short, or with no space in it, is another identifier
+  /// rather than a sentence, and there the class name is all the information
+  /// there is.
+  static String _unwrapJvm(String text) {
+    final m = RegExp(
+      r'^(?:[a-z][a-z0-9]*\.)+[A-Za-z][A-Za-z0-9_$.]*(?:Exception|Error)\s*:\s*(.+)$',
+      dotAll: true,
+    ).firstMatch(text);
+    if (m == null) return text;
+    // The message, never the stack under it.
+    final rest = m.group(1)!.split('\n').first.trim();
+    if (rest.length < 12 || !rest.contains(' ')) return text;
+    return rest;
   }
 
   /// Whether [lower] carries HTTP status [code] as its own token.

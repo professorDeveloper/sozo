@@ -1909,6 +1909,7 @@
     "fail_rate_limited": "Situs menolak karena batas permintaan",
     "fail_unreachable": "Tidak dapat menjangkau situs",
     "fail_incompatible": "Sumber ini butuh versi aplikasi yang lebih baru",
+    "fail_outdated": "Sumber ini perlu diperbarui — situsnya berubah dan versi yang terpasang tidak bisa membacanya lagi.",
     "fail_broken": "Sumber ini gagal dengan sendirinya",
     "eco_sozo": "Sozo",
     "eco_cloudstream": "CloudStream",

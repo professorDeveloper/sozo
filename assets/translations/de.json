@@ -1909,6 +1909,7 @@
     "fail_rate_limited": "Die Seite lehnt wegen ihres Anfragelimits ab",
     "fail_unreachable": "Die Seite war nicht erreichbar",
     "fail_incompatible": "Diese Quelle braucht eine neuere Version der App",
+    "fail_outdated": "Diese Quelle muss aktualisiert werden — ihre Seite hat sich geändert und die installierte Version kann sie nicht mehr lesen.",
     "fail_broken": "Diese Quelle ist an sich selbst gescheitert",
     "eco_sozo": "Sozo",
     "eco_cloudstream": "CloudStream",

@@ -1909,6 +1909,7 @@
     "fail_rate_limited": "Le site refuse à cause de sa limite de requêtes",
     "fail_unreachable": "Impossible de joindre le site",
     "fail_incompatible": "Cette source nécessite une version plus récente de l'app",
+    "fail_outdated": "Cette source doit être mise à jour : son site a changé et la version installée ne peut plus le lire.",
     "fail_broken": "Cette source a échoué d'elle-même",
     "eco_sozo": "Sozo",
     "eco_cloudstream": "CloudStream",

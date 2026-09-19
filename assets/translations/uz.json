@@ -1909,6 +1909,7 @@
     "fail_rate_limited": "Sayt so'rovlar chegarasi tufayli rad etyapti",
     "fail_unreachable": "Saytga ulanib bo'lmadi",
     "fail_incompatible": "Bu manba ilovaning yangiroq versiyasini talab qiladi",
+    "fail_outdated": "Bu manbani yangilash kerak — sayti o‘zgargan va o‘rnatilgan versiya uni o‘qiy olmayapti.",
     "fail_broken": "Bu manbaning o'zida xatolik",
     "eco_sozo": "Sozo",
     "eco_cloudstream": "CloudStream",

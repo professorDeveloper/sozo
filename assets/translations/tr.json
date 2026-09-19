@@ -1909,6 +1909,7 @@
     "fail_rate_limited": "Site istek sınırı nedeniyle reddediyor",
     "fail_unreachable": "Siteye ulaşılamadı",
     "fail_incompatible": "Bu kaynak uygulamanın daha yeni bir sürümünü gerektiriyor",
+    "fail_outdated": "Bu kaynağın güncellenmesi gerekiyor — sitesi değişti ve kurulu sürüm artık okuyamıyor.",
     "fail_broken": "Kaynağın kendisinde hata oluştu",
     "eco_sozo": "Sozo",
     "eco_cloudstream": "CloudStream",

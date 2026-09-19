@@ -1909,6 +1909,7 @@
     "fail_rate_limited": "個網站因為請求上限拒絕咗",
     "fail_unreachable": "連唔到個網站",
     "fail_incompatible": "呢個來源需要新啲版本嘅 app",
+    "fail_outdated": "呢個來源要更新 — 個網改咗，裝住嘅版本已經讀唔到。",
     "fail_broken": "呢個來源自己出咗錯",
     "eco_sozo": "Sozo",
     "eco_cloudstream": "CloudStream",

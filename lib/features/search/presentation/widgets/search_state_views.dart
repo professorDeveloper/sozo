@@ -582,6 +582,9 @@ class _SearchErrorView extends StatelessWidget {
       SourceFailureKind.gone => Icons.link_off_rounded,
       SourceFailureKind.blocked => Icons.shield_outlined,
       SourceFailureKind.rateLimited => Icons.hourglass_empty_rounded,
+      // Updating the SOURCE, not the app — a different picture from
+      // [incompatible], which is the one that asks for a newer Sozo.
+      SourceFailureKind.outdated => Icons.update_rounded,
       SourceFailureKind.incompatible => Icons.system_update_alt_rounded,
       SourceFailureKind.broken => Icons.extension_off_rounded,
       SourceFailureKind.unknown => Icons.error_outline_rounded,

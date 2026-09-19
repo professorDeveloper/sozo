@@ -1913,6 +1913,7 @@
     "fail_rate_limited": "الموقع يرفض بسبب حد الطلبات",
     "fail_unreachable": "تعذّر الوصول إلى الموقع",
     "fail_incompatible": "يحتاج هذا المصدر إلى إصدار أحدث من التطبيق",
+    "fail_outdated": "يحتاج هذا المصدر إلى تحديث — فقد تغيّر موقعه ولم تعد النسخة المثبّتة قادرة على قراءته.",
     "fail_broken": "فشل هذا المصدر من تلقاء نفسه",
     "eco_sozo": "Sozo",
     "eco_cloudstream": "CloudStream",

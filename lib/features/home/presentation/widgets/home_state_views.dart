@@ -160,6 +160,7 @@ IconData _failureIcon(SourceFailure failure) => switch (failure.kind) {
   SourceFailureKind.blocked => Icons.shield_outlined,
   SourceFailureKind.rateLimited => Icons.hourglass_empty_rounded,
   // The source is what is broken, either its code or its contract.
+  SourceFailureKind.outdated => Icons.update_rounded,
   SourceFailureKind.incompatible ||
   SourceFailureKind.broken => Icons.extension_off_rounded,
   // Reached, answered, and the answer was no.

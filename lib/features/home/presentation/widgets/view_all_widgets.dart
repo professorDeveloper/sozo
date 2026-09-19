@@ -456,6 +456,7 @@ class ViewAllErrorView extends StatelessWidget {
                   SourceFailureKind.unreachable => Icons.wifi_off_rounded,
                   SourceFailureKind.blocked => Icons.shield_outlined,
                   SourceFailureKind.rateLimited => Icons.hourglass_empty_rounded,
+                  SourceFailureKind.outdated => Icons.update_rounded,
                   SourceFailureKind.incompatible ||
                   SourceFailureKind.broken => Icons.extension_off_rounded,
                   SourceFailureKind.gone ||
