@@ -1953,6 +1953,7 @@
     "no_source": "None of your sources has this title. Add a source that carries it, or search the others.",
     "no_resolver": "Catalogue titles cannot be opened here.",
     "find_source": "Find a source",
+    "finding_source": "Kaynak aranıyor…",
     "hint_anilist": "Anime kataloğu",
     "hint_tmdb": "Film ve diziler",
     "hint_anilist_manga": "Manga kataloğu",

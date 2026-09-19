@@ -1953,6 +1953,7 @@
     "no_source": "你啲來源全部都冇呢套。加個有嘅來源，或者搵下其他。",
     "no_resolver": "目錄入面嘅作品喺呢度開唔到。",
     "find_source": "搵來源",
+    "finding_source": "搵緊來源…",
     "hint_anilist": "動畫目錄",
     "hint_tmdb": "電影同劇集",
     "hint_anilist_manga": "漫畫目錄",

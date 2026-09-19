@@ -1953,6 +1953,7 @@
     "no_source": "None of your sources has this title. Add a source that carries it, or search the others.",
     "no_resolver": "Catalogue titles cannot be opened here.",
     "find_source": "Find a source",
+    "finding_source": "Bron wordt gezocht…",
     "hint_anilist": "Anime-catalogus",
     "hint_tmdb": "Films & series",
     "hint_anilist_manga": "Manga-catalogus",

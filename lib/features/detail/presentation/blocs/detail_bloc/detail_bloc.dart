@@ -93,13 +93,25 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
         externalId: event.hint?.externalId,
       );
       final type = catalogue.mode == ContentMode.video ? 'ANIME' : 'MANGA';
-      final recordFuture = id == null
-          ? Future<dynamic>.value(null)
-          : anilist!.mediaDetail(id, type: type).catchError((Object _) => null);
-      final results = await Future.wait<dynamic>([resolution, recordFuture]);
-      final found = results[0] as CatalogueResolution;
-      final record = results[1];
+      final record = id == null
+          ? null
+          : await anilist!
+                .mediaDetail(id, type: type)
+                .catchError((Object _) => null);
       if (record != null) {
+        // The record alone, straight away. The page used to wait for BOTH this
+        // and the source search, so every catalogue title cost the slower of
+        // the two — which was always the search, and which is the one thing on
+        // the page nothing else depends on. Everything AniList knows is already
+        // here: the poster, the words, the score, the cast.
+        emit(
+          DetailLoaded(
+            detailFromAnilist(record, via: null),
+            via: null,
+            resolving: true,
+          ),
+        );
+        final found = await resolution;
         emit(
           DetailLoaded(
             detailFromAnilist(record, via: found.link),
@@ -110,20 +122,23 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
       }
       // AniList did not answer; fall through to the source's page, if there
       // is a source.
-      await _loadFromSource(event, resolver, found, emit);
+      await _loadFromSource(event, resolver, await resolution, emit);
       return;
     }
 
     if (catalogue == Catalogue.tmdb && tmdbDetail != null) {
-      final results = await Future.wait<dynamic>([
-        resolution,
-        tmdbDetail!(
-          event.contentUrl,
-        ).then<Map<String, dynamic>?>((m) => m).catchError((Object _) => null),
-      ]);
-      final found = results[0] as CatalogueResolution;
-      final record = results[1];
+      final record = await tmdbDetail!(
+        event.contentUrl,
+      ).then<Map<String, dynamic>?>((m) => m).catchError((Object _) => null);
       if (record is Map<String, dynamic>) {
+        emit(
+          DetailLoaded(
+            detailFromTmdb(record, via: null),
+            via: null,
+            resolving: true,
+          ),
+        );
+        final found = await resolution;
         emit(
           DetailLoaded(
             detailFromTmdb(record, via: found.link),
@@ -132,7 +147,7 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
         );
         return;
       }
-      await _loadFromSource(event, resolver, found, emit);
+      await _loadFromSource(event, resolver, await resolution, emit);
       return;
     }
 

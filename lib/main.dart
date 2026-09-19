@@ -17,6 +17,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/extensions/extension_bridge.dart';
+import 'package:soplay/core/storage/box_recovery.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/anilist/data/airing_reminders.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
@@ -342,26 +343,50 @@ String? _asLocalPath(String arg) {
   }
 }
 
+/// Opens every box the app needs, and starts even when one of them will not.
+///
+/// The directory is resolved here rather than left to `Hive.initFlutter()` so
+/// that [BoxRecovery] has somewhere to put a file it cannot read. It is the same
+/// path that extension resolves to — the documents directory — so nothing on an
+/// existing install moves.
 Future<void> _initHive() async {
-  if (isDesktopPlatform) {
-    final dir = await getApplicationSupportDirectory();
-    Hive.init(dir.path);
-  } else {
-    await Hive.initFlutter();
-  }
+  final dir = isDesktopPlatform
+      ? await getApplicationSupportDirectory()
+      : await getApplicationDocumentsDirectory();
+  Hive.init(dir.path);
   // The two boxes holding secrets — the session and tracker tokens, and the
-  // PIN-hidden private list — open encrypted; see SecureBoxes.
+  // PIN-hidden private list — open encrypted; see SecureBoxes. Its own fallback
+  // already keeps a launch alive without losing the file, so the guard here is
+  // only for the plain-text branch inside it.
   final cipher = await SecureBoxes.cipher();
+  Future<Box<dynamic>> secure(String name) async {
+    try {
+      return await SecureBoxes.open(name, cipher);
+    } catch (e) {
+      debugPrint('[SecureBoxes] $name: unopenable, running in memory: $e');
+      return Hive.openBox(name, bytes: Uint8List(0));
+    }
+  }
+
+  // Every box on its own footing. One unreadable file used to take `main()`
+  // down before `runApp` — a blank screen, no message, and the only way out was
+  // clearing the app's data, which throws away the eight boxes that were fine
+  // along with the one that was not. And Hive's default on a bad checksum is to
+  // truncate the file to the last frame it could read, so the box that DID open
+  // could come back silently emptier than the user left it; see [BoxRecovery].
   await Future.wait([
-    SecureBoxes.open(AppConstants.authBox, cipher),
-    Hive.openBox(AppConstants.settingsBox),
-    Hive.openBox(AppConstants.historyBox),
-    Hive.openBox(AppConstants.downloadBox),
-    Hive.openBox(AppConstants.extractorsBox),
-    Hive.openBox(AppConstants.streakBox),
-    Hive.openBox(AppConstants.favoritesBox),
-    Hive.openBox(AppConstants.userListsBox),
-    SecureBoxes.open(AppConstants.privateFavoritesBox, cipher),
+    secure(AppConstants.authBox),
+    for (final name in const [
+      AppConstants.settingsBox,
+      AppConstants.historyBox,
+      AppConstants.downloadBox,
+      AppConstants.extractorsBox,
+      AppConstants.streakBox,
+      AppConstants.favoritesBox,
+      AppConstants.userListsBox,
+    ])
+      BoxRecovery.open(name, directory: dir.path),
+    secure(AppConstants.privateFavoritesBox),
   ]);
 }
 

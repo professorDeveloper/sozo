@@ -1957,6 +1957,7 @@
     "no_source": "None of your sources has this title. Add a source that carries it, or search the others.",
     "no_resolver": "Catalogue titles cannot be opened here.",
     "find_source": "Find a source",
+    "finding_source": "جارٍ البحث عن مصدر…",
     "hint_anilist": "فهرس الأنمي",
     "hint_tmdb": "أفلام ومسلسلات",
     "hint_anilist_manga": "فهرس المانغا",

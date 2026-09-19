@@ -174,21 +174,23 @@ class _DetailScaffold extends StatelessWidget {
                 // showListAction. It also removes a latent lock-up — a silent
                 // DetailLoaded refresh that skips DetailLoading would strand
                 // the page on the skeleton for good.
-                DetailLoaded(:final detail, :final via) => Builder(
-                  builder: (context) {
-                    return _DetailView(
-                      detail: detail,
-                      // A catalogue title was loaded from the source found
-                      // for it, and everything downstream — episodes, play,
-                      // download — must ask that source, not the catalogue.
-                      provider: via?.providerId ?? provider,
-                      via: via,
-                      autoPlay: autoPlay,
-                      resumeEpisodeIndex: resumeEpisodeIndex,
-                      heroTag: heroTag,
-                    );
-                  },
-                ),
+                DetailLoaded(:final detail, :final via, :final resolving) =>
+                  Builder(
+                    builder: (context) {
+                      return _DetailView(
+                        detail: detail,
+                        // A catalogue title was loaded from the source found
+                        // for it, and everything downstream — episodes, play,
+                        // download — must ask that source, not the catalogue.
+                        provider: via?.providerId ?? provider,
+                        via: via,
+                        resolvingSource: resolving,
+                        autoPlay: autoPlay,
+                        resumeEpisodeIndex: resumeEpisodeIndex,
+                        heroTag: heroTag,
+                      );
+                    },
+                  ),
                 DetailError(:final message) => _ErrorView(
                   message: message.startsWith('catalogue.')
                       ? message.tr()
@@ -238,6 +240,7 @@ class _DetailView extends StatefulWidget {
     required this.detail,
     this.provider,
     this.via,
+    this.resolvingSource = false,
     this.autoPlay = false,
     this.resumeEpisodeIndex,
     this.heroTag,
@@ -247,6 +250,9 @@ class _DetailView extends StatefulWidget {
 
   /// The source this title was found on, when it came from a catalogue.
   final CatalogueLink? via;
+
+  /// The search for that source has not finished. See [DetailLoaded.resolving].
+  final bool resolvingSource;
   final bool autoPlay;
   final int? resumeEpisodeIndex;
   final String? heroTag;
@@ -531,6 +537,10 @@ class _DetailViewState extends State<_DetailView>
     // pill reaches here too, so the redirect lives here rather than only on
     // the body's button.
     if (Catalogue.isId(widget.detail.provider)) {
+      // Unless the automatic search is still running, in which case a second
+      // fan-out over the same sources for the same title is the one thing that
+      // cannot help.
+      if (widget.resolvingSource) return;
       _onFindOtherSources();
       return;
     }
@@ -1278,6 +1288,7 @@ class _DetailViewState extends State<_DetailView>
                   onDownload: _onDownloadAction,
                   playButtonKey: _bodyPlayKey,
                   via: widget.via,
+                  resolvingSource: widget.resolvingSource,
                   onChangeSource: widget.via == null ? null : _changeSource,
                   onFindSource: _onFindOtherSources,
                 ),

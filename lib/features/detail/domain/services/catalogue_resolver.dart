@@ -216,10 +216,30 @@ class CatalogueResolver {
 
   static const String _tag = '[catalogue]';
 
-  /// How long the fan-out is given before the best answer so far is taken.
-  /// Sources that have not answered by then are the slow ones, and the page
-  /// should not sit on a spinner for them.
+  /// How long the fan-out is given once it has an answer worth taking.
+  ///
+  /// Sources still out at this point are the slow ones, and nothing they can
+  /// say is worth making somebody wait for when there is already a match.
   static const Duration _budget = Duration(seconds: 8);
+
+  /// And how long it is given when it has nothing at all.
+  ///
+  /// The eight seconds above used to be the whole of it, which made this the
+  /// least patient search in the app while asking the most of it. A backend
+  /// source is allowed ten seconds on its own ([CrossSearchEngine.defaultTimeout])
+  /// and an extension host forty-five ([CrossSearchEngine.channelTimeout]),
+  /// because the first search against a freshly-installed source has to
+  /// download and dex-load its APK before it can issue a single request. So a
+  /// title was reported as carried by nothing after eight — before a single
+  /// on-device leg could have finished, and before even an HTTP leg's own
+  /// timeout — and then opened first try when the viewer searched for it by
+  /// hand. Same source, same title, different patience.
+  ///
+  /// Giving up is the expensive answer here, not waiting: it ends in a page
+  /// with no Play button. And nobody is watching a spinner for it — the detail
+  /// page renders the catalogue's own record first and fills the source in when
+  /// it arrives, so this time is spent behind a page that is already up.
+  static const Duration _patience = Duration(seconds: 25);
 
   static String _key(String catalogueId, String contentUrl) =>
       '$catalogueId|$contentUrl';
@@ -321,6 +341,132 @@ class CatalogueResolver {
     hint: hint,
   )).link;
 
+  /// One fan-out under one name.
+  Future<_Sweep> _sweep({
+    required String query,
+    required MovieEntity hint,
+    required Catalogue catalogue,
+    required List<ProviderEntity> candidates,
+    required Map<String, ProviderEntity> byId,
+    required bool ownKindAsked,
+  }) async {
+    AlternateSource? best;
+    TitleMatch? bestMatch;
+    var bestRank = double.negativeInfinity;
+    AlternateSearchOutcome? outcome;
+    final done = Completer<void>();
+    late final StreamSubscription<AlternateSource> sub;
+    sub =
+        _find(
+          title: query,
+          candidates: candidates,
+          onOutcome: (o) => outcome = o,
+        ).listen(
+          (found) {
+            // The year, applied by the matcher rather than by a second rule
+            // here: it is the cheapest disambiguator there is, a year that
+            // agrees is worth little and a year that disagrees is worth a
+            // great deal, and [TitleMatch.withYear] is the one place that
+            // knows by how much.
+            final match = found.match.withYear(
+              queryYear: hint.year,
+              candidateYear: found.item.year,
+            );
+
+            // The kind of source has to fit the kind of catalogue. An AniList
+            // title is an anime; a film-and-series provider that happens to
+            // carry the live-action of the same name is a worse answer than an
+            // anime source that answers a little later, whatever the title
+            // similarity says. The first live run picked exactly that: VidAPI's
+            // 2023 ONE PIECE for AniList's 1999 one.
+            //
+            // Ordering only. It can reorder two answers; it can never turn a
+            // weak match into one worth remembering, which is decided on the
+            // band and not on this number.
+            final fit = _fit(catalogue, byId[found.provider.id]);
+            final ranked = match.score + fit;
+
+            if (ranked > bestRank) {
+              bestRank = ranked;
+              bestMatch = match;
+              best = found;
+            }
+            // Stop early on an answer nothing better can argue with: the same
+            // title, from a source of the right kind — or, when no source of
+            // the right kind was asked, from the best kind there is. A perfect
+            // title from the wrong kind of source is worth waiting on only
+            // while a right-kind source is still out there to wait for; when
+            // none was asked, waiting buys a differently-spelled guess at the
+            // cost of the whole budget. A disagreeing year has already pulled
+            // [match] down to weak either way.
+            if (match.confidence == TitleConfidence.exact &&
+                (fit >= 0 || !ownKindAsked) &&
+                !done.isCompleted) {
+              done.complete();
+            }
+          },
+          onError: (Object _) {
+            if (!done.isCompleted) done.complete();
+          },
+          onDone: () {
+            if (!done.isCompleted) done.complete();
+          },
+        );
+    // Two deadlines, not one: take what there is at [_budget], but hold on to
+    // [_patience] rather than call a title uncarried on the strength of nothing
+    // having answered yet.
+    Timer? deadline;
+    void settle() {
+      if (!done.isCompleted) done.complete();
+    }
+
+    deadline = Timer(_budget, () {
+      if (best != null) return settle();
+      deadline = Timer(_patience - _budget, settle);
+    });
+    await done.future;
+    deadline?.cancel();
+    // Not awaited. All the fan-out's onCancel does is flip a flag that stops it
+    // scheduling more legs, so there is nothing here worth a turn of the event
+    // loop — and a cancel on a subscription whose stream has already finished is
+    // not guaranteed to complete at all, which would leave this method hanging
+    // on the one path where it had already got its answer.
+    unawaited(sub.cancel());
+    return _Sweep(
+      best: best,
+      match: bestMatch,
+      rank: bestRank,
+      outcome: outcome,
+    );
+  }
+
+  /// The one other name worth asking for, or null.
+  ///
+  /// A catalogue knows a work by several names and a SOURCE does not get to
+  /// choose: it indexes under whichever one its own site uses. Measured —
+  /// animecube lists "Kaiju Girl Caramelise" and answers a search for
+  /// "Otome Kaijuu Caramelise" with nothing at all, so a title it carries was
+  /// recorded as carried by nothing and the page offered no Play button.
+  ///
+  /// One extra name, not all of them. Each pass costs up to [_patience], and
+  /// AniList's third name is the original script — the least likely of the three
+  /// to be what an aggregator indexes under, and the one most likely to be
+  /// answered with a front page of unrelated rows. The first alternative is the
+  /// transliteration, which is the one that pays.
+  ///
+  /// [already] is a name that has been asked; a catalogue that spells two of its
+  /// names the same way, bar case or punctuation, is asked once.
+  static String? _otherName(MovieEntity hint, String already) {
+    final asked = TitleMatch.normalise(already);
+    for (final name in hint.altTitles) {
+      final trimmed = name.trim();
+      if (trimmed.isEmpty) continue;
+      if (TitleMatch.normalise(trimmed) == asked) continue;
+      return trimmed;
+    }
+    return null;
+  }
+
   /// The source to open [hint] on, or which of the four ways it was missing.
   Future<CatalogueResolution> locate({
     required String catalogueId,
@@ -378,70 +524,35 @@ class CatalogueResolver {
     // never going to be more than a guess.
     final ownKindAsked = candidates.any((p) => _kindOf(p.id) == catalogue.mode);
 
-    AlternateSource? best;
-    TitleMatch? bestMatch;
-    var bestRank = double.negativeInfinity;
-    AlternateSearchOutcome? outcome;
-    final done = Completer<void>();
-    late final StreamSubscription<AlternateSource> sub;
-    sub =
-        _find(
-          title: hint.title,
-          candidates: candidates,
-          onOutcome: (o) => outcome = o,
-        ).listen(
-          (found) {
-            // The year, applied by the matcher rather than by a second rule
-            // here: it is the cheapest disambiguator there is, a year that
-            // agrees is worth little and a year that disagrees is worth a
-            // great deal, and [TitleMatch.withYear] is the one place that
-            // knows by how much.
-            final match = found.match.withYear(
-              queryYear: hint.year,
-              candidateYear: found.item.year,
-            );
-
-            // The kind of source has to fit the kind of catalogue. An AniList
-            // title is an anime; a film-and-series provider that happens to
-            // carry the live-action of the same name is a worse answer than an
-            // anime source that answers a little later, whatever the title
-            // similarity says. The first live run picked exactly that: VidAPI's
-            // 2023 ONE PIECE for AniList's 1999 one.
-            //
-            // Ordering only. It can reorder two answers; it can never turn a
-            // weak match into one worth remembering, which is decided on the
-            // band and not on this number.
-            final fit = _fit(catalogue, byId[found.provider.id]);
-            final ranked = match.score + fit;
-
-            if (ranked > bestRank) {
-              bestRank = ranked;
-              bestMatch = match;
-              best = found;
-            }
-            // Stop early on an answer nothing better can argue with: the same
-            // title, from a source of the right kind — or, when no source of
-            // the right kind was asked, from the best kind there is. A perfect
-            // title from the wrong kind of source is worth waiting on only
-            // while a right-kind source is still out there to wait for; when
-            // none was asked, waiting buys a differently-spelled guess at the
-            // cost of the whole budget. A disagreeing year has already pulled
-            // [match] down to weak either way.
-            if (match.confidence == TitleConfidence.exact &&
-                (fit >= 0 || !ownKindAsked) &&
-                !done.isCompleted) {
-              done.complete();
-            }
-          },
-          onError: (Object _) {
-            if (!done.isCompleted) done.complete();
-          },
-          onDone: () {
-            if (!done.isCompleted) done.complete();
-          },
-        );
-    await done.future.timeout(_budget, onTimeout: () {});
-    await sub.cancel();
+    // Under the catalogue's own name first, and under one of its other names
+    // only if that found nothing worth keeping. See [_otherName].
+    var sweep = await _sweep(
+      query: hint.title,
+      hint: hint,
+      catalogue: catalogue,
+      candidates: candidates,
+      byId: byId,
+      ownKindAsked: ownKindAsked,
+    );
+    final second = _otherName(hint, hint.title);
+    if (!sweep.usable && second != null) {
+      debugPrint('$_tag "${hint.title}" → retrying as "$second"');
+      final retry = await _sweep(
+        query: second,
+        hint: hint,
+        catalogue: catalogue,
+        candidates: candidates,
+        byId: byId,
+        ownKindAsked: ownKindAsked,
+      );
+      // Keep whichever answer is actually better. A weak match under the
+      // English name is still an answer, and the second pass finding nothing
+      // must not throw it away.
+      if (retry.rank > sweep.rank) sweep = retry;
+    }
+    final best = sweep.best;
+    final bestMatch = sweep.match;
+    final outcome = sweep.outcome;
 
     final pick = best;
     final match = bestMatch;
@@ -503,4 +614,24 @@ class CatalogueResolver {
     }
     return CatalogueResolution(catalogue: catalogue, link: link);
   }
+}
+
+/// What one pass of the fan-out came back with.
+class _Sweep {
+  const _Sweep({this.best, this.match, required this.rank, this.outcome});
+
+  final AlternateSource? best;
+  final TitleMatch? match;
+
+  /// Title similarity plus the kind-of-source adjustment, for comparing two
+  /// passes against each other. Negative infinity when nothing answered.
+  final double rank;
+  final AlternateSearchOutcome? outcome;
+
+  /// Whether this is an answer worth stopping on.
+  ///
+  /// The band, not the number: a weak match is worth offering once and is not
+  /// worth giving up the other name for, because the other name is exactly how a
+  /// weak guess turns into the right title.
+  bool get usable => match?.isTrustworthy ?? false;
 }

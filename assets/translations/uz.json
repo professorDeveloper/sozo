@@ -1953,6 +1953,7 @@
     "no_source": "Manbalaringizning birortasida bu nom yo‘q. Uni tarqatadigan manba qo‘shing yoki boshqalaridan qidiring.",
     "no_resolver": "Katalog nomlarini bu yerda ochib bo‘lmaydi.",
     "find_source": "Manba topish",
+    "finding_source": "Manba qidirilmoqda…",
     "hint_anilist": "Anime katalogi",
     "hint_tmdb": "Kino va seriallar",
     "hint_anilist_manga": "Manga katalogi",

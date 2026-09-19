@@ -30,6 +30,7 @@ class DetailContentHeader extends StatefulWidget {
     required this.playButtonKey,
     this.onDownload,
     this.via,
+    this.resolvingSource = false,
     this.onChangeSource,
     this.onFindSource,
   });
@@ -42,6 +43,9 @@ class DetailContentHeader extends StatefulWidget {
   /// because a Play that silently picked a source is a Play the viewer cannot
   /// question — and the pick is a guess, however good.
   final CatalogueLink? via;
+
+  /// The search for that source is still running. See [DetailLoaded.resolving].
+  final bool resolvingSource;
   final VoidCallback? onChangeSource;
 
   /// For a catalogue title with no source yet: opens the search.
@@ -137,15 +141,26 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
           if (Catalogue.isId(widget.detail.provider))
             // A catalogue title nothing installed carries. Not a Play that
             // fails; the honest button is the one that goes and looks.
+            //
+            // While the search is still out it says so instead, and does
+            // nothing when tapped. The page renders the catalogue's record
+            // without waiting for the source, so this button is on screen
+            // before the answer is — and "Find a source" is a claim that the
+            // looking is finished and came back empty.
             ItemAppear(
               index: 5,
               child: SizedBox(
                 width: isDesktopPlatform ? 360 : double.infinity,
                 height: 46,
                 child: OutlinedButton.icon(
-                  onPressed: widget.onFindSource,
+                  onPressed: widget.resolvingSource
+                      ? null
+                      : widget.onFindSource,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
+                    disabledForegroundColor: Colors.white.withValues(
+                      alpha: 0.6,
+                    ),
                     side: BorderSide(
                       color: Colors.white.withValues(alpha: 0.35),
                     ),
@@ -153,9 +168,20 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
                       borderRadius: BorderRadius.circular(kButtonRadius),
                     ),
                   ),
-                  icon: const Icon(Icons.travel_explore_rounded, size: 22),
+                  icon: widget.resolvingSource
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white70,
+                          ),
+                        )
+                      : const Icon(Icons.travel_explore_rounded, size: 22),
                   label: Text(
-                    'catalogue.find_source'.tr(),
+                    widget.resolvingSource
+                        ? 'catalogue.finding_source'.tr()
+                        : 'catalogue.find_source'.tr(),
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,

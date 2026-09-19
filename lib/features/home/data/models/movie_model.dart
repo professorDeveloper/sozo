@@ -14,6 +14,7 @@ class MovieModel extends MovieEntity {
     required super.qualities,
     required super.category,
     required super.description,
+    super.altTitles,
   });
 
   factory MovieModel.fromJson(Map<String, dynamic> json) {
@@ -32,6 +33,10 @@ class MovieModel extends MovieEntity {
           ? List<String>.from(json['qualities'] as List)
           : null,
       category: json['category'] as String? ?? '',
+      altTitles: [
+        for (final n in (json['altTitles'] as List?) ?? const [])
+          if (n is String && n.trim().isNotEmpty) n.trim(),
+      ],
     );
   }
 }

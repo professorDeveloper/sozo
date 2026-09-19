@@ -19,6 +19,19 @@ class MovieEntity {
   final List<String>? qualities;
   final String category;
 
+  /// The other names this work goes by, best first.
+  ///
+  /// Only a catalogue fills this: AniList knows a title in English, romaji and
+  /// the original script, and TMDB knows a localised name and an original one.
+  /// [title] is one of them, picked for display; the rest are here because a
+  /// SOURCE does not get to choose — it indexes under whichever name its own
+  /// site uses. animecube lists "Kaiju Girl Caramelise" and answers a search for
+  /// "Otome Kaijuu Caramelise" with nothing at all, so a title every source
+  /// carried was recorded as carried by none.
+  ///
+  /// Empty for a source's own rows, which have exactly one name by definition.
+  final List<String> altTitles;
+
   MovieEntity({
     required this.externalId,
     required this.title,
@@ -32,5 +45,6 @@ class MovieEntity {
     required this.rating,
     required this.qualities,
     required this.category,
+    this.altTitles = const [],
   });
 }

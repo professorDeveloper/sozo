@@ -1953,6 +1953,7 @@
     "no_source": "None of your sources has this title. Add a source that carries it, or search the others.",
     "no_resolver": "Catalogue titles cannot be opened here.",
     "find_source": "Find a source",
+    "finding_source": "Recherche d’une source…",
     "hint_anilist": "Catalogue anime",
     "hint_tmdb": "Films et séries",
     "hint_anilist_manga": "Catalogue manga",
