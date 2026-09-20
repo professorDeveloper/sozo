@@ -70,6 +70,7 @@ class MainActivity : FlutterFragmentActivity() {
     private val cloudstreamChannelName = "soplay/cloudstream"
     private var cloudstreamChannel: MethodChannel? = null
     private var previewChannel: MethodChannel? = null
+    private var tilesChannel: MethodChannel? = null
     private val cloudstreamScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val pluginHost by lazy {
         // CloudflareKiller is constructed by plugins with no arguments, so it
@@ -740,6 +741,54 @@ class MainActivity : FlutterFragmentActivity() {
                     cloudstreamScope.launch {
                         val token = call.argument<Number>("generation")?.toLong()
                         if (token != null) FramePreview.close(token) else FramePreview.close()
+                        withContext(Dispatchers.Main) { result.success(true) }
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // Sharp zoom on a manga page. See PageTiles: the whole point is that
+        // nothing here ever holds a full-size bitmap, so every call is off the
+        // platform thread — a region of a large JPEG is tens of milliseconds
+        // and the reader is being panned while it runs.
+        tilesChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "soplay/tiles",
+        )
+        tilesChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "open" -> {
+                    val path = call.argument<String>("path").orEmpty()
+                    cloudstreamScope.launch {
+                        val opened = com.soplay.sozo.tiles.PageTiles.open(path)
+                        withContext(Dispatchers.Main) { result.success(opened) }
+                    }
+                }
+                "region" -> {
+                    val handle = (call.argument<Number>("handle") ?: 0).toLong()
+                    val left = (call.argument<Number>("left") ?: 0).toInt()
+                    val top = (call.argument<Number>("top") ?: 0).toInt()
+                    val right = (call.argument<Number>("right") ?: 0).toInt()
+                    val bottom = (call.argument<Number>("bottom") ?: 0).toInt()
+                    val sample = (call.argument<Number>("sampleSize") ?: 1).toInt()
+                    cloudstreamScope.launch {
+                        val bytes = com.soplay.sozo.tiles.PageTiles.region(
+                            handle, left, top, right, bottom, sample,
+                        )
+                        withContext(Dispatchers.Main) { result.success(bytes) }
+                    }
+                }
+                "close" -> {
+                    val handle = (call.argument<Number>("handle") ?: 0).toLong()
+                    cloudstreamScope.launch {
+                        com.soplay.sozo.tiles.PageTiles.close(handle)
+                        withContext(Dispatchers.Main) { result.success(true) }
+                    }
+                }
+                "closeAll" -> {
+                    cloudstreamScope.launch {
+                        com.soplay.sozo.tiles.PageTiles.closeAll()
                         withContext(Dispatchers.Main) { result.success(true) }
                     }
                 }

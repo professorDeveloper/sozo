@@ -94,6 +94,9 @@ dependencies:
   path_parsing: ^1.1.0
   url_launcher: ^6.3.1
   cached_network_image: ^3.4.1
+  # Used directly to find the file cached_network_image already wrote, so a
+  # zoomed page can be re-read from disk instead of downloaded a second time.
+  flutter_cache_manager: ^3.4.1
   scrollable_positioned_list: ^0.3.8
   palette_generator: ^0.3.3+5
   video_player: ^2.9.5

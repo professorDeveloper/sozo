@@ -30,7 +30,10 @@ import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/manga/presentation/widgets/novel_text.dart';
 import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:soplay/features/manga/data/chapter_read_store.dart';
+import 'package:soplay/features/manga/data/page_tiles.dart';
+import 'package:soplay/features/manga/presentation/widgets/tiled_zoom.dart';
 import 'package:soplay/features/manga/domain/reading/chapter_progress.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
@@ -1852,6 +1855,49 @@ class _PageImageState extends State<_PageImage> {
   static Color get _accent => AppColors.primary;
   int _retry = 0;
 
+  /// The file this page was drawn from, once there is one.
+  ///
+  /// A downloaded page is already a path. A network page becomes one as soon as
+  /// it has been fetched, because [CachedNetworkImage] writes it to disk on the
+  /// way in — so the sharp zoom below works for both without downloading
+  /// anything twice. Null until then, which is the same thing as "not zoomable
+  /// yet".
+  String? _sourcePath;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveSource();
+  }
+
+  @override
+  void didUpdateWidget(_PageImage old) {
+    super.didUpdateWidget(old);
+    if (old.page.imageUrl != widget.page.imageUrl) {
+      _sourcePath = null;
+      _resolveSource();
+    }
+  }
+
+  Future<void> _resolveSource() async {
+    if (!widget.zoomable || !PageTiles.isSupported) return;
+    final url = widget.page.imageUrl;
+    if (!url.startsWith('http')) {
+      if (mounted) setState(() => _sourcePath = url);
+      return;
+    }
+    try {
+      final file = await DefaultCacheManager().getFileFromCache(
+        widget.page.cacheKey ?? url,
+      );
+      if (!mounted || file == null) return;
+      setState(() => _sourcePath = file.file.path);
+    } catch (_) {
+      // No cached file yet. The page still draws; it just zooms the way it
+      // always did until the next build finds one.
+    }
+  }
+
   /// Chapter headers plus this page's host-scoped cookies, if it has any.
   Map<String, String> get _imageHeaders {
     final cookie = widget.page.cookie;
@@ -1913,7 +1959,13 @@ class _PageImageState extends State<_PageImage> {
             );
 
       if (!widget.zoomable) return img;
-      return InteractiveViewer(
+      // Zoomed, the image above is a bitmap decoded at column width being
+      // magnified — which is exactly when a dense page or small lettering turns
+      // to mush. [TiledZoom] re-reads the part that is on screen from the file
+      // at the size it is being shown at, and falls back to precisely this
+      // InteractiveViewer wherever it cannot.
+      return TiledZoom(
+        sourcePath: _sourcePath,
         maxScale: 4,
         child: SizedBox(width: width, child: img),
       );
