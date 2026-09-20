@@ -61,6 +61,22 @@ class SourceHealthStore {
 
   static const String _key = 'search_source_health';
   static const String _remoteKey = 'search_source_health_remote';
+  static const String _playsKey = 'search_source_plays';
+
+  /// How many plays it takes before a source counts as proven, and the point
+  /// past which more of them mean nothing.
+  ///
+  /// The tally would otherwise only ever go up, and two sources that have both
+  /// clearly worked would be ordered by a margin nobody can see or change —
+  /// fifty plays sitting above forty-nine forever, even when the forty-nine
+  /// answers in a fraction of the time. Past this, proven is proven and the
+  /// measured answer decides; below it, a source that has served something is
+  /// ahead of one that never has.
+  ///
+  /// Three rather than a larger number because the difference between one play
+  /// and five is mostly how much of a series somebody happened to watch, not
+  /// how good the source is.
+  static const int provenAt = 3;
 
   /// Below this fraction of its budget, a source is simply fine.
   static const double slowFraction = 0.6;
@@ -109,6 +125,11 @@ class SourceHealthStore {
   /// writes this key, so it always knows.
   static Map<String, dynamic>? _cache;
 
+  /// The play tally, cached for the same reason as [_cache]: `order()` asks
+  /// for it once per source, and rebuilding the map per item is O(n) work
+  /// inside an O(n log n) sort.
+  static Map<String, int>? _playCache;
+
   Map<String, dynamic> _load() {
     final cached = _cache;
     if (cached != null) return cached;
@@ -128,6 +149,50 @@ class SourceHealthStore {
     if (entry is! Map) return null;
     final at = entry['at'];
     return at is int ? at : null;
+  }
+
+  /// How many times this source has actually served something that played,
+  /// capped at [provenAt].
+  ///
+  /// Searching well and playing are different skills. A source that answers a
+  /// search in 200ms and then cannot produce a stream outranked one that takes
+  /// a second and always plays, because until now the only evidence the order
+  /// was built on came from the search itself.
+  int playsOf(String id) {
+    final cached = _playCache ??= _loadPlays();
+    final n = cached[id] ?? 0;
+    return n > provenAt ? provenAt : n;
+  }
+
+  Map<String, int> _loadPlays() {
+    final raw = _box?.get(_playsKey);
+    if (raw is! Map) return const {};
+    return {
+      for (final e in raw.entries)
+        if (e.value is int) e.key.toString(): e.value as int,
+    };
+  }
+
+  /// Records that [id] served something that actually started playing.
+  ///
+  /// Called once per stream that reaches the first frame, not once per attempt
+  /// — an attempt is what the health record above already measures, and
+  /// counting those here would make a source that fails quickly look busy.
+  ///
+  /// Stops writing at [provenAt]: past that the number changes nothing, and a
+  /// long session would otherwise put a Hive write behind every episode.
+  Future<void> recordPlay(String id) async {
+    if (id.isEmpty) return;
+    final box = _box;
+    if (box == null) return;
+    final plays = Map<String, int>.of(_playCache ??= _loadPlays());
+    final current = plays[id] ?? 0;
+    if (current >= provenAt) return;
+    plays[id] = current + 1;
+    _playCache = plays;
+    try {
+      await box.put(_playsKey, plays);
+    } catch (_) {}
   }
 
   /// The remembered health of one source, or [SourceHealth.ok] when there is
@@ -274,22 +339,42 @@ class SourceHealthStore {
     };
     final indexed = [
       for (var i = 0; i < refs.length; i++)
-        (index: i, ref: refs[i], rank: rank(statusOf(idOf(refs[i])))),
+        (
+          index: i,
+          ref: refs[i],
+          rank: rank(statusOf(idOf(refs[i]))),
+          plays: playsOf(idOf(refs[i])),
+        ),
     ];
-    // Nothing has been marked — the common case, and not worth a new list.
-    if (indexed.every((e) => e.rank == 0)) return refs;
+    // Nothing has been marked and nothing has played — the common case, and
+    // not worth a new list.
+    if (indexed.every((e) => e.rank == 0 && e.plays == 0)) return refs;
     indexed.sort((a, b) {
+      // Health first. A source that timed out last time has not earned a place
+      // at the front by having played a week ago, and the shorter budget it is
+      // on makes it cheap to ask late anyway.
       final byRank = a.rank.compareTo(b.rank);
-      return byRank != 0 ? byRank : a.index.compareTo(b.index);
+      if (byRank != 0) return byRank;
+      // Then what has actually played. Within one health band this is the only
+      // evidence about the thing the user is really asking for, and it is
+      // saturated so it can order two sources without freezing them — see
+      // [provenAt].
+      final byPlays = b.plays.compareTo(a.plays);
+      if (byPlays != 0) return byPlays;
+      // And otherwise the order it arrived in, which is the one the user
+      // arranged.
+      return a.index.compareTo(b.index);
     });
     return [for (final e in indexed) e.ref];
   }
 
   Future<void> clear() async {
     _cache = null;
+    _playCache = null;
     try {
       await _box?.delete(_key);
       await _box?.delete(_remoteKey);
+      await _box?.delete(_playsKey);
     } catch (_) {}
   }
 }

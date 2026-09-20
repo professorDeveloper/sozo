@@ -1196,6 +1196,22 @@ extension _PlayerMedia on _PlayerPageState {
         await controller.play();
       }
       _plog('play started — total ${stopwatch.elapsedMilliseconds}ms');
+      // Against the source that SERVED this, which is the whole point.
+      //
+      // Searching well and playing are different skills, and until now the only
+      // evidence the source order was built on came from the search: a source
+      // that answers in 200ms and then cannot produce a stream sat ahead of one
+      // that takes a second and always plays. This is the first moment anything
+      // knows a stream actually reached a frame.
+      //
+      // Here rather than at resolve time: a resolved url is not a playing one.
+      // A dead mirror, a 403 on the first segment and a codec the device cannot
+      // decode all resolve perfectly and never play.
+      //
+      // `widget.args.provider` is the serving source without qualification:
+      // switching source mid-episode builds a whole new PlayerArgs around the
+      // new provider rather than swapping a url underneath this one.
+      unawaited(SourceHealthStore().recordPlay(widget.args.provider));
       // Guarded, because everything between initialize() and here is awaited —
       // a seek, a speed change, the play itself — and a slow source spends
       // seconds in that stretch. Seconds spent staring at a spinner is exactly
