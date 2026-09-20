@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -29,6 +30,7 @@ import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/manga/presentation/widgets/novel_text.dart';
 import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:soplay/features/manga/data/chapter_read_store.dart';
 import 'package:soplay/features/manga/domain/reading/chapter_progress.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
@@ -106,6 +108,7 @@ class _ReaderPageState extends State<ReaderPage> {
   /// WatchProgress: leaving and coming back starts a fresh ledger, and the
   /// tracker's own refusal to move progress backwards catches the repeat.
   final ChapterProgress _progress = ChapterProgress();
+  final ChapterReadStore _readStore = ChapterReadStore();
 
   /// The furthest page of this chapter that has been on screen, as a
   /// high-water mark.
@@ -526,6 +529,24 @@ class _ReaderPageState extends State<ReaderPage> {
             pageCount: _pageCount,
           );
     if (!read) return;
+
+    // The reader's own record first, and unconditionally.
+    //
+    // It is deliberately NOT behind the tracker gate below. Whether a chapter
+    // has been read is a fact about this device and this list; whether anybody
+    // was told about it is a different question with its own preconditions —
+    // an account, a connection, a title the tracker recognises — and tying the
+    // two together meant the list could only show progress to somebody signed
+    // in to AniList.
+    //
+    // Nor behind the once-per-session ledger: that exists to stop a tracker
+    // hearing twice, and [ChapterReadStore.mark] is idempotent, so re-reading
+    // a finished chapter writes nothing and costs nothing.
+    unawaited(
+      _readStore.mark(widget.args.provider, widget.args.contentUrl, [
+        widget.args.chapters[_chapterIndex].episode,
+      ]),
+    );
 
     // Asked before the ledger is marked: a chapter finished while no tracker
     // is connected must still be reportable if one is connected later in the
@@ -1155,6 +1176,15 @@ class _ReaderPageState extends State<ReaderPage> {
               ),
             ),
             _downloadButton(ch),
+            // Only when there is somewhere to go. A provider with no web page
+            // for this chapter gets no button rather than a button that
+            // apologises.
+            if (_chapterOnSite case final uri?)
+              IconButton(
+                tooltip: 'manga.open_on_site'.tr(),
+                icon: const Icon(Icons.open_in_new_rounded, color: Colors.white),
+                onPressed: () => _openOnSite(uri),
+              ),
             IconButton(
               tooltip: 'manga.chapters'.tr(),
               icon: const Icon(Icons.format_list_bulleted, color: Colors.white),
@@ -1353,6 +1383,43 @@ class _ReaderPageState extends State<ReaderPage> {
         );
       },
     );
+  }
+
+  /// This chapter's page on the source's own website, or null when there is
+  /// none to open.
+  ///
+  /// The chapter's own url first, the title's second. A Mihon or Aniyomi
+  /// extension stores both as paths relative to its `baseUrl`, so the hosts
+  /// resolve them there and send an absolute one up; a backend provider has an
+  /// absolute `contentUrl` and no per-chapter page, which is why the fallback
+  /// exists rather than the action disappearing for every provider that is not
+  /// an extension.
+  Uri? get _chapterOnSite {
+    for (final candidate in [
+      widget.args.chapters[_chapterIndex].webUrl,
+      widget.args.contentUrl,
+    ]) {
+      final text = candidate?.trim() ?? '';
+      if (text.isEmpty) continue;
+      final uri = Uri.tryParse(text);
+      if (uri == null) continue;
+      if (uri.scheme != 'http' && uri.scheme != 'https') continue;
+      if (uri.host.isEmpty) continue;
+      return uri;
+    }
+    return null;
+  }
+
+  Future<void> _openOnSite(Uri uri) async {
+    // Out of the app on purpose: the point is to see the chapter the way the
+    // source publishes it — its own images, its own comments, its own report
+    // button — which an in-app webview would only half do.
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('errors.no_browser'.tr())),
+      );
+    }
   }
 
   void _openSettingsSheet() {

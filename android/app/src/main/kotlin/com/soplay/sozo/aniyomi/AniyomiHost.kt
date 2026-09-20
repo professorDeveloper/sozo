@@ -442,6 +442,25 @@ class AniyomiHost(private val context: Context) {
      * A row with no name falls back to the slug the site itself uses. It is
      * legible and, more to the point, it still opens.
      */
+    /**
+     * A url a browser can open, out of the path an extension stores.
+     *
+     * An Aniyomi source keeps `SAnime.url` and `SEpisode.url` as paths relative
+     * to its own `baseUrl`, so the app held nothing it could hand to a browser.
+     * The source object knows the base; this is the only place that has both.
+     *
+     * Empty when there is nothing openable, and the caller omits the field
+     * entirely then — an action that cannot work should not be on screen.
+     */
+    private fun webUrl(src: Any?, path: String?): String {
+        val p = path?.trim().orEmpty()
+        if (p.isEmpty()) return ""
+        if (p.startsWith("http://") || p.startsWith("https://")) return p
+        val base = (src as? AnimeHttpSource)?.baseUrl?.trimEnd('/').orEmpty()
+        if (base.isEmpty()) return ""
+        return if (p.startsWith("/")) base + p else "$base/$p"
+    }
+
     private fun titleOf(a: SAnime): String {
         val given = try { a.title } catch (_: Throwable) { "" }
         if (given.isNotBlank()) return given
@@ -652,6 +671,7 @@ class AniyomiHost(private val context: Context) {
                 put("episode", num)
                 put("label", label)
                 put("mediaRef", e.url)
+                webUrl(src, e.url).takeIf { it.isNotEmpty() }?.let { put("webUrl", it) }
             })
         }
         if (eps.isEmpty() && failure == null) {

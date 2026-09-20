@@ -721,7 +721,8 @@
     "unknown": "An unknown error occurred.",
     "timeout": "Request timed out. Please try again.",
     "empty": "No content available.",
-    "source_http": "The source's server answered with an error ({})."
+    "source_http": "The source's server answered with an error ({}).",
+    "no_browser": "No app on this device can open that link."
   },
   "navigation": {
     "home": "Home",
@@ -1008,7 +1009,12 @@
     "alignment": "Alignment",
     "align_left": "Ragged",
     "align_justify": "Justified",
-    "novel_download_unavailable": "Offline downloads for novels are not supported yet."
+    "novel_download_unavailable": "Offline downloads for novels are not supported yet.",
+    "open_on_site": "Open on the source’s site",
+    "mark_read": "Mark read",
+    "mark_unread": "Mark unread",
+    "marked_read_n": "{} marked read",
+    "marked_unread_n": "{} marked unread"
   },
   "cloudflare": {
     "title": "Verify you're human",

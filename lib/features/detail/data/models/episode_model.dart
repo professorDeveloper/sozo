@@ -12,6 +12,7 @@ class EpisodeModel extends EpisodeEntity {
     super.airdate,
     super.runtime,
     super.overview,
+    super.webUrl,
   });
 
   factory EpisodeModel.fromJson(Map<String, dynamic> json) => EpisodeModel(
@@ -25,6 +26,7 @@ class EpisodeModel extends EpisodeEntity {
     airdate: _stringOrNull(json['airdate']),
     runtime: _stringOrNull(json['runtime']),
     overview: _stringOrNull(json['overview']),
+    webUrl: _stringOrNull(json['webUrl']),
   );
 
   static List<String> _parseLangs(dynamic raw) {

@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -18,6 +19,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/download_choices.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
+import 'package:soplay/features/manga/data/chapter_read_store.dart';
 import 'package:soplay/features/detail/domain/entities/episodes_args.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/core/extensions/provider_media_kind.dart';
@@ -103,6 +105,15 @@ class _EpisodesPageState extends State<EpisodesPage> {
   /// download queue at all.
   final Set<int> _selected = <int>{};
 
+  /// Which chapter numbers this title already has marked read.
+  ///
+  /// Held in the page rather than read per row: the store answers from Hive,
+  /// and a list that pages to a thousand rows would hit the box once per row
+  /// per frame. Refreshed when the page regains focus, because the reader is
+  /// where most of these get set.
+  final ChapterReadStore _readStore = ChapterReadStore();
+  Set<int> _read = <int>{};
+
   /// True while a batch is being resolved and queued. Each episode needs its
   /// own resolve call, which is a network round trip per item, so the UI has to
   /// say it is working rather than looking frozen.
@@ -179,6 +190,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
     _scroll.addListener(_onScroll);
     _historyService.revision.addListener(_refreshHistory);
     _refreshHistory();
+    _refreshRead();
     _maybeAutoFill();
     if (widget.args.resumeFromHistory) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -237,6 +249,64 @@ class _EpisodesPageState extends State<EpisodesPage> {
     final item = _historyService.get(widget.args.contentUrl);
     if (!mounted) return;
     setState(() => _historyItem = item);
+    // The reader is where most marks get set, and it saves a history position
+    // on the way out — so the one signal already being listened to is also the
+    // moment this list is stale.
+    _refreshRead();
+  }
+
+  void _refreshRead() {
+    if (!_isManga) return;
+    final read = _readStore.read(
+      widget.args.provider,
+      widget.args.contentUrl,
+    );
+    if (!mounted || setEquals(read, _read)) return;
+    setState(() => _read = read);
+  }
+
+  /// Whether every selected row is already read, which is what turns the one
+  /// action into "mark unread".
+  ///
+  /// One button rather than two. Two would both be live on a mixed selection
+  /// and neither would say which one the selection needed; one that flips reads
+  /// the selection and names the only useful move.
+  bool get _selectionAllRead =>
+      _selected.isNotEmpty &&
+      _selected.every((i) => _read.contains(_episodes[i].episode));
+
+  Future<void> _toggleReadSelected() async {
+    if (_selected.isEmpty) return;
+    final numbers = [for (final i in _selected) _episodes[i].episode];
+    final unread = !_selectionAllRead;
+    if (unread) {
+      await _readStore.mark(
+        widget.args.provider,
+        widget.args.contentUrl,
+        numbers,
+      );
+    } else {
+      await _readStore.unmark(
+        widget.args.provider,
+        widget.args.contentUrl,
+        numbers,
+      );
+    }
+    if (!mounted) return;
+    setState(() {
+      _read = _readStore.read(widget.args.provider, widget.args.contentUrl);
+      _selected.clear();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          (unread ? 'manga.marked_read_n' : 'manga.marked_unread_n').tr(
+            args: ['${numbers.length}'],
+          ),
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   static bool _hasAnyImage(List<EpisodeEntity> list) {
@@ -1172,6 +1242,9 @@ class _EpisodesPageState extends State<EpisodesPage> {
                                   : () => _downloadEpisode(i),
                               downloadId: _downloadIdFor(i),
                               downloads: _downloads,
+                              read:
+                                  _isManga &&
+                                  _read.contains(_episodes[i].episode),
                             );
                           },
                         ),
@@ -1238,6 +1311,11 @@ class _EpisodesPageState extends State<EpisodesPage> {
                     count: _selected.length,
                     busy: _queueing,
                     onDownload: _downloadSelected,
+                    // Reading only. An episode has watch history with a
+                    // position in it; a chapter has neither, which is exactly
+                    // why it needs somewhere to be told.
+                    onToggleRead: _isManga ? _toggleReadSelected : null,
+                    selectionRead: _selectionAllRead,
                   ),
                 ),
             ],
@@ -1891,6 +1969,7 @@ class _EpisodeRow extends StatelessWidget {
     this.flash = false,
     this.progress,
     this.onDownload,
+    this.read = false,
   });
 
   final EpisodeEntity episode;
@@ -1925,6 +2004,15 @@ class _EpisodeRow extends StatelessWidget {
   final double? progress;
   final VoidCallback? onDownload;
 
+  /// Already read, so the row steps back.
+  ///
+  /// Dimmed rather than struck through or hidden: a list of four hundred
+  /// chapters is scanned, not read, and the thing being looked for is the
+  /// boundary between what is done and what is not. Dimming makes that boundary
+  /// a single visible edge; a tick on every finished row makes four hundred
+  /// ticks. The row stays fully tappable — re-reading is normal.
+  final bool read;
+
   @override
   Widget build(BuildContext context) {
     final hasSub = episode.hasSub == true;
@@ -1946,151 +2034,157 @@ class _EpisodeRow extends StatelessWidget {
           horizontal: 16,
           vertical: showImage ? 8 : 14,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                if (showImage) ...[
-                  _EpisodeThumb(
-                    image: episode.image,
-                    episode: episode.episode,
-                    headers: headers,
+        child: Opacity(
+          // The current chapter keeps its full weight even once it is read:
+          // "where I am" outranks "what I have done" on a list somebody has
+          // just opened to carry on.
+          opacity: read && progress == null ? 0.45 : 1,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  if (showImage) ...[
+                    _EpisodeThumb(
+                      image: episode.image,
+                      episode: episode.episode,
+                      headers: headers,
+                    ),
+                    const SizedBox(width: 12),
+                  ] else
+                    // A minimum, not a fixed width, and a size that steps down
+                    // past three digits.
+                    //
+                    // A hard 44pt box at 22pt w900 fits three characters. On the
+                    // shows this screen exists for — a thousand-episode run — the
+                    // fourth digit ran straight into the title beside it.
+                    // Tabular figures so the column of numbers stays a column
+                    // rather than jittering with the glyph widths.
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 44),
+                      child: Text(
+                        _episodeNumberLabel(episode.episode),
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: progress != null
+                              ? AppColors.primary
+                              : AppColors.textHint,
+                          fontSize: episode.episode >= 1000 ? 16 : 22,
+                          fontWeight: FontWeight.w900,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  if (!showImage) const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Absent, not empty, when the label said nothing the
+                        // number column has not: an empty Text still claims a
+                        // line box, so the row would keep the height of a title
+                        // it is not showing.
+                        if (label.isNotEmpty)
+                          Text(
+                            label,
+                            maxLines: showImage ? 2 : 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: showImage
+                                  ? AppColors.textPrimary
+                                  : AppColors.textSecondary,
+                              fontSize: showImage ? 13 : 14,
+                              fontWeight: showImage
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              height: 1.25,
+                            ),
+                          ),
+                        if (showImage && _meta(episode).isNotEmpty) ...[
+                          if (label.isNotEmpty) const SizedBox(height: 2),
+                          Text(
+                            _meta(episode),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textHint,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                ] else
-                  // A minimum, not a fixed width, and a size that steps down
-                  // past three digits.
-                  //
-                  // A hard 44pt box at 22pt w900 fits three characters. On the
-                  // shows this screen exists for — a thousand-episode run — the
-                  // fourth digit ran straight into the title beside it.
-                  // Tabular figures so the column of numbers stays a column
-                  // rather than jittering with the glyph widths.
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 44),
-                    child: Text(
-                      _episodeNumberLabel(episode.episode),
-                      maxLines: 1,
-                      style: TextStyle(
+                  if (hasSub) const _LangChip(label: 'SUB', primary: true),
+                  if (hasSub && hasDub) const SizedBox(width: 4),
+                  if (hasDub) const _LangChip(label: 'DUB', primary: false),
+                  if (hasSub || hasDub) const SizedBox(width: 10),
+                  if (selecting) ...[
+                    // What is already on disk is exactly the information needed
+                    // to choose, and selection used to hide it behind the
+                    // checkbox — so a batch happily re-queued ten episodes the
+                    // reader already had.
+                    _DownloadedTick(id: downloadId, downloads: downloads),
+                    Icon(
+                      selected
+                          ? Icons.check_circle_rounded
+                          : Icons.circle_outlined,
+                      size: 24,
+                      color: selected ? AppColors.primary : AppColors.textHint,
+                    ),
+                  ] else ...[
+                    if (onDownload != null) ...[
+                      _DownloadControl(
+                        id: downloadId,
+                        downloads: downloads,
+                        onDownload: onDownload!,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: progress != null
+                            ? AppColors.primary.withValues(alpha: 0.15)
+                            : AppColors.surfaceVariant,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isManga
+                            ? Icons.menu_book_outlined
+                            : Icons.play_arrow_rounded,
                         color: progress != null
                             ? AppColors.primary
-                            : AppColors.textHint,
-                        fontSize: episode.episode >= 1000 ? 16 : 22,
-                        fontWeight: FontWeight.w900,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                            : AppColors.textPrimary,
+                        size: 18,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (progress != null)
+                Padding(
+                  padding: EdgeInsetsDirectional.only(
+                    start: showImage ? 0 : 56,
+                    top: 6,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(1.5),
+                    child: LinearProgressIndicator(
+                      value: progress!,
+                      minHeight: 3,
+                      backgroundColor: AppColors.divider,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primary,
                       ),
                     ),
                   ),
-                if (!showImage) const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Absent, not empty, when the label said nothing the
-                      // number column has not: an empty Text still claims a
-                      // line box, so the row would keep the height of a title
-                      // it is not showing.
-                      if (label.isNotEmpty)
-                        Text(
-                          label,
-                          maxLines: showImage ? 2 : 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: showImage
-                                ? AppColors.textPrimary
-                                : AppColors.textSecondary,
-                            fontSize: showImage ? 13 : 14,
-                            fontWeight: showImage
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                            height: 1.25,
-                          ),
-                        ),
-                      if (showImage && _meta(episode).isNotEmpty) ...[
-                        if (label.isNotEmpty) const SizedBox(height: 2),
-                        Text(
-                          _meta(episode),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textHint,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
                 ),
-                if (hasSub) const _LangChip(label: 'SUB', primary: true),
-                if (hasSub && hasDub) const SizedBox(width: 4),
-                if (hasDub) const _LangChip(label: 'DUB', primary: false),
-                if (hasSub || hasDub) const SizedBox(width: 10),
-                if (selecting) ...[
-                  // What is already on disk is exactly the information needed
-                  // to choose, and selection used to hide it behind the
-                  // checkbox — so a batch happily re-queued ten episodes the
-                  // reader already had.
-                  _DownloadedTick(id: downloadId, downloads: downloads),
-                  Icon(
-                    selected
-                        ? Icons.check_circle_rounded
-                        : Icons.circle_outlined,
-                    size: 24,
-                    color: selected ? AppColors.primary : AppColors.textHint,
-                  ),
-                ] else ...[
-                  if (onDownload != null) ...[
-                    _DownloadControl(
-                      id: downloadId,
-                      downloads: downloads,
-                      onDownload: onDownload!,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: progress != null
-                          ? AppColors.primary.withValues(alpha: 0.15)
-                          : AppColors.surfaceVariant,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isManga
-                          ? Icons.menu_book_outlined
-                          : Icons.play_arrow_rounded,
-                      color: progress != null
-                          ? AppColors.primary
-                          : AppColors.textPrimary,
-                      size: 18,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            if (progress != null)
-              Padding(
-                padding: EdgeInsetsDirectional.only(
-                  start: showImage ? 0 : 56,
-                  top: 6,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(1.5),
-                  child: LinearProgressIndicator(
-                    value: progress!,
-                    minHeight: 3,
-                    backgroundColor: AppColors.divider,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -2116,11 +2210,21 @@ class _BatchDownloadBar extends StatelessWidget {
     required this.count,
     required this.busy,
     required this.onDownload,
+    this.onToggleRead,
+    this.selectionRead = false,
   });
 
   final int count;
   final bool busy;
   final VoidCallback onDownload;
+
+  /// Marks the selection read, or unread. Null for a video list, which has
+  /// watch history to say the same thing on its own.
+  final VoidCallback? onToggleRead;
+
+  /// Whether everything selected is already read, which is what names the
+  /// action. See [_EpisodesPageState._selectionAllRead].
+  final bool selectionRead;
 
   @override
   Widget build(BuildContext context) {
@@ -2135,26 +2239,63 @@ class _BatchDownloadBar extends StatelessWidget {
       child: SizedBox(
         height: 46,
         width: double.infinity,
-        child: FilledButton.icon(
-          // Disabled while queueing so a second tap cannot double-queue a set
-          // that is halfway through resolving.
-          onPressed: busy ? null : onDownload,
-          icon: busy
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+        child: Row(
+          children: [
+            // Second, and outlined. Downloading is what this bar was built for
+            // and what a long selection is usually for; marking read is the
+            // cheaper, more reversible act and takes the quieter half.
+            Expanded(
+              child: FilledButton.icon(
+                // Disabled while queueing so a second tap cannot double-queue a
+                // set that is halfway through resolving.
+                onPressed: busy ? null : onDownload,
+                icon: busy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.download_rounded, size: 19),
+                label: Text(
+                  busy
+                      ? 'detail.download_queueing'.tr()
+                      : 'detail.download_n'.tr(args: ['$count']),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            if (onToggleRead != null) ...[
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : onToggleRead,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textPrimary,
+                    side: BorderSide(color: AppColors.divider),
                   ),
-                )
-              : const Icon(Icons.download_rounded, size: 19),
-          label: Text(
-            busy
-                ? 'detail.download_queueing'.tr()
-                : 'detail.download_n'.tr(args: ['$count']),
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
+                  icon: Icon(
+                    selectionRead
+                        ? Icons.remove_done_rounded
+                        : Icons.done_all_rounded,
+                    size: 19,
+                  ),
+                  label: Text(
+                    selectionRead
+                        ? 'manga.mark_unread'.tr()
+                        : 'manga.mark_read'.tr(),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

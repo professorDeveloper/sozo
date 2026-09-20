@@ -721,7 +721,8 @@
     "unknown": "發生咗未知錯誤。",
     "timeout": "請求逾時。請再試一次。",
     "empty": "冇內容可以睇。",
-    "source_http": "來源嘅伺服器回應咗一個錯誤（{}）。"
+    "source_http": "來源嘅伺服器回應咗一個錯誤（{}）。",
+    "no_browser": "呢部機冇 app 開得到條連結。"
   },
   "navigation": {
     "home": "主頁",
@@ -1008,7 +1009,12 @@
     "alignment": "對齊",
     "align_left": "靠左",
     "align_justify": "左右對齊",
-    "novel_download_unavailable": "輕小說暫時未支援離線下載。"
+    "novel_download_unavailable": "輕小說暫時未支援離線下載。",
+    "open_on_site": "喺來源網站打開",
+    "mark_read": "標為已讀",
+    "mark_unread": "標為未讀",
+    "marked_read_n": "{} 個標咗已讀",
+    "marked_unread_n": "{} 個標咗未讀"
   },
   "cloudflare": {
     "title": "驗證你係真人",

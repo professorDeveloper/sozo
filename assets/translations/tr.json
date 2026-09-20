@@ -721,7 +721,8 @@
     "unknown": "Bilinmeyen bir hata oluştu.",
     "timeout": "İstek zaman aşımına uğradı. Lütfen tekrar dene.",
     "empty": "Kullanılabilir içerik yok.",
-    "source_http": "Kaynağın sunucusu bir hatayla yanıt verdi ({})."
+    "source_http": "Kaynağın sunucusu bir hatayla yanıt verdi ({}).",
+    "no_browser": "Bu cihazda bu bağlantıyı açabilecek bir uygulama yok."
   },
   "navigation": {
     "home": "Ana sayfa",
@@ -1008,7 +1009,12 @@
     "alignment": "Hizalama",
     "align_left": "Sola",
     "align_justify": "İki yana",
-    "novel_download_unavailable": "Romanlar için çevrimdışı indirme henüz desteklenmiyor."
+    "novel_download_unavailable": "Romanlar için çevrimdışı indirme henüz desteklenmiyor.",
+    "open_on_site": "Kaynağın sitesinde aç",
+    "mark_read": "Okundu",
+    "mark_unread": "Okunmadı",
+    "marked_read_n": "{} okundu olarak işaretlendi",
+    "marked_unread_n": "{} okunmadı olarak işaretlendi"
   },
   "cloudflare": {
     "title": "İnsan olduğunu doğrula",

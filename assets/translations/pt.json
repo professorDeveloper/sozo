@@ -721,7 +721,8 @@
     "unknown": "Ocorreu um erro desconhecido.",
     "timeout": "Tempo esgotado. Tente novamente.",
     "empty": "Nenhum conteúdo disponível.",
-    "source_http": "O servidor da fonte respondeu com um erro ({})."
+    "source_http": "O servidor da fonte respondeu com um erro ({}).",
+    "no_browser": "Nenhuma app neste dispositivo consegue abrir esse link."
   },
   "navigation": {
     "home": "Início",
@@ -1008,7 +1009,12 @@
     "alignment": "Alinhamento",
     "align_left": "À esquerda",
     "align_justify": "Justificado",
-    "novel_download_unavailable": "O download offline de romances ainda não é suportado."
+    "novel_download_unavailable": "O download offline de romances ainda não é suportado.",
+    "open_on_site": "Abrir no site da fonte",
+    "mark_read": "Marcar lido",
+    "mark_unread": "Marcar não lido",
+    "marked_read_n": "{} marcados como lidos",
+    "marked_unread_n": "{} marcados como não lidos"
   },
   "cloudflare": {
     "title": "Confirme que você é humano",

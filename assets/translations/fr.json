@@ -721,7 +721,8 @@
     "unknown": "Une erreur inconnue est survenue.",
     "timeout": "Délai dépassé. Réessaie.",
     "empty": "Aucun contenu disponible.",
-    "source_http": "Le serveur de la source a répondu par une erreur ({})."
+    "source_http": "Le serveur de la source a répondu par une erreur ({}).",
+    "no_browser": "Aucune application de cet appareil ne peut ouvrir ce lien."
   },
   "navigation": {
     "home": "Accueil",
@@ -1008,7 +1009,12 @@
     "alignment": "Alignement",
     "align_left": "À gauche",
     "align_justify": "Justifié",
-    "novel_download_unavailable": "Le téléchargement hors ligne des romans n’est pas encore disponible."
+    "novel_download_unavailable": "Le téléchargement hors ligne des romans n’est pas encore disponible.",
+    "open_on_site": "Ouvrir sur le site de la source",
+    "mark_read": "Marquer lu",
+    "mark_unread": "Marquer non lu",
+    "marked_read_n": "{} marqués comme lus",
+    "marked_unread_n": "{} marqués comme non lus"
   },
   "cloudflare": {
     "title": "Confirme que tu es humain",

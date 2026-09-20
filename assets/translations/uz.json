@@ -721,7 +721,8 @@
     "unknown": "Noma'lum xatolik yuz berdi.",
     "timeout": "So'rov vaqti tugadi. Qayta urinib ko'ring.",
     "empty": "Kontent mavjud emas.",
-    "source_http": "Manba serveri xatolik bilan javob berdi ({})."
+    "source_http": "Manba serveri xatolik bilan javob berdi ({}).",
+    "no_browser": "Bu qurilmada havolani ochadigan ilova yo‘q."
   },
   "navigation": {
     "home": "Asosiy",
@@ -1008,7 +1009,12 @@
     "alignment": "Tekislash",
     "align_left": "Chapdan",
     "align_justify": "Ikki chetga",
-    "novel_download_unavailable": "Hozircha novellarni oflayn yuklab bo‘lmaydi."
+    "novel_download_unavailable": "Hozircha novellarni oflayn yuklab bo‘lmaydi.",
+    "open_on_site": "Manba saytida ochish",
+    "mark_read": "O‘qilgan",
+    "mark_unread": "O‘qilmagan",
+    "marked_read_n": "{} ta o‘qilgan deb belgilandi",
+    "marked_unread_n": "{} ta o‘qilmagan deb belgilandi"
   },
   "cloudflare": {
     "title": "Siz odam ekanligingizni tasdiqlang",

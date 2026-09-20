@@ -721,7 +721,8 @@
     "unknown": "Er is een onbekende fout opgetreden.",
     "timeout": "Time-out. Probeer het opnieuw.",
     "empty": "Geen inhoud beschikbaar.",
-    "source_http": "De server van de bron gaf een fout terug ({})."
+    "source_http": "De server van de bron gaf een fout terug ({}).",
+    "no_browser": "Geen app op dit apparaat kan die link openen."
   },
   "navigation": {
     "home": "Start",
@@ -1008,7 +1009,12 @@
     "alignment": "Uitlijning",
     "align_left": "Links",
     "align_justify": "Uitgevuld",
-    "novel_download_unavailable": "Offline downloaden van romans wordt nog niet ondersteund."
+    "novel_download_unavailable": "Offline downloaden van romans wordt nog niet ondersteund.",
+    "open_on_site": "Openen op de site van de bron",
+    "mark_read": "Gelezen",
+    "mark_unread": "Ongelezen",
+    "marked_read_n": "{} als gelezen gemarkeerd",
+    "marked_unread_n": "{} als ongelezen gemarkeerd"
   },
   "cloudflare": {
     "title": "Bevestig dat je een mens bent",

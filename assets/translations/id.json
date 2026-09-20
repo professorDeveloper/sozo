@@ -721,7 +721,8 @@
     "unknown": "Terjadi kesalahan yang tidak diketahui.",
     "timeout": "Permintaan kehabisan waktu. Coba lagi.",
     "empty": "Tidak ada konten tersedia.",
-    "source_http": "Server sumber menjawab dengan kesalahan ({})."
+    "source_http": "Server sumber menjawab dengan kesalahan ({}).",
+    "no_browser": "Tidak ada aplikasi di perangkat ini yang bisa membuka tautan itu."
   },
   "navigation": {
     "home": "Beranda",
@@ -1008,7 +1009,12 @@
     "alignment": "Perataan",
     "align_left": "Rata kiri",
     "align_justify": "Rata kanan-kiri",
-    "novel_download_unavailable": "Unduhan novel offline belum didukung."
+    "novel_download_unavailable": "Unduhan novel offline belum didukung.",
+    "open_on_site": "Buka di situs sumber",
+    "mark_read": "Tandai dibaca",
+    "mark_unread": "Tandai belum",
+    "marked_read_n": "{} ditandai dibaca",
+    "marked_unread_n": "{} ditandai belum dibaca"
   },
   "cloudflare": {
     "title": "Verifikasi bahwa kamu manusia",

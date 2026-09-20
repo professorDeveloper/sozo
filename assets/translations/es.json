@@ -721,7 +721,8 @@
     "unknown": "Se produjo un error desconocido.",
     "timeout": "Se agotó el tiempo de espera. Inténtalo de nuevo.",
     "empty": "No hay contenido disponible.",
-    "source_http": "El servidor de la fuente respondió con un error ({})."
+    "source_http": "El servidor de la fuente respondió con un error ({}).",
+    "no_browser": "Ninguna app de este dispositivo puede abrir ese enlace."
   },
   "navigation": {
     "home": "Inicio",
@@ -1008,7 +1009,12 @@
     "alignment": "Alineación",
     "align_left": "A la izquierda",
     "align_justify": "Justificado",
-    "novel_download_unavailable": "Las descargas sin conexión de novelas aún no están disponibles."
+    "novel_download_unavailable": "Las descargas sin conexión de novelas aún no están disponibles.",
+    "open_on_site": "Abrir en el sitio de la fuente",
+    "mark_read": "Marcar leído",
+    "mark_unread": "Marcar no leído",
+    "marked_read_n": "{} marcados como leídos",
+    "marked_unread_n": "{} marcados como no leídos"
   },
   "cloudflare": {
     "title": "Verifica que eres humano",

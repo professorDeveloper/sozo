@@ -721,7 +721,8 @@
     "unknown": "Ein unbekannter Fehler ist aufgetreten.",
     "timeout": "Zeitüberschreitung. Bitte versuche es erneut.",
     "empty": "Keine Inhalte verfügbar.",
-    "source_http": "Der Server der Quelle hat mit einem Fehler geantwortet ({})."
+    "source_http": "Der Server der Quelle hat mit einem Fehler geantwortet ({}).",
+    "no_browser": "Auf diesem Gerät kann keine App diesen Link öffnen."
   },
   "navigation": {
     "home": "Start",
@@ -1008,7 +1009,12 @@
     "alignment": "Ausrichtung",
     "align_left": "Flattersatz",
     "align_justify": "Blocksatz",
-    "novel_download_unavailable": "Offline-Downloads für Romane werden noch nicht unterstützt."
+    "novel_download_unavailable": "Offline-Downloads für Romane werden noch nicht unterstützt.",
+    "open_on_site": "Auf der Seite der Quelle öffnen",
+    "mark_read": "Als gelesen",
+    "mark_unread": "Als ungelesen",
+    "marked_read_n": "{} als gelesen markiert",
+    "marked_unread_n": "{} als ungelesen markiert"
   },
   "cloudflare": {
     "title": "Bestätige, dass du ein Mensch bist",

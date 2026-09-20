@@ -337,6 +337,29 @@ class MangaHost(private val context: Context) {
     }
 
     /**
+     * A url a browser can open, out of the path an extension stores.
+     *
+     * A Tachiyomi source keeps `SManga.url` and `SChapter.url` as paths
+     * relative to its own `baseUrl` — `/manga/x/chapter-1`, not a link. So the
+     * app held nothing it could hand to a browser, and "open this on the
+     * source's site" could not exist for the whole Mihon ecosystem. The source
+     * object knows the base; this is the only place that has both.
+     *
+     * Empty when there is nothing openable — a source that is not an
+     * [HttpSource], or a path that is already absolute and is kept as it is.
+     * The reader shows the action only when this arrives non-empty, so a source
+     * that cannot answer simply does not offer it.
+     */
+    private fun webUrl(src: Any?, path: String?): String {
+        val p = path?.trim().orEmpty()
+        if (p.isEmpty()) return ""
+        if (p.startsWith("http://") || p.startsWith("https://")) return p
+        val base = (src as? HttpSource)?.baseUrl?.trimEnd('/').orEmpty()
+        if (base.isEmpty()) return ""
+        return if (p.startsWith("/")) base + p else "$base/$p"
+    }
+
+    /**
      * A chapter's `mediaRef`: its url, plus the memo when it carries one.
      *
      * extensions-lib 1.6 lets a source stash per-chapter state in [SChapter.memo]
@@ -578,6 +601,7 @@ class MangaHost(private val context: Context) {
                 put("episode", i + 1)
                 put("label", c.name.ifEmpty { "Chapter ${i + 1}" })
                 put("mediaRef", chapterRef(c))
+                webUrl(src, c.url).takeIf { it.isNotEmpty() }?.let { put("webUrl", it) }
             })
         }
 
