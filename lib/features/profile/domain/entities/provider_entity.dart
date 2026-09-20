@@ -48,6 +48,19 @@ class ProviderEntity {
   /// on the floor in `ProviderModel.fromJson`.
   final String lang;
 
+  /// Which repository this source was installed from, when it came from one.
+  ///
+  /// Empty for Sozo's own providers and for the catalogues, which have no repo
+  /// to belong to. Every extension ecosystem has one and every host already
+  /// reported it — it was being written straight into [description] and read
+  /// nowhere, so a user with six CloudStream repos installed had no way to ask
+  /// which of two hundred sources came from which.
+  ///
+  /// The url, not a display name: the url is what the index is keyed by and the
+  /// only thing that is stable. Whatever shows it is responsible for shortening
+  /// it — see `repoLabel`.
+  final String repo;
+
   final ExtractorRef? extractor;
 
   const ProviderEntity({
@@ -57,6 +70,7 @@ class ProviderEntity {
     required this.url,
     required this.description,
     required this.domains,
+    this.repo = '',
     this.mode = 'server',
     this.category = 'other',
     this.requiresCfBypass = false,

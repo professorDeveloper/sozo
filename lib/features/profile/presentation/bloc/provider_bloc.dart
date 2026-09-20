@@ -196,6 +196,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             description: (m['repo'] as String?)?.isNotEmpty == true
                 ? m['repo'] as String
                 : 'CloudStream',
+            repo: (m['repo'] as String?)?.trim() ?? '',
             domains: const [],
             mode: 'client',
             category: 'cloudstream',
@@ -227,6 +228,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             description: (m['repo'] as String?)?.isNotEmpty == true
                 ? m['repo'] as String
                 : 'Aniyomi',
+            repo: (m['repo'] as String?)?.trim() ?? '',
             domains: const [],
             mode: 'client',
             category: 'aniyomi',
@@ -266,6 +268,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             description: (m['repo'] as String?)?.isNotEmpty == true
                 ? m['repo'] as String
                 : 'Manga',
+            repo: (m['repo'] as String?)?.trim() ?? '',
             domains: const [],
             mode: 'client',
             category: 'manga',
@@ -304,6 +307,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             description: (m['repo'] as String?)?.isNotEmpty == true
                 ? m['repo'] as String
                 : 'Mangayomi',
+            repo: (m['repo'] as String?)?.trim() ?? '',
             domains: const [],
             mode: 'client',
             category: 'mangayomi',

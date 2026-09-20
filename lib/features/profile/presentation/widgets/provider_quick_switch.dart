@@ -4,6 +4,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/features/home/data/datasources/home_data_source.dart';
 import 'package:soplay/features/sources/domain/source_ecosystem.dart';
+import 'package:soplay/features/sources/domain/source_scope.dart';
+import 'package:soplay/features/sources/presentation/widgets/source_scope_menu.dart';
 import 'package:soplay/core/extensions/source_language.dart';
 import 'package:soplay/core/network/image_headers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -290,6 +292,29 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   final TextEditingController _filter = TextEditingController();
   String _query = '';
 
+  /// Which slice of the sources is showing. The same control as the sources
+  /// page, for the same reason: with several repositories installed this sheet
+  /// is a few hundred rows behind one text field, and typing only helps if you
+  /// already know the name you are looking for.
+  SourceScope _scope = SourceScope.all;
+
+  /// Counted over every source the sheet was handed, not over what the search
+  /// has left — so the menu still says how many CloudStream sources exist while
+  /// a query is narrowing the list, which is the number worth knowing.
+  SourceScopeCounts get _counts => SourceScopeCounts.of(widget.all);
+
+  /// As much of [_scope] as still exists. See the sources page for the rule;
+  /// here the list can also change under it when the mode does.
+  SourceScope get _liveScope {
+    final e = _scope.ecosystem;
+    if (e == null) return SourceScope.all;
+    final counts = _counts;
+    if ((counts.byEcosystem[e] ?? 0) == 0) return SourceScope.all;
+    final r = _scope.repo;
+    if (r == null) return _scope;
+    return (counts.byRepo[e]?[r] ?? 0) > 0 ? _scope : SourceScope(ecosystem: e);
+  }
+
   /// One per chip, so the chip that was pressed can say where it was.
   final Map<ContentMode, GlobalKey> _chipKeys = {
     for (final m in ContentMode.values) m: GlobalKey(),
@@ -376,20 +401,28 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   List<ProviderEntity> get _rest {
     final favIds = {for (final p in widget.favorites) p.id};
     final q = _query.trim().toLowerCase();
+    final scope = _liveScope;
     return [
       for (final p in widget.all)
         if (!favIds.contains(p.id) &&
+            scope.matches(p) &&
             (q.isEmpty || p.name.toLowerCase().contains(q)))
           p,
     ];
   }
 
+  /// Favourites are filtered by the scope too.
+  ///
+  /// They are a shortcut into the same list, not a separate one — leaving them
+  /// alone would show CloudStream favourites above a list filtered to Aniyomi,
+  /// which reads as the filter having missed them.
   List<ProviderEntity> get _shownFavorites {
     final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return widget.favorites;
+    final scope = _liveScope;
     return [
       for (final p in widget.favorites)
-        if (p.name.toLowerCase().contains(q)) p,
+        if (scope.matches(p) && (q.isEmpty || p.name.toLowerCase().contains(q)))
+          p,
     ];
   }
 
@@ -636,6 +669,14 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
           ],
           const SizedBox(height: _pinnedPad),
           _SectionLabel('${'sources.section'.tr()} · ${widget.all.length}'),
+          // Above the search box: it narrows what the box searches, and a
+          // control that changes the meaning of another one belongs before it.
+          SourceScopeMenu(
+            counts: _counts,
+            scope: _liveScope,
+            dense: true,
+            onPick: (picked) => setState(() => _scope = picked),
+          ),
           if (_hasFilter) ...[
             const SizedBox(height: 8),
             SizedBox(
@@ -682,11 +723,14 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppColors.textSecondary),
           ),
-          if (_query.isNotEmpty)
+          if (_query.isNotEmpty || !_liveScope.isAll)
             TextButton(
               onPressed: () {
                 _filter.clear();
-                setState(() => _query = '');
+                setState(() {
+                  _query = '';
+                  _scope = SourceScope.all;
+                });
               },
               child: Text('general.clear'.tr()),
             ),

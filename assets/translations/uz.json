@@ -1925,7 +1925,8 @@
     "eco_all": "Hammasi",
     "language_not_stated": "Til ko‘rsatilmagan · {}",
     "installed": "O‘rnatilgan",
-    "section": "Manbalar"
+    "section": "Manbalar",
+    "filter_title": "Qaysi manbalar ko‘rsatilsin"
   },
   "settings": {
     "dns_title": "DNS",

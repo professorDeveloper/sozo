@@ -4,7 +4,6 @@ import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_source_settings_page.dart';
@@ -26,7 +25,8 @@ import 'package:soplay/features/extensions/presentation/pages/source_catalog_pag
 import 'package:soplay/features/extensions/domain/entities/catalog_source_entity.dart';
 import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
-import 'package:soplay/features/sources/domain/source_ecosystem.dart';
+import 'package:soplay/features/sources/domain/source_scope.dart';
+import 'package:soplay/features/sources/presentation/widgets/source_scope_menu.dart';
 import 'package:soplay/features/sources/domain/source_failure.dart';
 import 'package:soplay/features/sources/domain/source_index.dart';
 
@@ -60,7 +60,11 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// null is "all". Which runtime a source comes from is the axis people
   /// actually filter on here — "the one I added from CloudStream" — and it was
   /// visible only as a word in grey under each of several hundred names.
-  SourceEcosystem? _eco;
+  /// Which slice of the list is showing: an ecosystem, and a repository inside
+  /// it. Two axes rather than one — with six CloudStream repos installed,
+  /// "CloudStream" is two hundred sources and the question is which two
+  /// hundred. See [SourceScope].
+  SourceScope _scope = SourceScope.all;
   List<String> get _languages => getIt<HiveService>().getProviderLanguages();
 
   /// The needle the list is actually filtered by, behind a debounce.
@@ -89,7 +93,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   void _onTabMoved() {
     if (_tabs.indexIsChanging || _tabs.index == _lastTab) return;
     _lastTab = _tabs.index;
-    setState(() => _eco = null);
+    setState(() => _scope = SourceScope.all);
   }
 
   Future<void> _filterLanguage(String code) async {
@@ -425,20 +429,33 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   _TabSources _tabFor(ProviderLoaded state, ContentMode mode, String needle) =>
       _narrow(_tabBase(state, mode), needle);
 
+  /// The chosen scope, or as much of it as still exists here.
+  ///
+  /// The scope is shared by three tabs and survives a search, so it routinely
+  /// names an ecosystem or a repository the current list does not contain —
+  /// changing tab, or typing, is enough. Falling back a level at a time keeps
+  /// as much of the choice as still means something: a repo that has vanished
+  /// leaves its ecosystem selected, and an ecosystem that has vanished shows
+  /// everything. Holding a dead filter would show an empty list and blame the
+  /// search for it.
+  SourceScope _liveScope(SourceScopeCounts counts) {
+    final e = _scope.ecosystem;
+    if (e == null) return SourceScope.all;
+    if ((counts.byEcosystem[e] ?? 0) == 0) return SourceScope.all;
+    final r = _scope.repo;
+    if (r == null) return _scope;
+    return (counts.byRepo[e]?[r] ?? 0) > 0 ? _scope : SourceScope(ecosystem: e);
+  }
+
   static _TabSources _narrow(_TabSources base, String needle) {
     if (needle.isEmpty) return base;
     bool hit(ProviderEntity p) => p.name.toLowerCase().contains(needle);
     final matched = base.matched.where(hit).toList();
     final unstated = base.unstated.where(hit).toList();
-    final counts = <SourceEcosystem, int>{};
-    for (final p in [...matched, ...unstated]) {
-      final e = SourceEcosystem.of(p.id);
-      counts[e] = (counts[e] ?? 0) + 1;
-    }
     return _TabSources(
       matched: matched,
       unstated: unstated,
-      counts: counts,
+      counts: SourceScopeCounts.of([...matched, ...unstated]),
     );
   }
 
@@ -493,15 +510,10 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       }
     }
 
-    final counts = <SourceEcosystem, int>{};
-    for (final p in [...matched, ...unstated]) {
-      final e = SourceEcosystem.of(p.id);
-      counts[e] = (counts[e] ?? 0) + 1;
-    }
     final built = _TabSources(
       matched: matched,
       unstated: unstated,
-      counts: counts,
+      counts: SourceScopeCounts.of([...matched, ...unstated]),
     );
     // Bounded. With the needle out of the key this is one entry per tab per
     // language selection, so the steady state is three — the wipe that used to
@@ -535,13 +547,13 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         final mode = ContentMode.values[_tabs.index];
         final needle = _query;
         final counts = _tabFor(state, mode, needle).counts;
-        final eco = counts.containsKey(_eco) ? _eco : null;
+        final scope = _liveScope(counts);
 
         return Column(
           children: [
             AppTabBar(
               controller: _tabs,
-              onChanged: (_) => setState(() => _eco = null),
+              onChanged: (_) => setState(() => _scope = SourceScope.all),
               isScrollable: false,
               labels: [for (final m in ContentMode.values) m.labelKey.tr()],
             ),
@@ -569,13 +581,11 @@ class _SourcesHubPageState extends State<SourcesHubPage>
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeOutCubic,
               alignment: Alignment.topCenter,
-              child: counts.length > 1
-                  ? _EcosystemFilter(
-                      counts: counts,
-                      active: eco,
-                      onPick: (picked) => setState(() => _eco = picked),
-                    )
-                  : const SizedBox(width: double.infinity),
+              child: SourceScopeMenu(
+                counts: counts,
+                scope: scope,
+                onPick: (picked) => setState(() => _scope = picked),
+              ),
             ),
             Expanded(
               child: TabBarView(
@@ -655,12 +665,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
 
   Widget _tabList(ProviderLoaded state, ContentMode mode, String needle) {
     final tab = _tabFor(state, mode, needle);
-    final eco = tab.counts.containsKey(_eco) ? _eco : null;
-    List<ProviderEntity> narrow(List<ProviderEntity> rows) => eco == null
+    final scope = _liveScope(tab.counts);
+    List<ProviderEntity> narrow(List<ProviderEntity> rows) => scope.isAll
         ? rows
         : [
             for (final p in rows)
-              if (SourceEcosystem.of(p.id) == eco) p,
+              if (scope.matches(p)) p,
           ];
     final matched = narrow(tab.matched);
     final unstated = narrow(tab.unstated);
@@ -686,7 +696,10 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       // position reset to zero and every visible row's entrance animation
       // started again — around three dozen AnimationControllers and timers per
       // keystroke. That is the list "flashing" while you type.
-      key: PageStorageKey('sources|${mode.id}|$eco|${_languages.join(",")}'),
+      key: PageStorageKey(
+        'sources|${mode.id}|${scope.ecosystem}|${scope.repo}|'
+        '${_languages.join(",")}',
+      ),
       controller: _scrolls[mode],
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [
@@ -1050,128 +1063,6 @@ class _Message extends StatelessWidget {
   }
 }
 
-/// Which runtime a source comes from, as a row of small chips.
-///
-/// Only the ecosystems this tab actually contains, and only when there is more
-/// than one of them: a chip that filters to nothing teaches people the filter
-/// is broken, and a single chip is a label pretending to be a control.
-///
-/// Each carries its count. The row costs a strip of the screen either way, and
-/// a number is the difference between decoration and something worth reading —
-/// "Aniyomi 214" answers where the sources went without tapping anything.
-class _EcosystemFilter extends StatelessWidget {
-  const _EcosystemFilter({
-    required this.counts,
-    required this.active,
-    required this.onPick,
-  });
-
-  final Map<SourceEcosystem, int> counts;
-  final SourceEcosystem? active;
-  final ValueChanged<SourceEcosystem?> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    final chips = <SourceEcosystem?>[
-      null,
-      for (final e in SourceEcosystem.values)
-        if (counts.containsKey(e)) e,
-    ];
-    final total = counts.values.fold(0, (a, b) => a + b);
-    // Scaled, because this row is the one control on the page that is read at
-    // a glance and it was laid out at a size meant for a badge: 34 high with
-    // 12pt type is under the 44dp anyone actually hits, and the count beside
-    // it was small enough to be taken for decoration.
-    final scale = MediaQuery.textScalerOf(context);
-    final height = scale.scale(13) * 2.0 + 18;
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 2),
-      child: SizedBox(
-        height: height,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsetsDirectional.only(start: 12, end: 12),
-          itemCount: chips.length,
-          separatorBuilder: (_, _) => const SizedBox(width: 8),
-          itemBuilder: (context, i) {
-            final e = chips[i];
-            final selected = e == active;
-            final count = e == null ? total : counts[e] ?? 0;
-            final label = e?.label ?? 'sources.eco_all'.tr();
-            return Center(
-              child: Semantics(
-                button: true,
-                selected: selected,
-                label: '$label, $count',
-                child: ExcludeSemantics(
-                  child: InkWell(
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      onPick(e);
-                    },
-                    borderRadius: BorderRadius.circular(999),
-                    // Selection used to be a hard cut between two colours and
-                    // two weights, which on a row of five chips reads as the
-                    // list redrawing rather than as one of them being chosen.
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      curve: Curves.easeOut,
-                      padding: const EdgeInsets.fromLTRB(13, 7, 13, 7),
-                      decoration: BoxDecoration(
-                        color: selected ? AppColors.primary : AppColors.card,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: selected
-                              ? AppColors.primary
-                              : Colors.white.withValues(alpha: 0.06),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 160),
-                            style: TextStyle(
-                              color: selected
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                              fontSize: 13,
-                              fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              decoration: TextDecoration.none,
-                            ),
-                            child: Text(label),
-                          ),
-                          const SizedBox(width: 6),
-                          AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 160),
-                            style: TextStyle(
-                              color: selected
-                                  ? Colors.white70
-                                  : AppColors.textSecondary.withValues(
-                                      alpha: 0.6,
-                                    ),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.none,
-                            ),
-                            child: Text('$count'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
 /// One tab's sources, split by whether they answer the language filter, and
 /// how many come from each ecosystem.
 class _TabSources {
@@ -1187,7 +1078,9 @@ class _TabSources {
   /// Sources with no language to go on. Empty unless a language is chosen.
   final List<ProviderEntity> unstated;
 
-  final Map<SourceEcosystem, int> counts;
+  /// How many sources sit in each ecosystem, and in each repository inside
+  /// one — what the scope menu is built from.
+  final SourceScopeCounts counts;
 }
 
 /// One of the two things this screen is: what you have, or what you could

@@ -1925,7 +1925,8 @@
     "eco_all": "Semua",
     "language_not_stated": "Bahasa tidak disebutkan · {}",
     "installed": "Terpasang",
-    "section": "Sumber"
+    "section": "Sumber",
+    "filter_title": "Tampilkan sumber dari"
   },
   "settings": {
     "dns_title": "DNS",

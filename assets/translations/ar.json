@@ -1929,7 +1929,8 @@
     "eco_all": "الكل",
     "language_not_stated": "اللغة غير محددة · {}",
     "installed": "المثبتة",
-    "section": "المصادر"
+    "section": "المصادر",
+    "filter_title": "إظهار المصادر من"
   },
   "settings": {
     "dns_title": "DNS",

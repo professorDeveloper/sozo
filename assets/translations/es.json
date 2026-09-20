@@ -1925,7 +1925,8 @@
     "eco_all": "Todas",
     "language_not_stated": "Idioma no indicado · {}",
     "installed": "Instaladas",
-    "section": "Fuentes"
+    "section": "Fuentes",
+    "filter_title": "Mostrar fuentes de"
   },
   "settings": {
     "dns_title": "DNS",
