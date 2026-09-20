@@ -135,6 +135,30 @@ class ExtensionRepoDefaults {
           'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
       order: 3,
     ),
+    // The light-novel answer.
+    //
+    // Sozo could read novels and had almost nowhere to read them from: a novel
+    // source here is a Mangayomi source whose index declares `itemType: novel`,
+    // and those are a handful next to the manga ones. Most installs had none,
+    // which is the whole reason CatalogueResolver widens the light-novel shelf
+    // to the comic readers and has to caveat every answer it gets back. This
+    // index is 279 novel sources.
+    //
+    // A different ecosystem, reached through the same runtime: an LNReader
+    // plugin is a CommonJS bundle rather than a Mangayomi class, and the shim
+    // in `assets/js/lnreader.js` turns it into the same object shape. Nothing
+    // downstream — search, home, detail, chapters, the reader, downloads, EPUB
+    // export — can tell the two apart.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'LNReader',
+      description: 'Light novels · 279 sources',
+      url:
+          'https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json',
+      order: 4,
+    ),
   ];
 
   static List<ExtensionRepoEntity> forKind(ExtensionRepoKind kind) =>

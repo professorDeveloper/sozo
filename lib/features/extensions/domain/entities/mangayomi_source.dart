@@ -68,6 +68,21 @@ class MangayomiSource {
   /// hosts (`cs:` / `an:` / `mn:`) so dispatch stays a prefix check.
   String get providerId => 'my:$id';
 
+  /// An LNReader plugin rather than a Mangayomi extension.
+  ///
+  /// The two are both JavaScript and both end up in the same runtime and the
+  /// same registry, so one flag on the source is the whole difference: it picks
+  /// which loader compiles the code. Everything after that is the same object
+  /// shape — see `assets/js/lnreader.js`.
+  ///
+  /// Carried on `typeSource`, which is already a free-text field describing
+  /// where a source came from, rather than a new column that every stored row
+  /// would have to be migrated to grow.
+  bool get isLnReader => typeSource == lnReaderType;
+
+  /// The value [isLnReader] looks for.
+  static const String lnReaderType = 'lnreader';
+
   /// Code and constructor inputs must move together when changing repositories.
   String get runtimeIdentity =>
       '$version\u0000$sourceCodeUrl\u0000$repoUrl\u0000'
@@ -132,6 +147,59 @@ class MangayomiSource {
       isJavaScript: ((json['sourceCodeLanguage'] as num?)?.toInt() ?? 1) == 1,
       repoUrl: repoUrl,
     );
+  }
+
+  /// One entry from an LNReader plugin index.
+  ///
+  /// A different shape for the same idea: a flat array of
+  /// `{id, name, site, lang, version, url, iconUrl}`, where `url` is the code
+  /// and `site` is the base. Everything else is implied — they are all
+  /// JavaScript, they are all novels, and the index has no notion of NSFW or of
+  /// a source sitting behind Cloudflare.
+  ///
+  /// Mapped onto [MangayomiSource] rather than given a type of its own because
+  /// the difference between the two ecosystems is entirely in the loader. A
+  /// parallel entity would mean a parallel store, a parallel picker and a
+  /// parallel path through search — for two fields and a `new Function`.
+  ///
+  /// The id is prefixed so a plugin cannot collide with a Mangayomi extension
+  /// that happens to have picked the same one: they share a registry, and a
+  /// collision would silently serve one source's chapters under another's name.
+  static MangayomiSource? fromLnReaderJson(
+    Map<String, dynamic> json, {
+    required String repoUrl,
+  }) {
+    final id = json['id']?.toString().trim() ?? '';
+    final name = (json['name'] as String?)?.trim() ?? '';
+    final code = (json['url'] as String?)?.trim() ?? '';
+    if (id.isEmpty || name.isEmpty || code.isEmpty) return null;
+    return MangayomiSource(
+      id: 'ln.$id',
+      name: name,
+      baseUrl: (json['site'] as String?)?.trim() ?? '',
+      lang: (json['lang'] as String?)?.trim() ?? 'all',
+      iconUrl: (json['iconUrl'] as String?)?.trim() ?? '',
+      typeSource: lnReaderType,
+      sourceCodeUrl: code,
+      version: (json['version'] as String?)?.trim() ?? '0.0.0',
+      itemType: MangayomiItemType.novel,
+      repoUrl: repoUrl,
+    );
+  }
+
+  /// Whether [decoded] is an LNReader index rather than a Mangayomi one.
+  ///
+  /// Told apart by shape, not by url: an index is an LNReader one when it is a
+  /// bare list whose entries carry `url` and `site` and no `sourceCodeUrl`.
+  /// Matching on the hostname instead would mean a mirror, a fork or a local
+  /// file of the same index could not be added.
+  static bool looksLikeLnReaderIndex(Object? decoded) {
+    if (decoded is! List || decoded.isEmpty) return false;
+    final first = decoded.first;
+    if (first is! Map) return false;
+    return first['url'] != null &&
+        first['site'] != null &&
+        first['sourceCodeUrl'] == null;
   }
 
   static MangayomiSource fromJson(Map<String, dynamic> json) => MangayomiSource(

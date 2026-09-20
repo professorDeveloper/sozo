@@ -170,6 +170,12 @@ class MangayomiRuntime {
 
     final bridge = await rootBundle.loadString('assets/js/mangayomi_bridge.js');
     await controller.evaluateJavascript(source: bridge);
+    // After the bridge, because it uses the `fetch` the bridge installs — which
+    // is what carries Sozo's user agent, cookie jar and Cloudflare clearance.
+    // An LNReader plugin reaching the raw one would be blocked where the rest
+    // of the app is not.
+    final lnreader = await rootBundle.loadString('assets/js/lnreader.js');
+    await controller.evaluateJavascript(source: lnreader);
   }
 
   Future<void> _waitForHost(InAppWebViewController controller) async {
@@ -218,7 +224,21 @@ class MangayomiRuntime {
     final code = await store.code(source);
     await _seedPrefs(source);
     final result = await _controller!.callAsyncJavaScript(
-      functionBody: r'return __sozoLoadMangayomi(code, source);',
+      // Two ecosystems, one registry. An LNReader plugin is a CommonJS bundle
+      // exporting a class with `parseChapter`; the shim turns it into the same
+      // object shape a Mangayomi extension produces, which is why nothing
+      // downstream of this line — search, home, detail, chapters, the reader,
+      // downloads, EPUB export — needed changing for it.
+      functionBody: source.isLnReader
+          ? r'''
+        const p = __sozoLoadLnReader(code, source);
+        const registry = globalThis.__sozoProviders || (globalThis.__sozoProviders = {});
+        registry[String(source.id)] = p;
+        globalThis.__sozoProvider = p;
+        globalThis.__sozoSource = source;
+        return true;
+      '''
+          : r'return __sozoLoadMangayomi(code, source);',
       arguments: {'code': code, 'source': source.toJs()},
     );
     final error = result?.error;

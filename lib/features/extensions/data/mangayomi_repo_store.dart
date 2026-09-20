@@ -138,11 +138,16 @@ class MangayomiRepoStore {
     var skippedDart = 0;
     var validEntries = 0;
 
+    // Two index shapes, told apart by what the entries carry rather than by
+    // where they came from — so a mirror, a fork or a local copy of either one
+    // still works. See [MangayomiSource.looksLikeLnReaderIndex].
+    final lnReader = MangayomiSource.looksLikeLnReaderIndex(decoded);
+
     for (final entry in decoded.whereType<Map>()) {
-      final src = MangayomiSource.fromIndexJson(
-        Map<String, dynamic>.from(entry),
-        repoUrl: url,
-      );
+      final json = Map<String, dynamic>.from(entry);
+      final src = lnReader
+          ? MangayomiSource.fromLnReaderJson(json, repoUrl: url)
+          : MangayomiSource.fromIndexJson(json, repoUrl: url);
       if (src == null) continue;
       validEntries++;
       if (!src.isJavaScript) {
