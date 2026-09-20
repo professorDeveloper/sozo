@@ -15,6 +15,7 @@ import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
 import 'package:soplay/features/download/data/datasources/download_local_data_source.dart';
 import 'package:soplay/features/download/data/datasources/download_native_data_source.dart';
 import 'package:soplay/features/download/data/datasources/download_transfer_data_source.dart';
+import 'package:soplay/features/download/data/epub_builder.dart';
 import 'package:soplay/features/download/data/storage/download_storage.dart';
 import 'package:soplay/features/download/domain/download_layout.dart';
 import 'package:soplay/features/download/domain/entities/download_failure.dart';
@@ -447,7 +448,15 @@ class DownloadRepositoryImpl implements DownloadRepository {
     current = await _cacheThumbnail(current);
     await _local.put(current, notify: true);
 
-    if (_useNative) {
+    // A novel chapter stays in-process even on Android.
+    //
+    // The native downloader takes a url or a list of page urls and knows
+    // nothing about prose — a chapter would reach it with an empty page list
+    // and fail. Teaching it the shape would be a foreground service, a progress
+    // notification and a second HTML rewriter, for a document and a handful of
+    // pictures that finish in about as long as the notification takes to
+    // appear. The in-process transfer already does exactly this.
+    if (_useNative && !current.isProse) {
       await _startNative(current);
       return;
     }
@@ -502,6 +511,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
         sourceUrl: item.sourceUrl,
         headers: item.headers,
         pageUrls: item.pageUrls,
+        chapterHtml: item.chapterHtml,
         imageHeaders: item.imageHeaders,
         cancel: cancel,
         onProgress: (p) {
@@ -966,12 +976,89 @@ class DownloadRepositoryImpl implements DownloadRepository {
   Future<String?> exportToPublicDownloads(String id) async {
     final item = _local.get(id);
     if (item == null || item.status != DownloadStatus.completed) return null;
-    // A chapter is a folder of pages; copying it out would need a zip, which
-    // is a different feature with a different question behind it.
+    // A downloaded novel lived in the app and nowhere else — no way to put it
+    // on an e-reader, send it to anyone, or keep it once the app is gone. A
+    // chapter of prose, unlike an episode of video, is exactly the sort of
+    // thing people expect to be able to take with them.
+    if (item.isProse) return _exportEpub(item);
+    // A comic chapter is still a folder of pictures, and what to do with that
+    // is a different question with a different answer.
     if (item.artefactIsDirectory) return null;
     final path = absolutePathOf(item);
     if (path == null) return null;
     return _native.exportToDownloads(path: path, name: _exportName(item, path));
+  }
+
+  /// Every downloaded chapter of [item]'s title, as one book.
+  ///
+  /// The whole title rather than the one row that was tapped: an EPUB of a
+  /// single chapter is a strange object, and somebody who downloaded thirty
+  /// chapters and asked to export wants the thirty. They are ordered by chapter
+  /// number, which is the only ordering that survives a source re-keying its
+  /// list — see [ChapterReadStore] for the same reasoning.
+  Future<String?> _exportEpub(DownloadItem item) async {
+    final siblings =
+        _local
+            .all()
+            .where(
+              (d) =>
+                  d.isProse &&
+                  d.status == DownloadStatus.completed &&
+                  d.contentUrl == item.contentUrl &&
+                  d.provider == item.provider,
+            )
+            .toList()
+          ..sort((a, b) => (a.episodeNumber ?? 0).compareTo(b.episodeNumber ?? 0));
+    if (siblings.isEmpty) return null;
+
+    final chapters = <EpubChapter>[];
+    for (final chapter in siblings) {
+      final dir = Directory(_storage.dirOf(chapter.id));
+      final file = File('${dir.path}/${DownloadLayout.chapterHtmlName}');
+      if (!await file.exists()) continue;
+      final images = <String, Uint8List>{};
+      if (await dir.exists()) {
+        await for (final entity in dir.list(followLinks: false)) {
+          if (entity is! File) continue;
+          final name = entity.uri.pathSegments.last;
+          if (!name.startsWith('p_')) continue;
+          images[name] = await entity.readAsBytes();
+        }
+      }
+      chapters.add(
+        EpubChapter(
+          title:
+              chapter.episodeLabel ??
+              'Chapter ${chapter.episodeNumber ?? chapters.length + 1}',
+          // Straight off disk: the `src` attributes already name the files
+          // beside it, which is exactly what they have to be inside the book.
+          html: await file.readAsString(),
+          images: images,
+        ),
+      );
+    }
+    if (chapters.isEmpty) return null;
+
+    final bytes = EpubBuilder.build(
+      title: item.title,
+      chapters: chapters,
+      identifier: 'sozo:${item.provider}:${item.contentUrl}',
+    );
+    // Written into the app's own space first. The exporter copies a path out;
+    // it has no way to be handed bytes, and inventing one for this would mean a
+    // second platform channel doing what this one already does.
+    final staged = File('${(await _storage.ensureDir(item.id)).path}/export.epub');
+    await staged.writeAsBytes(bytes, flush: true);
+    try {
+      return await _native.exportToDownloads(
+        path: staged.path,
+        name: '${item.title}.epub',
+      );
+    } finally {
+      try {
+        await staged.delete();
+      } catch (_) {}
+    }
   }
 
   /// `<title>.<ext>`, with the extension taken from what was actually written
@@ -984,6 +1071,34 @@ class DownloadRepositoryImpl implements DownloadRepository {
     final episode = item.episodeNumber;
     final base = episode == null ? item.title : '${item.title} - E$episode';
     return '$base.$ext';
+  }
+
+  @override
+  Future<String?> localChapterHtml(String id) async {
+    final item = _local.get(id);
+    if (item == null ||
+        !item.isManga ||
+        item.status != DownloadStatus.completed) {
+      return null;
+    }
+    final file = File(
+      '${_storage.dirOf(id)}/${DownloadLayout.chapterHtmlName}',
+    );
+    if (!await file.exists()) return null;
+    try {
+      final html = await file.readAsString();
+      // The `src` attributes were rewritten to bare file names beside the
+      // document; the reader is handed a string, not a directory, so they are
+      // made absolute here — the one place that knows where the folder is.
+      return DownloadTransferDataSource.rewriteImageSources(html, {
+        for (final entity in Directory(_storage.dirOf(id)).listSync()) 
+          if (entity is File)
+            entity.uri.pathSegments.last: entity.path,
+      });
+    } catch (e) {
+      debugPrint('[downloads] could not read chapter html for $id: $e');
+      return null;
+    }
   }
 
   @override
@@ -1018,7 +1133,9 @@ class DownloadRepositoryImpl implements DownloadRepository {
   /// urls come from the provider and expire, so they are fetched at the last
   /// possible moment rather than at queue time.
   Future<DownloadItem> _resolveMangaPages(DownloadItem item) async {
-    if (!item.isManga || item.pageUrls.isNotEmpty) return item;
+    if (!item.isManga) return item;
+    if (item.pageUrls.isNotEmpty) return item;
+    if ((item.chapterHtml ?? '').isNotEmpty) return item;
     final ref = item.chapterRef;
     if (ref == null || ref.isEmpty) return item;
     try {
@@ -1027,6 +1144,18 @@ class DownloadRepositoryImpl implements DownloadRepository {
         provider: item.provider,
       );
       if (result is Success<MangaPagesEntity>) {
+        // A novel chapter is one document rather than a list of images. It used
+        // to arrive here as zero pages, and the transfer failed the whole
+        // download with "the chapter has no pages" — so a novel could not be
+        // saved for offline at all, on a shelf the app has a reader for.
+        if (result.value.isText) {
+          return item.copyWith(
+            chapterHtml: result.value.html,
+            headers: result.value.headers.isEmpty
+                ? item.headers
+                : result.value.headers,
+          );
+        }
         return item.copyWith(
           pageUrls: result.value.pages.map((p) => p.imageUrl).toList(),
           imageHeaders: result.value.pages

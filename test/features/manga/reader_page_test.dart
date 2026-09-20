@@ -81,6 +81,8 @@ class Downloads implements DownloadRepository {
   @override
   Future<List<MangaPageEntity>> localMangaPages(String id) async => [];
   @override
+  Future<String?> localChapterHtml(String id) async => null;
+  @override
   DownloadItem? byId(String id) => null;
   @override
   Future<EnqueueOutcome> enqueue(DownloadRequest request) async {

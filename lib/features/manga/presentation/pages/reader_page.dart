@@ -279,6 +279,24 @@ class _ReaderPageState extends State<ReaderPage> {
       provider: widget.args.provider,
       chapterRef: ref,
     );
+    // Prose first: a novel chapter is one document beside its pictures, and
+    // asking for pages would find those pictures and render them as a comic.
+    final localHtml = await _downloads.localChapterHtml(localId);
+    if (!mounted || token != _loadToken) return;
+    if (localHtml != null && localHtml.trim().isNotEmpty) {
+      _novelPermille = startPage.clamp(0, 1000);
+      setState(() {
+        _localChapter = true;
+        _html = localHtml;
+        _pages = const [];
+        _headers = const {};
+        _loading = false;
+      });
+      _restoreNovelPosition(_novelPermille);
+      _scheduleSave();
+      return;
+    }
+
     final local = await _downloads.localMangaPages(localId);
     if (!mounted || token != _loadToken) return;
     if (local.isNotEmpty) {

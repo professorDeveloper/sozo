@@ -109,6 +109,7 @@ class DownloadTransferDataSource {
     required String sourceUrl,
     required Map<String, String> headers,
     required List<String> pageUrls,
+    String? chapterHtml,
     List<Map<String, String>> imageHeaders = const [],
     required CancelToken cancel,
     required void Function(TransferProgress) onProgress,
@@ -130,14 +131,26 @@ class DownloadTransferDataSource {
           cancel: cancel,
           onProgress: onProgress,
         ),
-        DownloadKind.manga => await _pages(
-          dirPath: dirPath,
-          pageUrls: pageUrls,
-          imageHeaders: imageHeaders,
-          headers: headers,
-          cancel: cancel,
-          onProgress: onProgress,
-        ),
+        // One kind, two shapes. A comic chapter is a folder of images; a
+        // novel chapter is one document, whose pictures are fetched into the
+        // same folder so the words and the illustrations are deleted together.
+        DownloadKind.manga => (chapterHtml ?? '').trim().isNotEmpty
+            ? await _prose(
+                dirPath: dirPath,
+                html: chapterHtml!,
+                sourceUrl: sourceUrl,
+                headers: headers,
+                cancel: cancel,
+                onProgress: onProgress,
+              )
+            : await _pages(
+                dirPath: dirPath,
+                pageUrls: pageUrls,
+                imageHeaders: imageHeaders,
+                headers: headers,
+                cancel: cancel,
+                onProgress: onProgress,
+              ),
       };
     } on _NotMediaException catch (e) {
       return TransferResult.failed(DownloadFailureKind.notMedia, e.message);
@@ -381,6 +394,157 @@ class DownloadTransferDataSource {
       totalUnits: segments.length,
       sizeBytes: bytes,
     );
+  }
+
+  // --- prose ---------------------------------------------------------------
+
+  /// Every `src` an `<img>` in [html] points at, in the order they appear.
+  ///
+  /// A regex rather than a parser. The app does not carry an HTML parser for
+  /// this, the shape being matched is one attribute on one tag, and a source
+  /// that writes something this cannot see loses a picture rather than the
+  /// chapter — which is the right way round for a fallback.
+  ///
+  /// Data URIs are skipped: the bytes are already in the document, so fetching
+  /// them would write the same image to disk twice.
+  static List<String> imageSources(String html) {
+    final out = <String>[];
+    for (final m in _imgSrc.allMatches(html)) {
+      final raw = (m.group(3) ?? m.group(4) ?? m.group(5) ?? '').trim();
+      if (raw.isEmpty) continue;
+      if (raw.startsWith('data:')) continue;
+      if (out.contains(raw)) continue;
+      out.add(raw);
+    }
+    return out;
+  }
+
+  /// `<img ... src=` and the value after it, quoted or bare.
+  static final RegExp _imgSrc = RegExp(
+    r'''(<img\b[^>]*?\bsrc\s*=\s*)("([^"]*)"|'([^']*)'|([^\s>]+))''',
+    caseSensitive: false,
+    dotAll: true,
+  );
+
+  /// Rewrites each `src` in [replacements] to the file written beside the
+  /// document.
+  ///
+  /// Whole-attribute replacement, not a bare string swap: a url that also
+  /// appears in an `href` or in the prose itself must keep pointing where it
+  /// pointed, and one url that is a prefix of another must not eat it.
+  ///
+  /// Used twice: once on the way to disk, to point the document at the files
+  /// written beside it, and once on the way back out, to turn those names into
+  /// the absolute paths the reader can actually open. One rule, so the two
+  /// directions cannot disagree about what counts as a `src`.
+  static String rewriteImageSources(
+    String html,
+    Map<String, String> replacements,
+  ) {
+    if (replacements.isEmpty) return html;
+    return html.replaceAllMapped(_imgSrc, (m) {
+      final raw = (m.group(3) ?? m.group(4) ?? m.group(5) ?? '').trim();
+      final local = replacements[raw];
+      if (local == null) return m.group(0)!;
+      return '${m.group(1)}"$local"';
+    });
+  }
+
+  /// A novel chapter: the document, and the pictures it points at.
+  ///
+  /// The images are fetched into the same folder and the document rewritten to
+  /// name them, so what lands on disk is self-contained. That is what makes
+  /// deleting the chapter delete its pictures as well — a folder goes as one
+  /// thing, where an html file and a pile of images beside it would not.
+  ///
+  /// An image that will not fetch is left pointing at its original url rather
+  /// than failing the chapter. The prose is what was asked for, and a picture
+  /// that loads when there is signal and shows a gap when there is not is a far
+  /// better answer than no chapter at all.
+  Future<TransferResult> _prose({
+    required String dirPath,
+    required String html,
+    required String sourceUrl,
+    required Map<String, String> headers,
+    required CancelToken cancel,
+    required void Function(TransferProgress) onProgress,
+  }) async {
+    final sources = imageSources(html);
+    final base = Uri.tryParse(sourceUrl);
+    final replacements = <String, String>{};
+    var bytes = 0;
+
+    for (var i = 0; i < sources.length; i++) {
+      if (cancel.isCancelled) {
+        return const TransferResult.failed(
+          DownloadFailureKind.unknown,
+          'cancelled',
+        );
+      }
+      final resolved = _absolute(sources[i], base);
+      if (resolved == null) continue;
+      final name = DownloadLayout.pageName(
+        i,
+        DownloadLayout.imageExtensionFor(resolved),
+      );
+      final file = File('$dirPath/$name');
+      try {
+        if (!await file.exists() || await file.length() <= 0) {
+          await _fetchToFile(
+            url: resolved,
+            file: file,
+            headers: headers,
+            cancel: cancel,
+            attempts: _segmentAttempts,
+          );
+        }
+        bytes += await file.length();
+        replacements[sources[i]] = name;
+      } catch (e) {
+        if (cancel.isCancelled) rethrow;
+        debugPrint('[downloads] chapter image ${sources[i]} failed: $e');
+      }
+      onProgress(
+        TransferProgress(
+          completedUnits: i + 1,
+          totalUnits: sources.length + 1,
+          sizeBytes: bytes,
+        ),
+      );
+    }
+
+    final document = rewriteImageSources(html, replacements);
+    final file = File('$dirPath/${DownloadLayout.chapterHtmlName}');
+    await file.writeAsString(document, flush: true);
+    bytes += await file.length();
+
+    await _writeManifest(
+      dirPath: dirPath,
+      kind: DownloadKind.manga,
+      parts: replacements.length + 1,
+      bytes: bytes,
+    );
+
+    return TransferResult.success(
+      artefactPath: dirPath,
+      completedUnits: sources.length + 1,
+      totalUnits: sources.length + 1,
+      sizeBytes: bytes,
+    );
+  }
+
+  /// A page-relative `src` against the chapter's own url.
+  ///
+  /// Null when there is nothing fetchable — a relative path with no base to
+  /// resolve against, or a scheme that is not http(s). The caller leaves the
+  /// original `src` alone then, so the picture still loads online.
+  static String? _absolute(String src, Uri? base) {
+    final uri = Uri.tryParse(src);
+    if (uri == null) return null;
+    final resolved = uri.hasScheme ? uri : base?.resolveUri(uri);
+    if (resolved == null) return null;
+    if (resolved.scheme != 'http' && resolved.scheme != 'https') return null;
+    return resolved.toString();
   }
 
   // --- pages ---------------------------------------------------------------

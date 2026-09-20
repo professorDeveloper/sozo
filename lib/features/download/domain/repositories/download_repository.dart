@@ -109,4 +109,8 @@ abstract class DownloadRepository {
 
   /// The pages of a finished manga chapter, as local file paths.
   Future<List<MangaPageEntity>> localMangaPages(String id);
+
+  /// A downloaded novel chapter's prose, with its pictures pointed at the
+  /// files beside it. Null when this download is not one, or is not finished.
+  Future<String?> localChapterHtml(String id);
 }

@@ -33,6 +33,7 @@ class DownloadItem {
     this.episodeNumber,
     this.episodeLabel,
     this.pageUrls = const [],
+    this.chapterHtml,
     this.imageHeaders = const [],
     this.chapterRef,
     this.chapterIndex,
@@ -106,6 +107,17 @@ class DownloadItem {
 
   /// Manga only: the pages to fetch. Empty until resolved.
   final List<String> pageUrls;
+
+  /// A novel chapter's prose, resolved alongside the pages.
+  ///
+  /// The two are alternatives, not a pair: a comic source implements
+  /// `getPageList` and answers with image urls, a novel source implements
+  /// `getHtmlContent` and answers with one document. Only one of them is ever
+  /// set, and a chapter with neither is a chapter that failed to resolve.
+  ///
+  /// Null until resolved, and null forever for a comic — which is what lets
+  /// the transfer tell the two shapes apart without asking the provider again.
+  final String? chapterHtml;
   final List<Map<String, String>> imageHeaders;
   final String? chapterRef;
   final int? chapterIndex;
@@ -122,6 +134,10 @@ class DownloadItem {
   final int attempts;
 
   bool get isManga => kind == DownloadKind.manga;
+
+  /// A novel chapter rather than a comic one: prose plus whatever pictures the
+  /// prose points at. See [chapterHtml].
+  bool get isProse => (chapterHtml ?? '').trim().isNotEmpty;
   bool get isHls => kind == DownloadKind.hls;
 
   /// A folder rather than a file — a manga chapter.
@@ -173,6 +189,7 @@ class DownloadItem {
     int? totalUnits,
     int? sizeBytes,
     List<String>? pageUrls,
+    String? chapterHtml,
     List<Map<String, String>>? imageHeaders,
     Object? failure = _unset,
     String? failureDetail,
@@ -201,6 +218,7 @@ class DownloadItem {
     episodeNumber: episodeNumber,
     episodeLabel: episodeLabel,
     pageUrls: pageUrls ?? this.pageUrls,
+    chapterHtml: chapterHtml ?? this.chapterHtml,
     imageHeaders: imageHeaders ?? this.imageHeaders,
     chapterRef: chapterRef,
     chapterIndex: chapterIndex,

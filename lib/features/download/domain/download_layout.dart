@@ -92,6 +92,22 @@ abstract final class DownloadLayout {
   static String pageName(int index, String extension) =>
       'p_${index.toString().padLeft(3, '0')}$extension';
 
+  /// A novel chapter's prose.
+  ///
+  /// A comic chapter is a folder of `p_*` images; a novel chapter is one HTML
+  /// document, and it used to be neither — [DownloadTransferDataSource] was
+  /// handed an empty page list and failed the whole download with "the chapter
+  /// has no pages", so a novel could not be saved for offline at all.
+  ///
+  /// The images a chapter's prose references are written beside it under
+  /// [pageName], and the document that lands here has its `src` attributes
+  /// rewritten to those names — so the folder is self-contained and deleting it
+  /// takes the pictures with the words.
+  static const String chapterHtmlName = 'chapter.html';
+
+  static String chapterHtmlFor(String id) =>
+      '${dirFor(id)}/$chapterHtmlName';
+
   /// Recovers a relative path from whatever an older build stored.
   ///
   /// Returns null when the string carries nothing usable, in which case the

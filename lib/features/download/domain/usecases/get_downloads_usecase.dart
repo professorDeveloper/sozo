@@ -41,4 +41,7 @@ class GetDownloadsUseCase {
   /// The pages of a finished chapter, as local files.
   Future<List<MangaPageEntity>> localMangaPages(String id) =>
       repository.localMangaPages(id);
+
+  Future<String?> localChapterHtml(String id) =>
+      repository.localChapterHtml(id);
 }
