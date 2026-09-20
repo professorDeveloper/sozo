@@ -300,13 +300,39 @@ class MangaHost(private val context: Context) {
         return apk?.let { MangaRuntime.source(context, it.absolutePath, current.pkg, current.id) }
     }
 
+    /**
+     * A browse or search row.
+     *
+     * [SMangaImpl.title] is `lateinit`, so reading it on an entry whose source
+     * never set one does not give back an empty string — it throws
+     * `UninitializedPropertyAccessException`, out of a getter that looks like a
+     * plain field read. One such entry anywhere in a page took the whole page
+     * with it, and the reader saw a source that simply does not work. The
+     * details path already reads its title this way; every list did not.
+     *
+     * A row with no name falls back to the slug the site itself uses, which is
+     * legible and, more to the point, still opens. Dropping the row instead
+     * would silently shorten a page with no way to tell it had happened.
+     */
+    private fun titleOf(m: SManga): String {
+        val given = try { m.title } catch (_: Throwable) { "" }
+        if (given.isNotBlank()) return given
+        return m.url.trimEnd('/')
+            .substringAfterLast('/')
+            .substringBefore('?')
+            .replace('-', ' ')
+            .replace('_', ' ')
+            .trim()
+            .ifEmpty { "Untitled" }
+    }
+
     private fun cardJson(m: SManga, id: String) = JSONObject().apply {
         put("provider", "mn:$id")
         put("externalId", m.url)
-        put("title", m.title)
+        put("title", titleOf(m))
         put("slug", m.url)
         put("contentUrl", m.url)
-        put("thumbnail", m.thumbnail_url)
+        put("thumbnail", try { m.thumbnail_url } catch (_: Throwable) { null })
         put("type", "Manga")
     }
 
@@ -555,7 +581,7 @@ class MangaHost(private val context: Context) {
             })
         }
 
-        val title = try { details.title } catch (_: Throwable) { "" }
+        val title = titleOf(details)
         val author = try { details.author } catch (_: Throwable) { null }
         val status = statusLabel(try { details.status } catch (_: Throwable) { 0 })
         val desc = buildString {
