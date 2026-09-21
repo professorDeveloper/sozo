@@ -69,6 +69,62 @@ int searchGridColumns(double width) {
 double searchCardHeight(double tileWidth, [BuildContext? context]) =>
     tileWidth / _posterRatio + _captionHeight(context);
 
+/// [SearchResultCard]'s shape, greyed out.
+///
+/// The old skeleton was one rectangle filling the whole grid cell, caption
+/// space included — a solid slab where the card has a 2:3 poster and three
+/// lines of text. So the wait looked nothing like the result: the poster
+/// appeared to shrink as the real cards landed, and the caption area went from
+/// filled to empty, which is a change of shape on every tile at once.
+///
+/// The caption is built out of the same [FixedTextLines] boxes and the same
+/// numbers as the card's own — 12pt at 1.15 over two lines, then 10.5 at 1.2 —
+/// so it reserves what the card reserves at any text size.
+class SearchCardSkeleton extends StatelessWidget {
+  const SearchCardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: HomeSkeletonBox(
+            width: double.infinity,
+            height: double.infinity,
+            radius: 10,
+          ),
+        ),
+        SizedBox(height: 6),
+        FixedTextLines(
+          fontSize: 12,
+          lineHeight: 1.15,
+          lines: 2,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SkeletonLine(width: double.infinity),
+              SizedBox(height: 5),
+              // Short: a title that wraps rarely fills its second line, and a
+              // full-width second bar reads as a block of text rather than as a
+              // title waiting to arrive.
+              SkeletonLine(width: 52),
+            ],
+          ),
+        ),
+        FixedTextLines(
+          fontSize: 10.5,
+          lineHeight: 1.2,
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: SkeletonLine(width: 28),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class SearchResultCard extends StatelessWidget {
   const SearchResultCard({
     super.key,

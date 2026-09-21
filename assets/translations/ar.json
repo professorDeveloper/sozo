@@ -632,6 +632,7 @@
     "type": "النوع",
     "apply": "تطبيق",
     "clear_filter": "مسح",
+    "clear_genre": "إزالة تصفية النوع",
     "sources": "المصادر",
     "sources_n": "{} مصادر",
     "all_sources": "تحديد الكل",
@@ -649,6 +650,7 @@
     "type_to_search_n": "اكتب للبحث في {} مصادر دفعة واحدة.",
     "found_in": "وُجدت في {} من أصل {} مصادر",
     "results_n": "{} نتيجة",
+    "results_so_far": "{} نتيجة حتى الآن",
     "waiting_for": "جارٍ البحث في {}…",
     "no_results_any": "لا توجد نتائج في أي مصدر محدَّد.",
     "offline_note": "غير متّصل — يمكن البحث في مصادر الجهاز فقط.",
@@ -694,7 +696,8 @@
     "rail_popular_on": "رائج على {source}",
     "rail_browse_on": "تصفّح {source}",
     "rail_no_source": "قبل أن تبحث",
-    "nothing_to_browse": "لا يوجد ما تتصفّحه هنا — اكتب عنوانًا."
+    "nothing_to_browse": "لا يوجد ما تتصفّحه هنا — اكتب عنوانًا.",
+    "filter_genres_hint": "ابحث عن فئة"
   },
   "movie": {
     "rating": "التقييم",

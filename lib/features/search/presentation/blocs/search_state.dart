@@ -27,10 +27,8 @@ class SearchCriteria extends Equatable {
 
   String get label => text.isNotEmpty ? text : genre;
 
-  SearchCriteria copyWith({String? text, String? genre}) => SearchCriteria(
-        text: text ?? this.text,
-        genre: genre ?? this.genre,
-      );
+  SearchCriteria copyWith({String? text, String? genre}) =>
+      SearchCriteria(text: text ?? this.text, genre: genre ?? this.genre);
 
   @override
   List<Object?> get props => [text, genre];
@@ -111,6 +109,42 @@ class SearchState extends Equatable {
   bool get isBusy =>
       status == SearchStatus.loading || status == SearchStatus.refreshing;
 
+  /// The selected genre in words, or an empty string when none is selected.
+  ///
+  /// [SearchCriteria.genre] holds the source's *slug* — `action-adventure`, or
+  /// a bare TMDB id like `10759` — because that is what a browse request takes.
+  /// Every screen that needed to name the active filter reached for that slug
+  /// and printed it, so a genre that found nothing said "No results for
+  /// 10759". The names are already in [genres]; nothing was looking them up.
+  ///
+  /// A slug with no entry is humanised rather than dropped: the genre list can
+  /// arrive after the browse (or fail outright), and a filter that names
+  /// itself "Action adventure" is still better than one that names itself
+  /// nothing at all.
+  String get genreName {
+    final slug = criteria.genre;
+    if (slug.isEmpty) return '';
+    for (final g in genres) {
+      if (g.slug != slug) continue;
+      return g.name.isNotEmpty ? g.name : _humanise(slug);
+    }
+    return _humanise(slug);
+  }
+
+  /// What the user asked for, in words. Never a slug — see [genreName].
+  String get criteriaLabel =>
+      criteria.text.isNotEmpty ? criteria.text : genreName;
+
+  static String _humanise(String slug) {
+    final words = slug
+        .replaceAll(RegExp(r'[-_+]+'), ' ')
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return slug;
+    return words.map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
+  }
+
   SearchState copyWith({
     SearchCriteria? criteria,
     SearchStatus? status,
@@ -128,41 +162,40 @@ class SearchState extends Equatable {
     bool? weakResults,
     List<String>? suggestions,
     bool clearError = false,
-  }) =>
-      SearchState(
-        criteria: criteria ?? this.criteria,
-        status: status ?? this.status,
-        items: items ?? this.items,
-        page: page ?? this.page,
-        totalPages: totalPages ?? this.totalPages,
-        isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-        failure: clearError ? null : (failure ?? this.failure),
-        loadMoreFailure: clearLoadMoreFailure
-            ? null
-            : (loadMoreFailure ?? this.loadMoreFailure),
-        genres: genres ?? this.genres,
-        genresLoading: genresLoading ?? this.genresLoading,
-        genresFailed: genresFailed ?? this.genresFailed,
-        recent: recent ?? this.recent,
-        weakResults: weakResults ?? this.weakResults,
-        suggestions: suggestions ?? this.suggestions,
-      );
+  }) => SearchState(
+    criteria: criteria ?? this.criteria,
+    status: status ?? this.status,
+    items: items ?? this.items,
+    page: page ?? this.page,
+    totalPages: totalPages ?? this.totalPages,
+    isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+    failure: clearError ? null : (failure ?? this.failure),
+    loadMoreFailure: clearLoadMoreFailure
+        ? null
+        : (loadMoreFailure ?? this.loadMoreFailure),
+    genres: genres ?? this.genres,
+    genresLoading: genresLoading ?? this.genresLoading,
+    genresFailed: genresFailed ?? this.genresFailed,
+    recent: recent ?? this.recent,
+    weakResults: weakResults ?? this.weakResults,
+    suggestions: suggestions ?? this.suggestions,
+  );
 
   @override
   List<Object?> get props => [
-        criteria,
-        status,
-        items,
-        page,
-        totalPages,
-        isLoadingMore,
-        failure,
-        loadMoreFailure,
-        genres,
-        genresLoading,
-        genresFailed,
-        recent,
-        weakResults,
-        suggestions,
-      ];
+    criteria,
+    status,
+    items,
+    page,
+    totalPages,
+    isLoadingMore,
+    failure,
+    loadMoreFailure,
+    genres,
+    genresLoading,
+    genresFailed,
+    recent,
+    weakResults,
+    suggestions,
+  ];
 }

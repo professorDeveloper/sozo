@@ -632,6 +632,7 @@
     "type": "類型",
     "apply": "套用",
     "clear_filter": "清除",
+    "clear_genre": "清除類型篩選",
     "sources": "來源",
     "sources_n": "{} 個來源",
     "all_sources": "全選",
@@ -649,6 +650,7 @@
     "type_to_search_n": "打字就可以一次過搵 {} 個來源。",
     "found_in": "{} / {} 個來源搵到",
     "results_n": "{} 個結果",
+    "results_so_far": "暫時 {} 個結果",
     "waiting_for": "搜尋緊 {}…",
     "no_results_any": "所有已揀嘅來源都冇結果。",
     "offline_note": "離線 — 淨係可以搵裝置上面嘅來源。",
@@ -694,7 +696,8 @@
     "rail_popular_on": "{source} 熱門",
     "rail_browse_on": "睇下 {source}",
     "rail_no_source": "搵之前",
-    "nothing_to_browse": "呢度冇嘢可以睇 — 打個名搜尋啦。"
+    "nothing_to_browse": "呢度冇嘢可以睇 — 打個名搜尋啦。",
+    "filter_genres_hint": "搵分類"
   },
   "movie": {
     "rating": "評分",

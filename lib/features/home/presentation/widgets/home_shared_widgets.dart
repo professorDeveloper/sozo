@@ -101,8 +101,9 @@ class HomeNetworkImage extends StatelessWidget {
             // published at. A 500px poster in a 110px tile costs twenty times
             // the memory it needs, and the cost is paid per tile.
             memCacheWidth: (w != null && w > 0) ? w : null,
-            filterQuality:
-                isDesktopPlatform ? FilterQuality.medium : FilterQuality.low,
+            filterQuality: isDesktopPlatform
+                ? FilterQuality.medium
+                : FilterQuality.low,
             // Loading and broken are different states and now look it. Both
             // used to be the same grey icon, so a poster that was never going
             // to arrive was indistinguishable from one still on its way — the
@@ -198,6 +199,24 @@ class FixedTextLines extends StatelessWidget {
     final scaled = MediaQuery.textScalerOf(context).scale(fontSize);
     return SizedBox(height: scaled * lineHeight * lines, child: child);
   }
+}
+
+/// One line of caption in a skeleton, at the weight a line of small text
+/// actually reads as.
+///
+/// A 10px bar against an 11px line looked like a heading; 8 sits where the
+/// x-height of the real text does. Shared, because every grid of cards in the
+/// app has a caption under it and each of them was drawing these bars at its
+/// own height — so two skeletons for two grids of the same card read as two
+/// different kinds of loading.
+class SkeletonLine extends StatelessWidget {
+  const SkeletonLine({super.key, required this.width});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) =>
+      HomeSkeletonBox(width: width, height: 8, radius: 2);
 }
 
 class HomeSkeletonBox extends StatelessWidget {

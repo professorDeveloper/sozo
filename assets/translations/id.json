@@ -632,6 +632,7 @@
     "type": "Jenis",
     "apply": "Terapkan",
     "clear_filter": "Bersihkan",
+    "clear_genre": "Hapus filter genre",
     "sources": "Sumber",
     "sources_n": "{} sumber",
     "all_sources": "Pilih semua",
@@ -649,6 +650,7 @@
     "type_to_search_n": "Ketik untuk mencari di {} sumber sekaligus.",
     "found_in": "Ditemukan di {} dari {} sumber",
     "results_n": "{} hasil",
+    "results_so_far": "{} hasil sejauh ini",
     "waiting_for": "Mencari di {}…",
     "no_results_any": "Tidak ada hasil di sumber mana pun yang dipilih.",
     "offline_note": "Luring — hanya sumber di perangkat yang bisa dicari.",
@@ -694,7 +696,8 @@
     "rail_popular_on": "Populer di {source}",
     "rail_browse_on": "Jelajahi {source}",
     "rail_no_source": "Sebelum mencari",
-    "nothing_to_browse": "Tidak ada yang bisa dijelajahi di sini — ketik sebuah judul."
+    "nothing_to_browse": "Tidak ada yang bisa dijelajahi di sini — ketik sebuah judul.",
+    "filter_genres_hint": "Cari kategori"
   },
   "movie": {
     "rating": "Rating",

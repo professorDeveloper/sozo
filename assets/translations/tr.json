@@ -632,6 +632,7 @@
     "type": "Tür",
     "apply": "Uygula",
     "clear_filter": "Temizle",
+    "clear_genre": "Tür filtresini kaldır",
     "sources": "Kaynaklar",
     "sources_n": "{} kaynak",
     "all_sources": "Tümünü seç",
@@ -649,6 +650,7 @@
     "type_to_search_n": "{} kaynakta aynı anda aramak için yaz.",
     "found_in": "{} / {} kaynakta bulundu",
     "results_n": "{} sonuç",
+    "results_so_far": "şimdilik {} sonuç",
     "waiting_for": "{} aranıyor…",
     "no_results_any": "Seçtiğin hiçbir kaynakta sonuç yok.",
     "offline_note": "Çevrimdışı — yalnızca cihazdaki kaynaklarda arama yapılabilir.",
@@ -694,7 +696,8 @@
     "rail_popular_on": "{source} içinde popüler",
     "rail_browse_on": "{source} içinde gezin",
     "rail_no_source": "Aramadan önce",
-    "nothing_to_browse": "Burada göz atacak bir şey yok — bir başlık yazın."
+    "nothing_to_browse": "Burada göz atacak bir şey yok — bir başlık yazın.",
+    "filter_genres_hint": "Kategori bul"
   },
   "movie": {
     "rating": "Puan",

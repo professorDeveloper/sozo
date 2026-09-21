@@ -632,6 +632,7 @@
     "type": "Type",
     "apply": "Apply",
     "clear_filter": "Clear",
+    "clear_genre": "Clear genre filter",
     "sources": "Sources",
     "sources_n": "{} sources",
     "all_sources": "Select all",
@@ -649,6 +650,7 @@
     "type_to_search_n": "Type to search {} sources at once.",
     "found_in": "Found in {} of {} sources",
     "results_n": "{} results",
+    "results_so_far": "{} results so far",
     "waiting_for": "Searching {}…",
     "no_results_any": "No results in any selected source.",
     "offline_note": "Offline — only on-device sources can be searched.",
@@ -694,7 +696,8 @@
     "rail_popular_on": "Popular on {source}",
     "rail_browse_on": "Browse {source}",
     "rail_no_source": "Before you search",
-    "nothing_to_browse": "Nothing to browse here — type a title to search."
+    "nothing_to_browse": "Nothing to browse here — type a title to search.",
+    "filter_genres_hint": "Find a category"
   },
   "movie": {
     "rating": "Rating",

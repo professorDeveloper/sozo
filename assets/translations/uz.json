@@ -632,6 +632,7 @@
     "type": "Tur",
     "apply": "Qo'llash",
     "clear_filter": "Tozalash",
+    "clear_genre": "Janr filtrini olib tashlash",
     "sources": "Manbalar",
     "sources_n": "{} ta manba",
     "all_sources": "Hammasini tanlash",
@@ -649,6 +650,7 @@
     "type_to_search_n": "So'rov kiriting — {} ta manbada birdan qidiriladi.",
     "found_in": "{} / {} manbada topildi",
     "results_n": "{} ta natija",
+    "results_so_far": "hozircha {} natija",
     "waiting_for": "{} da qidirilmoqda…",
     "no_results_any": "Tanlangan manbalarning hech birida natija yo'q.",
     "offline_note": "Oflayn — faqat qurilmadagi manbalarda qidirish mumkin.",
@@ -694,7 +696,8 @@
     "rail_popular_on": "{source} da mashhur",
     "rail_browse_on": "{source} ni ko‘rish",
     "rail_no_source": "Qidirishdan oldin",
-    "nothing_to_browse": "Bu yerda ko‘riladigan narsa yo‘q — sarlavha yozing."
+    "nothing_to_browse": "Bu yerda ko‘riladigan narsa yo‘q — sarlavha yozing.",
+    "filter_genres_hint": "Kategoriya topish"
   },
   "movie": {
     "rating": "Reyting",

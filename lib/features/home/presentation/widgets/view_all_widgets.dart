@@ -398,10 +398,10 @@ class _SkeletonGridCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SkeletonLine(width: double.infinity),
+              SkeletonLine(width: double.infinity),
               SizedBox(height: 4),
               // Short, because a title that wraps rarely fills its second line.
-              _SkeletonLine(width: 46),
+              SkeletonLine(width: 46),
             ],
           ),
         ),
@@ -410,26 +410,12 @@ class _SkeletonGridCard extends StatelessWidget {
           lineHeight: 1.3,
           child: Align(
             alignment: AlignmentDirectional.centerStart,
-            child: _SkeletonLine(width: 24),
+            child: SkeletonLine(width: 24),
           ),
         ),
       ],
     );
   }
-}
-
-
-/// One line of caption, at the weight a line of small text actually reads as.
-/// A 10px bar against an 11px line looked like a heading; 8 sits where the
-/// x-height of the real text does.
-class _SkeletonLine extends StatelessWidget {
-  const _SkeletonLine({required this.width});
-
-  final double width;
-
-  @override
-  Widget build(BuildContext context) =>
-      HomeSkeletonBox(width: width, height: 8, radius: 2);
 }
 
 class ViewAllErrorView extends StatelessWidget {

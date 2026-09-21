@@ -70,19 +70,7 @@ List<Widget> searchLandingSlivers(
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverGrid(
-          // One more column than the posters use, and a shorter tile.
-          //
-          // At two columns and 1.85 each genre was a landscape card the size of
-          // a small poster, and a source with forty-one genres filled several
-          // screens with them — a browsing aid taking more room than the thing
-          // it helps you browse. Three across at 1.5 keeps the artwork legible
-          // while the whole set fits in a screen and a half.
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns + 1,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 1.5,
-          ),
+          gridDelegate: genreGridDelegate(columns),
           delegate: SliverChildBuilderDelegate((context, i) {
             final g = genres[i];
             return ItemAppear(
@@ -106,27 +94,47 @@ List<Widget> searchLandingSlivers(
         ),
       ),
     ] else if (genresLoading)
+      // The same heading and the same grid, greyed out.
+      //
+      // It used to be two columns at 1.85 with ten points of spacing and no
+      // heading, against three columns at 1.5 with eight and a heading — so
+      // the moment the genres landed the section changed column count, tile
+      // shape and height at once, and everything above it that the reader had
+      // started on moved. A skeleton is only worth having if what replaces it
+      // lands in the same place.
+      // One sweep across the heading and the tiles together, rather than one
+      // per tile on its own clock — see [SearchCardSkeleton]'s grid.
       SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: ShimmerWrapper(
-            child: GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              crossAxisCount: columns,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 1.85,
-              children: [
-                for (var i = 0; i < 6; i++)
-                  const HomeSkeletonBox(
+        child: ShimmerWrapper(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                child: SizedBox(
+                  height: _sectionTitleHeight(context),
+                  child: const Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: HomeSkeletonBox(width: 96, height: 14, radius: 4),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  gridDelegate: genreGridDelegate(columns),
+                  itemCount: (columns + 1) * 3,
+                  itemBuilder: (_, _) => const HomeSkeletonBox(
                     width: double.infinity,
                     height: double.infinity,
                     radius: 14,
                   ),
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
         ),
       )
@@ -143,6 +151,31 @@ List<Widget> searchLandingSlivers(
       const SliverToBoxAdapter(child: _NothingToStartFrom()),
   ];
 }
+
+/// The genre grid's shape, used by the grid and by the skeleton that stands in
+/// for it.
+///
+/// One more column than the posters use, and a shorter tile. At two columns and
+/// 1.85 each genre was a landscape card the size of a small poster, and a
+/// source with forty-one genres filled several screens with them — a browsing
+/// aid taking more room than the thing it helps you browse. Three across at 1.5
+/// keeps the artwork legible while the whole set fits in a screen and a half.
+///
+/// Shared rather than written twice because it was written twice, with
+/// different numbers, and the difference was a layout jump.
+SliverGridDelegate genreGridDelegate(int columns) =>
+    SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: columns + 1,
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 1.5,
+    );
+
+/// The height one [_SectionTitle] occupies, so a skeleton standing in for a
+/// heading reserves exactly the line the heading will take — at whatever text
+/// size the reader has chosen, which is the part a hard-coded number misses.
+double _sectionTitleHeight(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(18) * 1.15;
 
 class _RecentSearches extends StatelessWidget {
   const _RecentSearches({
@@ -219,30 +252,45 @@ class _RailSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Every number here is the loaded rail's number, not an approximation of
+    // it: same top padding, same heading line, same gap, same card width, same
+    // card height, same trailing gap. A skeleton that is close but not equal is
+    // a layout jump with a shimmer in front of it — 112-wide cards 168 tall
+    // under a 13-point line stood in for 118-wide cards whose height is
+    // computed from the caption, and the genre grid below moved by the
+    // difference the moment the posters arrived.
     return ShimmerWrapper(
-      child: Padding(
-        padding: const EdgeInsets.only(top: 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsetsDirectional.only(start: 16, bottom: 12),
-              child: HomeSkeletonBox(width: 148, height: 13, radius: 4),
-            ),
-            SizedBox(
-              height: 168,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsetsDirectional.only(start: 16, end: 16),
-                itemCount: 4,
-                separatorBuilder: (_, _) => const SizedBox(width: 10),
-                itemBuilder: (_, _) =>
-                    const HomeSkeletonBox(width: 112, height: 168, radius: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 2),
+            child: SizedBox(
+              height: _sectionTitleHeight(context),
+              child: const Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: HomeSkeletonBox(width: 148, height: 14, radius: 4),
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: searchCardHeight(_railCardWidth, context),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: 5,
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (_, _) => const HomeSkeletonBox(
+                width: _railCardWidth,
+                height: double.infinity,
+                radius: 10,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
       ),
     );
   }
@@ -255,16 +303,16 @@ class _NothingToStartFrom extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<HomeBloc, HomeState>(
       builder: (context, state) {
-        // While the home is still in flight, a shape rather than a sentence.
+        // While the home is still in flight, nothing here.
         //
         // This message is a claim about what the source HAS, and until the
-        // home answers the app does not know. Saying it on `HomeLoading` put
+        // home answers the app does not know: saying it on `HomeLoading` put
         // "nothing to browse" on screen for as long as the source took, then
         // replaced it with a shelf of posters — the app calling itself a liar
-        // a second later. Saying NOTHING was worse again: the whole screen
-        // below the chips went blank for the same second, which reads as a
-        // broken tab rather than a slow one.
-        if (state is! HomeLoaded) return const _RailSkeleton();
+        // a second later. The waiting is shown by [_SourceRail]'s skeleton,
+        // which sits directly above this and now draws during the load, so a
+        // second skeleton here would be the same wait reported twice.
+        if (state is! HomeLoaded) return const SizedBox.shrink();
         if (searchRailSection(state.homeData.sections) != null) {
           return const SizedBox.shrink();
         }
@@ -367,10 +415,21 @@ class _SourceRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<HomeBloc, HomeState>(
-      buildWhen: (a, b) =>
-          a is HomeLoaded != b is HomeLoaded || b is HomeLoaded,
+      // Any change of state changes this section's shape — including the one
+      // the old condition could not see. `a is HomeLoaded != b is HomeLoaded`
+      // is false for HomeLoading -> HomeError, so a home that failed left the
+      // skeleton below shimmering for the rest of the session.
+      buildWhen: (a, b) => a.runtimeType != b.runtimeType || b is HomeLoaded,
       builder: (context, state) {
-        if (state is! HomeLoaded) return const SizedBox.shrink();
+        // A shape while the home is in flight, nothing once it has failed.
+        //
+        // Returning nothing during the load was the search tab's first of two
+        // jumps: the landing drew with no rail in it, the reader started
+        // reading the genres, and a second later a shelf of posters opened
+        // above them and pushed everything down a quarter of a screen. The
+        // skeleton reserves that space, so the posters arrive into it.
+        if (state is HomeError) return const SizedBox.shrink();
+        if (state is! HomeLoaded) return const _RailSkeleton();
         final rail = searchRailSection(state.homeData.sections);
         if (rail == null) return const SizedBox.shrink();
         final items = rail.items.take(15).toList();

@@ -632,6 +632,7 @@
     "type": "Type",
     "apply": "Toepassen",
     "clear_filter": "Wissen",
+    "clear_genre": "Genrefilter wissen",
     "sources": "Bronnen",
     "sources_n": "{} bronnen",
     "all_sources": "Alles selecteren",
@@ -649,6 +650,7 @@
     "type_to_search_n": "Typ om {} bronnen tegelijk te doorzoeken.",
     "found_in": "Gevonden in {} van {} bronnen",
     "results_n": "{} resultaten",
+    "results_so_far": "{} resultaten tot nu toe",
     "waiting_for": "{} doorzoeken…",
     "no_results_any": "Geen resultaten in een van de gekozen bronnen.",
     "offline_note": "Offline — alleen bronnen op dit apparaat kunnen worden doorzocht.",
@@ -694,7 +696,8 @@
     "rail_popular_on": "Populair op {source}",
     "rail_browse_on": "{source} verkennen",
     "rail_no_source": "Voordat je zoekt",
-    "nothing_to_browse": "Hier valt niets te verkennen — typ een titel."
+    "nothing_to_browse": "Hier valt niets te verkennen — typ een titel.",
+    "filter_genres_hint": "Categorie zoeken"
   },
   "movie": {
     "rating": "Beoordeling",

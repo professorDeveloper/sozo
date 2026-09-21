@@ -632,6 +632,7 @@
     "type": "Tipo",
     "apply": "Aplicar",
     "clear_filter": "Limpar",
+    "clear_genre": "Remover o filtro de gênero",
     "sources": "Fontes",
     "sources_n": "{} fontes",
     "all_sources": "Selecionar tudo",
@@ -649,6 +650,7 @@
     "type_to_search_n": "Digite para buscar em {} fontes de uma vez.",
     "found_in": "Encontrado em {} de {} fontes",
     "results_n": "{} resultados",
+    "results_so_far": "{} resultados até agora",
     "waiting_for": "Buscando em {}…",
     "no_results_any": "Nenhum resultado em qualquer fonte escolhida.",
     "offline_note": "Off-line — só dá para buscar nas fontes do aparelho.",
@@ -694,7 +696,8 @@
     "rail_popular_on": "Popular em {source}",
     "rail_browse_on": "Explorar {source}",
     "rail_no_source": "Antes de procurar",
-    "nothing_to_browse": "Não há nada para explorar aqui — escreva um título."
+    "nothing_to_browse": "Não há nada para explorar aqui — escreva um título.",
+    "filter_genres_hint": "Encontrar categoria"
   },
   "movie": {
     "rating": "Nota",
