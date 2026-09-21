@@ -1,3 +1,8 @@
+import 'package:soplay/features/watch_services/data/datasources/watch_services_data_source.dart';
+import 'package:soplay/features/watch_services/data/repositories/watch_services_repository_imp.dart';
+import 'package:soplay/features/watch_services/domain/repositories/watch_services_repository.dart';
+import 'package:soplay/features/watch_services/domain/usecase/watch_services_usecase.dart';
+import 'package:soplay/features/watch_services/presentation/bloc/watch_services/watch_services_bloc.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -416,6 +421,15 @@ Future<void> configureDependencies() async {
       tokenRefresher: getIt<TokenRefresher>(),
     ),
   );
+  getIt.registerLazySingleton<WatchServicesDataSource>(
+    () => WatchServicesDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<WatchServicesRepository>(
+    () => WatchServicesRepositoryImp(getIt<WatchServicesDataSource>()),
+  );
+  getIt.registerLazySingleton<WatchServicesUseCase>(
+    () => WatchServicesUseCase(getIt<WatchServicesRepository>()),
+  );
   getIt.registerLazySingleton<LocalHlsProxy>(
     () => LocalHlsProxy(getIt<DartFetch>().dio),
   );
@@ -771,6 +785,17 @@ Future<void> configureDependencies() async {
     () => EpisodesBloc(useCase: getIt<GetEpisodesUseCase>()),
   );
   getIt.registerFactory(() => ViewAllBloc(useCase: getIt<ViewAllUseCase>()));
+  // A singleton, unlike every other bloc here, and deliberately: HomeContent is
+  // torn down and rebuilt on every HomeLoading -> HomeLoaded, so a per-screen
+  // instance would refetch a country's services on every source switch and
+  // every pull-to-refresh. What it holds is a fact about a country, not about
+  // the current source.
+  getIt.registerLazySingleton(
+    () => WatchServicesBloc(
+      useCase: getIt<WatchServicesUseCase>(),
+      hive: getIt<HiveService>(),
+    ),
+  );
   getIt.registerFactory(() => HomeBloc(useCase: getIt<HomeUseCase>()));
   getIt.registerFactory(
     () => SearchBloc(

@@ -1758,7 +1758,8 @@
     "resume": "Continue Watching",
     "genres": "Genres",
     "live_tv": "Live TV",
-    "catalogue": "Catalogue rows"
+    "catalogue": "Catalogue rows",
+    "services": "Streaming services"
   },
   "stats": {
     "title": "Statistics",
@@ -1973,5 +1974,21 @@
     "miss_nothing_to_search": "There is nothing here to look a source up by.",
     "approximate_source": "Best guess",
     "approximate_source_hint": "No light-novel source is installed, so this manga source was used. It may be the adaptation rather than the novel."
+  },
+  "watch": {
+    "services_title": "Streaming services",
+    "services_search_hint": "Search services",
+    "top_services": "Most used here",
+    "all_services": "All services",
+    "no_match": "No service matches that.",
+    "region_sheet_title": "Choose a region",
+    "region_search_hint": "Search countries",
+    "region_detect": "Use my device region",
+    "no_region_match": "No country matches that.",
+    "type_movies": "Movies",
+    "type_series": "Series",
+    "empty_region_title": "No services listed here",
+    "empty_region_subtitle": "TMDB has no streaming line-up for this region yet. Try a neighbouring one.",
+    "load_failed": "Streaming services could not be loaded."
   }
 }

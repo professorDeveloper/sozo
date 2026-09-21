@@ -1758,7 +1758,8 @@
     "resume": "İzlemeye devam et",
     "genres": "Türler",
     "live_tv": "Canlı TV",
-    "catalogue": "Katalog satırları"
+    "catalogue": "Katalog satırları",
+    "services": "Yayın servisleri"
   },
   "stats": {
     "title": "İstatistikler",
@@ -1973,5 +1974,21 @@
     "miss_nothing_to_search": "Burada kaynak aramak için bir şey yok.",
     "approximate_source": "En iyi tahmin",
     "approximate_source_hint": "Light novel kaynağı yüklü değil, bu yüzden bir manga kaynağı kullanıldı. Roman yerine uyarlaması olabilir."
+  },
+  "watch": {
+    "services_title": "Yayın servisleri",
+    "services_search_hint": "Servis ara",
+    "top_services": "Burada en çok kullanılan",
+    "all_services": "Tüm servisler",
+    "no_match": "Eşleşen servis yok.",
+    "region_sheet_title": "Bölge seçin",
+    "region_search_hint": "Ülke ara",
+    "region_detect": "Cihazımın bölgesini kullan",
+    "no_region_match": "Eşleşen ülke yok.",
+    "type_movies": "Filmler",
+    "type_series": "Diziler",
+    "empty_region_title": "Burada servis yok",
+    "empty_region_subtitle": "TMDB’de bu bölge için henüz liste yok. Komşu bir bölgeyi deneyin.",
+    "load_failed": "Yayın servisleri yüklenemedi."
   }
 }

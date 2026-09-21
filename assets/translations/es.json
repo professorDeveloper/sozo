@@ -1758,7 +1758,8 @@
     "resume": "Seguir viendo",
     "genres": "Géneros",
     "live_tv": "TV en vivo",
-    "catalogue": "Filas del catálogo"
+    "catalogue": "Filas del catálogo",
+    "services": "Servicios de streaming"
   },
   "stats": {
     "title": "Estadísticas",
@@ -1973,5 +1974,21 @@
     "miss_nothing_to_search": "Aquí no hay nada con lo que buscar una fuente.",
     "approximate_source": "Mejor suposición",
     "approximate_source_hint": "No hay ninguna fuente de novelas ligeras instalada, así que se usó esta fuente de manga. Puede ser la adaptación y no la novela."
+  },
+  "watch": {
+    "services_title": "Servicios de streaming",
+    "services_search_hint": "Buscar servicios",
+    "top_services": "Los más usados aquí",
+    "all_services": "Todos los servicios",
+    "no_match": "Ningún servicio coincide.",
+    "region_sheet_title": "Elige una región",
+    "region_search_hint": "Buscar países",
+    "region_detect": "Usar la región de mi dispositivo",
+    "no_region_match": "Ningún país coincide.",
+    "type_movies": "Películas",
+    "type_series": "Series",
+    "empty_region_title": "No hay servicios aquí",
+    "empty_region_subtitle": "TMDB aún no tiene servicios para esta región. Prueba una vecina.",
+    "load_failed": "No se pudieron cargar los servicios."
   }
 }

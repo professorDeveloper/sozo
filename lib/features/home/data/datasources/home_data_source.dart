@@ -35,6 +35,27 @@ class HomeDataSource {
         .toList();
   }
 
+  /// One streaming service's catalogue, paged.
+  ///
+  /// [slug] is `<serviceId>:<movie|tv>:<REGION>` — the region travels with the
+  /// request rather than being read from storage here, so a grid opened for one
+  /// country keeps showing that country even if the setting changes while it is
+  /// being scrolled.
+  Future<ViewAllPagingModel> loadWatchService({
+    required String slug,
+    required int page,
+  }) async {
+    final parts = slug.split(':');
+    if (parts.length < 3) {
+      throw ArgumentError('watch-service slug must be id:type:region');
+    }
+    final result = await dio.get(
+      '/catalogue/tmdb/watch/service/${parts[0]}',
+      queryParameters: {'type': parts[1], 'region': parts[2], 'page': page},
+    );
+    return ViewAllPagingModel.fromJson(result.data);
+  }
+
   Future<ViewAllPagingModel> loadViewAll({
     required String type,
     required String slug,

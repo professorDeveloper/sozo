@@ -1758,7 +1758,8 @@
     "resume": "繼續睇",
     "genres": "類型",
     "live_tv": "直播電視",
-    "catalogue": "目錄行"
+    "catalogue": "目錄行",
+    "services": "串流服務"
   },
   "stats": {
     "title": "統計",
@@ -1973,5 +1974,21 @@
     "miss_nothing_to_search": "呢度冇資料可以攞去搵來源。",
     "approximate_source": "最有可能",
     "approximate_source_hint": "冇安裝輕小說來源，所以用咗呢個漫畫來源。可能係改編版而唔係原著小說。"
+  },
+  "watch": {
+    "services_title": "串流服務",
+    "services_search_hint": "搵服務",
+    "top_services": "呢度最多人用",
+    "all_services": "所有服務",
+    "no_match": "冇服務啱。",
+    "region_sheet_title": "揀地區",
+    "region_search_hint": "搵國家",
+    "region_detect": "用我部機嘅地區",
+    "no_region_match": "冇國家啱。",
+    "type_movies": "電影",
+    "type_series": "劇集",
+    "empty_region_title": "呢度冇服務",
+    "empty_region_subtitle": "TMDB 未有呢個地區嘅串流名單。試下隔籬地區。",
+    "load_failed": "載入唔到串流服務。"
   }
 }

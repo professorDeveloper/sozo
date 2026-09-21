@@ -139,6 +139,24 @@ class HomeRepositoryImp implements HomeRepository {
   }) async {
     final js = jsRuntime;
     final provider = _currentProvider;
+    // A streaming service is not any source's section — it is TMDB's answer
+    // about a country, asked the same way whichever source happens to be
+    // current. Ahead of the prefix branches for that reason: the active source
+    // is irrelevant here, and letting a CloudStream extension be asked for a
+    // Netflix page would be nonsense.
+    if (key == 'watch-service') {
+      try {
+        return Success(
+          await dataSource.loadWatchService(slug: slug, page: page),
+        );
+      } on DioException catch (e) {
+        final raw = e.response?.data;
+        final message = (raw is Map ? raw['message'] : null) ?? e.message;
+        return Failure(Exception(message.toString()));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (provider != null && provider.startsWith('cs:')) {
       try {
         final map = await CloudStreamChannel.getSection(

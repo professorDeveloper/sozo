@@ -1758,7 +1758,8 @@
     "resume": "Ko‘rishni davom ettirish",
     "genres": "Janrlar",
     "live_tv": "Jonli TV",
-    "catalogue": "Katalog bo‘limlari"
+    "catalogue": "Katalog bo‘limlari",
+    "services": "Striming servislar"
   },
   "stats": {
     "title": "Statistika",
@@ -1973,5 +1974,21 @@
     "miss_nothing_to_search": "Bu yerda manba izlash uchun hech narsa yo‘q.",
     "approximate_source": "Eng yaqin taxmin",
     "approximate_source_hint": "Ranobe manbasi o‘rnatilmagan, shuning uchun manga manbasi ishlatildi. Bu ranobe emas, uning ekranlashtirilgani bo‘lishi mumkin."
+  },
+  "watch": {
+    "services_title": "Striming servislar",
+    "services_search_hint": "Servis qidirish",
+    "top_services": "Bu yerda eng ko‘p ishlatiladigan",
+    "all_services": "Barcha servislar",
+    "no_match": "Bunga mos servis yo‘q.",
+    "region_sheet_title": "Mintaqani tanlang",
+    "region_search_hint": "Davlat qidirish",
+    "region_detect": "Qurilmamning mintaqasi",
+    "no_region_match": "Bunga mos davlat yo‘q.",
+    "type_movies": "Kinolar",
+    "type_series": "Seriallar",
+    "empty_region_title": "Bu yerda servis yo‘q",
+    "empty_region_subtitle": "TMDB’da bu mintaqa uchun hali striming ro‘yxati yo‘q. Qo‘shni mintaqani sinab ko‘ring.",
+    "load_failed": "Striming servislarni yuklab bo‘lmadi."
   }
 }

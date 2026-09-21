@@ -1758,7 +1758,8 @@
     "resume": "Lanjutkan menonton",
     "genres": "Genre",
     "live_tv": "TV langsung",
-    "catalogue": "Baris katalog"
+    "catalogue": "Baris katalog",
+    "services": "Layanan streaming"
   },
   "stats": {
     "title": "Statistik",
@@ -1973,5 +1974,21 @@
     "miss_nothing_to_search": "Tidak ada apa pun di sini untuk mencari sumber.",
     "approximate_source": "Perkiraan terbaik",
     "approximate_source_hint": "Tidak ada sumber light novel yang terpasang, jadi sumber manga ini yang dipakai. Ini mungkin adaptasinya, bukan novelnya."
+  },
+  "watch": {
+    "services_title": "Layanan streaming",
+    "services_search_hint": "Cari layanan",
+    "top_services": "Paling banyak dipakai di sini",
+    "all_services": "Semua layanan",
+    "no_match": "Tidak ada layanan yang cocok.",
+    "region_sheet_title": "Pilih wilayah",
+    "region_search_hint": "Cari negara",
+    "region_detect": "Pakai wilayah perangkat saya",
+    "no_region_match": "Tidak ada negara yang cocok.",
+    "type_movies": "Film",
+    "type_series": "Serial",
+    "empty_region_title": "Tidak ada layanan di sini",
+    "empty_region_subtitle": "TMDB belum punya daftar untuk wilayah ini. Coba wilayah tetangga.",
+    "load_failed": "Layanan streaming gagal dimuat."
   }
 }

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:soplay/features/watch_services/presentation/pages/watch_service_browse_page.dart';
+import 'package:soplay/features/watch_services/presentation/pages/watch_services_page.dart';
 import 'package:soplay/features/profile/presentation/pages/discord_settings_page.dart';
 import 'package:soplay/features/profile/presentation/pages/discord_web_login_page.dart';
 
@@ -284,6 +286,18 @@ class AppRouter {
       GoRoute(
         path: '/live-tv',
         builder: (context, state) => const LiveTvPage(),
+      ),
+      GoRoute(
+        path: '/watch-services',
+        builder: (context, state) => const WatchServicesPage(),
+      ),
+      GoRoute(
+        path: '/watch-service',
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is! WatchServiceArgs) return const WatchServicesPage();
+          return WatchServiceBrowsePage(args: extra);
+        },
       ),
       GoRoute(
         path: '/tv-remote',

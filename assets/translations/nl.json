@@ -1758,7 +1758,8 @@
     "resume": "Verder kijken",
     "genres": "Genres",
     "live_tv": "Live tv",
-    "catalogue": "Catalogusrijen"
+    "catalogue": "Catalogusrijen",
+    "services": "Streamingdiensten"
   },
   "stats": {
     "title": "Statistieken",
@@ -1973,5 +1974,21 @@
     "miss_nothing_to_search": "Er is hier niets om een bron mee op te zoeken.",
     "approximate_source": "Beste gok",
     "approximate_source_hint": "Er is geen light-novelbron geïnstalleerd, dus is deze mangabron gebruikt. Dit kan de bewerking zijn in plaats van de roman."
+  },
+  "watch": {
+    "services_title": "Streamingdiensten",
+    "services_search_hint": "Diensten zoeken",
+    "top_services": "Hier het meest gebruikt",
+    "all_services": "Alle diensten",
+    "no_match": "Geen dienst komt overeen.",
+    "region_sheet_title": "Kies een regio",
+    "region_search_hint": "Landen zoeken",
+    "region_detect": "Regio van mijn apparaat",
+    "no_region_match": "Geen land komt overeen.",
+    "type_movies": "Films",
+    "type_series": "Series",
+    "empty_region_title": "Hier staan geen diensten",
+    "empty_region_subtitle": "TMDB heeft nog geen aanbod voor deze regio. Probeer een buurregio.",
+    "load_failed": "Streamingdiensten konden niet worden geladen."
   }
 }

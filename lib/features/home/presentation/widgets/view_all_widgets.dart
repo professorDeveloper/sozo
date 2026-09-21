@@ -88,11 +88,21 @@ class ViewAllGrid extends StatelessWidget {
     required this.state,
     required this.scroll,
     required this.appBarH,
+    this.provider,
   });
 
   final ViewAllLoaded state;
   final ScrollController scroll;
   final double appBarH;
+
+  /// The source these cards came from, when it is not the app's current one.
+  ///
+  /// `ViewAllMovieCard` has taken this since it was written, for exactly the
+  /// case that now exists: a grid showing somebody ELSE'S catalogue has to say
+  /// so, or `/detail` resolves the title against whichever source happens to be
+  /// selected — which has never heard of a TMDB url. Nothing passed it through
+  /// until there was a screen that needed to.
+  final String? provider;
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +136,7 @@ class ViewAllGrid extends StatelessWidget {
                 child: ViewAllMovieCard(
                   movie: state.items[index],
                   showYear: showYear,
+                  provider: provider,
                   // Position, not title: the same title can legitimately appear
                   // twice in a paged grid, and two heroes sharing one tag on
                   // screen is a hard assertion rather than a cosmetic bug.

@@ -1758,7 +1758,8 @@
     "resume": "Weiterschauen",
     "genres": "Genres",
     "live_tv": "Live-TV",
-    "catalogue": "Katalogreihen"
+    "catalogue": "Katalogreihen",
+    "services": "Streamingdienste"
   },
   "stats": {
     "title": "Statistik",
@@ -1973,5 +1974,21 @@
     "miss_nothing_to_search": "Hier gibt es nichts, womit sich eine Quelle finden ließe.",
     "approximate_source": "Beste Vermutung",
     "approximate_source_hint": "Es ist keine Light-Novel-Quelle installiert, also wurde diese Manga-Quelle genommen. Es kann die Adaption statt des Romans sein."
+  },
+  "watch": {
+    "services_title": "Streamingdienste",
+    "services_search_hint": "Dienste suchen",
+    "top_services": "Hier am meisten genutzt",
+    "all_services": "Alle Dienste",
+    "no_match": "Kein Dienst passt dazu.",
+    "region_sheet_title": "Region wählen",
+    "region_search_hint": "Länder suchen",
+    "region_detect": "Region meines Geräts",
+    "no_region_match": "Kein Land passt dazu.",
+    "type_movies": "Filme",
+    "type_series": "Serien",
+    "empty_region_title": "Hier sind keine Dienste gelistet",
+    "empty_region_subtitle": "TMDB hat für diese Region noch kein Streaming-Angebot. Versuche eine benachbarte.",
+    "load_failed": "Streamingdienste konnten nicht geladen werden."
   }
 }

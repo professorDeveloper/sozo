@@ -27,6 +27,13 @@ enum HomeRail {
   /// Live TV.
   liveTv('live_tv', 'home_rails.live_tv', Icons.live_tv_outlined),
 
+  /// What each streaming service carries where the viewer is.
+  ///
+  /// The one rail that says nothing about the current source: a country's
+  /// line-up is a fact about the world, so this is the band that still has
+  /// something on it when every installed source is down.
+  services('services', 'home_rails.services', Icons.subscriptions_outlined),
+
   /// Everything the current source serves, in the order it serves it.
   catalogue('catalogue', 'home_rails.catalogue', Icons.grid_view_outlined);
 
@@ -51,6 +58,7 @@ enum HomeRail {
     resume,
     genres,
     liveTv,
+    services,
     catalogue,
   ];
 }
