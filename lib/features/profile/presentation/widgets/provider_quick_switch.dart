@@ -24,6 +24,7 @@ import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/core/widgets/mode_switch_overlay.dart';
+import 'package:soplay/core/widgets/edge_fade.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_state.dart';
@@ -551,22 +552,52 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                     )
                   else
                     Flexible(
-                      child: ListView.builder(
-                        shrinkWrap: true,
+                      // Three hundred and seventy-two sources in a box eight
+                      // rows tall. What made that feel crammed was not the
+                      // number — it was that the box gave no sign of being a
+                      // window onto it: rows were sliced in half at the top and
+                      // bottom edges, and with the list jumped to the current
+                      // source on open, there was nothing to say whether it
+                      // held ten entries or four hundred, or where in them you
+                      // were.
+                      //
+                      // Three things, none of which is decoration. The rows
+                      // dissolve into the edges instead of being cut, so the
+                      // list reads as continuing rather than as clipped. They
+                      // settle to full size as they reach the middle, so a
+                      // scroll has a direction and a rhythm to it. And the
+                      // thumb says how far down four hundred rows you are,
+                      // which no amount of scrolling could otherwise tell you.
+                      child: Scrollbar(
                         controller: controller,
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        // Fixed rows are what make the opening jump land on the
-                        // right one.
-                        itemExtent: _tileExtent,
-                        itemCount: items.length,
-                        itemBuilder: (context, index) => ItemAppear(
-                          index: index,
-                          child: _favoriteProviderTile(
-                            context,
-                            items[index],
-                            widget.currentProviderId,
-                            favorite: index < favorites.length,
+                        // Outside the fade: an indicator that dissolves at the
+                        // very edges it exists to mark is no indicator.
+                        child: EdgeFade(
+                          extent: _tileExtent * 0.55,
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            controller: controller,
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
+                            // Fixed rows are what make the opening jump land on
+                            // the right one — and what lets the settle know
+                            // where a row is without measuring it.
+                            itemExtent: _tileExtent,
+                            itemCount: items.length,
+                            itemBuilder: (context, index) => ScrollSettle(
+                              controller: controller,
+                              index: index,
+                              extent: _tileExtent,
+                              child: ItemAppear(
+                                index: index,
+                                child: _favoriteProviderTile(
+                                  context,
+                                  items[index],
+                                  widget.currentProviderId,
+                                  favorite: index < favorites.length,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),

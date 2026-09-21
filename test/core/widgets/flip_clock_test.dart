@@ -68,11 +68,19 @@ void main() {
     expect(digits(tester), hasLength(6), reason: 'hours, minutes, seconds');
   });
 
-  testWidgets('and seconds are dropped when the wait is days', (tester) async {
-    // A digit flipping sixty times a minute beside a number that moves once a
-    // day is noise, and it keeps the screen busy for nothing.
+  testWidgets('and seconds are kept even when the wait is days', (
+    tester,
+  ) async {
+    // They used to be dropped past a day, on the grounds that a digit flipping
+    // sixty times a minute beside a number that moves once a day is noise. The
+    // second card is the only part of this that is visibly alive; without it a
+    // clock four days out is a row of numbers that could as easily be stopped.
     await pump(tester, const Duration(days: 3, hours: 2));
-    expect(digits(tester), hasLength(6), reason: 'days, hours, minutes');
+    expect(
+      digits(tester),
+      hasLength(8),
+      reason: 'days, hours, minutes, seconds',
+    );
   });
 
   testWidgets('a long wait grows a third card rather than clamping', (
@@ -80,8 +88,59 @@ void main() {
   ) async {
     // A clamped "99" would be a lie a viewer cannot see through.
     await pump(tester, const Duration(days: 140, hours: 3));
-    expect(digits(tester), hasLength(7), reason: '3 day digits + 4');
+    expect(digits(tester), hasLength(9), reason: '3 day digits + 6');
     expect(digits(tester).take(3).join(), '140');
+  });
+
+  group('the flip is a split-flap, not a card turning over', () {
+    /// Every glyph painted for one card. A card at rest paints one; a card
+    /// mid-flip paints three — the new digit's top, the old digit's bottom and
+    /// the leaf in flight between them.
+    List<String> facesOfUnits(WidgetTester tester) => tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byType(FlipDigit).last,
+            matching: find.byType(Text),
+          ),
+        )
+        .map((t) => t.data ?? '')
+        .toList();
+
+    testWidgets('a settled card paints one face', (tester) async {
+      await pump(tester, const Duration(minutes: 5));
+      expect(facesOfUnits(tester), hasLength(1));
+    });
+
+    testWidgets('and mid-flip the new digit is already on screen', (
+      tester,
+    ) async {
+      // This is the difference from what it replaced. A whole card rotating a
+      // half-turn about its middle takes the entire glyph edge-on, so the digit
+      // vanishes into a line and reappears; here the new digit's top half is up
+      // from the first frame and the old leaf falls off it.
+      await pump(tester, const Duration(minutes: 5, seconds: 8));
+      expect(facesOfUnits(tester), ['8']);
+
+      clock = clock.add(const Duration(seconds: 1));
+      await tester.pump(const Duration(milliseconds: 250));
+      // A third of the way into a 340ms turn: the leaf is still falling.
+      await tester.pump(const Duration(milliseconds: 110));
+
+      final faces = facesOfUnits(tester);
+      expect(faces, hasLength(3), reason: 'new top, old bottom, falling leaf');
+      expect(faces, contains('7'), reason: 'the digit being arrived at');
+      expect(faces, contains('8'), reason: 'the digit being left behind');
+    });
+
+    testWidgets('and settles back to one face', (tester) async {
+      await pump(tester, const Duration(minutes: 5, seconds: 8));
+      await advance(tester, const Duration(seconds: 1));
+      // Past the turn, so the leaf is gone rather than parked at zero degrees:
+      // a card left in its animated form is four layers and a perspective
+      // matrix, once per card, for as long as the page is open.
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(facesOfUnits(tester), ['7']);
+    });
   });
 
   testWidgets('a target in the past reads zero, not a negative', (
