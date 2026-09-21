@@ -1172,7 +1172,13 @@
     "tracking_episodes_watched": "Ko‘rilgan epizodlar",
     "status_reading": "O‘qilmoqda",
     "status_rereading": "Qayta o‘qilmoqda",
-    "about_author": "Muallif"
+    "about_author": "Muallif",
+    "cd_days": "kun",
+    "cd_hours": "soat",
+    "cd_minutes": "daq",
+    "cd_seconds": "son",
+    "next_episode_label": "{}-qism chiqishiga",
+    "airing_now": "Hozir chiqmoqda"
   },
   "episodes": {
     "filter_hint": "Epizod raqami yoki nomi",

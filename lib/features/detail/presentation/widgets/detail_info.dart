@@ -1,3 +1,4 @@
+import 'package:soplay/core/widgets/flip_clock.dart';
 import 'package:soplay/features/detail/domain/entities/record_info.dart';
 import 'package:soplay/features/detail/presentation/widgets/tracking_row.dart';
 import 'package:soplay/core/content/catalogue.dart';
@@ -870,38 +871,94 @@ class _GuessPill extends StatelessWidget {
 
 /// The next episode, alone. It is the one fact on the page with a date on
 /// it, and the one worth glancing back for.
-class _NextEpisode extends StatelessWidget {
+/// When the next episode lands, as a clock that is actually running.
+///
+/// This was one line of text — "next episode in 3d 4h" — computed once when the
+/// page was built and never again. It looked the same whether it had been
+/// worked out a second ago or an hour ago, which for the one number on the page
+/// whose whole value is that it is counting down is the wrong shape entirely.
+class _NextEpisode extends StatefulWidget {
   const _NextEpisode({required this.record});
 
   final RecordInfo record;
 
   @override
-  Widget build(BuildContext context) {
-    final at = record.nextAiringAt!;
-    return Row(
-      children: [
-        Icon(Icons.schedule_rounded, size: 16, color: AppColors.primary),
-        const SizedBox(width: 6),
-        Text(
-          'detail.next_episode_in'.tr(
-            args: ['${record.nextEpisode}', _untilText(at)],
-          ),
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
+  State<_NextEpisode> createState() => _NextEpisodeState();
+}
 
-  /// "3d 4h", "6h", "42m" — what fits in a line.
-  static String _untilText(DateTime at) {
-    final d = at.difference(DateTime.now());
-    if (d.isNegative) return '0m';
-    if (d.inDays >= 1) return '${d.inDays}d ${d.inHours % 24}h';
-    if (d.inHours >= 1) return '${d.inHours}h';
-    return '${d.inMinutes}m';
+class _NextEpisodeState extends State<_NextEpisode> {
+  /// Set when the clock reaches zero.
+  ///
+  /// The page does not reload itself: the record came from AniList and the
+  /// episode number will not change the instant it airs, so refetching would
+  /// spend a request to redraw the same thing. Saying it is airing is both
+  /// true and the whole of what a viewer wants at that moment.
+  bool _aired = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final at = widget.record.nextAiringAt!;
+    final width = MediaQuery.sizeOf(context).width;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 14,
+                      color: AppColors.textHint,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        _aired
+                            ? 'detail.airing_now'.tr()
+                            : 'detail.next_episode_label'.tr(
+                                args: ['${widget.record.nextEpisode}'],
+                              ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (!_aired) ...[
+                  const SizedBox(height: 10),
+                  FlipClock(
+                    target: at,
+                    // Narrow phones in the wild are 320pt, and four groups of
+                    // two cards plus their separators do not fit there at full
+                    // size. The compact set does.
+                    compact: width < 380,
+                    onFinished: () {
+                      if (mounted) setState(() => _aired = true);
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

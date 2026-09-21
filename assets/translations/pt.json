@@ -1172,7 +1172,13 @@
     "tracking_episodes_watched": "Episódios vistos",
     "status_reading": "A ler",
     "status_rereading": "A reler",
-    "about_author": "Autor"
+    "about_author": "Autor",
+    "cd_days": "dias",
+    "cd_hours": "hrs",
+    "cd_minutes": "min",
+    "cd_seconds": "seg",
+    "next_episode_label": "O episódio {} em",
+    "airing_now": "No ar agora"
   },
   "episodes": {
     "filter_hint": "Número ou título do episódio",

@@ -1172,7 +1172,13 @@
     "tracking_episodes_watched": "Просмотрено серий",
     "status_reading": "Читаю",
     "status_rereading": "Перечитываю",
-    "about_author": "Автор"
+    "about_author": "Автор",
+    "cd_days": "дн",
+    "cd_hours": "час",
+    "cd_minutes": "мин",
+    "cd_seconds": "сек",
+    "next_episode_label": "До {}-й серии",
+    "airing_now": "Выходит сейчас"
   },
   "episodes": {
     "filter_hint": "Номер или название серии",

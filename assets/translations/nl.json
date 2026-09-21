@@ -1172,7 +1172,13 @@
     "tracking_episodes_watched": "Bekeken afleveringen",
     "status_reading": "Aan het lezen",
     "status_rereading": "Aan het herlezen",
-    "about_author": "Auteur"
+    "about_author": "Auteur",
+    "cd_days": "dagen",
+    "cd_hours": "uur",
+    "cd_minutes": "min",
+    "cd_seconds": "sec",
+    "next_episode_label": "Aflevering {} over",
+    "airing_now": "Nu te zien"
   },
   "episodes": {
     "filter_hint": "Afleveringsnummer of titel",

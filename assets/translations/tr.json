@@ -1172,7 +1172,13 @@
     "tracking_episodes_watched": "İzlenen bölümler",
     "status_reading": "Okunuyor",
     "status_rereading": "Yeniden okunuyor",
-    "about_author": "Yazar"
+    "about_author": "Yazar",
+    "cd_days": "gün",
+    "cd_hours": "saat",
+    "cd_minutes": "dk",
+    "cd_seconds": "sn",
+    "next_episode_label": "{}. bölüme",
+    "airing_now": "Şimdi yayında"
   },
   "episodes": {
     "filter_hint": "Bölüm numarası veya adı",

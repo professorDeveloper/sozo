@@ -1172,7 +1172,13 @@
     "tracking_episodes_watched": "Episode ditonton",
     "status_reading": "Sedang dibaca",
     "status_rereading": "Dibaca ulang",
-    "about_author": "Penulis"
+    "about_author": "Penulis",
+    "cd_days": "hari",
+    "cd_hours": "jam",
+    "cd_minutes": "mnt",
+    "cd_seconds": "dtk",
+    "next_episode_label": "Episode {} dalam",
+    "airing_now": "Tayang sekarang"
   },
   "episodes": {
     "filter_hint": "Nomor atau judul episode",

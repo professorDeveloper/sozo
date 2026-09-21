@@ -1172,7 +1172,13 @@
     "tracking_episodes_watched": "睇咗嘅集數",
     "status_reading": "睇緊",
     "status_rereading": "重睇緊",
-    "about_author": "作者"
+    "about_author": "作者",
+    "cd_days": "日",
+    "cd_hours": "時",
+    "cd_minutes": "分",
+    "cd_seconds": "秒",
+    "next_episode_label": "第 {} 集仲有",
+    "airing_now": "而家播緊"
   },
   "episodes": {
     "filter_hint": "集數或者標題",

@@ -1172,7 +1172,13 @@
     "tracking_episodes_watched": "الحلقات المشاهدة",
     "status_reading": "قيد القراءة",
     "status_rereading": "إعادة القراءة",
-    "about_author": "المؤلف"
+    "about_author": "المؤلف",
+    "cd_days": "يوم",
+    "cd_hours": "ساعة",
+    "cd_minutes": "دقيقة",
+    "cd_seconds": "ثانية",
+    "next_episode_label": "الحلقة {} بعد",
+    "airing_now": "يُعرض الآن"
   },
   "episodes": {
     "filter_hint": "رقم الحلقة أو عنوانها",
