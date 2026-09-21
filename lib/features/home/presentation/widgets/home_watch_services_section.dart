@@ -8,6 +8,7 @@ import 'package:soplay/core/analytics/analytics.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
+import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/home/domain/home_rail.dart';
@@ -23,8 +24,25 @@ import 'package:soplay/features/watch_services/presentation/bloc/watch_services/
 ///
 /// It carries its own way off Home, because a band that can only be removed
 /// from a settings screen somewhere else is a band people put up with.
-class HomeWatchServicesSection extends StatelessWidget {
+class HomeWatchServicesSection extends StatefulWidget {
   const HomeWatchServicesSection({super.key});
+
+  @override
+  State<HomeWatchServicesSection> createState() =>
+      _HomeWatchServicesSectionState();
+}
+
+class _HomeWatchServicesSectionState extends State<HomeWatchServicesSection> {
+  @override
+  void initState() {
+    super.initState();
+    // On an install that accepted the offer, this is the first thing that
+    // wants the marks — the card that fetched them is gone.
+    final bloc = getIt<WatchServicesBloc>();
+    if (bloc.state.status == WatchServicesStatus.initial) {
+      bloc.add(const WatchServicesLoad());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,18 +76,15 @@ class HomeWatchServicesSection extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(
-              Icons.subscriptions_rounded,
-              size: 20,
-              color: AppColors.primary,
+          // The same marks the offer led with. What you accepted should look
+          // like what you were shown, and a generic glyph where four
+          // recognisable logos used to be reads as the feature having been
+          // swapped for a menu item.
+          BlocBuilder<WatchServicesBloc, WatchServicesState>(
+            bloc: getIt<WatchServicesBloc>(),
+            builder: (context, state) => _ServiceMarks(
+              services: state.services,
+              fallback: Icons.subscriptions_rounded,
             ),
           ),
           const SizedBox(width: 12),
@@ -220,79 +235,92 @@ class _HomeSuggestionCardState extends State<HomeSuggestionCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Container(
-        padding: const EdgeInsetsDirectional.fromSTEB(12, 11, 8, 6),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                BlocBuilder<WatchServicesBloc, WatchServicesState>(
-                  bloc: getIt<WatchServicesBloc>(),
-                  builder: (context, state) => _ServiceMarks(
-                    services: state.services,
-                    fallback: widget.icon,
+    return ItemAppear(
+      index: 0,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
+        child: Container(
+          padding: const EdgeInsetsDirectional.fromSTEB(12, 11, 8, 6),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            // Lifted off Home rather than flush with it: this is a card among
+            // rails of artwork, and without a shadow it reads as a gap in the
+            // background where a rail should be.
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.30),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  BlocBuilder<WatchServicesBloc, WatchServicesState>(
+                    bloc: getIt<WatchServicesBloc>(),
+                    builder: (context, state) => _ServiceMarks(
+                      services: state.services,
+                      fallback: widget.icon,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        widget.body,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textHint,
-                          fontSize: 11,
-                          height: 1.3,
+                        const SizedBox(height: 3),
+                        Text(
+                          widget.body,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textHint,
+                            fontSize: 11,
+                            height: 1.3,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _QuietAction(
-                  label: 'home.suggest_no'.tr(),
-                  color: AppColors.textHint,
-                  onTap: () => _answer(accepted: false),
-                ),
-                const SizedBox(width: 2),
-                _QuietAction(
-                  label: 'home.suggest_add'.tr(),
-                  color: AppColors.primary,
-                  bold: true,
-                  onTap: () => _answer(accepted: true),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  _QuietAction(
+                    label: 'home.suggest_no'.tr(),
+                    color: AppColors.textHint,
+                    onTap: () => _answer(accepted: false),
+                  ),
+                  const SizedBox(width: 2),
+                  _QuietAction(
+                    label: 'home.suggest_add'.tr(),
+                    color: AppColors.primary,
+                    bold: true,
+                    onTap: () => _answer(accepted: true),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -388,6 +416,15 @@ class _ServiceMarks extends StatelessWidget {
                   // A hairline of the card behind it, so overlapping marks
                   // stay separate instead of merging into one dark blob.
                   border: Border.all(color: AppColors.surface, width: 1.5),
+                  // The same lift the service grid gives them. These are app
+                  // icons and an app icon without one is a sticker.
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(_size * 0.235 - 1.5),

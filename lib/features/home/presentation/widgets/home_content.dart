@@ -316,9 +316,19 @@ class _HomeContentBody extends StatelessWidget {
               !hive.hasAnsweredHomeSuggestion(HomeRail.watchServices.id);
           final needsTopPad =
               catalogue is CatalogueFailed ||
-              suggesting ||
               rails.first != HomeRail.hero ||
               !showHero;
+
+          // Under the hero, not over it.
+          //
+          // Above, the card was the first thing on Home and pushed the banner
+          // — the screen's whole opening image — down by its own height, to
+          // ask a question nobody opened the app to answer. After the hero it
+          // is among the rails, which is what it is offering to become one of.
+          // It never leads: with no hero it follows whatever does.
+          final suggestionFollows = showHero && rails.contains(HomeRail.hero)
+              ? HomeRail.hero
+              : rails.first;
 
           return CustomScrollView(
             controller: scrollController,
@@ -334,20 +344,26 @@ class _HomeContentBody extends StatelessWidget {
               // with. Not a dialog: Home is not a screen anybody came to in
               // order to be interrupted, and a card that can be ignored until
               // it is convenient is a question rather than a demand.
-              if (suggesting)
-                SliverToBoxAdapter(
-                  child: HomeSuggestionCard(
-                    rail: HomeRail.watchServices,
-                    title: 'home.suggest_services_title'.tr(),
-                    body: 'home.suggest_services_body'.tr(),
-                    icon: Icons.subscriptions_rounded,
-                    // The bands are read at build time, so the answer has to
-                    // reach this widget the same way the customizer's does.
-                    onAnswered: () => hive.homeRailsChanged.value =
-                        !hive.homeRailsChanged.value,
+              for (final rail in rails) ...[
+                ...sliversFor(rail),
+                // Asked once, and not as a dialog: Home is not a screen
+                // anybody came to in order to be interrupted, and a card that
+                // can be ignored until it is convenient is a question rather
+                // than a demand.
+                if (suggesting && rail == suggestionFollows)
+                  SliverToBoxAdapter(
+                    child: HomeSuggestionCard(
+                      rail: HomeRail.watchServices,
+                      title: 'home.suggest_services_title'.tr(),
+                      body: 'home.suggest_services_body'.tr(),
+                      icon: Icons.subscriptions_rounded,
+                      // The bands are read at build time, so the answer has to
+                      // reach this widget the same way the customizer's does.
+                      onAnswered: () => hive.homeRailsChanged.value =
+                          !hive.homeRailsChanged.value,
+                    ),
                   ),
-                ),
-              for (final rail in rails) ...sliversFor(rail),
+              ],
               SliverToBoxAdapter(
                 child: SizedBox(
                   // Clear the floating nav capsule: desktop pill (~66+18) and
