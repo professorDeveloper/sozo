@@ -171,7 +171,9 @@ class _Group extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (var i = 0; i < digits.length; i++) ...[
-              if (i > 0) const SizedBox(width: 3),
+              // Four, not three: a leaf tilted towards the viewer overflows its
+              // card by a couple of points, and at three the cards touched.
+              if (i > 0) const SizedBox(width: 4),
               FlipDigit(digit: digits[i], compact: compact),
             ],
           ],
@@ -218,22 +220,53 @@ class _Separator extends StatelessWidget {
 
 /// One card, which turns over when its digit changes.
 ///
-/// A split-flap, built the way one is built: the card is two leaves meeting at
-/// a fold. The top leaf carrying the OLD digit falls forward to the fold, and
-/// then the bottom leaf carrying the NEW one swings up from it, while behind
-/// them the new digit's top and the old digit's bottom sit still.
+/// A split-flap, built the way one is built. The card is two leaves meeting at
+/// a fold: the leaf carrying the old digit's top falls forward onto the fold
+/// and keeps going past it, and what comes down on the far side is the back of
+/// the same leaf — the new digit's bottom. Behind it, the new digit's top half
+/// has been on screen since the first frame, and the old digit's bottom half
+/// stays until the leaf lands on it.
 ///
-/// What it replaced was one rigid card rotating a full half-turn about its own
-/// middle, which is not the same movement at all. Both halves of the glyph went
-/// edge-on together, so the digit vanished into a line and reappeared — a
-/// squash and a pop, with the swap hidden in the moment it was invisible. There
-/// is nothing to hide here: the new digit's top half is on screen from the
-/// first frame, uncovered by the leaf falling off it, which is the whole reason
-/// the mechanism reads as a mechanism.
+/// ## What was wrong with it
 ///
-/// The leaf falls on [Curves.easeIn] and rises on [Curves.easeOut] — it is
-/// being dropped and then caught, and an even rate through both reads as a
-/// diagram of a flip rather than a flip.
+/// Two things, and both were invisible in the widget tree — which is why the
+/// tests it had all passed.
+///
+/// The halves were not halves. They sat in a `Stack` under `StackFit.expand`,
+/// which hands every non-positioned child TIGHT constraints: the
+/// `SizedBox(height: h / 2)` inside each one was overruled, the `Align`'s
+/// `heightFactor` had nothing left to shrink-wrap, and both layers painted the
+/// WHOLE card. The old digit's face covered the new one completely, so nothing
+/// behind the leaf ever changed, and the digit swapped in a single frame at the
+/// end when the outgoing face was dropped. The animation was, at the only
+/// moment that mattered, a cut.
+///
+/// And the leaf turned the wrong way. `rotateX` with a positive angle brings
+/// the top of a widget TOWARDS the viewer; the fall was written negative, so
+/// the flap folded backwards into the card. That was hard to see, because the
+/// perspective was 0.0016 on a card 36 points tall — about half a pixel of
+/// foreshortening at the extreme, which is no perspective at all, and a
+/// rotation with no depth cue is a vertical squash.
+///
+/// ## What it does now
+///
+/// The perspective is scaled to the card, so the free edge of the leaf gains
+/// about a fifth of its width at the extreme: enough to read as a flap
+/// standing out of the display rather than a rectangle getting shorter. It
+/// overflows the card while it does, which is why the stack is told not to
+/// clip — a thing coming towards you is wider than its housing.
+///
+/// The run is not split down the middle. The leaf is released and then lands,
+/// so the drop takes the longer share on an accelerating curve and the landing
+/// is shorter and decelerates into place. Split evenly, with matching curves,
+/// it reads as a panel being opened and closed by hand.
+///
+/// And the light comes from above and in front. The leaf loses it as it turns
+/// edge-on and takes it back coming down, its free edge catches a highlight at
+/// the extreme, and it throws a shadow onto the half below it. All three peak
+/// at a right angle out of the card and are gone when it is flat, because all
+/// three are the same quantity — the sine of the turn — which is also why they
+/// stay in step with each other.
 class FlipDigit extends StatefulWidget {
   const FlipDigit({super.key, required this.digit, this.compact = false});
 
@@ -249,24 +282,38 @@ class FlipDigit extends StatefulWidget {
 
 class _FlipDigitState extends State<FlipDigit>
     with SingleTickerProviderStateMixin {
+  /// Long enough to be a movement rather than a cut, and over well before the
+  /// next second lands on top of it.
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 340),
+    duration: const Duration(milliseconds: 380),
   );
 
   late String _shown = widget.digit;
 
   /// The digit being flipped away from. Null when the card is at rest, which
-  /// is what lets a resting card skip the whole stack and paint one face.
+  /// is what lets a settled card skip the whole stack and paint one face.
   String? _outgoing;
+
+  static const double _quarter = math.pi / 2;
+
+  /// Where the drop ends and the landing begins, as a fraction of the run.
+  ///
+  /// Not the half. A flap is released and then arrives: the first ninety
+  /// degrees are a fall, which wants the longer share and an accelerating
+  /// curve, and the second ninety are the landing, which is quicker and
+  /// settles. The two phases also meet at their fastest here, which is what
+  /// carries the eye across the fold.
+  static const double _foldAt = 0.58;
 
   @override
   void initState() {
     super.initState();
     _c.addStatusListener((status) {
       if (status != AnimationStatus.completed || !mounted) return;
-      // Dropped at the end rather than left set, so a settled card is one
-      // Container again instead of four layers and a perspective matrix.
+      // Dropped at the end rather than left set: a settled card is one
+      // DecoratedBox again, instead of three layers and a perspective matrix
+      // held for as long as the page is open.
       setState(() => _outgoing = null);
     });
   }
@@ -276,8 +323,8 @@ class _FlipDigitState extends State<FlipDigit>
     super.didUpdateWidget(old);
     if (old.digit == widget.digit) return;
     // Mid-flip when the next second lands — which happens whenever a frame is
-    // late — the leaf would otherwise carry a digit two steps old. The one in
-    // flight is abandoned and the new turn starts from the digit that was
+    // late — the leaf would otherwise carry a digit two steps old. The turn in
+    // flight is abandoned and the new one starts from the digit that was
     // actually on screen.
     _outgoing = _shown;
     _shown = widget.digit;
@@ -294,6 +341,20 @@ class _FlipDigitState extends State<FlipDigit>
   Widget build(BuildContext context) {
     final w = FlipDigit.widthFor(widget.compact);
     final h = FlipDigit.heightFor(widget.compact);
+    final outgoing = _outgoing;
+
+    if (outgoing == null) {
+      return SizedBox(width: w, height: h, child: _face(_shown));
+    }
+
+    // Built here rather than inside the builder. These four are the same four
+    // widgets for the whole turn, and Flutter skips updating a child whose
+    // widget is identical to the mounted one — so the faces are laid out once
+    // and repainted, instead of being rebuilt sixty times a second.
+    final restingTop = _clipped(_face(_shown), top: true);
+    final restingBottom = _clipped(_face(outgoing), top: false);
+    final fallingLeaf = _clipped(_face(outgoing), top: true);
+    final landingLeaf = _clipped(_face(_shown), top: false);
 
     return SizedBox(
       width: w,
@@ -301,51 +362,62 @@ class _FlipDigitState extends State<FlipDigit>
       child: AnimatedBuilder(
         animation: _c,
         builder: (context, _) {
-          final outgoing = _outgoing;
-          if (outgoing == null) return _face(_shown);
-
           final t = _c.value;
-          final falling = t < 0.5;
-          // The fold is at a quarter turn, not a half: each leaf travels only
-          // to the flat, and the other one takes it from there.
-          final angle = falling
-              ? -_quarter * Curves.easeIn.transform(t * 2)
-              : -_quarter * (1 - Curves.easeOut.transform((t - 0.5) * 2));
+          final falling = t < _foldAt;
+          // One half-turn across the two phases, continuous at the fold: the
+          // drop runs 0 to 90 degrees, the landing 90 to 180.
+          final turn = falling
+              ? _quarter * Curves.easeIn.transform(t / _foldAt)
+              : _quarter *
+                    (1 +
+                        Curves.easeOut.transform(
+                          (t - _foldAt) / (1 - _foldAt),
+                        ));
+          // Square to the card is where the leaf catches the most light and
+          // throws the most shadow. Flat either way, it does neither.
+          final tilt = math.sin(turn);
 
           return Stack(
-            fit: StackFit.expand,
+            // A leaf tilted towards the viewer is wider than the card it came
+            // out of. Clipping it back to the card is the one thing that would
+            // undo the perspective.
+            clipBehavior: Clip.none,
             children: [
-              // Behind the leaf: what the card will read as when it settles,
-              // top half already correct.
-              _half(_shown, top: true),
-              // And what it read as before, bottom half not yet replaced.
-              _half(outgoing, top: false),
-              // The leaf in flight. Falling, it is the old top, hinged at its
-              // lower edge; rising, the new bottom, hinged at its upper one.
-              Align(
-                alignment: falling
-                    ? Alignment.topCenter
-                    : Alignment.bottomCenter,
+              Positioned(top: 0, left: 0, right: 0, child: restingTop),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                // The shadow the leaf throws down the card, strongest at the
+                // fold and fading out below it.
+                child: _shadowed(restingBottom, tilt * 0.45),
+              ),
+              Positioned(
+                top: falling ? 0 : null,
+                bottom: falling ? null : 0,
+                left: 0,
+                right: 0,
                 child: Transform(
+                  // The hinge is the fold: the lower edge of the falling leaf,
+                  // the upper edge of the one landing.
                   alignment: falling
                       ? Alignment.bottomCenter
                       : Alignment.topCenter,
                   transform: Matrix4.identity()
-                    // The far edge narrows. Without it the leaf scales instead
-                    // of turning, which is what makes a flip look like a
-                    // squash.
-                    ..setEntry(3, 2, 0.0016)
-                    ..rotateX(falling ? angle : -angle),
-                  child: _half(
-                    falling ? outgoing : _shown,
-                    top: falling,
-                    // A leaf turning away from the light loses it. This is the
-                    // difference between a card that moves and a card with a
-                    // thickness — and on the way back up it lifts again, so
-                    // the new digit arrives lit rather than appearing.
-                    shade: falling
-                        ? Curves.easeIn.transform(t * 2) * 0.55
-                        : (1 - Curves.easeOut.transform((t - 0.5) * 2)) * 0.55,
+                    // Scaled to the card, not a constant: the free edge should
+                    // gain about a fifth of its width at the extreme, and the
+                    // card is 36 points tall on a phone and 28 in a row that
+                    // has to share its line.
+                    ..setEntry(3, 2, 0.33 / h)
+                    // Positive brings the top towards the viewer, which is the
+                    // direction a flap falls. The landing leaf is the same
+                    // sweep continued: a quarter turn past the fold is where
+                    // it starts, and flat is where it stops.
+                    ..rotateX(falling ? turn : turn - math.pi),
+                  child: _leaf(
+                    falling ? fallingLeaf : landingLeaf,
+                    falling: falling,
+                    tilt: tilt,
                   ),
                 ),
               ),
@@ -356,85 +428,132 @@ class _FlipDigitState extends State<FlipDigit>
     );
   }
 
-  static const double _quarter = math.pi / 2;
-
-  /// One leaf: the card, clipped to the half of it that this leaf is.
+  /// Half of a face, clipped rather than drawn as its own box.
   ///
-  /// Clipped out of the whole face rather than drawn as its own box, so the
-  /// rounding, the gradient and the glyph are continuous across the fold —
-  /// half a card drawn independently has its own rounded corners at the fold
-  /// and its own slice of the gradient, and the two halves stop lining up.
-  Widget _half(String digit, {required bool top, double shade = 0}) {
-    final h = FlipDigit.heightFor(widget.compact);
-    return SizedBox(
-      height: h / 2,
-      child: ClipRect(
-        child: Align(
-          alignment: top ? Alignment.topCenter : Alignment.bottomCenter,
-          heightFactor: 0.5,
-          child: SizedBox(
-            height: h,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _face(digit),
-                if (shade > 0)
-                  IgnorePointer(
-                    child: ColoredBox(
-                      color: Colors.black.withValues(alpha: shade),
-                    ),
-                  ),
-              ],
+  /// Drawing a half independently would give it its own rounded corners at the
+  /// fold and its own slice of the gradient, and the two halves would stop
+  /// lining up. Clipping keeps the rounding on the outer corners only, drops
+  /// the border along the fold, and leaves each half carrying its own side of
+  /// the seam.
+  ///
+  /// It has to be laid out with its height unbounded — in a [Positioned] with
+  /// only one edge set, not as a [Stack] child under `StackFit.expand` — or
+  /// [Align.heightFactor] has nothing to shrink-wrap and the half is the whole
+  /// card. That was the bug.
+  Widget _clipped(Widget face, {required bool top}) => ClipRect(
+    child: Align(
+      alignment: top ? Alignment.topCenter : Alignment.bottomCenter,
+      heightFactor: 0.5,
+      child: face,
+    ),
+  );
+
+  /// The leaf in flight: shaded as it turns away from the light, with the
+  /// thickness of its free edge catching it.
+  Widget _leaf(Widget half, {required bool falling, required double tilt}) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        half,
+        if (tilt > 0.01)
+          Positioned.fill(
+            child: ColoredBox(
+              color: Colors.black.withValues(alpha: tilt * 0.5),
             ),
           ),
-        ),
-      ),
+        // The lit edge of the flap, at the end that is furthest from the
+        // hinge. One line, at its brightest when the leaf is square to the
+        // card and there is nothing else of it left to see.
+        if (tilt > 0.05)
+          Positioned(
+            top: falling ? 0 : null,
+            bottom: falling ? null : 0,
+            left: 0,
+            right: 0,
+            child: SizedBox(
+              height: 1,
+              child: ColoredBox(
+                color: Colors.white.withValues(alpha: tilt * 0.45),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
-  /// The whole card, at rest.
+  /// The half below the leaf, with the leaf's shadow on it.
+  Widget _shadowed(Widget half, double strength) {
+    if (strength < 0.01) return half;
+    return Stack(
+      children: [
+        half,
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: strength),
+                  Colors.transparent,
+                ],
+                stops: const [0, 0.8],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The whole card. Every layer above is this, clipped differently.
   Widget _face(String digit) {
     final w = FlipDigit.widthFor(widget.compact);
     final h = FlipDigit.heightFor(widget.compact);
-    return Container(
+    return SizedBox(
       width: w,
       height: h,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        // A vertical seam, because a split-flap has one: the card is lighter
-        // above the fold and darker below it.
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppColors.surfaceVariant, AppColors.card],
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          // Lighter above the fold, darker below it, which is what a
+          // split-flap looks like lit from above.
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.surfaceVariant, AppColors.card],
+          ),
+          borderRadius: BorderRadius.circular(widget.compact ? 5 : 7),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
         ),
-        borderRadius: BorderRadius.circular(widget.compact ? 5 : 7),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(
-            digit,
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: widget.compact ? 15 : 19,
-              fontWeight: FontWeight.w800,
-              height: 1,
-              // A column of digits that does not jitter as the glyphs change
-              // width.
-              fontFeatures: const [FontFeature.tabularFigures()],
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Center(
+              child: Text(
+                digit,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: widget.compact ? 15 : 19,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                  // A column of digits that does not jitter as the glyphs
+                  // change width.
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
             ),
-          ),
-          // The hinge, drawn over the glyph because that is where it is: the
-          // fold crosses the digit, it does not pass behind it.
-          Align(
-            child: Container(
-              height: 1,
-              color: Colors.black.withValues(alpha: 0.45),
+            // The seam, over the glyph because that is where it is: the fold
+            // crosses the digit rather than passing behind it. Each half
+            // carries its own side of it, so it stays put while the leaf turns.
+            Align(
+              child: SizedBox(
+                height: 1,
+                width: double.infinity,
+                child: ColoredBox(color: Colors.black.withValues(alpha: 0.45)),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

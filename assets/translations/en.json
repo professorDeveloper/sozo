@@ -1988,6 +1988,7 @@
   },
   "watch": {
     "services_title": "Streaming services",
+    "services_entry_hint": "See what Netflix, Disney+ and the rest carry where you are",
     "services_search_hint": "Search services",
     "top_services": "Most used here",
     "all_services": "All services",

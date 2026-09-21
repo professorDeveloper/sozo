@@ -22,9 +22,22 @@ class EdgeFade extends StatefulWidget {
     required this.child,
     this.extent = 28,
     this.axis = Axis.vertical,
+    this.before = true,
+    this.after = true,
   });
 
   final Widget child;
+
+  /// Whether to fade the leading edge — the top of a vertical list.
+  ///
+  /// Off where something opaque already covers it. A pinned header is its own
+  /// boundary: rows slide under it and are hidden rather than sliced, and
+  /// fading there would dim the header itself, which is the one thing on the
+  /// screen that must stay legible.
+  final bool before;
+
+  /// Whether to fade the trailing edge.
+  final bool after;
 
   /// How deep the fade runs, and the distance over which it comes in.
   final double extent;
@@ -44,8 +57,12 @@ class _EdgeFadeState extends State<EdgeFade> {
     // A scrollable that is not the one being wrapped — a horizontal row inside
     // a row, say — must not drive this one's edges.
     if (m.axis != widget.axis) return false;
-    final before = (m.extentBefore / widget.extent).clamp(0.0, 1.0);
-    final after = (m.extentAfter / widget.extent).clamp(0.0, 1.0);
+    final before = widget.before
+        ? (m.extentBefore / widget.extent).clamp(0.0, 1.0)
+        : 0.0;
+    final after = widget.after
+        ? (m.extentAfter / widget.extent).clamp(0.0, 1.0)
+        : 0.0;
     if (before == _before && after == _after) return false;
     setState(() {
       _before = before;
@@ -110,12 +127,30 @@ class ScrollSettle extends StatelessWidget {
     required this.index,
     required this.extent,
     required this.child,
+    this.leading = 0,
+    this.topInset = 0,
     this.minScale = 0.94,
   });
 
   final ScrollController controller;
   final int index;
   final double extent;
+
+  /// How much scrollable content sits BEFORE this list in the same viewport.
+  ///
+  /// Zero when the list is the whole scroll view. Where it is one sliver among
+  /// several — under a section that scrolls away, say — a row's position is
+  /// its index times the extent plus everything above the list, and leaving
+  /// this out puts the falloff in the wrong place by exactly the height of
+  /// that section.
+  final double leading;
+
+  /// How much of the viewport's top edge is covered by something pinned over
+  /// the list. Rows pass UNDER a pinned bar, so without this they would start
+  /// shrinking while they are still behind it and arrive at full size a bar's
+  /// height too late.
+  final double topInset;
+
   final Widget child;
 
   /// How small a row gets at the very edge. Small differences read as the list
@@ -135,12 +170,16 @@ class ScrollSettle extends StatelessWidget {
         if (controller.positions.length != 1) return built!;
         final position = controller.position;
         if (!position.haveDimensions) return built!;
-        final top = index * extent - position.pixels;
+        final top = leading + index * extent - position.pixels;
         final bottom = position.viewportDimension - (top + extent);
+        final uncovered = top - topInset;
         // Distance from whichever edge is nearer, in rows. A row fully inside
         // is untouched; the treatment is entirely about the two rows at the
         // ends.
-        final t = ((top < bottom ? top : bottom) / extent).clamp(0.0, 1.0);
+        final t = ((uncovered < bottom ? uncovered : bottom) / extent).clamp(
+          0.0,
+          1.0,
+        );
         final k = Curves.easeOut.transform(t);
         return Transform.scale(
           scale: minScale + (1 - minScale) * k,

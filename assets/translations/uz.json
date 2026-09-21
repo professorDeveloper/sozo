@@ -1988,6 +1988,7 @@
   },
   "watch": {
     "services_title": "Striming servislar",
+    "services_entry_hint": "Netflix, Disney+ va boshqalarda o'z hududingizda nima borligini ko'ring",
     "services_search_hint": "Servis qidirish",
     "top_services": "Bu yerda eng ko‘p ishlatiladigan",
     "all_services": "Barcha servislar",

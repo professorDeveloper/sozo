@@ -1989,6 +1989,7 @@
   },
   "watch": {
     "services_title": "Стриминговые сервисы",
+    "services_entry_hint": "Посмотрите, что показывают Netflix, Disney+ и другие в вашем регионе",
     "services_search_hint": "Поиск сервиса",
     "top_services": "Чаще всего здесь",
     "all_services": "Все сервисы",

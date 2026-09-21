@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart';
@@ -24,6 +25,7 @@ import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/core/widgets/mode_switch_overlay.dart';
+import 'package:flutter/rendering.dart';
 import 'package:soplay/core/widgets/edge_fade.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
@@ -351,8 +353,6 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// Used on TV and desktop, where there is no sheet to supply one.
   final ScrollController _flat = ScrollController();
 
-  static const double _pinnedPad = 12;
-
   bool get _hasFilter => widget.all.length >= _filterThreshold;
 
   /// Where a chip is on screen. Zero when it has not been laid out, which the
@@ -366,6 +366,26 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// Opening on the current source is a one-time move. Re-running it after a
   /// keystroke in the filter would yank the list out from under the typing.
   bool _aligned = false;
+
+  /// The sliver that holds the source rows, so the extent of everything above
+  /// it can be read back after layout rather than assumed.
+  final GlobalKey _listKey = GlobalKey();
+
+  /// That extent. Zero until the first layout, and re-read whenever it moves —
+  /// the catalogue section is one card or two, side by side or stacked,
+  /// depending on the mode and the text size.
+  double _leading = 0;
+
+  void _measureLeading() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final sliver = _listKey.currentContext?.findRenderObject();
+      if (sliver is! RenderSliver || sliver.geometry == null) return;
+      final leading = sliver.constraints.precedingScrollExtent;
+      if (leading == _leading || !leading.isFinite) return;
+      setState(() => _leading = leading);
+    });
+  }
 
   @override
   void dispose() {
@@ -494,9 +514,14 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !controller.hasClients) return;
       // Two rows of lead-in, so the current source reads as one entry in a
-      // list rather than as the first thing in it. Nothing scrolls above the
-      // rows any more, so the offset is the rows alone.
-      final target = (index - 2) * _tileExtent;
+      // list rather than as the first thing in it — plus everything that
+      // scrolls above the list, which is read off the sliver rather than
+      // guessed.
+      final sliver = _listKey.currentContext?.findRenderObject();
+      final leading = sliver is RenderSliver && sliver.geometry != null
+          ? sliver.constraints.precedingScrollExtent
+          : 0.0;
+      final target = leading + (index - 2) * _tileExtent;
       controller.jumpTo(target.clamp(0.0, controller.position.maxScrollExtent));
     });
   }
@@ -504,107 +529,197 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   Widget _body(BuildContext context, ScrollController controller) {
     final favorites = _shownFavorites;
     final items = [...favorites, ..._rest];
+    final catalogues = Catalogue.forMode(widget.mode);
+    final searchExtent = _SearchBarHeader.extentFor(context);
     _alignToCurrent(controller, items);
+    _measureLeading();
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Pinned by construction: the title, the mode chips and the filter are
-        // Column children, so scrolling the list underneath cannot carry them
-        // away. They were the first rows OF the list, which meant scrolling two
-        // hundred sources past the mode switcher and back up again to change
-        // mode.
+        // Above the scroll view, and nothing else: the title says what the
+        // sheet is, and the mode decides what the whole list even contains.
+        // Everything that merely describes the list — the catalogues, the
+        // count, the scope — went back INTO it.
+        //
+        // That is the fix for a sheet that showed three hundred and
+        // seventy-two sources through a gap one row tall. The header was a
+        // Column child capped at six tenths of the box, and on a phone it took
+        // every point of that: title, mode chips, two catalogue cards, a
+        // section label, a scope menu and a search field, stacked above a list
+        // that got whatever was left. None of it scrolled, because the list
+        // was a separate scrollable underneath it.
         _grabber(context),
-        // Header and list share one flexible box, and the header's cap comes
-        // from inside it.
+        // One flexible box holding both the title block and the list, not one
+        // each.
         //
-        // Flexible was wrong for the header on its own: a Column shares its
-        // spare room between flexible children by flex, so a flexible header
-        // and a flexible list took half each — which is why a long list used to
-        // stop halfway down the screen. A fixed cap was wrong too: at 200% text
-        // with the keyboard up, the footer alone is taller than half the sheet,
-        // and the header had no room left to be capped into.
+        // A Column shares its spare room between flexible children by flex, so
+        // a flexible header beside a flexible list takes a share whether it
+        // needs one or not — and what a loose fit leaves unused becomes dead
+        // space rather than going to the list. Nested, the outer box takes
+        // what the inner Column needs and the list inside it is the only thing
+        // that stretches.
         //
-        // The LayoutBuilder reports what is actually left once the grabber,
-        // divider and footer have taken their natural heights, so the cap is
-        // measured rather than guessed. The header takes what it needs up to
-        // most of that, and the list — the one flexible child inside — takes
-        // the rest. Short lists leave the Column hugging them; long ones fill.
+        // The cap is for the case that was overflowing: a 320-point screen at
+        // 200% text with the keyboard up, where the title and the mode chips
+        // together are taller than what is left of the sheet. They scroll.
         Flexible(
           child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: constraints.maxHeight * 0.6,
-                    ),
-                    child: SingleChildScrollView(
-                      child: _header(context, items),
+            builder: (context, box) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: box.maxHeight * 0.4),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _title(context),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: _ModeSegments(
+                            keys: _chipKeys,
+                            active: widget.mode,
+                            pending: _pendingMode,
+                            onTap: _pickMode,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  // The note is not a row. Inside a fixed-extent list it had
-                  // one row's height and two lines of text, which at large type
-                  // overflowed by more than the row was tall.
-                  if (items.isEmpty)
-                    Flexible(
-                      child: SingleChildScrollView(child: _emptyNote(context)),
-                    )
-                  else
-                    Flexible(
-                      // Three hundred and seventy-two sources in a box eight
-                      // rows tall. What made that feel crammed was not the
-                      // number — it was that the box gave no sign of being a
-                      // window onto it: rows were sliced in half at the top and
-                      // bottom edges, and with the list jumped to the current
-                      // source on open, there was nothing to say whether it
-                      // held ten entries or four hundred, or where in them you
-                      // were.
-                      //
-                      // Three things, none of which is decoration. The rows
-                      // dissolve into the edges instead of being cut, so the
-                      // list reads as continuing rather than as clipped. They
-                      // settle to full size as they reach the middle, so a
-                      // scroll has a direction and a rhythm to it. And the
-                      // thumb says how far down four hundred rows you are,
-                      // which no amount of scrolling could otherwise tell you.
-                      child: Scrollbar(
+                ),
+                Flexible(
+                  child: Scrollbar(
+                    controller: controller,
+                    // Outside the fade: a position indicator that dissolves at the
+                    // edge it exists to mark is no indicator.
+                    child: EdgeFade(
+                      extent: _tileExtent * 0.55,
+                      // The search bar is pinned and opaque, so it is already the top
+                      // boundary — rows pass under it rather than being cut by it.
+                      before: false,
+                      child: CustomScrollView(
                         controller: controller,
-                        // Outside the fade: an indicator that dissolves at the
-                        // very edges it exists to mark is no indicator.
-                        child: EdgeFade(
-                          extent: _tileExtent * 0.55,
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            controller: controller,
-                            keyboardDismissBehavior:
-                                ScrollViewKeyboardDismissBehavior.onDrag,
-                            // Fixed rows are what make the opening jump land on
-                            // the right one — and what lets the settle know
-                            // where a row is without measuring it.
-                            itemExtent: _tileExtent,
-                            itemCount: items.length,
-                            itemBuilder: (context, index) => ScrollSettle(
-                              controller: controller,
-                              index: index,
-                              extent: _tileExtent,
-                              child: ItemAppear(
-                                index: index,
-                                child: _favoriteProviderTile(
-                                  context,
-                                  items[index],
-                                  widget.currentProviderId,
-                                  favorite: index < favorites.length,
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        slivers: [
+                          // The filter first, and pinned.
+                          //
+                          // Not because it belongs above the catalogue by
+                          // rights, but because a sliver outside the viewport
+                          // is not built at all: placed after a section taller
+                          // than the box, the field does not exist — and on a
+                          // short screen with the keyboard up, which is to say
+                          // while somebody is typing in it, there was no field
+                          // and no way to get one back. It is also the only
+                          // practical way into a list of several hundred, so
+                          // it is the one thing here that must never leave.
+                          if (_hasFilter)
+                            SliverPersistentHeader(
+                              pinned: true,
+                              delegate: _SearchBarHeader(
+                                controller: _filter,
+                                query: _query,
+                                onChanged: (v) => setState(() => _query = v),
+                                onClear: () {
+                                  _filter.clear();
+                                  setState(() => _query = '');
+                                },
+                                extent: searchExtent,
+                              ),
+                            ),
+                          if (catalogues.isNotEmpty)
+                            SliverToBoxAdapter(
+                              child: _FadeOnScroll(
+                                controller: controller,
+                                over: 120,
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    12,
+                                  ),
+                                  child: _catalogueSection(context, catalogues),
                                 ),
                               ),
                             ),
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _SectionLabel(
+                                    '${'sources.section'.tr()} · '
+                                    '${widget.all.length}',
+                                  ),
+                                  // Directly above the rows it filters. It used
+                                  // to sit above the search box, on the grounds
+                                  // that a control which changes what another
+                                  // one means belongs before it — but the
+                                  // search box is pinned now, and the scope
+                                  // reads better as the head of the list than
+                                  // as a second thing to get past.
+                                  SourceScopeMenu(
+                                    counts: _counts,
+                                    scope: _liveScope,
+                                    dense: true,
+                                    onPick: (picked) =>
+                                        setState(() => _scope = picked),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
+                          if (items.isEmpty)
+                            SliverToBoxAdapter(child: _emptyNote(context))
+                          else
+                            SliverFixedExtentList(
+                              key: _listKey,
+                              // Fixed rows are what make the opening jump land
+                              // on the right one, and what lets the settle know
+                              // where a row is without measuring it.
+                              itemExtent: _tileExtent,
+                              delegate: SliverChildBuilderDelegate((
+                                context,
+                                index,
+                              ) {
+                                return ScrollSettle(
+                                  controller: controller,
+                                  index: index,
+                                  extent: _tileExtent,
+                                  // The catalogue and the count scroll past
+                                  // above these, so a row's position is not its
+                                  // index alone; and the filter bar covers the
+                                  // top of the viewport, so the top edge is not
+                                  // the top edge.
+                                  leading: _leading,
+                                  topInset: _hasFilter ? searchExtent : 0,
+                                  child: ItemAppear(
+                                    index: index,
+                                    child: _favoriteProviderTile(
+                                      context,
+                                      items[index],
+                                      widget.currentProviderId,
+                                      favorite: index < favorites.length,
+                                    ),
+                                  ),
+                                );
+                              }, childCount: items.length),
+                            ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                        ],
                       ),
                     ),
-                ],
-              );
-            },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         const Divider(height: 1),
@@ -616,6 +731,49 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () => Navigator.of(context).pop(_kAllProvidersAction),
         ),
+      ],
+    );
+  }
+
+  Widget _title(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+    child: Text(
+      'ux.change_source'.tr(),
+      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+    ),
+  );
+
+  /// Catalogues before the sources. A catalogue is what to browse when no
+  /// single source is the point — AniList's or TMDB's view of what exists,
+  /// with the app finding a source for whatever you open. Each mode has its
+  /// own: AniList's anime shelf and TMDB for Watch, AniList's manga and
+  /// light-novel shelves for the readers.
+  Widget _catalogueSection(BuildContext context, List<Catalogue> catalogues) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _SectionLabel('catalogue.section'.tr()),
+        const SizedBox(height: 8),
+        // Two cards side by side where there are two; a lone card takes the
+        // width. Past the text size at which the navigation bar goes readable,
+        // half a phone width is about two letters of a name once the mark and
+        // the covers have taken theirs, so the cards take a line each instead
+        // of sharing one.
+        if (_stacksCatalogues(context))
+          for (final (i, c) in catalogues.indexed) ...[
+            if (i > 0) const SizedBox(height: 8),
+            _catalogueCard(c),
+          ]
+        else
+          Row(
+            children: [
+              for (final (i, c) in catalogues.indexed) ...[
+                if (i > 0) const SizedBox(width: 8),
+                Expanded(child: _catalogueCard(c)),
+              ],
+            ],
+          ),
       ],
     );
   }
@@ -649,95 +807,6 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// Pinned, because scrolling two hundred sources past a mode switcher that
   /// has left the screen means scrolling back up to change mode, and the search
   /// box goes with it for the same reason.
-  Widget _header(BuildContext context, List<ProviderEntity> items) {
-    final catalogues = Catalogue.forMode(widget.mode);
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'ux.change_source'.tr(),
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: _pinnedPad),
-          _ModeSegments(
-            keys: _chipKeys,
-            active: widget.mode,
-            pending: _pendingMode,
-            onTap: _pickMode,
-          ),
-          // Catalogues before the sources. A catalogue is what to browse when
-          // no single source is the point — AniList's or TMDB's view of what
-          // exists, with the app finding a source for whatever you open.
-          // Each mode has its own: AniList's anime shelf and TMDB for Watch,
-          // AniList's manga and light-novel shelves for the readers.
-          if (catalogues.isNotEmpty) ...[
-            const SizedBox(height: _pinnedPad),
-            _SectionLabel('catalogue.section'.tr()),
-            const SizedBox(height: 8),
-            // Two cards side by side where there are two; a lone card takes
-            // the width. Past the text size at which the navigation bar goes
-            // readable, half a phone width is about two letters of a name
-            // once the mark and the covers have taken theirs, so the cards
-            // take a line each instead of sharing one.
-            if (_stacksCatalogues(context))
-              for (final (i, c) in catalogues.indexed) ...[
-                if (i > 0) const SizedBox(height: 8),
-                _catalogueCard(c),
-              ]
-            else
-              Row(
-                children: [
-                  for (final (i, c) in catalogues.indexed) ...[
-                    if (i > 0) const SizedBox(width: 8),
-                    Expanded(child: _catalogueCard(c)),
-                  ],
-                ],
-              ),
-          ],
-          const SizedBox(height: _pinnedPad),
-          _SectionLabel('${'sources.section'.tr()} · ${widget.all.length}'),
-          // Above the search box: it narrows what the box searches, and a
-          // control that changes the meaning of another one belongs before it.
-          SourceScopeMenu(
-            counts: _counts,
-            scope: _liveScope,
-            dense: true,
-            onPick: (picked) => setState(() => _scope = picked),
-          ),
-          if (_hasFilter) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              child: TextField(
-                controller: _filter,
-                onChanged: (v) => setState(() => _query = v),
-                decoration: InputDecoration(
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  hintText: 'profile.search_providers_hint'.tr(),
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'general.clear'.tr(),
-                          onPressed: () {
-                            _filter.clear();
-                            setState(() => _query = '');
-                          },
-                          icon: const Icon(Icons.close, size: 18),
-                        ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   /// Said under the list, not inside the pinned block: that block has a fixed
   /// height, and a message that appears and disappears cannot live in one.
   Widget _emptyNote(BuildContext context) {
@@ -1314,4 +1383,142 @@ class ProviderLogo extends StatelessWidget {
             ),
     );
   }
+}
+
+/// The section above the list, going quietly as it leaves.
+///
+/// It is not enough for the catalogue cards to scroll away — they have to
+/// leave like something being put down, or a sheet whose top third suddenly
+/// slides under a row of chips reads as a layout glitch. They fade, shrink a
+/// little and travel up slower than the finger, so the list arrives over them
+/// rather than shoving them off.
+class _FadeOnScroll extends StatelessWidget {
+  const _FadeOnScroll({
+    required this.controller,
+    required this.child,
+    required this.over,
+  });
+
+  final ScrollController controller;
+  final Widget child;
+
+  /// How far the list has to travel for this to be fully gone.
+  final double over;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      child: child,
+      builder: (context, built) {
+        if (controller.positions.length != 1) return built!;
+        final position = controller.position;
+        if (!position.haveDimensions) return built!;
+        final t = (position.pixels / over).clamp(0.0, 1.0);
+        if (t == 0) return built!;
+        final k = Curves.easeOut.transform(t);
+        return Opacity(
+          // Never quite nothing until it is quite gone: a section that has
+          // faded out while still occupying its space reads as a hole.
+          opacity: 1 - k,
+          child: Transform(
+            alignment: Alignment.topCenter,
+            transform: Matrix4.identity()
+              // Slower than the scroll, so it recedes rather than races off.
+              ..translateByDouble(0, position.pixels * 0.22, 0, 1)
+              ..scaleByDouble(1 - k * 0.05, 1 - k * 0.05, 1, 1),
+            child: built,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The filter field, pinned above the rows.
+///
+/// Pinned because of what the list is: three hundred and seventy-two entries,
+/// opened scrolled to the one in use. Typing a name is the only practical way
+/// to reach any other one, and in a header that scrolls the way to reach the
+/// field was to scroll three hundred rows back to the top.
+///
+/// Its height is fixed by construction rather than measured. A persistent
+/// header has to declare an extent before its child is laid out, so the field
+/// is given that exact height through [InputDecoration.constraints] — which
+/// means the declared extent and the real one cannot drift apart, at any text
+/// size.
+class _SearchBarHeader extends SliverPersistentHeaderDelegate {
+  const _SearchBarHeader({
+    required this.controller,
+    required this.query,
+    required this.onChanged,
+    required this.onClear,
+    required this.extent,
+  });
+
+  final TextEditingController controller;
+  final String query;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+  final double extent;
+
+  static const double _padding = 10;
+
+  /// The field's own height, and with it the header's. Derived from the text
+  /// size, because at 200% a 44-point box is a field with the descenders cut
+  /// off it.
+  static double fieldHeightFor(BuildContext context) {
+    final line = MediaQuery.textScalerOf(context).scale(16) * 1.25;
+    return math.max(44, line + 22);
+  }
+
+  static double extentFor(BuildContext context) =>
+      fieldHeightFor(context) + _padding * 2;
+
+  @override
+  double get minExtent => extent;
+
+  @override
+  double get maxExtent => extent;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlaps) {
+    return Container(
+      height: extent,
+      // Opaque, because rows pass under it. A translucent pinned bar over a
+      // moving list is the one place a blur costs more than it says.
+      color: AppColors.surface,
+      padding: const EdgeInsets.fromLTRB(16, _padding, 16, _padding),
+      child: Column(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              decoration: InputDecoration(
+                isDense: true,
+                constraints: BoxConstraints.tightFor(
+                  height: fieldHeightFor(context),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                hintText: 'profile.search_providers_hint'.tr(),
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'general.clear'.tr(),
+                        onPressed: onClear,
+                        icon: const Icon(Icons.close, size: 18),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SearchBarHeader old) =>
+      old.query != query || old.extent != extent;
 }

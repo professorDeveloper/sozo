@@ -1988,6 +1988,7 @@
   },
   "watch": {
     "services_title": "串流服務",
+    "services_entry_hint": "睇吓 Netflix、Disney+ 同其他平台喺你嗰度有咩睇",
     "services_search_hint": "搵服務",
     "top_services": "呢度最多人用",
     "all_services": "所有服務",

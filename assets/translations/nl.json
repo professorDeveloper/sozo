@@ -1988,6 +1988,7 @@
   },
   "watch": {
     "services_title": "Streamingdiensten",
+    "services_entry_hint": "Bekijk wat Netflix, Disney+ en de rest bij jou aanbieden",
     "services_search_hint": "Diensten zoeken",
     "top_services": "Hier het meest gebruikt",
     "all_services": "Alle diensten",

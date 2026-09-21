@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
@@ -60,6 +61,19 @@ List<Widget> searchLandingSlivers(
         ),
       ),
     const SliverToBoxAdapter(child: _SourceRail()),
+    // The way in to the streaming services.
+    //
+    // They had none. The page and its browse screen were built, routed and
+    // translated, and then the rail that used to reach them came off Home —
+    // correctly, because a rail is not where a whole catalogue belongs — and
+    // nothing replaced it. A feature no screen links to is a feature that has
+    // been removed.
+    //
+    // Here rather than on Home because of what it answers: "where can I watch
+    // this" is a search, not a shelf. It is one row and it fetches nothing —
+    // the services and the region load when the page opens, not when the
+    // search tab does.
+    const SliverToBoxAdapter(child: _StreamingServicesEntry()),
     if (genres.isNotEmpty) ...[
       SliverToBoxAdapter(
         child: Padding(
@@ -176,6 +190,96 @@ SliverGridDelegate genreGridDelegate(int columns) =>
 /// size the reader has chosen, which is the part a hard-coded number misses.
 double _sectionTitleHeight(BuildContext context) =>
     MediaQuery.textScalerOf(context).scale(18) * 1.15;
+
+/// One row, into the streaming services.
+///
+/// Built out of the same parts as the rest of this screen — a section title in
+/// the same weight, a surface card, the app's own press feedback — so it reads
+/// as another place to start rather than as an advertisement for a feature.
+class _StreamingServicesEntry extends StatelessWidget {
+  const _StreamingServicesEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    final card = Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(
+              Icons.subscriptions_rounded,
+              size: 20,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'watch.services_title'.tr(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'watch.services_entry_hint'.tr(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textHint,
+                    fontSize: 11.5,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          const Icon(
+            Icons.chevron_right_rounded,
+            size: 20,
+            color: AppColors.textHint,
+          ),
+        ],
+      ),
+    );
+
+    void open() => context.push('/watch-services');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+      child: isTvPlatform
+          ? TvFocusable(onPressed: open, borderRadius: 14, child: card)
+          : HoverTap(
+              onTap: open,
+              borderRadius: 14,
+              scale: 1.01,
+              haptic: true,
+              child: card,
+            ),
+    );
+  }
+}
 
 class _RecentSearches extends StatelessWidget {
   const _RecentSearches({

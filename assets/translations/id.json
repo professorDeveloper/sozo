@@ -1988,6 +1988,7 @@
   },
   "watch": {
     "services_title": "Layanan streaming",
+    "services_entry_hint": "Lihat apa yang ada di Netflix, Disney+, dan lainnya di wilayahmu",
     "services_search_hint": "Cari layanan",
     "top_services": "Paling banyak dipakai di sini",
     "all_services": "Semua layanan",

@@ -1992,6 +1992,7 @@
   },
   "watch": {
     "services_title": "خدمات البث",
+    "services_entry_hint": "اطّلع على ما تقدّمه نتفليكس وديزني+ وغيرها في منطقتك",
     "services_search_hint": "ابحث عن خدمة",
     "top_services": "الأكثر استخدامًا هنا",
     "all_services": "كل الخدمات",

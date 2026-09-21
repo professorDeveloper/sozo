@@ -1988,6 +1988,7 @@
   },
   "watch": {
     "services_title": "Yayın servisleri",
+    "services_entry_hint": "Netflix, Disney+ ve diğerlerinde bölgenizde ne olduğuna bakın",
     "services_search_hint": "Servis ara",
     "top_services": "Burada en çok kullanılan",
     "all_services": "Tüm servisler",

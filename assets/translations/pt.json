@@ -1988,6 +1988,7 @@
   },
   "watch": {
     "services_title": "Serviços de streaming",
+    "services_entry_hint": "Veja o que a Netflix, o Disney+ e os outros têm onde você está",
     "services_search_hint": "Procurar serviços",
     "top_services": "Os mais usados aqui",
     "all_services": "Todos os serviços",

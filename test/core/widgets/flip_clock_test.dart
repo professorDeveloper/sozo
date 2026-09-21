@@ -4,8 +4,11 @@
 // when the page was built and never again. It looked identical whether it had
 // been computed a second ago or an hour ago, which for the one number on the
 // page whose entire value is that it is running is the wrong shape.
+import 'dart:ui' as ui;
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:soplay/core/widgets/flip_clock.dart';
@@ -93,7 +96,51 @@ void main() {
   });
 
   group('the flip is a split-flap, not a card turning over', () {
-    /// Every glyph painted for one card. A card at rest paints one; a card
+    const w = 26.0;
+    const h = 36.0;
+
+    /// One card, on white, with room around it for a leaf that overflows.
+    const pad = 12.0;
+    final boundary = GlobalKey();
+
+    Future<void> pumpDigit(WidgetTester tester, String digit) =>
+        tester.pumpWidget(
+          Directionality(
+            // Prefixed: easy_localization pulls in intl, which has a
+            // TextDirection of its own with different members.
+            textDirection: ui.TextDirection.ltr,
+            child: Center(
+              child: RepaintBoundary(
+                key: boundary,
+                child: ColoredBox(
+                  color: const Color(0xFFFFFFFF),
+                  child: Padding(
+                    padding: const EdgeInsets.all(pad),
+                    child: FlipDigit(digit: digit),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+    /// True when anything has been painted over the white, at this point.
+    Future<bool> painted(WidgetTester tester, double x, double y) async {
+      final object =
+          boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      var dirty = false;
+      await tester.runAsync(() async {
+        final image = await object.toImage();
+        final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        final bytes = data!.buffer.asUint8List();
+        final stride = (w + pad * 2).round() * 4;
+        final i = y.round() * stride + x.round() * 4;
+        dirty = bytes[i] < 240;
+      });
+      return dirty;
+    }
+
+    /// Every glyph painted for one card. A settled card paints one; a card
     /// mid-flip paints three — the new digit's top, the old digit's bottom and
     /// the leaf in flight between them.
     List<String> facesOfUnits(WidgetTester tester) => tester
@@ -114,16 +161,11 @@ void main() {
     testWidgets('and mid-flip the new digit is already on screen', (
       tester,
     ) async {
-      // This is the difference from what it replaced. A whole card rotating a
-      // half-turn about its middle takes the entire glyph edge-on, so the digit
-      // vanishes into a line and reappears; here the new digit's top half is up
-      // from the first frame and the old leaf falls off it.
       await pump(tester, const Duration(minutes: 5, seconds: 8));
       expect(facesOfUnits(tester), ['8']);
 
       clock = clock.add(const Duration(seconds: 1));
       await tester.pump(const Duration(milliseconds: 250));
-      // A third of the way into a 340ms turn: the leaf is still falling.
       await tester.pump(const Duration(milliseconds: 110));
 
       final faces = facesOfUnits(tester);
@@ -132,11 +174,67 @@ void main() {
       expect(faces, contains('8'), reason: 'the digit being left behind');
     });
 
+    testWidgets('and every layer is half a card, not a whole one', (
+      tester,
+    ) async {
+      // The bug this exists for. Under `StackFit.expand` a non-positioned
+      // child is given TIGHT constraints, which overrules the half-height box
+      // inside each layer and leaves `Align.heightFactor` nothing to
+      // shrink-wrap — so both static layers painted the WHOLE card, the old
+      // digit's face covered the new one completely, and the digit changed in
+      // one frame at the end. The tree was identical either way; only the
+      // geometry says which.
+      await pumpDigit(tester, '8');
+      await pumpDigit(tester, '7');
+      await tester.pump(const Duration(milliseconds: 110));
+
+      final clips = find.descendant(
+        of: find.byType(FlipDigit),
+        matching: find.byType(ClipRect),
+      );
+      expect(clips, findsNWidgets(3));
+      for (var i = 0; i < 3; i++) {
+        expect(
+          tester.getSize(clips.at(i)),
+          const Size(w, h / 2),
+          reason: 'layer $i is not half a card',
+        );
+      }
+    });
+
+    testWidgets('and the flap comes towards the viewer, not away', (
+      tester,
+    ) async {
+      // The other bug, and the other one no widget-tree assertion can see.
+      // `rotateX` with a POSITIVE angle brings the top of a widget towards the
+      // viewer; written negative, the flap folds backwards into the card. Both
+      // silhouettes shrink to a line, so the only thing that tells them apart
+      // is what the perspective does to the free edge: coming towards you it
+      // grows past the sides of the card, going away it shrinks inside them.
+      await pumpDigit(tester, '8');
+      // Nothing outside the card at rest, or the probe proves nothing.
+      expect(await painted(tester, pad - 2, pad + h / 4), isFalse);
+
+      await pumpDigit(tester, '7');
+      var overhung = false;
+      for (var frame = 0; frame < 12 && !overhung; frame++) {
+        await tester.pump(const Duration(milliseconds: 20));
+        for (var y = pad + 2; y < pad + h / 2 && !overhung; y += 2) {
+          overhung = await painted(tester, pad - 2, y);
+        }
+      }
+      expect(
+        overhung,
+        isTrue,
+        reason: 'the leaf never overflowed the card it came out of',
+      );
+    });
+
     testWidgets('and settles back to one face', (tester) async {
       await pump(tester, const Duration(minutes: 5, seconds: 8));
       await advance(tester, const Duration(seconds: 1));
       // Past the turn, so the leaf is gone rather than parked at zero degrees:
-      // a card left in its animated form is four layers and a perspective
+      // a card left in its animated form is three layers and a perspective
       // matrix, once per card, for as long as the page is open.
       await tester.pump(const Duration(milliseconds: 400));
       expect(facesOfUnits(tester), ['7']);

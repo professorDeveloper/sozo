@@ -1988,6 +1988,7 @@
   },
   "watch": {
     "services_title": "Streamingdienste",
+    "services_entry_hint": "Sieh, was Netflix, Disney+ und Co. bei dir im Angebot haben",
     "services_search_hint": "Dienste suchen",
     "top_services": "Hier am meisten genutzt",
     "all_services": "Alle Dienste",
