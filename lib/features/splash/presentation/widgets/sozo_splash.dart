@@ -189,7 +189,7 @@ class _SozoSplashState extends State<SozoSplash>
                 // idle breath it keeps forever.
                 stir: ui.lerpDouble(
                   7.0,
-                  1.8,
+                  3.0,
                   _span(ms, _writeTo - 200, _landTo),
                 )!,
                 glint: _span(ms, _landFrom + 60, _fadeFrom - 220),
@@ -327,10 +327,15 @@ class _MarkPainter extends CustomPainter {
     // detail that is still moving when everything else has stopped.
     if (b.glint > 0 && b.glint < 1) {
       final head = geometry.spineLength * b.glint;
-      final tail = math.max(0.0, head - geometry.spineLength * 0.22);
+      final tail = math.max(0.0, head - geometry.spineLength * 0.26);
+      // Bright enough to read against a filled letter in the accent colour.
+      // At a third of that it was a highlight nobody saw, which is the same as
+      // not having one.
       _stroke
-        ..color = highlight.withValues(alpha: 0.30 * b.dim * (1 - b.glint))
-        ..strokeWidth = _halfRibbon * 0.8;
+        ..color = highlight.withValues(
+          alpha: 0.62 * b.dim * math.sin(b.glint * math.pi),
+        )
+        ..strokeWidth = _halfRibbon * 1.1;
       canvas.drawPath(geometry.spineMetric.extractPath(tail, head), _stroke);
     }
     canvas.restore();
