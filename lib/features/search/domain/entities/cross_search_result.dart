@@ -122,7 +122,13 @@ class MergedSearchTitle {
 String normalizedTitleKey(String title) {
   var t = title.toLowerCase().trim();
   t = t.replaceAll(RegExp(r'[\(\[]\s*(19|20)\d{2}\s*[\)\]]'), ' ');
-  t = t.replaceAll(RegExp(r"[^a-z0-9\u0400-\u04ff\u0600-\u06ff ]+"), ' ');
+  // Unicode-aware, not an alphabet whitelist. The whitelist kept Latin,
+  // Cyrillic and Arabic, so a Japanese, Korean, Chinese, Thai, Greek or Hebrew
+  // title produced an EMPTY key — and the merge below skips an empty key
+  // outright, which dropped those rows from an all-source result while the
+  // count still included them. The page then reported N results and rendered
+  // none of them.
+  t = t.replaceAll(RegExp(r'[^\p{L}\p{N} ]+', unicode: true), ' ');
   t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
   for (final article in const ['the ', 'a ', 'an ']) {
     if (t.startsWith(article)) {
@@ -154,7 +160,14 @@ List<MergedSearchTitle> mergeSearchResults(
 
   for (final leg in legs) {
     for (final item in leg.items) {
-      final key = normalizedTitleKey(item.title);
+      // A title that still normalises to nothing — punctuation and emoji only —
+      // falls back to its raw text rather than being dropped. Merging on the
+      // raw string is a weaker key, but a row the viewer cannot see is worse
+      // than one that failed to merge with its twin.
+      final normalised = normalizedTitleKey(item.title);
+      final key = normalised.isEmpty
+          ? item.title.toLowerCase().trim()
+          : normalised;
       if (key.isEmpty) continue;
       final bucket = groups.putIfAbsent(key, () => <MergedSearchTitle>[]);
       final match = bucket

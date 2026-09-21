@@ -300,7 +300,14 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         // one aliased match this deliberately does not drop, or a source
         // padding a thin result. Either way the user needs the other sources
         // offered, not a grid they have to judge for themselves.
-        weak = items.isNotEmpty && SearchRelevance.bestScore(items, query) == 0;
+        // Only when the two can be compared at all. Scoring compares letters,
+        // so a romaji query against native titles is zero however good the
+        // answer was — and this banner is a claim ABOUT the answer. Stapling
+        // "nothing here matches" over correct results is worse than saying
+        // nothing.
+        weak = items.isNotEmpty &&
+            SearchRelevance.canScore(items, query) &&
+            SearchRelevance.bestScore(items, query) == 0;
       }
     }
 

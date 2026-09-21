@@ -59,13 +59,61 @@ class SearchRelevance {
       .where((t) => t.length >= 2 && !_stopWords.contains(t))
       .toSet();
 
-  /// Lowercased, punctuation dropped, whitespace collapsed. Cyrillic and Arabic
-  /// ranges survive so a Russian or Persian title is still comparable.
+  /// Lowercased, punctuation dropped, whitespace collapsed.
+  ///
+  /// Unicode-aware rather than an alphabet whitelist. The whitelist kept Latin,
+  /// Cyrillic and Arabic and deleted everything else — so a Japanese, Korean,
+  /// Chinese, Thai, Greek or Hebrew title normalised to the EMPTY STRING and
+  /// scored zero against itself. On an app whose catalogue is largely Japanese
+  /// that is not a ranking quirk; it is three separate failures downstream:
+  /// such a title sorts last in every search, [looksUnsearched] can delete a
+  /// whole page of correct results as a catalogue dump, and the weak-results
+  /// banner is stapled over answers that were right.
+  ///
+  /// [TitleMatch.normalise] fixed the same bug in the same way and says so; the
+  /// two are deliberately identical here.
+  static final RegExp _punctuation = RegExp(r'[^\p{L}\p{N} ]+', unicode: true);
+  static final RegExp _spaces = RegExp(r'\s+');
+
   static String normalize(String text) => text
       .toLowerCase()
-      .replaceAll(RegExp(r'[^a-z0-9Ѐ-ӿ؀-ۿ]+'), ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(_punctuation, ' ')
+      .replaceAll(_spaces, ' ')
       .trim();
+
+  /// Which writing systems [text] is made of.
+  ///
+  /// Only the distinctions that decide whether two strings could possibly match
+  /// by the letter comparisons below: a romaji title and the same title in
+  /// katakana share no characters at all, so a score of zero between them means
+  /// nothing about whether the source answered the question.
+  static Set<String> scriptsOf(String text) {
+    final out = <String>{};
+    for (final rune in text.runes) {
+      if (rune >= 0x3040 && rune <= 0x30FF) {
+        out.add('kana');
+      } else if (rune >= 0x4E00 && rune <= 0x9FFF) {
+        out.add('han');
+      } else if (rune >= 0xAC00 && rune <= 0xD7AF ||
+          rune >= 0x1100 && rune <= 0x11FF) {
+        out.add('hangul');
+      } else if (rune >= 0x0E00 && rune <= 0x0E7F) {
+        out.add('thai');
+      } else if (rune >= 0x0400 && rune <= 0x04FF) {
+        out.add('cyrillic');
+      } else if (rune >= 0x0590 && rune <= 0x05FF) {
+        out.add('hebrew');
+      } else if (rune >= 0x0600 && rune <= 0x06FF) {
+        out.add('arabic');
+      } else if (rune >= 0x0370 && rune <= 0x03FF) {
+        out.add('greek');
+      } else if (rune >= 0x41 && rune <= 0x5A ||
+          rune >= 0x61 && rune <= 0x7A) {
+        out.add('latin');
+      }
+    }
+    return out;
+  }
 
   /// 0.0 (nothing in the title relates to the query) to 1.0 (it is the query).
   ///
@@ -147,6 +195,36 @@ class SearchRelevance {
   static bool looksUnsearched(List<MovieEntity> items, String query) {
     if (items.length < _dumpSize) return false;
     if (tokensOf(query).isEmpty) return false;
+    // A page written in a script the query does not use tells us nothing.
+    //
+    // Scoring compares letters, so "naruto" against six katakana titles is
+    // zero whether the source answered perfectly or handed over its front
+    // page — and this method's whole job is to tell those two apart. Before
+    // the normaliser was made Unicode-aware the katakana normalised away and
+    // the zero looked decisive; it never was. Sources routinely answer a
+    // romaji query with native titles and the reverse, so the honest reading
+    // of "no shared script" is "cannot judge", and a page is only thrown away
+    // on evidence.
+    if (!_comparable(items, query)) return false;
     return bestScore(items, query) == 0;
   }
+
+  /// Whether the query and the batch are written in a way that can be compared
+  /// at all.
+  static bool _comparable(List<MovieEntity> items, String query) {
+    final q = scriptsOf(query);
+    if (q.isEmpty) return false;
+    for (final item in items) {
+      if (scriptsOf(item.title).intersection(q).isNotEmpty) return true;
+    }
+    return false;
+  }
+
+  /// Whether a score against [query] is worth acting on at all.
+  ///
+  /// For the weak-results banner, which is a claim about the ANSWER — saying
+  /// "nothing here matches" over correct results because the two are written in
+  /// different alphabets is worse than saying nothing.
+  static bool canScore(List<MovieEntity> items, String query) =>
+      _comparable(items, query);
 }
