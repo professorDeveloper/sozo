@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!--
+    The Sozo mark, cut into the parts an animation needs. The silhouette is
+    byte-for-byte the shipped one: this file adds nothing to the brand and
+    takes nothing away from it.
+
+    The shipped mark is a single closed contour traced from the app icon, and
+    that is the whole reason every attempt to animate it came out as a neon
+    tube lighting up. There is nothing INSIDE a silhouette. A pen given only an
+    outline can ring the letter; it cannot write it, because writing means
+    travelling the stroke, not its edge.
+
+    So the mark now carries its own centreline. It was not drawn by eye — it is
+    derived from the outline: every sample on the edge is paired with the point
+    directly across the ribbon (the nearest sample that is not its neighbour),
+    and the midpoints of those pairs ARE the stroke's path. Median ribbon width
+    measured 61 units in this 512 box, and the spine is 584 units long against
+    a 1472-unit outline, which is the ratio a single-stroke letter should have.
+
+    Both paint in `currentColor`, so one file serves the splash, the mode
+    switch and anything tinted by whatever accent the user picked — a file with
+    the red baked in would need a second copy the day somebody changes it.
+
+    ## For anything that draws this
+
+      #body   the fill. Closed, even-odd, identical to sozo_mark.svg.
+      #spine  an OPEN path down the middle of the ribbon, written top-right to
+              bottom-left — the direction the letter is drawn by hand. Never
+              filled. It is a track: for a pen, for a highlight travelling the
+              stroke, for the centre a flood spreads out from.
+  -->
+  <path id="body" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M215 112C230.5 112 286 113 286 113C286 113 262.2 135.7 256 141C249.8 146.3 250.7 143.5 249 145C247.3 146.5 250 146.3 246 150C242 153.7 231.3 161.3 225 167C218.7 172.7 211.3 181 208 184C204.7 187 209.3 181.3 205 185C200.7 188.7 187.5 201.3 182 206C176.5 210.7 175.2 209.7 172 213C168.8 216.3 163 226 163 226C163 226 162 231.2 163 234C164 236.8 167 241 169 243C171 245 171.2 245.5 175 246C178.8 246.5 176 249.2 192 246C208 242.8 248.7 233 271 227C293.3 221 312 213.8 326 210C340 206.2 348 204.8 355 204C362 203.2 363.8 204 368 205C372.2 206 376 207.2 380 210C384 212.8 388.8 217.7 392 222C395.2 226.3 397.3 231.8 399 236C400.7 240.2 401.5 241.5 402 247C402.5 252.5 402.8 256.3 402 269C401.2 281.7 397 323 397 323C397 323 308 399 308 399C308 399 223 399 223 399C223 399 221 397 221 397C221 397 218.8 397 222 394C225.2 391 235.5 383.2 240 379C244.5 374.8 246.3 371.3 249 369C251.7 366.7 250.5 369.8 256 365C261.5 360.2 282 340 282 340C282 340 284 340 284 340C284 340 291.8 334.2 301 326C310.2 317.8 331.5 299 339 291C346.5 283 344.7 281.3 346 278C347.3 274.7 347.5 273.7 347 271C346.5 268.3 344.8 264.7 343 262C341.2 259.3 338 256.5 336 255C334 253.5 333.3 253.3 331 253C328.7 252.7 326.5 252.2 322 253C317.5 253.8 312 255 304 258C296 261 284.8 265.8 274 271C263.2 276.2 248.5 284.8 239 289C229.5 293.2 222.7 293.8 217 296C211.3 298.2 210.8 300.2 205 302C199.2 303.8 190 306.2 182 307C174 307.8 163.3 307.5 157 307C150.7 306.5 147.8 305.3 144 304C140.2 302.7 137.8 301.8 134 299C130.2 296.2 124.8 292 121 287C117.2 282 113 273.7 111 269C109 264.3 109.3 266.2 109 259C108.7 251.8 108.7 236 109 226C109.3 216 110.2 206.2 111 199C111.8 191.8 114 183 114 183C114 183 193 113 193 113C193 113 199.5 112 215 112Z"/>
+  <path id="spine" fill="none" stroke="none" d="M232 120C230.9 121 227.8 124 225.5 126C223.2 128 220.8 130 218.5 132C216.2 134 214.2 136 212 138C209.8 140 207.2 142 205 144C202.8 146 200.8 148 198.5 150C196.2 152 193.9 154 191.5 156C189.1 158 186.4 160 184 162C181.6 164 179.2 166 177 168C174.8 170 173 172 171 174C169 176 167.1 178 165 180C162.9 182 160.2 184 158.5 186C156.8 188 156.2 190 155 192C153.8 194 152.6 193.7 151 198C149.4 202.3 144 209.4 145.2 217.8C146.5 226.2 151.5 240.4 158.6 248.3C165.7 256.3 177.4 262.5 187.8 265.6C198.1 268.6 209.7 267.8 220.7 266.4C231.6 265.1 242.5 260.2 253.5 257.3C264.5 254.5 275.5 251.7 286.6 249.3C297.7 246.9 308.8 244.6 320 242.9C331.2 241.2 344.9 236.1 353.8 239.1C362.7 242.1 370.6 251.7 373.4 260.9C376.3 270.2 374.7 284.5 371 294.7C367.3 304.8 358.8 313.5 351.2 321.8C343.7 330 334.4 337.1 325.7 344.3C316.9 351.4 308.4 357.5 298.8 364.8C289.2 372.1 273.1 384.1 268 388"/>
+</svg>

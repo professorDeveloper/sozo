@@ -31,17 +31,18 @@ import 'package:soplay/core/router/app_router.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/extensions/presentation/repo_file_import.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
-import 'package:soplay/core/player/media_controller.dart' show warmUpPlayerEngine;
+import 'package:soplay/core/player/media_controller.dart'
+    show warmUpPlayerEngine;
 import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/features/download/domain/repositories/download_repository.dart';
+import 'package:soplay/core/brand/sozo_mark_geometry.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 
 import 'package:soplay/core/network/user_agent.dart';
 import 'package:soplay/core/storage/secure_boxes.dart';
 import 'package:soplay/features/app_lock/presentation/app_lock_gate.dart';
 import 'app.dart';
-
 
 /// [args] is what the OS handed the process, and on Windows and Linux that is
 /// how "Open with Sozo" arrives: both runners hand `argv` to the engine as the
@@ -56,7 +57,7 @@ import 'app.dart';
 /// is simply empty there.
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
-   await initTvPlatform();
+  await initTvPlatform();
   if (isDesktopPlatform) {
     MediaKit.ensureInitialized();
     await windowManager.ensureInitialized();
@@ -64,7 +65,7 @@ void main(List<String> args) async {
   // Not `isMobilePlatform`: on iOS 26 the bar is a real UITabBar, so compiling
   // a GLSL glass pipeline is cost with nothing to show for it.
   if (usesFlutterGlass) {
-     try {
+    try {
       await LiquidGlassWidgets.initialize();
     } catch (_) {}
   }
@@ -84,12 +85,15 @@ void main(List<String> args) async {
   // and a first run must be stamped before anything can be called new.
   await WhatsNew.init();
   if (isDesktopPlatform) {
-    final native = Hive.box(AppConstants.settingsBox)
-        .get('use_native_title_bar', defaultValue: false) == true;
+    final native =
+        Hive.box(
+          AppConstants.settingsBox,
+        ).get('use_native_title_bar', defaultValue: false) ==
+        true;
     try {
       await windowManager.setTitleBarStyle(
         native ? TitleBarStyle.normal : TitleBarStyle.hidden,
-           windowButtonVisibility: Platform.isMacOS ? true : native,
+        windowButtonVisibility: Platform.isMacOS ? true : native,
       );
       await windowManager.setMinimumSize(DesktopWindow.minimumSize);
     } catch (_) {}
@@ -133,8 +137,8 @@ void main(List<String> args) async {
   // which is why it is here rather than in that screen's initState.
   _fireAndForget(
     getIt<DownloadRepository>().initialize().then(
-          (_) => getIt<DownloadRepository>().resumeInterrupted(),
-        ),
+      (_) => getIt<DownloadRepository>().resumeInterrupted(),
+    ),
     'download',
   );
   _fireAndForget(getIt<ProviderRegistry>().preload(), 'providers');
@@ -215,6 +219,16 @@ void main(List<String> args) async {
     // the one call site that matters.
     root = LiquidGlassWidgets.wrap(child: root, adaptiveQuality: true);
   }
+  // Before the first frame, and worth the wait it is not.
+  //
+  // The splash is the first thing this process draws, and it draws the mark as
+  // geometry — so the parse has to be done before it starts, not scheduled
+  // alongside it. It is one bundle string and one path walk, measured at a
+  // couple of milliseconds; awaited here, every launch is the animated one.
+  // Started after `runApp`, exactly one launch per install — the cold one
+  // everybody's first impression is made of — would fall back to a flat logo.
+  await SozoMarkGeometry.precache();
+
   runApp(root);
 
   // Deferred to after the first frame on purpose.
@@ -245,9 +259,28 @@ void main(List<String> args) async {
 /// desktop file or a shell glob felt like passing, and opening the player on
 /// one of those would be worse than ignoring it.
 const Set<String> _playableExtensions = {
-  '.mkv', '.mp4', '.m4v', '.mov', '.avi', '.webm', '.wmv', '.flv', '.ts',
-  '.m2ts', '.mpg', '.mpeg', '.ogv', '.3gp', '.m3u8',
-  '.mp3', '.flac', '.aac', '.wav', '.ogg', '.opus', '.m4a',
+  '.mkv',
+  '.mp4',
+  '.m4v',
+  '.mov',
+  '.avi',
+  '.webm',
+  '.wmv',
+  '.flv',
+  '.ts',
+  '.m2ts',
+  '.mpg',
+  '.mpeg',
+  '.ogv',
+  '.3gp',
+  '.m3u8',
+  '.mp3',
+  '.flac',
+  '.aac',
+  '.wav',
+  '.ogg',
+  '.opus',
+  '.m4a',
 };
 
 /// `.ts` is the one extension in [_playableExtensions] that is far more often
@@ -420,8 +453,9 @@ Future<void> _initFirebaseSafely() async {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp();
     }
-    await FirebaseCrashlytics.instance
-        .setCrashlyticsCollectionEnabled(!kDebugMode);
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
+      !kDebugMode,
+    );
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
     PlatformDispatcher.instance.onError = (error, stack) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
