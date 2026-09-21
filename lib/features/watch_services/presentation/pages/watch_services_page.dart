@@ -212,8 +212,6 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
     String region, {
     String keyPrefix = 'all',
   }) {
-    final scale = MediaQuery.textScalerOf(context);
-    final size = WatchServiceTile.sizeFor();
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       sliver: SliverGrid(
@@ -231,11 +229,11 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
         ),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: columns,
-          mainAxisSpacing: 14,
+          mainAxisSpacing: 16,
           crossAxisSpacing: 12,
           // Measured rather than an aspect ratio, so at 1.8x text the name
-          // grows instead of overflowing.
-          mainAxisExtent: size + 6 + scale.scale(10.5) * 1.35,
+          // grows instead of overflowing. See [WatchServiceTile.extentFor].
+          mainAxisExtent: WatchServiceTile.extentFor(context),
         ),
       ),
     );

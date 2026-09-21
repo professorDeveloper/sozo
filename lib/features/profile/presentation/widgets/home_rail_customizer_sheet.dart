@@ -356,21 +356,6 @@ class _RailShape extends StatelessWidget {
           ),
         ),
 
-      // Square marks. A service is recognised by its logo, so the preview is
-      // square where every title rail's is portrait — which is the difference
-      // somebody is actually choosing between here.
-      HomeRail.services => SizedBox(
-          height: 40,
-          child: Row(
-            children: [
-              for (var i = 0; i < 5; i++) ...[
-                _block(width: 40, height: 40, radius: 10),
-                const SizedBox(width: 9),
-              ],
-            ],
-          ),
-        ),
-
       // Tall posters, twice — the catalogue is several rails, not one.
       HomeRail.catalogue => Column(
           children: [

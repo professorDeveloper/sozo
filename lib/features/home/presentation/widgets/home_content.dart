@@ -1,7 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/features/watch_services/presentation/widgets/watch_services_section.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
@@ -275,14 +274,6 @@ class _HomeContentBody extends StatelessWidget {
                 // backend with no line-up leaves Home unchanged.
                 yield const SliverToBoxAdapter(
                   child: RepaintBoundary(child: LiveTvSection()),
-                );
-              case HomeRail.services:
-                // Independent of the selected source, unlike every other band
-                // here: a country's streaming line-up does not change when the
-                // source does. Renders nothing until it has services, so an
-                // install that cannot reach TMDB leaves Home unchanged.
-                yield const SliverToBoxAdapter(
-                  child: RepaintBoundary(child: WatchServicesSection()),
                 );
               case HomeRail.catalogue:
                 if (loaded != null && loaded.collectionLoading) {

@@ -88,12 +88,12 @@ class WatchRegionMenu extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: elsewhere
-                        ? AppColors.primary.withValues(alpha: 0.16)
+                        ? AppColors.primary.withValues(alpha: 0.12)
                         : AppColors.card,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
                       color: elsewhere
-                          ? AppColors.primary.withValues(alpha: 0.55)
+                          ? AppColors.primary.withValues(alpha: 0.35)
                           : Colors.white.withValues(alpha: 0.06),
                     ),
                   ),
@@ -107,9 +107,7 @@ class WatchRegionMenu extends StatelessWidget {
                       Text(
                         regionName,
                         style: TextStyle(
-                          color: elsewhere
-                              ? AppColors.primary
-                              : AppColors.textPrimary,
+                          color: AppColors.textPrimary,
                           fontSize: dense ? 12.5 : 13,
                           fontWeight: FontWeight.w700,
                         ),
@@ -118,9 +116,7 @@ class WatchRegionMenu extends StatelessWidget {
                       Text(
                         '$serviceCount',
                         style: TextStyle(
-                          color: elsewhere
-                              ? AppColors.primary.withValues(alpha: 0.85)
-                              : AppColors.textHint,
+                          color: AppColors.textHint,
                           fontSize: dense ? 12 : 12.5,
                           fontWeight: FontWeight.w700,
                           fontFeatures: const [FontFeature.tabularFigures()],
@@ -308,7 +304,12 @@ class _RegionSheetState extends State<_RegionSheet> {
       // rather than on Andorra.
       autofocus: selected,
       onTap: () => Navigator.of(context).pop(code),
-      child: Padding(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        color: selected
+            ? AppColors.primary.withValues(alpha: 0.08)
+            : Colors.transparent,
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
         child: Row(
           children: [
@@ -331,9 +332,9 @@ class _RegionSheetState extends State<_RegionSheet> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: selected || accent
-                      ? AppColors.primary
-                      : AppColors.textPrimary,
+                  // Weight carries the selection; the accent is spent on the
+                  // one row that is an ACTION rather than a value.
+                  color: accent ? AppColors.primary : AppColors.textPrimary,
                   fontSize: 14.5,
                   fontWeight: selected || accent
                       ? FontWeight.w700

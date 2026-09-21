@@ -566,25 +566,44 @@ class _BottomTextButton extends StatelessWidget {
             onTap: enabled ? onTap : null,
             borderRadius: BorderRadius.circular(10),
             child: Padding(
-            // 20pt glyph + 12 above and below = a 44pt row, Apple's minimum.
-            // The glyph grew to match _IconButton, so the padding gave back the
-            // 2pt rather than letting the row grow past 44.
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: color, size: 20, shadows: _kControlShadow),
-                if (!compact) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      shadows: _kControlShadow,
+              // 20pt glyph + 12 above and below = a 44pt row, Apple's minimum.
+              // The glyph grew to match _IconButton, so the padding gave back the
+              // 2pt rather than letting the row grow past 44.
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: color, size: 20, shadows: _kControlShadow),
+                  if (!compact) ...[
+                    const SizedBox(width: 4),
+                    // Cross-faded, because several of these buttons now CYCLE
+                    // rather than open a sheet: the label is the only thing that
+                    // reports what the tap did, and a label that swaps instantly
+                    // reads as a glitch rather than as an answer.
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: SizeTransition(
+                          axis: Axis.horizontal,
+                          alignment: AlignmentDirectional.centerStart,
+                          sizeFactor: animation,
+                          child: child,
+                        ),
+                      ),
+                      child: Text(
+                        label,
+                        key: ValueKey(label),
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          shadows: _kControlShadow,
+                        ),
+                      ),
                     ),
-                  ),
                   ],
                 ],
               ),

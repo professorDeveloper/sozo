@@ -21,7 +21,7 @@ void main() {
     test('the defaults are the order Home has always had', () {
       expect(
         HomeRail.defaults.map((r) => r.id).toList(),
-        ['hero', 'resume', 'genres', 'live_tv', 'services', 'catalogue'],
+        ['hero', 'resume', 'genres', 'live_tv', 'catalogue'],
       );
     });
   });
@@ -31,11 +31,7 @@ void main() {
       expect(sanitizeRailOrder(const []), HomeRail.defaults);
     });
 
-    test('a stored order is kept, and a newer rail joins the end', () {
-      // The arrangement somebody made is preserved exactly; a rail added in a
-      // later version lands after it rather than being invisible until they go
-      // looking for the customizer. That is the whole reason
-      // `sanitizeRailOrder` appends rather than resetting.
+    test('a stored order is kept', () {
       final out = sanitizeRailOrder([
         'catalogue',
         'resume',
@@ -43,15 +39,13 @@ void main() {
         'genres',
         'live_tv',
       ]);
-      expect(out.take(5).map((r) => r.id).toList(), [
+      expect(out.map((r) => r.id).toList(), [
         'catalogue',
         'resume',
         'hero',
         'genres',
         'live_tv',
       ]);
-      expect(out.length, HomeRail.values.length);
-      expect(out.last, HomeRail.services);
     });
 
     test('an id this build does not know is dropped', () {

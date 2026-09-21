@@ -82,13 +82,17 @@ class SourceScopeMenu extends StatelessWidget {
                     dense ? 7 : 9,
                   ),
                   decoration: BoxDecoration(
+                    // Filtered is a state worth seeing at a glance, but it is
+                    // not an alarm: a tinted card and a slightly stronger edge
+                    // say it without turning the control into the brightest
+                    // thing on the screen.
                     color: active
-                        ? AppColors.primary.withValues(alpha: 0.16)
+                        ? AppColors.primary.withValues(alpha: 0.12)
                         : AppColors.card,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
                       color: active
-                          ? AppColors.primary.withValues(alpha: 0.55)
+                          ? AppColors.primary.withValues(alpha: 0.35)
                           : Colors.white.withValues(alpha: 0.06),
                     ),
                   ),
@@ -98,9 +102,7 @@ class SourceScopeMenu extends StatelessWidget {
                       Text(
                         _label(),
                         style: TextStyle(
-                          color: active
-                              ? AppColors.primary
-                              : AppColors.textPrimary,
+                          color: AppColors.textPrimary,
                           fontSize: dense ? 12.5 : 13,
                           fontWeight: FontWeight.w700,
                         ),
@@ -112,9 +114,7 @@ class SourceScopeMenu extends StatelessWidget {
                       Text(
                         '$count',
                         style: TextStyle(
-                          color: active
-                              ? AppColors.primary.withValues(alpha: 0.85)
-                              : AppColors.textHint,
+                          color: AppColors.textHint,
                           fontSize: dense ? 12 : 12.5,
                           fontWeight: FontWeight.w700,
                           fontFeatures: const [FontFeature.tabularFigures()],
@@ -266,7 +266,14 @@ class _ScopeSheet extends StatelessWidget {
     required bool indent,
   }) => InkWell(
     onTap: () => Navigator.of(context).pop(value),
-    child: Padding(
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      // A held row rather than a coloured one: it marks the selection without
+      // competing with every other row's text for attention.
+      color: selected
+          ? AppColors.primary.withValues(alpha: 0.08)
+          : Colors.transparent,
       padding: EdgeInsets.fromLTRB(indent ? 38 : 20, 12, 20, 12),
       child: Row(
         children: [
@@ -285,7 +292,13 @@ class _ScopeSheet extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: selected ? AppColors.primary : AppColors.textPrimary,
+                // Weight, not colour.
+                //
+                // The accent said "selected" on the label, the count and the
+                // tick at once, which on a sheet of a dozen rows reads as the
+                // app shouting. A heavier label and one small tick is the same
+                // information, and it leaves the accent meaning something.
+                color: AppColors.textPrimary,
                 fontSize: indent ? 13.5 : 14.5,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),

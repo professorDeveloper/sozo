@@ -319,12 +319,24 @@ extension _PlayerControls on _PlayerPageState {
   /// [toast] is off when the caller already shows the new value — the
   /// settings row does, right where the finger is, and a snackbar on top of
   /// the sheet that is showing it is one message too many.
-  void _cycleFit({bool toast = true}) {
-    final next =
-        _PlayerFit.values[(_fit.index + 1) % _PlayerFit.values.length];
+  void _cycleFit({bool toast = true, int step = 1}) {
+    final count = _PlayerFit.values.length;
+    final next = _PlayerFit.values[(_fit.index + step + count) % count];
     _setFit(next);
-    if (toast) _toast(_fitLabel(next), icon: Icons.aspect_ratio_rounded);
+    if (toast) _toast(_fitLabel(next), icon: _fitIcon(next));
   }
+
+  /// A glyph per fit, so the control reports its own state.
+  ///
+  /// The button used to wear one icon whatever the mode was, which is why the
+  /// mode needed a sheet to be legible at all. Three distinct glyphs mean the
+  /// bar itself says which one is on, and tapping through them is the whole
+  /// interaction.
+  static IconData _fitIcon(_PlayerFit fit) => switch (fit) {
+    _PlayerFit.contain => Icons.aspect_ratio_rounded,
+    _PlayerFit.cover => Icons.crop_free_rounded,
+    _PlayerFit.fill => Icons.fit_screen_rounded,
+  };
 
   String _fitLabel(_PlayerFit fit) {
     switch (fit) {
@@ -1669,9 +1681,13 @@ extension _PlayerControls on _PlayerPageState {
         );
       case 'fit':
         return _IconButton(
-          icon: Icons.aspect_ratio_rounded,
+          icon: _fitIcon(_fit),
+          // Forward on a tap, back on a hold. Three modes and a glyph that
+          // names the current one leaves nothing for a dialog to add — and a
+          // hold that steps backwards is worth more than one that opens a list
+          // of what the taps already walk through.
           onTap: _cycleFit,
-          onLongPress: _openFitSheet,
+          onLongPress: () => _cycleFit(step: -1),
         );
       case 'sleep':
         if (_isLive) return null;
@@ -1813,10 +1829,15 @@ extension _PlayerControls on _PlayerPageState {
       case 'fit':
         if (!_roomForExtras) return null;
         return _BottomTextButton(
-          icon: Icons.aspect_ratio_rounded,
+          icon: _fitIcon(_fit),
           label: _fitLabel(_fit),
           enabled: true,
-          onTap: _openFitSheet,
+          // Cycles. There are three fits, the button is already showing which
+          // one is on, and it changes under the finger — so a sheet listing
+          // three radio buttons was a modal over the video to answer a question
+          // the button itself answers. No toast either: the label IS the
+          // feedback, and a snackbar repeating it is one message too many.
+          onTap: () => _cycleFit(toast: false),
         );
       case 'sleep':
         if (!_roomForExtras || _isLive) return null;

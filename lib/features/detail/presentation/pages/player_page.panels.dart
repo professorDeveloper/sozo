@@ -828,58 +828,6 @@ extension _PlayerPanels on _PlayerPageState {
     );
   }
 
-  void _openFitSheet() {
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.aspect_ratio_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'player.aspect_ratio'.tr(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(color: Colors.white12, height: 1),
-              for (final fit in _PlayerFit.values)
-                _OptionTile(
-                  label: _fitLabel(fit),
-                  selected: fit == _fit,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _setFit(fit);
-                  },
-                ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   /// The picture menu.
   ///
   /// Applied on tap rather than behind an Apply button: the whole judgement is
