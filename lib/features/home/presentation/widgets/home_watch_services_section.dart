@@ -1,5 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/analytics/analytics.dart';
@@ -9,6 +11,8 @@ import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/home/domain/home_rail.dart';
+import 'package:soplay/features/watch_services/domain/entities/watch_service_entity.dart';
+import 'package:soplay/features/watch_services/presentation/bloc/watch_services/watch_services_bloc.dart';
 
 /// The way in to the streaming line-up, once somebody has asked for it.
 ///
@@ -146,6 +150,20 @@ class HomeWatchServicesSection extends StatelessWidget {
 /// at all: a suggestion that comes back after "no thanks" is not a suggestion.
 /// The yes is reversible from the band itself and from Appearance; the no is
 /// reversible from Appearance. Neither is reversed by the app.
+///
+/// ## Why it is this small
+///
+/// It started as a full-width block with a filled button the size of a Play
+/// control, above the hero, and it read as an advertisement rather than as a
+/// question — the loudest thing on a screen it was interrupting. A suggestion
+/// is allowed one line of explanation and two words of assent. The buttons are
+/// text, not fills: the accent in this app means "this is the action", and
+/// nothing here is the action.
+///
+/// The marks are the argument. "Streaming services" is an abstraction; four
+/// logos somebody recognises is the feature, and showing them is also what
+/// makes the page instant when it is opened, because the answer is already in
+/// the singleton by then.
 class HomeSuggestionCard extends StatefulWidget {
   const HomeSuggestionCard({
     super.key,
@@ -177,6 +195,13 @@ class _HomeSuggestionCardState extends State<HomeSuggestionCard> {
       AnalyticsEvent.homeSuggestionShown,
       props: {'rail': widget.rail.id},
     );
+    // The marks, and a warm cache for the page behind them. Only while the
+    // question is unanswered, so an install that said no never asks again and
+    // never fetches again either.
+    final bloc = getIt<WatchServicesBloc>();
+    if (bloc.state.status == WatchServicesStatus.initial) {
+      bloc.add(const WatchServicesLoad());
+    }
   }
 
   Future<void> _answer({required bool accepted}) async {
@@ -196,13 +221,13 @@ class _HomeSuggestionCardState extends State<HomeSuggestionCard> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+        padding: const EdgeInsetsDirectional.fromSTEB(12, 11, 8, 6),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.22)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,17 +236,14 @@ class _HomeSuggestionCardState extends State<HomeSuggestionCard> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                BlocBuilder<WatchServicesBloc, WatchServicesState>(
+                  bloc: getIt<WatchServicesBloc>(),
+                  builder: (context, state) => _ServiceMarks(
+                    services: state.services,
+                    fallback: widget.icon,
                   ),
-                  child: Icon(widget.icon, size: 18, color: AppColors.primary),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 11),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,19 +251,23 @@ class _HomeSuggestionCardState extends State<HomeSuggestionCard> {
                     children: [
                       Text(
                         widget.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: AppColors.textPrimary,
-                          fontSize: 14.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
                         widget.body,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: AppColors.textHint,
-                          fontSize: 12,
-                          height: 1.35,
+                          fontSize: 11,
+                          height: 1.3,
                         ),
                       ),
                     ],
@@ -249,30 +275,135 @@ class _HomeSuggestionCardState extends State<HomeSuggestionCard> {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
-                  onPressed: () => _answer(accepted: false),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary,
-                  ),
-                  child: Text('home.suggest_no'.tr()),
+                _QuietAction(
+                  label: 'home.suggest_no'.tr(),
+                  color: AppColors.textHint,
+                  onTap: () => _answer(accepted: false),
                 ),
-                const SizedBox(width: 4),
-                FilledButton(
-                  onPressed: () => _answer(accepted: true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: Text('home.suggest_add'.tr()),
+                const SizedBox(width: 2),
+                _QuietAction(
+                  label: 'home.suggest_add'.tr(),
+                  color: AppColors.primary,
+                  bold: true,
+                  onTap: () => _answer(accepted: true),
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Two words, at the weight an answer deserves.
+class _QuietAction extends StatelessWidget {
+  const _QuietAction({
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.bold = false,
+  });
+
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) => TextButton(
+    onPressed: onTap,
+    style: TextButton.styleFrom(
+      foregroundColor: color,
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      minimumSize: const Size(0, 34),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+        fontSize: 12.5,
+        fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
+      ),
+    ),
+  );
+}
+
+/// Four marks, overlapping, in the order the country actually uses them.
+///
+/// Overlapping rather than in a row because the point is "these", not "four of
+/// these" — the same shorthand a stack of faces uses for a group. They keep
+/// the square-with-a-generous-radius shape the service grid gives them, so the
+/// thing being offered looks like the thing that arrives.
+class _ServiceMarks extends StatelessWidget {
+  const _ServiceMarks({required this.services, required this.fallback});
+
+  final List<WatchServiceEntity> services;
+  final IconData fallback;
+
+  static const double _size = 30;
+  static const double _overlap = 10;
+  static const int _max = 4;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = services.take(_max).toList();
+    if (shown.isEmpty) {
+      // Offline, or the answer has not landed yet. The question still stands;
+      // it just has to make its case without the logos.
+      return Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(fallback, size: 18, color: AppColors.primary),
+      );
+    }
+
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return SizedBox(
+      width: _size + (shown.length - 1) * (_size - _overlap),
+      height: _size,
+      child: Stack(
+        children: [
+          // Reversed, so the first service is painted last and sits on top:
+          // TMDB orders these by how much they are used, and the one in front
+          // should be the one most people recognise.
+          for (final (i, s) in shown.indexed.toList().reversed)
+            PositionedDirectional(
+              start: i * (_size - _overlap),
+              child: Container(
+                width: _size,
+                height: _size,
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(_size * 0.235),
+                  // A hairline of the card behind it, so overlapping marks
+                  // stay separate instead of merging into one dark blob.
+                  border: Border.all(color: AppColors.surface, width: 1.5),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(_size * 0.235 - 1.5),
+                  child: s.logo == null
+                      ? const SizedBox.shrink()
+                      : CachedNetworkImage(
+                          imageUrl: s.logo!,
+                          fit: BoxFit.cover,
+                          memCacheWidth: (_size * dpr).round(),
+                          fadeInDuration: const Duration(milliseconds: 180),
+                          errorWidget: (_, _, _) => const SizedBox.shrink(),
+                        ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

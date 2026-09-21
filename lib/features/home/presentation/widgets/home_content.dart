@@ -293,15 +293,21 @@ class _HomeContentBody extends StatelessWidget {
 
           // The hero sits under the status bar when it is first. Moved down, it
           // is an ordinary rail and something else needs that clearance —
-          // otherwise the top band renders behind the clock.
+          // otherwise the top band renders behind the clock. The suggestion
+          // card is the same case and arrived without it: a question drawn
+          // through the logo, the source chip and the notification bell.
           //
           // The failure strip needs it too, and it is the reason this is not
           // just about the hero: the strip goes ABOVE the rails, so with the
           // hero first there was no clearance at all and the strip drew behind
           // the logo and the source chip — the one band whose whole job is to
           // be read.
+          final suggesting = !hive.hasAnsweredHomeSuggestion(
+            HomeRail.watchServices.id,
+          );
           final needsTopPad =
               catalogue is CatalogueFailed ||
+              suggesting ||
               rails.first != HomeRail.hero ||
               !showHero;
 
@@ -319,7 +325,7 @@ class _HomeContentBody extends StatelessWidget {
               // with. Not a dialog: Home is not a screen anybody came to in
               // order to be interrupted, and a card that can be ignored until
               // it is convenient is a question rather than a demand.
-              if (!hive.hasAnsweredHomeSuggestion(HomeRail.watchServices.id))
+              if (suggesting)
                 SliverToBoxAdapter(
                   child: HomeSuggestionCard(
                     rail: HomeRail.watchServices,

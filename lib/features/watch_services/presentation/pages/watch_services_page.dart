@@ -40,6 +40,16 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
   @override
   void initState() {
     super.initState();
+    // Nothing else asks. The bloc is a singleton so that its answer survives a
+    // Home rebuild, and the rail that used to kick the first load off came off
+    // Home — which left this page waiting on a load nobody had started, i.e. a
+    // skeleton that never resolved. A screen is responsible for the data it
+    // shows; being able to reuse an answer somebody else fetched is not the
+    // same as relying on them to fetch it.
+    final bloc = getIt<WatchServicesBloc>();
+    if (bloc.state.status == WatchServicesStatus.initial) {
+      bloc.add(const WatchServicesLoad());
+    }
     _scroll.addListener(() {
       if (_scroll.hasClients) {
         _blur.value = (_scroll.offset / 80).clamp(0.0, 1.0);
