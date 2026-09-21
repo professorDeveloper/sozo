@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
+import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/home/presentation/widgets/view_all_widgets.dart';
 import 'package:soplay/features/watch_services/domain/entities/watch_service_entity.dart';
 import 'package:soplay/features/watch_services/presentation/bloc/watch_services/watch_services_bloc.dart';
@@ -110,7 +111,7 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
     if (!state.hasServices) {
       if (state.status == WatchServicesStatus.loading ||
           state.status == WatchServicesStatus.initial) {
-        return ViewAllSkeleton(appBarH: appBarH);
+        return _skeleton(context, appBarH);
       }
       return _empty(context, state, bloc, appBarH);
     }
@@ -127,6 +128,10 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
           slivers: [
             SliverToBoxAdapter(child: SizedBox(height: appBarH + 8)),
             SliverToBoxAdapter(child: _regionMenu(state, bloc)),
+            if (state.fellBackFrom.isNotEmpty)
+              SliverToBoxAdapter(child: _fellBackNote(state)),
+            if (state.fellBackFrom.isNotEmpty)
+              SliverToBoxAdapter(child: _fellBackNote(state)),
             SliverToBoxAdapter(child: _search(state.services.length)),
             if (showTop) ...[
               _label('watch.top_services'.tr()),
@@ -238,6 +243,115 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
       ),
     );
   }
+
+  /// Said plainly, where the grid would be: this is somewhere else's line-up.
+  ///
+  /// Without it the fallback is a lie by omission — a screen of services
+  /// nobody in the viewer's country can subscribe to, under a flag that is not
+  /// theirs, with nothing to say why.
+  /// The grid, greyed out — the same marks in the same places.
+  ///
+  /// It used to borrow [ViewAllSkeleton], which is three columns of tall
+  /// posters with two caption lines under each. This grid is four columns of
+  /// square marks with one short name, so the wait looked nothing like the
+  /// answer: the moment the services landed, every tile changed shape, size
+  /// and column, and the whole page reflowed under whoever was looking at it.
+  Widget _skeleton(BuildContext context, double appBarH) {
+    final size = WatchServiceTile.sizeFor();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = columnsFor(constraints.maxWidth);
+        return CustomScrollView(
+          // Not the page's own controller: this view is replaced wholesale by
+          // the real grid, and two scrollables sharing one controller is an
+          // exception rather than a layout.
+          physics: const NeverScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(child: SizedBox(height: appBarH + 8)),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+              sliver: SliverToBoxAdapter(
+                child: ShimmerWrapper(
+                  child: HomeSkeletonBox(width: 150, height: 30, radius: 999),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(14, 18, 14, 0),
+              // One sweep across the grid rather than one per tile: a tile each
+              // is a controller each, all on their own clocks, which reads as a
+              // field of separately blinking squares.
+              sliver: SliverToBoxAdapter(
+                child: ShimmerWrapper(
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 12,
+                      mainAxisExtent: WatchServiceTile.extentFor(context),
+                    ),
+                    itemCount: columns * 4,
+                    itemBuilder: (context, i) => Column(
+                      children: [
+                        HomeSkeletonBox(
+                          width: size,
+                          height: size,
+                          radius: WatchServiceTile.radiusFor(),
+                        ),
+                        const SizedBox(height: 8),
+                        const SkeletonLine(width: 40),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _fellBackNote(WatchServicesState state) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+    child: Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            size: 16,
+            color: AppColors.textHint,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'watch.region_fell_back'.tr(
+                namedArgs: {
+                  'from': state.nameOf(state.fellBackFrom),
+                  'to': state.regionName,
+                },
+              ),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11.5,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _empty(
     BuildContext context,

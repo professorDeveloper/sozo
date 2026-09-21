@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/analytics/analytics.dart';
+import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/watch_services/domain/entities/watch_region_entity.dart';
@@ -25,8 +27,12 @@ part 'watch_services_state.dart';
 /// region can change while a load is out, and the answer that lands last is not
 /// necessarily the one that was asked for last.
 class WatchServicesBloc extends Bloc<WatchServicesEvent, WatchServicesState> {
-  WatchServicesBloc({required this.useCase, required this.hive})
-    : super(const WatchServicesState()) {
+  WatchServicesBloc({
+    required this.useCase,
+    required this.hive,
+    String Function()? deviceCountry,
+  }) : _country = deviceCountry ?? _platformCountry,
+       super(const WatchServicesState()) {
     on<WatchServicesLoad>(_onLoad);
     on<WatchServicesRegionChanged>(_onRegionChanged);
     on<WatchServicesRegionsRequested>(_onRegionsRequested);
@@ -35,10 +41,18 @@ class WatchServicesBloc extends Bloc<WatchServicesEvent, WatchServicesState> {
   final WatchServicesUseCase useCase;
   final HiveService hive;
 
+  /// Where the viewer is, when they have not said.
+  ///
+  /// A seam rather than a direct read of [PlatformDispatcher], for the same
+  /// reason the countdown takes its clock: the whole of the fallback behaviour
+  /// depends on this value, and `PlatformDispatcher.instance` is a global a
+  /// test cannot move — `localeTestValue` sets the binding's dispatcher, not
+  /// the static one the app would otherwise read.
+  final String Function() _country;
+
   int _runToken = 0;
 
-  /// The device's country, for a viewer who has never chosen one.
-  static String get _deviceCountry =>
+  static String _platformCountry() =>
       PlatformDispatcher.instance.locale.countryCode ?? '';
 
   Future<void> _onLoad(
@@ -53,9 +67,11 @@ class WatchServicesBloc extends Bloc<WatchServicesEvent, WatchServicesState> {
     final region = resolveRegion(
       hive.getWatchRegion(),
       state.regions,
-      deviceCountry: _deviceCountry,
+      deviceCountry: _country(),
     );
-    await _fetch(region, emit);
+    // Explicit when it came from storage: that is a country somebody picked,
+    // and an empty answer to it is an answer, not a failure to find one.
+    await _fetch(region, emit, explicit: hive.getWatchRegion().isNotEmpty);
   }
 
   Future<void> _onRegionChanged(
@@ -65,7 +81,7 @@ class WatchServicesBloc extends Bloc<WatchServicesEvent, WatchServicesState> {
     final region = event.region.trim().toUpperCase();
     if (region.isEmpty) return;
     await hive.setWatchRegion(region);
-    await _fetch(region, emit);
+    await _fetch(region, emit, explicit: true);
   }
 
   /// The country list, fetched the first time somebody opens the picker.
@@ -85,7 +101,7 @@ class WatchServicesBloc extends Bloc<WatchServicesEvent, WatchServicesState> {
       final corrected = resolveRegion(
         state.region,
         value,
-        deviceCountry: _deviceCountry,
+        deviceCountry: _country(),
       );
       emit(state.copyWith(regions: value, loadingRegions: false));
       if (corrected != state.region) add(WatchServicesRegionChanged(corrected));
@@ -94,12 +110,23 @@ class WatchServicesBloc extends Bloc<WatchServicesEvent, WatchServicesState> {
     emit(state.copyWith(loadingRegions: false));
   }
 
-  Future<void> _fetch(String region, Emitter<WatchServicesState> emit) async {
+  /// The country shown when the viewer's own has no line-up at all. TMDB lists
+  /// more for it than for anywhere else, so it is the one that always has
+  /// something to show.
+  static const String fallbackRegion = 'US';
+
+  Future<void> _fetch(
+    String region,
+    Emitter<WatchServicesState> emit, {
+    required bool explicit,
+    String fellBackFrom = '',
+  }) async {
     final token = ++_runToken;
     emit(
       state.copyWith(
         status: WatchServicesStatus.loading,
         region: region,
+        fellBackFrom: fellBackFrom,
         clearError: true,
       ),
     );
@@ -107,11 +134,36 @@ class WatchServicesBloc extends Bloc<WatchServicesEvent, WatchServicesState> {
     if (token != _runToken) return;
     switch (result) {
       case Success(:final value):
+        // Nothing here, and nobody asked for here specifically. TMDB lists
+        // providers for 139 countries; a viewer in one of the other sixty
+        // opened this and found a blank page, which reads as the feature
+        // being broken rather than as their country not being covered. The
+        // region list would have said so, but it is only fetched when the
+        // picker is opened — so the first thing that knows is this.
+        if (value.isEmpty &&
+            !explicit &&
+            region != fallbackRegion &&
+            fellBackFrom.isEmpty) {
+          getIt<Analytics>().track(
+            AnalyticsEvent.watchServicesRegionFellBack,
+            props: {'from': region, 'to': fallbackRegion},
+          );
+          // So the picker, and the resolver, know the real list next time.
+          add(const WatchServicesRegionsRequested());
+          await _fetch(
+            fallbackRegion,
+            emit,
+            explicit: true,
+            fellBackFrom: region,
+          );
+          return;
+        }
         emit(
           state.copyWith(
             status: WatchServicesStatus.loaded,
             services: value,
             region: region,
+            fellBackFrom: fellBackFrom,
           ),
         );
       case Failure(:final error):

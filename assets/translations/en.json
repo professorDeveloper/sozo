@@ -136,7 +136,13 @@
     "empty_title": "Nothing here yet",
     "empty_subtitle": "Pick another source, or pull to refresh.",
     "list_empty_title": "This list is empty",
-    "list_empty_subtitle": "Nothing to show for this section right now."
+    "list_empty_subtitle": "Nothing to show for this section right now.",
+    "suggest_services_title": "Add streaming services to Home?",
+    "suggest_services_body": "See what Netflix, Disney+ and the rest carry where you are. You can remove it again at any time.",
+    "suggest_add": "Add to Home",
+    "suggest_no": "No thanks",
+    "remove_from_home": "Remove from Home",
+    "removed_undo_hint": "Removed. Add it back from Appearance → Home layout."
   },
   "player": {
     "needs_media_kit": "Needs the media_kit engine",
@@ -1768,7 +1774,8 @@
     "genres": "Genres",
     "live_tv": "Live TV",
     "catalogue": "Catalogue rows",
-    "services": "Streaming services"
+    "services": "Streaming services",
+    "watch_services": "Streaming services"
   },
   "stats": {
     "title": "Statistics",
@@ -2001,6 +2008,7 @@
     "type_series": "Series",
     "empty_region_title": "No services listed here",
     "empty_region_subtitle": "TMDB has no streaming line-up for this region yet. Try a neighbouring one.",
+    "region_fell_back": "No streaming line-up is listed for {from}, so this is {to}. Pick another country above.",
     "load_failed": "Streaming services could not be loaded."
   }
 }

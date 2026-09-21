@@ -27,6 +27,18 @@ enum HomeRail {
   /// Live TV.
   liveTv('live_tv', 'home_rails.live_tv', Icons.live_tv_outlined),
 
+  /// What the streaming services carry, in the viewer's country.
+  ///
+  /// Off until somebody says yes. Every other band here is something the app
+  /// already knows about you — what you were watching, what this source
+  /// serves. This one is a whole second catalogue, and putting it on Home
+  /// uninvited is how Home stops being yours.
+  watchServices(
+    'watch_services',
+    'home_rails.watch_services',
+    Icons.subscriptions_outlined,
+  ),
+
   /// Everything the current source serves, in the order it serves it.
   catalogue('catalogue', 'home_rails.catalogue', Icons.grid_view_outlined);
 
@@ -51,8 +63,20 @@ enum HomeRail {
     resume,
     genres,
     liveTv,
+    watchServices,
     catalogue,
   ];
+
+  /// Bands that are in [defaults] — so they have a place in the order and a
+  /// row in the customizer — but are switched OFF until asked for.
+  ///
+  /// The distinction matters on upgrade as much as on a fresh install: a band
+  /// added in a new version arrives in everybody's order, and without this
+  /// every existing install would find something new on Home that nobody put
+  /// there.
+  static const Set<String> optIn = {'watch_services'};
+
+  bool get isOptIn => optIn.contains(id);
 }
 
 /// Repairs a stored order into one that can actually be rendered.

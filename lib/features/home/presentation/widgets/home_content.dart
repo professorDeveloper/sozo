@@ -16,6 +16,7 @@ import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/features/home/domain/entities/hero_slide.dart';
+import 'package:soplay/features/home/presentation/widgets/home_watch_services_section.dart';
 import 'package:soplay/features/home/domain/entities/home_section_entity.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
@@ -170,28 +171,29 @@ class _HomeContentBody extends StatelessWidget {
           final loaded = _loaded;
           final sectionSlivers = <Widget>[
             if (loaded != null)
-            for (final section in loaded.homeData.sections)
-              if (section.items.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: RepaintBoundary(
-                    child: MovieSection(
-                      title: section.label,
-                      movies: section.items,
-                      type: section.viewAll.type,
-                      slug: section.viewAll.slug,
-                      onSeeAll: _isMyListSection(section)
-                          ? () => getIt<NavController>().goToId(TabId.myList)
-                          : null,
+              for (final section in loaded.homeData.sections)
+                if (section.items.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: RepaintBoundary(
+                      child: MovieSection(
+                        title: section.label,
+                        movies: section.items,
+                        type: section.viewAll.type,
+                        slug: section.viewAll.slug,
+                        onSeeAll: _isMyListSection(section)
+                            ? () => getIt<NavController>().goToId(TabId.myList)
+                            : null,
+                      ),
                     ),
                   ),
-                ),
           ];
 
           // Unchanged in meaning, with one addition: a FAILED catalogue is
           // never "empty". Empty means the source returned nothing and there is
           // genuinely nothing to show; failed means we could not ask, and the
           // strip below has to be reachable to say so.
-          final isEmpty = catalogue is CatalogueReady &&
+          final isEmpty =
+              catalogue is CatalogueReady &&
               !showHero &&
               historyItems.isEmpty &&
               (loaded?.genres.isEmpty ?? true) &&
@@ -216,15 +218,14 @@ class _HomeContentBody extends StatelessWidget {
           // self-collapses when the placement has no active banners, and its
           // view/click tracking is guest-safe (no auth required).
           if (sectionSlivers.isNotEmpty) {
-            final mid = (sectionSlivers.length / 2)
-                .ceil()
-                .clamp(1, sectionSlivers.length);
+            final mid = (sectionSlivers.length / 2).ceil().clamp(
+              1,
+              sectionSlivers.length,
+            );
             sectionSlivers.insert(
               mid,
               const SliverToBoxAdapter(
-                child: BannersCarousel(
-                  placement: BannerPlacement.homeMiddle,
-                ),
+                child: BannersCarousel(placement: BannerPlacement.homeMiddle),
               ),
             );
           }
@@ -249,7 +250,7 @@ class _HomeContentBody extends StatelessWidget {
                       topPadding: topPad,
                       showSkeleton:
                           (loaded?.homeData.banner.isEmpty ?? true) &&
-                              bannersState.loading,
+                          bannersState.loading,
                     ),
                   );
                 }
@@ -274,6 +275,13 @@ class _HomeContentBody extends StatelessWidget {
                 // backend with no line-up leaves Home unchanged.
                 yield const SliverToBoxAdapter(
                   child: RepaintBoundary(child: LiveTvSection()),
+                );
+              case HomeRail.watchServices:
+                // Only ever here because somebody said yes: the band is in
+                // [HomeRail.optIn], so it is off until the suggestion below is
+                // answered the other way.
+                yield const SliverToBoxAdapter(
+                  child: RepaintBoundary(child: HomeWatchServicesSection()),
                 );
               case HomeRail.catalogue:
                 if (loaded != null && loaded.collectionLoading) {
@@ -307,6 +315,23 @@ class _HomeContentBody extends StatelessWidget {
               // missing. Everything below it is local and still works.
               if (catalogue case CatalogueFailed(:final message))
                 SliverToBoxAdapter(child: HomeErrorStrip(message: message)),
+              // Asked once, at the top, where it can be answered and be done
+              // with. Not a dialog: Home is not a screen anybody came to in
+              // order to be interrupted, and a card that can be ignored until
+              // it is convenient is a question rather than a demand.
+              if (!hive.hasAnsweredHomeSuggestion(HomeRail.watchServices.id))
+                SliverToBoxAdapter(
+                  child: HomeSuggestionCard(
+                    rail: HomeRail.watchServices,
+                    title: 'home.suggest_services_title'.tr(),
+                    body: 'home.suggest_services_body'.tr(),
+                    icon: Icons.subscriptions_rounded,
+                    // The bands are read at build time, so the answer has to
+                    // reach this widget the same way the customizer's does.
+                    onAnswered: () => hive.homeRailsChanged.value =
+                        !hive.homeRailsChanged.value,
+                  ),
+                ),
               for (final rail in rails) ...sliversFor(rail),
               SliverToBoxAdapter(
                 child: SizedBox(

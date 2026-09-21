@@ -19,10 +19,36 @@ void main() {
     });
 
     test('the defaults are the order Home has always had', () {
-      expect(
-        HomeRail.defaults.map((r) => r.id).toList(),
-        ['hero', 'resume', 'genres', 'live_tv', 'catalogue'],
-      );
+      expect(HomeRail.defaults.map((r) => r.id).toList(), [
+        'hero',
+        'resume',
+        'genres',
+        'live_tv',
+        'watch_services',
+        'catalogue',
+      ]);
+    });
+  });
+
+  group('bands nobody asked for', () {
+    test('the streaming line-up is one of them', () {
+      expect(HomeRail.watchServices.isOptIn, isTrue);
+      expect(HomeRail.catalogue.isOptIn, isFalse);
+      expect(HomeRail.liveTv.isOptIn, isFalse);
+    });
+
+    test('and an opt-in band is not visible just for being in the order', () {
+      // The whole point: adding a band in a new version puts it in everybody's
+      // stored order, and without the hidden set carrying it that is a thing
+      // appearing on Home that nobody put there.
+      final shown = visibleRails(HomeRail.defaults, HomeRail.optIn);
+      expect(shown.contains(HomeRail.watchServices), isFalse);
+      expect(shown.contains(HomeRail.catalogue), isTrue);
+    });
+
+    test('and it shows once it is taken out of the hidden set', () {
+      final shown = visibleRails(HomeRail.defaults, const {});
+      expect(shown.contains(HomeRail.watchServices), isTrue);
     });
   });
 
@@ -45,6 +71,10 @@ void main() {
         'hero',
         'genres',
         'live_tv',
+        // Appended, because it is newer than this stored order. Being in the
+        // order is not being on Home: it is an opt-in band, so it arrives
+        // switched off and the customizer has a row for it either way.
+        'watch_services',
       ]);
     });
 
@@ -53,7 +83,11 @@ void main() {
       // render loop.
       final out = sanitizeRailOrder(['hero', 'shorts_rail', 'catalogue']);
       expect(out.contains(HomeRail.hero), isTrue);
-      expect(out.length, HomeRail.values.length, reason: 'the rest is appended');
+      expect(
+        out.length,
+        HomeRail.values.length,
+        reason: 'the rest is appended',
+      );
     });
 
     test('a duplicate is dropped', () {
@@ -74,7 +108,10 @@ void main() {
     test('an order of nothing but junk falls back whole', () {
       // A home screen with no bands is not a preference, it is a broken
       // screen.
-      expect(sanitizeRailOrder(['nonsense', 'more_nonsense']), HomeRail.defaults);
+      expect(
+        sanitizeRailOrder(['nonsense', 'more_nonsense']),
+        HomeRail.defaults,
+      );
     });
   });
 

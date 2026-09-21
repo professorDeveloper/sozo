@@ -60,6 +60,12 @@ class AppConstants {
   static const String homeRailOrderKey = 'home_rail_order';
   static const String homeRailHiddenKey = 'home_rail_hidden';
 
+  /// Which Home suggestions have been answered, either way. Separate from the
+  /// hidden set: "you said no" and "it is switched off" are different facts,
+  /// and conflating them means somebody who turns a band off in the customizer
+  /// gets asked about it again on the next launch.
+  static const String homeSuggestionsAnsweredKey = 'home_suggestions_answered';
+
   /// Accumulated watch time and completions. See [WatchStatsStore] — it cannot
   /// be derived from history, which is a rolling fifty-item window.
   static const String watchStatsKey = 'watch_stats';

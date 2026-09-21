@@ -136,7 +136,13 @@
     "empty_title": "Hier ist noch nichts",
     "empty_subtitle": "Wähle eine andere Quelle oder zieh zum Aktualisieren.",
     "list_empty_title": "Diese Liste ist leer",
-    "list_empty_subtitle": "Für diesen Bereich gibt es gerade nichts zu zeigen."
+    "list_empty_subtitle": "Für diesen Bereich gibt es gerade nichts zu zeigen.",
+    "suggest_services_title": "Streamingdienste zur Startseite hinzufügen?",
+    "suggest_services_body": "Sieh, was Netflix, Disney+ und Co. bei dir im Angebot haben. Du kannst es jederzeit wieder entfernen.",
+    "suggest_add": "Hinzufügen",
+    "suggest_no": "Nein danke",
+    "remove_from_home": "Von der Startseite entfernen",
+    "removed_undo_hint": "Entfernt. Über Darstellung → Startseite wieder hinzufügen."
   },
   "player": {
     "needs_media_kit": "Benötigt die media_kit-Engine",
@@ -1768,7 +1774,8 @@
     "genres": "Genres",
     "live_tv": "Live-TV",
     "catalogue": "Katalogreihen",
-    "services": "Streamingdienste"
+    "services": "Streamingdienste",
+    "watch_services": "Streamingdienste"
   },
   "stats": {
     "title": "Statistik",
@@ -2001,6 +2008,7 @@
     "type_series": "Serien",
     "empty_region_title": "Hier sind keine Dienste gelistet",
     "empty_region_subtitle": "TMDB hat für diese Region noch kein Streaming-Angebot. Versuche eine benachbarte.",
+    "region_fell_back": "Für {from} ist kein Streaming-Angebot gelistet, das hier ist {to}. Oben lässt sich ein anderes Land wählen.",
     "load_failed": "Streamingdienste konnten nicht geladen werden."
   }
 }

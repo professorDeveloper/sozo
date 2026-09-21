@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/app_constants.dart';
 import '../subtitles/subtitle_languages.dart';
 import '../../features/auth/data/models/user_model.dart';
+import '../../features/home/domain/home_rail.dart';
 import '../../features/detail/domain/entities/subtitle_style.dart';
 
 class HiveService {
@@ -115,7 +116,9 @@ class HiveService {
   /// OLD source's slugs.
   ///
   /// So the notification lives at the write, where it cannot be forgotten.
-  final ValueNotifier<String> currentProviderChanged = ValueNotifier<String>('');
+  final ValueNotifier<String> currentProviderChanged = ValueNotifier<String>(
+    '',
+  );
 
   Future<void> saveCurrentProvider(String providerId) async {
     final before = getCurrentProvider();
@@ -321,10 +324,58 @@ class HiveService {
     return raw.map((e) => e.toString()).toList();
   }
 
+  /// The bands switched off.
+  ///
+  /// With nothing stored this is not empty: the opt-in bands start off. A band
+  /// added in a new version arrives in everybody's rail order, and an empty
+  /// hidden set would mean every existing install found something new on Home
+  /// that nobody asked for.
   Set<String> getHomeRailHidden() {
     final raw = _settingsBox.get(AppConstants.homeRailHiddenKey);
+    if (raw is! List) return HomeRail.optIn;
+    final stored = raw.map((e) => e.toString()).toSet();
+    // An opt-in band that predates this install's stored set has never been
+    // answered, so it is still off. Once the question is answered the band's
+    // id is written either way, which is what takes it out of this branch.
+    final answered = getAnsweredHomeSuggestions();
+    return {
+      ...stored,
+      for (final id in HomeRail.optIn)
+        if (!answered.contains(id)) id,
+    };
+  }
+
+  /// Home suggestions that have been put to the viewer and answered.
+  Set<String> getAnsweredHomeSuggestions() {
+    final raw = _settingsBox.get(AppConstants.homeSuggestionsAnsweredKey);
     if (raw is! List) return const {};
     return raw.map((e) => e.toString()).toSet();
+  }
+
+  bool hasAnsweredHomeSuggestion(String id) =>
+      getAnsweredHomeSuggestions().contains(id);
+
+  /// Records the answer and applies it, in one write.
+  ///
+  /// Both halves together, because they are one decision: a yes that recorded
+  /// the answer without switching the band on would ask once and do nothing.
+  Future<void> answerHomeSuggestion(String id, {required bool accepted}) async {
+    final answered = {...getAnsweredHomeSuggestions(), id};
+    await _settingsBox.put(
+      AppConstants.homeSuggestionsAnsweredKey,
+      answered.toList(),
+    );
+    final hidden = getHomeRailHidden();
+    await saveHomeRails(getHomeRailOrder(), {
+      for (final h in hidden)
+        if (!(accepted && h == id)) h,
+      if (!accepted) id,
+    });
+  }
+
+  /// Switches a band off from the band itself, rather than from the customizer.
+  Future<void> hideHomeRail(String id) async {
+    await saveHomeRails(getHomeRailOrder(), {...getHomeRailHidden(), id});
   }
 
   Future<void> saveHomeRails(List<String> order, Set<String> hidden) async {

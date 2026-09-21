@@ -263,18 +263,6 @@ void main() {
     expect(genresTop(tester), lessThan(waiting));
   });
 
-  testWidgets('the streaming services have a way in', (tester) async {
-    // They had none. The page, its browse screen and its translations were all
-    // built and routed, and then the rail that reached them came off Home and
-    // nothing replaced it — so the whole feature was unreachable from any
-    // screen in the app, which from the outside is indistinguishable from
-    // having deleted it.
-    await pump(tester, home: _HeldHome());
-
-    expect(find.text('watch.services_title'.tr()), findsOneWidget);
-    expect(find.text('watch.services_entry_hint'.tr()), findsOneWidget);
-  });
-
   testWidgets('the genre skeleton is the genre grid, greyed out', (
     tester,
   ) async {

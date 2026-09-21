@@ -177,7 +177,6 @@ class ViewAllGrid extends StatelessWidget {
   }
 }
 
-
 class ViewAllMovieCard extends StatelessWidget {
   const ViewAllMovieCard({
     super.key,
@@ -213,7 +212,8 @@ class ViewAllMovieCard extends StatelessWidget {
     // miss the cache this tile just filled and fly a blank frame.
     final decodeWidth = isDesktopPlatform
         ? null
-        : (MediaQuery.sizeOf(context).width / 3 *
+        : (MediaQuery.sizeOf(context).width /
+                  3 *
                   MediaQuery.devicePixelRatioOf(context))
               .round();
 
@@ -334,7 +334,6 @@ class ViewAllMovieCard extends StatelessWidget {
   }
 }
 
-
 class ViewAllSkeleton extends StatelessWidget {
   const ViewAllSkeleton({super.key, required this.appBarH});
 
@@ -419,7 +418,11 @@ class _SkeletonGridCard extends StatelessWidget {
 }
 
 class ViewAllErrorView extends StatelessWidget {
-  const ViewAllErrorView({super.key, required this.message, required this.onRetry});
+  const ViewAllErrorView({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
 
   final String message;
   final VoidCallback onRetry;
@@ -444,15 +447,14 @@ class ViewAllErrorView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.surfaceVariant,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.06),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
               ),
               child: Icon(
                 switch (failure.kind) {
                   SourceFailureKind.unreachable => Icons.wifi_off_rounded,
                   SourceFailureKind.blocked => Icons.shield_outlined,
-                  SourceFailureKind.rateLimited => Icons.hourglass_empty_rounded,
+                  SourceFailureKind.rateLimited =>
+                    Icons.hourglass_empty_rounded,
                   SourceFailureKind.outdated => Icons.update_rounded,
                   SourceFailureKind.incompatible ||
                   SourceFailureKind.broken => Icons.extension_off_rounded,

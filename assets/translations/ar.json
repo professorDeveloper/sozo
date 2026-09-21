@@ -136,7 +136,13 @@
     "empty_title": "لا شيء هنا بعد",
     "empty_subtitle": "اختر مصدراً آخر، أو اسحب للتحديث.",
     "list_empty_title": "هذه القائمة فارغة",
-    "list_empty_subtitle": "لا يوجد ما يُعرض في هذا القسم حالياً."
+    "list_empty_subtitle": "لا يوجد ما يُعرض في هذا القسم حالياً.",
+    "suggest_services_title": "إضافة خدمات البث إلى الشاشة الرئيسية؟",
+    "suggest_services_body": "اطّلع على ما تقدّمه نتفليكس وديزني+ وغيرها في منطقتك. يمكنك إزالتها في أي وقت.",
+    "suggest_add": "إضافة",
+    "suggest_no": "لا، شكرًا",
+    "remove_from_home": "إزالة من الشاشة الرئيسية",
+    "removed_undo_hint": "تمت الإزالة. يمكنك إعادتها من المظهر ← الشاشة الرئيسية."
   },
   "player": {
     "needs_media_kit": "يتطلب محرّك media_kit",
@@ -1772,7 +1778,8 @@
     "genres": "الأنواع",
     "live_tv": "البث المباشر",
     "catalogue": "صفوف الفهرس",
-    "services": "خدمات البث"
+    "services": "خدمات البث",
+    "watch_services": "خدمات البث"
   },
   "stats": {
     "title": "الإحصائيات",
@@ -2005,6 +2012,7 @@
     "type_series": "مسلسلات",
     "empty_region_title": "لا توجد خدمات هنا",
     "empty_region_subtitle": "لا توجد لدى TMDB قائمة بث لهذه المنطقة بعد. جرّب منطقة مجاورة.",
+    "region_fell_back": "لا توجد قائمة بث لـ {from}، لذا هذه {to}. اختر بلدًا آخر من الأعلى.",
     "load_failed": "تعذّر تحميل خدمات البث."
   }
 }

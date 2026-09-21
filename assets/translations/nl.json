@@ -136,7 +136,13 @@
     "empty_title": "Hier staat nog niets",
     "empty_subtitle": "Kies een andere bron, of trek omlaag om te verversen.",
     "list_empty_title": "Deze lijst is leeg",
-    "list_empty_subtitle": "Voor dit onderdeel valt nu niets te tonen."
+    "list_empty_subtitle": "Voor dit onderdeel valt nu niets te tonen.",
+    "suggest_services_title": "Streamingdiensten aan Home toevoegen?",
+    "suggest_services_body": "Bekijk wat Netflix, Disney+ en de rest bij jou aanbieden. Je kunt het altijd weer weghalen.",
+    "suggest_add": "Toevoegen",
+    "suggest_no": "Nee, bedankt",
+    "remove_from_home": "Van Home verwijderen",
+    "removed_undo_hint": "Verwijderd. Voeg het weer toe via Weergave → Home."
   },
   "player": {
     "needs_media_kit": "Vereist de media_kit-engine",
@@ -1768,7 +1774,8 @@
     "genres": "Genres",
     "live_tv": "Live tv",
     "catalogue": "Catalogusrijen",
-    "services": "Streamingdiensten"
+    "services": "Streamingdiensten",
+    "watch_services": "Streamingdiensten"
   },
   "stats": {
     "title": "Statistieken",
@@ -2001,6 +2008,7 @@
     "type_series": "Series",
     "empty_region_title": "Hier staan geen diensten",
     "empty_region_subtitle": "TMDB heeft nog geen aanbod voor deze regio. Probeer een buurregio.",
+    "region_fell_back": "Voor {from} is geen streamingaanbod bekend, dit is daarom {to}. Kies hierboven een ander land.",
     "load_failed": "Streamingdiensten konden niet worden geladen."
   }
 }

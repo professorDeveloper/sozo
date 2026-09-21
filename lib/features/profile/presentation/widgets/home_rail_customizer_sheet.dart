@@ -356,6 +356,30 @@ class _RailShape extends StatelessWidget {
           ),
         ),
 
+      // One wide row with a mark on the left. It is a way in rather than a
+      // shelf, and the preview has to say so, or somebody turns it on
+      // expecting a rail of logos.
+      HomeRail.watchServices => SizedBox(
+          height: 34,
+          child: Row(
+            children: [
+              _block(width: 34, height: 34, radius: 9),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _block(width: 84, height: 7, radius: 3),
+                    const SizedBox(height: 6),
+                    _block(width: 130, height: 6, radius: 3),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
       // Tall posters, twice — the catalogue is several rails, not one.
       HomeRail.catalogue => Column(
           children: [

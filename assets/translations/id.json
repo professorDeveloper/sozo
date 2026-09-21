@@ -136,7 +136,13 @@
     "empty_title": "Belum ada apa-apa di sini",
     "empty_subtitle": "Pilih sumber lain, atau tarik ke bawah untuk menyegarkan.",
     "list_empty_title": "Daftar ini kosong",
-    "list_empty_subtitle": "Belum ada yang bisa ditampilkan di bagian ini."
+    "list_empty_subtitle": "Belum ada yang bisa ditampilkan di bagian ini.",
+    "suggest_services_title": "Tambahkan layanan streaming ke Beranda?",
+    "suggest_services_body": "Lihat apa yang ada di Netflix, Disney+, dan lainnya di wilayahmu. Bisa dihapus kapan saja.",
+    "suggest_add": "Tambahkan",
+    "suggest_no": "Tidak usah",
+    "remove_from_home": "Hapus dari Beranda",
+    "removed_undo_hint": "Dihapus. Tambahkan lagi lewat Tampilan → Beranda."
   },
   "player": {
     "needs_media_kit": "Butuh mesin media_kit",
@@ -1768,7 +1774,8 @@
     "genres": "Genre",
     "live_tv": "TV langsung",
     "catalogue": "Baris katalog",
-    "services": "Layanan streaming"
+    "services": "Layanan streaming",
+    "watch_services": "Layanan streaming"
   },
   "stats": {
     "title": "Statistik",
@@ -2001,6 +2008,7 @@
     "type_series": "Serial",
     "empty_region_title": "Tidak ada layanan di sini",
     "empty_region_subtitle": "TMDB belum punya daftar untuk wilayah ini. Coba wilayah tetangga.",
+    "region_fell_back": "Tidak ada daftar layanan untuk {from}, jadi ini {to}. Pilih negara lain di atas.",
     "load_failed": "Layanan streaming gagal dimuat."
   }
 }

@@ -136,7 +136,13 @@
     "empty_title": "Ainda não há nada aqui",
     "empty_subtitle": "Escolha outra fonte, ou puxe para atualizar.",
     "list_empty_title": "Esta lista está vazia",
-    "list_empty_subtitle": "Nada para mostrar nesta seção agora."
+    "list_empty_subtitle": "Nada para mostrar nesta seção agora.",
+    "suggest_services_title": "Adicionar serviços de streaming ao início?",
+    "suggest_services_body": "Veja o que a Netflix, o Disney+ e os outros têm onde você está. Dá para remover quando quiser.",
+    "suggest_add": "Adicionar",
+    "suggest_no": "Não, obrigado",
+    "remove_from_home": "Remover do início",
+    "removed_undo_hint": "Removido. Dá para voltar em Aparência → Início."
   },
   "player": {
     "needs_media_kit": "Precisa do motor media_kit",
@@ -1768,7 +1774,8 @@
     "genres": "Gêneros",
     "live_tv": "TV ao vivo",
     "catalogue": "Linhas do catálogo",
-    "services": "Serviços de streaming"
+    "services": "Serviços de streaming",
+    "watch_services": "Serviços de streaming"
   },
   "stats": {
     "title": "Estatísticas",
@@ -2001,6 +2008,7 @@
     "type_series": "Séries",
     "empty_region_title": "Sem serviços aqui",
     "empty_region_subtitle": "O TMDB ainda não tem serviços para esta região. Experimente uma vizinha.",
+    "region_fell_back": "Não há catálogo de streaming para {from}, então isto é {to}. Escolha outro país acima.",
     "load_failed": "Não foi possível carregar os serviços."
   }
 }

@@ -9,6 +9,7 @@ class WatchServicesState extends Equatable {
     this.services = const [],
     this.regions = const [],
     this.loadingRegions = false,
+    this.fellBackFrom = '',
     this.error,
   });
 
@@ -23,15 +24,29 @@ class WatchServicesState extends Equatable {
   final List<WatchRegionEntity> regions;
   final bool loadingRegions;
 
+  /// The country that was asked for and had nothing, when [region] is a
+  /// stand-in the app chose instead. Empty the rest of the time.
+  ///
+  /// TMDB lists providers for 139 countries and Uzbekistan is not one of them,
+  /// which for a viewer there meant opening this screen and finding an empty
+  /// page — the feature reading as broken rather than as unavailable. Falling
+  /// back silently would be worse: a grid of services nobody here can
+  /// subscribe to, under no explanation at all. So the app falls back AND says
+  /// which country it is showing.
+  final String fellBackFrom;
+
   final String? error;
 
   bool get hasServices => services.isNotEmpty;
 
-  String get regionName {
+  String get regionName => nameOf(region);
+
+  /// A country's name, or its code while the list has not been fetched.
+  String nameOf(String code) {
     for (final r in regions) {
-      if (r.code == region) return r.name;
+      if (r.code == code) return r.name;
     }
-    return region;
+    return code;
   }
 
   WatchServicesState copyWith({
@@ -40,6 +55,7 @@ class WatchServicesState extends Equatable {
     List<WatchServiceEntity>? services,
     List<WatchRegionEntity>? regions,
     bool? loadingRegions,
+    String? fellBackFrom,
     String? error,
     bool clearError = false,
   }) => WatchServicesState(
@@ -48,6 +64,7 @@ class WatchServicesState extends Equatable {
     services: services ?? this.services,
     regions: regions ?? this.regions,
     loadingRegions: loadingRegions ?? this.loadingRegions,
+    fellBackFrom: fellBackFrom ?? this.fellBackFrom,
     error: clearError ? null : (error ?? this.error),
   );
 
@@ -58,6 +75,7 @@ class WatchServicesState extends Equatable {
     services,
     regions,
     loadingRegions,
+    fellBackFrom,
     error,
   ];
 }

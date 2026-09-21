@@ -136,7 +136,13 @@
     "empty_title": "Bu yerda hozircha bo‘sh",
     "empty_subtitle": "Boshqa manba tanlang yoki yangilash uchun torting.",
     "list_empty_title": "Bu ro‘yxat bo‘sh",
-    "list_empty_subtitle": "Bu bo‘lim uchun hozircha hech narsa yo‘q."
+    "list_empty_subtitle": "Bu bo‘lim uchun hozircha hech narsa yo‘q.",
+    "suggest_services_title": "Striming servicelarni Home'ga qo'shaymizmi?",
+    "suggest_services_body": "Netflix, Disney+ va boshqalarda o'z hududingizda nima borligini ko'ring. Istalgan payt olib tashlashingiz mumkin.",
+    "suggest_add": "Home'ga qo'shish",
+    "suggest_no": "Kerak emas",
+    "remove_from_home": "Home'dan olib tashlash",
+    "removed_undo_hint": "Olib tashlandi. Appearance → Home layout orqali qaytarishingiz mumkin."
   },
   "player": {
     "needs_media_kit": "media_kit dvigateli kerak",
@@ -1768,7 +1774,8 @@
     "genres": "Janrlar",
     "live_tv": "Jonli TV",
     "catalogue": "Katalog bo‘limlari",
-    "services": "Striming servislar"
+    "services": "Striming servislar",
+    "watch_services": "Striming servicelar"
   },
   "stats": {
     "title": "Statistika",
@@ -2001,6 +2008,7 @@
     "type_series": "Seriallar",
     "empty_region_title": "Bu yerda servis yo‘q",
     "empty_region_subtitle": "TMDB’da bu mintaqa uchun hali striming ro‘yxati yo‘q. Qo‘shni mintaqani sinab ko‘ring.",
+    "region_fell_back": "{from} uchun striming ro'yxati mavjud emas, shuning uchun bu — {to}. Yuqoridan boshqa davlatni tanlang.",
     "load_failed": "Striming servislarni yuklab bo‘lmadi."
   }
 }

@@ -136,7 +136,13 @@
     "empty_title": "呢度仲未有嘢",
     "empty_subtitle": "揀第二個來源，或者拉一拉重新整理。",
     "list_empty_title": "呢個清單係空嘅",
-    "list_empty_subtitle": "呢個部分而家冇嘢顯示。"
+    "list_empty_subtitle": "呢個部分而家冇嘢顯示。",
+    "suggest_services_title": "喺主頁加串流平台？",
+    "suggest_services_body": "睇吓 Netflix、Disney+ 同其他平台喺你嗰度有咩睇。隨時可以移除。",
+    "suggest_add": "加入",
+    "suggest_no": "唔使喇",
+    "remove_from_home": "喺主頁移除",
+    "removed_undo_hint": "已移除。可以喺「外觀 → 主頁」加返。"
   },
   "player": {
     "needs_media_kit": "需要 media_kit 引擎",
@@ -1768,7 +1774,8 @@
     "genres": "類型",
     "live_tv": "直播電視",
     "catalogue": "目錄行",
-    "services": "串流服務"
+    "services": "串流服務",
+    "watch_services": "串流平台"
   },
   "stats": {
     "title": "統計",
@@ -2001,6 +2008,7 @@
     "type_series": "劇集",
     "empty_region_title": "呢度冇服務",
     "empty_region_subtitle": "TMDB 未有呢個地區嘅串流名單。試下隔籬地區。",
+    "region_fell_back": "{from} 冇串流平台名單，所以呢度顯示嘅係 {to}。可以喺上面揀第二個國家。",
     "load_failed": "載入唔到串流服務。"
   }
 }
