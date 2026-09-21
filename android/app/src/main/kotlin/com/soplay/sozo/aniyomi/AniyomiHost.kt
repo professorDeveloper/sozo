@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SAnimeImpl
 import eu.kanade.tachiyomi.animesource.model.Hoster
+import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.SEpisodeImpl
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
@@ -461,6 +462,29 @@ class AniyomiHost(private val context: Context) {
         return if (p.startsWith("/")) base + p else "$base/$p"
     }
 
+    /**
+     * An episode's page, asked of the source rather than assembled here.
+     *
+     * `SEpisode.url` is not always a path — for some sources it is a key the
+     * source turns into the real address, which is why
+     * [AnimeHttpSource.getEpisodeUrl] exists and why joining baseUrl to the
+     * stored string 404s on those. Its default IS the join, so a source that
+     * does not override it loses nothing. Same three fallbacks as the manga
+     * host: not an AnimeHttpSource, the source threw, or the answer is not
+     * http(s).
+     */
+    private fun episodeWebUrl(src: Any?, episode: SEpisode): String {
+        val http = src as? AnimeHttpSource ?: return webUrl(src, episode.url)
+        val asked = try {
+            http.getEpisodeUrl(episode).trim()
+        } catch (_: Throwable) {
+            ""
+        }
+        if (asked.startsWith("http://") || asked.startsWith("https://")) return asked
+        if (asked.isNotEmpty() && asked != episode.url) return webUrl(src, asked)
+        return webUrl(src, episode.url)
+    }
+
     private fun titleOf(a: SAnime): String {
         val given = try { a.title } catch (_: Throwable) { "" }
         if (given.isNotBlank()) return given
@@ -671,7 +695,7 @@ class AniyomiHost(private val context: Context) {
                 put("episode", num)
                 put("label", label)
                 put("mediaRef", e.url)
-                webUrl(src, e.url).takeIf { it.isNotEmpty() }?.let { put("webUrl", it) }
+                episodeWebUrl(src, e).takeIf { it.isNotEmpty() }?.let { put("webUrl", it) }
             })
         }
         if (eps.isEmpty() && failure == null) {

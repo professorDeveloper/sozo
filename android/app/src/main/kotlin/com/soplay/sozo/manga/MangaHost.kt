@@ -8,6 +8,7 @@ import com.soplay.sozo.extensions.ApkSignature
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SChapterImpl
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaImpl
@@ -360,6 +361,36 @@ class MangaHost(private val context: Context) {
     }
 
     /**
+     * A chapter's page, asked of the source rather than assembled here.
+     *
+     * `SChapter.url` is not always a path. For some sources it is a KEY: Asura
+     * stores `/series/<slug>` and overrides `getChapterUrl` to build the real
+     * `/comics/<slug>-<rotating-hash>`, because the slug on the site changes.
+     * Joining baseUrl to the stored string gives a 404 on every one of those —
+     * which is exactly what "open on the source's site" was doing.
+     *
+     * Mihon never joins; it asks. [HttpSource.getChapterUrl] has been in the
+     * vendored source all along with nothing calling it, and its default IS the
+     * join, so a source that does not override it loses nothing.
+     *
+     * Falls back three ways — not an HttpSource, the source threw, or it
+     * answered with something that is not http(s). A third-party extension's
+     * return value gets the same scheme guard the join gets.
+     */
+    private fun chapterWebUrl(src: Any?, chapter: SChapter): String {
+        val http = src as? HttpSource ?: return webUrl(src, chapter.url)
+        val asked = try {
+            http.getChapterUrl(chapter).trim()
+        } catch (_: Throwable) {
+            ""
+        }
+        if (asked.startsWith("http://") || asked.startsWith("https://")) return asked
+        // A relative answer is still an answer — resolve it the ordinary way.
+        if (asked.isNotEmpty() && asked != chapter.url) return webUrl(src, asked)
+        return webUrl(src, chapter.url)
+    }
+
+    /**
      * A chapter's `mediaRef`: its url, plus the memo when it carries one.
      *
      * extensions-lib 1.6 lets a source stash per-chapter state in [SChapter.memo]
@@ -601,7 +632,7 @@ class MangaHost(private val context: Context) {
                 put("episode", i + 1)
                 put("label", c.name.ifEmpty { "Chapter ${i + 1}" })
                 put("mediaRef", chapterRef(c))
-                webUrl(src, c.url).takeIf { it.isNotEmpty() }?.let { put("webUrl", it) }
+                chapterWebUrl(src, c).takeIf { it.isNotEmpty() }?.let { put("webUrl", it) }
             })
         }
 

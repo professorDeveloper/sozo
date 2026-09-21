@@ -60,6 +60,36 @@ void main() {
       }
     });
 
+    test('the source is ASKED for the url, never just joined to', () {
+      // `SChapter.url` is not always a path. For some sources it is a key:
+      // Asura stores `/series/<slug>` and overrides getChapterUrl to build the
+      // real `/comics/<slug>-<rotating-hash>`, because the slug on the site
+      // changes. Joining baseUrl to the stored string 404s on every one of
+      // those — which is what this action did at first. The default
+      // implementation IS the join, so a source that does not override it
+      // loses nothing.
+      expect(manga, contains('http.getChapterUrl(chapter)'));
+      expect(aniyomi, contains('http.getEpisodeUrl(episode)'));
+      for (final src in [manga, aniyomi]) {
+        expect(
+          src,
+          contains('catch (_: Throwable)'),
+          reason: 'a third-party extension that throws must not take the page',
+        );
+      }
+    });
+
+    test('and what it answers gets the same scheme guard as the join', () {
+      // A string from a third-party extension is not trusted further than one
+      // the app assembled itself.
+      for (final src in [manga, aniyomi]) {
+        expect(
+          src,
+          contains('asked.startsWith("http://") || asked.startsWith("https://")'),
+        );
+      }
+    });
+
     test('and a source with no base sends nothing at all', () {
       // An action that cannot work must not reach the screen, so the field is
       // omitted rather than sent empty.
