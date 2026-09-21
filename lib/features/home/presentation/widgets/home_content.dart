@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -302,9 +303,17 @@ class _HomeContentBody extends StatelessWidget {
           // hero first there was no clearance at all and the strip drew behind
           // the logo and the source chip — the one band whose whole job is to
           // be read.
-          final suggesting = !hive.hasAnsweredHomeSuggestion(
-            HomeRail.watchServices.id,
-          );
+          // Debug builds ask every time.
+          //
+          // A once-ever card is impossible to iterate on: the first tap
+          // answers it and the only way to see it again is to wipe the
+          // install's settings, which on a device with an app-lock PIN means
+          // losing the PIN with it. Release honours the answer — that is the
+          // whole point of the answer — and [HiveService.answerHomeSuggestion]
+          // is unchanged either way, so what is under test stays what ships.
+          final suggesting =
+              kDebugMode ||
+              !hive.hasAnsweredHomeSuggestion(HomeRail.watchServices.id);
           final needsTopPad =
               catalogue is CatalogueFailed ||
               suggesting ||
