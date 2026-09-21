@@ -1929,7 +1929,9 @@
     "language_not_stated": "冇註明語言 · {}",
     "installed": "已安裝",
     "section": "來源",
-    "filter_title": "顯示邊啲來源"
+    "filter_title": "顯示邊啲來源",
+    "repo_any": "任何儲存庫",
+    "repo_pick": "揀儲存庫"
   },
   "settings": {
     "dns_title": "DNS",

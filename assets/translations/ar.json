@@ -1933,7 +1933,9 @@
     "language_not_stated": "اللغة غير محددة · {}",
     "installed": "المثبتة",
     "section": "المصادر",
-    "filter_title": "إظهار المصادر من"
+    "filter_title": "إظهار المصادر من",
+    "repo_any": "أي مستودع",
+    "repo_pick": "اختر مستودعًا"
   },
   "settings": {
     "dns_title": "DNS",

@@ -170,35 +170,55 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void _onProviderStored() {
     if (!mounted) return;
     final newId = _hiveService.currentProviderChanged.value;
-    if (newId.isEmpty || _lastProviderId == newId) return;
-    // Null means the shell has not seen its first provider yet; the bloc's own
-    // listener owns that case and will do the initial load.
-    if (_lastProviderId == null) return;
-    _lastProviderId = newId;
-    context.read<HomeBloc>().add(HomeLoad(silent: true));
-    context.read<SearchBloc>().add(const SearchLoad());
+    if (newId.isEmpty) return;
+    _reconcileHome(newId);
   }
 
   void _onProviderStateChange(BuildContext context, ProviderState state) {
     if (state is! ProviderLoaded) return;
-    final newId = state.currentProviderId;
-    if (_lastProviderId == null) {
-      _lastProviderId = newId;
-      // HomePage.initState already fires a (non-silent) HomeLoad the moment the
-      // shell mounts. Kicking a second one here while that is still in flight
-      // runs BOTH handlers concurrently (bloc's default transformer), and the
-      // late completion re-emits HomeLoaded/HomeError — churning HomeContent
-      // through extra mounts. Only load if nothing is in flight or landed.
-      final homeState = context.read<HomeBloc>().state;
-      if (homeState is! HomeLoaded && homeState is! HomeLoading) {
-        context.read<HomeBloc>().add(HomeLoad(silent: true));
-      }
-      return;
-    }
-    if (_lastProviderId == newId) return;
-    _lastProviderId = newId;
+    _reconcileHome(state.currentProviderId);
+  }
+
+  /// Make Home agree with the source that is actually selected.
+  ///
+  /// This replaces two rules that each tracked the source by remembering the
+  /// last id they were told about, and each got it wrong in a different way.
+  ///
+  /// **Home came up empty on a cold start.** `HomePage.initState` fires a load
+  /// the moment the shell mounts, which is before `ProviderBloc` has resolved
+  /// which source is current — so the repository asked with no provider and got
+  /// nothing back. The guard here then saw a load already in flight and
+  /// declined to start another, so the empty answer stood until somebody pulled
+  /// to refresh. Every first launch looked like the app had nothing in it.
+  ///
+  /// **And coming back from Manga showed Watch's old source.** The last-id
+  /// rules compare the incoming id against what they were last TOLD, not
+  /// against what Home is actually showing — so returning to a mode whose
+  /// source had not changed since the shell last heard about it was a no-op,
+  /// and the rows on screen stayed the ones from before the trip.
+  ///
+  /// So neither of those is tracked any more. `HomeLoaded` carries the provider
+  /// its rows came from, which is the only fact that cannot drift: if it is not
+  /// the current source, Home is stale and reloads, whatever route got it
+  /// there. A load already in flight for the WRONG source is not a reason to
+  /// skip — it is the reason to start the right one, and `HomeBloc`'s run token
+  /// stops the stale one emitting over it.
+  void _reconcileHome(String providerId) {
+    if (!mounted || providerId.isEmpty) return;
+    final changed = _lastProviderId != providerId;
+    _lastProviderId = providerId;
+
+    final homeState = context.read<HomeBloc>().state;
+    final showing = homeState is HomeLoaded
+        ? homeState.homeData.provider
+        : null;
+    if (showing == providerId) return;
+
     context.read<HomeBloc>().add(HomeLoad(silent: true));
-    context.read<SearchBloc>().add(const SearchLoad());
+    // Search keeps its own results and genres per source, and only needs
+    // telling when the source genuinely moved — reloading it because Home was
+    // stale would throw away a query somebody is in the middle of.
+    if (changed) context.read<SearchBloc>().add(const SearchLoad());
   }
 
   void _onTabTap(int index) {

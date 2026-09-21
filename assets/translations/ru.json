@@ -1930,7 +1930,9 @@
     "language_not_stated": "Язык не указан · {}",
     "installed": "Установленные",
     "section": "Источники",
-    "filter_title": "Показывать источники из"
+    "filter_title": "Показывать источники из",
+    "repo_any": "Любой репозиторий",
+    "repo_pick": "Выбрать репозиторий"
   },
   "settings": {
     "dns_title": "DNS",

@@ -413,11 +413,26 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     // A corrected source drops out of the "nothing matched" section by itself:
     // it now answers for this title.
     setState(() => _corrections[provider.id] = choice);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('player.alt_corrected'.tr(args: [picked.title])),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+
+    // And then GO there.
+    //
+    // This used to stop at a snackbar, which left the viewer holding the
+    // answer and nowhere to put it: they had searched a source by hand, found
+    // the right title and tapped it, and the sheet's reply was to redraw a row
+    // they then had to find and tap a second time. On a serial that is two
+    // taps between them and the episode list they were already asking for.
+    //
+    // An exact match, without qualification: every other row here carries a
+    // score because a machine guessed it. This one was chosen by a person
+    // looking at the title, which is the strongest evidence this sheet can
+    // have — and `_pick` is what turns a choice into something the player or
+    // the episode list can be handed, including saying so when the source has
+    // the show but not this episode.
+    await _pick(
+      AlternateSource(
+        provider: provider,
+        item: picked,
+        match: const TitleMatch(score: 1, confidence: TitleConfidence.exact),
       ),
     );
   }

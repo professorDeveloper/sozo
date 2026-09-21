@@ -1929,7 +1929,9 @@
     "language_not_stated": "Bahasa tidak disebutkan · {}",
     "installed": "Terpasang",
     "section": "Sumber",
-    "filter_title": "Tampilkan sumber dari"
+    "filter_title": "Tampilkan sumber dari",
+    "repo_any": "Repositori mana pun",
+    "repo_pick": "Pilih repositori"
   },
   "settings": {
     "dns_title": "DNS",

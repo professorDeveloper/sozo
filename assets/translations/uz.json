@@ -1929,7 +1929,9 @@
     "language_not_stated": "Til ko‘rsatilmagan · {}",
     "installed": "O‘rnatilgan",
     "section": "Manbalar",
-    "filter_title": "Qaysi manbalar ko‘rsatilsin"
+    "filter_title": "Qaysi manbalar ko‘rsatilsin",
+    "repo_any": "Istalgan repozitoriy",
+    "repo_pick": "Repozitoriy tanlash"
   },
   "settings": {
     "dns_title": "DNS",

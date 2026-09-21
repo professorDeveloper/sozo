@@ -1929,7 +1929,9 @@
     "language_not_stated": "Langue non précisée · {}",
     "installed": "Installées",
     "section": "Sources",
-    "filter_title": "Afficher les sources de"
+    "filter_title": "Afficher les sources de",
+    "repo_any": "N’importe quel dépôt",
+    "repo_pick": "Choisir un dépôt"
   },
   "settings": {
     "dns_title": "DNS",

@@ -1929,7 +1929,9 @@
     "language_not_stated": "Taal niet vermeld · {}",
     "installed": "Geïnstalleerd",
     "section": "Bronnen",
-    "filter_title": "Bronnen tonen uit"
+    "filter_title": "Bronnen tonen uit",
+    "repo_any": "Elke repository",
+    "repo_pick": "Repository kiezen"
   },
   "settings": {
     "dns_title": "DNS",

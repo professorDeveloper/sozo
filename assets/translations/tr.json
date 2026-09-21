@@ -1929,7 +1929,9 @@
     "language_not_stated": "Dil belirtilmemiş · {}",
     "installed": "Yüklü",
     "section": "Kaynaklar",
-    "filter_title": "Hangi kaynaklar gösterilsin"
+    "filter_title": "Hangi kaynaklar gösterilsin",
+    "repo_any": "Herhangi bir depo",
+    "repo_pick": "Depo seç"
   },
   "settings": {
     "dns_title": "DNS",
