@@ -357,16 +357,31 @@ class HiveService {
 
   /// Records the answer and applies it, in one write.
   ///
-  /// Both halves together, because they are one decision: a yes that recorded
-  /// the answer without switching the band on would ask once and do nothing.
-  Future<void> answerHomeSuggestion(String id, {required bool accepted}) async {
+  /// All of it together, because it is one decision: a yes that recorded the
+  /// answer without switching the band on would ask once and do nothing.
+  ///
+  /// [after] is the band the offer was shown under, and a yes moves the new
+  /// band to sit directly beneath it — somebody who accepts a card between
+  /// Genres and Live TV should get the band there, not wherever the default
+  /// order happens to put it.
+  Future<void> answerHomeSuggestion(
+    String id, {
+    required bool accepted,
+    String? after,
+  }) async {
     final answered = {...getAnsweredHomeSuggestions(), id};
     await _settingsBox.put(
       AppConstants.homeSuggestionsAnsweredKey,
       answered.toList(),
     );
     final hidden = getHomeRailHidden();
-    await saveHomeRails(getHomeRailOrder(), {
+    // Sanitized first: nothing may be stored yet, and an order that does not
+    // contain the band cannot have it moved within it.
+    var order = [for (final r in sanitizeRailOrder(getHomeRailOrder())) r.id];
+    if (accepted && after != null) {
+      order = placeRailAfter(order, id, after);
+    }
+    await saveHomeRails(order, {
       for (final h in hidden)
         if (!(accepted && h == id)) h,
       if (!accepted) id,

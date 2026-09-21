@@ -52,6 +52,50 @@ void main() {
     });
   });
 
+  group('placing a band where it was offered', () {
+    test('an accepted band lands under the one it was offered beneath', () {
+      // The card sits after Genres. Taking it up used to drop the band
+      // wherever the defaults put it — three rails further down — so the thing
+      // you just agreed to appeared somewhere you were not looking.
+      final out = placeRailAfter(
+        ['hero', 'resume', 'genres', 'live_tv', 'watch_services', 'catalogue'],
+        'watch_services',
+        'genres',
+      );
+      expect(out, [
+        'hero',
+        'resume',
+        'genres',
+        'watch_services',
+        'live_tv',
+        'catalogue',
+      ]);
+    });
+
+    test('and moving it backwards works the same way', () {
+      expect(placeRailAfter(['a', 'b', 'c'], 'a', 'c'), ['b', 'c', 'a']);
+    });
+
+    test('an id that is already there is left alone', () {
+      expect(
+        placeRailAfter(
+          ['hero', 'genres', 'watch_services'],
+          'watch_services',
+          'genres',
+        ),
+        ['hero', 'genres', 'watch_services'],
+      );
+    });
+
+    test('and an unknown id changes nothing', () {
+      // A stored order can name a band this version has dropped. Re-ordering
+      // around it must not quietly delete it.
+      expect(placeRailAfter(['a', 'b'], 'zzz', 'a'), ['a', 'b']);
+      expect(placeRailAfter(['a', 'b'], 'a', 'zzz'), ['a', 'b']);
+      expect(placeRailAfter(['a', 'b'], 'a', 'a'), ['a', 'b']);
+    });
+  });
+
   group('repairing a stored order', () {
     test('nothing stored gives the defaults', () {
       expect(sanitizeRailOrder(const []), HomeRail.defaults);

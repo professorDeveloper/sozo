@@ -118,3 +118,23 @@ List<HomeRail> visibleRails(List<HomeRail> order, Set<String> hidden) {
   ];
   return shown.isEmpty ? [HomeRail.catalogue] : shown;
 }
+
+/// [order] with [id] moved to sit directly after [after].
+///
+/// So that a band somebody accepts appears where they were asked about it.
+/// The offer is a card among the rails — after Genres — and taking it up used
+/// to drop the band wherever [HomeRail.defaults] happened to put it, which on
+/// a default install is three rails further down. Tapping "add" and watching
+/// something appear somewhere else reads as having pressed the wrong thing.
+///
+/// Ids rather than rails, because that is what is stored, and unknown ids are
+/// left where they are: a stored order can name a band this version has
+/// dropped, and re-ordering around it must not quietly delete it.
+List<String> placeRailAfter(List<String> order, String id, String after) {
+  if (id == after) return order;
+  final out = [...order];
+  if (!out.contains(id) || !out.contains(after)) return out;
+  out.remove(id);
+  out.insert(out.indexOf(after) + 1, id);
+  return out;
+}

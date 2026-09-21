@@ -186,10 +186,17 @@ class HomeSuggestionCard extends StatefulWidget {
     required this.title,
     required this.body,
     required this.icon,
+    required this.follows,
     required this.onAnswered,
   });
 
   final HomeRail rail;
+
+  /// The band this card was shown under. A yes puts the new band here, so it
+  /// appears where it was offered rather than wherever the default order has
+  /// it — accepting something and watching it materialise three rails away
+  /// reads as having pressed the wrong thing.
+  final HomeRail follows;
   final String title;
   final String body;
   final IconData icon;
@@ -223,6 +230,7 @@ class _HomeSuggestionCardState extends State<HomeSuggestionCard> {
     await getIt<HiveService>().answerHomeSuggestion(
       widget.rail.id,
       accepted: accepted,
+      after: widget.follows.id,
     );
     getIt<Analytics>().track(
       accepted
