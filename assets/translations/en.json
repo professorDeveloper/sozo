@@ -1026,7 +1026,11 @@
     "mark_read": "Mark read",
     "mark_unread": "Mark unread",
     "marked_read_n": "{} marked read",
-    "marked_unread_n": "{} marked unread"
+    "marked_unread_n": "{} marked unread",
+    "volume_n": "Volume {}",
+    "other_chapters": "Other",
+    "find_chapter": "Find a chapter…",
+    "no_chapter_match": "No chapter matches that."
   },
   "cloudflare": {
     "title": "Verify you're human",

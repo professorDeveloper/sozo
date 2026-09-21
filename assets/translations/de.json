@@ -1026,7 +1026,11 @@
     "mark_read": "Als gelesen",
     "mark_unread": "Als ungelesen",
     "marked_read_n": "{} als gelesen markiert",
-    "marked_unread_n": "{} als ungelesen markiert"
+    "marked_unread_n": "{} als ungelesen markiert",
+    "volume_n": "Band {}",
+    "other_chapters": "Sonstige",
+    "find_chapter": "Kapitel suchen …",
+    "no_chapter_match": "Kein Kapitel passt dazu."
   },
   "cloudflare": {
     "title": "Bestätige, dass du ein Mensch bist",

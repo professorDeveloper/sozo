@@ -1026,7 +1026,11 @@
     "mark_read": "Marcar leído",
     "mark_unread": "Marcar no leído",
     "marked_read_n": "{} marcados como leídos",
-    "marked_unread_n": "{} marcados como no leídos"
+    "marked_unread_n": "{} marcados como no leídos",
+    "volume_n": "Volumen {}",
+    "other_chapters": "Otros",
+    "find_chapter": "Buscar un capítulo…",
+    "no_chapter_match": "Ningún capítulo coincide."
   },
   "cloudflare": {
     "title": "Verifica que eres humano",

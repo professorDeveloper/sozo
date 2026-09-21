@@ -30,6 +30,7 @@ import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/manga/presentation/widgets/novel_text.dart';
 import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:soplay/features/manga/domain/reading/chapter_groups.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:soplay/features/manga/data/chapter_read_store.dart';
 import 'package:soplay/features/manga/data/page_tiles.dart';
@@ -145,7 +146,10 @@ class _ReaderPageState extends State<ReaderPage> {
 
   int get _currentPage => _page.value;
   int get _pageCount => _pages.length;
-  List<dynamic> get _chapters => widget.args.chapters;
+
+  /// Typed, because the args are: this was `List<dynamic>`, which meant every
+  /// read off a chapter in this file went unchecked.
+  List<EpisodeEntity> get _chapters => widget.args.chapters;
 
   @override
   void initState() {
@@ -1203,7 +1207,10 @@ class _ReaderPageState extends State<ReaderPage> {
             if (_chapterOnSite case final uri?)
               IconButton(
                 tooltip: 'manga.open_on_site'.tr(),
-                icon: const Icon(Icons.open_in_new_rounded, color: Colors.white),
+                icon: const Icon(
+                  Icons.open_in_new_rounded,
+                  color: Colors.white,
+                ),
                 onPressed: () => _openOnSite(uri),
               ),
             IconButton(
@@ -1313,96 +1320,33 @@ class _ReaderPageState extends State<ReaderPage> {
     _snack(downloadOutcomeMessage(outcome));
   }
 
+  /// The chapter list, with a spine and a way to search it.
+  ///
+  /// It was six hundred identical rows and a scrollbar. Reaching chapter 300
+  /// meant dragging until the numbers looked right, and there was nothing to
+  /// type into — which for the one list in this app that routinely runs to
+  /// four figures is the wrong shape entirely.
+  ///
+  /// Two things. Headings, from the source's own labels where they carry a
+  /// volume and from chapter-number ranges where they do not — see
+  /// [groupChapters], which never renumbers anything, because the index is the
+  /// identity the rest of the reader is keyed on. And a filter, which is how
+  /// somebody who knows the number gets there in one move.
   void _openChapterList() {
-    Widget tile(int i) {
-      final ch = widget.args.chapters[i];
-      final selected = i == _chapterIndex;
-      return ListTile(
-        dense: true,
-        selected: selected,
-        selectedTileColor: _accent.withValues(alpha: 0.12),
-        leading: Icon(
-          selected ? Icons.play_arrow_rounded : Icons.menu_book_outlined,
-          color: selected ? _accent : Colors.white38,
-          size: 20,
-        ),
-        title: Text(
-          ch.label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: selected ? _accent : Colors.white,
-            fontSize: 13.5,
-          ),
-        ),
-        onTap: () {
-          Navigator.of(context).pop();
-          if (i != _chapterIndex) _loadChapter(i);
-        },
-      );
-    }
-
     showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF161616),
       isScrollControlled: true,
       showDragHandle: !isDesktopPlatform,
-      builder: (_) {
-        if (isDesktopPlatform) {
-          return SizedBox(
-            width: 360,
-            height: 480,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Text(
-                    'manga.chapters'.tr(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _chapters.length,
-                    itemBuilder: (context, i) => tile(i),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.7,
-          maxChildSize: 0.92,
-          builder: (context, scroll) => Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'manga.chapters'.tr(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  controller: scroll,
-                  itemCount: _chapters.length,
-                  itemBuilder: (context, i) => tile(i),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (_) => _ChapterListSheet(
+        chapters: _chapters,
+        current: _chapterIndex,
+        accent: _accent,
+        onPick: (i) {
+          Navigator.of(context).pop();
+          if (i != _chapterIndex) _loadChapter(i);
+        },
+      ),
     );
   }
 
@@ -1437,9 +1381,9 @@ class _ReaderPageState extends State<ReaderPage> {
     // button — which an in-app webview would only half do.
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('errors.no_browser'.tr())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('errors.no_browser'.tr())));
     }
   }
 
@@ -1997,4 +1941,194 @@ class _PageImageState extends State<_PageImage> {
       ),
     ),
   );
+}
+
+/// The chapter list: headings, a filter, and the current chapter in view.
+///
+/// Stateful because of the filter. A sheet that rebuilds the whole reader on
+/// every keystroke would be the wrong thing twice over — the reader is holding
+/// decoded pages.
+class _ChapterListSheet extends StatefulWidget {
+  const _ChapterListSheet({
+    required this.chapters,
+    required this.current,
+    required this.accent,
+    required this.onPick,
+  });
+
+  final List<EpisodeEntity> chapters;
+  final int current;
+  final Color accent;
+  final ValueChanged<int> onPick;
+
+  @override
+  State<_ChapterListSheet> createState() => _ChapterListSheetState();
+}
+
+class _ChapterListSheetState extends State<_ChapterListSheet> {
+  final TextEditingController _filter = TextEditingController();
+  String _query = '';
+
+  /// Past this many, reading the list is slower than typing at it.
+  static const int _filterThreshold = 25;
+
+  bool get _hasFilter => widget.chapters.length >= _filterThreshold;
+
+  @override
+  void dispose() {
+    _filter.dispose();
+    super.dispose();
+  }
+
+  /// The rows to draw: a heading, then its chapters, then the next heading.
+  ///
+  /// Flattened here rather than nested, so the whole thing stays one lazy
+  /// list — a thousand chapters in a Column of Columns is a thousand rows laid
+  /// out before the sheet can open.
+  List<Object> get _rows {
+    final q = _query.trim().toLowerCase();
+    final rows = <Object>[];
+    for (final group in groupChapters(widget.chapters)) {
+      final hits = [
+        for (final i in group.indices)
+          if (q.isEmpty || widget.chapters[i].label.toLowerCase().contains(q))
+            i,
+      ];
+      if (hits.isEmpty) continue;
+      // A heading over a filtered list still says where the hits came from,
+      // which is most of what somebody scanning for "12" wants to know.
+      if (group.label.isNotEmpty || group.volume != null) rows.add(group);
+      rows.addAll(hits);
+    }
+    return rows;
+  }
+
+  Widget _heading(ChapterGroup group) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+    child: Text(
+      group.volume != null
+          ? 'manga.volume_n'.tr(args: ['${group.volume}'])
+          : (group.label.isEmpty ? 'manga.other_chapters'.tr() : group.label),
+      style: const TextStyle(
+        color: Colors.white38,
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.9,
+      ),
+    ),
+  );
+
+  Widget _tile(int i) {
+    final ch = widget.chapters[i];
+    final selected = i == widget.current;
+    return ListTile(
+      dense: true,
+      selected: selected,
+      selectedTileColor: widget.accent.withValues(alpha: 0.12),
+      leading: Icon(
+        selected ? Icons.play_arrow_rounded : Icons.menu_book_outlined,
+        color: selected ? widget.accent : Colors.white38,
+        size: 20,
+      ),
+      title: Text(
+        ch.label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: selected ? widget.accent : Colors.white,
+          fontSize: 13.5,
+        ),
+      ),
+      onTap: () => widget.onPick(i),
+    );
+  }
+
+  Widget _list(ScrollController? controller) {
+    final rows = _rows;
+    if (rows.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            'manga.no_chapter_match'.tr(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white38, fontSize: 13),
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      controller: controller,
+      itemCount: rows.length,
+      itemBuilder: (context, i) {
+        final row = rows[i];
+        return row is ChapterGroup ? _heading(row) : _tile(row as int);
+      },
+    );
+  }
+
+  Widget _field() => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+    child: TextField(
+      controller: _filter,
+      onChanged: (v) => setState(() => _query = v),
+      style: const TextStyle(color: Colors.white, fontSize: 13.5),
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'manga.find_chapter'.tr(),
+        prefixIcon: const Icon(Icons.search_rounded, size: 18),
+        suffixIcon: _query.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'general.clear'.tr(),
+                icon: const Icon(Icons.close_rounded, size: 16),
+                onPressed: () {
+                  _filter.clear();
+                  setState(() => _query = '');
+                },
+              ),
+      ),
+    ),
+  );
+
+  Widget _title() => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: Text(
+      'manga.chapters'.tr(),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    if (isDesktopPlatform) {
+      return SizedBox(
+        width: 360,
+        height: 480,
+        child: Column(
+          children: [
+            _title(),
+            if (_hasFilter) _field(),
+            Expanded(child: _list(null)),
+          ],
+        ),
+      );
+    }
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.7,
+      maxChildSize: 0.92,
+      builder: (context, scroll) => Column(
+        children: [
+          _title(),
+          if (_hasFilter) _field(),
+          Expanded(child: _list(scroll)),
+        ],
+      ),
+    );
+  }
 }

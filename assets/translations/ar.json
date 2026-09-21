@@ -1026,7 +1026,11 @@
     "mark_read": "تحديد كمقروء",
     "mark_unread": "تحديد كغير مقروء",
     "marked_read_n": "تم تحديد {} كمقروء",
-    "marked_unread_n": "تم تحديد {} كغير مقروء"
+    "marked_unread_n": "تم تحديد {} كغير مقروء",
+    "volume_n": "المجلد {}",
+    "other_chapters": "أخرى",
+    "find_chapter": "ابحث عن فصل…",
+    "no_chapter_match": "لا يوجد فصل مطابق."
   },
   "cloudflare": {
     "title": "تأكيد أنك لست روبوتاً",

@@ -1026,7 +1026,11 @@
     "mark_read": "Tandai dibaca",
     "mark_unread": "Tandai belum",
     "marked_read_n": "{} ditandai dibaca",
-    "marked_unread_n": "{} ditandai belum dibaca"
+    "marked_unread_n": "{} ditandai belum dibaca",
+    "volume_n": "Volume {}",
+    "other_chapters": "Lainnya",
+    "find_chapter": "Cari bab…",
+    "no_chapter_match": "Tidak ada bab yang cocok."
   },
   "cloudflare": {
     "title": "Verifikasi bahwa kamu manusia",

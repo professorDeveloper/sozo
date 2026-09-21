@@ -1026,7 +1026,11 @@
     "mark_read": "Marcar lido",
     "mark_unread": "Marcar não lido",
     "marked_read_n": "{} marcados como lidos",
-    "marked_unread_n": "{} marcados como não lidos"
+    "marked_unread_n": "{} marcados como não lidos",
+    "volume_n": "Volume {}",
+    "other_chapters": "Outros",
+    "find_chapter": "Encontrar um capítulo…",
+    "no_chapter_match": "Nenhum capítulo corresponde."
   },
   "cloudflare": {
     "title": "Confirme que você é humano",

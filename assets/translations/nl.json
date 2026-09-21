@@ -1026,7 +1026,11 @@
     "mark_read": "Gelezen",
     "mark_unread": "Ongelezen",
     "marked_read_n": "{} als gelezen gemarkeerd",
-    "marked_unread_n": "{} als ongelezen gemarkeerd"
+    "marked_unread_n": "{} als ongelezen gemarkeerd",
+    "volume_n": "Deel {}",
+    "other_chapters": "Overig",
+    "find_chapter": "Hoofdstuk zoeken…",
+    "no_chapter_match": "Geen hoofdstuk komt overeen."
   },
   "cloudflare": {
     "title": "Bevestig dat je een mens bent",

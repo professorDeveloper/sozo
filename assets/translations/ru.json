@@ -1026,7 +1026,11 @@
     "mark_read": "Прочитано",
     "mark_unread": "Не прочитано",
     "marked_read_n": "{} отмечено прочитанным",
-    "marked_unread_n": "{} отмечено непрочитанным"
+    "marked_unread_n": "{} отмечено непрочитанным",
+    "volume_n": "Том {}",
+    "other_chapters": "Прочее",
+    "find_chapter": "Найти главу…",
+    "no_chapter_match": "Подходящих глав нет."
   },
   "cloudflare": {
     "title": "Подтвердите, что вы человек",

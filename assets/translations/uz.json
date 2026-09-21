@@ -1026,7 +1026,11 @@
     "mark_read": "O‘qilgan",
     "mark_unread": "O‘qilmagan",
     "marked_read_n": "{} ta o‘qilgan deb belgilandi",
-    "marked_unread_n": "{} ta o‘qilmagan deb belgilandi"
+    "marked_unread_n": "{} ta o‘qilmagan deb belgilandi",
+    "volume_n": "{}-jild",
+    "other_chapters": "Boshqalar",
+    "find_chapter": "Bobni topish…",
+    "no_chapter_match": "Bunga mos bob yo'q."
   },
   "cloudflare": {
     "title": "Siz odam ekanligingizni tasdiqlang",

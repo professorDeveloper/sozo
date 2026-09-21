@@ -1026,7 +1026,11 @@
     "mark_read": "標為已讀",
     "mark_unread": "標為未讀",
     "marked_read_n": "{} 個標咗已讀",
-    "marked_unread_n": "{} 個標咗未讀"
+    "marked_unread_n": "{} 個標咗未讀",
+    "volume_n": "第 {} 卷",
+    "other_chapters": "其他",
+    "find_chapter": "搵章節…",
+    "no_chapter_match": "冇章節符合。"
   },
   "cloudflare": {
     "title": "驗證你係真人",

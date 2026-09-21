@@ -1026,7 +1026,11 @@
     "mark_read": "Okundu",
     "mark_unread": "Okunmadı",
     "marked_read_n": "{} okundu olarak işaretlendi",
-    "marked_unread_n": "{} okunmadı olarak işaretlendi"
+    "marked_unread_n": "{} okunmadı olarak işaretlendi",
+    "volume_n": "Cilt {}",
+    "other_chapters": "Diğer",
+    "find_chapter": "Bölüm bul…",
+    "no_chapter_match": "Eşleşen bölüm yok."
   },
   "cloudflare": {
     "title": "İnsan olduğunu doğrula",
