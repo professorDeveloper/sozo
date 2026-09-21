@@ -163,6 +163,26 @@ class _DownloadsView extends StatelessWidget {
                 ),
               ),
 
+              // Next to Wi-Fi only, because they are the same kind of setting:
+              // both make the queue slower on purpose, for a reason outside
+              // the app.
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                  child: SettingsDropdownTile<int>(
+                    icon: Icons.hourglass_empty_rounded,
+                    title: 'downloads.cooldown'.tr(),
+                    subtitle: 'downloads.cooldown_desc'.tr(),
+                    value: state.cooldownSeconds,
+                    options: const [0, 5, 15, 30, 60, 120],
+                    labelOf: (v) => v == 0
+                        ? 'downloads.cooldown_off'.tr()
+                        : 'downloads.cooldown_n'.tr(args: ['$v']),
+                    onChanged: (v) => bloc.add(DownloadsCooldownChanged(v)),
+                  ),
+                ),
+              ),
+
               if (state.total > 0)
                 SliverToBoxAdapter(
                   child: DownloadsToolbar(
@@ -274,20 +294,23 @@ class _DownloadsView extends StatelessWidget {
 
     // Every finished chapter of the same title, so the reader can page between
     // them offline instead of stopping at the one that was tapped.
-    final siblings = [
-      for (final group in state.groups)
-        if (group.key == item.groupKey)
-          for (final d in group.items)
-            if (d.isManga && d.status == DownloadStatus.completed) d,
-    ]..sort((a, b) {
-        // By chapter number first: it is the one thing that means the same
-        // wherever the chapter was downloaded from — the reader, a later block
-        // of the list, a list sorted newest-first. The stored index breaks
-        // ties, for sources that number nothing.
-        final byNumber = (a.episodeNumber ?? 0).compareTo(b.episodeNumber ?? 0);
-        if (byNumber != 0) return byNumber;
-        return (a.chapterIndex ?? 0).compareTo(b.chapterIndex ?? 0);
-      });
+    final siblings =
+        [
+          for (final group in state.groups)
+            if (group.key == item.groupKey)
+              for (final d in group.items)
+                if (d.isManga && d.status == DownloadStatus.completed) d,
+        ]..sort((a, b) {
+          // By chapter number first: it is the one thing that means the same
+          // wherever the chapter was downloaded from — the reader, a later block
+          // of the list, a list sorted newest-first. The stored index breaks
+          // ties, for sources that number nothing.
+          final byNumber = (a.episodeNumber ?? 0).compareTo(
+            b.episodeNumber ?? 0,
+          );
+          if (byNumber != 0) return byNumber;
+          return (a.chapterIndex ?? 0).compareTo(b.chapterIndex ?? 0);
+        });
 
     final chapters = [
       for (final d in siblings)

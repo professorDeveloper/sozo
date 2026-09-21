@@ -408,7 +408,8 @@
     "src_search_empty": "{} içinde “{}” için bir şey yok. Başka bir yazım deneyin — romaji ya da dublaj adı.",
     "src_search_slow": "{} zamanında yanıt vermedi. Başlık eksik değil, yavaş olabilir — tekrar deneyin.",
     "src_search_failed": "{} kaynağına ulaşılamadı. Kaynaklar bölümünden kontrol edip tekrar deneyin.",
-    "src_search_unavailable": "{} artık bu cihazda yüklü değil."
+    "src_search_unavailable": "{} artık bu cihazda yüklü değil.",
+    "open_subtitle_file": "Altyazı dosyası aç…"
   },
   "profile": {
     "title": "Profil",
@@ -507,6 +508,7 @@
     "default_fit_desc": "Videonun ekrana nasıl sığacağı",
     "auto_next_episode": "Sonraki bölümü otomatik oynat",
     "auto_next_episode_desc": "Bir bölüm bitince sonrakini başlat",
+    "start_paused": "Duraklatılmış başlat",
     "keep_screen_on": "Ekranı açık tut",
     "keep_screen_on_desc": "İzlerken ekranın kapanmasını engeller",
     "gestures_section": "HAREKETLER",
@@ -575,7 +577,8 @@
     "trackers": "Takipçiler",
     "stat_days": "gün izlendi",
     "mangayomi_sources": "Mangayomi kaynakları",
-    "view_only": "SALT İZLEME"
+    "view_only": "SALT İZLEME",
+    "start_paused_desc": "Oynatıcı açılır ama oynatmaz. Otomatik geçiş yine de oynatır."
   },
   "appearance": {
     "title": "Görünüm",
@@ -1300,7 +1303,11 @@
     "location_sdcard": "SD kart",
     "location_moved": "İndirmeler taşındı",
     "location_unchanged": "Zaten orada",
-    "location_failed": "İndirmeler taşınamadı — oldukları yerde duruyorlar"
+    "location_failed": "İndirmeler taşınamadı — oldukları yerde duruyorlar",
+    "cooldown": "İndirmeler arasında bekleme",
+    "cooldown_desc": "Bazı siteler dosyayı dosya ardına indiren istemciyi engeller. Bekleme bunu yalnızca daha yavaş bir kuyruğa çevirir.",
+    "cooldown_off": "Bekleme yok",
+    "cooldown_n": "{} saniye"
   },
   "history": {
     "clear_title": "Geçmişi temizle",

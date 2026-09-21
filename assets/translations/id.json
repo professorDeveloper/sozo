@@ -408,7 +408,8 @@
     "src_search_empty": "{} tidak punya apa pun untuk “{}”. Coba ejaan lain — romaji, atau nama versi sulih suara.",
     "src_search_slow": "{} tidak menjawab tepat waktu. Mungkin lambat, bukan tidak punya judulnya — coba lagi.",
     "src_search_failed": "{} tidak dapat dihubungi. Periksa sumber di Sumber, lalu coba lagi.",
-    "src_search_unavailable": "{} tidak lagi terpasang di perangkat ini."
+    "src_search_unavailable": "{} tidak lagi terpasang di perangkat ini.",
+    "open_subtitle_file": "Buka berkas subtitle…"
   },
   "profile": {
     "title": "Profil",
@@ -507,6 +508,7 @@
     "default_fit_desc": "Cara video menyesuaikan layar",
     "auto_next_episode": "Putar episode berikutnya otomatis",
     "auto_next_episode_desc": "Mulai episode berikutnya begitu satu selesai",
+    "start_paused": "Mulai dijeda",
     "keep_screen_on": "Biarkan layar menyala",
     "keep_screen_on_desc": "Mencegah layar mati saat menonton",
     "gestures_section": "GESTUR",
@@ -575,7 +577,8 @@
     "trackers": "Pelacak",
     "stat_days": "hari ditonton",
     "mangayomi_sources": "Sumber Mangayomi",
-    "view_only": "HANYA TONTON"
+    "view_only": "HANYA TONTON",
+    "start_paused_desc": "Pemutar terbuka tanpa memutar. Lanjut otomatis tetap memutar."
   },
   "appearance": {
     "title": "Tampilan",
@@ -1300,7 +1303,11 @@
     "location_sdcard": "Kartu SD",
     "location_moved": "Unduhan dipindahkan",
     "location_unchanged": "Sudah di sana",
-    "location_failed": "Unduhan tidak bisa dipindahkan — semuanya masih di tempat semula"
+    "location_failed": "Unduhan tidak bisa dipindahkan — semuanya masih di tempat semula",
+    "cooldown": "Jeda antar unduhan",
+    "cooldown_desc": "Beberapa situs memblokir klien yang mengunduh berkas beruntun. Jeda membuatnya jadi antrean yang lebih lambat saja.",
+    "cooldown_off": "Tanpa jeda",
+    "cooldown_n": "{} detik"
   },
   "history": {
     "clear_title": "Hapus riwayat",

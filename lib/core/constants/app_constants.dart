@@ -80,6 +80,12 @@ class AppConstants {
   /// somebody chose to spend.
   static const String downloadWifiOnlyKey = 'download_wifi_only';
 
+  /// Seconds to wait between one download finishing and the next starting.
+  static const String downloadCooldownKey = 'download_cooldown_seconds';
+
+  /// How a date is written: day first, month first, or ISO.
+  static const String dateFormatKey = 'date_format';
+
   /// Which volume downloads are kept on.
   ///
   /// Holds the VOLUME's base path, not the downloads folder itself, so the
@@ -238,6 +244,9 @@ class AppConstants {
   static const String defaultPlaybackSpeedKey = 'default_playback_speed';
   static const String defaultPlayerFitKey = 'default_player_fit';
   static const String autoPlayNextEpisodeKey = 'auto_play_next_episode';
+
+  /// Open the player without starting it.
+  static const String startPausedKey = 'start_paused';
   static const String doubleTapSeekSecondsKey = 'double_tap_seek_seconds';
   static const String longPressBoostKey = 'long_press_boost';
   static const String brightnessGestureKey = 'brightness_gesture';

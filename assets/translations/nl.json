@@ -408,7 +408,8 @@
     "src_search_empty": "{} heeft niets voor “{}”. Probeer een andere spelling — de romaji of de naam van de nasynchronisatie.",
     "src_search_slow": "{} antwoordde niet op tijd. Misschien is hij traag in plaats van de titel te missen — probeer opnieuw.",
     "src_search_failed": "{} kon niet worden bereikt. Controleer de bron bij Bronnen en probeer het opnieuw.",
-    "src_search_unavailable": "{} is niet meer geïnstalleerd op dit apparaat."
+    "src_search_unavailable": "{} is niet meer geïnstalleerd op dit apparaat.",
+    "open_subtitle_file": "Ondertitelbestand openen…"
   },
   "profile": {
     "title": "Profiel",
@@ -507,6 +508,7 @@
     "default_fit_desc": "Hoe de video op het scherm past",
     "auto_next_episode": "Volgende aflevering automatisch",
     "auto_next_episode_desc": "Start de volgende aflevering zodra er een eindigt",
+    "start_paused": "Gepauzeerd starten",
     "keep_screen_on": "Scherm aan houden",
     "keep_screen_on_desc": "Voorkomt dat het scherm uitgaat tijdens het kijken",
     "gestures_section": "GEBAREN",
@@ -575,7 +577,8 @@
     "trackers": "Trackers",
     "stat_days": "dagen gekeken",
     "mangayomi_sources": "Mangayomi-bronnen",
-    "view_only": "ALLEEN KIJKEN"
+    "view_only": "ALLEEN KIJKEN",
+    "start_paused_desc": "De speler opent zonder af te spelen. Automatisch doorgaan speelt wel."
   },
   "appearance": {
     "title": "Weergave",
@@ -1300,7 +1303,11 @@
     "location_sdcard": "SD-kaart",
     "location_moved": "Downloads verplaatst",
     "location_unchanged": "Staan er al",
-    "location_failed": "De downloads konden niet worden verplaatst — ze staan nog waar ze stonden"
+    "location_failed": "De downloads konden niet worden verplaatst — ze staan nog waar ze stonden",
+    "cooldown": "Pauze tussen downloads",
+    "cooldown_desc": "Sommige sites blokkeren een client die bestand na bestand start. Een pauze maakt er simpelweg een tragere wachtrij van.",
+    "cooldown_off": "Geen pauze",
+    "cooldown_n": "{} seconden"
   },
   "history": {
     "clear_title": "Geschiedenis wissen",

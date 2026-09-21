@@ -408,7 +408,8 @@
     "src_search_empty": "{} da “{}” uchun hech narsa yo‘q. Boshqa imlo bilan urinib ko‘ring — romaji yoki dublyaj nomi.",
     "src_search_slow": "{} vaqtida javob bermadi. Sarlavha yo‘qligidan ko‘ra sekinligi mumkin — qayta urinib ko‘ring.",
     "src_search_failed": "{} ga ulanib bo‘lmadi. Manbalar bo‘limida tekshiring va qayta urinib ko‘ring.",
-    "src_search_unavailable": "{} bu qurilmada endi o‘rnatilmagan."
+    "src_search_unavailable": "{} bu qurilmada endi o‘rnatilmagan.",
+    "open_subtitle_file": "Subtitr faylini ochish…"
   },
   "profile": {
     "title": "Profil",
@@ -507,6 +508,7 @@
     "default_fit_desc": "Video ekranga qanday joylashadi",
     "auto_next_episode": "Keyingi qismni avtomatik ijro etish",
     "auto_next_episode_desc": "Qism tugagach keyingisi boshlanadi",
+    "start_paused": "Pauzada boshlansin",
     "keep_screen_on": "Ekran o‘chmasin",
     "keep_screen_on_desc": "Ko‘rish davomida ekran o‘chib qolmaydi",
     "gestures_section": "IMO-ISHORALAR",
@@ -575,7 +577,8 @@
     "trackers": "Trackerlar",
     "stat_days": "kun ko'rildi",
     "mangayomi_sources": "Mangayomi manbalari",
-    "view_only": "FAQAT KO‘RISH"
+    "view_only": "FAQAT KO‘RISH",
+    "start_paused_desc": "Pleyer ochiladi, lekin o'ynamaydi. Keyingi qismga avtomatik o'tish baribir o'ynaydi."
   },
   "appearance": {
     "title": "Ko'rinish",
@@ -1300,7 +1303,11 @@
     "location_sdcard": "SD karta",
     "location_moved": "Yuklamalar ko'chirildi",
     "location_unchanged": "Allaqachon shu yerda",
-    "location_failed": "Ko'chirib bo'lmadi — yuklamalar joyida qoldi"
+    "location_failed": "Ko'chirib bo'lmadi — yuklamalar joyida qoldi",
+    "cooldown": "Yuklab olishlar orasida tanaffus",
+    "cooldown_desc": "Ba'zi saytlar ketma-ket fayl boshlaydigan mijozni bloklaydi. Tanaffus buni shunchaki sekinroq navbatga aylantiradi.",
+    "cooldown_off": "Tanaffussiz",
+    "cooldown_n": "{} soniya"
   },
   "history": {
     "clear_title": "Tarixni tozalash",

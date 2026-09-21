@@ -85,6 +85,16 @@ class DownloadsLocationChosen extends DownloadsEvent {
   List<Object?> get props => [location.path];
 }
 
+/// How long the queue waits between one file and the next.
+class DownloadsCooldownChanged extends DownloadsEvent {
+  const DownloadsCooldownChanged(this.seconds);
+
+  final int seconds;
+
+  @override
+  List<Object?> get props => [seconds];
+}
+
 class DownloadsWifiOnlyToggled extends DownloadsEvent {
   const DownloadsWifiOnlyToggled(this.value);
   final bool value;

@@ -408,7 +408,8 @@
     "src_search_unavailable": "呢部機已經冇安裝 {}。",
     "resolve_timeout": "來源冇喺時限內回應。試另一個伺服器或者另一個來源。",
     "layout_center": "播放掣附近",
-    "layout_center_full": "播放掣附近冇位喇"
+    "layout_center_full": "播放掣附近冇位喇",
+    "open_subtitle_file": "開字幕檔案…"
   },
   "profile": {
     "title": "個人檔案",
@@ -507,6 +508,7 @@
     "default_fit_desc": "影片點樣配合螢幕",
     "auto_next_episode": "自動播下一集",
     "auto_next_episode_desc": "一集播完就開下一集",
+    "start_paused": "開場暫停",
     "keep_screen_on": "螢幕長亮",
     "keep_screen_on_desc": "睇緊嘅時候唔好熄螢幕",
     "gestures_section": "手勢",
@@ -575,7 +577,8 @@
     "trackers": "追蹤",
     "stat_days": "日睇片",
     "mangayomi_sources": "Mangayomi 來源",
-    "view_only": "只可檢視"
+    "view_only": "只可檢視",
+    "start_paused_desc": "播放器會開，但唔會播。自動下一集照播。"
   },
   "appearance": {
     "title": "外觀",
@@ -1300,7 +1303,11 @@
     "location_sdcard": "SD 卡",
     "location_moved": "下載已搬移",
     "location_unchanged": "已經喺度",
-    "location_failed": "搬唔到啲下載 — 佢哋仲喺原本位置"
+    "location_failed": "搬唔到啲下載 — 佢哋仲喺原本位置",
+    "cooldown": "下載之間嘅間隔",
+    "cooldown_desc": "有啲網站會封鎖一個接一個落檔嘅客戶端。加個間隔就只係慢啲。",
+    "cooldown_off": "冇間隔",
+    "cooldown_n": "{} 秒"
   },
   "history": {
     "clear_title": "清除紀錄",

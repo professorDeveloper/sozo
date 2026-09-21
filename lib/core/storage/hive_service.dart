@@ -408,6 +408,40 @@ class HiveService {
       _settingsBox.get(AppConstants.downloadWifiOnlyKey, defaultValue: false) ==
       true;
 
+  /// How long the queue waits after one download before starting the next.
+  ///
+  /// Zero is the old behaviour and the default. It exists because some hosts
+  /// count requests rather than bytes and hand out a temporary block to a
+  /// client that starts six files back to back — a gap turns a ban into a
+  /// slower queue.
+  int get downloadCooldownSeconds {
+    final raw = _settingsBox.get(
+      AppConstants.downloadCooldownKey,
+      defaultValue: 0,
+    );
+    final value = raw is int ? raw : int.tryParse('$raw') ?? 0;
+    return value.clamp(0, 600);
+  }
+
+  Future<void> setDownloadCooldownSeconds(int value) async {
+    await _settingsBox.put(
+      AppConstants.downloadCooldownKey,
+      value.clamp(0, 600),
+    );
+  }
+
+  /// How dates are written across the app.
+  ///
+  /// Stored as the pattern itself rather than as an enum index, so a locale
+  /// that wants something this app has not thought of is one string away and
+  /// an old stored value keeps meaning what it meant.
+  String get dateFormatPattern =>
+      _settingsBox.get(AppConstants.dateFormatKey, defaultValue: '') as String;
+
+  Future<void> setDateFormatPattern(String pattern) async {
+    await _settingsBox.put(AppConstants.dateFormatKey, pattern);
+  }
+
   Future<void> setDownloadWifiOnly(bool value) async {
     await _settingsBox.put(AppConstants.downloadWifiOnlyKey, value);
     downloadWifiOnlyChanged.value = value;
@@ -554,6 +588,20 @@ class HiveService {
 
   Future<void> setAutoPlayNextEpisode(bool value) async {
     await _settingsBox.put(AppConstants.autoPlayNextEpisodeKey, value);
+  }
+
+  /// Whether the player opens paused rather than playing.
+  ///
+  /// Off by default, because tapping a title is asking to watch it. It is on
+  /// for two real cases: metered data, where half a minute of an autoplaying
+  /// stream is a cost somebody did not agree to, and picking an episode to
+  /// read the description or set a subtitle track before it starts.
+  bool get startPaused =>
+      _settingsBox.get(AppConstants.startPausedKey, defaultValue: false) ==
+      true;
+
+  Future<void> setStartPaused(bool value) async {
+    await _settingsBox.put(AppConstants.startPausedKey, value);
   }
 
   /// Watch without recording what was watched.

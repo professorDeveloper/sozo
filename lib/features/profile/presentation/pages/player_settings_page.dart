@@ -49,6 +49,7 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
   late double _speed;
   late String _fit;
   late bool _autoNext;
+  late bool _startPaused;
   late int _seekSeconds;
   late double _boost;
   late bool _brightnessGesture;
@@ -88,6 +89,7 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
     _speed = _hive.getDefaultPlaybackSpeed();
     _fit = _hive.getDefaultPlayerFit();
     _autoNext = _hive.autoPlayNextEpisode;
+    _startPaused = _hive.startPaused;
     _incognito = _hive.isIncognito;
     _autoSkipIntro = _hive.autoSkipIntro;
     _seekSeconds = _hive.getDoubleTapSeekSeconds();
@@ -235,6 +237,17 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
               ),
               const SettingsDivider(),
               SettingsSwitchTile(
+                icon: Icons.pause_circle_outline_rounded,
+                title: 'profile.start_paused'.tr(),
+                subtitle: 'profile.start_paused_desc'.tr(),
+                value: _startPaused,
+                onChanged: (v) {
+                  setState(() => _startPaused = v);
+                  _hive.setStartPaused(v);
+                },
+              ),
+              const SettingsDivider(),
+              SettingsSwitchTile(
                 icon: Icons.lightbulb_outline_rounded,
                 title: 'profile.keep_screen_on'.tr(),
                 subtitle: 'profile.keep_screen_on_desc'.tr(),
@@ -377,14 +390,18 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
               SettingsDropdownTile<String>(
                 icon: Icons.language_rounded,
                 title: 'player.translate_to'.tr(),
-                value: kSubtitleTranslateLanguages
-                        .any((l) => l.$1 == _translateLang)
+                value:
+                    kSubtitleTranslateLanguages.any(
+                      (l) => l.$1 == _translateLang,
+                    )
                     ? _translateLang
                     : 'uz',
                 options: [for (final l in kSubtitleTranslateLanguages) l.$1],
                 labelOf: (v) => kSubtitleTranslateLanguages
-                    .firstWhere((l) => l.$1 == v,
-                        orElse: () => kSubtitleTranslateLanguages.first)
+                    .firstWhere(
+                      (l) => l.$1 == v,
+                      orElse: () => kSubtitleTranslateLanguages.first,
+                    )
                     .$2,
                 onChanged: (v) {
                   setState(() => _translateLang = v);
@@ -511,7 +528,7 @@ class _SubtitlePreview extends StatelessWidget {
           style: TextStyle(
             color: color,
             fontSize: style.fontSize,
-        fontFamily: style.font.family,
+            fontFamily: style.font.family,
             fontWeight: style.bold ? FontWeight.w700 : FontWeight.w400,
             shadows: switch (style.edge) {
               SubtitleEdge.none => const <Shadow>[],

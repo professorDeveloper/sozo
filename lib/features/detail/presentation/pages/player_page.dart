@@ -15,6 +15,7 @@ import 'package:soplay/core/network/fetch_metadata.dart';
 import 'package:soplay/core/network/user_agent.dart';
 import 'dart:async';
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 
 import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -425,6 +426,15 @@ class _PlayerPageState extends State<PlayerPage>
   /// without this the end-of-episode bookkeeping ran a dozen times in a row.
   /// Reset alongside [_countedComplete].
   bool _endHandled = false;
+
+  /// This episode was reached by auto-advance rather than by being opened.
+  ///
+  /// Read only by the "start paused" preference, which is about the app
+  /// starting a stream on its own when a page is opened — not about refusing
+  /// to continue a run somebody is already watching. Never reset: once a
+  /// session has advanced, everything after it in that session is a
+  /// continuation.
+  bool _autoAdvanced = false;
 
   double _playbackSpeed = 1.0;
 

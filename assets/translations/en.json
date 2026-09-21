@@ -408,7 +408,8 @@
     "src_search_unavailable": "{} is not installed on this device any more.",
     "resolve_timeout": "The source did not answer in time. Try another server or another source.",
     "layout_center": "Around play",
-    "layout_center_full": "No room left around play"
+    "layout_center_full": "No room left around play",
+    "open_subtitle_file": "Open a subtitle file…"
   },
   "profile": {
     "title": "Profile",
@@ -507,6 +508,7 @@
     "default_fit_desc": "How video fits the screen",
     "auto_next_episode": "Auto-play next episode",
     "auto_next_episode_desc": "Start the next episode when one ends",
+    "start_paused": "Start paused",
     "keep_screen_on": "Keep screen on",
     "keep_screen_on_desc": "Stop the screen turning off while watching",
     "gestures_section": "GESTURES",
@@ -575,7 +577,8 @@
     "trackers": "Trackers",
     "stat_days": "days watched",
     "mangayomi_sources": "Mangayomi Sources",
-    "view_only": "VIEW ONLY"
+    "view_only": "VIEW ONLY",
+    "start_paused_desc": "Open the player without playing. Auto-advance still plays."
   },
   "appearance": {
     "title": "Appearance",
@@ -1300,7 +1303,11 @@
     "location_sdcard": "SD card",
     "location_moved": "Downloads moved",
     "location_unchanged": "Already there",
-    "location_failed": "Could not move the downloads — they are still where they were"
+    "location_failed": "Could not move the downloads — they are still where they were",
+    "cooldown": "Pause between downloads",
+    "cooldown_desc": "Some sites block a client that starts file after file. A gap turns that into a slower queue.",
+    "cooldown_off": "No pause",
+    "cooldown_n": "{} seconds"
   },
   "history": {
     "clear_title": "Clear History",

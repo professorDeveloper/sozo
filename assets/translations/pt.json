@@ -408,7 +408,8 @@
     "src_search_empty": "{} não tem nada para «{}». Tente outra grafia — o romaji, ou o nome da dobragem.",
     "src_search_slow": "{} não respondeu a tempo. Pode ser lenta em vez de não ter o título — tente de novo.",
     "src_search_failed": "Não foi possível contactar {}. Verifique a fonte em Fontes e tente de novo.",
-    "src_search_unavailable": "{} já não está instalada neste dispositivo."
+    "src_search_unavailable": "{} já não está instalada neste dispositivo.",
+    "open_subtitle_file": "Abrir um arquivo de legendas…"
   },
   "profile": {
     "title": "Perfil",
@@ -507,6 +508,7 @@
     "default_fit_desc": "Como o vídeo se encaixa na tela",
     "auto_next_episode": "Tocar o próximo episódio",
     "auto_next_episode_desc": "Começa o próximo episódio quando um termina",
+    "start_paused": "Começar pausado",
     "keep_screen_on": "Manter a tela ligada",
     "keep_screen_on_desc": "Impede que a tela apague enquanto você assiste",
     "gestures_section": "GESTOS",
@@ -575,7 +577,8 @@
     "trackers": "Rastreadores",
     "stat_days": "dias assistidos",
     "mangayomi_sources": "Fontes do Mangayomi",
-    "view_only": "SÓ VER"
+    "view_only": "SÓ VER",
+    "start_paused_desc": "O player abre sem reproduzir. O avanço automático continua tocando."
   },
   "appearance": {
     "title": "Aparência",
@@ -1300,7 +1303,11 @@
     "location_sdcard": "Cartão SD",
     "location_moved": "Downloads movidos",
     "location_unchanged": "Já estavam lá",
-    "location_failed": "Não foi possível mover os downloads — eles continuam onde estavam"
+    "location_failed": "Não foi possível mover os downloads — eles continuam onde estavam",
+    "cooldown": "Pausa entre downloads",
+    "cooldown_desc": "Alguns sites bloqueiam quem baixa arquivo após arquivo. Uma pausa transforma isso numa fila mais lenta.",
+    "cooldown_off": "Sem pausa",
+    "cooldown_n": "{} segundos"
   },
   "history": {
     "clear_title": "Limpar histórico",

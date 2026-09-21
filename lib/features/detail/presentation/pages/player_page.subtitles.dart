@@ -48,6 +48,36 @@ extension _PlayerSubtitles on _PlayerPageState {
       return (cues == null || cues.isEmpty) ? null : cues;
     }
 
+    // A file off this device. Read rather than fetched, and then handed to
+    // exactly the same parser — the charset guessing, the archive handling and
+    // every failure message are the part that matters, and none of it cares
+    // where the bytes came from.
+    if (!sub.file.startsWith('http')) {
+      try {
+        final bytes = await File(sub.file).readAsBytes();
+        if (!mounted) return null;
+        final local = parseSubtitleBytes(
+          bytes,
+          url: sub.file,
+          declaredFormat: declaredFormat,
+        );
+        if (!local.isSuccess) {
+          _plog(
+            'subtitle parse failed: ${local.failure}',
+            level: LogLevel.warn,
+          );
+          _toast(_subtitleFailureMessage(local.failure));
+          return null;
+        }
+        return local.captions;
+      } catch (e) {
+        _plog('subtitle read error: $e', level: LogLevel.warn);
+        if (!mounted) return null;
+        _toast('player.subtitle_failed_download'.tr());
+        return null;
+      }
+    }
+
     SubtitleParseResult result;
     try {
       // ResponseType.bytes: Dio's string transformer always runs
@@ -211,6 +241,27 @@ extension _PlayerSubtitles on _PlayerPageState {
                   _searchOnlineSubtitles();
                 },
               ),
+              // Below the online search, because it is the answer when that
+              // one fails — but not hidden behind it, because for anybody who
+              // downloads their own subtitles it is the only row here that
+              // works every time.
+              if (!isTvPlatform)
+                ListTile(
+                  focusColor: _kTvFocusFill,
+                  leading: const Icon(
+                    Icons.folder_open_rounded,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                  title: Text(
+                    'player.open_subtitle_file'.tr(),
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _pickLocalSubtitle();
+                  },
+                ),
               // AI translate, surfaced in the main menu — tinted so it reads as
               // the standout action, not another neutral row.
               ListTile(
@@ -381,6 +432,47 @@ extension _PlayerSubtitles on _PlayerPageState {
       if (n != null && n > 0) return n;
     }
     return null;
+  }
+
+  /// A subtitle file the viewer already has.
+  ///
+  /// The case the online search cannot answer: a fansub nobody uploaded to
+  /// OpenSubtitles, a file that came with a download, a track somebody typed
+  /// themselves. It is a track like any other once it is loaded — it joins
+  /// [_subtitles], so it can be selected, made the second track, or restyled,
+  /// with no separate path through any of that.
+  Future<void> _pickLocalSubtitle() async {
+    FilePickerResult? picked;
+    try {
+      picked = await FilePicker.pickFiles(
+        // `custom` with extensions, not `any`: a file manager that lets you
+        // choose a JPEG for a subtitle track is offering a mistake.
+        type: FileType.custom,
+        allowedExtensions: const ['srt', 'vtt', 'ass', 'ssa', 'sub', 'txt'],
+        withData: false,
+      );
+    } catch (e) {
+      // Some Android file providers reject a filtered pick outright. Asking
+      // for anything is better than the button doing nothing.
+      _plog('subtitle picker error: $e', level: LogLevel.warn);
+      picked = await FilePicker.pickFiles(withData: false);
+    }
+    final path = picked?.files.singleOrNull?.path;
+    if (path == null || path.isEmpty || !mounted) return;
+
+    final name = path.split(Platform.pathSeparator).last;
+    final entity = SubtitleEntity(label: name, file: path);
+    setState(() => _subtitles = [..._subtitles, entity]);
+    final added = _subtitles.length - 1;
+    final ok = await _loadSubtitle(added);
+    if (!mounted) return;
+    if (ok) {
+      _toast('player.subtitle_loaded'.tr());
+    } else if (added < _subtitles.length && _activeSubtitleIndex != added) {
+      // A file that would not parse must not be left in the list: a row that
+      // fails every time it is tapped is worse than no row.
+      setState(() => _subtitles = [..._subtitles]..removeAt(added));
+    }
   }
 
   Future<void> _searchOnlineSubtitles() async {

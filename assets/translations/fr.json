@@ -408,7 +408,8 @@
     "src_search_empty": "{} n'a rien pour « {} ». Essayez une autre orthographe — le romaji, ou le nom du doublage.",
     "src_search_slow": "{} n'a pas répondu à temps. Elle est peut-être lente plutôt que sans le titre — réessayez.",
     "src_search_failed": "Impossible de joindre {}. Vérifiez la source dans Sources, puis réessayez.",
-    "src_search_unavailable": "{} n'est plus installée sur cet appareil."
+    "src_search_unavailable": "{} n'est plus installée sur cet appareil.",
+    "open_subtitle_file": "Ouvrir un fichier de sous-titres…"
   },
   "profile": {
     "title": "Profil",
@@ -507,6 +508,7 @@
     "default_fit_desc": "Comment la vidéo s’adapte à l’écran",
     "auto_next_episode": "Lire l’épisode suivant",
     "auto_next_episode_desc": "Démarre l’épisode suivant quand un épisode se termine",
+    "start_paused": "Démarrer en pause",
     "keep_screen_on": "Garder l’écran allumé",
     "keep_screen_on_desc": "Empêche l’écran de s’éteindre pendant la lecture",
     "gestures_section": "GESTES",
@@ -575,7 +577,8 @@
     "trackers": "Trackers",
     "stat_days": "jours regardés",
     "mangayomi_sources": "Sources Mangayomi",
-    "view_only": "LECTURE SEULE"
+    "view_only": "LECTURE SEULE",
+    "start_paused_desc": "Le lecteur s'ouvre sans lancer la lecture. L'épisode suivant démarre quand même."
   },
   "appearance": {
     "title": "Apparence",
@@ -1300,7 +1303,11 @@
     "location_sdcard": "Carte SD",
     "location_moved": "Téléchargements déplacés",
     "location_unchanged": "Déjà là",
-    "location_failed": "Impossible de déplacer les téléchargements — ils sont restés où ils étaient"
+    "location_failed": "Impossible de déplacer les téléchargements — ils sont restés où ils étaient",
+    "cooldown": "Pause entre les téléchargements",
+    "cooldown_desc": "Certains sites bloquent un client qui enchaîne les fichiers. Une pause en fait simplement une file plus lente.",
+    "cooldown_off": "Aucune pause",
+    "cooldown_n": "{} secondes"
   },
   "history": {
     "clear_title": "Effacer l’historique",

@@ -140,6 +140,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
     _connectivity?.cancel();
     _hive.downloadWifiOnlyChanged.removeListener(_pump);
     _nativePoll?.cancel();
+    _cooldownTimer?.cancel();
     _transfer.dispose();
   }
 
@@ -407,6 +408,25 @@ class DownloadRepositoryImpl implements DownloadRepository {
   }
 
   void _pumpNow() {
+    // A gap between one file and the next, when one has been asked for.
+    //
+    // Some hosts count requests rather than bytes and hand a temporary block
+    // to a client that opens six connections back to back — which looks, from
+    // inside the app, like the source suddenly breaking. Zero is the default
+    // and skips this entirely: the queue starts the next item the instant a
+    // slot frees, which is what everybody who is not being rate-limited wants.
+    final cooldown = _hive.downloadCooldownSeconds;
+    if (cooldown > 0 && _cooldownUntil != null) {
+      final left = _cooldownUntil!.difference(DateTime.now());
+      if (!left.isNegative) {
+        // Rescheduled rather than dropped: this is the only thing that will
+        // restart the queue, since nothing else is going to fire.
+        _cooldownTimer?.cancel();
+        _cooldownTimer = Timer(left, _pump);
+        return;
+      }
+      _cooldownUntil = null;
+    }
     while (_running.length < maxConcurrent && _queue.isNotEmpty) {
       final id = _queue.removeAt(0);
       final item = _local.get(id);
@@ -415,6 +435,12 @@ class DownloadRepositoryImpl implements DownloadRepository {
       unawaited(
         _start(item).whenComplete(() {
           _running.remove(id);
+          // Measured from the finish, not the start: the point is the gap
+          // between requests, and a long file has already provided one.
+          final wait = _hive.downloadCooldownSeconds;
+          if (wait > 0 && _queue.isNotEmpty) {
+            _cooldownUntil = DateTime.now().add(Duration(seconds: wait));
+          }
           // Draining from here rather than from a timer means the next item
           // starts the instant a slot frees.
           _pump();
@@ -422,6 +448,10 @@ class DownloadRepositoryImpl implements DownloadRepository {
       );
     }
   }
+
+  /// When the queue may start another file. Null when nothing is waiting.
+  DateTime? _cooldownUntil;
+  Timer? _cooldownTimer;
 
   Future<bool> _networkAllows() async {
     if (!_hive.downloadWifiOnly) return true;
@@ -1008,7 +1038,9 @@ class DownloadRepositoryImpl implements DownloadRepository {
                   d.provider == item.provider,
             )
             .toList()
-          ..sort((a, b) => (a.episodeNumber ?? 0).compareTo(b.episodeNumber ?? 0));
+          ..sort(
+            (a, b) => (a.episodeNumber ?? 0).compareTo(b.episodeNumber ?? 0),
+          );
     if (siblings.isEmpty) return null;
 
     final chapters = <EpubChapter>[];
@@ -1047,7 +1079,9 @@ class DownloadRepositoryImpl implements DownloadRepository {
     // Written into the app's own space first. The exporter copies a path out;
     // it has no way to be handed bytes, and inventing one for this would mean a
     // second platform channel doing what this one already does.
-    final staged = File('${(await _storage.ensureDir(item.id)).path}/export.epub');
+    final staged = File(
+      '${(await _storage.ensureDir(item.id)).path}/export.epub',
+    );
     await staged.writeAsBytes(bytes, flush: true);
     try {
       return await _native.exportToDownloads(
@@ -1091,9 +1125,8 @@ class DownloadRepositoryImpl implements DownloadRepository {
       // document; the reader is handed a string, not a directory, so they are
       // made absolute here — the one place that knows where the folder is.
       return DownloadTransferDataSource.rewriteImageSources(html, {
-        for (final entity in Directory(_storage.dirOf(id)).listSync()) 
-          if (entity is File)
-            entity.uri.pathSegments.last: entity.path,
+        for (final entity in Directory(_storage.dirOf(id)).listSync())
+          if (entity is File) entity.uri.pathSegments.last: entity.path,
       });
     } catch (e) {
       debugPrint('[downloads] could not read chapter html for $id: $e');

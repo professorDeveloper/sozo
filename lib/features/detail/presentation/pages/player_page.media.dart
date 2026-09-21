@@ -1063,7 +1063,7 @@ extension _PlayerMedia on _PlayerPageState {
       setState(() {
         _initializing = false;
         _errorMessage = null;
-      _errorRaw = null;
+        _errorRaw = null;
         _isCodecError = false;
       });
       await _handOffToExternalPlayer();
@@ -1232,7 +1232,14 @@ extension _PlayerMedia on _PlayerPageState {
           await controller.seekTo(resumeAt);
         }
         if (!mounted || generation != _mediaGeneration) return;
-        await controller.play();
+        // Paused, if that is what was asked for — but only for the episode
+        // somebody opened. An auto-advance is already playing by definition:
+        // the preference is about the app starting a stream on its own when a
+        // page is opened, and refusing to continue a run somebody is already
+        // watching would be a different setting entirely.
+        if (!_hive.startPaused || _autoAdvanced) {
+          await controller.play();
+        }
       }
       _plog('play started — total ${stopwatch.elapsedMilliseconds}ms');
       // Against the source that SERVED this, which is the whole point.
@@ -1271,7 +1278,7 @@ extension _PlayerMedia on _PlayerPageState {
       setState(() {
         _initializing = false;
         _errorMessage = null;
-      _errorRaw = null;
+        _errorRaw = null;
         _isCodecError = false;
       });
       _scheduleHide();
@@ -1360,10 +1367,7 @@ extension _PlayerMedia on _PlayerPageState {
           hasUntriedSource: _hasUntriedSource,
         );
         if (action == RetryAction.nextSource && _hasUntriedSource) {
-          _plog(
-            'refused here, trying another source',
-            level: LogLevel.warn,
-          );
+          _plog('refused here, trying another source', level: LogLevel.warn);
           _retryAttempts++;
           _lifetimeRetries++;
           _autoRetrying = true;
@@ -1568,6 +1572,9 @@ extension _PlayerMedia on _PlayerPageState {
             widget.args.isSerial &&
             _hasNextEpisode) {
           _saveHistoryForNextEpisode();
+          // Marks the next load as a continuation rather than an opening, so
+          // "start paused" does not stop a run that is already going.
+          _autoAdvanced = true;
           _loadEpisode(_episodeIndex + 1);
           return;
         }
@@ -1674,7 +1681,7 @@ extension _PlayerMedia on _PlayerPageState {
         _initializing = true;
         _stage = _LoadingStage.loading;
         _errorMessage = null;
-      _errorRaw = null;
+        _errorRaw = null;
         _isCodecError = false;
         _currentSourceIndex = nextIdx;
         _currentQuality = next.quality;
@@ -1818,7 +1825,7 @@ extension _PlayerMedia on _PlayerPageState {
         _initializing = true;
         _stage = _LoadingStage.loading;
         _errorMessage = null;
-      _errorRaw = null;
+        _errorRaw = null;
         _isCodecError = false;
       });
       final generation = await _disposeController();

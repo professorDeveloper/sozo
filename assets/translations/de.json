@@ -408,7 +408,8 @@
     "src_search_empty": "{} hat nichts zu „{}“. Versuch eine andere Schreibweise — das Romaji oder den Namen der Synchronfassung.",
     "src_search_slow": "{} hat nicht rechtzeitig geantwortet. Sie ist vielleicht nur langsam — versuch es erneut.",
     "src_search_failed": "{} war nicht erreichbar. Prüfe die Quelle unter Quellen und versuch es erneut.",
-    "src_search_unavailable": "{} ist auf diesem Gerät nicht mehr installiert."
+    "src_search_unavailable": "{} ist auf diesem Gerät nicht mehr installiert.",
+    "open_subtitle_file": "Untertiteldatei öffnen …"
   },
   "profile": {
     "title": "Profil",
@@ -507,6 +508,7 @@
     "default_fit_desc": "Wie das Video den Bildschirm füllt",
     "auto_next_episode": "Nächste Folge automatisch",
     "auto_next_episode_desc": "Die nächste Folge starten, wenn eine endet",
+    "start_paused": "Pausiert starten",
     "keep_screen_on": "Bildschirm anlassen",
     "keep_screen_on_desc": "Verhindert, dass sich der Bildschirm beim Schauen ausschaltet",
     "gestures_section": "GESTEN",
@@ -575,7 +577,8 @@
     "trackers": "Tracker",
     "stat_days": "Tage gesehen",
     "mangayomi_sources": "Mangayomi-Quellen",
-    "view_only": "NUR ANSEHEN"
+    "view_only": "NUR ANSEHEN",
+    "start_paused_desc": "Der Player öffnet, spielt aber nicht. Das automatische Weiterspielen läuft trotzdem."
   },
   "appearance": {
     "title": "Darstellung",
@@ -1300,7 +1303,11 @@
     "location_sdcard": "SD-Karte",
     "location_moved": "Downloads verschoben",
     "location_unchanged": "Schon dort",
-    "location_failed": "Die Downloads ließen sich nicht verschieben — sie liegen noch, wo sie waren"
+    "location_failed": "Die Downloads ließen sich nicht verschieben — sie liegen noch, wo sie waren",
+    "cooldown": "Pause zwischen Downloads",
+    "cooldown_desc": "Manche Seiten sperren einen Client, der Datei um Datei startet. Eine Pause macht daraus nur eine langsamere Warteschlange.",
+    "cooldown_off": "Keine Pause",
+    "cooldown_n": "{} Sekunden"
   },
   "history": {
     "clear_title": "Verlauf löschen",
