@@ -173,6 +173,11 @@ dependencies:
 
 dev_dependencies:
   shared_preferences: 2.5.5
+  # Declared for the tests only. The app reaches DateFormat through
+  # easy_localization's re-export, but `date_symbol_data_local` is not part of
+  # that — and without it a test that checks a non-English date order is
+  # checking English twice.
+  intl: any
   flutter_test:
     sdk: flutter
   integration_test:

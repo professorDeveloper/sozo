@@ -578,7 +578,10 @@
     "stat_days": "أيام مشاهدة",
     "mangayomi_sources": "مصادر Mangayomi",
     "view_only": "للمشاهدة فقط",
-    "start_paused_desc": "يفتح المشغّل دون تشغيل. الانتقال التلقائي يشتغل كالمعتاد."
+    "start_paused_desc": "يفتح المشغّل دون تشغيل. الانتقال التلقائي يشتغل كالمعتاد.",
+    "date_format": "تنسيق التاريخ",
+    "date_format_desc": "وإلّا فاللغة هي التي تحدّد ذلك.",
+    "date_format_auto": "حسب اللغة"
   },
   "appearance": {
     "title": "المظهر",

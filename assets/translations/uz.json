@@ -578,7 +578,10 @@
     "stat_days": "kun ko'rildi",
     "mangayomi_sources": "Mangayomi manbalari",
     "view_only": "FAQAT KO‘RISH",
-    "start_paused_desc": "Pleyer ochiladi, lekin o'ynamaydi. Keyingi qismga avtomatik o'tish baribir o'ynaydi."
+    "start_paused_desc": "Pleyer ochiladi, lekin o'ynamaydi. Keyingi qismga avtomatik o'tish baribir o'ynaydi.",
+    "date_format": "Sana formati",
+    "date_format_desc": "Aks holda buni til sozlamasi belgilaydi.",
+    "date_format_auto": "Tilga moslash"
   },
   "appearance": {
     "title": "Ko'rinish",

@@ -578,7 +578,10 @@
     "stat_days": "hari ditonton",
     "mangayomi_sources": "Sumber Mangayomi",
     "view_only": "HANYA TONTON",
-    "start_paused_desc": "Pemutar terbuka tanpa memutar. Lanjut otomatis tetap memutar."
+    "start_paused_desc": "Pemutar terbuka tanpa memutar. Lanjut otomatis tetap memutar.",
+    "date_format": "Format tanggal",
+    "date_format_desc": "Jika tidak diatur, bahasa yang menentukan.",
+    "date_format_auto": "Ikuti bahasa"
   },
   "appearance": {
     "title": "Tampilan",

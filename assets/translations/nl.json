@@ -578,7 +578,10 @@
     "stat_days": "dagen gekeken",
     "mangayomi_sources": "Mangayomi-bronnen",
     "view_only": "ALLEEN KIJKEN",
-    "start_paused_desc": "De speler opent zonder af te spelen. Automatisch doorgaan speelt wel."
+    "start_paused_desc": "De speler opent zonder af te spelen. Automatisch doorgaan speelt wel.",
+    "date_format": "Datumnotatie",
+    "date_format_desc": "Anders bepaalt de taal dit.",
+    "date_format_auto": "Volg de taal"
   },
   "appearance": {
     "title": "Weergave",

@@ -578,7 +578,10 @@
     "stat_days": "Tage gesehen",
     "mangayomi_sources": "Mangayomi-Quellen",
     "view_only": "NUR ANSEHEN",
-    "start_paused_desc": "Der Player öffnet, spielt aber nicht. Das automatische Weiterspielen läuft trotzdem."
+    "start_paused_desc": "Der Player öffnet, spielt aber nicht. Das automatische Weiterspielen läuft trotzdem.",
+    "date_format": "Datumsformat",
+    "date_format_desc": "Sonst entscheidet das die Sprache.",
+    "date_format_auto": "Der Sprache folgen"
   },
   "appearance": {
     "title": "Darstellung",

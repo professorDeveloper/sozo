@@ -578,7 +578,10 @@
     "stat_days": "日睇片",
     "mangayomi_sources": "Mangayomi 來源",
     "view_only": "只可檢視",
-    "start_paused_desc": "播放器會開，但唔會播。自動下一集照播。"
+    "start_paused_desc": "播放器會開，但唔會播。自動下一集照播。",
+    "date_format": "日期格式",
+    "date_format_desc": "唔揀嘅話由語言決定。",
+    "date_format_auto": "跟語言"
   },
   "appearance": {
     "title": "外觀",

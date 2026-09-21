@@ -578,7 +578,10 @@
     "stat_days": "jours regardés",
     "mangayomi_sources": "Sources Mangayomi",
     "view_only": "LECTURE SEULE",
-    "start_paused_desc": "Le lecteur s'ouvre sans lancer la lecture. L'épisode suivant démarre quand même."
+    "start_paused_desc": "Le lecteur s'ouvre sans lancer la lecture. L'épisode suivant démarre quand même.",
+    "date_format": "Format de date",
+    "date_format_desc": "Sinon, c'est la langue qui décide.",
+    "date_format_auto": "Suivre la langue"
   },
   "appearance": {
     "title": "Apparence",

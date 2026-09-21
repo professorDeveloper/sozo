@@ -578,7 +578,10 @@
     "stat_days": "days watched",
     "mangayomi_sources": "Mangayomi Sources",
     "view_only": "VIEW ONLY",
-    "start_paused_desc": "Open the player without playing. Auto-advance still plays."
+    "start_paused_desc": "Open the player without playing. Auto-advance still plays.",
+    "date_format": "Date format",
+    "date_format_desc": "The language decides this unless you say otherwise.",
+    "date_format_auto": "Follow the language"
   },
   "appearance": {
     "title": "Appearance",

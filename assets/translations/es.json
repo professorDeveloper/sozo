@@ -578,7 +578,10 @@
     "stat_days": "días vistos",
     "mangayomi_sources": "Fuentes de Mangayomi",
     "view_only": "SOLO VER",
-    "start_paused_desc": "El reproductor abre sin reproducir. El avance automático sí reproduce."
+    "start_paused_desc": "El reproductor abre sin reproducir. El avance automático sí reproduce.",
+    "date_format": "Formato de fecha",
+    "date_format_desc": "Si no eliges, lo decide el idioma.",
+    "date_format_auto": "Seguir el idioma"
   },
   "appearance": {
     "title": "Apariencia",

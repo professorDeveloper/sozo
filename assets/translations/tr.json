@@ -578,7 +578,10 @@
     "stat_days": "gün izlendi",
     "mangayomi_sources": "Mangayomi kaynakları",
     "view_only": "SALT İZLEME",
-    "start_paused_desc": "Oynatıcı açılır ama oynatmaz. Otomatik geçiş yine de oynatır."
+    "start_paused_desc": "Oynatıcı açılır ama oynatmaz. Otomatik geçiş yine de oynatır.",
+    "date_format": "Tarih biçimi",
+    "date_format_desc": "Aksi hâlde bunu dil belirler.",
+    "date_format_auto": "Dile uy"
   },
   "appearance": {
     "title": "Görünüm",

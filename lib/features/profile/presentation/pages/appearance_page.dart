@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/app_dates.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_accent.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -59,6 +61,8 @@ class AppearanceSettings extends StatefulWidget {
 }
 
 class _AppearanceSettingsState extends State<AppearanceSettings> {
+  late String _dateFormat = getIt<HiveService>().dateFormatPattern;
+
   final ThemeController _theme = getIt<ThemeController>();
 
   /// Held in the State, not started in build(): this page rebuilds on every
@@ -174,6 +178,24 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
                 onChanged: _setNavTinted,
               ),
               const SettingsDivider(),
+              // The sample, not the pattern: "dd/MM/yyyy" means nothing to
+              // most people, and "22/09/2026" is the question they are
+              // actually being asked.
+              SettingsDropdownTile<String>(
+                icon: Icons.event_rounded,
+                title: 'profile.date_format'.tr(),
+                subtitle: 'profile.date_format_desc'.tr(),
+                value: _dateFormat,
+                options: AppDates.choices,
+                labelOf: (p) => p.isEmpty
+                    ? 'profile.date_format_auto'.tr()
+                    : AppDates.sample(p, context.locale.toString()),
+                onChanged: (p) {
+                  setState(() => _dateFormat = p);
+                  getIt<HiveService>().setDateFormatPattern(p);
+                },
+              ),
+              const SettingsDivider(),
               _ActionRow(
                 icon: Icons.shuffle_rounded,
                 title: 'appearance.shuffle'.tr(),
@@ -282,10 +304,17 @@ class _CustomAccentRow extends StatelessWidget {
   /// Hues around the wheel chip. Twelve is enough for the sweep to read as
   /// continuous at this size.
   static const List<Color> _wheel = [
-    Color(0xFFE53935), Color(0xFFF4511E), Color(0xFFFFB300),
-    Color(0xFFC0CA33), Color(0xFF43A047), Color(0xFF00897B),
-    Color(0xFF039BE5), Color(0xFF3949AB), Color(0xFF8E24AA),
-    Color(0xFFD81B60), Color(0xFFE53935),
+    Color(0xFFE53935),
+    Color(0xFFF4511E),
+    Color(0xFFFFB300),
+    Color(0xFFC0CA33),
+    Color(0xFF43A047),
+    Color(0xFF00897B),
+    Color(0xFF039BE5),
+    Color(0xFF3949AB),
+    Color(0xFF8E24AA),
+    Color(0xFFD81B60),
+    Color(0xFFE53935),
   ];
 
   @override
@@ -420,43 +449,43 @@ class _CurrentAccentRow extends StatelessWidget {
         .substring(2)
         .toUpperCase();
     return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Row(
-            children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: accent.base,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppColors.textPrimary.withValues(alpha: 0.12),
-                  ),
-                ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              color: accent.base,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.textPrimary.withValues(alpha: 0.12),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  accent.labelKey.tr(),
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Text(
-                '#$hex',
-                style: const TextStyle(
-                  color: AppColors.textHint,
-                  fontSize: 12.5,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                  letterSpacing: 0.4,
-                ),
-              ),
-            ],
+            ),
           ),
-        );
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              accent.labelKey.tr(),
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            '#$hex',
+            style: const TextStyle(
+              color: AppColors.textHint,
+              fontSize: 12.5,
+              fontFeatures: [FontFeature.tabularFigures()],
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -510,7 +539,7 @@ class _LibraryAccentSection extends StatelessWidget {
                               const columns = 6;
                               final size =
                                   (constraints.maxWidth - gap * (columns - 1)) /
-                                      columns;
+                                  columns;
                               return Wrap(
                                 spacing: gap,
                                 runSpacing: gap,
@@ -519,11 +548,12 @@ class _LibraryAccentSection extends StatelessWidget {
                                     _Swatch(
                                       size: size,
                                       color: accent.base,
-                                      selected: selected.isCustom &&
+                                      selected:
+                                          selected.isCustom &&
                                           selected.base == accent.base,
                                       onTap: () => onPick(accent),
-                                      semanticLabel:
-                                          'appearance.accent_custom'.tr(),
+                                      semanticLabel: 'appearance.accent_custom'
+                                          .tr(),
                                     ),
                                 ],
                               );
@@ -725,8 +755,9 @@ class _DarknessTile extends StatelessWidget {
                             ? AppColors.textPrimary
                             : AppColors.textSecondary,
                         fontSize: 13,
-                        fontWeight:
-                            selected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                       ),
                     ),
                   ),
@@ -948,11 +979,16 @@ class _CustomAccentSheetState extends State<_CustomAccentSheet> {
                 value: _hsl.hue / 360,
                 thumbColor: HSLColor.fromAHSL(1, _hsl.hue, 1, 0.5).toColor(),
                 gradient: const [
-                  Color(0xFFFF0000), Color(0xFFFFFF00), Color(0xFF00FF00),
-                  Color(0xFF00FFFF), Color(0xFF0000FF), Color(0xFFFF00FF),
+                  Color(0xFFFF0000),
+                  Color(0xFFFFFF00),
+                  Color(0xFF00FF00),
+                  Color(0xFF00FFFF),
+                  Color(0xFF0000FF),
+                  Color(0xFFFF00FF),
                   Color(0xFFFF0000),
                 ],
-                onChanged: (t) => _update(_hsl.withHue((t * 360).clamp(0, 360))),
+                onChanged: (t) =>
+                    _update(_hsl.withHue((t * 360).clamp(0, 360))),
               ),
               const SizedBox(height: 14),
               _GradientSlider(
@@ -972,7 +1008,12 @@ class _CustomAccentSheetState extends State<_CustomAccentSheet> {
                 thumbColor: _seed,
                 gradient: [
                   Colors.black,
-                  HSLColor.fromAHSL(1, _hsl.hue, _hsl.saturation, 0.5).toColor(),
+                  HSLColor.fromAHSL(
+                    1,
+                    _hsl.hue,
+                    _hsl.saturation,
+                    0.5,
+                  ).toColor(),
                   Colors.white,
                 ],
                 onChanged: (t) => _update(_hsl.withLightness(t)),
@@ -1109,14 +1150,18 @@ class _GradientSlider extends StatelessWidget {
                           borderRadius: BorderRadius.circular(_trackHeight / 2),
                           gradient: LinearGradient(colors: gradient),
                           border: Border.all(
-                            color: AppColors.textPrimary.withValues(alpha: 0.10),
+                            color: AppColors.textPrimary.withValues(
+                              alpha: 0.10,
+                            ),
                             width: 0.5,
                           ),
                         ),
                       ),
                     ),
                     Positioned(
-                      left: usable.clamp(0, double.infinity) * value.clamp(0.0, 1.0),
+                      left:
+                          usable.clamp(0, double.infinity) *
+                          value.clamp(0.0, 1.0),
                       child: Container(
                         width: _thumbRadius * 2,
                         height: _thumbRadius * 2,

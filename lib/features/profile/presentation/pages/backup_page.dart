@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:soplay/core/system/app_dates.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:soplay/core/di/injection.dart';
@@ -140,9 +141,9 @@ class _BackupPageState extends State<BackupPage> {
   String _lastLine() {
     final at = _service.lastExportAt;
     if (at == null) return 'backup.never_exported'.tr();
-    final stamp = DateFormat.yMMMd(
-      context.locale.toString(),
-    ).add_Hm().format(at);
+    final stamp =
+        '${AppDates.short(context, at)} '
+        '${DateFormat.Hm(context.locale.toString()).format(at)}';
     return 'backup.last_export'.tr(args: [stamp]);
   }
 

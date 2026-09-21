@@ -578,7 +578,10 @@
     "stat_days": "dias assistidos",
     "mangayomi_sources": "Fontes do Mangayomi",
     "view_only": "SÓ VER",
-    "start_paused_desc": "O player abre sem reproduzir. O avanço automático continua tocando."
+    "start_paused_desc": "O player abre sem reproduzir. O avanço automático continua tocando.",
+    "date_format": "Formato da data",
+    "date_format_desc": "Caso contrário, quem decide é o idioma.",
+    "date_format_auto": "Seguir o idioma"
   },
   "appearance": {
     "title": "Aparência",
