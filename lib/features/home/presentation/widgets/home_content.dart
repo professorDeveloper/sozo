@@ -319,16 +319,30 @@ class _HomeContentBody extends StatelessWidget {
               rails.first != HomeRail.hero ||
               !showHero;
 
-          // Under the hero, not over it.
+          // After Genres, where the other ways to browse are.
           //
-          // Above, the card was the first thing on Home and pushed the banner
-          // — the screen's whole opening image — down by its own height, to
-          // ask a question nobody opened the app to answer. After the hero it
-          // is among the rails, which is what it is offering to become one of.
-          // It never leads: with no hero it follows whatever does.
-          final suggestionFollows = showHero && rails.contains(HomeRail.hero)
-              ? HomeRail.hero
-              : rails.first;
+          // The card is offering one more way to find something, and Genres is
+          // the band that already is one — so it lands next to its own kind,
+          // rather than between the banner and Continue Watching, which is
+          // where somebody is looking for what they were already watching.
+          //
+          // A cascade, because none of these bands is guaranteed: Genres only
+          // draws when the source HAS genres, and a band that drew nothing
+          // would leave the card floating after an invisible section. Failing
+          // that, the hero; failing that, whatever leads. It never leads
+          // itself — above the banner it pushed the screen's whole opening
+          // image down by its own height to ask a question nobody opened the
+          // app to answer, and first is also the one position that renders
+          // under the status bar.
+          final genresDraw =
+              rails.contains(HomeRail.genres) &&
+              loaded != null &&
+              loaded.genres.isNotEmpty;
+          final suggestionFollows = genresDraw
+              ? HomeRail.genres
+              : (showHero && rails.contains(HomeRail.hero)
+                    ? HomeRail.hero
+                    : rails.first);
 
           return CustomScrollView(
             controller: scrollController,
