@@ -1564,7 +1564,9 @@
     "not_checked": "Pas encore vérifié",
     "unfollow": "Ne plus suivre",
     "unfollowed": "{} n’est plus suivi",
-    "undo": "Annuler"
+    "undo": "Annuler",
+    "new_episode_one": "L’épisode {} est sorti",
+    "new_episodes_n": "{} nouveaux — jusqu’à l’épisode {}"
   },
   "remote": {
     "title": "Télécommande TV",

@@ -300,7 +300,15 @@ class NotificationService {
     required String body,
     Map<String, dynamic>? data,
   }) async {
-    if (!Platform.isAndroid) return;
+    // iOS too.
+    //
+    // This was Android-only, which made it the odd one out: `scheduleAt` —
+    // the airing reminders — has always handed the plugin a Darwin block and
+    // worked on both. So everything that came through HERE was silently
+    // dropped on iOS, and the thing that comes through here is the follow
+    // check: an iPhone user following forty series was told about a new
+    // episode exactly never.
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     await ensureInitialized();
     await _local.show(
       id,
@@ -314,6 +322,7 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
         ),
+        iOS: const DarwinNotificationDetails(),
       ),
       payload: (data == null || data.isEmpty) ? null : _encodePayload(data),
     );

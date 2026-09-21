@@ -43,6 +43,18 @@ void openNotification(Map<String, dynamic> data, {bool fromList = false}) {
       if (fromList) return;
       getIt<AuthBloc>().add(AuthSessionExpired());
       router.go('/login');
+    // A followed title grew. The chapter list, not the detail page: the new
+    // chapters are the whole reason the notification exists, and the detail
+    // page is one more tap away from them.
+    case 'library_update':
+      if (contentUrl != null && contentUrl.isNotEmpty) {
+        router.push(
+          '/detail',
+          extra: DetailArgs(contentUrl: contentUrl, provider: provider),
+        );
+      } else if (!fromList) {
+        router.push('/following');
+      }
     case 'streak_risk':
       // The tab lives on /main; switching it from a pushed page would change
       // a tab nobody can see.

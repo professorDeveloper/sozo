@@ -546,20 +546,68 @@ extension _PlayerMedia on _PlayerPageState {
     );
   }
 
+  /// The source this url belongs to, or null when nothing here claims it.
+  ///
+  /// Exact match first, because that is the common case and the only one that
+  /// is certain. Then the current index, if it happens to point at something
+  /// that wants a proxy — a sniffed or derived url is a different string for
+  /// the same stream. Then, and only for a source that declares a proxy, a HOST
+  /// match: these transforms are defined per CDN host, so a url on the host the
+  /// config names is a url the config is about.
+  ///
+  /// Deliberately never a blind fallback to source 0. Sending an unrelated
+  /// stream through another source's signing transform would produce a
+  /// confidently wrong request rather than an honest direct one.
+  VideoSourceEntity? _sourceForUrl(String url) {
+    if (_videoSources.isEmpty) return null;
+    for (final s in _videoSources) {
+      if (s.videoUrl == url) return s;
+    }
+    if (_currentSourceIndex >= 0 &&
+        _currentSourceIndex < _videoSources.length) {
+      final current = _videoSources[_currentSourceIndex];
+      if (current.useLocalProxy) return current;
+    }
+    final host = Uri.tryParse(url)?.host;
+    if (host == null || host.isEmpty) return null;
+    for (final s in _videoSources) {
+      if (!s.useLocalProxy) continue;
+      if (Uri.tryParse(s.videoUrl)?.host == host) return s;
+    }
+    return null;
+  }
+
   Future<_ProxiedTarget?> _maybeRouteThroughLocalProxy({
     required String url,
     required Map<String, String> headers,
   }) async {
-    if (_currentSourceIndex < 0 ||
-        _currentSourceIndex >= _videoSources.length) {
+    // Found by URL, with the index only as a hint.
+    //
+    // This used to key entirely off `_currentSourceIndex` and then refuse to
+    // proxy unless that source's url was byte-identical to the one about to
+    // play. Both are fragile in a way that fails silently and unplayably: the
+    // index is -1 until a ladder pick lands, it is not updated when a master
+    // playlist is expanded into per-quality rows mid-play, and a mirror
+    // switch, a retry or a sniffed url all arrive here with the list in a
+    // state the index no longer describes.
+    //
+    // For an ordinary source, being wrong there costs nothing — the direct url
+    // plays. For a source whose CDN only answers a signed, transformed request
+    // it costs everything: uzmovi's host 301s every unsigned request to its own
+    // home page, so the player is handed HTML and reports "failed to open" with
+    // a url that looks perfectly reasonable.
+    //
+    // The url is the one thing that is true at this point, so it is what the
+    // lookup uses.
+    final source = _sourceForUrl(url);
+    if (source == null) {
       _plog(
-        'local proxy skipped: no current source '
+        'local proxy skipped: no source carries this url '
         '(idx=$_currentSourceIndex, count=${_videoSources.length}) — direct URL',
         level: LogLevel.warn,
       );
       return null;
     }
-    final source = _videoSources[_currentSourceIndex];
     if (!source.useLocalProxy) {
       // If this fires for a uzmovi source, the backend flag or the
       // localProxy/requestTransform maps were dropped somewhere between resolve
@@ -568,15 +616,6 @@ extension _PlayerMedia on _PlayerPageState {
         'local proxy skipped: useLocalProxy=false '
         '(transform=${source.requestTransform.isNotEmpty}, '
         'localProxy=${source.localProxy.isNotEmpty}) — direct URL',
-        level: LogLevel.warn,
-      );
-      return null;
-    }
-    if (source.videoUrl != url) {
-      _plog(
-        'local proxy skipped: url mismatch — direct URL\n'
-        '  source.videoUrl=${source.videoUrl}\n'
-        '  play url       =$url',
         level: LogLevel.warn,
       );
       return null;

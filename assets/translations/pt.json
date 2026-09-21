@@ -1564,7 +1564,9 @@
     "not_checked": "Ainda não verificado",
     "unfollow": "Deixar de seguir",
     "unfollowed": "Você deixou de seguir {}",
-    "undo": "Desfazer"
+    "undo": "Desfazer",
+    "new_episode_one": "O episódio {} já saiu",
+    "new_episodes_n": "{} novos — até ao episódio {}"
   },
   "remote": {
     "title": "Controle da TV",

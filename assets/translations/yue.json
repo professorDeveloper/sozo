@@ -1564,7 +1564,9 @@
     "not_checked": "仲未檢查過",
     "unfollow": "取消追蹤",
     "unfollowed": "已取消追蹤 {}",
-    "undo": "復原"
+    "undo": "復原",
+    "new_episode_one": "第 {} 集出咗",
+    "new_episodes_n": "{} 集新嘅 — 去到第 {} 集"
   },
   "remote": {
     "title": "電視遙控",

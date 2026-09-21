@@ -1564,7 +1564,9 @@
     "not_checked": "Belum diperiksa",
     "unfollow": "Berhenti mengikuti",
     "unfollowed": "{} tidak diikuti lagi",
-    "undo": "Urungkan"
+    "undo": "Urungkan",
+    "new_episode_one": "Episode {} sudah keluar",
+    "new_episodes_n": "{} baru — sampai episode {}"
   },
   "remote": {
     "title": "Remote TV",

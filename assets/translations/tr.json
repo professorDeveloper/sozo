@@ -1564,7 +1564,9 @@
     "not_checked": "Henüz kontrol edilmedi",
     "unfollow": "Takibi bırak",
     "unfollowed": "{} takipten çıkarıldı",
-    "undo": "Geri al"
+    "undo": "Geri al",
+    "new_episode_one": "{}. bölüm çıktı",
+    "new_episodes_n": "{} yeni — {}. bölüme kadar"
   },
   "remote": {
     "title": "TV kumandası",

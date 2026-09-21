@@ -1564,7 +1564,9 @@
     "not_checked": "Not checked yet",
     "unfollow": "Unfollow",
     "unfollowed": "{} unfollowed",
-    "undo": "Undo"
+    "undo": "Undo",
+    "new_episode_one": "Вышла {}-я серия",
+    "new_episodes_n": "{} новых — до {}-й серии"
   },
   "remote": {
     "title": "Пульт для ТВ",

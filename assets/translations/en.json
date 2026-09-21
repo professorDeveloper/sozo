@@ -1564,7 +1564,9 @@
     "not_checked": "Not checked yet",
     "unfollow": "Unfollow",
     "unfollowed": "{} unfollowed",
-    "undo": "Undo"
+    "undo": "Undo",
+    "new_episode_one": "Episode {} is out",
+    "new_episodes_n": "{} new — up to episode {}"
   },
   "remote": {
     "title": "TV remote",

@@ -1564,7 +1564,9 @@
     "not_checked": "Noch nicht geprüft",
     "unfollow": "Nicht mehr folgen",
     "unfollowed": "{} nicht mehr abonniert",
-    "undo": "Rückgängig"
+    "undo": "Rückgängig",
+    "new_episode_one": "Folge {} ist da",
+    "new_episodes_n": "{} neue — bis Folge {}"
   },
   "remote": {
     "title": "TV-Fernbedienung",

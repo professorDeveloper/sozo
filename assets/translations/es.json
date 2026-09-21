@@ -1564,7 +1564,9 @@
     "not_checked": "Aún sin comprobar",
     "unfollow": "Dejar de seguir",
     "unfollowed": "Dejaste de seguir {}",
-    "undo": "Deshacer"
+    "undo": "Deshacer",
+    "new_episode_one": "Ya está el episodio {}",
+    "new_episodes_n": "{} nuevos — hasta el episodio {}"
   },
   "remote": {
     "title": "Mando de la TV",

@@ -1564,7 +1564,9 @@
     "not_checked": "Nog niet gecontroleerd",
     "unfollow": "Ontvolgen",
     "unfollowed": "{} ontvolgd",
-    "undo": "Ongedaan maken"
+    "undo": "Ongedaan maken",
+    "new_episode_one": "Aflevering {} is er",
+    "new_episodes_n": "{} nieuwe — tot aflevering {}"
   },
   "remote": {
     "title": "Tv-afstandsbediening",
