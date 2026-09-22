@@ -73,14 +73,25 @@ class _SozoSplashState extends State<SozoSplash>
   );
 
   /// Every beat, in milliseconds from the first frame.
-  static const int _writeFrom = 120;
-  static const int _writeTo = 900;
-  static const int _fillFrom = 700;
-  static const int _fillTo = 1160;
-  static const int _landFrom = 1120;
-  static const int _landTo = 1320;
-  static const int _fadeFrom = 1900;
-  static const int _total = 2150;
+  ///
+  /// The write used to take 780ms and nobody saw it. Measured on the device
+  /// rather than guessed at: a debug build on an emulator paints this at about
+  /// 30fps, so 780ms of writing is two dozen frames — and the first few of
+  /// those are lost to the jank every Flutter cold start has. What was left
+  /// was a letter that appeared to be there already.
+  ///
+  /// It is a second now, and the dead stretch after the landing is gone: the
+  /// mark used to sit unchanged from 1320ms to 1900ms, which is the part
+  /// everybody DID see, and seeing only that is what makes an animation read
+  /// as a static logo.
+  static const int _writeFrom = 100;
+  static const int _writeTo = 1180;
+  static const int _fillFrom = 980;
+  static const int _fillTo = 1520;
+  static const int _landFrom = 1480;
+  static const int _landTo = 1700;
+  static const int _fadeFrom = 2120;
+  static const int _total = 2380;
 
   bool _settled = false;
   SozoMarkGeometry? _geometry;
@@ -307,9 +318,13 @@ class _MarkPainter extends CustomPainter {
       0,
       geometry.spineLength * b.write,
     );
+    // Written in light and settling into the accent as the fill takes over.
+    // A thin line in the fill colour on a black field is the one thing on this
+    // screen nobody can see: it has the least contrast at the moment it is the
+    // only thing moving.
     _stroke
-      ..color = accent.withValues(alpha: b.dim)
-      ..strokeWidth = ui.lerpDouble(9.0, _halfRibbon * 2.6, b.fill)!;
+      ..color = Color.lerp(highlight, accent, b.fill)!.withValues(alpha: b.dim)
+      ..strokeWidth = ui.lerpDouble(13.0, _halfRibbon * 2.6, b.fill)!;
     canvas.drawPath(written, _stroke);
 
     // The pen's own light, at its tip, while it is still moving.
@@ -318,8 +333,13 @@ class _MarkPainter extends CustomPainter {
         geometry.spineLength * b.write,
       );
       if (tip != null) {
-        _fill.color = highlight.withValues(alpha: 0.9 * b.dim);
-        canvas.drawCircle(tip.position, 7, _fill);
+        // A halo and a core. One flat dot at the tip reads as a bullet point
+        // travelling a line; the halo is what makes it a pen putting something
+        // down.
+        _fill.color = highlight.withValues(alpha: 0.22 * b.dim);
+        canvas.drawCircle(tip.position, 22, _fill);
+        _fill.color = Colors.white.withValues(alpha: 0.92 * b.dim);
+        canvas.drawCircle(tip.position, 8, _fill);
       }
     }
 
