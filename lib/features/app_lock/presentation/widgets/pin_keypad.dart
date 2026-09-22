@@ -106,10 +106,7 @@ class _PinKeypadState extends State<PinKeypad> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 for (final k in row)
-                  _KeyButton(
-                    data: k,
-                    onTap: () => _handle(k),
-                  ),
+                  _KeyButton(data: k, onTap: () => _handle(k)),
               ],
             ),
           ),
@@ -148,10 +145,7 @@ enum _KeyAction { digit, backspace, biometric, none }
 class _Key {
   _Key._({this.label, this.icon, required this.action});
   factory _Key.digit(String d) => _Key._(label: d, action: _KeyAction.digit);
-  factory _Key.action({
-    required IconData icon,
-    required _KeyAction action,
-  }) =>
+  factory _Key.action({required IconData icon, required _KeyAction action}) =>
       _Key._(icon: icon, action: action);
   factory _Key.empty() => _Key._(action: _KeyAction.none);
 
@@ -187,8 +181,9 @@ class _KeyButtonState extends State<_KeyButton> {
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: isDesktopPlatform ? 24 : 28,
-                fontWeight:
-                    isDesktopPlatform ? FontWeight.w600 : FontWeight.w500,
+                fontWeight: isDesktopPlatform
+                    ? FontWeight.w600
+                    : FontWeight.w500,
               ),
             ),
     );
@@ -222,10 +217,7 @@ class _KeyButtonState extends State<_KeyButton> {
         color: Colors.transparent,
         shape: const CircleBorder(),
         clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: widget.onTap,
-          child: child,
-        ),
+        child: InkWell(onTap: widget.onTap, child: child),
       ),
     );
   }

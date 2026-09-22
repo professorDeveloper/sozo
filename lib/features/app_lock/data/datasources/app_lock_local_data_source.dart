@@ -16,16 +16,17 @@ class AppLockLocalDataSource {
     FlutterSecureStorage? secureStorage,
     LocalAuthentication? localAuth,
     DateTime Function()? clock,
-  })  : _hive = hiveService,
-        _secure = secureStorage ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
-              iOptions: IOSOptions(
-                accessibility: KeychainAccessibility.first_unlock,
-              ),
-            ),
-        _localAuth = localAuth ?? LocalAuthentication(),
-        _now = clock ?? DateTime.now;
+  }) : _hive = hiveService,
+       _secure =
+           secureStorage ??
+           const FlutterSecureStorage(
+             aOptions: AndroidOptions(encryptedSharedPreferences: true),
+             iOptions: IOSOptions(
+               accessibility: KeychainAccessibility.first_unlock,
+             ),
+           ),
+       _localAuth = localAuth ?? LocalAuthentication(),
+       _now = clock ?? DateTime.now;
 
   final HiveService _hive;
   final FlutterSecureStorage _secure;
@@ -130,10 +131,12 @@ class AppLockLocalDataSource {
   /// reset path, because no PIN will ever be accepted.
   Future<bool> isPinReadable() async {
     try {
-      final salt =
-          await _secure.read(key: AppConstants.appLockPinSaltSecureKey);
-      final hash =
-          await _secure.read(key: AppConstants.appLockPinHashSecureKey);
+      final salt = await _secure.read(
+        key: AppConstants.appLockPinSaltSecureKey,
+      );
+      final hash = await _secure.read(
+        key: AppConstants.appLockPinHashSecureKey,
+      );
       return salt != null && hash != null;
     } catch (_) {
       return false;

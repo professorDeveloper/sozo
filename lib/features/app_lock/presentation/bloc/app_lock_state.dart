@@ -1,13 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum AppLockStage {
-  chooseLength,
-  enterNew,
-  confirmNew,
-  verify,
-  done,
-  disabled,
-}
+enum AppLockStage { chooseLength, enterNew, confirmNew, verify, done, disabled }
 
 class AppLockState extends Equatable {
   const AppLockState({
@@ -26,16 +19,16 @@ class AppLockState extends Equatable {
   });
 
   factory AppLockState.initial() => const AppLockState(
-        stage: AppLockStage.chooseLength,
-        pinLength: 4,
-        entered: '',
-        firstPin: '',
-        biometricAvailable: false,
-        biometricPreferred: false,
-        errorTick: 0,
-        errorMessage: null,
-        isProcessing: false,
-      );
+    stage: AppLockStage.chooseLength,
+    pinLength: 4,
+    entered: '',
+    firstPin: '',
+    biometricAvailable: false,
+    biometricPreferred: false,
+    errorTick: 0,
+    errorMessage: null,
+    isProcessing: false,
+  );
 
   final AppLockStage stage;
   final int pinLength;
@@ -94,17 +87,17 @@ class AppLockState extends Equatable {
 
   @override
   List<Object?> get props => [
-        stage,
-        pinLength,
-        entered,
-        firstPin,
-        biometricAvailable,
-        biometricPreferred,
-        errorTick,
-        errorMessage,
-        isProcessing,
-        errorArgs,
-        retryAt,
-        pinUnavailable,
-      ];
+    stage,
+    pinLength,
+    entered,
+    firstPin,
+    biometricAvailable,
+    biometricPreferred,
+    errorTick,
+    errorMessage,
+    isProcessing,
+    errorArgs,
+    retryAt,
+    pinUnavailable,
+  ];
 }

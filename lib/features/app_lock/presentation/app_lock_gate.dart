@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 
@@ -11,10 +10,10 @@ import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository
 /// says so — so every way into the app lands under it.
 class AppLockGate extends ChangeNotifier with WidgetsBindingObserver {
   AppLockGate(this._repo, {DateTime Function()? clock})
-    : _now = clock ?? DateTime.now,
-      // Locked from the start when a PIN is set. DI builds this after the
-      // settings box is open, so the flag is already readable here.
-      _locked = _repo.isEnabled;
+      : _now = clock ?? DateTime.now,
+        // Locked from the start when a PIN is set. DI builds this after the
+        // settings box is open, so the flag is already readable here.
+        _locked = _repo.isEnabled;
 
   final AppLockRepository _repo;
   final DateTime Function() _now;
@@ -28,51 +27,10 @@ class AppLockGate extends ChangeNotifier with WidgetsBindingObserver {
   bool _observing = false;
   DateTime? _backgroundedAt;
 
-  /// Held down while the splash is on screen.
-  ///
-  /// The lock exists to cover CONTENT. The splash has none: it is the app's
-  /// own mark on a black field, which is the same thing the launcher icon
-  /// already shows to anybody holding the phone. Covering it bought no
-  /// security and cost the one animation the app gets to introduce itself
-  /// with — on a locked device the whole thing played behind the PIN pad and
-  /// nobody ever saw it.
-  ///
-  /// Nothing else may use this. It is not a way to postpone the lock; it is a
-  /// statement that what is on screen is not worth locking.
-  bool _splashHold = false;
-  Timer? _splashDeadline;
-
   /// True while the lock screen must cover the app. Turning the lock off in
   /// settings clears it at once; turning it on does not lock the session the
   /// user is in — they have just typed the PIN.
-  bool get isLocked => _locked && _repo.isEnabled && !_splashHold;
-
-  /// Lets the splash play before the PIN pad covers it.
-  ///
-  /// Bounded three ways, because an unlocked app is not something to leave to
-  /// a callback firing: it expires on its own after [_splashGrace] whatever
-  /// happens, it is dropped the moment the app goes to the background, and the
-  /// only caller releases it when the splash route is disposed. A crash
-  /// mid-animation therefore lands on a locked app, not an open one.
-  void holdForSplash() {
-    if (_splashHold) return;
-    _splashHold = true;
-    _splashDeadline?.cancel();
-    _splashDeadline = Timer(_splashGrace, releaseSplashHold);
-    notifyListeners();
-  }
-
-  void releaseSplashHold() {
-    _splashDeadline?.cancel();
-    _splashDeadline = null;
-    if (!_splashHold) return;
-    _splashHold = false;
-    notifyListeners();
-  }
-
-  /// Comfortably past the splash's own length, and nowhere near long enough
-  /// to be useful to somebody holding a phone they should not have.
-  static const Duration _splashGrace = Duration(seconds: 4);
+  bool get isLocked => _locked && _repo.isEnabled;
 
   /// Starts watching the app's lifecycle. Idempotent. Called before the first
   /// frame so this observer is registered ahead of the router's back-button
@@ -100,8 +58,6 @@ class AppLockGate extends ChangeNotifier with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
-        // Whatever the splash was doing, it is not on screen now.
-        releaseSplashHold();
         _backgroundedAt ??= _now();
       case AppLifecycleState.resumed:
         final since = _backgroundedAt;
@@ -116,10 +72,4 @@ class AppLockGate extends ChangeNotifier with WidgetsBindingObserver {
   /// Back while locked would otherwise pop the pages hidden under the lock.
   @override
   Future<bool> didPopRoute() async => isLocked;
-
-  @override
-  void dispose() {
-    _splashDeadline?.cancel();
-    super.dispose();
-  }
 }

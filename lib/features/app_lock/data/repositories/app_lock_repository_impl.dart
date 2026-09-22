@@ -4,7 +4,7 @@ import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository
 
 class AppLockRepositoryImpl implements AppLockRepository {
   AppLockRepositoryImpl(this._source, {Future<void> Function()? wipeProtected})
-      : _wipeProtected = wipeProtected;
+    : _wipeProtected = wipeProtected;
 
   final AppLockLocalDataSource _source;
   final Future<void> Function()? _wipeProtected;
