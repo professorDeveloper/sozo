@@ -19,21 +19,28 @@ class AppLockOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gate = getIt<AppLockGate>();
-    final router = AppRouter.router.routerDelegate;
-    // Decided by which route is on screen, and not by a flag the splash raises
-    // and lowers. That version raised it from `initState`, which runs during a
-    // build, so the notification that should have uncovered the splash threw
-    // "setState() called during build" instead and the PIN pad stayed up. It
-    // could not lower it safely either: `dispose` runs while the tree is
-    // locked. Reading the route has neither problem, and it cannot leak — the
-    // frame the app leaves the splash, for whatever reason including a deep
-    // link, is the frame this covers it again, with no timer to wait out.
+    // The route information provider, and not the router delegate.
+    //
+    // Both say where the app is, but the delegate learns it during the
+    // Router's own first build — `setInitialRoutePath` runs from inside
+    // `didChangeDependencies` — and this overlay is the Router's ANCESTOR, so
+    // being told then is "setState() called during build" on the first frame
+    // of every launch. The provider is built with the initial location before
+    // anything is drawn, so its answer is right on frame one, and it only
+    // changes when something navigates, which never happens inside a build.
+    //
+    // Deciding by route rather than by a flag the splash raises and lowers is
+    // deliberate too. That version raised it from `initState` — also inside a
+    // build — and lowered it from `dispose`, which runs while the tree is
+    // locked; neither end worked. A route cannot leak: the frame the app
+    // leaves the splash, however it leaves, is the frame this covers it again.
+    final location = AppRouter.router.routeInformationProvider;
     return ListenableBuilder(
-      listenable: Listenable.merge([gate, router]),
+      listenable: Listenable.merge([gate, location]),
       builder: (context, _) {
         final locked = lockCovers(
           locked: gate.isLocked,
-          path: router.currentConfiguration.uri.path,
+          path: location.value.uri.path,
         );
         return Stack(
           fit: StackFit.expand,
