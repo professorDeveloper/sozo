@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
+import 'package:soplay/features/app_lock/presentation/app_lock_gate.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/splash/presentation/widgets/sozo_splash.dart';
 
@@ -15,6 +16,21 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage> {
+  @override
+  void initState() {
+    super.initState();
+    // The PIN pad waits until the mark has been drawn. See
+    // [AppLockGate.holdForSplash] for why that is safe: there is nothing on
+    // this screen to cover.
+    getIt<AppLockGate>().holdForSplash();
+  }
+
+  @override
+  void dispose() {
+    getIt<AppLockGate>().releaseSplashHold();
+    super.dispose();
+  }
+
   /// Where to go, decided while the animation is still finishing.
   ///
   /// The lock check reads a file and the onboarding check reads Hive. Starting
