@@ -17,6 +17,7 @@ void main() {
 
   setUpAll(() async {
     await SozoMarkGeometry.precache();
+    // Image decoding completes on a real event loop, not the fake one.
     final value = SozoMarkGeometry.value;
     expect(value, isNotNull, reason: 'the asset did not parse');
     geometry = value!;
@@ -112,5 +113,19 @@ void main() {
     final first = SozoMarkGeometry.value;
     await SozoMarkGeometry.precache();
     expect(identical(SozoMarkGeometry.value, first), isTrue);
+  });
+
+  group('the artwork', () {
+    // The logo is not its outline. A splash that filled the outline with one
+    // colour drew the only part of the logo that is not the logo, so the
+    // artwork decoding is a precondition, not a nicety.
+    testWidgets('decodes', (tester) async {
+      await tester.runAsync(SozoMarkGeometry.precache);
+      final art = SozoMarkGeometry.art;
+      expect(art, isNotNull, reason: 'the logo artwork did not decode');
+      // Twice the 512 box the paths live in, so one scale registers it.
+      expect(art!.width, 1024);
+      expect(art.height, 1024);
+    });
   });
 }

@@ -85,6 +85,23 @@ class SozoMarkGeometry {
 
   static SozoMarkGeometry? _loaded;
   static Future<void>? _loading;
+  static ui.Image? _art;
+
+  /// The logo's own artwork: the dragon relief inside the letter, the peach
+  /// ground, the small "Sozo" in the top arm.
+  ///
+  /// Registered to the same 512 box as [body], at twice the resolution, so a
+  /// shader that samples it through any path in that box lands on the right
+  /// piece of the picture. It was aligned by maximising the overlap between
+  /// the artwork's letter and [body] rather than by eye — 0.96 intersection
+  /// over union, the rest being the artwork's own bevel and anti-aliasing.
+  ///
+  /// This is the logo. [body] is only its outline, and a splash that filled
+  /// the outline with a flat colour was drawing the one part of the logo that
+  /// is not the logo.
+  static ui.Image? get art => _art;
+
+  static const String artAsset = 'assets/brand/sozo_logo_art.png';
 
   /// The geometry, once it has been read. Null before that.
   ///
@@ -101,6 +118,16 @@ class SozoMarkGeometry {
   static Future<void> precache() => _loading ??= _read();
 
   static Future<void> _read() async {
+    // Separately guarded: an artwork that will not decode costs the splash its
+    // texture, not its geometry. It falls back to a flat letter, which is a
+    // worse splash and still a splash.
+    try {
+      final bytes = await rootBundle.load(artAsset);
+      final codec = await ui.instantiateImageCodec(bytes.buffer.asUint8List());
+      _art = (await codec.getNextFrame()).image;
+    } catch (_) {
+      _art = null;
+    }
     try {
       final svg = await rootBundle.loadString(asset);
       final body = _pathNamed(svg, 'body');

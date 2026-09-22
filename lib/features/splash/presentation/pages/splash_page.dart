@@ -15,7 +15,6 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage> {
-
   /// Where to go, decided while the animation is still finishing.
   ///
   /// The lock check reads a file and the onboarding check reads Hive. Starting

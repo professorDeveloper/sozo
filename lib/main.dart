@@ -57,6 +57,11 @@ import 'app.dart';
 /// is simply empty there.
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Started first and awaited last. The splash needs the mark's geometry AND
+  // its artwork decoded before its first frame, and the artwork is a 1024px
+  // image; begun here it decodes while Hive, DI and the rest of startup run,
+  // instead of adding its own time on top of theirs.
+  final brand = SozoMarkGeometry.precache();
   await initTvPlatform();
   if (isDesktopPlatform) {
     MediaKit.ensureInitialized();
@@ -219,15 +224,13 @@ void main(List<String> args) async {
     // the one call site that matters.
     root = LiquidGlassWidgets.wrap(child: root, adaptiveQuality: true);
   }
-  // Before the first frame, and worth the wait it is not.
-  //
-  // The splash is the first thing this process draws, and it draws the mark as
-  // geometry — so the parse has to be done before it starts, not scheduled
-  // alongside it. It is one bundle string and one path walk, measured at a
-  // couple of milliseconds; awaited here, every launch is the animated one.
-  // Started after `runApp`, exactly one launch per install — the cold one
-  // everybody's first impression is made of — would fall back to a flat logo.
-  await SozoMarkGeometry.precache();
+  // Before the first frame. The splash is the first thing this process draws
+  // and it draws the mark from geometry and artwork, so both have to exist
+  // when it starts rather than arrive alongside it. Started at the top of
+  // `main`, so by here it has usually finished. Not awaited, exactly one
+  // launch per install — the cold one everybody's first impression is made
+  // of — would fall back to a flat logo.
+  await brand;
 
   runApp(root);
 
