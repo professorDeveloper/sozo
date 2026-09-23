@@ -48,9 +48,24 @@ class NavigationScrollState extends ValueNotifier<bool> {
   }
 }
 
-/// Gently contracts the existing bar without replacing its style or controls.
-/// Keeping layout dimensions stable avoids moving the scrolling content, and
-/// Transform's hit testing follows the visible controls throughout the motion.
+/// Supplies animated density without scaling the bar's width or hit regions.
+class NavigationDensity extends InheritedWidget {
+  const NavigationDensity({
+    super.key,
+    required this.progress,
+    required super.child,
+  });
+  final double progress;
+  static double of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<NavigationDensity>()
+          ?.progress ??
+      0;
+  @override
+  bool updateShouldNotify(NavigationDensity oldWidget) =>
+      progress != oldWidget.progress;
+}
+
 class ScrollCompactNavigation extends StatelessWidget {
   const ScrollCompactNavigation({
     super.key,
@@ -59,15 +74,15 @@ class ScrollCompactNavigation extends StatelessWidget {
   });
   final bool compact;
   final Widget expanded;
-
   @override
-  Widget build(BuildContext context) => AnimatedScale(
-    scale: compact ? .82 : 1,
-    alignment: Alignment.bottomCenter,
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    tween: Tween(end: compact ? 1 : 0),
     duration: MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
         : const Duration(milliseconds: 300),
     curve: Curves.easeInOutCubic,
     child: expanded,
+    builder: (context, value, child) =>
+        NavigationDensity(progress: value, child: child!),
   );
 }

@@ -489,6 +489,8 @@
     "native_window_bar_subtitle": "Ilovaning maxsus paneli o'rniga Windows'ning standart sarlavha panelidan foydalaning.",
     "liquid_glass_nav": "Suyuq shisha navigatsiya",
     "liquid_glass_nav_subtitle": "Muzli shisha suzuvchi tab-bar (iOS 26). Oddiy bar uchun o'chiring.",
+    "nav_compact_scroll": "Scrollda navbarni ixchamlash",
+    "nav_compact_scroll_hint": "Scroll paytida balandlik kamayadi. Glass va Solid uchun.",
     "nav_style": "Navigatsiya paneli",
     "nav_style_glass": "Suyuq shisha",
     "nav_style_solid": "Oddiy",

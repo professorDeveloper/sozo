@@ -489,6 +489,8 @@
     "native_window_bar_subtitle": "Использовать стандартную строку заголовка Windows вместо кастомной.",
     "liquid_glass_nav": "Стеклянная навигация",
     "liquid_glass_nav_subtitle": "Плавающая матовая стеклянная панель (iOS 26). Выключите для обычной панели.",
+    "nav_compact_scroll": "Компактная панель при прокрутке",
+    "nav_compact_scroll_hint": "Уменьшать высоту при прокрутке. Для Glass и Solid.",
     "nav_style": "Панель навигации",
     "nav_style_glass": "Стеклянная",
     "nav_style_solid": "Сплошная",

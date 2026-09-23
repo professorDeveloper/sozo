@@ -16,6 +16,8 @@ class NavPrefs {
   static const String solid = 'solid';
   static const String classic = 'classic';
 
+  static final ValueNotifier<bool> compactOnScroll = ValueNotifier<bool>(true);
+
   static final ValueNotifier<String> navStyle = ValueNotifier<String>(solid);
 
   /// Persisted bottom-nav tab set/order (list of TabId.name). Instant-rebuild

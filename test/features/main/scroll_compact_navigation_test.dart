@@ -138,11 +138,13 @@ void main() {
       final visibleSize =
           iconBox.localToGlobal(iconBox.size.bottomRight(Offset.zero)) -
           iconBox.localToGlobal(Offset.zero);
-      expect(visibleSize.dx, closeTo(56 * .82, .01));
+      expect(visibleSize.dx, closeTo(56, .01));
       expect(visibleSize.dy, greaterThanOrEqualTo(44));
       expect(
-        tester.widget<AnimatedScale>(find.byType(AnimatedScale)).scale,
-        .82,
+        tester
+            .widget<NavigationDensity>(find.byType(NavigationDensity))
+            .progress,
+        1,
       );
       await tester.tap(button);
       expect(selected, 1);

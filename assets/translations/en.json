@@ -489,6 +489,8 @@
     "native_window_bar_subtitle": "Use Windows' standard title bar instead of the app's custom one.",
     "liquid_glass_nav": "Liquid glass navigation",
     "liquid_glass_nav_subtitle": "Frosted glass floating tab bar (iOS 26). Turn off for a plain solid bar.",
+    "nav_compact_scroll": "Compact navigation on scroll",
+    "nav_compact_scroll_hint": "Reduce height while scrolling. Applies to Glass and Solid.",
     "nav_style": "Navigation bar",
     "nav_style_glass": "Liquid glass",
     "nav_style_solid": "Solid",

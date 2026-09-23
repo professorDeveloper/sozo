@@ -1063,6 +1063,11 @@ class HiveService {
       _settingsBox.put('use_native_title_bar', value);
 
   // Mobile bottom-nav style: 'solid' | 'glass' | 'classic' (default 'solid').
+  bool get compactNavOnScroll =>
+      _settingsBox.get('compact_nav_on_scroll', defaultValue: true) == true;
+  Future<void> setCompactNavOnScroll(bool value) =>
+      _settingsBox.put('compact_nav_on_scroll', value);
+
   String get navStyle {
     final v = _settingsBox.get('nav_style', defaultValue: 'solid');
     return v is String ? v : 'solid';

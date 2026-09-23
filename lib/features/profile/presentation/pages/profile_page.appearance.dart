@@ -15,6 +15,7 @@ class _AppearanceSection extends StatefulWidget {
 
 class _AppearanceSectionState extends State<_AppearanceSection> {
   late bool _native = getIt<HiveService>().useNativeTitleBar;
+  late bool _compactOnScroll = getIt<HiveService>().compactNavOnScroll;
   late String _navStyle = getIt<HiveService>().navStyle;
 
   Future<void> _toggle(bool value) async {
@@ -229,6 +230,16 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                       ],
                     ),
                   ),
+                ),
+                SwitchListTile.adaptive(
+                  title: Text('profile.nav_compact_scroll'.tr()),
+                  subtitle: Text('profile.nav_compact_scroll_hint'.tr()),
+                  value: _compactOnScroll,
+                  onChanged: (value) async {
+                    setState(() => _compactOnScroll = value);
+                    NavPrefs.compactOnScroll.value = value;
+                    await getIt<HiveService>().setCompactNavOnScroll(value);
+                  },
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),

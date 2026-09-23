@@ -94,6 +94,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     // Reflect the persisted nav-style preference into the shared notifier the
     // nav listens to (so it renders correctly on first frame).
     NavPrefs.navStyle.value = _hiveService.navStyle;
+    NavPrefs.compactOnScroll.value = _hiveService.compactNavOnScroll;
     // TV runs a fixed tab set — the customizer is drag-driven and hidden there,
     // and the persisted mobile order is left completely untouched (never read,
     // never written) so a user's phone bar survives round-tripping.
@@ -529,11 +530,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                             listenable: Listenable.merge([
                               _navigationScroll,
                               NavPrefs.navStyle,
+                              NavPrefs.compactOnScroll,
                             ]),
                             builder: (context, child) =>
                                 ScrollCompactNavigation(
                                   compact:
                                       _navigationScroll.value &&
+                                      NavPrefs.compactOnScroll.value &&
                                       NavPrefs.navStyle.value !=
                                           NavPrefs.classic &&
                                       _index != _shortsIndex &&
@@ -725,13 +728,15 @@ class _SoplayGlassCapsule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final density = NavigationDensity.of(context);
+    final barHeight = _barHeight - 12 * density;
     final bar = GlassTabBar.bottom(
       tabs: [
         for (final it in items)
           GlassTab(
             label: it.labelKey.tr(),
-            icon: Icon(it.icon),
-            activeIcon: Icon(it.activeIcon),
+            icon: Icon(it.icon, size: 24 - 4 * density),
+            activeIcon: Icon(it.activeIcon, size: 24 - 4 * density),
           ),
       ],
       selectedIndex: index,
@@ -741,8 +746,9 @@ class _SoplayGlassCapsule extends StatelessWidget {
       tabWidth: null,
       horizontalPadding: 0,
       verticalPadding: 0,
-      barHeight: _barHeight,
-      barBorderRadius: _barHeight / 2, // full capsule
+      barHeight: barHeight,
+      iconSize: 24 - 4 * density,
+      barBorderRadius: barHeight / 2, // full capsule
       magnification: glass
           ? 1.12
           : 1.0, // subtle iOS-26 lens on the selected tab
@@ -792,7 +798,7 @@ class _SoplayGlassCapsule extends StatelessWidget {
       // large system text scale the icons ended up different sizes across the
       // bar. Capping the scale at 1.2 keeps the row even; the label stays
       // readable because it is a one-word tab name, not body copy.
-      labelFontSize: MediaQuery.textScalerOf(context).scale(12),
+      labelFontSize: MediaQuery.textScalerOf(context).scale(12 - density),
     );
 
     // The package drop shadow is light-mode only, so paint our own soft capsule
@@ -808,7 +814,7 @@ class _SoplayGlassCapsule extends StatelessWidget {
           child: IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(_barHeight / 2),
+                borderRadius: BorderRadius.circular(barHeight / 2),
                 boxShadow: [
                   AppColors.isBlack
                       ? BoxShadow(
