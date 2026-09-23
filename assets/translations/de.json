@@ -1755,7 +1755,15 @@
     "restore_failed": "Diese Sicherung konnte nicht gelesen werden",
     "file_subject": "Sozo-Sicherung",
     "last_export": "Letzte Sicherung: {}",
-    "never_exported": "Auf diesem Gerät wurde noch keine Sicherung erstellt."
+    "never_exported": "Auf diesem Gerät wurde noch keine Sicherung erstellt.",
+    "reinstalling_sources": "Quellen werden aus ihren Repos neu installiert…",
+    "repos_added": "Hinzugefügte Repos: {}",
+    "plugins_installed": "Installierte Plugins: {}",
+    "prefs_restored": "Wiederhergestellte Quelleneinstellungen: {}",
+    "restore_done": "Wiederherstellung abgeschlossen",
+    "restore_partial": "Wiederhergestellt, mit Lücken",
+    "missing_sources": "Diese Quellen sind nicht zurückgekommen:",
+    "failed_repos": "Diese Repos waren nicht erreichbar:"
   },
   "provider_test": {
     "title": "Quellen testen",

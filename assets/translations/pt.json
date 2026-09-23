@@ -1755,7 +1755,15 @@
     "restore_failed": "Não foi possível ler esse backup",
     "file_subject": "Backup do Sozo",
     "last_export": "Último backup: {}",
-    "never_exported": "Nenhum backup foi feito neste aparelho ainda."
+    "never_exported": "Nenhum backup foi feito neste aparelho ainda.",
+    "reinstalling_sources": "Reinstalando fontes a partir dos repositórios…",
+    "repos_added": "Repositórios adicionados: {}",
+    "plugins_installed": "Plugins instalados: {}",
+    "prefs_restored": "Configurações de fontes restauradas: {}",
+    "restore_done": "Restauração concluída",
+    "restore_partial": "Restaurado, com lacunas",
+    "missing_sources": "Estas fontes não voltaram:",
+    "failed_repos": "Não foi possível acessar estes repositórios:"
   },
   "provider_test": {
     "title": "Testar fontes",

@@ -398,6 +398,7 @@ class MainActivity : FlutterFragmentActivity() {
                     repoManager.ensureLoaded(); pluginHost.providersJson()
                 }
                 "listRepos" -> csAsync(result) { repoManager.listReposJson() }
+                "installedPlugins" -> csAsync(result) { repoManager.installedPluginsJson() }
                 "removeRepo" -> {
                     val url = call.argument<String>("url").orEmpty()
                     csAsync(result) { repoManager.removeRepo(url) }

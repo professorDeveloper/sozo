@@ -1755,7 +1755,15 @@
     "restore_failed": "讀唔到嗰個備份",
     "file_subject": "Sozo 備份",
     "last_export": "上次備份：{}",
-    "never_exported": "呢部機仲未整過備份。"
+    "never_exported": "呢部機仲未整過備份。",
+    "reinstalling_sources": "正喺由來源庫重新安裝來源…",
+    "repos_added": "已加入嘅來源庫：{}",
+    "plugins_installed": "已安裝嘅外掛：{}",
+    "prefs_restored": "已還原嘅來源設定：{}",
+    "restore_done": "還原完成",
+    "restore_partial": "已還原，但有缺漏",
+    "missing_sources": "以下來源冇返到嚟：",
+    "failed_repos": "連唔到以下來源庫："
   },
   "provider_test": {
     "title": "測試來源",

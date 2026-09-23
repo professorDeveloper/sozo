@@ -1755,7 +1755,15 @@
     "restore_failed": "Cadangan itu tidak bisa dibaca",
     "file_subject": "Cadangan Sozo",
     "last_export": "Cadangan terakhir: {}",
-    "never_exported": "Belum ada cadangan yang dibuat di perangkat ini."
+    "never_exported": "Belum ada cadangan yang dibuat di perangkat ini.",
+    "reinstalling_sources": "Memasang ulang sumber dari repo…",
+    "repos_added": "Repo ditambahkan: {}",
+    "plugins_installed": "Plugin terpasang: {}",
+    "prefs_restored": "Pengaturan sumber dipulihkan: {}",
+    "restore_done": "Pemulihan selesai",
+    "restore_partial": "Dipulihkan, tapi ada yang kurang",
+    "missing_sources": "Sumber ini tidak kembali:",
+    "failed_repos": "Repo ini tidak bisa dijangkau:"
   },
   "provider_test": {
     "title": "Uji sumber",

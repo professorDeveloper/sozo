@@ -1755,7 +1755,15 @@
     "restore_failed": "No se pudo leer esa copia",
     "file_subject": "Copia de Sozo",
     "last_export": "Última copia: {}",
-    "never_exported": "Todavía no se ha hecho ninguna copia en este dispositivo."
+    "never_exported": "Todavía no se ha hecho ninguna copia en este dispositivo.",
+    "reinstalling_sources": "Reinstalando fuentes desde sus repositorios…",
+    "repos_added": "Repositorios añadidos: {}",
+    "plugins_installed": "Plugins instalados: {}",
+    "prefs_restored": "Ajustes de fuentes restaurados: {}",
+    "restore_done": "Restauración completada",
+    "restore_partial": "Restaurado, con huecos",
+    "missing_sources": "Estas fuentes no volvieron:",
+    "failed_repos": "No se pudo acceder a estos repositorios:"
   },
   "provider_test": {
     "title": "Probar fuentes",

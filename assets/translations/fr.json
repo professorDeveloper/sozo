@@ -1755,7 +1755,15 @@
     "restore_failed": "Impossible de lire cette sauvegarde",
     "file_subject": "Sauvegarde Sozo",
     "last_export": "Dernière sauvegarde : {}",
-    "never_exported": "Aucune sauvegarde n’a encore été faite sur cet appareil."
+    "never_exported": "Aucune sauvegarde n’a encore été faite sur cet appareil.",
+    "reinstalling_sources": "Réinstallation des sources depuis leurs dépôts…",
+    "repos_added": "Dépôts ajoutés : {}",
+    "plugins_installed": "Plugins installés : {}",
+    "prefs_restored": "Réglages de sources restaurés : {}",
+    "restore_done": "Restauration terminée",
+    "restore_partial": "Restauré, avec des manques",
+    "missing_sources": "Ces sources ne sont pas revenues :",
+    "failed_repos": "Ces dépôts sont inaccessibles :"
   },
   "provider_test": {
     "title": "Tester les sources",

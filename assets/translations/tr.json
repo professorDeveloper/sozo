@@ -1755,7 +1755,15 @@
     "restore_failed": "Bu yedek okunamadı",
     "file_subject": "Sozo yedeği",
     "last_export": "Son yedek: {}",
-    "never_exported": "Bu cihazda henüz yedek alınmadı."
+    "never_exported": "Bu cihazda henüz yedek alınmadı.",
+    "reinstalling_sources": "Kaynaklar depolarından yeniden kuruluyor…",
+    "repos_added": "Eklenen depolar: {}",
+    "plugins_installed": "Kurulan eklentiler: {}",
+    "prefs_restored": "Geri yüklenen kaynak ayarları: {}",
+    "restore_done": "Geri yükleme tamamlandı",
+    "restore_partial": "Geri yüklendi, eksiklerle",
+    "missing_sources": "Bu kaynaklar geri gelmedi:",
+    "failed_repos": "Bu depolara ulaşılamadı:"
   },
   "provider_test": {
     "title": "Kaynakları test et",

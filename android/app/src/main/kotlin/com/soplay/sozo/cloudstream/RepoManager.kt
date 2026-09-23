@@ -89,6 +89,27 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
         }
     }
 
+    /**
+     * Which plugins are installed from which repo: `{repoUrl: [internalName]}`.
+     * Read from saved metadata, no network — a backup takes it so a restore can
+     * reinstall exactly these rather than every plugin each repo offers.
+     */
+    fun installedPluginsJson(): String {
+        val meta = loadMeta()
+        val out = JSONObject()
+        for (repo in savedRepos()) {
+            val names = LinkedHashSet<String>()
+            meta.optJSONArray(repo)?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val n = arr.optJSONObject(i)?.optString("internalName").orEmpty()
+                    if (n.isNotEmpty()) names.add(n)
+                }
+            }
+            out.put(repo, JSONArray(names.toList()))
+        }
+        return out.toString()
+    }
+
     fun listReposJson(): String {
         val names = loadNames()
         val arr = JSONArray()

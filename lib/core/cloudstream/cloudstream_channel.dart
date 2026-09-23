@@ -79,6 +79,12 @@ class CloudStreamChannel {
   static Future<List<dynamic>> listRepos() async =>
       _arr(await _call('listRepos'));
 
+  /// Installed plugins by repo, `{repoUrl: [internalName]}`, read from what
+  /// the host saved — no network. What a backup needs to reinstall exactly
+  /// these later.
+  static Future<Map<String, dynamic>> installedPlugins() async =>
+      _obj(await _call('installedPlugins'));
+
   static Future<Map<String, dynamic>> removeRepo(String url) async =>
       _obj(await _call('removeRepo', {'url': url}));
 

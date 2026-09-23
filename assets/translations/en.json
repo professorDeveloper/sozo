@@ -1792,7 +1792,15 @@
     "restore_failed": "Could not read that backup",
     "file_subject": "Sozo backup",
     "last_export": "Last backup: {}",
-    "never_exported": "No backup has been made on this device yet."
+    "never_exported": "No backup has been made on this device yet.",
+    "reinstalling_sources": "Reinstalling sources from their repos…",
+    "repos_added": "Repos added: {}",
+    "plugins_installed": "Plugins installed: {}",
+    "prefs_restored": "Source settings restored: {}",
+    "restore_done": "Restore finished",
+    "restore_partial": "Restored, with gaps",
+    "missing_sources": "These sources did not come back:",
+    "failed_repos": "These repos could not be reached:"
   },
   "provider_test": {
     "title": "Test sources",

@@ -1792,7 +1792,15 @@
     "restore_failed": "Zaxirani o‘qib bo‘lmadi",
     "file_subject": "Sozo zaxirasi",
     "last_export": "Oxirgi zaxira: {}",
-    "never_exported": "Bu qurilmada hali zaxira yaratilmagan."
+    "never_exported": "Bu qurilmada hali zaxira yaratilmagan.",
+    "reinstalling_sources": "Manbalar repolaridan qayta o‘rnatilmoqda…",
+    "repos_added": "Qo‘shilgan repolar: {}",
+    "plugins_installed": "O‘rnatilgan plaginlar: {}",
+    "prefs_restored": "Tiklangan manba sozlamalari: {}",
+    "restore_done": "Tiklash tugadi",
+    "restore_partial": "Tiklandi, lekin to‘liq emas",
+    "missing_sources": "Bu manbalar qaytmadi:",
+    "failed_repos": "Bu repolarga ulanib bo‘lmadi:"
   },
   "provider_test": {
     "title": "Manbalarni tekshirish",

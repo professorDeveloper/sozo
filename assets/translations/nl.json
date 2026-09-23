@@ -1755,7 +1755,15 @@
     "restore_failed": "Die back-up kon niet worden gelezen",
     "file_subject": "Sozo-back-up",
     "last_export": "Laatste back-up: {}",
-    "never_exported": "Op dit apparaat is nog geen back-up gemaakt."
+    "never_exported": "Op dit apparaat is nog geen back-up gemaakt.",
+    "reinstalling_sources": "Bronnen opnieuw installeren uit hun repo's…",
+    "repos_added": "Repo's toegevoegd: {}",
+    "plugins_installed": "Plug-ins geïnstalleerd: {}",
+    "prefs_restored": "Broninstellingen hersteld: {}",
+    "restore_done": "Herstel voltooid",
+    "restore_partial": "Hersteld, met gaten",
+    "missing_sources": "Deze bronnen zijn niet teruggekomen:",
+    "failed_repos": "Deze repo's waren onbereikbaar:"
   },
   "provider_test": {
     "title": "Bronnen testen",
