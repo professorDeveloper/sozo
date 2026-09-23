@@ -146,7 +146,16 @@
     "removed_undo_hint": "已移除。可以喺「外觀 → 主頁」加返。",
     "explore_anime": "探索動畫",
     "explore_manga": "探索漫畫",
-    "explore_novel": "探索小說"
+    "explore_novel": "探索小說",
+    "airing_on_air": "播放中",
+    "airing_title": "放送日曆",
+    "airing_next": "下一集：{} · 第 {} 集",
+    "airing_in_hm": "{} 小時 {} 分鐘後",
+    "airing_in_m": "{} 分鐘後",
+    "airing_now": "而家播緊",
+    "airing_today_count": "未來 24 小時有 {} 集",
+    "airing_hint": "睇下今個星期出咩",
+    "airing_loading": "緊查緊時間表…"
   },
   "player": {
     "needs_media_kit": "需要 media_kit 引擎",

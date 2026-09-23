@@ -146,7 +146,16 @@
     "removed_undo_hint": "Dihapus. Tambahkan lagi lewat Tampilan → Beranda.",
     "explore_anime": "Jelajahi anime",
     "explore_manga": "Jelajahi manga",
-    "explore_novel": "Jelajahi novel"
+    "explore_novel": "Jelajahi novel",
+    "airing_on_air": "TAYANG",
+    "airing_title": "Kalender tayang",
+    "airing_next": "Berikutnya: {} · Episode {}",
+    "airing_in_hm": "dalam {} j {} m",
+    "airing_in_m": "dalam {} m",
+    "airing_now": "sedang tayang",
+    "airing_today_count": "{} dalam 24 jam ke depan",
+    "airing_hint": "Lihat yang tayang minggu ini",
+    "airing_loading": "Memeriksa jadwal…"
   },
   "player": {
     "needs_media_kit": "Butuh mesin media_kit",

@@ -146,7 +146,16 @@
     "removed_undo_hint": "تمت الإزالة. يمكنك إعادتها من المظهر ← الشاشة الرئيسية.",
     "explore_anime": "استكشف الأنمي",
     "explore_manga": "استكشف المانغا",
-    "explore_novel": "استكشف الروايات"
+    "explore_novel": "استكشف الروايات",
+    "airing_on_air": "على الهواء",
+    "airing_title": "تقويم العرض",
+    "airing_next": "التالي: {} · الحلقة {}",
+    "airing_in_hm": "بعد {} س {} د",
+    "airing_in_m": "بعد {} د",
+    "airing_now": "يُعرض الآن",
+    "airing_today_count": "{} خلال 24 ساعة",
+    "airing_hint": "شاهد ما يُعرض هذا الأسبوع",
+    "airing_loading": "جارٍ التحقق من الجدول…"
   },
   "player": {
     "needs_media_kit": "يتطلب محرّك media_kit",

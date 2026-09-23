@@ -2,6 +2,7 @@ import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import '../../domain/home_content_kind.dart';
+import 'home_airing_card.dart';
 import 'home_medium_discovery.dart';
 import 'package:soplay/features/profile/presentation/widgets/home_rail_customizer_sheet.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -307,8 +308,12 @@ class _HomeContentBody extends StatelessWidget {
                 }
               case HomeRail.catalogue:
                 if (medium != null && !showServices) {
+                  // AniList anime gets the airing calendar in this slot: it
+                  // is the one thing that catalogue has and no source does.
                   yield SliverToBoxAdapter(
-                    child: HomeMediumDiscovery(kind: medium),
+                    child: medium == HomeContentKind.anime
+                        ? const HomeAiringCard()
+                        : HomeMediumDiscovery(kind: medium),
                   );
                 }
                 if (loaded != null && loaded.collectionLoading) {

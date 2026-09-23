@@ -146,7 +146,16 @@
     "removed_undo_hint": "Retiré. Vous pouvez le remettre dans Apparence → Accueil.",
     "explore_anime": "Explorer les animes",
     "explore_manga": "Explorer les mangas",
-    "explore_novel": "Explorer les romans"
+    "explore_novel": "Explorer les romans",
+    "airing_on_air": "EN DIRECT",
+    "airing_title": "Calendrier de diffusion",
+    "airing_next": "Suivant : {} · Épisode {}",
+    "airing_in_hm": "dans {} h {} min",
+    "airing_in_m": "dans {} min",
+    "airing_now": "en diffusion",
+    "airing_today_count": "{} dans les prochaines 24 h",
+    "airing_hint": "Voir ce qui sort cette semaine",
+    "airing_loading": "Vérification du planning…"
   },
   "player": {
     "needs_media_kit": "Nécessite le moteur media_kit",

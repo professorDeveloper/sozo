@@ -146,7 +146,16 @@
     "suggest_add": "Add to Home",
     "suggest_no": "No thanks",
     "remove_from_home": "Remove from Home",
-    "removed_undo_hint": "Removed. Add it back from Appearance → Home layout."
+    "removed_undo_hint": "Removed. Add it back from Appearance → Home layout.",
+    "airing_on_air": "ON AIR",
+    "airing_title": "Airing calendar",
+    "airing_next": "Next: {} · Episode {}",
+    "airing_in_hm": "in {}h {}m",
+    "airing_in_m": "in {} min",
+    "airing_now": "airing now",
+    "airing_today_count": "{} in the next 24 hours",
+    "airing_hint": "See what airs this week",
+    "airing_loading": "Checking the schedule…"
   },
   "player": {
     "needs_media_kit": "Needs the media_kit engine",

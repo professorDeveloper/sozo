@@ -146,7 +146,16 @@
     "removed_undo_hint": "Entfernt. Über Darstellung → Startseite wieder hinzufügen.",
     "explore_anime": "Anime entdecken",
     "explore_manga": "Manga entdecken",
-    "explore_novel": "Romane entdecken"
+    "explore_novel": "Romane entdecken",
+    "airing_on_air": "LIVE",
+    "airing_title": "Ausstrahlungskalender",
+    "airing_next": "Als Nächstes: {} · Folge {}",
+    "airing_in_hm": "in {} Std. {} Min.",
+    "airing_in_m": "in {} Min.",
+    "airing_now": "läuft jetzt",
+    "airing_today_count": "{} in den nächsten 24 Stunden",
+    "airing_hint": "Sieh, was diese Woche läuft",
+    "airing_loading": "Plan wird geladen…"
   },
   "player": {
     "needs_media_kit": "Benötigt die media_kit-Engine",

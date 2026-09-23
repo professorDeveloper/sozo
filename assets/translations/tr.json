@@ -146,7 +146,16 @@
     "removed_undo_hint": "Kaldırıldı. Görünüm → Ana ekran üzerinden geri ekleyebilirsiniz.",
     "explore_anime": "Animeleri keşfet",
     "explore_manga": "Mangaları keşfet",
-    "explore_novel": "Romanları keşfet"
+    "explore_novel": "Romanları keşfet",
+    "airing_on_air": "YAYINDA",
+    "airing_title": "Yayın takvimi",
+    "airing_next": "Sıradaki: {} · {}. bölüm",
+    "airing_in_hm": "{} sa {} dk sonra",
+    "airing_in_m": "{} dk sonra",
+    "airing_now": "şimdi yayında",
+    "airing_today_count": "24 saat içinde {}",
+    "airing_hint": "Bu hafta neler yayında, gör",
+    "airing_loading": "Takvim kontrol ediliyor…"
   },
   "player": {
     "needs_media_kit": "media_kit motorunu gerektirir",

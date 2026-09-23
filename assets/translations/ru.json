@@ -146,7 +146,16 @@
     "suggest_add": "Добавить",
     "suggest_no": "Не надо",
     "remove_from_home": "Убрать с главного экрана",
-    "removed_undo_hint": "Убрано. Вернуть можно в «Оформление → Главный экран»."
+    "removed_undo_hint": "Убрано. Вернуть можно в «Оформление → Главный экран».",
+    "airing_on_air": "В ЭФИРЕ",
+    "airing_title": "Календарь выхода",
+    "airing_next": "Далее: {} · Серия {}",
+    "airing_in_hm": "через {} ч {} мин",
+    "airing_in_m": "через {} мин",
+    "airing_now": "уже выходит",
+    "airing_today_count": "{} за ближайшие 24 часа",
+    "airing_hint": "Что выходит на этой неделе",
+    "airing_loading": "Проверяем расписание…"
   },
   "player": {
     "needs_media_kit": "Нужен движок media_kit",

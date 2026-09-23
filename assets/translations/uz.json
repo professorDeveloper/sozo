@@ -146,7 +146,16 @@
     "suggest_add": "Home'ga qo'shish",
     "suggest_no": "Kerak emas",
     "remove_from_home": "Home'dan olib tashlash",
-    "removed_undo_hint": "Olib tashlandi. Appearance → Home layout orqali qaytarishingiz mumkin."
+    "removed_undo_hint": "Olib tashlandi. Appearance → Home layout orqali qaytarishingiz mumkin.",
+    "airing_on_air": "EFIRDA",
+    "airing_title": "Efir kalendari",
+    "airing_next": "Keyingisi: {} · {}-qism",
+    "airing_in_hm": "{} soat {} daqiqadan keyin",
+    "airing_in_m": "{} daqiqadan keyin",
+    "airing_now": "hozir chiqmoqda",
+    "airing_today_count": "24 soat ichida {} ta",
+    "airing_hint": "Bu hafta nimalar chiqishini ko‘ring",
+    "airing_loading": "Jadval tekshirilmoqda…"
   },
   "player": {
     "needs_media_kit": "media_kit dvigateli kerak",

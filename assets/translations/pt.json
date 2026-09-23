@@ -146,7 +146,16 @@
     "removed_undo_hint": "Removido. Dá para voltar em Aparência → Início.",
     "explore_anime": "Explorar animes",
     "explore_manga": "Explorar mangás",
-    "explore_novel": "Explorar romances"
+    "explore_novel": "Explorar romances",
+    "airing_on_air": "NO AR",
+    "airing_title": "Calendário de exibição",
+    "airing_next": "Próximo: {} · Episódio {}",
+    "airing_in_hm": "em {} h {} min",
+    "airing_in_m": "em {} min",
+    "airing_now": "no ar agora",
+    "airing_today_count": "{} nas próximas 24 horas",
+    "airing_hint": "Veja o que sai nesta semana",
+    "airing_loading": "Verificando a programação…"
   },
   "player": {
     "needs_media_kit": "Precisa do motor media_kit",

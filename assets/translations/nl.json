@@ -146,7 +146,16 @@
     "removed_undo_hint": "Verwijderd. Voeg het weer toe via Weergave → Home.",
     "explore_anime": "Anime verkennen",
     "explore_manga": "Manga verkennen",
-    "explore_novel": "Romans verkennen"
+    "explore_novel": "Romans verkennen",
+    "airing_on_air": "LIVE",
+    "airing_title": "Uitzendkalender",
+    "airing_next": "Volgende: {} · Aflevering {}",
+    "airing_in_hm": "over {} u {} min",
+    "airing_in_m": "over {} min",
+    "airing_now": "nu te zien",
+    "airing_today_count": "{} in de komende 24 uur",
+    "airing_hint": "Bekijk wat er deze week uitkomt",
+    "airing_loading": "Schema ophalen…"
   },
   "player": {
     "needs_media_kit": "Vereist de media_kit-engine",
