@@ -1105,7 +1105,8 @@
     "volume_n": "Deel {}",
     "other_chapters": "Overig",
     "find_chapter": "Hoofdstuk zoeken…",
-    "no_chapter_match": "Geen hoofdstuk komt overeen."
+    "no_chapter_match": "Geen hoofdstuk komt overeen.",
+    "find_in_chapter": "Zoeken in hoofdstuk"
   },
   "cloudflare": {
     "title": "Bevestig dat je een mens bent",

@@ -27,7 +27,20 @@ class NovelText extends StatelessWidget {
     this.lineHeight = 1.62,
     this.justify = true,
     this.paragraphSpacing = 14,
+    this.query = '',
+    this.activeMatch = -1,
+    this.activeKey,
   });
+
+  /// Text to find in the chapter, highlighted wherever it occurs. Empty for
+  /// none.
+  final String query;
+
+  /// Which occurrence, counting through the chapter from 0, is the current
+  /// one: drawn stronger, and its block carries [activeKey] so the reader can
+  /// scroll to it.
+  final int activeMatch;
+  final GlobalKey? activeKey;
 
   final String html;
   final Color color;
@@ -54,15 +67,55 @@ class NovelText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final needle = query.trim().toLowerCase();
+    var seen = 0;
+    final children = <Widget>[];
+    for (final block in parseNovelBlocks(html)) {
+      final count = needle.isEmpty
+          ? 0
+          : countMatches(block.text.toLowerCase(), needle);
+      final first = seen;
+      seen += count;
+      final holdsActive = activeMatch >= first && activeMatch < first + count;
+      final w = _block(block, needle, holdsActive ? activeMatch - first : -1);
+      children.add(
+        holdsActive && activeKey != null
+            ? KeyedSubtree(key: activeKey, child: w)
+            : w,
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final block in parseNovelBlocks(html)) _block(block),
-      ],
+      children: children,
     );
   }
 
-  Widget _block(NovelBlock block) {
+  /// Non-overlapping occurrences of [needle] in [hay], both lower-cased.
+  static int countMatches(String hay, String needle) {
+    if (needle.isEmpty) return 0;
+    var n = 0;
+    for (
+      var i = hay.indexOf(needle);
+      i >= 0;
+      i = hay.indexOf(needle, i + needle.length)
+    ) {
+      n++;
+    }
+    return n;
+  }
+
+  /// All occurrences in a chapter, the way [build] counts them.
+  static int countInChapter(String html, String query) {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) return 0;
+    var n = 0;
+    for (final b in parseNovelBlocks(html)) {
+      n += countMatches(b.text.toLowerCase(), needle);
+    }
+    return n;
+  }
+
+  Widget _block(NovelBlock block, [String needle = '', int active = -1]) {
     switch (block.kind) {
       case NovelBlockKind.rule:
         return Padding(
@@ -90,13 +143,61 @@ class NovelText extends StatelessWidget {
           // Selectable because somebody reading a translation looks words up.
           child: SelectableText.rich(
             TextSpan(
-              children: block.spans(color, fontFamily, fontSize, lineHeight),
+              children: _highlight(
+                block.spans(color, fontFamily, fontSize, lineHeight),
+                needle,
+                active,
+              ),
             ),
             textAlign: justify ? TextAlign.justify : TextAlign.start,
           ),
         );
     }
   }
+}
+
+/// [spans] with every occurrence of [needle] painted, the [active]-th (in
+/// this block) stronger. Works across the bold and italic runs a paragraph
+/// is split into, since a word can straddle them only as a whole run.
+List<InlineSpan> _highlight(List<InlineSpan> spans, String needle, int active) {
+  if (needle.isEmpty) return spans;
+  const soft = Color(0x66FFD54F);
+  const strong = Color(0xFFFF9800);
+  var index = 0;
+  final out = <InlineSpan>[];
+  for (final span in spans) {
+    if (span is! TextSpan || span.text == null) {
+      out.add(span);
+      continue;
+    }
+    final text = span.text!;
+    final lower = text.toLowerCase();
+    var from = 0;
+    for (
+      var i = lower.indexOf(needle);
+      i >= 0;
+      i = lower.indexOf(needle, i + needle.length)
+    ) {
+      if (i > from) {
+        out.add(TextSpan(text: text.substring(from, i), style: span.style));
+      }
+      out.add(
+        TextSpan(
+          text: text.substring(i, i + needle.length),
+          style: (span.style ?? const TextStyle()).copyWith(
+            backgroundColor: index == active ? strong : soft,
+            color: index == active ? Colors.black : null,
+          ),
+        ),
+      );
+      index++;
+      from = i + needle.length;
+    }
+    if (from < text.length) {
+      out.add(TextSpan(text: text.substring(from), style: span.style));
+    }
+  }
+  return out;
 }
 
 enum NovelBlockKind { paragraph, heading, rule }
@@ -169,7 +270,10 @@ List<NovelBlock> parseNovelBlocks(String html) {
   // Everything that is not prose. Script and style carry text that would
   // otherwise be rendered as if it were the chapter.
   s = s.replaceAll(
-    RegExp(r'<(script|style|noscript)[^>]*>[\s\S]*?</\1>', caseSensitive: false),
+    RegExp(
+      r'<(script|style|noscript)[^>]*>[\s\S]*?</\1>',
+      caseSensitive: false,
+    ),
     '',
   );
   s = s.replaceAll(RegExp(r'<!--[\s\S]*?-->'), '');
@@ -194,7 +298,10 @@ List<NovelBlock> parseNovelBlocks(String html) {
     _kBreak,
   );
 
-  s = s.replaceAll(RegExp(r'</?(b|strong)[^>]*>', caseSensitive: false), _kBold);
+  s = s.replaceAll(
+    RegExp(r'</?(b|strong)[^>]*>', caseSensitive: false),
+    _kBold,
+  );
   s = s.replaceAll(RegExp(r'</?(i|em)[^>]*>', caseSensitive: false), _kItal);
 
   // Everything else goes; its text content stays.
@@ -237,7 +344,9 @@ List<String> _splitKeepingRules(String s) {
   if (!s.contains(_kRule)) return [s];
   final out = <String>[];
   for (final part in s.split(_kRule)) {
-    out..add(part)..add(_kRule);
+    out
+      ..add(part)
+      ..add(_kRule);
   }
   out.removeLast();
   return out;

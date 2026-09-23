@@ -1105,7 +1105,8 @@
     "volume_n": "Band {}",
     "other_chapters": "Sonstige",
     "find_chapter": "Kapitel suchen …",
-    "no_chapter_match": "Kein Kapitel passt dazu."
+    "no_chapter_match": "Kein Kapitel passt dazu.",
+    "find_in_chapter": "Im Kapitel suchen"
   },
   "cloudflare": {
     "title": "Bestätige, dass du ein Mensch bist",

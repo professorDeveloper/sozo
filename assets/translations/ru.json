@@ -1105,7 +1105,8 @@
     "volume_n": "Том {}",
     "other_chapters": "Прочее",
     "find_chapter": "Найти главу…",
-    "no_chapter_match": "Подходящих глав нет."
+    "no_chapter_match": "Подходящих глав нет.",
+    "find_in_chapter": "Найти в главе"
   },
   "cloudflare": {
     "title": "Подтвердите, что вы человек",

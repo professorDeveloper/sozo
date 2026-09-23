@@ -62,6 +62,16 @@ class _ReaderPageState extends State<ReaderPage> {
   /// See MangaPagesEntity.html — the two are different shapes, not two ways of
   /// saying the same thing.
   String? _html;
+
+  /// Find in chapter, for prose. Open while [_finding]; [_findIndex] is the
+  /// current occurrence of [_findTotal], and [_findKey] sits on the paragraph
+  /// holding it so the page can scroll there.
+  bool _finding = false;
+  String _findQuery = '';
+  int _findIndex = 0;
+  int _findTotal = 0;
+  final GlobalKey _findKey = GlobalKey();
+  final TextEditingController _findController = TextEditingController();
   Map<String, String> _headers = const {};
   bool _loading = true;
   bool _localChapter = false;
@@ -239,6 +249,7 @@ class _ReaderPageState extends State<ReaderPage> {
     _novelScrollController.removeListener(_onNovelScroll);
     _saveProgress();
     _novelScrollController.dispose();
+    _findController.dispose();
     _saveDebounce?.cancel();
     _itemPositionsListener.itemPositions.removeListener(_onItemPositions);
     _pageController?.dispose();
@@ -298,6 +309,7 @@ class _ReaderPageState extends State<ReaderPage> {
         _pages = const [];
         _headers = const {};
         _loading = false;
+        _refreshFind();
       });
       _restoreNovelPosition(_novelPermille);
       _scheduleSave();
@@ -338,6 +350,7 @@ class _ReaderPageState extends State<ReaderPage> {
           _html = isText ? value.html : null;
           _headers = value.headers;
           _loading = false;
+          _refreshFind();
         });
         if (isText) _restoreNovelPosition(_novelPermille);
         _scheduleSave();
@@ -757,7 +770,10 @@ class _ReaderPageState extends State<ReaderPage> {
             _pageArrow(left: true),
             _pageArrow(left: false),
           ],
-          if (_showOverlay) _topBar(),
+          if (_finding && _html != null)
+            _findBar()
+          else if (_showOverlay)
+            _topBar(),
           if (isDesktopPlatform && !_showOverlay) _persistentClose(),
           if (_showOverlay && !_loading && _error == null) _bottomBar(),
         ],
@@ -925,6 +941,9 @@ class _ReaderPageState extends State<ReaderPage> {
           // line height closes the gap between them and the page reads as one
           // block.
           paragraphSpacing: _novelSize * _novelLeading * 0.85,
+          query: _finding ? _findQuery : '',
+          activeMatch: _findIndex,
+          activeKey: _findKey,
         ),
       ),
     );
@@ -1148,6 +1167,123 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
+  /// A new chapter keeps the query but not its count or place.
+  void _refreshFind() {
+    _findTotal = NovelText.countInChapter(_html ?? '', _findQuery);
+    _findIndex = 0;
+  }
+
+  void _onFind(String value) {
+    setState(() {
+      _findQuery = value;
+      _findTotal = NovelText.countInChapter(_html ?? '', value);
+      _findIndex = 0;
+    });
+    _showFound();
+  }
+
+  void _stepFind(int delta) {
+    if (_findTotal == 0) return;
+    setState(() => _findIndex = (_findIndex + delta) % _findTotal);
+    _showFound();
+  }
+
+  /// Scrolls the paragraph holding the current match into view, after the
+  /// frame that tags it.
+  void _showFound() {
+    if (_findTotal == 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _findKey.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.3,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  void _closeFind() {
+    _findController.clear();
+    setState(() {
+      _finding = false;
+      _findQuery = '';
+      _findTotal = 0;
+      _findIndex = 0;
+    });
+  }
+
+  /// The top bar while finding: the query, where in the results, up, down.
+  Widget _findBar() {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: EdgeInsets.only(
+          top: MediaQuery.paddingOf(context).top + 4,
+          bottom: 8,
+          left: 4,
+          right: 8,
+        ),
+        color: Colors.black.withValues(alpha: 0.9),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+              icon: const Icon(Icons.close_rounded, color: Colors.white),
+              onPressed: _closeFind,
+            ),
+            Expanded(
+              child: TextField(
+                controller: _findController,
+                autofocus: true,
+                onChanged: _onFind,
+                onSubmitted: (_) => _stepFind(1),
+                textInputAction: TextInputAction.search,
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'manga.find_in_chapter'.tr(),
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  border: InputBorder.none,
+                  filled: false,
+                ),
+              ),
+            ),
+            Text(
+              _findQuery.trim().isEmpty
+                  ? ''
+                  : _findTotal == 0
+                  ? '0 / 0'
+                  : '${_findIndex + 1} / $_findTotal',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(
+                Icons.keyboard_arrow_up_rounded,
+                color: Colors.white,
+              ),
+              onPressed: _findTotal > 1 ? () => _stepFind(-1) : null,
+            ),
+            IconButton(
+              icon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: Colors.white,
+              ),
+              onPressed: _findTotal > 1 ? () => _stepFind(1) : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _topBar() {
     final ch = widget.args.chapters[_chapterIndex];
     return Positioned(
@@ -1200,6 +1336,12 @@ class _ReaderPageState extends State<ReaderPage> {
                 ],
               ),
             ),
+            if (_html != null)
+              IconButton(
+                tooltip: 'manga.find_in_chapter'.tr(),
+                icon: const Icon(Icons.search_rounded, color: Colors.white),
+                onPressed: () => setState(() => _finding = true),
+              ),
             _downloadButton(ch),
             // Only when there is somewhere to go. A provider with no web page
             // for this chapter gets no button rather than a button that

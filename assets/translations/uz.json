@@ -1105,7 +1105,8 @@
     "volume_n": "{}-jild",
     "other_chapters": "Boshqalar",
     "find_chapter": "Bobni topish…",
-    "no_chapter_match": "Bunga mos bob yo'q."
+    "no_chapter_match": "Bunga mos bob yo'q.",
+    "find_in_chapter": "Bobdan qidirish"
   },
   "cloudflare": {
     "title": "Siz odam ekanligingizni tasdiqlang",

@@ -1105,7 +1105,8 @@
     "volume_n": "第 {} 卷",
     "other_chapters": "其他",
     "find_chapter": "搵章節…",
-    "no_chapter_match": "冇章節符合。"
+    "no_chapter_match": "冇章節符合。",
+    "find_in_chapter": "喺章節入面搵"
   },
   "cloudflare": {
     "title": "驗證你係真人",

@@ -1105,7 +1105,8 @@
     "volume_n": "Volumen {}",
     "other_chapters": "Otros",
     "find_chapter": "Buscar un capítulo…",
-    "no_chapter_match": "Ningún capítulo coincide."
+    "no_chapter_match": "Ningún capítulo coincide.",
+    "find_in_chapter": "Buscar en el capítulo"
   },
   "cloudflare": {
     "title": "Verifica que eres humano",

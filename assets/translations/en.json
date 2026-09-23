@@ -1105,7 +1105,8 @@
     "volume_n": "Volume {}",
     "other_chapters": "Other",
     "find_chapter": "Find a chapter…",
-    "no_chapter_match": "No chapter matches that."
+    "no_chapter_match": "No chapter matches that.",
+    "find_in_chapter": "Find in chapter"
   },
   "cloudflare": {
     "title": "Verify you're human",

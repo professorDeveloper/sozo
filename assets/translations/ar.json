@@ -1105,7 +1105,8 @@
     "volume_n": "المجلد {}",
     "other_chapters": "أخرى",
     "find_chapter": "ابحث عن فصل…",
-    "no_chapter_match": "لا يوجد فصل مطابق."
+    "no_chapter_match": "لا يوجد فصل مطابق.",
+    "find_in_chapter": "ابحث في الفصل"
   },
   "cloudflare": {
     "title": "تأكيد أنك لست روبوتاً",
