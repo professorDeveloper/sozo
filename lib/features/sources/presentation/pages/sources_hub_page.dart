@@ -223,8 +223,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
           layoutBuilder: (current, previous) => Stack(
             alignment: AlignmentDirectional.topStart,
             children: [
-              for (final child in previous)
-                Positioned.fill(child: child),
+              for (final child in previous) Positioned.fill(child: child),
               if (current != null) Positioned.fill(child: current),
             ],
           ),
@@ -557,34 +556,44 @@ class _SourcesHubPageState extends State<SourcesHubPage>
               isScrollable: false,
               labels: [for (final m in ContentMode.values) m.labelKey.tr()],
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: Text(
-                  'source_manager.selection_hint'.tr(),
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
+            Flexible(
+              fit: FlexFit.loose,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          'source_manager.selection_hint'.tr(),
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                    _searchField(state, mode),
+                    // The row comes and goes — a search that narrows to one ecosystem
+                    // removes it, changing tab can add it back — and it used to do
+                    // that by simply not being in the Column, so the whole list under
+                    // it jumped 34 pixels with no warning. It grows and shrinks now,
+                    // which is the same information arriving at a speed the eye can
+                    // follow.
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: SourceScopeMenu(
+                        counts: counts,
+                        scope: scope,
+                        onPick: (picked) => setState(() => _scope = picked),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-            _searchField(state, mode),
-            // The row comes and goes — a search that narrows to one ecosystem
-            // removes it, changing tab can add it back — and it used to do
-            // that by simply not being in the Column, so the whole list under
-            // it jumped 34 pixels with no warning. It grows and shrinks now,
-            // which is the same information arriving at a speed the eye can
-            // follow.
-            AnimatedSize(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: SourceScopeMenu(
-                counts: counts,
-                scope: scope,
-                onPick: (picked) => setState(() => _scope = picked),
               ),
             ),
             Expanded(
@@ -619,10 +628,6 @@ class _SourcesHubPageState extends State<SourcesHubPage>
           prefixIcon: const Icon(Icons.search_rounded, size: 20),
           suffixIcon: PopupMenuButton<String>(
             tooltip: 'profile.all_languages'.tr(),
-            icon: Icon(
-              Icons.translate,
-              color: _languages.isEmpty ? null : AppColors.primary,
-            ),
             onSelected: _filterLanguage,
             itemBuilder: (_) => [
               PopupMenuItem(
@@ -650,6 +655,36 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                   child: Text(srclang.labelFor(language)),
                 ),
             ],
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 144, minHeight: 48),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.translate,
+                      size: 18,
+                      color: _languages.isEmpty
+                          ? AppColors.textSecondary
+                          : AppColors.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        _languages.isEmpty
+                            ? 'profile.all_languages'.tr()
+                            : _languages.map(srclang.labelFor).join(', '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const Icon(Icons.expand_more, size: 16),
+                  ],
+                ),
+              ),
+            ),
           ),
           hintText: 'general.search'.tr(),
           filled: true,

@@ -46,6 +46,8 @@ class _Hive implements HiveService {
   @override
   bool get showNsfwMangaSources => false;
   @override
+  bool get showAdultContent => false;
+  @override
   String getCurrentProvider() => 'my:123';
   @override
   String getPreOutageProvider() => '';
@@ -235,7 +237,7 @@ void main() {
     await pump(tester, const SourcesHubPage(), bloc);
     expect(find.byType(FlexibleSpaceBar), findsNothing);
     final tabs = find.byType(TabBar);
-    final categories = find.text('All');
+    final categories = find.text('All · 36');
     final tabsTop = tester.getTopLeft(tabs).dy;
     final categoriesTop = tester.getTopLeft(categories).dy;
     expect(categoriesTop, greaterThan(tester.getBottomLeft(tabs).dy));

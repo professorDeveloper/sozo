@@ -582,7 +582,13 @@
     "start_paused_desc": "Pleyer ochiladi, lekin o'ynamaydi. Keyingi qismga avtomatik o'tish baribir o'ynaydi.",
     "date_format": "Sana formati",
     "date_format_desc": "Aks holda buni til sozlamasi belgilaydi.",
-    "date_format_auto": "Tilga moslash"
+    "date_format_auto": "Tilga moslash",
+    "section_content": "Kontent",
+    "adult_content": "18+ kontent",
+    "adult_content_desc": "Kattalar uchun kontent va manbalarni hamma joyda ko‘rsatish — AniList, TMDB, CloudStream, Aniyomi, manga va torrentlar.",
+    "adult_confirm_title": "Yoshingiz 18 dan kattami?",
+    "adult_confirm_body": "Kattalar uchun kontent va manbalar ilovaning hamma joyida ko‘rinadi. Istalgan vaqt Sozlamalarda o‘chirishingiz mumkin.",
+    "adult_confirm_yes": "Ha, 18 yoshdan kattaman"
   },
   "appearance": {
     "title": "Ko'rinish",
@@ -2005,7 +2011,8 @@
     "section": "Manbalar",
     "filter_title": "Qaysi manbalar ko‘rsatilsin",
     "repo_any": "Istalgan repozitoriy",
-    "repo_pick": "Repozitoriy tanlash"
+    "repo_pick": "Repozitoriy tanlash",
+    "filter_type": "Source turi"
   },
   "settings": {
     "dns_title": "DNS",

@@ -582,7 +582,13 @@
     "start_paused_desc": "Open the player without playing. Auto-advance still plays.",
     "date_format": "Date format",
     "date_format_desc": "The language decides this unless you say otherwise.",
-    "date_format_auto": "Follow the language"
+    "date_format_auto": "Follow the language",
+    "section_content": "Content",
+    "adult_content": "18+ content",
+    "adult_content_desc": "Show adult titles and sources everywhere — AniList, TMDB, CloudStream, Aniyomi, manga and torrents.",
+    "adult_confirm_title": "Are you 18 or older?",
+    "adult_confirm_body": "Adult titles and sources will appear throughout the app. You can turn this off at any time in Settings.",
+    "adult_confirm_yes": "I'm 18 or older"
   },
   "appearance": {
     "title": "Appearance",
@@ -2005,7 +2011,8 @@
     "section": "Sources",
     "filter_title": "Show sources from",
     "repo_any": "Any repository",
-    "repo_pick": "Choose a repository"
+    "repo_pick": "Choose a repository",
+    "filter_type": "Source type"
   },
   "settings": {
     "dns_title": "DNS",

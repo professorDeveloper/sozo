@@ -70,7 +70,6 @@ class _ProvidersPageState extends State<ProvidersPage> {
     final hasFavorites = getIt<HiveService>().getFavoriteProviders().isNotEmpty;
     var initial = _providerSheetFilter;
     if (initial == 'favorites' && !hasFavorites) initial = 'all';
-    if (initial == 'all' && hasFavorites) initial = 'favorites';
     _selectedCategory = initial;
     _providerSheetFilter = initial;
   }
@@ -117,21 +116,6 @@ class _ProvidersPageState extends State<ProvidersPage> {
                     ),
                     icon: const Icon(Icons.network_check_rounded, size: 21),
                     color: Colors.white70,
-                  )
-                : const SizedBox.shrink(),
-          ),
-          BlocBuilder<ProviderBloc, ProviderState>(
-            builder: (context, state) => state is ProviderLoaded
-                ? Padding(
-                    padding: const EdgeInsetsDirectional.only(end: 6),
-                    child: _CategoryFilterButton(
-                      providers: state.providers,
-                      selected: _selectedCategory,
-                      onSelected: (cat) => setState(() {
-                        _selectedCategory = cat;
-                        _providerSheetFilter = cat;
-                      }),
-                    ),
                   )
                 : const SizedBox.shrink(),
           ),
@@ -192,6 +176,27 @@ class _ProvidersPageState extends State<ProvidersPage> {
                 ),
               ),
               if (state is ProviderLoaded)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.tune_rounded, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text('sources.filter_type'.tr())),
+                      Flexible(
+                        child: _CategoryFilterButton(
+                          providers: state.providers,
+                          selected: _selectedCategory,
+                          onSelected: (cat) => setState(() {
+                            _selectedCategory = cat;
+                            _providerSheetFilter = cat;
+                          }),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (state is ProviderLoaded)
                 _LanguageFilterRow(
                   // Built from the languages the INSTALLED sources actually
                   // carry, not from a fixed list. A repo that ships Kazakh
@@ -236,17 +241,12 @@ class _ProvidersPageState extends State<ProvidersPage> {
                   child: Padding(
                     padding: const EdgeInsetsDirectional.fromSTEB(20, 0, 16, 6),
                     child: Text(
-                      _query.isEmpty
-                          ? 'profile.count_of_total_shown'.tr(
-                              args: [
-                                '${filtered.length}',
-                                '${state.providers.length}',
-                              ],
-                            )
-                          // A query ignores the category chip, so say so —
-                          // otherwise a hit from a hidden group looks like a bug.
-                          : '${filtered.length} / ${state.providers.length} · '
-                                '${'profile.searching_all_sources'.tr()}',
+                      'profile.count_of_total_shown'.tr(
+                        args: [
+                          '${filtered.length}',
+                          '${state.providers.length}',
+                        ],
+                      ),
                       style: const TextStyle(
                         color: AppColors.textHint,
                         fontSize: 12,
@@ -289,20 +289,11 @@ class _ProvidersPageState extends State<ProvidersPage> {
     );
   }
 
-  /// Providers matching the current category + query.
-  ///
-  /// **A query searches every provider, not just the active category.** The
-  /// category chips are a browsing aid; "All" deliberately hides the 260+
-  /// CloudStream/Aniyomi/Manga extension sources so the default list stays
-  /// short. Scoping the search box to that same subset meant typing an
-  /// installed extension's name in the default view found nothing at all —
-  /// the one place a user with hundreds of sources actually needs search.
   /// How many installed sources carry each language, computed once per
   /// provider list.
   ///
   /// A tally of the whole catalogue, not of the rows on screen. It counts the
-  /// 260+ extension sources the default category hides at [_filteredProviders]
-  /// on purpose: the language row is a standing statement about what the user
+  /// extension sources across every category: the language row is a standing statement about what the user
   /// watches rather than a view toggle on the open category, and a chip
   /// reading `0` because Favourites is open would be telling somebody they own
   /// no French sources when they own forty. So the number is a count of what
@@ -369,11 +360,7 @@ class _ProvidersPageState extends State<ProvidersPage> {
   }) {
     final langs = languages ?? _languages;
     final q = _query.trim().toLowerCase();
-    // The language row narrows a search too, unlike the category chips. A
-    // category is a place to browse and a search deliberately escapes it; a
-    // language is a statement about what the user can actually watch, and a
-    // result they cannot read is not a better result for being findable.
-    //
+    // Text, category and language compose; All includes every installed host.
     // Tested on displayLang, which is the label the row shows. That does mean
     // this list got SHORTER the day the backend started declaring `lang`:
     // Sozo's own two dozen providers used to arrive untagged, and an untagged
@@ -392,28 +379,13 @@ class _ProvidersPageState extends State<ProvidersPage> {
             for (final p in every)
               if (srclang.langMatches(p.displayLang, langs)) p,
           ];
-    if (q.isNotEmpty) {
-      return all
-          .where(
-            (p) =>
-                p.name.toLowerCase().contains(q) ||
-                p.id.toLowerCase().contains(q),
-          )
-          .toList();
-    }
 
     Iterable<ProviderEntity> list;
     if (_selectedCategory == 'favorites') {
       final favs = getIt<HiveService>().getFavoriteProviders().toSet();
       list = all.where((p) => favs.contains(p.id));
     } else if (_selectedCategory == 'all') {
-      list = all.where(
-        (p) =>
-            providerGroup(p) != 'cloudstream' &&
-            providerGroup(p) != 'aniyomi' &&
-            providerGroup(p) != 'manga' &&
-            providerGroup(p) != 'mangayomi',
-      );
+      list = all;
     } else if (_selectedCategory.startsWith('repo:')) {
       final repo = _selectedCategory.substring(5);
       list = all.where(
@@ -422,7 +394,14 @@ class _ProvidersPageState extends State<ProvidersPage> {
     } else {
       list = all.where((p) => providerGroup(p) == _selectedCategory);
     }
-    return list.toList();
+    return list
+        .where(
+          (p) =>
+              q.isEmpty ||
+              p.name.toLowerCase().contains(q) ||
+              p.id.toLowerCase().contains(q),
+        )
+        .toList();
   }
 
   /// Which of the three filters actually emptied the list.
@@ -434,8 +413,7 @@ class _ProvidersPageState extends State<ProvidersPage> {
   ///
   /// The language row answers only when lifting it brings rows back, which is
   /// the honest test — it is also the only one of the three this screen can
-  /// undo on the user's behalf. A query outranks the category because a query
-  /// already ignores the category chip. Runs one extra pass over the list, and
+  /// undo on the user's behalf. Runs one extra pass over the list, and
   /// only ever on a list that came back empty.
   _EmptyReason _emptyReason(List<ProviderEntity> every) {
     if (_languages.isNotEmpty &&
@@ -520,7 +498,9 @@ class _LanguageFilterRow extends StatelessWidget {
     int? count,
   }) {
     return Material(
-      color: active ? AppColors.primary.withValues(alpha: 0.18) : AppColors.surface,
+      color: active
+          ? AppColors.primary.withValues(alpha: 0.18)
+          : AppColors.surface,
       borderRadius: BorderRadius.circular(19),
       child: InkWell(
         borderRadius: BorderRadius.circular(19),
@@ -542,7 +522,9 @@ class _LanguageFilterRow extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  color: active ? AppColors.primaryLight : AppColors.textSecondary,
+                  color: active
+                      ? AppColors.primaryLight
+                      : AppColors.textSecondary,
                   fontSize: 12.5,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w600,
                 ),

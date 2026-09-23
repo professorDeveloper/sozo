@@ -629,7 +629,18 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                                 extent: searchExtent,
                               ),
                             ),
-                          if (catalogues.isNotEmpty)
+                          SliverToBoxAdapter(
+                            child: SourceScopeMenu(
+                              counts: _counts,
+                              scope: _liveScope,
+                              dense: true,
+                              onPick: (picked) =>
+                                  setState(() => _scope = picked),
+                            ),
+                          ),
+                          if (catalogues.isNotEmpty &&
+                              _liveScope.isAll &&
+                              _query.trim().isEmpty)
                             SliverToBoxAdapter(
                               child: _FadeOnScroll(
                                 controller: controller,
@@ -657,20 +668,6 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                                   _SectionLabel(
                                     '${'sources.section'.tr()} · '
                                     '${widget.all.length}',
-                                  ),
-                                  // Directly above the rows it filters. It used
-                                  // to sit above the search box, on the grounds
-                                  // that a control which changes what another
-                                  // one means belongs before it — but the
-                                  // search box is pinned now, and the scope
-                                  // reads better as the head of the list than
-                                  // as a second thing to get past.
-                                  SourceScopeMenu(
-                                    counts: _counts,
-                                    scope: _liveScope,
-                                    dense: true,
-                                    onPick: (picked) =>
-                                        setState(() => _scope = picked),
                                   ),
                                 ],
                               ),

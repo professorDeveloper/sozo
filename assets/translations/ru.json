@@ -582,7 +582,13 @@
     "start_paused_desc": "Плеер открывается, но не запускает воспроизведение. Автопереход всё равно играет.",
     "date_format": "Формат даты",
     "date_format_desc": "Иначе это решает язык приложения.",
-    "date_format_auto": "Как в языке"
+    "date_format_auto": "Как в языке",
+    "section_content": "Контент",
+    "adult_content": "Контент 18+",
+    "adult_content_desc": "Показывать взрослые тайтлы и источники везде — AniList, TMDB, CloudStream, Aniyomi, манга и торренты.",
+    "adult_confirm_title": "Вам есть 18 лет?",
+    "adult_confirm_body": "Взрослые тайтлы и источники появятся во всём приложении. Отключить можно в любой момент в Настройках.",
+    "adult_confirm_yes": "Мне есть 18"
   },
   "appearance": {
     "title": "Внешний вид",
@@ -2006,7 +2012,8 @@
     "section": "Источники",
     "filter_title": "Показывать источники из",
     "repo_any": "Любой репозиторий",
-    "repo_pick": "Выбрать репозиторий"
+    "repo_pick": "Выбрать репозиторий",
+    "filter_type": "Тип источника"
   },
   "settings": {
     "dns_title": "DNS",

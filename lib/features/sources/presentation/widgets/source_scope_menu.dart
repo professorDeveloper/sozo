@@ -5,20 +5,9 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/sources/domain/source_ecosystem.dart';
 import 'package:soplay/features/sources/domain/source_scope.dart';
 
-/// One button that says which slice of the sources is showing, and opens a
-/// menu to change it.
-///
-/// This replaces a horizontal row of chips. The row had two problems that got
-/// worse the more sources somebody installed: it is a second scrollable strip
-/// above a list that already scrolls, so the gesture is ambiguous and the
-/// chips beyond the fourth are found by dragging; and it can only ever show one
-/// axis. A repository is the second axis — with six CloudStream repos
-/// installed, "CloudStream" is two hundred sources and the question is which
-/// two hundred — and there is no room for a second row of chips above a list.
-///
-/// A menu has room for both, costs one line instead of a strip, and states the
-/// current selection in words rather than as the one chip that happens to be
-/// filled in.
+/// Visible ecosystem choices shared by the source hub and quick switcher.
+/// Repository selection is a labelled second step, including when only one
+/// ecosystem is installed. No horizontal scrolling is needed to find a host.
 class SourceScopeMenu extends StatelessWidget {
   const SourceScopeMenu({
     super.key,
@@ -44,113 +33,77 @@ class SourceScopeMenu extends StatelessWidget {
       if ((counts.byEcosystem[e] ?? 0) > 0) e,
   ];
 
-  String _label() {
-    final e = scope.ecosystem;
-    if (e == null) return 'sources.eco_all'.tr();
-    final r = scope.repo;
-    if (r == null) return e.label;
-    return '${e.label} · ${repoLabel(r)}';
-  }
-
   @override
   Widget build(BuildContext context) {
     final ecosystems = _ecosystems;
-    // Nothing to choose between. A control with one option is a label, and it
-    // would take a line of a list that needs every one it has.
-    if (ecosystems.length < 2) return const SizedBox.shrink();
-
-    final count = counts.countFor(scope);
-    final active = !scope.isAll;
+    if (ecosystems.isEmpty) return const SizedBox.shrink();
+    final ecosystem =
+        scope.ecosystem ?? (ecosystems.length == 1 ? ecosystems.single : null);
+    final hasRepos = ecosystem != null && counts.reposIn(ecosystem).isNotEmpty;
+    final colors = Theme.of(context).colorScheme;
     return Padding(
-      padding: EdgeInsets.fromLTRB(12, dense ? 2 : 4, 12, dense ? 2 : 6),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Semantics(
-            button: true,
-            label: '${_label()}, $count',
-            child: ExcludeSemantics(
-              child: InkWell(
-                onTap: () => _open(context, ecosystems),
-                borderRadius: BorderRadius.circular(999),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  curve: Curves.easeOut,
-                  padding: EdgeInsets.fromLTRB(
-                    14,
-                    dense ? 7 : 9,
-                    10,
-                    dense ? 7 : 9,
-                  ),
-                  decoration: BoxDecoration(
-                    // Filtered is a state worth seeing at a glance, but it is
-                    // not an alarm: a tinted card and a slightly stronger edge
-                    // say it without turning the control into the brightest
-                    // thing on the screen.
-                    color: active
-                        ? AppColors.primary.withValues(alpha: 0.12)
-                        : AppColors.card,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: active
-                          ? AppColors.primary.withValues(alpha: 0.35)
-                          : Colors.white.withValues(alpha: 0.06),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _label(),
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: dense ? 12.5 : 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      // The count is the difference between decoration and
-                      // something worth reading: it answers "where did the
-                      // sources go" without tapping anything.
-                      Text(
-                        '$count',
-                        style: TextStyle(
-                          color: AppColors.textHint,
-                          fontSize: dense ? 12 : 12.5,
-                          fontWeight: FontWeight.w700,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      Icon(
-                        Icons.expand_more_rounded,
-                        size: dense ? 17 : 18,
-                        color: active ? AppColors.primary : AppColors.textHint,
-                      ),
-                    ],
-                  ),
+          Row(
+            children: [
+              const Icon(Icons.tune_rounded, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'sources.filter_type'.tr(),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
-            ),
+              if (!scope.isAll)
+                TextButton(
+                  onPressed: () => onPick(SourceScope.all),
+                  child: Text('general.clear'.tr()),
+                ),
+            ],
           ),
-          const Spacer(),
-          // Clearing is one tap from anywhere, rather than opening the menu to
-          // find "All" at the top of it.
-          if (active)
-            TextButton(
-              onPressed: () {
-                HapticFeedback.selectionClick();
-                onPick(SourceScope.all);
-              },
-              style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-              child: Text(
-                'general.clear'.tr(),
-                style: TextStyle(
-                  color: AppColors.textHint,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final entry in <(SourceEcosystem?, String, int)>[
+                (null, 'sources.eco_all'.tr(), counts.total),
+                for (final e in ecosystems)
+                  (e, e.label, counts.byEcosystem[e] ?? 0),
+              ])
+                ChoiceChip(
+                  label: Text('${entry.$2} · ${entry.$3}'),
+                  selected: scope.ecosystem == entry.$1,
+                  showCheckmark: true,
+                  selectedColor: colors.primaryContainer,
+                  labelStyle: TextStyle(
+                    color: scope.ecosystem == entry.$1
+                        ? colors.onPrimaryContainer
+                        : colors.onSurface,
+                  ),
+                  materialTapTargetSize: MaterialTapTargetSize.padded,
+                  onSelected: (_) {
+                    HapticFeedback.selectionClick();
+                    onPick(SourceScope(ecosystem: entry.$1));
+                  },
+                ),
+            ],
+          ),
+          if (hasRepos)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: OutlinedButton.icon(
+                onPressed: () => _open(
+                  context,
+                  ecosystems,
+                  initial: SourceScope(ecosystem: ecosystem, repo: scope.repo),
+                ),
+                icon: const Icon(Icons.folder_open_rounded, size: 18),
+                label: Text(
+                  '${'sources.repo_pick'.tr()}: ${scope.repo == null ? 'sources.repo_any'.tr() : repoLabel(scope.repo!)}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
@@ -161,8 +114,9 @@ class SourceScopeMenu extends StatelessWidget {
 
   Future<void> _open(
     BuildContext context,
-    List<SourceEcosystem> ecosystems,
-  ) async {
+    List<SourceEcosystem> ecosystems, {
+    SourceScope? initial,
+  }) async {
     HapticFeedback.selectionClick();
     final picked = await showModalBottomSheet<SourceScope>(
       context: context,
@@ -172,8 +126,11 @@ class SourceScopeMenu extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) =>
-          _ScopeSheet(counts: counts, scope: scope, ecosystems: ecosystems),
+      builder: (context) => _ScopeSheet(
+        counts: counts,
+        scope: initial ?? scope,
+        ecosystems: ecosystems,
+      ),
     );
     if (picked != null) onPick(picked);
   }
