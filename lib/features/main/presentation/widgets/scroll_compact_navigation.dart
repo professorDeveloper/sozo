@@ -62,7 +62,7 @@ class ScrollCompactNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedScale(
-    scale: compact ? .94 : 1,
+    scale: compact ? .82 : 1,
     alignment: Alignment.bottomCenter,
     duration: MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
