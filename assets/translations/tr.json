@@ -143,7 +143,10 @@
     "suggest_add": "Ekle",
     "suggest_no": "Gerek yok",
     "remove_from_home": "Ana ekrandan kaldır",
-    "removed_undo_hint": "Kaldırıldı. Görünüm → Ana ekran üzerinden geri ekleyebilirsiniz."
+    "removed_undo_hint": "Kaldırıldı. Görünüm → Ana ekran üzerinden geri ekleyebilirsiniz.",
+    "explore_anime": "Animeleri keşfet",
+    "explore_manga": "Mangaları keşfet",
+    "explore_novel": "Romanları keşfet"
   },
   "player": {
     "needs_media_kit": "media_kit motorunu gerektirir",
@@ -719,7 +722,49 @@
     "rail_browse_on": "{source} içinde gezin",
     "rail_no_source": "Aramadan önce",
     "nothing_to_browse": "Burada göz atacak bir şey yok — bir başlık yazın.",
-    "filter_genres_hint": "Kategori bul"
+    "filter_genres_hint": "Kategori bul",
+    "discovery": {
+      "title": "Keşfet",
+      "hint": "Kataloğa filtrelerle göz atın. Başlık aramak ayrı bir arama başlatır.",
+      "type": "Medya türü",
+      "movie": "Filmler",
+      "tv": "Diziler",
+      "sort": "Sırala",
+      "popular": "Popüler",
+      "highest": "En yüksek puanlı",
+      "newest": "En yeni",
+      "trending": "Trend",
+      "rating": "En düşük puan · /10",
+      "any": "Tümü",
+      "votes": "Puana göre sıralama en az 100 oy gerektirir.",
+      "year": "Yayın yılı",
+      "genre": "Tür",
+      "status": "Durum",
+      "releasing": "Yayında",
+      "finished": "Tamamlandı",
+      "upcoming": "Yakında",
+      "hiatus": "Ara verdi",
+      "cancelled": "İptal edildi",
+      "format": "Format",
+      "special": "Özel",
+      "music": "Müzik",
+      "season": "Sezon",
+      "winter": "Kış",
+      "spring": "İlkbahar",
+      "summer": "Yaz",
+      "fall": "Sonbahar",
+      "show": "Sonuçları göster",
+      "active": "Filtrelenmiş katalog",
+      "min_rating": "En düşük puan",
+      "other_year": "Diğer…",
+      "any_rating": "Her puan",
+      "r_low": "Yalnızca en kötüleri eler",
+      "r5": "İzlenebilir",
+      "r6": "Fena değil",
+      "r7": "İyi",
+      "r8": "Harika",
+      "r9": "Yalnızca başyapıtlar"
+    }
   },
   "movie": {
     "rating": "Puan",
@@ -1664,7 +1709,8 @@
     },
     "up_next": "SIRADA",
     "minutes_left": "{} dk kaldı",
-    "recent_scopes": "Son açılanlar"
+    "recent_scopes": "Son açılanlar",
+    "last_opened": "Son açılan kanal"
   },
   "time": {
     "now": "az önce",
@@ -1987,7 +2033,8 @@
     "section": "Kaynaklar",
     "filter_title": "Hangi kaynaklar gösterilsin",
     "repo_any": "Herhangi bir depo",
-    "repo_pick": "Depo seç"
+    "repo_pick": "Depo seç",
+    "filter_type": "Kaynak türü"
   },
   "settings": {
     "dns_title": "DNS",

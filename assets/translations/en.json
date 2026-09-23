@@ -754,7 +754,16 @@
       "summer": "Summer",
       "fall": "Fall",
       "show": "Show results",
-      "active": "Filtered catalogue"
+      "active": "Filtered catalogue",
+      "min_rating": "Minimum rating",
+      "other_year": "Other…",
+      "any_rating": "Any rating",
+      "r_low": "Leaves out only the worst",
+      "r5": "Watchable",
+      "r6": "Decent",
+      "r7": "Good",
+      "r8": "Great",
+      "r9": "Masterpieces only"
     }
   },
   "movie": {

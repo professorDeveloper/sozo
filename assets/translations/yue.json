@@ -143,7 +143,10 @@
     "suggest_add": "加入",
     "suggest_no": "唔使喇",
     "remove_from_home": "喺主頁移除",
-    "removed_undo_hint": "已移除。可以喺「外觀 → 主頁」加返。"
+    "removed_undo_hint": "已移除。可以喺「外觀 → 主頁」加返。",
+    "explore_anime": "探索動畫",
+    "explore_manga": "探索漫畫",
+    "explore_novel": "探索小說"
   },
   "player": {
     "needs_media_kit": "需要 media_kit 引擎",
@@ -719,7 +722,49 @@
     "rail_browse_on": "睇下 {source}",
     "rail_no_source": "搵之前",
     "nothing_to_browse": "呢度冇嘢可以睇 — 打個名搜尋啦。",
-    "filter_genres_hint": "搵分類"
+    "filter_genres_hint": "搵分類",
+    "discovery": {
+      "title": "探索",
+      "hint": "用篩選瀏覽目錄。搜尋標題會另外開始一個搜尋。",
+      "type": "媒體類型",
+      "movie": "電影",
+      "tv": "電視劇",
+      "sort": "排序",
+      "popular": "熱門",
+      "highest": "最高評分",
+      "newest": "最新",
+      "trending": "熱話",
+      "rating": "最低評分 · /10",
+      "any": "任何",
+      "votes": "按評分排序需要最少 100 票。",
+      "year": "上映年份",
+      "genre": "類型",
+      "status": "狀態",
+      "releasing": "連載中",
+      "finished": "已完結",
+      "upcoming": "即將推出",
+      "hiatus": "暫停中",
+      "cancelled": "已取消",
+      "format": "格式",
+      "special": "特別篇",
+      "music": "音樂",
+      "season": "季度",
+      "winter": "冬",
+      "spring": "春",
+      "summer": "夏",
+      "fall": "秋",
+      "show": "顯示結果",
+      "active": "已篩選嘅目錄",
+      "min_rating": "最低評分",
+      "other_year": "其他…",
+      "any_rating": "任何評分",
+      "r_low": "淨係剔走最差嘅",
+      "r5": "睇得過",
+      "r6": "唔錯",
+      "r7": "好睇",
+      "r8": "好正",
+      "r9": "淨係神作"
+    }
   },
   "movie": {
     "rating": "評分",
@@ -1664,7 +1709,8 @@
     },
     "up_next": "下一個節目",
     "minutes_left": "仲有 {} 分鐘",
-    "recent_scopes": "最近開過"
+    "recent_scopes": "最近開過",
+    "last_opened": "上次開嘅頻道"
   },
   "time": {
     "now": "啱啱",
@@ -1987,7 +2033,8 @@
     "section": "來源",
     "filter_title": "顯示邊啲來源",
     "repo_any": "任何儲存庫",
-    "repo_pick": "揀儲存庫"
+    "repo_pick": "揀儲存庫",
+    "filter_type": "來源類型"
   },
   "settings": {
     "dns_title": "DNS",

@@ -143,7 +143,10 @@
     "suggest_add": "Ajouter",
     "suggest_no": "Non merci",
     "remove_from_home": "Retirer de l'accueil",
-    "removed_undo_hint": "Retiré. Vous pouvez le remettre dans Apparence → Accueil."
+    "removed_undo_hint": "Retiré. Vous pouvez le remettre dans Apparence → Accueil.",
+    "explore_anime": "Explorer les animes",
+    "explore_manga": "Explorer les mangas",
+    "explore_novel": "Explorer les romans"
   },
   "player": {
     "needs_media_kit": "Nécessite le moteur media_kit",
@@ -719,7 +722,49 @@
     "rail_browse_on": "Parcourir {source}",
     "rail_no_source": "Avant de chercher",
     "nothing_to_browse": "Rien à parcourir ici — tapez un titre.",
-    "filter_genres_hint": "Trouver une catégorie"
+    "filter_genres_hint": "Trouver une catégorie",
+    "discovery": {
+      "title": "Découvrir",
+      "hint": "Parcourez le catalogue avec des filtres. Chercher un titre lance une recherche à part.",
+      "type": "Type de média",
+      "movie": "Films",
+      "tv": "Séries",
+      "sort": "Trier par",
+      "popular": "Populaires",
+      "highest": "Mieux notés",
+      "newest": "Plus récents",
+      "trending": "Tendances",
+      "rating": "Note minimale · /10",
+      "any": "Tous",
+      "votes": "Le tri par note exige au moins 100 votes.",
+      "year": "Année de sortie",
+      "genre": "Genre",
+      "status": "Statut",
+      "releasing": "En cours",
+      "finished": "Terminé",
+      "upcoming": "À venir",
+      "hiatus": "En pause",
+      "cancelled": "Annulé",
+      "format": "Format",
+      "special": "Spécial",
+      "music": "Musique",
+      "season": "Saison",
+      "winter": "Hiver",
+      "spring": "Printemps",
+      "summer": "Été",
+      "fall": "Automne",
+      "show": "Voir les résultats",
+      "active": "Catalogue filtré",
+      "min_rating": "Note minimale",
+      "other_year": "Autre…",
+      "any_rating": "Toute note",
+      "r_low": "Écarte seulement le pire",
+      "r5": "Regardable",
+      "r6": "Correct",
+      "r7": "Bon",
+      "r8": "Excellent",
+      "r9": "Chefs-d’œuvre uniquement"
+    }
   },
   "movie": {
     "rating": "Note",
@@ -1664,7 +1709,8 @@
     },
     "up_next": "ENSUITE",
     "minutes_left": "{} min restantes",
-    "recent_scopes": "Ouverts récemment"
+    "recent_scopes": "Ouverts récemment",
+    "last_opened": "Dernière chaîne ouverte"
   },
   "time": {
     "now": "à l’instant",
@@ -1987,7 +2033,8 @@
     "section": "Sources",
     "filter_title": "Afficher les sources de",
     "repo_any": "N’importe quel dépôt",
-    "repo_pick": "Choisir un dépôt"
+    "repo_pick": "Choisir un dépôt",
+    "filter_type": "Type de source"
   },
   "settings": {
     "dns_title": "DNS",

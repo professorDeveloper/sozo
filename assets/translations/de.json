@@ -143,7 +143,10 @@
     "suggest_add": "Hinzufügen",
     "suggest_no": "Nein danke",
     "remove_from_home": "Von der Startseite entfernen",
-    "removed_undo_hint": "Entfernt. Über Darstellung → Startseite wieder hinzufügen."
+    "removed_undo_hint": "Entfernt. Über Darstellung → Startseite wieder hinzufügen.",
+    "explore_anime": "Anime entdecken",
+    "explore_manga": "Manga entdecken",
+    "explore_novel": "Romane entdecken"
   },
   "player": {
     "needs_media_kit": "Benötigt die media_kit-Engine",
@@ -719,7 +722,49 @@
     "rail_browse_on": "{source} durchstöbern",
     "rail_no_source": "Bevor du suchst",
     "nothing_to_browse": "Hier gibt es nichts zu stöbern — tippe einen Titel.",
-    "filter_genres_hint": "Kategorie finden"
+    "filter_genres_hint": "Kategorie finden",
+    "discovery": {
+      "title": "Entdecken",
+      "hint": "Den Katalog mit Filtern durchstöbern. Eine Titelsuche startet eine eigene Suche.",
+      "type": "Medientyp",
+      "movie": "Filme",
+      "tv": "Serien",
+      "sort": "Sortieren nach",
+      "popular": "Beliebt",
+      "highest": "Bestbewertet",
+      "newest": "Neueste",
+      "trending": "Im Trend",
+      "rating": "Mindestbewertung · /10",
+      "any": "Alle",
+      "votes": "Sortieren nach Bewertung setzt mindestens 100 Stimmen voraus.",
+      "year": "Erscheinungsjahr",
+      "genre": "Genre",
+      "status": "Status",
+      "releasing": "Laufend",
+      "finished": "Abgeschlossen",
+      "upcoming": "Demnächst",
+      "hiatus": "Pausiert",
+      "cancelled": "Abgesetzt",
+      "format": "Format",
+      "special": "Special",
+      "music": "Musik",
+      "season": "Saison",
+      "winter": "Winter",
+      "spring": "Frühling",
+      "summer": "Sommer",
+      "fall": "Herbst",
+      "show": "Ergebnisse zeigen",
+      "active": "Gefilterter Katalog",
+      "min_rating": "Mindestbewertung",
+      "other_year": "Anderes…",
+      "any_rating": "Jede Bewertung",
+      "r_low": "Nur das Schlechteste raus",
+      "r5": "Anschaubar",
+      "r6": "Ordentlich",
+      "r7": "Gut",
+      "r8": "Großartig",
+      "r9": "Nur Meisterwerke"
+    }
   },
   "movie": {
     "rating": "Bewertung",
@@ -1664,7 +1709,8 @@
     },
     "up_next": "ALS NÄCHSTES",
     "minutes_left": "noch {} Min.",
-    "recent_scopes": "Zuletzt geöffnet"
+    "recent_scopes": "Zuletzt geöffnet",
+    "last_opened": "Zuletzt geöffneter Sender"
   },
   "time": {
     "now": "gerade eben",
@@ -1987,7 +2033,8 @@
     "section": "Quellen",
     "filter_title": "Quellen anzeigen aus",
     "repo_any": "Beliebiges Repository",
-    "repo_pick": "Repository wählen"
+    "repo_pick": "Repository wählen",
+    "filter_type": "Quellentyp"
   },
   "settings": {
     "dns_title": "DNS",

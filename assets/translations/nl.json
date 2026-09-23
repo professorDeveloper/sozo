@@ -143,7 +143,10 @@
     "suggest_add": "Toevoegen",
     "suggest_no": "Nee, bedankt",
     "remove_from_home": "Van Home verwijderen",
-    "removed_undo_hint": "Verwijderd. Voeg het weer toe via Weergave → Home."
+    "removed_undo_hint": "Verwijderd. Voeg het weer toe via Weergave → Home.",
+    "explore_anime": "Anime verkennen",
+    "explore_manga": "Manga verkennen",
+    "explore_novel": "Romans verkennen"
   },
   "player": {
     "needs_media_kit": "Vereist de media_kit-engine",
@@ -719,7 +722,49 @@
     "rail_browse_on": "{source} verkennen",
     "rail_no_source": "Voordat je zoekt",
     "nothing_to_browse": "Hier valt niets te verkennen — typ een titel.",
-    "filter_genres_hint": "Categorie zoeken"
+    "filter_genres_hint": "Categorie zoeken",
+    "discovery": {
+      "title": "Ontdekken",
+      "hint": "Blader met filters door de catalogus. Zoeken op titel start een aparte zoekopdracht.",
+      "type": "Mediatype",
+      "movie": "Films",
+      "tv": "Series",
+      "sort": "Sorteren op",
+      "popular": "Populair",
+      "highest": "Hoogst gewaardeerd",
+      "newest": "Nieuwste",
+      "trending": "Trending",
+      "rating": "Minimale score · /10",
+      "any": "Alle",
+      "votes": "Sorteren op score vereist minstens 100 stemmen.",
+      "year": "Jaar van uitgave",
+      "genre": "Genre",
+      "status": "Status",
+      "releasing": "Lopend",
+      "finished": "Afgerond",
+      "upcoming": "Binnenkort",
+      "hiatus": "Onderbroken",
+      "cancelled": "Geannuleerd",
+      "format": "Formaat",
+      "special": "Special",
+      "music": "Muziek",
+      "season": "Seizoen",
+      "winter": "Winter",
+      "spring": "Lente",
+      "summer": "Zomer",
+      "fall": "Herfst",
+      "show": "Resultaten tonen",
+      "active": "Gefilterde catalogus",
+      "min_rating": "Minimale score",
+      "other_year": "Ander…",
+      "any_rating": "Elke score",
+      "r_low": "Alleen het slechtste eruit",
+      "r5": "Kijkbaar",
+      "r6": "Redelijk",
+      "r7": "Goed",
+      "r8": "Geweldig",
+      "r9": "Alleen meesterwerken"
+    }
   },
   "movie": {
     "rating": "Beoordeling",
@@ -1664,7 +1709,8 @@
     },
     "up_next": "STRAKS",
     "minutes_left": "nog {} min",
-    "recent_scopes": "Onlangs geopend"
+    "recent_scopes": "Onlangs geopend",
+    "last_opened": "Laatst geopende zender"
   },
   "time": {
     "now": "zojuist",
@@ -1987,7 +2033,8 @@
     "section": "Bronnen",
     "filter_title": "Bronnen tonen uit",
     "repo_any": "Elke repository",
-    "repo_pick": "Repository kiezen"
+    "repo_pick": "Repository kiezen",
+    "filter_type": "Brontype"
   },
   "settings": {
     "dns_title": "DNS",

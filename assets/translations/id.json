@@ -143,7 +143,10 @@
     "suggest_add": "Tambahkan",
     "suggest_no": "Tidak usah",
     "remove_from_home": "Hapus dari Beranda",
-    "removed_undo_hint": "Dihapus. Tambahkan lagi lewat Tampilan → Beranda."
+    "removed_undo_hint": "Dihapus. Tambahkan lagi lewat Tampilan → Beranda.",
+    "explore_anime": "Jelajahi anime",
+    "explore_manga": "Jelajahi manga",
+    "explore_novel": "Jelajahi novel"
   },
   "player": {
     "needs_media_kit": "Butuh mesin media_kit",
@@ -719,7 +722,49 @@
     "rail_browse_on": "Jelajahi {source}",
     "rail_no_source": "Sebelum mencari",
     "nothing_to_browse": "Tidak ada yang bisa dijelajahi di sini — ketik sebuah judul.",
-    "filter_genres_hint": "Cari kategori"
+    "filter_genres_hint": "Cari kategori",
+    "discovery": {
+      "title": "Temukan",
+      "hint": "Jelajahi katalog dengan filter. Mencari judul memulai pencarian terpisah.",
+      "type": "Jenis media",
+      "movie": "Film",
+      "tv": "Serial TV",
+      "sort": "Urutkan",
+      "popular": "Populer",
+      "highest": "Rating tertinggi",
+      "newest": "Terbaru",
+      "trending": "Sedang tren",
+      "rating": "Rating minimum · /10",
+      "any": "Semua",
+      "votes": "Urutan rating membutuhkan minimal 100 suara.",
+      "year": "Tahun rilis",
+      "genre": "Genre",
+      "status": "Status",
+      "releasing": "Sedang rilis",
+      "finished": "Selesai",
+      "upcoming": "Akan datang",
+      "hiatus": "Hiatus",
+      "cancelled": "Dibatalkan",
+      "format": "Format",
+      "special": "Spesial",
+      "music": "Musik",
+      "season": "Musim",
+      "winter": "Dingin",
+      "spring": "Semi",
+      "summer": "Panas",
+      "fall": "Gugur",
+      "show": "Tampilkan hasil",
+      "active": "Katalog terfilter",
+      "min_rating": "Rating minimum",
+      "other_year": "Lainnya…",
+      "any_rating": "Rating apa pun",
+      "r_low": "Hanya buang yang terburuk",
+      "r5": "Layak tonton",
+      "r6": "Lumayan",
+      "r7": "Bagus",
+      "r8": "Hebat",
+      "r9": "Hanya mahakarya"
+    }
   },
   "movie": {
     "rating": "Rating",
@@ -1664,7 +1709,8 @@
     },
     "up_next": "BERIKUTNYA",
     "minutes_left": "sisa {} mnt",
-    "recent_scopes": "Baru dibuka"
+    "recent_scopes": "Baru dibuka",
+    "last_opened": "Saluran terakhir dibuka"
   },
   "time": {
     "now": "baru saja",
@@ -1987,7 +2033,8 @@
     "section": "Sumber",
     "filter_title": "Tampilkan sumber dari",
     "repo_any": "Repositori mana pun",
-    "repo_pick": "Pilih repositori"
+    "repo_pick": "Pilih repositori",
+    "filter_type": "Jenis sumber"
   },
   "settings": {
     "dns_title": "DNS",

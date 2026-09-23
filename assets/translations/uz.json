@@ -754,7 +754,16 @@
       "summer": "Yoz",
       "fall": "Kuz",
       "show": "Natijalarni ko‘rish",
-      "active": "Filtrlangan katalog"
+      "active": "Filtrlangan katalog",
+      "min_rating": "Minimal reyting",
+      "other_year": "Boshqa…",
+      "any_rating": "Istalgan reyting",
+      "r_low": "Faqat eng yomonlarini chiqaradi",
+      "r5": "Ko‘rsa bo‘ladi",
+      "r6": "Yomon emas",
+      "r7": "Yaxshi",
+      "r8": "Zo‘r",
+      "r9": "Faqat durdonalar"
     }
   },
   "movie": {
