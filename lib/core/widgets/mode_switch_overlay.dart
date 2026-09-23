@@ -9,13 +9,13 @@ import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/content/content_mode_style.dart';
 import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/core/widgets/sozo_dragon_transition.dart';
+import 'package:soplay/core/widgets/catalogue_transition_mark.dart';
 import 'package:soplay/core/brand/sozo_mark_geometry.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 /// A bounded transition between catalogues and reading modes. The reveal starts
 /// at the selected chip; the splash's dragon signs the change, with a separate
-/// destination badge so AniList's three shelves remain distinguishable.
+/// destination logo and shelf label so AniList’s three shelves stay distinct.
 class ModeSwitchOverlay extends StatefulWidget {
   const ModeSwitchOverlay({
     super.key,
@@ -242,7 +242,7 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
   /// bounce — one overshoot, no wobble.
   late final Animation<double> _land = CurvedAnimation(
     parent: _enter,
-    curve: const Interval(0.1, 1, curve: Curves.easeOutBack),
+    curve: const Interval(0.1, 1, curve: Curves.easeOutCubic),
   );
 
   /// Fades in behind the glyph, so the eye lands on the shape first and reads
@@ -260,8 +260,8 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
   /// Tracking settles as the word lands: it arrives spread out and closes up,
   /// which reads as the name being set rather than typed.
   late final Animation<double> _labelTrack = Tween<double>(
-    begin: 6.4,
-    end: 3.2,
+    begin: 2.0,
+    end: 0.8,
   ).animate(_labelIn);
 
   bool _reduceMotion = false;
@@ -460,7 +460,7 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox.square(
-                      dimension: 164,
+                      dimension: 144,
                       child: AnimatedBuilder(
                         animation: Listenable.merge([
                           _draw,
@@ -477,7 +477,7 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
                           // scale back in a single frame, exactly as the cover
                           // began to leave.
                           final breath = !_reduceMotion && _pulse.isAnimating
-                              ? 0.035 *
+                              ? 0.012 *
                                     math.sin(_pulse.value * math.pi) *
                                     (1 - _exit.value * 3).clamp(0.0, 1.0)
                               : 0.0;
@@ -486,14 +486,16 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
                             // the middle — a sixth of the way there, so it is
                             // felt as direction rather than seen as travel.
                             offset: Offset(
-                              -lean.dx * 90 * (1 - land),
-                              -lean.dy * 90 * (1 - land),
+                              -lean.dx * 24 * (1 - land),
+                              -lean.dy * 24 * (1 - land),
                             ),
                             child: Transform.scale(
-                              scale: (0.62 + 0.38 * land) * (1 + breath),
+                              scale: (0.94 + 0.06 * land) * (1 + breath),
                               child: Center(
-                                child: SozoDragonTransition(
-                                  size: 156,
+                                child: CatalogueTransitionMark(
+                                  mode: widget.mode,
+                                  catalogue: widget.catalogue,
+                                  accent: accent,
                                   progress: _reduceMotion ? 1 : _draw.value,
                                 ),
                               ),
@@ -502,13 +504,7 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
                         },
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    ModeGlyph(
-                      mode: widget.mode,
-                      catalogue: widget.catalogue,
-                      color: accent,
-                      size: 32,
-                    ),
+
                     const SizedBox(height: 12),
                     FadeTransition(
                       opacity: _labelIn,

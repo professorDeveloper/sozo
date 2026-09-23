@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
@@ -16,12 +15,33 @@ class CatalogueLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => switch (catalogue) {
-    Catalogue.tmdb => ClipRRect(
-      borderRadius: BorderRadius.circular(size * 0.22),
-      child: SvgPicture.asset(
-        'assets/icons/tmdb.svg',
-        width: size,
-        height: size,
+    Catalogue.tmdb => Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D253F),
+        borderRadius: BorderRadius.circular(size * 0.22),
+      ),
+      alignment: Alignment.center,
+      child: ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (bounds) => const LinearGradient(
+          colors: [Color(0xFF90CEA1), Color(0xFF01B4E4)],
+        ).createShader(bounds),
+        // flutter_svg cannot render the <text> in the old badge asset.
+        child: Text(
+          'TMDB',
+          textScaler: TextScaler.noScaling,
+          style: TextStyle(
+            fontFamily: 'sans-serif',
+            fontSize: size * .22,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            height: 1,
+            letterSpacing: 0,
+            decoration: TextDecoration.none,
+          ),
+        ),
       ),
     ),
     _ => AnilistLogo(size: size, radius: size * 0.22),
