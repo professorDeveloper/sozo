@@ -69,8 +69,10 @@ class _Strings extends AssetLoader {
   const _Strings();
   @override
   Future<Map<String, dynamic>> load(String path, Locale locale) async =>
-      jsonDecode(File('assets/translations/en.json').readAsStringSync()) as Map<String, dynamic>;
+      jsonDecode(File('assets/translations/en.json').readAsStringSync())
+          as Map<String, dynamic>;
 }
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
@@ -97,7 +99,9 @@ void main() {
       bloc.add(const SearchLoadMore());
       await bloc.stream.firstWhere((s) => s.page == 2 && !s.isLoadingMore);
       expect(repo.calls.map((c) => c.$2), [1, 2]);
-      for (final call in repo.calls) { expect(call.$1, filters); }
+      for (final call in repo.calls) {
+        expect(call.$1, filters);
+      }
       repo.catalogueKind = 'anilist';
       bloc.add(const SearchLoad());
       await bloc.stream.firstWhere((s) => s.status == SearchStatus.idle);
@@ -122,37 +126,80 @@ void main() {
       expect(repo.calls, hasLength(1));
     },
   );
-  testWidgets('rating selection remains visible and apply stays reachable on a small phone', (tester) async {
-    tester.view.physicalSize = const Size(360, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    Map<String, String>? applied;
-    await tester.pumpWidget(EasyLocalization(supportedLocales: const [Locale('en')],
-      path: 'assets/translations', assetLoader: const _Strings(), saveLocale: false,
-      child: Builder(builder: (context) => MaterialApp(
-        locale: context.locale, supportedLocales: context.supportedLocales,
-        localizationsDelegates: context.localizationDelegates,
-        theme: ThemeData.dark(useMaterial3: true),
-        home: Scaffold(body: Builder(builder: (context) => TextButton(
-          child: const Text('open'), onPressed: () => showModalBottomSheet<void>(
-            context: context, isScrollControlled: true,
-            builder: (_) => CatalogueDiscoverySheet(kind: 'anilist', genres: const [],
-              initial: const {}, loadGenres: (_) async => const Success([]),
-              onApply: (value) => applied = value),
+  testWidgets(
+    'rating selection remains visible and apply stays reachable on a small phone',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      Map<String, String>? applied;
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: const [Locale('en')],
+          path: 'assets/translations',
+          assetLoader: const _Strings(),
+          saveLocale: false,
+          child: Builder(
+            builder: (context) => MaterialApp(
+              locale: context.locale,
+              supportedLocales: context.supportedLocales,
+              localizationsDelegates: context.localizationDelegates,
+              theme: ThemeData.dark(useMaterial3: true),
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => TextButton(
+                    child: const Text('open'),
+                    onPressed: () => showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) => CatalogueDiscoverySheet(
+                        kind: 'anilist',
+                        genres: const [],
+                        initial: const {},
+                        loadGenres: (_) async => const Success([]),
+                        onApply: (value) => applied = value,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-        ))),
-      ))));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('★ 8+'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '★ 8+')).selected, isTrue);
-    expect(tester.getBottomRight(find.text('Show results')).dy, lessThan(640));
-    expect(tester.takeException(), isNull);
-    await tester.tap(find.text('Show results'));
-    await tester.pumpAndSettle();
-    expect(applied, {'sort': 'popular', 'rating': '8'});
-  });
-
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('★ 8+'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '★ 8+'))
+            .selected,
+        isTrue,
+      );
+      expect(
+        tester.getBottomRight(find.text('Show results')).dy,
+        lessThan(640),
+      );
+      expect(tester.takeException(), isNull);
+      final yearField = find.byKey(const ValueKey('year:null'));
+      await tester.ensureVisible(yearField);
+      await tester.tap(yearField);
+      await tester.pumpAndSettle();
+      final menuScroll = find.byType(Scrollable).last;
+      expect(tester.getSize(menuScroll).height, lessThanOrEqualTo(640 * .4));
+      await tester.scrollUntilVisible(
+        find.text('2020'),
+        120,
+        scrollable: menuScroll,
+      );
+      await tester.tap(find.text('2020').last);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Show results'));
+      await tester.pumpAndSettle();
+      expect(applied, {'sort': 'popular', 'rating': '8', 'year': '2020'});
+    },
+  );
 }
