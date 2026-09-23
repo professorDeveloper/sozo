@@ -65,6 +65,31 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// "CloudStream" is two hundred sources and the question is which two
   /// hundred. See [SourceScope].
   SourceScope _scope = SourceScope.all;
+  bool _filtersCollapsed = false;
+  double _filterScrollDistance = 0;
+
+  bool _onSourceScroll(ScrollNotification notification) {
+    if (notification is ScrollStartNotification) _filterScrollDistance = 0;
+    if (notification is! ScrollUpdateNotification ||
+        notification.dragDetails == null ||
+        notification.metrics.axis != Axis.vertical ||
+        notification.metrics.maxScrollExtent < 120) {
+      return false;
+    }
+    final delta = notification.scrollDelta ?? 0;
+    if (_filterScrollDistance.sign != delta.sign) _filterScrollDistance = 0;
+    _filterScrollDistance += delta;
+    final collapse =
+        notification.metrics.extentBefore > 80 && _filterScrollDistance > 56;
+    final expand =
+        notification.metrics.extentBefore < 16 || _filterScrollDistance < -24;
+    if ((!_filtersCollapsed && collapse) || (_filtersCollapsed && expand)) {
+      setState(() => _filtersCollapsed = collapse && !expand);
+      _filterScrollDistance = 0;
+    }
+    return false;
+  }
+
   List<String> get _languages => getIt<HiveService>().getProviderLanguages();
 
   /// The needle the list is actually filtered by, behind a debounce.
@@ -523,12 +548,8 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     return built;
   }
 
-  /// The fixed half of the page, over the three lists.
-  ///
-  /// Search, the language filter and the ecosystem chips describe whichever
-  /// tab is showing and are shared by all three, so they sit here rather than
-  /// inside each list. Inside, they scrolled away with the content and, on a
-  /// swipe, slid sideways out of line with the tabs they belonged to.
+  /// Tabs and search stay available while optional filters contract on scroll.
+  /// The header takes only its measured height; the list owns all remaining space.
   Widget _hub() {
     return BlocBuilder<ProviderBloc, ProviderState>(
       builder: (context, state) {
@@ -548,64 +569,99 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         final counts = _tabFor(state, mode, needle).counts;
         final scope = _liveScope(counts);
 
-        return Column(
-          children: [
-            AppTabBar(
-              controller: _tabs,
-              onChanged: (_) => setState(() => _scope = SourceScope.all),
-              isScrollable: false,
-              labels: [for (final m in ContentMode.values) m.labelKey.tr()],
-            ),
-            Flexible(
-              fit: FlexFit.loose,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: Text(
-                          'source_manager.selection_hint'.tr(),
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                    _searchField(state, mode),
-                    // The row comes and goes — a search that narrows to one ecosystem
-                    // removes it, changing tab can add it back — and it used to do
-                    // that by simply not being in the Column, so the whole list under
-                    // it jumped 34 pixels with no warning. It grows and shrinks now,
-                    // which is the same information arriving at a speed the eye can
-                    // follow.
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: SourceScopeMenu(
-                        counts: counts,
-                        scope: scope,
-                        onPick: (picked) => setState(() => _scope = picked),
-                      ),
-                    ),
-                  ],
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return Column(
+              children: [
+                AppTabBar(
+                  controller: _tabs,
+                  onChanged: (_) => setState(() => _scope = SourceScope.all),
+                  isScrollable: false,
+                  labels: [for (final m in ContentMode.values) m.labelKey.tr()],
                 ),
-              ),
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabs,
-                children: [
-                  for (final m in ContentMode.values)
-                    _tabList(state, m, needle),
-                ],
-              ),
-            ),
-          ],
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: constraints.maxHeight * .55,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: _searchField(state, mode)),
+                            Padding(
+                              padding: const EdgeInsetsDirectional.only(end: 8),
+                              child: IconButton(
+                                tooltip: 'sources.filter_type'.tr(),
+                                isSelected: !_filtersCollapsed,
+                                onPressed: () => setState(() {
+                                  _filtersCollapsed = !_filtersCollapsed;
+                                  _filterScrollDistance = 0;
+                                }),
+                                icon: const Icon(Icons.tune_rounded),
+                              ),
+                            ),
+                          ],
+                        ),
+                        AnimatedSize(
+                          duration: MediaQuery.disableAnimationsOf(context)
+                              ? Duration.zero
+                              : const Duration(milliseconds: 260),
+                          curve: Curves.easeInOutCubic,
+                          alignment: Alignment.topCenter,
+                          child: _filtersCollapsed
+                              ? const SizedBox(width: double.infinity)
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        0,
+                                        16,
+                                        8,
+                                      ),
+                                      child: Align(
+                                        alignment:
+                                            AlignmentDirectional.centerStart,
+                                        child: Text(
+                                          'source_manager.selection_hint'.tr(),
+                                          style: const TextStyle(
+                                            color: AppColors.textSecondary,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    SourceScopeMenu(
+                                      counts: counts,
+                                      scope: scope,
+                                      onPick: (picked) =>
+                                          setState(() => _scope = picked),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: _onSourceScroll,
+                    child: TabBarView(
+                      controller: _tabs,
+                      children: [
+                        for (final m in ContentMode.values)
+                          _tabList(state, m, needle),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
