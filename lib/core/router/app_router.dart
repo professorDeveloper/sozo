@@ -80,6 +80,8 @@ import 'package:soplay/features/watch_party/presentation/party_entry.dart';
 import 'package:soplay/features/watch_party/presentation/pages/watch_party_page.dart';
 
 import '../../features/home/presentation/pages/home_view_all_page.dart';
+import '../../features/home/presentation/pages/genres_page.dart';
+import '../../features/search/domain/entities/genre_entity.dart';
 
 /// The arrival every "opening a thing" route shares.
 ///
@@ -286,6 +288,15 @@ class AppRouter {
       GoRoute(
         path: '/live-tv',
         builder: (context, state) => const LiveTvPage(),
+      ),
+      GoRoute(
+        path: '/genres',
+        // A url with no list is a link from nowhere: Home is where the genres
+        // are, so that is where it goes.
+        redirect: (context, state) =>
+            state.extra is List<GenreEntity> ? null : '/main',
+        builder: (context, state) =>
+            GenresPage(genres: state.extra! as List<GenreEntity>),
       ),
       GoRoute(
         path: '/watch-services',

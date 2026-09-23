@@ -108,6 +108,7 @@
     "for_you": "مختار لك",
     "all_categories": "كل التصنيفات",
     "genres": "الأنواع",
+    "genres_no_match": "لا يوجد نوع يطابق ذلك.",
     "get_all": "عرض الكل",
     "popular": "شائع",
     "watch_now": "شاهد الآن",

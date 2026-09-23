@@ -12,22 +12,13 @@ class GenreCard extends StatelessWidget {
 
   final GenreEntity genre;
 
-  String get _label {
-    if (genre.name.isNotEmpty) return genre.name;
-    return genre.slug
-        .replaceAll('-', ' ')
-        .split(' ')
-        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
-        .join(' ');
-  }
-
   @override
   Widget build(BuildContext context) {
     final desktop = isDesktopPlatform;
     return HoverTap(
       onTap: () => context.push(
         '/view-all',
-        extra: ViewAllEntity(type: 'genre', slug: genre.slug, name: _label),
+        extra: ViewAllEntity(type: 'genre', slug: genre.slug, name: genre.label),
       ),
       haptic: true,
       borderRadius: 10,
@@ -83,7 +74,7 @@ class GenreCard extends StatelessWidget {
                   end: desktop ? 12 : 9,
                   bottom: desktop ? 9 : 7,
                   child: Text(
-                    _label,
+                    genre.label,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

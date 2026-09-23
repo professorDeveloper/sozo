@@ -108,6 +108,7 @@
     "for_you": "Sana özel",
     "all_categories": "Tüm kategoriler",
     "genres": "Türler",
+    "genres_no_match": "Eşleşen tür yok.",
     "get_all": "Hepsini al",
     "popular": "Popüler",
     "watch_now": "Şimdi izle",

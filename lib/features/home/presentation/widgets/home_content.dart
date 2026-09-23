@@ -1,6 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
@@ -22,6 +24,7 @@ import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/home/domain/home_rail.dart';
 import 'package:soplay/features/home/presentation/widgets/home_banner.dart';
+import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/home/presentation/widgets/home_history_section.dart';
 import 'package:soplay/features/home/presentation/widgets/home_live_tv_section.dart';
 import 'package:soplay/features/home/presentation/widgets/home_movie_section.dart';
@@ -399,15 +402,36 @@ class _GenreSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(17, 18, 16, 14),
-            child: Text(
-              "home.genres".tr(),
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                height: 1.1,
+          // The whole strip opens every genre on one screen, as a movie
+          // section's header opens its rail: a row that scrolls sideways is
+          // for a glance, and a source with forty genres hides most of them
+          // past its edge.
+          HomeSectionTapTarget(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              context.push('/genres', extra: genres);
+            },
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(17, 18, 12, 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "home.genres".tr(),
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textHint,
+                    size: 22,
+                  ),
+                ],
               ),
             ),
           ),

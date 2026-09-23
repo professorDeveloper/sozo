@@ -108,6 +108,7 @@
     "for_you": "Pour toi",
     "all_categories": "Toutes les catégories",
     "genres": "Genres",
+    "genres_no_match": "Aucun genre ne correspond.",
     "get_all": "Tout récupérer",
     "popular": "Populaire",
     "watch_now": "Regarder maintenant",
