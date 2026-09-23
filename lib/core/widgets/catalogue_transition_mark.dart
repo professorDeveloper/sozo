@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/catalogue_logo.dart';
 import 'package:soplay/core/content/content_mode.dart';
-import 'package:soplay/core/widgets/mode_destination_artwork.dart';
+import 'package:soplay/core/widgets/sozo_dragon_transition.dart';
 
-/// The destination is visible throughout the switch; no intermediary brand.
+/// External catalogues retain their marks; Sozo modes use the splash artwork.
 class CatalogueTransitionMark extends StatelessWidget {
   const CatalogueTransitionMark({
     super.key,
@@ -31,14 +31,7 @@ class CatalogueTransitionMark extends StatelessWidget {
         child: Transform.scale(
           scale: .92 + .08 * arrival,
           child: catalogue == null
-              ? Opacity(
-                  opacity: (t / .16).clamp(0, 1),
-                  child: ModeDestinationArtwork(
-                    mode: mode,
-                    color: accent,
-                    progress: t,
-                  ),
-                )
+              ? SozoDragonTransition(progress: t, size: 144, accent: accent)
               : SizedBox.square(
                   dimension: 112,
                   child: Stack(

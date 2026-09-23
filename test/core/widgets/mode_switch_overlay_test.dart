@@ -54,6 +54,31 @@ void main() {
       );
     }
 
+    for (final mode in ContentMode.values) {
+      testWidgets('${mode.name} uses the splash dragon with reduced motion', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: const MediaQueryData(disableAnimations: true),
+              child: CatalogueTransitionMark(
+                mode: mode,
+                accent: Colors.teal,
+                progress: .2,
+              ),
+            ),
+          ),
+        );
+        final dragon = tester.widget<SozoDragonTransition>(
+          find.byType(SozoDragonTransition),
+        );
+        expect(dragon.progress, 1);
+        expect(dragon.accent, Colors.teal);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     testWidgets('the label carries no inherited error decoration', (
       tester,
     ) async {
