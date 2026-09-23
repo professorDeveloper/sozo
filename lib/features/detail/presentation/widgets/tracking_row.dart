@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/extractor/provider_manager.dart';
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/anilist/data/anilist_api.dart';
@@ -55,10 +56,16 @@ class TrackingRow extends StatefulWidget {
   static bool applies(DetailEntity detail) {
     if (detail.record?.anilistId != null) return true;
     final id = detail.provider;
+    // A catalogue page without an AniList id is TMDB's: films and series.
+    if (Catalogue.isId(id)) return false;
     if (id.contentMode != ContentMode.video) return true; // manga, novels
     if (id.startsWith('an:')) return true; // Aniyomi is anime
-    final category = getIt<ProviderManager>().getProvider(id)?.category ?? '';
-    return category.toLowerCase() == 'anime';
+    try {
+      final p = getIt<ProviderManager>().getProvider(id);
+      return (p?.category ?? '').toLowerCase() == 'anime';
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Manga or a novel, whether the record says so or the source does.
