@@ -79,8 +79,8 @@ class ScrollCompactNavigation extends StatelessWidget {
     tween: Tween(end: compact ? 1 : 0),
     duration: MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
-        : Duration(milliseconds: compact ? 340 : 380),
-    curve: Curves.easeOutCubic,
+        : Duration(milliseconds: compact ? 440 : 480),
+    curve: Curves.linear,
     child: expanded,
     builder: (context, value, child) =>
         NavigationDensity(progress: value, child: child!),

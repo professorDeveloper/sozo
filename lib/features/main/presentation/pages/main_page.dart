@@ -728,15 +728,30 @@ class _SoplayGlassCapsule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final density = NavigationDensity.of(context);
+    final motion = NavigationDensity.of(context);
+    final density = const Interval(
+      0,
+      .78,
+      curve: Curves.easeOutCubic,
+    ).transform(motion);
+    final widthProgress = const Interval(
+      .18,
+      1,
+      curve: Curves.easeInOutCubic,
+    ).transform(motion);
+    final iconProgress = const Interval(
+      .08,
+      .8,
+      curve: Curves.easeOutCubic,
+    ).transform(motion);
     final barHeight = _barHeight - 10 * density;
     final bar = GlassTabBar.bottom(
       tabs: [
         for (final it in items)
           GlassTab(
             label: it.labelKey.tr(),
-            icon: Icon(it.icon, size: 24 - 2 * density),
-            activeIcon: Icon(it.activeIcon, size: 24 - 2 * density),
+            icon: Icon(it.icon, size: 24 - 2 * iconProgress),
+            activeIcon: Icon(it.activeIcon, size: 24 - 2 * iconProgress),
           ),
       ],
       selectedIndex: index,
@@ -747,7 +762,7 @@ class _SoplayGlassCapsule extends StatelessWidget {
       horizontalPadding: 0,
       verticalPadding: 0,
       barHeight: barHeight,
-      iconSize: 24 - 2 * density,
+      iconSize: 24 - 2 * iconProgress,
       barBorderRadius: barHeight / 2, // full capsule
       iconLabelSpacing: 4 - 2 * density,
       magnification: glass
@@ -874,7 +889,9 @@ class _SoplayGlassCapsule extends StatelessWidget {
         final availableInset = ((constraints.maxWidth - items.length * 48) / 2)
             .clamp(0.0, constraints.maxWidth * .025);
         return Padding(
-          padding: EdgeInsets.symmetric(horizontal: availableInset * density),
+          padding: EdgeInsets.symmetric(
+            horizontal: availableInset * widthProgress,
+          ),
           child: Stack(
             children: [
               // Pointers stay with the package; only its semantics are suppressed.
