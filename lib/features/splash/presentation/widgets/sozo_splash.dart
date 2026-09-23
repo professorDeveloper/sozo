@@ -233,19 +233,22 @@ abstract final class _Beats {
   /// nothing changes but the foot.
   static const int holdFrom = inkOutTo;
 
-  /// The foot comes up: slowly, and slowest at either end, the way a weight is
-  /// lifted rather than a switch thrown. A beat after the paint, so the logo is
-  /// seen whole and still before any of it moves.
-  static const int liftFrom = 1620;
-  static const int liftTo = 1980;
+  /// First the weight comes onto the foot: it presses down a couple of
+  /// degrees, so the lift that follows reads as effort gathered rather than
+  /// as something switched on. A beat after the paint, so the logo is seen
+  /// whole and still before any of it moves.
+  static const int pressFrom = 1560;
+
+  /// Then up: slowly, and slowest at either end, the way a weight is lifted.
+  static const int liftFrom = 1640;
+  static const int liftTo = 2000;
 
   /// Held at the top — still rising, a hair — for the beat before a blow.
-  static const int strikeFrom = 2100;
+  static const int strikeFrom = 2120;
 
-  /// Down, accelerating all the way, in a third of the time it took to go up.
-  /// Any quicker and a phone at 30fps shows it in two frames — not a blow,
-  /// a jump.
-  static const int strikeTo = 2220;
+  /// Down, accelerating all the way. Long enough for nine frames at 60Hz and
+  /// four or five at 30: any quicker and it is not a blow but a jump.
+  static const int strikeTo = 2270;
 
   /// Through rest and back, and still. Exactly one and a half of the landing's
   /// swings, which is where it crosses rest for the last time: it stops on
@@ -254,9 +257,9 @@ abstract final class _Beats {
   static const int _landingSwing = 220;
 
   /// Long enough after the foot is down for the logo to be seen still again —
-  /// sealed, not interrupted.
-  static const int fadeFrom = 2850;
-  static const int total = 3090;
+  /// sealed, not interrupted — and no longer: the payoff lands, then leaves.
+  static const int fadeFrom = settleTo + 180;
+  static const int total = fadeFrom + 240;
 }
 
 /// The black field the logo sits on. Separated so both branches share it and
@@ -337,9 +340,12 @@ class _LogoPainter extends CustomPainter {
   /// How far the foot lifts, and how far past rest it lands, in radians.
   /// Clockwise is up: the toes swing along the wall of the bend and away from
   /// the top of the letter, which is the way they stay inside it.
-  static const double _lift = 13.5 * math.pi / 180;
+  static const double _lift = 14.5 * math.pi / 180;
   static const double _creep = 1.5 * math.pi / 180;
-  static const double _landing = 5 * math.pi / 180;
+  static const double _landing = 3.8 * math.pi / 180;
+
+  /// How far the weight presses the foot down before it lifts.
+  static const double _press = -2 * math.pi / 180;
 
   /// How quickly the landing's swing dies, in milliseconds: by the second
   /// time it passes rest it is a fraction of a degree.
@@ -441,7 +447,8 @@ class _LogoPainter extends CustomPainter {
 
   /// How far the foot is turned off rest at [ms], in radians, clockwise.
   ///
-  /// A stamp in three parts. The lift is the anticipation: slow, eased at
+  /// A stamp in three parts, after a press of the weight onto the foot. The
+  /// lift is the anticipation: slow, eased at
   /// both ends, and held at the top while still creeping up, because a
   /// weight that stops dead at the top of its swing reads as a pause and one
   /// that is still gathering reads as about to fall. The strike accelerates
@@ -451,10 +458,15 @@ class _LogoPainter extends CustomPainter {
   /// crossings, which is the difference between a foot planted and a
   /// picture of a foot put back.
   static double _footTurn(double ms) {
-    if (ms <= _Beats.liftFrom || ms >= _Beats.settleTo) return 0;
+    if (ms <= _Beats.pressFrom || ms >= _Beats.settleTo) return 0;
+    if (ms < _Beats.liftFrom) {
+      return _press *
+          _span(ms, _Beats.pressFrom, _Beats.liftFrom, Curves.easeOut);
+    }
     if (ms < _Beats.liftTo) {
-      return _lift *
-          _span(ms, _Beats.liftFrom, _Beats.liftTo, Curves.easeInOutCubic);
+      return _press +
+          (_lift - _press) *
+              _span(ms, _Beats.liftFrom, _Beats.liftTo, Curves.easeInOutCubic);
     }
     final top =
         _lift +
@@ -463,7 +475,12 @@ class _LogoPainter extends CustomPainter {
     if (ms < _Beats.strikeTo) {
       return top *
           (1 -
-              _span(ms, _Beats.strikeFrom, _Beats.strikeTo, Curves.easeInQuad));
+              _span(
+                ms,
+                _Beats.strikeFrom,
+                _Beats.strikeTo,
+                Curves.easeInCubic,
+              ));
     }
     final t = ms - _Beats.strikeTo;
     return -_landing *
