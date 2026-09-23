@@ -86,6 +86,32 @@ enum Catalogue {
     return null;
   }
 
+  /// The catalogue whose own page [url] is, or null for any other link.
+  ///
+  /// A card opened with no provider means "the current source", and when the
+  /// current source is a catalogue that used to reach the provider detail
+  /// route as `cat:anilist` — which no source is called — and fail with
+  /// "Unknown provider". The link says which catalogue it belongs to, so it is
+  /// read from there. AniList files manga and light novels under one path, so
+  /// [current] settles which of the two a `/manga/` link means.
+  static Catalogue? forUrl(String url, {String? current}) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+    final host = uri.host.toLowerCase();
+    if (host == 'themoviedb.org' || host.endsWith('.themoviedb.org')) {
+      return tmdb;
+    }
+    if (host == 'anilist.co' || host.endsWith('.anilist.co')) {
+      final segments = uri.pathSegments;
+      if (segments.isEmpty) return null;
+      if (segments.first == 'anime') return anilist;
+      if (segments.first == 'manga') {
+        return current == anilistNovel.id ? anilistNovel : anilistManga;
+      }
+    }
+    return null;
+  }
+
   /// The part after the prefix, which is what the backend route takes.
   String get kind => id.substring(prefix.length);
 }

@@ -66,8 +66,18 @@ class DetailPage extends StatelessWidget {
   const DetailPage({super.key, required this.args});
   final DetailArgs args;
 
+  /// The provider the page was opened with, or — when none was given — the
+  /// catalogue the link itself belongs to. See [Catalogue.forUrl].
+  String? get _provider =>
+      args.provider ??
+      Catalogue.forUrl(
+        args.contentUrl,
+        current: getIt<HiveService>().getCurrentProvider(),
+      )?.id;
+
   @override
   Widget build(BuildContext context) {
+    final provider = _provider;
     return MultiBlocProvider(
       providers: [
         BlocProvider(
@@ -75,7 +85,7 @@ class DetailPage extends StatelessWidget {
             ..add(
               DetailLoad(
                 args.contentUrl,
-                provider: args.provider,
+                provider: provider,
                 hint: args.preview,
               ),
             ),
@@ -85,7 +95,7 @@ class DetailPage extends StatelessWidget {
       ],
       child: _DetailScaffold(
         contentUrl: args.contentUrl,
-        provider: args.provider,
+        provider: provider,
         autoPlay: args.autoPlay,
         resumeEpisodeIndex: args.resumeEpisodeIndex,
         preview: args.preview,
@@ -815,11 +825,19 @@ class _DetailViewState extends State<_DetailView>
       // remembered under; the page only knows the source it landed on, so the
       // key is rebuilt from the route it was opened with.
       final args = GoRouterState.of(context).extra;
-      if (args is DetailArgs && Catalogue.isId(args.provider)) {
-        await getIt<CatalogueResolver>().forget(
-          args.provider!,
-          args.contentUrl,
-        );
+      if (args is DetailArgs) {
+        final catalogue =
+            Catalogue.fromId(args.provider) ??
+            Catalogue.forUrl(
+              args.contentUrl,
+              current: getIt<HiveService>().getCurrentProvider(),
+            );
+        if (catalogue != null) {
+          await getIt<CatalogueResolver>().forget(
+            catalogue.id,
+            args.contentUrl,
+          );
+        }
       }
     }
     if (!mounted) return;
