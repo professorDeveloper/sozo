@@ -18,16 +18,18 @@ enum HomeContentKind {
     if (mode == ContentMode.novel || providerId == 'cat:anilist-novel') {
       return novel;
     }
-    if (providerId == 'cat:tmdb') return movie;
+    // VidAPI is the default TMDB-backed source, including before metadata loads.
+    if (providerId == 'cat:tmdb' || providerId == 'vidapi') return movie;
     if (providerId == 'cat:anilist') return anime;
     return {
+          'tmdb',
           'movie',
           'movies',
           'series',
           'tv',
           'drama',
           'movies & series',
-        }.contains(category.toLowerCase())
+        }.contains(category.trim().toLowerCase())
         ? movie
         : anime;
   }

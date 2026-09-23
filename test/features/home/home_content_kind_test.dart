@@ -3,6 +3,42 @@ import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/home/domain/home_content_kind.dart';
 
 void main() {
+  test('VidAPI and backend TMDB categories show movie services', () {
+    for (final category in ['', 'tmdb']) {
+      expect(
+        HomeContentKind.resolve(
+          providerId: 'vidapi',
+          mode: ContentMode.video,
+          category: category,
+        ),
+        HomeContentKind.movie,
+      );
+    }
+    expect(
+      HomeContentKind.resolve(
+        providerId: 'other-provider',
+        mode: ContentMode.video,
+        category: ' TMDB ',
+      ),
+      HomeContentKind.movie,
+    );
+    expect(
+      HomeContentKind.resolve(
+        providerId: 'vidapi',
+        mode: ContentMode.manga,
+        category: 'tmdb',
+      ),
+      HomeContentKind.manga,
+    );
+    expect(
+      HomeContentKind.resolve(
+        providerId: 'vidapi',
+        mode: ContentMode.novel,
+        category: 'tmdb',
+      ),
+      HomeContentKind.novel,
+    );
+  });
   test('streaming services belong to movie catalogues and movie providers', () {
     expect(
       HomeContentKind.resolve(providerId: 'cat:tmdb', mode: ContentMode.video),
