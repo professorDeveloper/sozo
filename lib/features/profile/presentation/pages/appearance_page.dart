@@ -13,6 +13,7 @@ import 'package:soplay/core/theme/theme_controller.dart';
 import 'package:soplay/features/profile/presentation/widgets/library_accents.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 import 'package:soplay/features/profile/presentation/widgets/theme_preview.dart';
+import 'package:soplay/features/profile/presentation/widgets/accent_preview_card.dart';
 import 'package:soplay/features/profile/presentation/widgets/home_rail_customizer_sheet.dart';
 import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
 
@@ -22,7 +23,7 @@ import 'package:soplay/features/profile/presentation/widgets/tab_customizer_shee
 /// touched: the accent colour and whether the neutrals go to true black.
 ///
 /// Everything on this page is deliberately shown rather than described. The
-/// accent is a row of colours *and* a full miniature of the app; the darkness
+/// accent is a row of palette previews; the darkness
 /// choice is two miniatures side by side. Nothing here asks the user to imagine
 /// what "AMOLED" will do to a screen they are not currently looking at.
 class AppearancePage extends StatelessWidget {
@@ -141,18 +142,6 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           ),
           const SizedBox(height: 20),
 
-          // ── Live preview ────────────────────────────────────────────────
-          SettingsLabel('appearance.section_preview'.tr()),
-          const _PreviewStage(),
-          const SizedBox(height: 20),
-
-          // ── Accent ──────────────────────────────────────────────────────
-          //
-          // One strip, not a wall. Twelve colours as a grid of circles the
-          // size of buttons filled half the screen with a choice most people
-          // make once; as a row of small swatches it is the same choice in a
-          // sixth of the space, and the miniature above already shows what
-          // the colour does.
           SettingsLabel('appearance.section_accent'.tr()),
           SettingsCard(
             children: [
@@ -269,29 +258,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
 
 // ── Preview ─────────────────────────────────────────────────────────────────
 
-/// Keeps the live media sample aligned with the appearance controls.
-class _PreviewStage extends StatelessWidget {
-  const _PreviewStage();
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-      child: const ThemePreview(),
-    );
-  }
-}
-
-// ── Accent ──────────────────────────────────────────────────────────────────
-
-/// Every accent in one scrolling row: the presets, and the colour wheel at the
-/// end of it.
-///
-/// The name and hex of the colour in force sit above the row, on one line, in
-/// place of the two labelled rows this used to carry: the miniature at the top
-/// of the page already shows what the colour looks like, so all the text here
-/// has to do is name it.
+/// Side-by-side theme previews, each painted in its own resolved palette.
 class _AccentStrip extends StatelessWidget {
   const _AccentStrip({
     required this.selected,
@@ -306,22 +273,6 @@ class _AccentStrip extends StatelessWidget {
   /// Small enough that twelve fit a phone's width with room to scroll, big
   /// enough to stay a comfortable target with the gap around each.
   static const double swatch = 28;
-
-  /// Hues around the wheel chip. Twelve is enough for the sweep to read as
-  /// continuous at this size.
-  static const List<Color> _wheel = [
-    Color(0xFFE53935),
-    Color(0xFFF4511E),
-    Color(0xFFFFB300),
-    Color(0xFFC0CA33),
-    Color(0xFF43A047),
-    Color(0xFF00897B),
-    Color(0xFF039BE5),
-    Color(0xFF3949AB),
-    Color(0xFF8E24AA),
-    Color(0xFFD81B60),
-    Color(0xFFE53935),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -365,58 +316,37 @@ class _AccentStrip extends StatelessWidget {
             ),
           ),
           SizedBox(
-            height: swatch + 8,
-            child: ListView(
+            height:
+                164 +
+                (MediaQuery.textScalerOf(context).scale(13) - 13).clamp(0, 30),
+            child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsetsDirectional.only(end: 16),
-              children: [
-                for (final accent in AppAccent.presets) ...[
-                  Center(
-                    child: _Swatch(
-                      size: swatch,
-                      color: accent.base,
-                      selected: selected.id == accent.id,
-                      onTap: () => onPick(accent),
-                      semanticLabel: accent.labelKey.tr(),
-                    ),
+              itemCount: AppAccent.presets.length + 1,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final custom = index == AppAccent.presets.length;
+                final option = custom
+                    ? (selected.isCustom || selected.isSystem
+                          ? selected
+                          : AppAccent.custom(selected.base))
+                    : AppAccent.presets[index];
+                return AccentPreviewCard(
+                  palette: AppPalette.resolve(
+                    accent: option,
+                    darkness: AppPalette.current.darkness,
+                    tintNav: AppPalette.current.tintNav,
                   ),
-                  const SizedBox(width: 10),
-                ],
-                // The way into the wheel, at the end of the row it belongs to
-                // rather than as a labelled row of its own.
-                Center(
-                  child: Semantics(
-                    label: 'appearance.custom_title'.tr(),
-                    button: true,
-                    selected: selected.isCustom,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: onCustom,
-                      child: Container(
-                        width: swatch,
-                        height: swatch,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const SweepGradient(colors: _wheel),
-                          border: Border.all(
-                            color: selected.isCustom
-                                ? AppColors.textPrimary
-                                : AppColors.textPrimary.withValues(alpha: 0.12),
-                            width: selected.isCustom ? 2 : 1,
-                          ),
-                        ),
-                        child: selected.isCustom
-                            ? const Icon(
-                                Icons.check_rounded,
-                                size: swatch * 0.42,
-                                color: Colors.white,
-                              )
-                            : null,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                  label: custom
+                      ? 'appearance.accent_custom'.tr()
+                      : option.labelKey.tr(),
+                  selected: custom
+                      ? selected.isCustom
+                      : selected.id == option.id,
+                  custom: custom,
+                  onTap: custom ? onCustom : () => onPick(option),
+                );
+              },
             ),
           ),
         ],
