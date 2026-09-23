@@ -7,7 +7,7 @@ enum HomeContentKind {
   manga,
   novel;
 
-  static HomeContentKind resolve({
+  static HomeContentKind? resolve({
     required String providerId,
     required ContentMode mode,
     String category = '',
@@ -21,6 +21,8 @@ enum HomeContentKind {
     // VidAPI is the default TMDB-backed source, including before metadata loads.
     if (providerId == 'cat:tmdb' || providerId == 'vidapi') return movie;
     if (providerId == 'cat:anilist') return anime;
+    final normalizedCategory = category.trim().toLowerCase();
+    if (normalizedCategory == 'anime') return anime;
     return {
           'tmdb',
           'movie',
@@ -29,9 +31,9 @@ enum HomeContentKind {
           'tv',
           'drama',
           'movies & series',
-        }.contains(category.trim().toLowerCase())
+        }.contains(normalizedCategory)
         ? movie
-        : anime;
+        : null;
   }
 
   String get catalogueKind => switch (this) {

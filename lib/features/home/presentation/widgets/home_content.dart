@@ -246,7 +246,9 @@ class _HomeContentBody extends StatelessWidget {
           final hive = getIt<HiveService>();
           final providerState = context.watch<ProviderBloc>().state;
           final medium = HomeContentKind.resolve(
-            providerId: hive.getCurrentProvider(),
+            providerId: providerState is ProviderLoaded
+                ? providerState.currentProviderId
+                : hive.getCurrentProvider(),
             mode: ContentMode.fromId(hive.getContentMode()),
             category: providerState is ProviderLoaded
                 ? providerState.currentProvider?.category ?? ''
@@ -304,7 +306,7 @@ class _HomeContentBody extends StatelessWidget {
                   );
                 }
               case HomeRail.catalogue:
-                if (!showServices) {
+                if (medium != null && !showServices) {
                   yield SliverToBoxAdapter(
                     child: HomeMediumDiscovery(kind: medium),
                   );

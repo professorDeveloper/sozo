@@ -3,6 +3,28 @@ import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/home/domain/home_content_kind.dart';
 
 void main() {
+  test('AniList discovery requires an anime source or explicit catalogue', () {
+    expect(
+      HomeContentKind.resolve(
+        providerId: 'anikai',
+        mode: ContentMode.video,
+        category: 'anime',
+      ),
+      HomeContentKind.anime,
+    );
+    expect(
+      HomeContentKind.resolve(providerId: 'unknown', mode: ContentMode.video),
+      isNull,
+    );
+    expect(
+      HomeContentKind.resolve(
+        providerId: 'vidapi',
+        mode: ContentMode.video,
+        category: 'anime',
+      ),
+      HomeContentKind.movie,
+    );
+  });
   test('VidAPI and backend TMDB categories show movie services', () {
     for (final category in ['', 'tmdb']) {
       expect(
@@ -77,7 +99,7 @@ void main() {
           providerId: 'my:reader',
           mode: ContentMode.manga,
           category: 'movies',
-        ).catalogueKind,
+        )?.catalogueKind,
         'anilist-manga',
       );
       expect(
@@ -85,7 +107,7 @@ void main() {
           providerId: 'my:reader',
           mode: ContentMode.novel,
           category: 'movies',
-        ).catalogueKind,
+        )?.catalogueKind,
         'anilist-novel',
       );
     },
