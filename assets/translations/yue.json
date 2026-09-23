@@ -2055,7 +2055,8 @@
     "filter_title": "顯示邊啲來源",
     "repo_any": "任何儲存庫",
     "repo_pick": "揀儲存庫",
-    "filter_type": "來源類型"
+    "filter_type": "來源類型",
+    "filter_language": "語言"
   },
   "settings": {
     "dns_title": "DNS",

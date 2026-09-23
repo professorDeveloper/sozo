@@ -2059,7 +2059,8 @@
     "filter_title": "إظهار المصادر من",
     "repo_any": "أي مستودع",
     "repo_pick": "اختر مستودعًا",
-    "filter_type": "نوع المصدر"
+    "filter_type": "نوع المصدر",
+    "filter_language": "اللغة"
   },
   "settings": {
     "dns_title": "DNS",

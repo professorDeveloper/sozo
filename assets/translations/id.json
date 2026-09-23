@@ -2055,7 +2055,8 @@
     "filter_title": "Tampilkan sumber dari",
     "repo_any": "Repositori mana pun",
     "repo_pick": "Pilih repositori",
-    "filter_type": "Jenis sumber"
+    "filter_type": "Jenis sumber",
+    "filter_language": "Bahasa"
   },
   "settings": {
     "dns_title": "DNS",

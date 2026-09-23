@@ -2056,7 +2056,8 @@
     "filter_title": "Показывать источники из",
     "repo_any": "Любой репозиторий",
     "repo_pick": "Выбрать репозиторий",
-    "filter_type": "Тип источника"
+    "filter_type": "Тип источника",
+    "filter_language": "Язык"
   },
   "settings": {
     "dns_title": "DNS",

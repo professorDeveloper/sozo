@@ -307,6 +307,30 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   /// already know the name you are looking for.
   SourceScope _scope = SourceScope.all;
 
+  /// The language narrowed to, or null for every language. Several hundred
+  /// sources is a list nobody scrolls; the language a viewer watches in is
+  /// the question most of them answer first. A source that declares every
+  /// language stays under every choice.
+  String? _lang;
+
+  bool _speaks(ProviderEntity p) {
+    final want = _lang;
+    if (want == null) return true;
+    final lang = p.displayLang;
+    return lang == want || lang == kAllLanguages;
+  }
+
+  /// Languages among these sources, most common first, with how many.
+  List<MapEntry<String, int>> get _languageCounts {
+    final counts = <String, int>{};
+    for (final p in widget.all) {
+      final l = p.displayLang;
+      if (l.isEmpty || l == kAllLanguages) continue;
+      counts[l] = (counts[l] ?? 0) + 1;
+    }
+    return counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+  }
+
   /// Counted over every source the sheet was handed, not over what the search
   /// has left — so the menu still says how many CloudStream sources exist while
   /// a query is narrowing the list, which is the number worth knowing.
@@ -433,6 +457,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
       for (final p in widget.all)
         if (!favIds.contains(p.id) &&
             scope.matches(p) &&
+            _speaks(p) &&
             (q.isEmpty || p.name.toLowerCase().contains(q)))
           p,
     ];
@@ -448,7 +473,9 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
     final scope = _liveScope;
     return [
       for (final p in widget.favorites)
-        if (scope.matches(p) && (q.isEmpty || p.name.toLowerCase().contains(q)))
+        if (scope.matches(p) &&
+            _speaks(p) &&
+            (q.isEmpty || p.name.toLowerCase().contains(q)))
           p,
     ];
   }
@@ -644,6 +671,14 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                                   setState(() => _scope = picked),
                             ),
                           ),
+                          if (_languageCounts.length > 1)
+                            SliverToBoxAdapter(
+                              child: _LanguageRow(
+                                languages: _languageCounts,
+                                selected: _lang,
+                                onPick: (l) => setState(() => _lang = l),
+                              ),
+                            ),
                           if (catalogues.isNotEmpty &&
                               _liveScope.isAll &&
                               _query.trim().isEmpty)
@@ -828,13 +863,14 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppColors.textSecondary),
           ),
-          if (_query.isNotEmpty || !_liveScope.isAll)
+          if (_query.isNotEmpty || !_liveScope.isAll || _lang != null)
             TextButton(
               onPressed: () {
                 _filter.clear();
                 setState(() {
                   _query = '';
                   _scope = SourceScope.all;
+                  _lang = null;
                 });
               },
               child: Text('general.clear'.tr()),
@@ -1533,4 +1569,72 @@ class _SearchBarHeader extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(_SearchBarHeader old) =>
       old.query != query || old.extent != extent;
+}
+
+/// One row of language chips under the source-type filter.
+class _LanguageRow extends StatelessWidget {
+  const _LanguageRow({
+    required this.languages,
+    required this.selected,
+    required this.onPick,
+  });
+
+  final List<MapEntry<String, int>> languages;
+  final String? selected;
+  final ValueChanged<String?> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    Widget chip(String? code, String label) {
+      final on = selected == code;
+      return ChoiceChip(
+        label: Text(label),
+        selected: on,
+        showCheckmark: false,
+        selectedColor: colors.primaryContainer,
+        labelStyle: TextStyle(
+          color: on ? colors.onPrimaryContainer : colors.onSurface,
+          fontSize: 13,
+        ),
+        onSelected: (_) {
+          HapticFeedback.selectionClick();
+          onPick(on ? null : code);
+        },
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.translate_rounded, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'sources.filter_language'.tr(),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                chip(null, 'sources.eco_all'.tr()),
+                for (final e in languages) ...[
+                  const SizedBox(width: 8),
+                  chip(e.key, '${labelFor(e.key)} · ${e.value}'),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -2055,7 +2055,8 @@
     "filter_title": "Qaysi manbalar ko‘rsatilsin",
     "repo_any": "Istalgan repozitoriy",
     "repo_pick": "Repozitoriy tanlash",
-    "filter_type": "Source turi"
+    "filter_type": "Source turi",
+    "filter_language": "Til"
   },
   "settings": {
     "dns_title": "DNS",

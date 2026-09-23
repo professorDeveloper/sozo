@@ -2055,7 +2055,8 @@
     "filter_title": "Bronnen tonen uit",
     "repo_any": "Elke repository",
     "repo_pick": "Repository kiezen",
-    "filter_type": "Brontype"
+    "filter_type": "Brontype",
+    "filter_language": "Taal"
   },
   "settings": {
     "dns_title": "DNS",

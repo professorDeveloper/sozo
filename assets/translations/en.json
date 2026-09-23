@@ -2055,7 +2055,8 @@
     "filter_title": "Show sources from",
     "repo_any": "Any repository",
     "repo_pick": "Choose a repository",
-    "filter_type": "Source type"
+    "filter_type": "Source type",
+    "filter_language": "Language"
   },
   "settings": {
     "dns_title": "DNS",

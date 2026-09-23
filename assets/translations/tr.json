@@ -2055,7 +2055,8 @@
     "filter_title": "Hangi kaynaklar gösterilsin",
     "repo_any": "Herhangi bir depo",
     "repo_pick": "Depo seç",
-    "filter_type": "Kaynak türü"
+    "filter_type": "Kaynak türü",
+    "filter_language": "Dil"
   },
   "settings": {
     "dns_title": "DNS",
