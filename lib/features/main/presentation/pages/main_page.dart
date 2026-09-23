@@ -729,14 +729,14 @@ class _SoplayGlassCapsule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final density = NavigationDensity.of(context);
-    final barHeight = _barHeight - 12 * density;
+    final barHeight = _barHeight - 10 * density;
     final bar = GlassTabBar.bottom(
       tabs: [
         for (final it in items)
           GlassTab(
             label: it.labelKey.tr(),
-            icon: Icon(it.icon, size: 24 - 4 * density),
-            activeIcon: Icon(it.activeIcon, size: 24 - 4 * density),
+            icon: Icon(it.icon, size: 24 - 3 * density),
+            activeIcon: Icon(it.activeIcon, size: 24 - 3 * density),
           ),
       ],
       selectedIndex: index,
@@ -747,7 +747,7 @@ class _SoplayGlassCapsule extends StatelessWidget {
       horizontalPadding: 0,
       verticalPadding: 0,
       barHeight: barHeight,
-      iconSize: 24 - 4 * density,
+      iconSize: 24 - 3 * density,
       barBorderRadius: barHeight / 2, // full capsule
       magnification: glass
           ? 1.12
@@ -866,31 +866,42 @@ class _SoplayGlassCapsule extends StatelessWidget {
     // Drag-to-switch is undiscoverable and currently fires selection twice, so
     // that is a trade worth making. The selected-tab lens still animates: it is
     // driven by `selectedIndex`, not by touch.
-    return Stack(
-      children: [
-        // Pointers stay with the package; only its semantics are suppressed.
-        //
-        // Owning the taps here fixed the hit-region arithmetic, but it cost the
-        // thing that makes the bar feel like the bar: while you drag, the
-        // package moves its indicator *continuously* with your finger. That
-        // motion cannot be reproduced from outside — `selectedIndex` is an int,
-        // so an app-owned gesture can only snap between whole tabs, and a slow
-        // swipe then gives no sign that anything is happening at all.
-        //
-        // So the gesture goes back. `ExcludeSemantics` stays: the accessibility
-        // defects are in the package's *semantics* tree, not its gestures, and
-        // the layer above supplies one correct, activatable node per tab —
-        // which is what TalkBack was missing entirely.
-        ExcludeSemantics(child: shadowed),
-        Positioned.fill(
-          child: _CapsuleTabLayer(
-            items: items,
-            index: index,
-            onTabSelected: onTabSelected,
-            shortsShowcaseKey: shortsShowcaseKey,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // A modest width change balances the shorter capsule. Keep every tab
+        // at least 48dp wide, including custom six-tab layouts on small phones.
+        final availableInset = ((constraints.maxWidth - items.length * 48) / 2)
+            .clamp(0.0, constraints.maxWidth * .04);
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: availableInset * density),
+          child: Stack(
+            children: [
+              // Pointers stay with the package; only its semantics are suppressed.
+              //
+              // Owning the taps here fixed the hit-region arithmetic, but it cost the
+              // thing that makes the bar feel like the bar: while you drag, the
+              // package moves its indicator *continuously* with your finger. That
+              // motion cannot be reproduced from outside — `selectedIndex` is an int,
+              // so an app-owned gesture can only snap between whole tabs, and a slow
+              // swipe then gives no sign that anything is happening at all.
+              //
+              // So the gesture goes back. `ExcludeSemantics` stays: the accessibility
+              // defects are in the package's *semantics* tree, not its gestures, and
+              // the layer above supplies one correct, activatable node per tab —
+              // which is what TalkBack was missing entirely.
+              ExcludeSemantics(child: shadowed),
+              Positioned.fill(
+                child: _CapsuleTabLayer(
+                  items: items,
+                  index: index,
+                  onTabSelected: onTabSelected,
+                  shortsShowcaseKey: shortsShowcaseKey,
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

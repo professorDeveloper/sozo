@@ -48,7 +48,7 @@ class NavigationScrollState extends ValueNotifier<bool> {
   }
 }
 
-/// Supplies animated density without scaling the bar's width or hit regions.
+/// Supplies one motion timeline for capsule height, width and icon density.
 class NavigationDensity extends InheritedWidget {
   const NavigationDensity({
     super.key,
@@ -79,7 +79,7 @@ class ScrollCompactNavigation extends StatelessWidget {
     tween: Tween(end: compact ? 1 : 0),
     duration: MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
-        : const Duration(milliseconds: 300),
+        : Duration(milliseconds: compact ? 340 : 380),
     curve: Curves.easeInOutCubic,
     child: expanded,
     builder: (context, value, child) =>
