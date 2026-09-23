@@ -8,7 +8,8 @@ import 'package:soplay/core/brand/sozo_mark_geometry.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/widgets/sozo_mark.dart';
 
-/// The splash: the logo drawn by hand, then painted in, then left alone.
+/// The splash: the logo drawn by hand, painted in, and sealed by the dragon
+/// planting its foot.
 ///
 /// ## What the logo is
 ///
@@ -24,8 +25,12 @@ import 'package:soplay/core/widgets/sozo_mark.dart';
 /// bottom — and, a moment behind it, the dragon: every edge where the dragon
 /// meets the ground, in the order the letter is written, each at the speed a
 /// hand would draw it. Then the drawing is painted in: the artwork comes up
-/// under the lines, the lines go, and what is left is the logo, still, for
-/// most of the time the splash is on screen.
+/// under the lines and the lines go.
+///
+/// Then the dragon moves, once. The raised three-toed foot in the right-hand
+/// bend lifts off the letter's wall, holds, and comes down hard — past where
+/// it was, and back — the way a seal is pressed. One gesture, inside the
+/// logo, by the logo's own dragon; after it the logo is still until it goes.
 ///
 /// ## What it does not do
 ///
@@ -33,9 +38,11 @@ import 'package:soplay/core/widgets/sozo_mark.dart';
 /// to the last. Versions before this pushed the camera in on the dragon until
 /// the letter filled the screen, lifted the dragon off the letter with a
 /// shadow, bent it through a mesh, stamped the landing with a flash, trailed
-/// sparks, flame and embers — and every one of those made a splash about the
-/// effect instead of about the mark. Here the only thing that changes is how
-/// much of the logo has been drawn.
+/// sparks, flame and embers, sent a line circling the letter — and every one
+/// of those made a splash about the effect instead of about the mark. The
+/// foot is none of those: a rigid piece of the painting turning on its own
+/// ankle, over the ground the painting would have had under it. Nothing is
+/// added to the logo and nothing in it bends.
 ///
 /// ## Colour
 ///
@@ -173,6 +180,8 @@ class _SozoSplashState extends State<SozoSplash>
             repaint: _c,
             geometry: geometry,
             art: SozoMarkGeometry.art,
+            foot: SozoMarkGeometry.foot,
+            footGround: SozoMarkGeometry.footGround,
             background: AppColors.background,
             clock: () => _c.value * _Beats.total,
           ),
@@ -184,10 +193,11 @@ class _SozoSplashState extends State<SozoSplash>
 
 /// Every beat, in milliseconds from the first frame.
 ///
-/// Two and a half seconds, most of it the finished logo.
-/// Measured on a device,
-/// a debug build paints at about 30fps and the first frames of a cold start are
-/// lost to jank, so no stroke here is shorter than about a dozen frames.
+/// Three seconds: the drawing, the paint, the foot, and a still logo either
+/// side of the foot so it is seen to be the logo that moved. Measured on a
+/// device, a debug build paints at about 30fps and the first frames of a cold
+/// start are lost to jank, so no stroke here is shorter than about a dozen
+/// frames — the strike alone is shorter, on purpose: it is a blow.
 abstract final class _Beats {
   /// Black before it, so the first thing seen is the pen starting rather than
   /// a drawing that was already there.
@@ -219,11 +229,34 @@ abstract final class _Beats {
   static const int inkOutFrom = 1180;
   static const int inkOutTo = 1460;
 
-  /// From here to the fade nothing changes at all.
+  /// The finished logo, before and after the foot. From here to the fade
+  /// nothing changes but the foot.
   static const int holdFrom = inkOutTo;
 
-  static const int fadeFrom = 2260;
-  static const int total = 2500;
+  /// The foot comes up: slowly, and slowest at either end, the way a weight is
+  /// lifted rather than a switch thrown. A beat after the paint, so the logo is
+  /// seen whole and still before any of it moves.
+  static const int liftFrom = 1620;
+  static const int liftTo = 1980;
+
+  /// Held at the top — still rising, a hair — for the beat before a blow.
+  static const int strikeFrom = 2100;
+
+  /// Down, accelerating all the way, in a third of the time it took to go up.
+  /// Any quicker and a phone at 30fps shows it in two frames — not a blow,
+  /// a jump.
+  static const int strikeTo = 2220;
+
+  /// Through rest and back, and still. Exactly one and a half of the landing's
+  /// swings, which is where it crosses rest for the last time: it stops on
+  /// rest rather than being snapped to it.
+  static const int settleTo = strikeTo + 3 * _landingSwing ~/ 2;
+  static const int _landingSwing = 220;
+
+  /// Long enough after the foot is down for the logo to be seen still again —
+  /// sealed, not interrupted.
+  static const int fadeFrom = 2850;
+  static const int total = 3090;
 }
 
 /// The black field the logo sits on. Separated so both branches share it and
@@ -245,31 +278,43 @@ class _LogoPainter extends CustomPainter {
     super.repaint,
     required this.geometry,
     required this.art,
+    this.foot,
+    this.footGround,
     required this.background,
     required this.clock,
     this.still = false,
   }) {
-    final image = art;
-    if (image != null) {
-      // The artwork is registered to the same 512 box as the paths, at 1024,
-      // so one scale maps it on. Built once: a shader per frame is an
-      // allocation per frame for something that never changes.
-      _artPaint.shader = ui.ImageShader(
-        image,
-        TileMode.clamp,
-        TileMode.clamp,
-        Matrix4.diagonal3Values(
-          512 / image.width,
-          512 / image.height,
-          1,
-        ).storage,
-        filterQuality: FilterQuality.medium,
-      );
-    }
+    // Built once: a shader per frame is an allocation per frame for something
+    // that never changes.
+    _artPaint.shader = _registered(art);
+    _groundPaint.shader = _registered(footGround);
   }
+
+  /// [image] through the 512 box. The artwork and its footless ground are
+  /// both registered to the same box as the paths, at 1024, so one scale maps
+  /// either on.
+  static ui.ImageShader? _registered(ui.Image? image) => image == null
+      ? null
+      : ui.ImageShader(
+          image,
+          TileMode.clamp,
+          TileMode.clamp,
+          Matrix4.diagonal3Values(
+            512 / image.width,
+            512 / image.height,
+            1,
+          ).storage,
+          filterQuality: FilterQuality.medium,
+        );
 
   final SozoMarkGeometry geometry;
   final ui.Image? art;
+
+  /// The foot and what is under it; see [SozoMarkGeometry.foot]. Without both
+  /// the foot does not move.
+  final ui.Image? foot;
+  final ui.Image? footGround;
+
   final Color background;
   final double Function() clock;
 
@@ -289,10 +334,28 @@ class _LogoPainter extends CustomPainter {
   /// dim of a phone at night.
   static const double _inkWidth = 1.3;
 
+  /// How far the foot lifts, and how far past rest it lands, in radians.
+  /// Clockwise is up: the toes swing along the wall of the bend and away from
+  /// the top of the letter, which is the way they stay inside it.
+  static const double _lift = 13.5 * math.pi / 180;
+  static const double _creep = 1.5 * math.pi / 180;
+  static const double _landing = 5 * math.pi / 180;
+
+  /// How quickly the landing's swing dies, in milliseconds: by the second
+  /// time it passes rest it is a fraction of a degree.
+  static const double _landingDecay = 90;
+
   final Paint _artPaint = Paint()
     ..style = PaintingStyle.fill
     ..isAntiAlias = true
     ..color = _deep;
+  final Paint _groundPaint = Paint()
+    ..style = PaintingStyle.fill
+    ..isAntiAlias = true;
+  final Paint _footPaint = Paint()
+    ..filterQuality = FilterQuality.medium
+    ..blendMode = BlendMode.srcATop;
+  final Paint _layer = Paint();
   final Paint _ink = Paint()
     ..style = PaintingStyle.stroke
     ..strokeCap = StrokeCap.round
@@ -330,12 +393,22 @@ class _LogoPainter extends CustomPainter {
       Curves.easeOutCubic,
     );
     if (painted > 0) {
+      final turn = still ? 0.0 : _footTurn(ms);
+      // Only while it is off rest does the foot come apart from the logo. At
+      // rest the frame is the artwork itself, not a reassembly of it.
+      final lifting =
+          turn != 0 && art != null && foot != null && footGround != null;
       // Faded in by the paint's own opacity, not a layer: an opacity layer is
       // an offscreen pass for every frame of the fade, and this is one fill.
       _artPaint.color = art == null
           ? _deep.withValues(alpha: painted)
           : Color.fromRGBO(0, 0, 0, painted);
-      canvas.drawPath(geometry.body, _artPaint);
+      if (lifting) {
+        _groundPaint.color = Color.fromRGBO(0, 0, 0, painted);
+        _drawLifted(canvas, turn);
+      } else {
+        canvas.drawPath(geometry.body, _artPaint);
+      }
     }
 
     final ink =
@@ -364,6 +437,67 @@ class _LogoPainter extends CustomPainter {
         _fade,
       );
     }
+  }
+
+  /// How far the foot is turned off rest at [ms], in radians, clockwise.
+  ///
+  /// A stamp in three parts. The lift is the anticipation: slow, eased at
+  /// both ends, and held at the top while still creeping up, because a
+  /// weight that stops dead at the top of its swing reads as a pause and one
+  /// that is still gathering reads as about to fall. The strike accelerates
+  /// all the way down and loses most of its speed the instant it reaches rest
+  /// — that sudden loss is the impact; nothing is flashed to say so. And the
+  /// landing carries it on past rest and back, a swing that dies within two
+  /// crossings, which is the difference between a foot planted and a
+  /// picture of a foot put back.
+  static double _footTurn(double ms) {
+    if (ms <= _Beats.liftFrom || ms >= _Beats.settleTo) return 0;
+    if (ms < _Beats.liftTo) {
+      return _lift *
+          _span(ms, _Beats.liftFrom, _Beats.liftTo, Curves.easeInOutCubic);
+    }
+    final top =
+        _lift +
+        _creep * _span(ms, _Beats.liftTo, _Beats.strikeFrom, Curves.easeOut);
+    if (ms < _Beats.strikeFrom) return top;
+    if (ms < _Beats.strikeTo) {
+      return top *
+          (1 -
+              _span(ms, _Beats.strikeFrom, _Beats.strikeTo, Curves.easeInQuad));
+    }
+    final t = ms - _Beats.strikeTo;
+    return -_landing *
+        math.sin(2 * math.pi * t / _Beats._landingSwing) *
+        math.exp(-t / _landingDecay);
+  }
+
+  /// The logo with its foot turned about the ankle, over the ground the foot
+  /// has uncovered.
+  ///
+  /// The ground stands in for the artwork whole rather than being patched
+  /// over it, and the foot is laid onto it source-atop in a layer of their
+  /// own rather than clipped to the letter. Both for the same reason: the
+  /// letter's edge is anti-aliased, and whatever is blended across it twice
+  /// comes out lighter — the toes where they touch the wall would pale on
+  /// the very frame they start to move. Source-atop, the foot takes the
+  /// letter's coverage from the ground beneath it, once; and it still cannot
+  /// leave the letter, so a toe that grazes the wall is cut by it, the way it
+  /// would be by the edge of the relief.
+  void _drawLifted(Canvas canvas, double turn) {
+    final image = foot!;
+    final pivot = SozoMarkGeometry.footPivot;
+    canvas.saveLayer(geometry.bounds.inflate(2), _layer);
+    canvas.drawPath(geometry.body, _groundPaint);
+    canvas.translate(pivot.dx, pivot.dy);
+    canvas.rotate(turn);
+    canvas.translate(-pivot.dx, -pivot.dy);
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      SozoMarkGeometry.footBox,
+      _footPaint,
+    );
+    canvas.restore();
   }
 
   /// The letter's edge, drawn from the middle of the top terminal down both

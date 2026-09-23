@@ -124,6 +124,36 @@ class SozoMarkGeometry {
 
   static const String artAsset = 'assets/brand/sozo_logo_art.png';
 
+  static ui.Image? _foot;
+  static ui.Image? _footGround;
+
+  /// The dragon's raised foot — the three toes in the right-hand bend — cut
+  /// out of [art] by `tool/brand_dragon_foot.py`, so the splash can move it.
+  ///
+  /// Only the foot, over nothing, and only the [footBox] patch of the box:
+  /// it is drawn on its own transform, and a full-size copy would be four
+  /// megabytes of transparency. Matted against [footGround], so the two
+  /// together, with the foot at rest, are [art] to within a value or two.
+  static ui.Image? get foot => _foot;
+
+  /// [art] with the foot taken out and the ground carried across where it
+  /// was: what the foot uncovers when it lifts. Full size and registered like
+  /// [art], so it can stand in for it through the same shader and the letter's
+  /// anti-aliased edge is drawn once, not twice.
+  static ui.Image? get footGround => _footGround;
+
+  static const String footAsset = 'assets/brand/sozo_logo_foot.png';
+  static const String footGroundAsset =
+      'assets/brand/sozo_logo_foot_ground.png';
+
+  /// Where [foot] sits in the 512 box, and the point it turns about: the back
+  /// of the ankle, where the leg leaves the letter's inner edge. Mirrored from
+  /// the tool that cut it — the foot's cut at the ankle is a ray from exactly
+  /// this point and an arc centred on it, and about anywhere else the joint
+  /// opens as it turns.
+  static const ui.Rect footBox = ui.Rect.fromLTRB(328, 192, 408, 304);
+  static const ui.Offset footPivot = ui.Offset(347, 256);
+
   /// The geometry, once it has been read. Null before that.
   ///
   /// A getter rather than a future at the call site: a painter runs on a frame
@@ -143,11 +173,21 @@ class SozoMarkGeometry {
     // texture, not its geometry. It falls back to a flat letter, which is a
     // worse splash and still a splash.
     try {
-      final bytes = await rootBundle.load(artAsset);
-      final codec = await ui.instantiateImageCodec(bytes.buffer.asUint8List());
-      _art = (await codec.getNextFrame()).image;
+      _art = await _image(artAsset);
     } catch (_) {
       _art = null;
+    }
+    // A pair or nothing: a foot with no ground under it leaves a copy of
+    // itself behind when it lifts, and the ground with no foot is the logo
+    // with a hole in it. Without them the logo is simply still.
+    try {
+      final foot = await _image(footAsset);
+      final ground = await _image(footGroundAsset);
+      _foot = foot;
+      _footGround = ground;
+    } catch (_) {
+      _foot = null;
+      _footGround = null;
     }
     try {
       final svg = await rootBundle.loadString(asset);
@@ -242,7 +282,12 @@ class SozoMarkGeometry {
     }
   }
 
-  /// One `<path id="...">` out of the asset, as a [ui.Path].
+  static Future<ui.Image> _image(String asset) async {
+    final bytes = await rootBundle.load(asset);
+    final codec = await ui.instantiateImageCodec(bytes.buffer.asUint8List());
+    return (await codec.getNextFrame()).image;
+  }
+
   /// Where on [metric] is nearest to ([x], [y]). Once, at load: a walk of the
   /// contour at a step finer than a pixel at any size the mark is drawn.
   static double _nearest(ui.PathMetric metric, double x, double y) {
@@ -277,6 +322,7 @@ class SozoMarkGeometry {
     }
   }
 
+  /// One `<path id="...">` out of the asset, as a [ui.Path].
   static ui.Path? _pathNamed(String svg, String id) {
     final m = RegExp(
       'id="$id"[^>]*?\\sd="([^"]+)"',
