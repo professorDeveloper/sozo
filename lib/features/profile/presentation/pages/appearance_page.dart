@@ -98,6 +98,11 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
     await _theme.cycleAccent();
   }
 
+  Future<void> _setSystemAccent(bool value) async {
+    _tap();
+    await _theme.setSystemAccent(value);
+  }
+
   Future<void> _openCustom() async {
     _tap();
     final picked = await showCustomAccentSheet(
@@ -121,14 +126,30 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           const SizedBox(height: 20),
 
           // ── Accent ──────────────────────────────────────────────────────
+          //
+          // One strip, not a wall. Twelve colours as a grid of circles the
+          // size of buttons filled half the screen with a choice most people
+          // make once; as a row of small swatches it is the same choice in a
+          // sixth of the space, and the miniature above already shows what
+          // the colour does.
           SettingsLabel('appearance.section_accent'.tr()),
           SettingsCard(
             children: [
-              _AccentGrid(selected: accent, onPick: _pick),
-              const SettingsDivider(),
-              _CurrentAccentRow(accent: accent),
-              const SettingsDivider(),
-              _CustomAccentRow(active: accent.isCustom, onTap: _openCustom),
+              if (_theme.hasSystemAccent) ...[
+                SettingsSwitchTile(
+                  icon: Icons.auto_awesome_rounded,
+                  title: 'appearance.material_you'.tr(),
+                  subtitle: 'appearance.material_you_desc'.tr(),
+                  value: accent.isSystem,
+                  onChanged: _setSystemAccent,
+                ),
+                const SettingsDivider(),
+              ],
+              _AccentStrip(
+                selected: accent,
+                onPick: _pick,
+                onCustom: _openCustom,
+              ),
             ],
           ),
           SettingsFootnote('appearance.accent_footnote'.tr()),
@@ -247,59 +268,27 @@ class _PreviewStage extends StatelessWidget {
 
 // ── Accent ──────────────────────────────────────────────────────────────────
 
-class _AccentGrid extends StatelessWidget {
-  const _AccentGrid({required this.selected, required this.onPick});
+/// Every accent in one scrolling row: the presets, and the colour wheel at the
+/// end of it.
+///
+/// The name and hex of the colour in force sit above the row, on one line, in
+/// place of the two labelled rows this used to carry: the miniature at the top
+/// of the page already shows what the colour looks like, so all the text here
+/// has to do is name it.
+class _AccentStrip extends StatelessWidget {
+  const _AccentStrip({
+    required this.selected,
+    required this.onPick,
+    required this.onCustom,
+  });
 
   final AppAccent selected;
   final ValueChanged<AppAccent> onPick;
+  final VoidCallback onCustom;
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // Only the presets live here, and there are twelve of them — which
-          // divides evenly by 6, 4 and 3. So whatever width the card gets, the
-          // grid comes out as full rows instead of leaving one swatch stranded
-          // on a line of its own. (Custom is a labelled row underneath, where
-          // it can say what it is.)
-          const gap = 10.0;
-          final columns = switch (constraints.maxWidth) {
-            >= 420 => 6,
-            >= 300 => 6,
-            >= 220 => 4,
-            _ => 3,
-          };
-          final size = (constraints.maxWidth - gap * (columns - 1)) / columns;
-          return Wrap(
-            spacing: gap,
-            runSpacing: gap,
-            children: [
-              for (final accent in AppAccent.presets)
-                _Swatch(
-                  size: size,
-                  color: accent.base,
-                  selected: !selected.isCustom && selected.id == accent.id,
-                  onTap: () => onPick(accent),
-                  semanticLabel: accent.labelKey.tr(),
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// The way into the colour wheel. A row rather than a thirteenth circle: it can
-/// carry a label, it never breaks the grid's rhythm, and when a custom colour
-/// is in force it shows which one.
-class _CustomAccentRow extends StatelessWidget {
-  const _CustomAccentRow({required this.active, required this.onTap});
-
-  final bool active;
-  final VoidCallback onTap;
+  /// Small enough that twelve fit a phone's width with room to scroll, big
+  /// enough to stay a comfortable target with the gap around each.
+  static const double swatch = 28;
 
   /// Hues around the wheel chip. Twelve is enough for the sweep to read as
   /// continuous at this size.
@@ -319,56 +308,101 @@ class _CustomAccentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Row(
-            children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const SweepGradient(colors: _wheel),
-                  border: Border.all(
-                    color: active
-                        ? AppColors.textPrimary
-                        : AppColors.textPrimary.withValues(alpha: 0.12),
-                    width: active ? 2 : 1,
+    final hex = selected.base
+        .toARGB32()
+        .toRadixString(16)
+        .padLeft(8, '0')
+        .substring(2)
+        .toUpperCase();
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 0, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: 16, bottom: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    selected.labelKey.tr(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'appearance.custom_title'.tr(),
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                Text(
+                  '#$hex',
+                  style: const TextStyle(
+                    color: AppColors.textHint,
+                    fontSize: 11.5,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                    letterSpacing: 0.4,
                   ),
                 ),
-              ),
-              if (active)
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 6),
-                  child: Icon(
-                    Icons.check_rounded,
-                    size: 18,
-                    color: AppColors.primary,
-                  ),
-                ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.textHint,
-                size: 20,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          SizedBox(
+            height: swatch + 8,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsetsDirectional.only(end: 16),
+              children: [
+                for (final accent in AppAccent.presets) ...[
+                  Center(
+                    child: _Swatch(
+                      size: swatch,
+                      color: accent.base,
+                      selected: selected.id == accent.id,
+                      onTap: () => onPick(accent),
+                      semanticLabel: accent.labelKey.tr(),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                // The way into the wheel, at the end of the row it belongs to
+                // rather than as a labelled row of its own.
+                Center(
+                  child: Semantics(
+                    label: 'appearance.custom_title'.tr(),
+                    button: true,
+                    selected: selected.isCustom,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onCustom,
+                      child: Container(
+                        width: swatch,
+                        height: swatch,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const SweepGradient(colors: _wheel),
+                          border: Border.all(
+                            color: selected.isCustom
+                                ? AppColors.textPrimary
+                                : AppColors.textPrimary.withValues(alpha: 0.12),
+                            width: selected.isCustom ? 2 : 1,
+                          ),
+                        ),
+                        child: selected.isCustom
+                            ? const Icon(
+                                Icons.check_rounded,
+                                size: swatch * 0.42,
+                                color: Colors.white,
+                              )
+                            : null,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -433,62 +467,6 @@ class _Swatch extends StatelessWidget {
   }
 }
 
-/// Names the accent in force and, for a custom one, offers the way back into
-/// the picker. Without it the grid is twelve unlabelled dots.
-class _CurrentAccentRow extends StatelessWidget {
-  const _CurrentAccentRow({required this.accent});
-
-  final AppAccent accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final hex = accent.base
-        .toARGB32()
-        .toRadixString(16)
-        .padLeft(8, '0')
-        .substring(2)
-        .toUpperCase();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Row(
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            decoration: BoxDecoration(
-              color: accent.base,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: AppColors.textPrimary.withValues(alpha: 0.12),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              accent.labelKey.tr(),
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Text(
-            '#$hex',
-            style: const TextStyle(
-              color: AppColors.textHint,
-              fontSize: 12.5,
-              fontFeatures: [FontFeature.tabularFigures()],
-              letterSpacing: 0.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// The accents the user's own library is made of.
 ///
 /// Hides itself entirely when there is nothing to show — a fresh install, an
@@ -536,17 +514,13 @@ class _LibraryAccentSection extends StatelessWidget {
                               // Between one and six swatches can turn up, and a
                               // Wrap would stretch two of them into saucers.
                               const gap = 10.0;
-                              const columns = 6;
-                              final size =
-                                  (constraints.maxWidth - gap * (columns - 1)) /
-                                  columns;
                               return Wrap(
                                 spacing: gap,
                                 runSpacing: gap,
                                 children: [
                                   for (final accent in found)
                                     _Swatch(
-                                      size: size,
+                                      size: _AccentStrip.swatch,
                                       color: accent.base,
                                       selected:
                                           selected.isCustom &&

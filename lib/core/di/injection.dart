@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:soplay/features/watch_services/data/datasources/watch_services_data_source.dart';
 import 'package:soplay/features/watch_services/data/repositories/watch_services_repository_imp.dart';
 import 'package:soplay/features/watch_services/domain/repositories/watch_services_repository.dart';
@@ -199,6 +201,10 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<ThemeController>(
     ThemeController(getIt<HiveService>()),
   );
+  // Material You, asked for rather than awaited: it is a trip over a platform
+  // channel, and the first frame is already painted in the colour the
+  // wallpaper had last time.
+  unawaited(getIt<ThemeController>().loadSystemAccent());
   getIt.registerSingleton<HistoryService>(HistoryService());
   // Downloads. The repository owns the queue, the filesystem and whichever of
   // the two transfer engines this platform uses; everything above it sees use

@@ -1,3 +1,4 @@
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 
@@ -60,6 +61,13 @@ class ThemeController extends ChangeNotifier {
 
   AppAccent _readAccent() {
     final id = _hive.accentId;
+    if (id == AppAccent.systemId) {
+      // The colour the wallpaper had last time, until [loadSystemAccent]
+      // reads what it is now.
+      final argb = _hive.systemAccentArgb;
+      if (argb != null) return AppAccent.system(Color(argb));
+      return AppAccent.fallback;
+    }
     if (id == AppAccent.customId) {
       final argb = _hive.customAccentArgb;
       // A stored custom id with no stored colour is a half-written preference;
@@ -76,6 +84,75 @@ class ThemeController extends ChangeNotifier {
       darkness: _darkness,
       tintNav: _tintNav,
     );
+  }
+
+  /// The wallpaper's colour, where the platform has one — Android 12 and up.
+  /// Null until [loadSystemAccent] has asked, and on everything else.
+  Color? _systemSeed;
+
+  /// Whether Material You can be offered at all.
+  bool get hasSystemAccent => _systemSeed != null;
+
+  /// What to go back to when Material You is switched off.
+  AppAccent? _beforeSystem;
+
+  /// Asks the platform for the wallpaper's colour, and repaints if Material
+  /// You is on and the wallpaper has changed since last time.
+  ///
+  /// Not awaited at startup: it is a trip over a platform channel, and the
+  /// first frame is already right from the colour stored last time.
+  Future<void> loadSystemAccent() async {
+    Color? seed;
+    try {
+      final palette = await DynamicColorPlugin.getCorePalette();
+      // Tone 40 of the primary palette: the wallpaper's hue at the depth
+      // Material itself puts under white text.
+      if (palette != null) seed = Color(palette.primary.get(40));
+    } catch (_) {
+      seed = null;
+    }
+    final had = _systemSeed != null;
+    _systemSeed = seed;
+    if (seed == null) {
+      if (had) notifyListeners();
+      return;
+    }
+    if (_accent.isSystem) {
+      final next = AppAccent.system(seed);
+      if (next.base != _accent.base) {
+        _accent = next;
+        _apply();
+      }
+      await _hive.setSystemAccentArgb(seed.toARGB32());
+    }
+    notifyListeners();
+  }
+
+  /// Material You on or off. Off goes back to whatever was picked before it
+  /// was switched on, or to the default after a restart.
+  Future<void> setSystemAccent(bool enabled) async {
+    final seed = _systemSeed;
+    if (enabled) {
+      if (seed == null || _accent.isSystem) return;
+      _beforeSystem = _accent;
+      _accent = AppAccent.system(seed);
+      _apply();
+      notifyListeners();
+      await _hive.setSystemAccentArgb(seed.toARGB32());
+      await _hive.setAccentId(AppAccent.systemId);
+      return;
+    }
+    if (!_accent.isSystem) return;
+    final back = _beforeSystem ?? AppAccent.fallback;
+    if (back.isCustom) {
+      await setCustomAccent(
+        _hive.customAccentArgb == null
+            ? back.base
+            : Color(_hive.customAccentArgb!),
+      );
+    } else {
+      await setAccent(back);
+    }
   }
 
   /// Pick one of the [AppAccent.presets].

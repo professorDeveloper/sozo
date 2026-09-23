@@ -918,6 +918,17 @@ class HiveService {
     await _settingsBox.put(AppConstants.customAccentKey, argb);
   }
 
+  /// The last Material You colour, or null if it was never read. See
+  /// [AppConstants.systemAccentKey].
+  int? get systemAccentArgb {
+    final raw = _settingsBox.get(AppConstants.systemAccentKey);
+    return raw is int ? raw : null;
+  }
+
+  Future<void> setSystemAccentArgb(int argb) async {
+    await _settingsBox.put(AppConstants.systemAccentKey, argb);
+  }
+
   bool get isNavTinted {
     return _settingsBox.get(AppConstants.tintNavKey, defaultValue: true) ==
         true;

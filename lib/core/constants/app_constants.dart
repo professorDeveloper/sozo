@@ -198,6 +198,13 @@ class AppConstants {
   /// [accentIdKey] is `AppAccent.customId`.
   static const String customAccentKey = 'custom_accent';
 
+  /// The colour Material You last reported, as a 32-bit ARGB int. Only
+  /// consulted when [accentIdKey] is `AppAccent.systemId`, and only for the
+  /// first frame: the wallpaper's colour is read again on every launch, but
+  /// that takes a trip to the platform, and an app on Material You should not
+  /// open red and then turn blue.
+  static const String systemAccentKey = 'system_accent';
+
   /// Appearance → "Colour the tab bar". Absent ⇒ **on**: the accent is a
   /// setting people choose in order to see it, and the tab bar is the one piece
   /// of chrome that is on screen the whole time. Turning it off puts the

@@ -65,6 +65,12 @@ class AppAccent {
   /// [AppConstants.customAccentKey].
   static const String customId = 'custom';
 
+  /// The id stored for Material You: the colour Android takes from the
+  /// wallpaper, read again on every launch.
+  static const String systemId = 'system';
+
+  bool get isSystem => id == systemId;
+
   /// The accent the app has always shipped. Also the value a corrupt or
   /// unknown stored id falls back to, so a bad preference can never leave the
   /// app unthemed.
@@ -189,6 +195,19 @@ class AppAccent {
       dark: _deriveDark(base),
       light: _deriveLight(base),
       isCustom: true,
+    );
+  }
+
+  /// Material You: the wallpaper's colour, held to the same legibility
+  /// contract as a custom pick — a pale wallpaper must not give white buttons
+  /// white text.
+  factory AppAccent.system(Color seed) {
+    final base = _enforceLegibility(seed);
+    return AppAccent(
+      id: systemId,
+      base: base,
+      dark: _deriveDark(base),
+      light: _deriveLight(base),
     );
   }
 
