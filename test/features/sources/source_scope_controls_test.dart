@@ -91,7 +91,7 @@ void main() {
         ),
         (s) => picked = s,
       );
-      await tester.tap(find.byType(OutlinedButton));
+      await tester.tap(find.byKey(const ValueKey('repository-picker')));
       await tester.pumpAndSettle();
       expect(find.text('repo-two'), findsOneWidget);
       await tester.tap(find.text('repo-two'));

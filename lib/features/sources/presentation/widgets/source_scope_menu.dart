@@ -93,17 +93,52 @@ class SourceScopeMenu extends StatelessWidget {
           if (hasRepos)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: OutlinedButton.icon(
+              child: TextButton.icon(
+                key: const ValueKey('repository-picker'),
                 onPressed: () => _open(
                   context,
                   ecosystems,
                   initial: SourceScope(ecosystem: ecosystem, repo: scope.repo),
                 ),
-                icon: const Icon(Icons.folder_open_rounded, size: 18),
-                label: Text(
-                  '${'sources.repo_pick'.tr()}: ${scope.repo == null ? 'sources.repo_any'.tr() : repoLabel(scope.repo!)}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                style: TextButton.styleFrom(
+                  foregroundColor: scope.repo == null
+                      ? AppColors.textSecondary
+                      : AppColors.textPrimary,
+                  backgroundColor: scope.repo == null
+                      ? AppColors.surface
+                      : AppColors.primary.withValues(alpha: .08),
+                  minimumSize: const Size(0, 44),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  shape: const StadiumBorder(),
+                ),
+                icon: Icon(
+                  scope.repo == null
+                      ? Icons.folder_open_rounded
+                      : Icons.check_rounded,
+                  size: 16,
+                ),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        scope.repo == null
+                            ? 'sources.repo_pick'.tr()
+                            : repoLabel(scope.repo!),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.expand_more_rounded, size: 16),
+                  ],
                 ),
               ),
             ),
@@ -120,11 +155,11 @@ class SourceScopeMenu extends StatelessWidget {
     HapticFeedback.selectionClick();
     final picked = await showModalBottomSheet<SourceScope>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
       showDragHandle: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => _ScopeSheet(
         counts: counts,
@@ -321,60 +356,75 @@ class _ScopeSheetState extends State<_ScopeSheet> {
     required VoidCallback onTap,
     VoidCallback? onDrill,
     bool drilledInto = false,
-  }) => InkWell(
-    onTap: onTap,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      curve: Curves.easeOut,
-      // A held row rather than coloured text: it marks the selection without
-      // competing with every other row for attention.
-      color: selected
-          ? AppColors.primary.withValues(alpha: 0.08)
-          : Colors.transparent,
-      padding: EdgeInsets.fromLTRB(20, 13, onDrill == null ? 20 : 6, 13),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                // Weight, not colour — see the note on the pill above.
-                color: AppColors.textPrimary,
-                fontSize: 14.5,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              ),
+  }) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+    child: Semantics(
+      selected: selected,
+      child: Material(
+        color: selected
+            ? AppColors.primary.withValues(alpha: .08)
+            : AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: EdgeInsets.fromLTRB(12, 12, onDrill == null ? 12 : 4, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      // Weight, not colour — see the note on the pill above.
+                      color: AppColors.textPrimary,
+                      fontSize: 14.5,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: AppColors.textHint,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+                SizedBox(
+                  width: 26,
+                  child: selected
+                      ? Icon(
+                          Icons.check_rounded,
+                          size: 18,
+                          color: AppColors.primary,
+                        )
+                      : null,
+                ),
+                if (onDrill != null)
+                  IconButton(
+                    onPressed: onDrill,
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: drilledInto
+                          ? AppColors.primary
+                          : AppColors.textHint,
+                    ),
+                    tooltip: 'sources.repo_pick'.tr(),
+                  ),
+              ],
             ),
           ),
-          const SizedBox(width: 10),
-          Text(
-            '$count',
-            style: const TextStyle(
-              color: AppColors.textHint,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
-          ),
-          SizedBox(
-            width: 26,
-            child: selected
-                ? Icon(Icons.check_rounded, size: 18, color: AppColors.primary)
-                : null,
-          ),
-          if (onDrill != null)
-            IconButton(
-              onPressed: onDrill,
-              visualDensity: VisualDensity.compact,
-              icon: Icon(
-                Icons.chevron_right_rounded,
-                size: 20,
-                color: drilledInto ? AppColors.primary : AppColors.textHint,
-              ),
-              tooltip: 'sources.repo_pick'.tr(),
-            ),
-        ],
+        ),
       ),
     ),
   );
