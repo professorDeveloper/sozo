@@ -745,6 +745,40 @@ class HiveService {
     return _settingsBox.put(AppConstants.liveTvRecentKey, ids);
   }
 
+  /// The Live TV folder or country that was open when the viewer left, as
+  /// `folder:<name>`, `country:<code>` or `all`; null for the top level.
+  ///
+  /// Live TV is opened for the same folder over and over — somebody who
+  /// watches Indian channels opens India every time — so the screen reopens
+  /// where it was left instead of making them find it again.
+  String? getLiveTvScope() {
+    final raw = _settingsBox.get(AppConstants.liveTvScopeKey);
+    return raw is String && raw.isNotEmpty ? raw : null;
+  }
+
+  Future<void> setLiveTvScope(String? scope) async {
+    if (scope == null) {
+      await _settingsBox.delete(AppConstants.liveTvScopeKey);
+      return;
+    }
+    await _settingsBox.put(AppConstants.liveTvScopeKey, scope);
+    if (isIncognito) return;
+    final history = [
+      scope,
+      ...getLiveTvScopeHistory().where((e) => e != scope),
+    ].take(8).toList();
+    await _settingsBox.put(AppConstants.liveTvScopeHistoryKey, history);
+  }
+
+  /// Folders and countries opened lately, most recent first — the row of
+  /// shortcuts at the top of Live TV. Not kept in incognito, like the
+  /// channel history beside it.
+  List<String> getLiveTvScopeHistory() {
+    final raw = _settingsBox.get(AppConstants.liveTvScopeHistoryKey);
+    if (raw is! List) return const [];
+    return raw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+  }
+
   /// Enough of a channel to draw it without having fetched the page it is on.
   ///
   /// Favourites and recents are ids, and once the line-up is paged there is no

@@ -1663,7 +1663,8 @@
       "other": "{} kanal"
     },
     "up_next": "BERIKUTNYA",
-    "minutes_left": "sisa {} mnt"
+    "minutes_left": "sisa {} mnt",
+    "recent_scopes": "Baru dibuka"
   },
   "time": {
     "now": "baru saja",

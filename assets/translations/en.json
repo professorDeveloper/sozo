@@ -1700,7 +1700,8 @@
     },
     "up_next": "UP NEXT",
     "minutes_left": "{} min left",
-    "last_opened": "Last opened channel"
+    "last_opened": "Last opened channel",
+    "recent_scopes": "Opened lately"
   },
   "time": {
     "now": "just now",

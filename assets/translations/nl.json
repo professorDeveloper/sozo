@@ -1663,7 +1663,8 @@
       "other": "{} kanalen"
     },
     "up_next": "STRAKS",
-    "minutes_left": "nog {} min"
+    "minutes_left": "nog {} min",
+    "recent_scopes": "Onlangs geopend"
   },
   "time": {
     "now": "zojuist",

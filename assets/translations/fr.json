@@ -1663,7 +1663,8 @@
       "other": "{} chaînes"
     },
     "up_next": "ENSUITE",
-    "minutes_left": "{} min restantes"
+    "minutes_left": "{} min restantes",
+    "recent_scopes": "Ouverts récemment"
   },
   "time": {
     "now": "à l’instant",

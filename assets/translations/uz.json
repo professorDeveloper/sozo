@@ -1700,7 +1700,8 @@
     },
     "up_next": "KEYINGI",
     "minutes_left": "{} daqiqa qoldi",
-    "last_opened": "Oxirgi ochilgan kanal"
+    "last_opened": "Oxirgi ochilgan kanal",
+    "recent_scopes": "Oxirgi ochilganlar"
   },
   "time": {
     "now": "hozirgina",

@@ -97,6 +97,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
   }
 
   void _openAllChannels() {
+    _rememberScope('all');
     setState(() {
       _allChannels = true;
       _folder = '';
@@ -151,8 +152,17 @@ class _LiveTvPageState extends State<LiveTvPage> {
     _rebuildPins();
     _scroll.addListener(_onScroll);
     _ticker = Timer.periodic(const Duration(seconds: 60), _onTick);
+    _scopeHistory = hive.getLiveTvScopeHistory();
     _loadIndex();
     _loadLineup();
+    // Back where it was left: a viewer who always opens India should not
+    // have to find India every time.
+    final scope = hive.getLiveTvScope();
+    if (scope != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_scoped) _openScope(scope);
+      });
+    }
   }
 
   @override
@@ -305,6 +315,33 @@ class _LiveTvPageState extends State<LiveTvPage> {
     await Future.wait([_loadIndex(silent: true), _loadLineup()]);
   }
 
+  /// Where Live TV reopens next time, and the shortcut row's history.
+  void _rememberScope(String? scope) {
+    final hive = getIt<HiveService>();
+    unawaited(hive.setLiveTvScope(scope));
+    _scopeHistory = hive.getLiveTvScopeHistory();
+    if (scope != null && !_scopeHistory.contains(scope)) {
+      // Incognito: not written, but the row still must not lie about what is
+      // open right now.
+      _scopeHistory = [scope, ..._scopeHistory];
+    }
+  }
+
+  /// Opens a remembered scope, as written by [_rememberScope].
+  void _openScope(String scope) {
+    if (scope == 'all') return _openAllChannels();
+    final i = scope.indexOf(':');
+    if (i <= 0) return;
+    final kind = scope.substring(0, i);
+    final value = scope.substring(i + 1);
+    if (value.isEmpty) return;
+    if (kind == 'folder') return _openFolder(value);
+    if (kind == 'country') return _openCountry(value);
+  }
+
+  /// Folders and countries opened lately, for the shortcut row.
+  List<String> _scopeHistory = const [];
+
   /// Everything a scope change must forget. Always called inside a setState.
   void _resetPaging() {
     _page = 1;
@@ -315,6 +352,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
   }
 
   void _openFolder(String name) {
+    _rememberScope('folder:$name');
     setState(() {
       _allChannels = false;
       _folder = name;
@@ -326,6 +364,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
   }
 
   void _openCountry(String code) {
+    _rememberScope('country:$code');
     setState(() {
       _allChannels = false;
       _country = code;
@@ -337,6 +376,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
   }
 
   void _closeScope() {
+    _rememberScope(null);
     _debounce?.cancel();
     _search.clear();
     _seq++; // drop anything already in flight for the scope being left
@@ -461,6 +501,21 @@ class _LiveTvPageState extends State<LiveTvPage> {
     'BR': 'Brazil',
     'MX': 'Mexico',
   };
+
+  /// A remembered scope as the row draws it: a flag and a name, or a folder.
+  ({String lead, String label}) _scopeLabel(String scope) {
+    if (scope == 'all') {
+      return (lead: '', label: 'live_tv.all_channels'.tr());
+    }
+    if (scope.startsWith('country:')) {
+      final code = scope.substring('country:'.length);
+      return (
+        lead: isDesktopPlatform ? '' : _flagOf(code),
+        label: _countryName(code),
+      );
+    }
+    return (lead: '', label: scope.substring(scope.indexOf(':') + 1));
+  }
 
   String _countryName(String code) =>
       _countryNames[code.toUpperCase()] ?? code.toUpperCase();
@@ -679,6 +734,17 @@ class _LiveTvPageState extends State<LiveTvPage> {
     final indexEmpty = _booted && _folders.isEmpty && _lineup.isEmpty;
 
     return [
+      if (_scopeHistory.isNotEmpty) ...[
+        _SectionHeader(
+          icon: Icons.history_rounded,
+          label: 'live_tv.recent_scopes'.tr(),
+        ),
+        _ScopeHistoryRail(
+          scopes: _scopeHistory,
+          labelOf: _scopeLabel,
+          onOpen: _openScope,
+        ),
+      ],
       if (!_booted || _countries.isNotEmpty) ...[
         _SectionHeader(
           icon: Icons.public_rounded,
@@ -1283,6 +1349,75 @@ class _CategoryGrid extends StatelessWidget {
 /// navigation. Ordered by how much each country contributes, and cut at
 /// sixteen — past that the codes stop resolving to names and the strip goes
 /// ragged.
+/// Folders and countries opened lately, as a row of pills.
+class _ScopeHistoryRail extends StatelessWidget {
+  const _ScopeHistoryRail({
+    required this.scopes,
+    required this.labelOf,
+    required this.onOpen,
+  });
+
+  final List<String> scopes;
+  final ({String lead, String label}) Function(String) labelOf;
+  final ValueChanged<String> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 40,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: _kGutter),
+          itemCount: scopes.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, i) {
+            final scope = scopes[i];
+            final l = labelOf(scope);
+            return Material(
+              color: AppColors.primary.withValues(alpha: i == 0 ? 0.16 : 0.08),
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => onOpen(scope),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (l.lead.isNotEmpty) ...[
+                        Text(l.lead, style: const TextStyle(fontSize: 15)),
+                        const SizedBox(width: 7),
+                      ] else ...[
+                        Icon(
+                          scope == 'all'
+                              ? Icons.live_tv_rounded
+                              : Icons.folder_open_rounded,
+                          size: 15,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 7),
+                      ],
+                      Text(
+                        l.label,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class _CountryRail extends StatelessWidget {
   const _CountryRail({
     required this.countries,

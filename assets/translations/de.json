@@ -1663,7 +1663,8 @@
       "other": "{} Sender"
     },
     "up_next": "ALS NÄCHSTES",
-    "minutes_left": "noch {} Min."
+    "minutes_left": "noch {} Min.",
+    "recent_scopes": "Zuletzt geöffnet"
   },
   "time": {
     "now": "gerade eben",

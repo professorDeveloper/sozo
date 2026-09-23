@@ -1663,7 +1663,8 @@
       "other": "{} kanal"
     },
     "up_next": "SIRADA",
-    "minutes_left": "{} dk kaldı"
+    "minutes_left": "{} dk kaldı",
+    "recent_scopes": "Son açılanlar"
   },
   "time": {
     "now": "az önce",

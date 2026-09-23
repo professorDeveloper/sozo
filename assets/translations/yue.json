@@ -1663,7 +1663,8 @@
       "other": "{} 個頻道"
     },
     "up_next": "下一個節目",
-    "minutes_left": "仲有 {} 分鐘"
+    "minutes_left": "仲有 {} 分鐘",
+    "recent_scopes": "最近開過"
   },
   "time": {
     "now": "啱啱",

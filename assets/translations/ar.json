@@ -1667,7 +1667,8 @@
       "other": "{} قناة"
     },
     "up_next": "التالي",
-    "minutes_left": "بقيت {} دقيقة"
+    "minutes_left": "بقيت {} دقيقة",
+    "recent_scopes": "فُتحت مؤخرًا"
   },
   "time": {
     "now": "الآن",

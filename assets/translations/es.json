@@ -1663,7 +1663,8 @@
       "other": "{} canales"
     },
     "up_next": "A CONTINUACIÓN",
-    "minutes_left": "quedan {} min"
+    "minutes_left": "quedan {} min",
+    "recent_scopes": "Abiertos recientemente"
   },
   "time": {
     "now": "ahora mismo",

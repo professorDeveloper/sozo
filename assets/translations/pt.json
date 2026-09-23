@@ -1663,7 +1663,8 @@
       "other": "{} canais"
     },
     "up_next": "A SEGUIR",
-    "minutes_left": "faltam {} min"
+    "minutes_left": "faltam {} min",
+    "recent_scopes": "Abertos recentemente"
   },
   "time": {
     "now": "agora mesmo",
