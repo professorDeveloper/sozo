@@ -34,6 +34,7 @@ class GenreTile extends StatelessWidget {
     required this.image,
     required this.index,
     required this.onTap,
+    this.labelSize = 13,
   });
 
   final String label;
@@ -42,6 +43,10 @@ class GenreTile extends StatelessWidget {
   /// Kept for the entrance stagger. It no longer picks a colour.
   final int index;
   final VoidCallback onTap;
+
+  /// The name's size: larger where the tile is, so it keeps its proportion
+  /// to the picture.
+  final double labelSize;
 
   @override
   Widget build(BuildContext context) {
@@ -103,9 +108,9 @@ class GenreTile extends StatelessWidget {
               label,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 13,
+                fontSize: labelSize,
                 fontWeight: FontWeight.w700,
                 height: 1.15,
                 letterSpacing: -0.2,
@@ -127,11 +132,6 @@ class GenreTile extends StatelessWidget {
     // surface made of artwork it reads as ink spilt on a picture — where the
     // dip reads as the picture itself being pressed. One surface, one
     // response.
-    return HoverTap(
-      onTap: onTap,
-      haptic: true,
-      borderRadius: 12,
-      child: card,
-    );
+    return HoverTap(onTap: onTap, haptic: true, borderRadius: 12, child: card);
   }
 }

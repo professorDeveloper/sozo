@@ -8,7 +8,6 @@ import 'package:soplay/features/home/domain/entities/view_all.dart';
 import 'package:soplay/features/home/presentation/widgets/view_all_widgets.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 import 'package:soplay/features/search/presentation/widgets/genre_tile.dart';
-import 'package:soplay/features/search/presentation/widgets/search_landing.dart';
 
 /// Every genre the current source lists, as a wall of covers.
 ///
@@ -77,8 +76,9 @@ class _GenresPageState extends State<GenresPage> {
   Widget build(BuildContext context) {
     final appBarH = MediaQuery.paddingOf(context).top + 56;
     final width = MediaQuery.sizeOf(context).width;
-    // The same columns as the genre grid in Search, so the two walls of the
-    // same covers are the same wall.
+    // Fewer, bigger covers than Search's grid: this page is only genres, so
+    // each can be a picture worth recognising rather than a thumbnail — two
+    // across a phone, three on a small tablet, four on anything wider.
     final columns = width >= 900 ? 4 : (width >= 600 ? 3 : 2);
     final shown = _shown;
 
@@ -121,12 +121,20 @@ class _GenresPageState extends State<GenresPage> {
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverGrid(
-                    gridDelegate: genreGridDelegate(columns),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      // Wide rather than square: the covers are poster art, and
+                      // a band across the middle of one is the recognisable
+                      // part; the name sits at the bottom of it.
+                      childAspectRatio: 1.62,
+                    ),
                     delegate: SliverChildBuilderDelegate((context, i) {
                       final g = shown[i];
                       return ItemAppear(
                         index: i,
-                        columns: columns + 1,
+                        columns: columns,
                         staggerLimit: 24,
                         child: GenreTile(
                           key: ValueKey(g.slug),
@@ -134,6 +142,7 @@ class _GenresPageState extends State<GenresPage> {
                           image: g.image,
                           index: i,
                           onTap: () => _open(g),
+                          labelSize: 15.5,
                         ),
                       );
                     }, childCount: shown.length),
