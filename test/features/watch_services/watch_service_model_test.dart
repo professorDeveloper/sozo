@@ -1,6 +1,5 @@
 // What TMDB sends, and what the app must not assume about it.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:soplay/features/watch_services/data/models/watch_region_model.dart';
 import 'package:soplay/features/watch_services/data/models/watch_service_model.dart';
 import 'package:soplay/features/watch_services/domain/entities/watch_service_entity.dart';
 
@@ -77,23 +76,6 @@ void main() {
     test('and nothing at all is still something', () {
       expect(named('').initials, '?');
       expect(named('   ').initials, '?');
-    });
-  });
-
-  group('a region', () {
-    test('is upper-cased, because every request takes it that way', () {
-      expect(
-        WatchRegionModel.fromJson(const {
-          'code': 'uz',
-          'name': 'Uzbekistan',
-        }).code,
-        'UZ',
-      );
-    });
-
-    test('with no name falls back to its code rather than vanishing', () {
-      // A country you can still pick beats one dropped from the list.
-      expect(WatchRegionModel.fromJson(const {'code': 'AQ'}).name, 'AQ');
     });
   });
 }

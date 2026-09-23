@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/home/presentation/widgets/view_all_widgets.dart';
 import 'package:soplay/features/watch_services/domain/entities/watch_service_entity.dart';
 import 'package:soplay/features/watch_services/presentation/bloc/watch_services/watch_services_bloc.dart';
 import 'package:soplay/features/watch_services/presentation/pages/watch_service_browse_page.dart';
-import 'package:soplay/features/watch_services/presentation/widgets/watch_region_menu.dart';
 import 'package:soplay/features/watch_services/presentation/widgets/watch_service_tile.dart';
 
-/// Every streaming service in the chosen country.
+/// Every streaming service in the viewer's country.
 ///
 /// A grid of marks rather than a list of rows: a service is recognised by its
 /// logo, and a hundred and thirty rows of text is not something anybody scans.
@@ -123,7 +123,7 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
           state.status == WatchServicesStatus.initial) {
         return _skeleton(context, appBarH);
       }
-      return _empty(context, state, bloc, appBarH);
+      return _empty(appBarH);
     }
 
     final shown = _match(state.services);
@@ -137,11 +137,8 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
             SliverToBoxAdapter(child: SizedBox(height: appBarH + 8)),
-            SliverToBoxAdapter(child: _regionMenu(state, bloc)),
             if (state.fellBackFrom.isNotEmpty)
-              SliverToBoxAdapter(child: _fellBackNote(state)),
-            if (state.fellBackFrom.isNotEmpty)
-              SliverToBoxAdapter(child: _fellBackNote(state)),
+              SliverToBoxAdapter(child: _fellBackNote()),
             SliverToBoxAdapter(child: _search(state.services.length)),
             if (showTop) ...[
               _label('watch.top_services'.tr()),
@@ -180,19 +177,6 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
       },
     );
   }
-
-  Widget _regionMenu(WatchServicesState state, WatchServicesBloc bloc) =>
-      WatchRegionMenu(
-        region: state.region,
-        regionName: state.regionName,
-        serviceCount: state.services.length,
-        regions: state.regions,
-        loadingRegions: state.loadingRegions,
-        deviceRegion:
-            WidgetsBinding.instance.platformDispatcher.locale.countryCode ?? '',
-        onOpen: () => bloc.add(const WatchServicesRegionsRequested()),
-        onPick: (code) => bloc.add(WatchServicesRegionChanged(code)),
-      );
 
   Widget _search(int total) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
@@ -254,11 +238,6 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
     );
   }
 
-  /// Said plainly, where the grid would be: this is somewhere else's line-up.
-  ///
-  /// Without it the fallback is a lie by omission — a screen of services
-  /// nobody in the viewer's country can subscribe to, under a flag that is not
-  /// theirs, with nothing to say why.
   /// The grid, greyed out — the same marks in the same places.
   ///
   /// It used to borrow [ViewAllSkeleton], which is three columns of tall
@@ -278,16 +257,21 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
           physics: const NeverScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(child: SizedBox(height: appBarH + 8)),
+            // The search field, so the grid below starts where it will.
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
               sliver: SliverToBoxAdapter(
                 child: ShimmerWrapper(
-                  child: HomeSkeletonBox(width: 150, height: 30, radius: 999),
+                  child: HomeSkeletonBox(
+                    width: double.infinity,
+                    height: 40,
+                    radius: kFieldRadius,
+                  ),
                 ),
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(14, 18, 14, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               // One sweep across the grid rather than one per tile: a tile each
               // is a controller each, all on their own clocks, which reads as a
               // field of separately blinking squares.
@@ -325,7 +309,11 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
     );
   }
 
-  Widget _fellBackNote(WatchServicesState state) => Padding(
+  /// Said plainly, above the grid: this is somewhere else's line-up.
+  ///
+  /// Without it the fallback is a lie by omission — a screen of services
+  /// nobody in the viewer's country can subscribe to, with nothing to say why.
+  Widget _fellBackNote() => Padding(
     padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
     child: Container(
       padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 12, 10),
@@ -345,12 +333,7 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'watch.region_fell_back'.tr(
-                namedArgs: {
-                  'from': state.nameOf(state.fellBackFrom),
-                  'to': state.regionName,
-                },
-              ),
+              'watch.region_fell_back'.tr(),
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 11.5,
@@ -363,16 +346,10 @@ class _WatchServicesPageState extends State<WatchServicesPage> {
     ),
   );
 
-  Widget _empty(
-    BuildContext context,
-    WatchServicesState state,
-    WatchServicesBloc bloc,
-    double appBarH,
-  ) => CustomScrollView(
+  Widget _empty(double appBarH) => CustomScrollView(
     controller: _scroll,
     slivers: [
       SliverToBoxAdapter(child: SizedBox(height: appBarH + 8)),
-      SliverToBoxAdapter(child: _regionMenu(state, bloc)),
       SliverFillRemaining(
         hasScrollBody: false,
         child: Padding(

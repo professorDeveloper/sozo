@@ -2018,15 +2018,11 @@
     "top_services": "الأكثر استخدامًا هنا",
     "all_services": "كل الخدمات",
     "no_match": "لا توجد خدمة مطابقة.",
-    "region_sheet_title": "اختر منطقة",
-    "region_search_hint": "ابحث عن بلد",
-    "region_detect": "استخدم منطقة جهازي",
-    "no_region_match": "لا يوجد بلد مطابق.",
     "type_movies": "أفلام",
     "type_series": "مسلسلات",
     "empty_region_title": "لا توجد خدمات هنا",
-    "empty_region_subtitle": "لا توجد لدى TMDB قائمة بث لهذه المنطقة بعد. جرّب منطقة مجاورة.",
-    "region_fell_back": "لا توجد قائمة بث لـ {from}، لذا هذه {to}. اختر بلدًا آخر من الأعلى.",
+    "empty_region_subtitle": "لا توجد لدى TMDB قائمة بث لهذه المنطقة بعد.",
+    "region_fell_back": "لا توجد قائمة بث لبلدك بعد، لذا هذه خدمات الولايات المتحدة.",
     "load_failed": "تعذّر تحميل خدمات البث."
   }
 }

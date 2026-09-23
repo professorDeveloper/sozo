@@ -38,13 +38,6 @@ class AppConstants {
   /// One box, keyed by list slug — the lists share a shape, so they share a box.
   static const String userListsBox = 'user_lists_box';
 
-  /// Which country's streaming line-ups to show.
-  ///
-  /// Empty means "never chosen", which is not the same as a choice of US: an
-  /// unchosen region follows the device, so a phone carried across a border
-  /// keeps up instead of being frozen on wherever it first launched.
-  static const String watchRegionKey = 'watch_region';
-
   static const String accessTokenKey = 'access_token';
   static const String refreshTokenKey = 'refresh_token';
   static const String userKey = 'user';

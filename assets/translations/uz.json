@@ -2014,15 +2014,11 @@
     "top_services": "Bu yerda eng ko‘p ishlatiladigan",
     "all_services": "Barcha servislar",
     "no_match": "Bunga mos servis yo‘q.",
-    "region_sheet_title": "Mintaqani tanlang",
-    "region_search_hint": "Davlat qidirish",
-    "region_detect": "Qurilmamning mintaqasi",
-    "no_region_match": "Bunga mos davlat yo‘q.",
     "type_movies": "Kinolar",
     "type_series": "Seriallar",
     "empty_region_title": "Bu yerda servis yo‘q",
-    "empty_region_subtitle": "TMDB’da bu mintaqa uchun hali striming ro‘yxati yo‘q. Qo‘shni mintaqani sinab ko‘ring.",
-    "region_fell_back": "{from} uchun striming ro'yxati mavjud emas, shuning uchun bu — {to}. Yuqoridan boshqa davlatni tanlang.",
+    "empty_region_subtitle": "TMDB’da bu mintaqa uchun hali striming ro‘yxati yo‘q.",
+    "region_fell_back": "Davlatingiz uchun hali striming ro‘yxati yo‘q, shuning uchun AQShdagi servislar ko‘rsatilmoqda.",
     "load_failed": "Striming servislarni yuklab bo‘lmadi."
   }
 }

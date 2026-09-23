@@ -2014,15 +2014,11 @@
     "top_services": "Os mais usados aqui",
     "all_services": "Todos os serviços",
     "no_match": "Nenhum serviço corresponde.",
-    "region_sheet_title": "Escolha uma região",
-    "region_search_hint": "Procurar países",
-    "region_detect": "Usar a região do meu dispositivo",
-    "no_region_match": "Nenhum país corresponde.",
     "type_movies": "Filmes",
     "type_series": "Séries",
     "empty_region_title": "Sem serviços aqui",
-    "empty_region_subtitle": "O TMDB ainda não tem serviços para esta região. Experimente uma vizinha.",
-    "region_fell_back": "Não há catálogo de streaming para {from}, então isto é {to}. Escolha outro país acima.",
+    "empty_region_subtitle": "O TMDB ainda não tem serviços para esta região.",
+    "region_fell_back": "Ainda não há catálogo de streaming para o seu país, então estes são os serviços dos Estados Unidos.",
     "load_failed": "Não foi possível carregar os serviços."
   }
 }

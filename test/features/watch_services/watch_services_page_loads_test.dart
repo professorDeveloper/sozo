@@ -9,8 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:soplay/core/analytics/analytics.dart';
 import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/watch_services/domain/entities/watch_region_entity.dart';
 import 'package:soplay/features/watch_services/domain/entities/watch_service_entity.dart';
 import 'package:soplay/features/watch_services/domain/repositories/watch_services_repository.dart';
 import 'package:soplay/features/watch_services/domain/usecase/watch_services_usecase.dart';
@@ -34,18 +32,6 @@ class _Repo implements WatchServicesRepository {
       ),
     ]);
   }
-
-  @override
-  Future<Result<List<WatchRegionEntity>>> loadRegions() async =>
-      const Success([WatchRegionEntity(code: 'US', name: 'United States')]);
-}
-
-class _Hive implements HiveService {
-  @override
-  String getWatchRegion() => 'US';
-
-  @override
-  dynamic noSuchMethod(Invocation i) => null;
 }
 
 void main() {
@@ -61,10 +47,7 @@ void main() {
   test('an untouched bloc is still on its initial state', () {
     // The premise. If this ever stops being true the page's guard below is
     // doing nothing and the skeleton bug can come back unnoticed.
-    final bloc = WatchServicesBloc(
-      useCase: WatchServicesUseCase(_Repo()),
-      hive: _Hive(),
-    );
+    final bloc = WatchServicesBloc(useCase: WatchServicesUseCase(_Repo()));
     addTearDown(bloc.close);
     expect(bloc.state.status, WatchServicesStatus.initial);
     expect(bloc.state.hasServices, isFalse);
@@ -74,7 +57,6 @@ void main() {
     final repo = _Repo();
     final bloc = WatchServicesBloc(
       useCase: WatchServicesUseCase(repo),
-      hive: _Hive(),
       deviceCountry: () => 'US',
     );
     addTearDown(bloc.close);
@@ -95,7 +77,6 @@ void main() {
     final repo = _Repo();
     final bloc = WatchServicesBloc(
       useCase: WatchServicesUseCase(repo),
-      hive: _Hive(),
       deviceCountry: () => 'US',
     );
     addTearDown(bloc.close);

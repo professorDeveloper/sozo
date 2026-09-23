@@ -7,8 +7,6 @@ class WatchServicesState extends Equatable {
     this.status = WatchServicesStatus.initial,
     this.region = '',
     this.services = const [],
-    this.regions = const [],
-    this.loadingRegions = false,
     this.fellBackFrom = '',
     this.error,
   });
@@ -19,10 +17,6 @@ class WatchServicesState extends Equatable {
   final String region;
 
   final List<WatchServiceEntity> services;
-
-  /// Every country TMDB lists. Empty until the picker is first opened.
-  final List<WatchRegionEntity> regions;
-  final bool loadingRegions;
 
   /// The country that was asked for and had nothing, when [region] is a
   /// stand-in the app chose instead. Empty the rest of the time.
@@ -39,22 +33,10 @@ class WatchServicesState extends Equatable {
 
   bool get hasServices => services.isNotEmpty;
 
-  String get regionName => nameOf(region);
-
-  /// A country's name, or its code while the list has not been fetched.
-  String nameOf(String code) {
-    for (final r in regions) {
-      if (r.code == code) return r.name;
-    }
-    return code;
-  }
-
   WatchServicesState copyWith({
     WatchServicesStatus? status,
     String? region,
     List<WatchServiceEntity>? services,
-    List<WatchRegionEntity>? regions,
-    bool? loadingRegions,
     String? fellBackFrom,
     String? error,
     bool clearError = false,
@@ -62,8 +44,6 @@ class WatchServicesState extends Equatable {
     status: status ?? this.status,
     region: region ?? this.region,
     services: services ?? this.services,
-    regions: regions ?? this.regions,
-    loadingRegions: loadingRegions ?? this.loadingRegions,
     fellBackFrom: fellBackFrom ?? this.fellBackFrom,
     error: clearError ? null : (error ?? this.error),
   );
@@ -73,8 +53,6 @@ class WatchServicesState extends Equatable {
     status,
     region,
     services,
-    regions,
-    loadingRegions,
     fellBackFrom,
     error,
   ];

@@ -474,18 +474,6 @@ class HiveService {
   /// narrows at the same moment rather than on its next rebuild.
   final ValueNotifier<bool> contentModeChanged = ValueNotifier<bool>(false);
 
-  /// The chosen streaming region, or '' for "follow the device".
-  /// See [AppConstants.watchRegionKey].
-  String getWatchRegion() =>
-      _settingsBox.get(AppConstants.watchRegionKey, defaultValue: '') as String;
-
-  Future<void> setWatchRegion(String code) async {
-    await _settingsBox.put(AppConstants.watchRegionKey, code.toUpperCase());
-    watchRegionChanged.value = !watchRegionChanged.value;
-  }
-
-  final ValueNotifier<bool> watchRegionChanged = ValueNotifier<bool>(false);
-
   String getPlayerEngine() {
     return _settingsBox.get(
       AppConstants.playerEngineKey,

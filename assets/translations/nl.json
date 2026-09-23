@@ -2014,15 +2014,11 @@
     "top_services": "Hier het meest gebruikt",
     "all_services": "Alle diensten",
     "no_match": "Geen dienst komt overeen.",
-    "region_sheet_title": "Kies een regio",
-    "region_search_hint": "Landen zoeken",
-    "region_detect": "Regio van mijn apparaat",
-    "no_region_match": "Geen land komt overeen.",
     "type_movies": "Films",
     "type_series": "Series",
     "empty_region_title": "Hier staan geen diensten",
-    "empty_region_subtitle": "TMDB heeft nog geen aanbod voor deze regio. Probeer een buurregio.",
-    "region_fell_back": "Voor {from} is geen streamingaanbod bekend, dit is daarom {to}. Kies hierboven een ander land.",
+    "empty_region_subtitle": "TMDB heeft nog geen aanbod voor deze regio.",
+    "region_fell_back": "Voor jouw land is nog geen streamingaanbod bekend, daarom zie je hier de diensten in de Verenigde Staten.",
     "load_failed": "Streamingdiensten konden niet worden geladen."
   }
 }

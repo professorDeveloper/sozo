@@ -791,10 +791,7 @@ Future<void> configureDependencies() async {
   // every pull-to-refresh. What it holds is a fact about a country, not about
   // the current source.
   getIt.registerLazySingleton(
-    () => WatchServicesBloc(
-      useCase: getIt<WatchServicesUseCase>(),
-      hive: getIt<HiveService>(),
-    ),
+    () => WatchServicesBloc(useCase: getIt<WatchServicesUseCase>()),
   );
   getIt.registerFactory(() => HomeBloc(useCase: getIt<HomeUseCase>()));
   getIt.registerFactory(

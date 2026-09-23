@@ -2014,15 +2014,11 @@
     "top_services": "Burada en çok kullanılan",
     "all_services": "Tüm servisler",
     "no_match": "Eşleşen servis yok.",
-    "region_sheet_title": "Bölge seçin",
-    "region_search_hint": "Ülke ara",
-    "region_detect": "Cihazımın bölgesini kullan",
-    "no_region_match": "Eşleşen ülke yok.",
     "type_movies": "Filmler",
     "type_series": "Diziler",
     "empty_region_title": "Burada servis yok",
-    "empty_region_subtitle": "TMDB’de bu bölge için henüz liste yok. Komşu bir bölgeyi deneyin.",
-    "region_fell_back": "{from} için yayın listesi yok, bu yüzden burada {to} gösteriliyor. Yukarıdan başka bir ülke seçin.",
+    "empty_region_subtitle": "TMDB’de bu bölge için henüz liste yok.",
+    "region_fell_back": "Ülkeniz için henüz yayın listesi yok, bu yüzden ABD'deki servisler gösteriliyor.",
     "load_failed": "Yayın servisleri yüklenemedi."
   }
 }
