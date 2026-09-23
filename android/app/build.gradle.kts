@@ -191,6 +191,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-exoplayer-dash:$media3")
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
+    // FrameExtractor: seek-bar frames for HLS (preview/HlsFramePreview.kt).
+    implementation("androidx.media3:media3-inspector:$media3")
     implementation("androidx.media3:media3-datasource-okhttp:$media3")
 
     // CloudStream provider runtime (Android-only feature). The `library` module

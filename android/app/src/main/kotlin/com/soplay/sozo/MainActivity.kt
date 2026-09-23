@@ -35,6 +35,7 @@ import com.soplay.sozo.manga.MangaHost
 import com.soplay.sozo.manga.MangaRepoManager
 import com.soplay.sozo.extensions.RepoFileIntent
 import com.soplay.sozo.preview.FramePreview
+import com.soplay.sozo.preview.HlsFramePreview
 import com.soplay.sozo.torrent.TorrentServerBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -720,18 +721,22 @@ class MainActivity : FlutterFragmentActivity() {
                     val url = call.argument<String>("url").orEmpty()
                     val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
                     val warmMs = (call.argument<Number>("warmMs") ?: -1).toLong()
+                    val hls = call.argument<Boolean>("hls") == true
                     cloudstreamScope.launch {
                         val token = call.argument<Number>("generation")?.toLong()
-                        val opened = if (token != null) FramePreview.open(url, headers, warmMs, token)
+                        val opened = if (hls) HlsFramePreview.open(applicationContext, url, token ?: 0L)
+                            else if (token != null) FramePreview.open(url, headers, warmMs, token)
                             else FramePreview.open(url, headers, warmMs)
                         withContext(Dispatchers.Main) { result.success(opened) }
                     }
                 }
                 "frame" -> {
                     val posMs = (call.argument<Number>("posMs") ?: 0).toLong()
+                    val hls = call.argument<Boolean>("hls") == true
                     cloudstreamScope.launch {
                         val token = call.argument<Number>("generation")?.toLong()
-                        val bytes = if (token != null) FramePreview.frame(posMs, sessionId = token)
+                        val bytes = if (hls) HlsFramePreview.frame(posMs, token ?: 0L)
+                            else if (token != null) FramePreview.frame(posMs, sessionId = token)
                             else FramePreview.frame(posMs)
                         withContext(Dispatchers.Main) { result.success(bytes) }
                     }
@@ -739,9 +744,11 @@ class MainActivity : FlutterFragmentActivity() {
                 // Off the platform thread like open/frame: close() can contend with a
                 // still-running open(), and blocking here would freeze the whole UI.
                 "close" -> {
+                    val hls = call.argument<Boolean>("hls") == true
                     cloudstreamScope.launch {
                         val token = call.argument<Number>("generation")?.toLong()
-                        if (token != null) FramePreview.close(token) else FramePreview.close()
+                        if (hls) HlsFramePreview.close(token ?: 0L)
+                        else if (token != null) FramePreview.close(token) else FramePreview.close()
                         withContext(Dispatchers.Main) { result.success(true) }
                     }
                 }

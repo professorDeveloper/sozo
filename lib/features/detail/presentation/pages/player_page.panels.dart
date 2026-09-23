@@ -2,6 +2,17 @@
 part of 'player_page.dart';
 
 extension _PlayerPanels on _PlayerPageState {
+  /// The source by name. The row showed its raw id — "an:58639604…" for an
+  /// Aniyomi source — which names nothing anyone would recognise.
+  String get _providerLabel {
+    final id = widget.args.provider;
+    try {
+      final name = getIt<ProviderManager>().getProvider(id)?.name.trim();
+      if (name != null && name.isNotEmpty) return name;
+    } catch (_) {}
+    return id;
+  }
+
   /// Why a media_kit-only control is off, in words that match the cause.
   ///
   /// It used to say "needs the media_kit engine" to someone who had chosen
@@ -356,7 +367,7 @@ extension _PlayerPanels on _PlayerPageState {
                 _SettingsTile(
                   icon: Icons.swap_horiz_rounded,
                   label: 'player.change_source'.tr(),
-                  value: widget.args.provider,
+                  value: _providerLabel,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     _openAlternateSources(keepPosition: true);

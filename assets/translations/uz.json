@@ -1256,7 +1256,15 @@
     "cd_minutes": "daq",
     "cd_seconds": "son",
     "next_episode_label": "{}-qism chiqishiga",
-    "airing_now": "Hozir chiqmoqda"
+    "airing_now": "Hozir chiqmoqda",
+    "tracking_pick_status": "Ro‘yxatga qo‘shish uchun holatni tanlang.",
+    "score_bad": "Yomon",
+    "score_meh": "O‘rtacha",
+    "score_fine": "Chakki emas",
+    "score_good": "Yaxshi",
+    "score_great": "Zo‘r",
+    "score_excellent": "A’lo",
+    "score_masterpiece": "Durdona"
   },
   "episodes": {
     "filter_hint": "Epizod raqami yoki nomi",

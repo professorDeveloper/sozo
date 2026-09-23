@@ -1256,7 +1256,15 @@
     "cd_minutes": "min",
     "cd_seconds": "sec",
     "next_episode_label": "Aflevering {} over",
-    "airing_now": "Nu te zien"
+    "airing_now": "Nu te zien",
+    "tracking_pick_status": "Kies een status om het aan je lijst toe te voegen.",
+    "score_bad": "Slecht",
+    "score_meh": "Middelmatig",
+    "score_fine": "Prima",
+    "score_good": "Goed",
+    "score_great": "Geweldig",
+    "score_excellent": "Uitstekend",
+    "score_masterpiece": "Meesterwerk"
   },
   "episodes": {
     "filter_hint": "Afleveringsnummer of titel",

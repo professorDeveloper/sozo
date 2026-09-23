@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/widgets/score_slider.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 
 /// Server-side discovery. Title search remains a separate, explicit operation.
@@ -432,15 +433,6 @@ class RatingFilter extends StatelessWidget {
   final ValueChanged<int> onChanged;
   final String? note;
 
-  static Color colorFor(int v, ColorScheme scheme) {
-    if (v == 0) return scheme.outline;
-    if (v < 5) return const Color(0xFFE5533D);
-    if (v < 6) return const Color(0xFFF08A24);
-    if (v < 7) return const Color(0xFFF5C518);
-    if (v < 8) return const Color(0xFF9CCC4A);
-    return const Color(0xFF3FB950);
-  }
-
   static String describe(int v) {
     final key = switch (v) {
       0 => 'any_rating',
@@ -455,106 +447,12 @@ class RatingFilter extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = colorFor(value, theme.colorScheme);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: value == 0 ? 0.12 : 0.18),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.star_rounded, size: 18, color: color),
-                    const SizedBox(width: 4),
-                    Text(
-                      value == 0 ? '—' : '$value.0+',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: value == 0 ? theme.colorScheme.outline : color,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  describe(value),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 6,
-              activeTrackColor: color,
-              inactiveTrackColor: theme.colorScheme.surfaceContainerHighest,
-              thumbColor: color,
-              overlayColor: color.withValues(alpha: 0.14),
-              activeTickMarkColor: Colors.white.withValues(alpha: 0.5),
-              inactiveTickMarkColor: theme.colorScheme.outlineVariant,
-              valueIndicatorColor: color,
-              showValueIndicator: ShowValueIndicator.onDrag,
-            ),
-            child: Slider(
-              value: value.toDouble(),
-              max: 9,
-              divisions: 9,
-              label: value == 0 ? describe(0) : '★ $value+',
-              semanticFormatterCallback: (v) => describe(v.round()),
-              onChanged: (v) {
-                if (v.round() == value) return;
-                HapticFeedback.selectionClick();
-                onChanged(v.round());
-              },
-            ),
-          ),
-          Padding(
-            // One label per stop, inset by the slider's own padding so each
-            // sits under the position it names.
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                for (var tick = 0; tick <= 9; tick++)
-                  Text(
-                    tick == 0 ? '·' : '$tick',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (note != null) ...[
-            const SizedBox(height: 6),
-            Text(note!, style: theme.textTheme.bodySmall),
-          ],
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ScoreSlider(
+    value: value,
+    max: 9,
+    suffix: '.0+',
+    describe: describe,
+    onChanged: onChanged,
+    note: note,
+  );
 }

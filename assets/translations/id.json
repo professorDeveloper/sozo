@@ -1256,7 +1256,15 @@
     "cd_minutes": "mnt",
     "cd_seconds": "dtk",
     "next_episode_label": "Episode {} dalam",
-    "airing_now": "Tayang sekarang"
+    "airing_now": "Tayang sekarang",
+    "tracking_pick_status": "Pilih status untuk menambahkannya ke daftar.",
+    "score_bad": "Buruk",
+    "score_meh": "Biasa",
+    "score_fine": "Lumayan",
+    "score_good": "Bagus",
+    "score_great": "Hebat",
+    "score_excellent": "Luar biasa",
+    "score_masterpiece": "Mahakarya"
   },
   "episodes": {
     "filter_hint": "Nomor atau judul episode",

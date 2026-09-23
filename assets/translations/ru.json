@@ -1256,7 +1256,15 @@
     "cd_minutes": "мин",
     "cd_seconds": "сек",
     "next_episode_label": "До {}-й серии",
-    "airing_now": "Выходит сейчас"
+    "airing_now": "Выходит сейчас",
+    "tracking_pick_status": "Выберите статус, чтобы добавить в список.",
+    "score_bad": "Плохо",
+    "score_meh": "Посредственно",
+    "score_fine": "Нормально",
+    "score_good": "Хорошо",
+    "score_great": "Отлично",
+    "score_excellent": "Превосходно",
+    "score_masterpiece": "Шедевр"
   },
   "episodes": {
     "filter_hint": "Номер или название серии",

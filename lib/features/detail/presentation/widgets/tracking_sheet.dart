@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/system/responsive.dart';
+import 'package:soplay/core/widgets/score_slider.dart';
 
 /// One tracker's row on the viewer's list, as the sheet sees it.
 class TrackerEntry {
@@ -110,10 +111,34 @@ class _TrackingSheetState extends State<TrackingSheet> {
   late TrackerEntry _entry = widget.entry;
   bool _busy = false;
 
+  /// The score under the thumb while it is being dragged; written on release.
+  int? _dragScore;
+
+  /// A change made while a write was out. Taps used to be dropped while
+  /// busy, which read as the sheet freezing; now the latest one waits and
+  /// goes next.
+  ({String? status, int? progress, int? score})? _queued;
+
   TrackerEditor get _e => widget.editor;
 
   Future<void> _write({String? status, int? progress, int? score}) async {
-    if (_busy) return;
+    if (_busy) {
+      final q = _queued;
+      _queued = (
+        status: status ?? q?.status,
+        progress: progress ?? q?.progress,
+        score: score ?? q?.score,
+      );
+      // Shown at once; sent when the one in flight lands.
+      setState(
+        () => _entry = _entry.copyWith(
+          status: status,
+          progress: progress,
+          score: score,
+        ),
+      );
+      return;
+    }
     final before = _entry;
     // Painted first; the request confirms or reverts it.
     setState(() {
@@ -140,8 +165,29 @@ class _TrackingSheetState extends State<TrackingSheet> {
       _say(_e.saveFailed);
     } finally {
       if (mounted) setState(() => _busy = false);
+      final next = _queued;
+      _queued = null;
+      if (next != null && mounted) {
+        await _write(
+          status: next.status,
+          progress: next.progress,
+          score: next.score,
+        );
+      }
     }
   }
+
+  /// Words for a score, the way a rating is read.
+  static String _describeScore(int v) => switch (v) {
+    0 => 'detail.tracking_not_scored'.tr(),
+    <= 3 => 'detail.score_bad'.tr(),
+    <= 5 => 'detail.score_meh'.tr(),
+    6 => 'detail.score_fine'.tr(),
+    7 => 'detail.score_good'.tr(),
+    8 => 'detail.score_great'.tr(),
+    9 => 'detail.score_excellent'.tr(),
+    _ => 'detail.score_masterpiece'.tr(),
+  };
 
   Future<void> _remove() async {
     if (_busy) return;
@@ -233,6 +279,18 @@ class _TrackingSheetState extends State<TrackingSheet> {
             const SizedBox(height: 20),
             _Label('detail.tracking_status'.tr()),
             const SizedBox(height: 8),
+            // Not on the list yet: the sheet is how it gets there. Picking a
+            // status adds it; the rest waits until then.
+            if (!e.onList) ...[
+              Text(
+                'detail.tracking_pick_status'.tr(),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -277,11 +335,15 @@ class _TrackingSheetState extends State<TrackingSheet> {
             const SizedBox(height: 20),
             _Label('detail.tracking_score'.tr()),
             const SizedBox(height: 8),
-            _ScoreBar(
-              score: e.score ?? 0,
-              accent: _e.accent,
-              enabled: e.onList && !_busy,
-              onScore: (v) => _write(score: v),
+            ScoreSlider(
+              value: _dragScore ?? e.score ?? 0,
+              describe: _describeScore,
+              enabled: e.onList,
+              onChanged: (v) => setState(() => _dragScore = v),
+              onChangeEnd: (v) {
+                setState(() => _dragScore = null);
+                if (v != (e.score ?? 0)) _write(score: v);
+              },
             ),
             const SizedBox(height: 24),
             if (e.onList)
@@ -355,87 +417,6 @@ class _Pill extends StatelessWidget {
 }
 
 /// − value + on one line, with long-press jumps where they make sense.
-/// A score, scored the way a score is given: by pointing at it.
-///
-/// This was the same −/+ [_Stepper] as the episode counter directly above it,
-/// reading "Not scored" or "★ 7 / 10". Two problems. Mechanically, putting 8/10
-/// on a title took eight taps. And visually the two rows were identical, so the
-/// thing that counts episodes and the thing that rates the show looked like one
-/// control repeated — nothing about it said "this is a rating".
-///
-/// Ten stars, tapped directly. Tapping the star you are already on clears the
-/// score, which is the only way back to "not scored" and is what every app that
-/// does this supports.
-class _ScoreBar extends StatelessWidget {
-  const _ScoreBar({
-    required this.score,
-    required this.accent,
-    required this.enabled,
-    required this.onScore,
-  });
-
-  final int score;
-  final Color accent;
-  final bool enabled;
-  final ValueChanged<int> onScore;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      slider: true,
-      enabled: enabled,
-      value: score == 0 ? 'detail.tracking_not_scored'.tr() : '$score / 10',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              for (var i = 1; i <= 10; i++)
-                Expanded(
-                  child: Semantics(
-                    button: true,
-                    label: '$i / 10',
-                    excludeSemantics: true,
-                    child: InkResponse(
-                      // Tapping the current score again means "take it off".
-                      onTap: enabled ? () => onScore(i == score ? 0 : i) : null,
-                      radius: 20,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Icon(
-                          i <= score
-                              ? Icons.star_rounded
-                              : Icons.star_outline_rounded,
-                          size: 26,
-                          color: i <= score
-                              ? accent
-                              : Colors.white.withValues(
-                                  alpha: enabled ? 0.28 : 0.14,
-                                ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            score == 0
-                ? 'detail.tracking_not_scored'.tr()
-                : '$score / 10',
-            style: TextStyle(
-              color: score == 0 ? AppColors.textHint : AppColors.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _Stepper extends StatelessWidget {
   const _Stepper({
     required this.value,

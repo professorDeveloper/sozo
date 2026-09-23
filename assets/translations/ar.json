@@ -1256,7 +1256,15 @@
     "cd_minutes": "دقيقة",
     "cd_seconds": "ثانية",
     "next_episode_label": "الحلقة {} بعد",
-    "airing_now": "يُعرض الآن"
+    "airing_now": "يُعرض الآن",
+    "tracking_pick_status": "اختر حالة لإضافته إلى قائمتك.",
+    "score_bad": "سيئ",
+    "score_meh": "متوسط",
+    "score_fine": "مقبول",
+    "score_good": "جيد",
+    "score_great": "رائع",
+    "score_excellent": "ممتاز",
+    "score_masterpiece": "تحفة"
   },
   "episodes": {
     "filter_hint": "رقم الحلقة أو عنوانها",

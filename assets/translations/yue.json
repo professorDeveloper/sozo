@@ -1256,7 +1256,15 @@
     "cd_minutes": "分",
     "cd_seconds": "秒",
     "next_episode_label": "第 {} 集仲有",
-    "airing_now": "而家播緊"
+    "airing_now": "而家播緊",
+    "tracking_pick_status": "揀個狀態就會加入你嘅清單。",
+    "score_bad": "差",
+    "score_meh": "一般",
+    "score_fine": "還可以",
+    "score_good": "好",
+    "score_great": "好正",
+    "score_excellent": "極好",
+    "score_masterpiece": "神作"
   },
   "episodes": {
     "filter_hint": "集數或者標題",

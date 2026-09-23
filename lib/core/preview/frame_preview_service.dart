@@ -1,82 +1,162 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 
-import 'package:soplay/core/preview/mpv_frame_preview.dart';
+import 'package:flutter/foundation.dart';
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/player/local_hls_proxy.dart';
 
 typedef PreviewInvoke =
     Future<dynamic> Function(String method, Map<String, dynamic>? arguments);
 
-/// Frames for the seek bar, from whichever decoder can open the stream.
+/// Frames for the seek bar, from the platform's own decoders.
 ///
-/// Two backends behind one call. The platform one — `MediaMetadataRetriever`
-/// on Android, AVFoundation on iOS — is cheap and exact for a progressive
-/// file. It cannot read HLS on Android, and there is none on desktop, so those
-/// go to [MpvFramePreview], a silent second libmpv; a progressive file the
-/// platform decoder fails on goes there too. Between them every stream the
-/// app plays gets a preview, except a torrent (see the player's gate).
+/// A progressive file goes to MediaMetadataRetriever (Android) or
+/// AVFoundation (iOS), as it always has. HLS on Android used to get nothing —
+/// the retriever cannot read it, and most streams here are HLS — so it now
+/// goes to Media3's FrameExtractor on the same channel, through the app's
+/// local proxy (it takes no headers of its own) and at the lightest variant
+/// (a 160px thumbnail needs one small rendition, not the ladder).
 class FramePreviewService {
   FramePreviewService._();
   static const MethodChannel _ch = MethodChannel('soplay/preview');
-
-  static bool get _hasNative => Platform.isAndroid || Platform.isIOS;
-
-  /// libmpv ships everywhere but iOS.
-  static bool get _hasMpv =>
-      Platform.isAndroid ||
-      Platform.isMacOS ||
-      Platform.isWindows ||
-      Platform.isLinux;
-
-  static bool get isSupported => _hasNative || _hasMpv;
+  static bool get isSupported => Platform.isAndroid || Platform.isIOS;
 
   static final _native = FramePreviewSession(
-    supported: _hasNative,
+    supported: isSupported,
     invoke: (method, args) => _ch.invokeMethod(method, args),
   );
 
-  static final _mpvBackend = MpvFramePreview();
-
-  /// Longer allowances than the platform decoder's: opening HLS means the
-  /// master playlist, a variant playlist and a segment before the first frame.
-  static final _mpv = FramePreviewSession(
-    supported: _hasMpv,
-    invoke: _mpvBackend.invoke,
-    openTimeout: const Duration(seconds: 10),
-    frameTimeout: const Duration(seconds: 4),
-    // Full-resolution JPEGs, so a larger budget for the same two dozen.
-    maxCacheBytes: 8 * 1024 * 1024,
+  /// HLS frames: a playlist and a segment before the first one, so longer
+  /// allowances, and kept open between drags on the native side.
+  static final _hls = FramePreviewSession(
+    supported: Platform.isAndroid,
+    invoke: _invokeHls,
+    openTimeout: const Duration(seconds: 15),
+    frameTimeout: const Duration(seconds: 9),
   );
 
   static const int bucketMs = FramePreviewSession.bucketMs;
-
-  /// Which backend a stream goes to first.
-  static bool _mpvFirst(bool hls) => !_hasNative || (Platform.isAndroid && hls);
 
   static Future<Uint8List?> previewFrame(
     String url,
     Map<String, String> headers,
     int positionMs, {
     bool hls = false,
-  }) async {
-    if (_mpvFirst(hls)) {
-      return _hasMpv ? _mpv.previewFrame(url, headers, positionMs) : null;
+  }) {
+    if (hls && Platform.isAndroid) {
+      return _hls.previewFrame(url, headers, positionMs);
     }
-    final frame = await _native.previewFrame(url, headers, positionMs);
-    if (frame != null || !_hasMpv) return frame;
-    // The platform decoder could not read it — an unusual container, a
-    // server it disagrees with. libmpv is the second opinion.
-    return _mpv.previewFrame(url, headers, positionMs);
+    return _native.previewFrame(url, headers, positionMs);
   }
 
   static Future<void> endScrub() async {
-    await Future.wait([_native.endScrub(), _mpv.endScrub()]);
+    await Future.wait([_native.endScrub(), _hls.endScrub()]);
   }
 
   static Future<void> close() async {
-    await Future.wait([_native.close(), _mpv.close()]);
+    await Future.wait([_native.close(), _hls.close()]);
+  }
+
+  static Future<dynamic> _invokeHls(
+    String method,
+    Map<String, dynamic>? args,
+  ) async {
+    final a = <String, dynamic>{...?args, 'hls': true};
+    if (method == 'open') {
+      final url = a['url'] as String? ?? '';
+      final headers =
+          (a['headers'] as Map?)?.cast<String, String>() ?? const {};
+      a['url'] = await _proxied(url, headers);
+    }
+    return _ch.invokeMethod(method, a);
+  }
+
+  /// One proxied address per stream, so the native side sees the same URL on
+  /// every drag and keeps its extractor instead of rebuilding it.
+  static final Map<String, Future<String>> _proxiedCache = {};
+
+  static Future<String> _proxied(String url, Map<String, String> headers) {
+    final keys = headers.keys.toList()..sort();
+    final key = '$url\u0000${keys.map((k) => '$k=${headers[k]}').join('&')}';
+    if (_proxiedCache.length > 8) _proxiedCache.clear();
+    return _proxiedCache[key] ??= _proxy(url, headers);
+  }
+
+  /// The lightest variant, behind the local proxy so its headers go along.
+  static Future<String> _proxy(String url, Map<String, String> headers) async {
+    var target = url;
+    final uri = Uri.tryParse(url);
+    final local = uri != null && uri.host == '127.0.0.1';
+    if (!local) {
+      target = await _lightestVariant(url, headers) ?? url;
+    }
+    if (local || headers.isEmpty) return target;
+    try {
+      return await getIt<LocalHlsProxy>().register(
+        upstreamUrl: target,
+        headers: headers,
+      );
+    } catch (_) {
+      return target;
+    }
+  }
+
+  static Future<String?> _lightestVariant(
+    String url,
+    Map<String, String> headers,
+  ) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.scheme.startsWith('http')) return null;
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 6);
+    try {
+      final req = await client.getUrl(uri);
+      headers.forEach(req.headers.set);
+      final res = await req.close().timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return null;
+      final body = await res
+          .transform(utf8.decoder)
+          .join()
+          .timeout(const Duration(seconds: 8));
+      return lightestVariantOf(body, uri);
+    } catch (_) {
+      return null;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// For an HLS master playlist, its smallest variant; null for anything else.
+  ///
+  /// Handed a master, a decoder reads every rendition to choose one; a
+  /// thumbnail needs only the lightest, so it is chosen here.
+  @visibleForTesting
+  static String? lightestVariantOf(String playlist, Uri base) {
+    if (!playlist.contains('#EXT-X-STREAM-INF')) return null;
+    final lines = const LineSplitter().convert(playlist);
+    String? best;
+    var bestRate = 1 << 62;
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (!line.startsWith('#EXT-X-STREAM-INF')) continue;
+      final rate =
+          int.tryParse(
+            RegExp(r'[:,]BANDWIDTH=(\d+)').firstMatch(line)?.group(1) ?? '',
+          ) ??
+          (1 << 61);
+      for (var j = i + 1; j < lines.length; j++) {
+        final next = lines[j].trim();
+        if (next.isEmpty || next.startsWith('#')) continue;
+        if (rate < bestRate) {
+          bestRate = rate;
+          best = base.resolve(next).toString();
+        }
+        break;
+      }
+    }
+    return best;
   }
 }
 

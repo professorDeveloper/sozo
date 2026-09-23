@@ -176,23 +176,10 @@ class _AnilistLineState extends State<_AnilistLine> {
     }
   }
 
-  Future<void> _add() async {
-    final id = _mediaId;
-    final token = getIt<AnilistService>().token;
-    if (id == null || token == null || _busy) return;
-    setState(() => _busy = true);
-    try {
-      await getIt<AnilistService>().api.addToList(
-        token: token,
-        mediaId: id,
-        status: AnilistStatus.current,
-      );
-      await _load();
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
+  /// Adding opens the whole entry rather than writing "Watching" behind
+  /// the viewer's back: the status is theirs to pick, and a score or a
+  /// number already watched belongs in the same step.
+  Future<void> _add() => _edit();
 
   Future<void> _link() async {
     await AnilistLinkSheet.show(
@@ -252,7 +239,7 @@ class _AnilistLineState extends State<_AnilistLine> {
     final s = _state;
     final id = _mediaId;
     final token = getIt<AnilistService>().token;
-    if (s == null || !s.onList || id == null || token == null) return;
+    if (s == null || id == null || token == null) return;
     await TrackingSheet.show(
       context,
       editor: _AnilistEditor(
@@ -515,7 +502,7 @@ class _MalLineState extends State<_MalLine> {
           ? _load
           : !linked
           ? _link
-          : (s != null && !onList ? () => _move(1) : _edit),
+          : _edit,
       action: failed
           ? 'general.retry'.tr()
           : !linked
@@ -528,13 +515,14 @@ class _MalLineState extends State<_MalLine> {
     final s = _state;
     final id = _animeId;
     final token = getIt<MalService>().token;
-    if (s == null || s.isNew || id == null || token == null) return;
+    if (s == null || id == null || token == null) return;
     await TrackingSheet.show(
       context,
       editor: _MalEditor(animeId: id, token: token),
       title: widget.detail.title,
       entry: TrackerEntry(
-        status: s.status,
+        // Not on the list: no status, so the sheet asks for one.
+        status: s.isNew ? null : s.status,
         progress: s.watchedEpisodes,
         total: s.totalEpisodes,
         score: s.score,

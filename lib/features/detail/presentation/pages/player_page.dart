@@ -37,6 +37,7 @@ import 'package:soplay/core/diagnostics/player_log.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/player/external_player.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
+import 'package:soplay/core/extractor/provider_manager.dart';
 import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/player/player_video_track.dart';
 import 'package:soplay/core/player/source_ladder.dart';

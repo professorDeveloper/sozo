@@ -1256,7 +1256,15 @@
     "cd_minutes": "min",
     "cd_seconds": "seg",
     "next_episode_label": "O episódio {} em",
-    "airing_now": "No ar agora"
+    "airing_now": "No ar agora",
+    "tracking_pick_status": "Escolha um status para adicionar à sua lista.",
+    "score_bad": "Ruim",
+    "score_meh": "Mediano",
+    "score_fine": "Razoável",
+    "score_good": "Bom",
+    "score_great": "Ótimo",
+    "score_excellent": "Excelente",
+    "score_masterpiece": "Obra-prima"
   },
   "episodes": {
     "filter_hint": "Número ou título do episódio",

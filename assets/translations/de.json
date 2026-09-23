@@ -1256,7 +1256,15 @@
     "cd_minutes": "Min",
     "cd_seconds": "Sek",
     "next_episode_label": "Folge {} in",
-    "airing_now": "Läuft jetzt"
+    "airing_now": "Läuft jetzt",
+    "tracking_pick_status": "Wähle einen Status, um es zur Liste hinzuzufügen.",
+    "score_bad": "Schlecht",
+    "score_meh": "Mittelmäßig",
+    "score_fine": "Ganz okay",
+    "score_good": "Gut",
+    "score_great": "Großartig",
+    "score_excellent": "Hervorragend",
+    "score_masterpiece": "Meisterwerk"
   },
   "episodes": {
     "filter_hint": "Folgennummer oder Titel",

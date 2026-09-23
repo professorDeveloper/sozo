@@ -1256,7 +1256,15 @@
     "cd_minutes": "dk",
     "cd_seconds": "sn",
     "next_episode_label": "{}. bölüme",
-    "airing_now": "Şimdi yayında"
+    "airing_now": "Şimdi yayında",
+    "tracking_pick_status": "Listene eklemek için bir durum seç.",
+    "score_bad": "Kötü",
+    "score_meh": "Vasat",
+    "score_fine": "İdare eder",
+    "score_good": "İyi",
+    "score_great": "Harika",
+    "score_excellent": "Mükemmel",
+    "score_masterpiece": "Başyapıt"
   },
   "episodes": {
     "filter_hint": "Bölüm numarası veya adı",

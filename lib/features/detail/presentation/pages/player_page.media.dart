@@ -352,7 +352,13 @@ extension _PlayerMedia on _PlayerPageState {
     final headers = useSources && sources[pickedIdx].headers.isNotEmpty
         ? sources[pickedIdx].headers
         : value.headers;
-    final subs = value.subtitles;
+    // Only tracks that point at something. A source listing a track with no
+    // file used to bring up the subtitle controls — style, picker — for a
+    // video that has no subtitles at all.
+    final subs = [
+      for (final t in value.subtitles)
+        if (t.file.trim().isNotEmpty) t,
+    ];
 
     setState(() {
       _stage = _LoadingStage.loading;
