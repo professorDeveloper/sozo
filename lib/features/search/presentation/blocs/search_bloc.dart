@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../domain/repositories/search_repository.dart';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -61,14 +62,27 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     required GenreUseCase genreUseCase,
     SearchRecentsStore? recentsStore,
     TitleSuggestionService? suggestions,
-  })  : _searchUseCase = searchUseCase,
-        _genreUseCase = genreUseCase,
-        _recents = recentsStore ?? SearchRecentsStore(),
-        _suggestions = suggestions,
-        super(const SearchState()) {
+  }) : _searchUseCase = searchUseCase,
+       _genreUseCase = genreUseCase,
+       _recents = recentsStore ?? SearchRecentsStore(),
+       _suggestions = suggestions,
+       super(const SearchState()) {
     on<SearchLoad>(_onLoad);
     on<SearchQueryChanged>(_onQueryChanged);
     on<SearchSubmitted>(_onSubmitted);
+    on<SearchDiscoverySelected>((event, emit) {
+      if (catalogueKind == null) return;
+      _debouncer.reset();
+      _pendingText = '';
+      _suggestTimer?.cancel();
+      add(
+        _SearchRun(
+          SearchCriteria(
+            filters: Map.unmodifiable({'sort': 'popular', ...event.filters}),
+          ),
+        ),
+      );
+    });
     on<SearchGenreSelected>(_onGenreSelected);
     on<_SearchRun>(_onRun);
     on<SearchLoadMore>(_onLoadMore);
@@ -88,29 +102,33 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     // Genres belong to the provider that is being left behind, and so do the
     // results; the text in the box does not.
     final criteria = SearchCriteria(text: state.criteria.text);
-    emit(state.copyWith(
-      criteria: criteria,
-      status: criteria.isEmpty ? SearchStatus.idle : SearchStatus.loading,
-      items: const [],
-      page: 1,
-      totalPages: 1,
-      isLoadingMore: false,
-      genres: const [],
-      genresLoading: true,
-      genresFailed: false,
-      recent: _recents.load(),
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        criteria: criteria,
+        status: criteria.isEmpty ? SearchStatus.idle : SearchStatus.loading,
+        items: const [],
+        page: 1,
+        totalPages: 1,
+        isLoadingMore: false,
+        genres: const [],
+        genresLoading: true,
+        genresFailed: false,
+        recent: _recents.load(),
+        clearError: true,
+      ),
+    );
 
     if (criteria.isNotEmpty) add(_SearchRun(criteria));
 
     final result = await _genreUseCase();
     if (genreToken != _genreToken || isClosed) return;
-    emit(state.copyWith(
-      genres: result.isSuccess ? result.getOrNull()! : const [],
-      genresLoading: false,
-      genresFailed: result.isError,
-    ));
+    emit(
+      state.copyWith(
+        genres: result.isSuccess ? result.getOrNull()! : const [],
+        genresLoading: false,
+        genresFailed: result.isError,
+      ),
+    );
   }
 
   void _onQueryChanged(SearchQueryChanged event, Emitter<SearchState> emit) {
@@ -124,16 +142,18 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       ++_runToken;
       final criteria = state.criteria.copyWith(text: '');
       if (criteria.isEmpty) {
-        emit(state.copyWith(
-          criteria: criteria,
-          status: SearchStatus.idle,
-          items: const [],
-          page: 1,
-          totalPages: 1,
-          isLoadingMore: false,
-          recent: _recents.load(),
-          clearError: true,
-        ));
+        emit(
+          state.copyWith(
+            criteria: criteria,
+            status: SearchStatus.idle,
+            items: const [],
+            page: 1,
+            totalPages: 1,
+            isLoadingMore: false,
+            recent: _recents.load(),
+            clearError: true,
+          ),
+        );
       } else {
         add(_SearchRun(criteria));
       }
@@ -221,16 +241,18 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     final criteria = SearchCriteria(text: text, genre: genre);
     if (criteria.isEmpty) {
       ++_runToken;
-      emit(state.copyWith(
-        criteria: criteria,
-        status: SearchStatus.idle,
-        items: const [],
-        page: 1,
-        totalPages: 1,
-        isLoadingMore: false,
-        recent: _recents.load(),
-        clearError: true,
-      ));
+      emit(
+        state.copyWith(
+          criteria: criteria,
+          status: SearchStatus.idle,
+          items: const [],
+          page: 1,
+          totalPages: 1,
+          isLoadingMore: false,
+          recent: _recents.load(),
+          clearError: true,
+        ),
+      );
       return;
     }
     add(_SearchRun(criteria));
@@ -243,14 +265,16 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     // Something is already on screen: keep it and show progress on top of it
     // rather than blanking the grid on every keystroke.
     final keepItems = state.items.isNotEmpty;
-    emit(state.copyWith(
-      criteria: criteria,
-      status: keepItems ? SearchStatus.refreshing : SearchStatus.loading,
-      isLoadingMore: false,
-      weakResults: false,
-      clearError: true,
-      clearLoadMoreFailure: true,
-    ));
+    emit(
+      state.copyWith(
+        criteria: criteria,
+        status: keepItems ? SearchStatus.refreshing : SearchStatus.loading,
+        isLoadingMore: false,
+        weakResults: false,
+        clearError: true,
+        clearLoadMoreFailure: true,
+      ),
+    );
 
     final result = await _fetch(criteria, 1);
     if (token != _runToken || isClosed) return;
@@ -263,10 +287,12 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       // moment one debounced keystroke's request failed — so a single flaky
       // response mid-typing replaced a good grid with an error page. An error
       // over the last good results says the same thing without taking them.
-      emit(state.copyWith(
-        status: SearchStatus.error,
-        failure: SourceFailure.of(raw),
-      ));
+      emit(
+        state.copyWith(
+          status: SearchStatus.error,
+          failure: SourceFailure.of(raw),
+        ),
+      );
       return;
     }
 
@@ -305,7 +331,8 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         // answer was — and this banner is a claim ABOUT the answer. Stapling
         // "nothing here matches" over correct results is worse than saying
         // nothing.
-        weak = items.isNotEmpty &&
+        weak =
+            items.isNotEmpty &&
             SearchRelevance.canScore(items, query) &&
             SearchRelevance.bestScore(items, query) == 0;
       }
@@ -328,15 +355,17 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       );
     }
 
-    emit(state.copyWith(
-      items: items,
-      page: data.page,
-      totalPages: data.totalPages,
-      status: items.isEmpty ? SearchStatus.empty : SearchStatus.loaded,
-      recent: recent,
-      weakResults: weak,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        items: items,
+        page: data.page,
+        totalPages: data.totalPages,
+        status: items.isEmpty ? SearchStatus.empty : SearchStatus.loaded,
+        recent: recent,
+        weakResults: weak,
+        clearError: true,
+      ),
+    );
   }
 
   Future<void> _onLoadMore(
@@ -367,10 +396,14 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       // Reported rather than swallowed. The spinner used to appear, vanish and
       // leave nothing behind — no new rows, no reason, and every further
       // scroll silently trying again.
-      emit(state.copyWith(
-        isLoadingMore: false,
-        loadMoreFailure: SourceFailure.of(result.getErrorOrNull()!.toString()),
-      ));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          loadMoreFailure: SourceFailure.of(
+            result.getErrorOrNull()!.toString(),
+          ),
+        ),
+      );
       return;
     }
 
@@ -386,13 +419,15 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     final ranked = criteria.text.isEmpty
         ? fresh
         : SearchRelevance.rank(fresh, criteria.text);
-    emit(state.copyWith(
-      items: [...state.items, ...ranked],
-      page: data.page,
-      totalPages: data.totalPages,
-      isLoadingMore: false,
-      clearLoadMoreFailure: true,
-    ));
+    emit(
+      state.copyWith(
+        items: [...state.items, ...ranked],
+        page: data.page,
+        totalPages: data.totalPages,
+        isLoadingMore: false,
+        clearLoadMoreFailure: true,
+      ),
+    );
   }
 
   void _onRetry(SearchRetry event, Emitter<SearchState> emit) {
@@ -422,7 +457,21 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     emit(state.copyWith(recent: recent));
   }
 
+  CatalogueSearchRepository? get _catalogueRepository {
+    final repo = _searchUseCase.repository;
+    return repo is CatalogueSearchRepository
+        ? repo as CatalogueSearchRepository
+        : null;
+  }
+
+  Future<Result<List<GenreEntity>>> discoveryGenres(String type) =>
+      _catalogueRepository!.getDiscoveryGenres(type);
+  String? get catalogueKind => _catalogueRepository?.catalogueKind;
+
   Future<Result<SearchEntity>> _fetch(SearchCriteria criteria, int page) {
+    if (criteria.filters.isNotEmpty) {
+      return _catalogueRepository!.discover(criteria.filters, page: page);
+    }
     if (criteria.text.isNotEmpty) {
       return _searchUseCase(criteria.text, page: page);
     }

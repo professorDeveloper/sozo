@@ -71,3 +71,8 @@ class SearchSuggestionsUpdated extends SearchEvent {
   final String query;
   final List<String> suggestions;
 }
+
+class SearchDiscoverySelected extends SearchEvent {
+  const SearchDiscoverySelected(this.filters);
+  final Map<String, String> filters;
+}

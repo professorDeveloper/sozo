@@ -17,21 +17,37 @@ enum SearchStatus {
 /// What the user is asking for. Text and genre are composable: either one, both
 /// or neither, and every change re-runs through the same path.
 class SearchCriteria extends Equatable {
-  const SearchCriteria({this.text = '', this.genre = ''});
+  const SearchCriteria({
+    this.text = '',
+    this.genre = '',
+    this.filters = const {},
+  });
 
   final String text;
   final String genre;
+  final Map<String, String> filters;
 
-  bool get isEmpty => text.isEmpty && genre.isEmpty;
+  bool get isEmpty => text.isEmpty && genre.isEmpty && filters.isEmpty;
   bool get isNotEmpty => !isEmpty;
 
-  String get label => text.isNotEmpty ? text : genre;
+  String get label => text.isNotEmpty
+      ? text
+      : filters.isNotEmpty
+      ? "Discover"
+      : genre;
 
-  SearchCriteria copyWith({String? text, String? genre}) =>
-      SearchCriteria(text: text ?? this.text, genre: genre ?? this.genre);
+  SearchCriteria copyWith({
+    String? text,
+    String? genre,
+    Map<String, String>? filters,
+  }) => SearchCriteria(
+    text: text ?? this.text,
+    genre: genre ?? this.genre,
+    filters: filters ?? this.filters,
+  );
 
   @override
-  List<Object?> get props => [text, genre];
+  List<Object?> get props => [text, genre, filters];
 }
 
 class SearchState extends Equatable {

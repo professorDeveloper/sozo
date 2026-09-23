@@ -16,7 +16,8 @@ import 'package:soplay/features/search/domain/services/cross_search_engine.dart'
 
 import '../datasources/search_data_source.dart';
 
-class SearchRepositoryImp extends SearchRepository {
+class SearchRepositoryImp extends SearchRepository
+    implements CatalogueSearchRepository {
   final SearchDataSource dataSource;
   final JsRuntimeService? jsRuntime;
   final HiveService? hive;
@@ -33,6 +34,36 @@ class SearchRepositoryImp extends SearchRepository {
   String? get _currentProvider {
     final id = hive?.getCurrentProvider();
     return (id == null || id.isEmpty) ? null : id;
+  }
+
+  @override
+  Future<Result<List<GenreModel>>> getDiscoveryGenres(String type) async {
+    try {
+      return Success(
+        await dataSource.getCatalogueGenres(catalogueKind!, type: type),
+      );
+    } catch (e) {
+      return Failure(Exception(e.toString()));
+    }
+  }
+
+  @override
+  String? get catalogueKind => Catalogue.fromId(_currentProvider)?.kind;
+
+  @override
+  Future<Result<SearchModel>> discover(
+    Map<String, String> filters, {
+    int page = 1,
+  }) async {
+    final kind = catalogueKind;
+    if (kind == null) return Failure(Exception("Select a catalogue"));
+    try {
+      return Success(
+        await dataSource.discoverCatalogue(kind, filters, page: page),
+      );
+    } catch (e) {
+      return Failure(Exception(e.toString()));
+    }
   }
 
   @override
@@ -68,9 +99,9 @@ class SearchRepositoryImp extends SearchRepository {
     };
     if (hostGenres != null && provider != null) {
       try {
-        final list = await hostGenres(provider.substring(3)).timeout(
-          _hostBudget,
-        );
+        final list = await hostGenres(
+          provider.substring(3),
+        ).timeout(_hostBudget);
         return Success([
           for (final e in list.whereType<Map>())
             GenreModel.fromJson(Map<String, dynamic>.from(e)),
@@ -214,7 +245,8 @@ class SearchRepositoryImp extends SearchRepository {
     if (provider != null && provider.startsWith('cs:')) {
       return _viaHost(
         'CloudStream',
-        () => CloudStreamChannel.search(provider.substring(3), query, page: page),
+        () =>
+            CloudStreamChannel.search(provider.substring(3), query, page: page),
       );
     }
     if (provider != null && provider.startsWith('an:')) {
@@ -243,9 +275,9 @@ class SearchRepositoryImp extends SearchRepository {
       // The JS runtime falls THROUGH to the backend when it has no answer, so
       // it cannot use _viaHost — but it can still be bounded.
       try {
-        final map = await js.trySearch(provider, query, page).timeout(
-          _hostBudget,
-        );
+        final map = await js
+            .trySearch(provider, query, page)
+            .timeout(_hostBudget);
         if (map != null) return Success(SearchModel.fromJson(map));
       } on TimeoutException {
         jsFailure = Exception(

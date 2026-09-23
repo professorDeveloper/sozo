@@ -45,8 +45,14 @@ class SearchDataSource {
   }
 
   /// A catalogue's genres, each with an image. Same shape as [getGenres].
-  Future<List<GenreModel>> getCatalogueGenres(String kind) async {
-    final response = await dio.get('/catalogue/$kind/genres');
+  Future<List<GenreModel>> getCatalogueGenres(
+    String kind, {
+    String? type,
+  }) async {
+    final response = await dio.get(
+      '/catalogue/$kind/genres',
+      queryParameters: {'type': ?type},
+    );
     return (response.data['items'] as List)
         .map((e) => GenreModel.fromJson(e))
         .toList();
@@ -74,6 +80,18 @@ class SearchDataSource {
     final response = await dio.get(
       '/catalogue/$kind/search',
       queryParameters: {'q': query, 'page': page},
+    );
+    return SearchModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<SearchModel> discoverCatalogue(
+    String kind,
+    Map<String, String> filters, {
+    int page = 1,
+  }) async {
+    final response = await dio.get(
+      '/catalogue/$kind/discover',
+      queryParameters: {...filters, 'page': page},
     );
     return SearchModel.fromJson(response.data as Map<String, dynamic>);
   }

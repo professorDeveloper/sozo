@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:easy_localization/easy_localization.dart';
+import '../widgets/catalogue_discovery_sheet.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -146,6 +148,25 @@ class _SearchViewState extends State<_SearchView> {
 
   void _openFilter() {
     final bloc = context.read<SearchBloc>();
+    final kind = bloc.catalogueKind;
+    if (kind != null) {
+      showAdaptiveModal<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => CatalogueDiscoverySheet(
+          kind: kind,
+          loadGenres: bloc.discoveryGenres,
+          genres: bloc.state.genres,
+          initial: bloc.state.criteria.filters,
+          onApply: (filters) {
+            _controller.clear();
+            bloc.add(SearchDiscoverySelected(filters));
+          },
+        ),
+      );
+      return;
+    }
     showAdaptiveModal<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -195,8 +216,12 @@ class _SearchViewState extends State<_SearchView> {
                       topPad: topPad,
                       controller: _controller,
                       focus: _focus,
-                      hasActiveFilter: state.criteria.genre.isNotEmpty,
-                      showFilter: state.hasGenres,
+                      hasActiveFilter:
+                          state.criteria.genre.isNotEmpty ||
+                          state.criteria.filters.isNotEmpty,
+                      showFilter:
+                          state.hasGenres ||
+                          context.read<SearchBloc>().catalogueKind != null,
                       onFilterTap: _openFilter,
                       onTorrentTap: _torrentsAvailable
                           ? () => _openTorrents(_controller.text)
@@ -224,6 +249,56 @@ class _SearchViewState extends State<_SearchView> {
                   ),
                 ),
               ),
+              if (context.read<SearchBloc>().catalogueKind != null)
+                SizedBox(
+                  height: 52,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ActionChip(
+                          avatar: const Icon(Icons.tune, size: 18),
+                          label: Text(
+                            'search.discovery.${state.criteria.filters.isEmpty ? 'title' : 'active'}'
+                                .tr(),
+                          ),
+                          onPressed: _openFilter,
+                        ),
+                      ),
+                      for (final entry in const {
+                        'popular': 'popular',
+                        'rating': 'highest',
+                        'newest': 'newest',
+                      }.entries)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text('search.discovery.${entry.value}'.tr()),
+                            selected:
+                                state.criteria.filters['sort'] == entry.key,
+                            onSelected: (_) {
+                              _controller.clear();
+                              context.read<SearchBloc>().add(
+                                SearchDiscoverySelected({
+                                  ...state.criteria.filters,
+                                  'sort': entry.key,
+                                }),
+                              );
+                            },
+                          ),
+                        ),
+                      if (state.criteria.filters.isNotEmpty)
+                        ActionChip(
+                          label: Text('search.clear_filter'.tr()),
+                          onPressed: () => context.read<SearchBloc>().add(
+                            const SearchGenreSelected(''),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: SearchContentView(
                   state: state,

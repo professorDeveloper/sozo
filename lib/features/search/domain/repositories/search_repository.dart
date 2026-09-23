@@ -13,3 +13,12 @@ abstract class SearchRepository {
   /// goes through [getMoviesByGenre].
   Future<Result<SearchEntity>> searchMovies(String query, {int page = 1});
 }
+
+abstract interface class CatalogueSearchRepository {
+  String? get catalogueKind;
+  Future<Result<List<GenreEntity>>> getDiscoveryGenres(String type);
+  Future<Result<SearchEntity>> discover(
+    Map<String, String> filters, {
+    int page = 1,
+  });
+}
