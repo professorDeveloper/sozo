@@ -1107,6 +1107,7 @@ class _CapsuleTabSlot extends StatelessWidget {
 
     return Showcase.withWidget(
       key: key,
+      scope: _showcaseScope,
       tooltipPosition: TooltipPosition.top,
       targetBorderRadius: BorderRadius.circular(18),
       targetPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -1305,6 +1306,7 @@ class _ClassicNavButtonState extends State<_ClassicNavButton> {
 
     return Showcase.withWidget(
       key: key,
+      scope: _showcaseScope,
       tooltipPosition: TooltipPosition.top,
       targetBorderRadius: BorderRadius.circular(18),
       targetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
