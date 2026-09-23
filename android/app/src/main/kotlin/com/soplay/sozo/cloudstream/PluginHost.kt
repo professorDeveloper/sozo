@@ -121,6 +121,14 @@ class PluginHost(private val appContext: Context) {
     private val metas = LinkedHashMap<String, Meta>()
 
     /** Register provider metadata WITHOUT loading the plugin (startup path). */
+    private val animeProviders = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /** Records whether [provider] comes from an anime plugin (see RepoManager.isAnime). */
+    fun markAnime(provider: String, anime: Boolean) {
+        if (provider.isEmpty()) return
+        if (anime) animeProviders.add(provider) else animeProviders.remove(provider)
+    }
+
     fun registerMeta(
         provider: String, icon: String?, internalName: String,
         cs3Path: String, repo: String? = null, lang: String = "", nsfw: Boolean = false,
@@ -309,6 +317,10 @@ class PluginHost(private val appContext: Context) {
                 m.repo?.let { if (it.isNotEmpty()) put("repo", it) }
                 // So the 18+ setting covers CloudStream as it does the others.
                 if (m.nsfw) put("nsfw", true)
+                // An anime plugin says so, like the Sozo anime sources do, so
+                // the app treats its titles as anime: AniList tracking, the
+                // airing card.
+                if (animeProviders.contains(m.provider)) put("category", "anime")
             })
         }
         return arr.toString()

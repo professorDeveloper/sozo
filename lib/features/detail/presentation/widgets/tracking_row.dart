@@ -2,6 +2,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/extractor/provider_manager.dart';
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
@@ -43,10 +45,29 @@ class TrackingRow extends StatefulWidget {
 
   final DetailEntity detail;
 
-  static bool applies(DetailEntity detail) => detail.record?.anilistId != null;
+  /// Whether AniList could know this title.
+  ///
+  /// It used to require an AniList id on the record, which only a catalogue
+  /// title carries — so every title opened from an anime source, Sozo's own
+  /// or CloudStream's, had no tracking row at all, though the row already
+  /// knew how to link a title by hand. Now any anime, manga or novel source
+  /// gets it; one without an id offers to link it.
+  static bool applies(DetailEntity detail) {
+    if (detail.record?.anilistId != null) return true;
+    final id = detail.provider;
+    if (id.contentMode != ContentMode.video) return true; // manga, novels
+    if (id.startsWith('an:')) return true; // Aniyomi is anime
+    final category = getIt<ProviderManager>().getProvider(id)?.category ?? '';
+    return category.toLowerCase() == 'anime';
+  }
+
+  /// Manga or a novel, whether the record says so or the source does.
+  static bool isManga(DetailEntity detail) =>
+      detail.record?.isManga ??
+      detail.provider.contentMode != ContentMode.video;
 
   static bool malApplies(DetailEntity detail) =>
-      applies(detail) && detail.record?.isManga != true;
+      applies(detail) && !isManga(detail);
 
   @override
   State<TrackingRow> createState() => _TrackingRowState();
@@ -206,10 +227,7 @@ class _AnilistLineState extends State<_AnilistLine> {
           ? null
           : !s.onList
           ? 'detail.not_on_list'.tr()
-          : _statusLabel(
-              s.status,
-              manga: widget.detail.record?.isManga ?? false,
-            ),
+          : _statusLabel(s.status, manga: TrackingRow.isManga(widget.detail)),
       loading: linked && !failed && s == null,
       progress: s != null && s.onList ? s.progress : null,
       total: s?.totalEpisodes,
@@ -245,7 +263,7 @@ class _AnilistLineState extends State<_AnilistLine> {
       editor: _AnilistEditor(
         mediaId: id,
         token: token,
-        isManga: widget.detail.record?.isManga ?? false,
+        isManga: TrackingRow.isManga(widget.detail),
       ),
       title: widget.detail.title,
       entry: TrackerEntry(
@@ -685,43 +703,43 @@ class _TrackerLine extends StatelessWidget {
             // AniList's, which read as enabled.
             DetailRowAction(label: action!, onTap: onTap),
           ] else if (showsCounter) ...[
-                _Step(icon: Icons.remove_rounded, onTap: busy ? null : onLess),
-                SizedBox(
-                  width: scale.scale(total != null ? 52 : 34),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AnimatedOpacity(
-                        duration: const Duration(milliseconds: 120),
-                        opacity: busy ? 0.4 : 1,
-                        child: Text(
-                          total != null ? '$progress/$total' : '$progress',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            fontFeatures: [FontFeature.tabularFigures()],
-                          ),
-                        ),
+            _Step(icon: Icons.remove_rounded, onTap: busy ? null : onLess),
+            SizedBox(
+              width: scale.scale(total != null ? 52 : 34),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 120),
+                    opacity: busy ? 0.4 : 1,
+                    child: Text(
+                      total != null ? '$progress/$total' : '$progress',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: [FontFeature.tabularFigures()],
                       ),
-                      // The number moved the instant the button was pressed;
-                      // this hairline under it is the only thing that says the
-                      // tracker has not agreed yet. Its box is always there, so
-                      // the row does not jump when a write starts.
-                      SizedBox(
-                        height: 2,
-                        child: busy
-                            ? LinearProgressIndicator(
-                                minHeight: 2,
-                                color: accent,
-                                backgroundColor: Colors.transparent,
-                              )
-                            : null,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  // The number moved the instant the button was pressed;
+                  // this hairline under it is the only thing that says the
+                  // tracker has not agreed yet. Its box is always there, so
+                  // the row does not jump when a write starts.
+                  SizedBox(
+                    height: 2,
+                    child: busy
+                        ? LinearProgressIndicator(
+                            minHeight: 2,
+                            color: accent,
+                            backgroundColor: Colors.transparent,
+                          )
+                        : null,
+                  ),
+                ],
+              ),
+            ),
             _Step(icon: Icons.add_rounded, onTap: busy ? null : onMore),
           ],
         ],

@@ -85,6 +85,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     e.optString("lang"),
                     e.optBoolean("nsfw", false),
                 )
+                host.markAnime(e.optString("provider"), e.optBoolean("anime", false))
             }
         }
     }
@@ -260,7 +261,17 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
         val lang: String = "",
         /** Whether the repo lists the plugin under CloudStream's NSFW type. */
         val nsfw: Boolean = false,
+        /** Whether it is an anime source: Anime, AnimeMovie or OVA among its types. */
+        val anime: Boolean = false,
     )
+
+    private fun isAnime(p: JSONObject): Boolean {
+        val types = p.optJSONArray("tvTypes") ?: return false
+        for (i in 0 until types.length()) {
+            when (types.optString(i)) { "Anime", "AnimeMovie", "OVA" -> return true }
+        }
+        return false
+    }
 
     /**
      * Whether a plugins.json entry is adult: CloudStream has no flag of its
@@ -295,7 +306,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                 val internalName = p.optString("internalName").ifEmpty { p.optString("name", "plugin$i") }
                 val version = if (p.has("version")) p.optInt("version") else 0
                 val iconUrl = p.optString("iconUrl").ifEmpty { null }
-                all.add(PluginRef(url, internalName, version, iconUrl, p.optString("language"), isNsfw(p)))
+                all.add(PluginRef(url, internalName, version, iconUrl, p.optString("language"), isNsfw(p), isAnime(p)))
             }
         }
 
@@ -310,6 +321,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                 // metadata so future launches can lazy-load without this cost.
                 host.loadCs3(file, ref.internalName, ref.iconUrl, repoName, ref.lang, ref.nsfw).forEach { name ->
                     providers.put(name)
+                    host.markAnime(name, ref.anime)
                     metaEntries.put(JSONObject().apply {
                         put("provider", name)
                         if (ref.iconUrl != null) put("icon", ref.iconUrl)
@@ -317,6 +329,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                         put("cs3Path", file.absolutePath)
                         if (ref.lang.isNotEmpty()) put("lang", ref.lang)
                         if (ref.nsfw) put("nsfw", true)
+                        if (ref.anime) put("anime", true)
                     })
                 }
             }
@@ -402,7 +415,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     val version = if (p.has("version")) p.optInt("version") else 0
                     ref = PluginRef(
                         url, nm, version, p.optString("iconUrl").ifEmpty { null },
-                        p.optString("language"), isNsfw(p),
+                        p.optString("language"), isNsfw(p), isAnime(p),
                     )
                     break
                 }
@@ -416,7 +429,10 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
         val file = downloadCs3(r.internalName, r.version, r.url)
         val providers = JSONArray()
         if (file != null) {
-            host.loadCs3(file, r.internalName, r.iconUrl, repoName, r.lang, r.nsfw).forEach { providers.put(it) }
+            host.loadCs3(file, r.internalName, r.iconUrl, repoName, r.lang, r.nsfw).forEach {
+                providers.put(it)
+                host.markAnime(it, r.anime)
+            }
             val meta = loadMeta()
             val existing = meta.optJSONArray(repoUrl) ?: JSONArray()
             val merged = JSONArray()
@@ -432,6 +448,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     put("cs3Path", file.absolutePath)
                     if (r.lang.isNotEmpty()) put("lang", r.lang)
                     if (r.nsfw) put("nsfw", true)
+                    if (r.anime) put("anime", true)
                 })
             }
             meta.put(repoUrl, merged); saveMeta(meta)
@@ -510,7 +527,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     val version = if (p.has("version")) p.optInt("version") else 0
                     val iconUrl = p.optString("iconUrl").ifEmpty { null }
                     latest[internalName] = PluginRef(
-                        url, internalName, version, iconUrl, p.optString("language"), isNsfw(p),
+                        url, internalName, version, iconUrl, p.optString("language"), isNsfw(p), isAnime(p),
                     )
                 }
             }
@@ -526,6 +543,8 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     // plugin installed before it would otherwise wait for its
                     // next release to be recognised as adult.
                     e.put("nsfw", ref.nsfw)
+                    e.put("anime", ref.anime)
+                    host.markAnime(e.optString("provider"), ref.anime)
                     val installedVer = e.optString("cs3Path")
                         .substringAfterLast('@', "").substringBefore(".cs3").toIntOrNull() ?: 0
                     if (ref.version <= installedVer) continue
