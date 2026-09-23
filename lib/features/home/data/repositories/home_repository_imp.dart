@@ -144,6 +144,29 @@ class HomeRepositoryImp implements HomeRepository {
     // current. Ahead of the prefix branches for that reason: the active source
     // is irrelevant here, and letting a CloudStream extension be asked for a
     // Netflix page would be nonsense.
+    if (key == 'catalogue-discover') {
+      final parts = slug.split(':');
+      if (parts.length != 2 ||
+          !{
+            'anilist',
+            'anilist-manga',
+            'anilist-novel',
+          }.contains(parts.first)) {
+        return Failure(Exception('Invalid catalogue collection'));
+      }
+      try {
+        return Success(
+          await dataSource.loadCatalogueViewAll(
+            kind: parts.first,
+            type: 'discover',
+            slug: parts.last,
+            page: page,
+          ),
+        );
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (key == 'watch-service') {
       try {
         return Success(

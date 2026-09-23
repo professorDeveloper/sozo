@@ -70,6 +70,16 @@ class HomeDataSource {
         '/catalogue/$kind/genre/${Uri.encodeComponent(slug)}',
         queryParameters: {'page': page},
       );
+    } else if (type == 'discover' &&
+        {'trending', 'rating', 'releasing'}.contains(slug)) {
+      result = await dio.get(
+        '/catalogue/$kind/discover',
+        queryParameters: {
+          'sort': slug == 'releasing' ? 'popular' : slug,
+          if (slug == 'releasing') 'status': 'RELEASING',
+          'page': page,
+        },
+      );
     } else if (type == 'year' && int.tryParse(slug) != null) {
       result = await dio.get(
         '/catalogue/$kind/discover',

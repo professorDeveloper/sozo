@@ -1,3 +1,8 @@
+import 'package:soplay/core/content/content_mode.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
+import '../../domain/home_content_kind.dart';
+import 'home_medium_discovery.dart';
 import 'package:soplay/features/profile/presentation/widgets/home_rail_customizer_sheet.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -239,6 +244,15 @@ class _HomeContentBody extends StatelessWidget {
           // never makes an empty rail appear, and hiding one is separate from
           // it being empty.
           final hive = getIt<HiveService>();
+          final providerState = context.watch<ProviderBloc>().state;
+          final medium = HomeContentKind.resolve(
+            providerId: hive.getCurrentProvider(),
+            mode: ContentMode.fromId(hive.getContentMode()),
+            category: providerState is ProviderLoaded
+                ? providerState.currentProvider?.category ?? ''
+                : '',
+          );
+          final showServices = medium == HomeContentKind.movie;
           final rails = visibleRails(
             sanitizeRailOrder(hive.getHomeRailOrder()),
             hive.getHomeRailHidden(),
@@ -284,10 +298,17 @@ class _HomeContentBody extends StatelessWidget {
                 // Only ever here because somebody said yes: the band is in
                 // [HomeRail.optIn], so it is off until the suggestion below is
                 // answered the other way.
-                yield const SliverToBoxAdapter(
-                  child: RepaintBoundary(child: HomeWatchServicesSection()),
-                );
+                if (showServices) {
+                  yield const SliverToBoxAdapter(
+                    child: RepaintBoundary(child: HomeWatchServicesSection()),
+                  );
+                }
               case HomeRail.catalogue:
+                if (!showServices) {
+                  yield SliverToBoxAdapter(
+                    child: HomeMediumDiscovery(kind: medium),
+                  );
+                }
                 if (loaded != null && loaded.collectionLoading) {
                   yield const SliverToBoxAdapter(child: CollectionLoadingRow());
                 }
@@ -306,9 +327,9 @@ class _HomeContentBody extends StatelessWidget {
           // hero first there was no clearance at all and the strip drew behind
           // the logo and the source chip — the one band whose whole job is to
           // be read.
-          final suggesting = !hive.hasAnsweredHomeSuggestion(
-            HomeRail.watchServices.id,
-          );
+          final suggesting =
+              showServices &&
+              !hive.hasAnsweredHomeSuggestion(HomeRail.watchServices.id);
           final needsTopPad =
               catalogue is CatalogueFailed ||
               rails.first != HomeRail.hero ||

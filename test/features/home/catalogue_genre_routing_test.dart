@@ -20,6 +20,49 @@ class _Bridge implements MangayomiBridge {
 }
 
 void main() {
+  test(
+    'reader discovery keeps its explicit catalogue while a movie source is selected',
+    () async {
+      final dio = Dio();
+      RequestOptions? request;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            request = options;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {
+                  'provider': 'cat:anilist-manga',
+                  'items': [],
+                  'page': 3,
+                  'totalPages': 4,
+                },
+              ),
+            );
+          },
+        ),
+      );
+      final repo = HomeRepositoryImp(
+        HomeDataSource(dio: dio),
+        hive: _Hive('cat:tmdb'),
+        mangayomi: _Bridge(),
+      );
+      final result = await repo.loadViewAll(
+        key: 'catalogue-discover',
+        slug: 'anilist-manga:releasing',
+        page: 3,
+      );
+      expect(result.isSuccess, isTrue);
+      expect(request!.path, '/catalogue/anilist-manga/discover');
+      expect(request!.queryParameters, {
+        'sort': 'popular',
+        'status': 'RELEASING',
+        'page': 3,
+      });
+    },
+  );
+
   for (final kind in ['anilist', 'anilist-manga', 'anilist-novel', 'tmdb']) {
     test('Home genre pagination uses the $kind catalogue route', () async {
       final dio = Dio();
