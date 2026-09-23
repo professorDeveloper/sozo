@@ -728,30 +728,15 @@ class _SoplayGlassCapsule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final motion = NavigationDensity.of(context);
-    final density = const Interval(
-      0,
-      .78,
-      curve: Curves.easeOutCubic,
-    ).transform(motion);
-    final widthProgress = const Interval(
-      .18,
-      1,
-      curve: Curves.easeInOutCubic,
-    ).transform(motion);
-    final iconProgress = const Interval(
-      .08,
-      .8,
-      curve: Curves.easeOutCubic,
-    ).transform(motion);
-    final barHeight = _barHeight - 10 * density;
+    final density = NavigationDensity.of(context);
+    final barHeight = _barHeight - 8 * density;
     final bar = GlassTabBar.bottom(
       tabs: [
         for (final it in items)
           GlassTab(
             label: it.labelKey.tr(),
-            icon: Icon(it.icon, size: 24 - 2 * iconProgress),
-            activeIcon: Icon(it.activeIcon, size: 24 - 2 * iconProgress),
+            icon: Icon(it.icon, size: 24 - 2 * density),
+            activeIcon: Icon(it.activeIcon, size: 24 - 2 * density),
           ),
       ],
       selectedIndex: index,
@@ -762,9 +747,9 @@ class _SoplayGlassCapsule extends StatelessWidget {
       horizontalPadding: 0,
       verticalPadding: 0,
       barHeight: barHeight,
-      iconSize: 24 - 2 * iconProgress,
+      iconSize: 24 - 2 * density,
       barBorderRadius: barHeight / 2, // full capsule
-      iconLabelSpacing: 4 - 2 * density,
+      iconLabelSpacing: 4 - density,
       magnification: glass
           ? 1.12 - .10 * density
           : 1.0, // subtle iOS-26 lens on the selected tab
@@ -884,14 +869,15 @@ class _SoplayGlassCapsule extends StatelessWidget {
     // driven by `selectedIndex`, not by touch.
     return LayoutBuilder(
       builder: (context, constraints) {
-        // A modest width change balances the shorter capsule. Keep every tab
-        // at least 48dp wide, including custom six-tab layouts on small phones.
-        final availableInset = ((constraints.maxWidth - items.length * 48) / 2)
-            .clamp(0.0, constraints.maxWidth * .025);
+        // Compact width follows the number of destinations, not a tiny
+        // percentage of the screen. 56dp slots retain labels and touch space.
+        final compactWidth = (items.length * 56.0).clamp(
+          0.0,
+          constraints.maxWidth,
+        );
+        final availableInset = (constraints.maxWidth - compactWidth) / 2;
         return Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: availableInset * widthProgress,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: availableInset * density),
           child: Stack(
             children: [
               // Pointers stay with the package; only its semantics are suppressed.
