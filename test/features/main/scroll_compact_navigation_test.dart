@@ -91,23 +91,26 @@ void main() {
                   alignment: Alignment.bottomCenter,
                   child: ScrollCompactNavigation(
                     compact: compact,
-                    expanded: const SizedBox(
+                    expanded: SizedBox(
                       width: 360,
-                      height: 100,
-                      child: Text('Expanded navigation'),
+                      height: 64,
+                      child: Material(
+                        color: Colors.purple,
+                        child: Row(
+                          children: [
+                            const Text('Expanded navigation'),
+                            SizedBox(
+                              width: 56,
+                              height: 56,
+                              child: InkWell(
+                                onTap: () => selected = 1,
+                                child: const Icon(Icons.search),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    items: const [
-                      NavigationDestination(
-                        icon: Icon(Icons.home),
-                        label: 'Home',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.search),
-                        label: 'Search',
-                      ),
-                    ],
-                    selectedIndex: 0,
-                    onSelected: (i) => selected = i,
                   ),
                 ),
               );
@@ -115,16 +118,32 @@ void main() {
           ),
         ),
       );
+      final originalIcon = tester.element(find.byIcon(Icons.search));
       rebuild(() => compact = true);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 150));
       expect(tester.takeException(), isNull);
       await tester.pumpAndSettle();
+      expect(
+        find.text('Expanded navigation').hitTestable(),
+        findsOneWidget,
+        reason: 'Scrolling must keep the original navigation visible',
+      );
       final button = find.ancestor(
         of: find.byIcon(Icons.search),
         matching: find.byType(InkWell),
       );
-      expect(tester.getSize(button), const Size(48, 48));
+      expect(tester.element(find.byIcon(Icons.search)), same(originalIcon));
+      final iconBox = tester.renderObject<RenderBox>(button);
+      final visibleSize =
+          iconBox.localToGlobal(iconBox.size.bottomRight(Offset.zero)) -
+          iconBox.localToGlobal(Offset.zero);
+      expect(visibleSize.dx, closeTo(56 * .94, .01));
+      expect(visibleSize.dy, greaterThanOrEqualTo(48));
+      expect(
+        tester.widget<AnimatedScale>(find.byType(AnimatedScale)).scale,
+        .94,
+      );
       await tester.tap(button);
       expect(selected, 1);
       rebuild(() => compact = false);

@@ -535,16 +535,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                                       MediaQuery.sizeOf(context).width >=
                                           defs.length * 48 + 40,
                                   expanded: child!,
-                                  items: [
-                                    for (final item in defs)
-                                      NavigationDestination(
-                                        icon: Icon(item.icon),
-                                        selectedIcon: Icon(item.activeIcon),
-                                        label: item.labelKey.tr(),
-                                      ),
-                                  ],
-                                  selectedIndex: _index,
-                                  onSelected: _handleTabTap,
                                 ),
                             child: ValueListenableBuilder<String>(
                               valueListenable: NavPrefs.navStyle,
