@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../widgets/scroll_compact_navigation.dart';
 import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -44,6 +45,7 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   final GlobalKey _shortsRefreshShowcaseKey = GlobalKey();
+  final _navigationScroll = NavigationScrollState();
   int _index = 0;
   int _shortsRefreshTick = 0;
   List<TabId> _visibleTabs = const [];
@@ -131,6 +133,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   }
 
   void _onNavChange() {
+    _navigationScroll.expand();
     setState(() => _index = _navController.index.value);
     _maybeShowShortsRefreshTip();
   }
@@ -154,6 +157,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _navigationScroll.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _navController.index.removeListener(_onNavChange);
     NavPrefs.tabOrder.removeListener(_onTabSetChange);
@@ -232,6 +236,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   // re-taps). Capture the "was already selected" state before _onTabTap mutates
   // _index.
   void _handleTabTap(int index) {
+    _navigationScroll.expand();
     final reselected = index == _index;
     _onTabTap(index);
     if (reselected && _shortsIndex >= 0 && index == _shortsIndex) {
@@ -503,86 +508,119 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                       // the nav style never re-mounts the tabs (that remount was
                       // re-triggering the Home "Join Telegram" sheet).
                       Positioned.fill(
-                        child: IndexedStack(index: _index, children: tabs),
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            if (!readableNav &&
+                                !keyboardOpen &&
+                                _index != _shortsIndex) {
+                              _navigationScroll.onScroll(notification);
+                            }
+                            return false;
+                          },
+                          child: IndexedStack(index: _index, children: tabs),
+                        ),
                       ),
                       if (!keyboardOpen && !readableNav)
                         Positioned(
                           left: 0,
                           right: 0,
                           bottom: 0,
-                          child: ValueListenableBuilder<String>(
-                            valueListenable: NavPrefs.navStyle,
-                            builder: (context, style, _) {
-                              // Classic: the original full-width frosted bar (keeps
-                              // the per-tab Showcase + real double-tap-to-refresh).
-                              if (style == NavPrefs.classic) {
-                                return _SoplayClassicBar(
-                                  index: _index,
-                                  items: defs,
-                                  shortsShowcaseKey: _shortsRefreshShowcaseKey,
-                                  // _handleTabTap, not _onTabTap: it adds
-                                  // reselect-to-refresh and no-ops on every other
-                                  // tab. The coach-mark shown to classic users
-                                  // described a gesture only the capsule had, so
-                                  // following its instructions did nothing.
-                                  // Double-tap stays as the additional shortcut.
-                                  onTap: _handleTabTap,
-                                  onShortsDoubleTap: _refreshShorts,
-                                );
-                              }
-                              // Glass / Solid: a floating capsule inset 16 each side.
-                              final nativeIosBar =
-                                  PlatformInfo.isIOS &&
-                                  PlatformInfo.isIOS26OrHigher();
-                              return Padding(
-                                padding: EdgeInsets.fromLTRB(
-                                  16,
-                                  0,
-                                  16,
-                                  // The native bar reserves the home-indicator
-                                  // inset itself: the package sizes it from
-                                  // `UITabBar.sizeThatFits`, and a UITabBar folds
-                                  // the bottom safe area into that height. Adding
-                                  // the inset again here counted it twice and
-                                  // floated the bar a safe area's worth too high,
-                                  // leaving a gap under it. The Flutter capsule
-                                  // has no such notion and still needs it.
-                                  nativeIosBar
-                                      ? 12
-                                      : MediaQuery.paddingOf(context).bottom +
-                                            12,
+                          child: ValueListenableBuilder<bool>(
+                            valueListenable: _navigationScroll,
+                            builder: (context, compact, child) =>
+                                ScrollCompactNavigation(
+                                  compact:
+                                      compact &&
+                                      _index != _shortsIndex &&
+                                      MediaQuery.sizeOf(context).width >=
+                                          defs.length * 48 + 40,
+                                  expanded: child!,
+                                  items: [
+                                    for (final item in defs)
+                                      NavigationDestination(
+                                        icon: Icon(item.icon),
+                                        selectedIcon: Icon(item.activeIcon),
+                                        label: item.labelKey.tr(),
+                                      ),
+                                  ],
+                                  selectedIndex: _index,
+                                  onSelected: _handleTabTap,
                                 ),
-                                // A fixed 16dp inset is a capsule on a phone and a
-                                // full-width band on a foldable or a tablet, where
-                                // it stops reading as a floating control at all.
-                                // Nothing changes below 480dp.
-                                child: Center(
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 480,
-                                    ),
-                                    // iOS 26+ gets the system's own tab bar;
-                                    // everywhere else keeps the shader capsule.
-                                    // `classic` is handled above and is an
-                                    // explicit user choice on every platform.
-                                    child: nativeIosBar
-                                        ? _SoplayNativeGlassBar(
-                                            index: _index,
-                                            items: defs,
-                                            onTabSelected: _handleTabTap,
-                                          )
-                                        : _SoplayGlassCapsule(
-                                            index: _index,
-                                            items: defs,
-                                            glass: style == NavPrefs.glass,
-                                            shortsShowcaseKey:
-                                                _shortsRefreshShowcaseKey,
-                                            onTabSelected: _handleTabTap,
-                                          ),
+                            child: ValueListenableBuilder<String>(
+                              valueListenable: NavPrefs.navStyle,
+                              builder: (context, style, _) {
+                                // Classic: the original full-width frosted bar (keeps
+                                // the per-tab Showcase + real double-tap-to-refresh).
+                                if (style == NavPrefs.classic) {
+                                  return _SoplayClassicBar(
+                                    index: _index,
+                                    items: defs,
+                                    shortsShowcaseKey:
+                                        _shortsRefreshShowcaseKey,
+                                    // _handleTabTap, not _onTabTap: it adds
+                                    // reselect-to-refresh and no-ops on every other
+                                    // tab. The coach-mark shown to classic users
+                                    // described a gesture only the capsule had, so
+                                    // following its instructions did nothing.
+                                    // Double-tap stays as the additional shortcut.
+                                    onTap: _handleTabTap,
+                                    onShortsDoubleTap: _refreshShorts,
+                                  );
+                                }
+                                // Glass / Solid: a floating capsule inset 16 each side.
+                                final nativeIosBar =
+                                    PlatformInfo.isIOS &&
+                                    PlatformInfo.isIOS26OrHigher();
+                                return Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    // The native bar reserves the home-indicator
+                                    // inset itself: the package sizes it from
+                                    // `UITabBar.sizeThatFits`, and a UITabBar folds
+                                    // the bottom safe area into that height. Adding
+                                    // the inset again here counted it twice and
+                                    // floated the bar a safe area's worth too high,
+                                    // leaving a gap under it. The Flutter capsule
+                                    // has no such notion and still needs it.
+                                    nativeIosBar
+                                        ? 12
+                                        : MediaQuery.paddingOf(context).bottom +
+                                              12,
                                   ),
-                                ),
-                              );
-                            },
+                                  // A fixed 16dp inset is a capsule on a phone and a
+                                  // full-width band on a foldable or a tablet, where
+                                  // it stops reading as a floating control at all.
+                                  // Nothing changes below 480dp.
+                                  child: Center(
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 480,
+                                      ),
+                                      // iOS 26+ gets the system's own tab bar;
+                                      // everywhere else keeps the shader capsule.
+                                      // `classic` is handled above and is an
+                                      // explicit user choice on every platform.
+                                      child: nativeIosBar
+                                          ? _SoplayNativeGlassBar(
+                                              index: _index,
+                                              items: defs,
+                                              onTabSelected: _handleTabTap,
+                                            )
+                                          : _SoplayGlassCapsule(
+                                              index: _index,
+                                              items: defs,
+                                              glass: style == NavPrefs.glass,
+                                              shortsShowcaseKey:
+                                                  _shortsRefreshShowcaseKey,
+                                              onTabSelected: _handleTabTap,
+                                            ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
                     ],
