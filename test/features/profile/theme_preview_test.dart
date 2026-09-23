@@ -26,20 +26,11 @@ void main() {
 
   Future<void> pumpAt(WidgetTester tester, Widget child, double width) async {
     await tester.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(),
-        child: Directionality(
-          textDirection: TextDirection.ltr,
-          child: Theme(
-            data: AppTheme.dark,
-            // The samples show real Material controls — a real switch, a real
-            // ElevatedButton — so they need the ancestors those get in the app.
-            child: Material(
-              color: Colors.transparent,
-              child: Center(
-                child: SizedBox(width: width, child: child),
-              ),
-            ),
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(width: width, child: child),
           ),
         ),
       ),
@@ -50,12 +41,15 @@ void main() {
     // Appearance hands it the page's content width, so these are a mid-size
     // phone and a small one rather than an arbitrary canvas.
     for (final width in [328.0, 288.0]) {
-      testWidgets('fits ${width.toInt()}px wide at every accent and darkness',
-          (tester) async {
+      testWidgets('fits ${width.toInt()}px wide at every accent and darkness', (
+        tester,
+      ) async {
         for (final accent in AppAccent.presets) {
           for (final darkness in AppDarkness.values) {
-            AppPalette.current =
-                AppPalette.resolve(accent: accent, darkness: darkness);
+            AppPalette.current = AppPalette.resolve(
+              accent: accent,
+              darkness: darkness,
+            );
             await pumpAt(tester, const ThemePreview(), width);
             expect(
               tester.takeException(),
@@ -66,6 +60,27 @@ void main() {
         }
       });
     }
+
+    testWidgets('sample interactions stay local and survive palette changes', (
+      tester,
+    ) async {
+      await pumpAt(tester, const ThemePreview(), 288);
+      await tester.tap(find.text('720p'));
+      await tester.tap(find.byIcon(Icons.bookmark_border_rounded));
+      await tester.tap(find.byIcon(Icons.play_arrow_rounded));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.bookmark_rounded), findsOneWidget);
+      AppPalette.current = AppPalette.resolve(
+        accent: AppAccent.presets.last,
+        darkness: AppDarkness.black,
+        tintNav: true,
+      );
+      await pumpAt(tester, const ThemePreview(), 288);
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets('a custom accent renders too', (tester) async {
       AppPalette.current = AppPalette.resolve(

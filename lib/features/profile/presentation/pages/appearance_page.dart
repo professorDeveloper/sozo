@@ -248,11 +248,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
 
 // ── Preview ─────────────────────────────────────────────────────────────────
 
-/// Wraps the component sample.
-///
-/// No device frame and no stage lighting: the sample is a real card on a real
-/// background, and dressing it up as a photographed object would put back the
-/// suggestion that it is a picture of a screen somewhere.
+/// Keeps the live media sample aligned with the appearance controls.
 class _PreviewStage extends StatelessWidget {
   const _PreviewStage();
 
