@@ -11,10 +11,11 @@ import 'package:soplay/features/live_tv/data/live_tv_service.dart';
 import 'package:soplay/features/live_tv/presentation/pages/live_tv_page.dart';
 
 class _Store implements HiveService {
+  List<String> recent = [];
   @override
   List<String> getLiveTvFavourites() => [];
   @override
-  List<String> getLiveTvRecent() => [];
+  List<String> getLiveTvRecent() => recent;
   @override
   Map<String, Map<String, String>> getLiveTvCards() => {};
   @override
@@ -126,4 +127,22 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets(
+    'last opened channel has a selected state separate from favourites',
+    (tester) async {
+      (getIt<HiveService>() as _Store).recent = ['test-channel'];
+      await _pump(tester);
+      final selected = find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == 'Test broadcaster' &&
+            widget.properties.selected == true,
+      );
+      expect(selected, findsOneWidget);
+      expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.star_rounded), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }

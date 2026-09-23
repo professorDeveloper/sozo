@@ -727,6 +727,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
         _ChannelGrid(
           channels: _lineup,
           favourites: _favourites,
+          selectedId: _recent.isEmpty ? null : _recent.first,
           width: width,
           now: _now,
           onPlay: _play,
@@ -759,6 +760,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
         _PinRail(
           channels: _recentCards,
           favourites: _favourites,
+          selectedId: _recent.isEmpty ? null : _recent.first,
           onPlay: _play,
           onMore: _openSheet,
         ),
@@ -771,6 +773,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
         _PinRail(
           channels: _favouriteCards,
           favourites: _favourites,
+          selectedId: _recent.isEmpty ? null : _recent.first,
           onPlay: _play,
           onMore: _openSheet,
         ),
@@ -839,6 +842,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
         _ChannelGrid(
           channels: _channels,
           favourites: _favourites,
+          selectedId: _recent.isEmpty ? null : _recent.first,
           width: width,
           now: _now,
           onPlay: _play,
@@ -918,32 +922,48 @@ class _ScopeLine extends StatelessWidget {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(_kGutter, 2, _kGutter, 10),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.35),
             ),
-            if (showTotal) ...[
-              const SizedBox(width: 10),
-              Text(
-                'live_tv.channel_count'.plural(total),
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.primary,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
+              if (showTotal) ...[
+                const SizedBox(width: 10),
+                Text(
+                  'live_tv.channel_count'.plural(total),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -981,12 +1001,14 @@ class _PinRail extends StatelessWidget {
   const _PinRail({
     required this.channels,
     required this.favourites,
+    required this.selectedId,
     required this.onPlay,
     required this.onMore,
   });
 
   final List<LiveChannel> channels;
   final Set<String> favourites;
+  final String? selectedId;
   final ValueChanged<LiveChannel> onPlay;
   final ValueChanged<LiveChannel> onMore;
 
@@ -1005,6 +1027,7 @@ class _PinRail extends StatelessWidget {
           itemBuilder: (context, i) => _PinTile(
             channel: channels[i],
             favourite: favourites.contains(channels[i].id),
+            selected: channels[i].id == selectedId,
             onPlay: onPlay,
             onMore: onMore,
           ),
@@ -1022,82 +1045,100 @@ class _PinTile extends StatelessWidget {
   const _PinTile({
     required this.channel,
     required this.favourite,
+    required this.selected,
     required this.onPlay,
     required this.onMore,
   });
 
   final LiveChannel channel;
   final bool favourite;
+  final bool selected;
   final ValueChanged<LiveChannel> onPlay;
   final ValueChanged<LiveChannel> onMore;
 
   @override
   Widget build(BuildContext context) {
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    return SizedBox(
-      width: 76,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Material(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () => onPlay(channel),
-              onLongPress: () => onMore(channel),
-              onSecondaryTap: () => onMore(channel),
-              child: Container(
-                width: 76,
-                height: 76,
-                padding: const EdgeInsets.all(11),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: favourite
-                        ? AppColors.primary.withValues(alpha: 0.45)
-                        : Colors.white.withValues(alpha: 0.06),
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: channel.name,
+      child: SizedBox(
+        width: 76,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Material(
+              color: selected
+                  ? Color.alphaBlend(
+                      AppColors.primary.withValues(alpha: 0.14),
+                      AppColors.card,
+                    )
+                  : AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => onPlay(channel),
+                onLongPress: () => onMore(channel),
+                onSecondaryTap: () => onMore(channel),
+                child: AnimatedContainer(
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
+                  width: 76,
+                  height: 76,
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      width: selected ? 2 : 1,
+                      color: selected
+                          ? AppColors.primary
+                          : favourite
+                          ? AppColors.primary.withValues(alpha: 0.45)
+                          : Colors.white.withValues(alpha: 0.06),
+                    ),
                   ),
-                ),
-                child: channel.logoUrl == null
-                    ? const Icon(
-                        Icons.live_tv_rounded,
-                        size: 26,
-                        color: AppColors.textHint,
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: channel.logoUrl!,
-                        fit: BoxFit.contain,
-                        // The 54pt content box, not the 76pt tile.
-                        memCacheWidth: (54 * dpr).round(),
-                        errorWidget: (_, _, _) => const Icon(
+                  child: channel.logoUrl == null
+                      ? const Icon(
                           Icons.live_tv_rounded,
                           size: 26,
                           color: AppColors.textHint,
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: channel.logoUrl!,
+                          fit: BoxFit.contain,
+                          // The 54pt content box, not the 76pt tile.
+                          memCacheWidth: (54 * dpr).round(),
+                          errorWidget: (_, _, _) => const Icon(
+                            Icons.live_tv_rounded,
+                            size: 26,
+                            color: AppColors.textHint,
+                          ),
+                          placeholder: (_, _) => const SizedBox.shrink(),
                         ),
-                        placeholder: (_, _) => const SizedBox.shrink(),
-                      ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 6),
-          FixedTextLines(
-            fontSize: 10.5,
-            lineHeight: 1.2,
-            lines: 1,
-            child: Text(
-              channel.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+            const SizedBox(height: 6),
+            FixedTextLines(
+              fontSize: 10.5,
+              lineHeight: 1.2,
+              lines: 1,
+              child: Text(
+                channel.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1331,6 +1372,7 @@ class _ChannelGrid extends StatelessWidget {
   const _ChannelGrid({
     required this.channels,
     required this.favourites,
+    required this.selectedId,
     required this.width,
     required this.now,
     required this.onPlay,
@@ -1339,6 +1381,7 @@ class _ChannelGrid extends StatelessWidget {
 
   final List<LiveChannel> channels;
   final Set<String> favourites;
+  final String? selectedId;
   final double width;
   final DateTime now;
   final ValueChanged<LiveChannel> onPlay;
@@ -1368,6 +1411,7 @@ class _ChannelGrid extends StatelessWidget {
           (context, i) => _ChannelCard(
             channel: channels[i],
             favourite: favourites.contains(channels[i].id),
+            selected: channels[i].id == selectedId,
             captionHeight: caption,
             cell: cell,
             now: now,
@@ -1385,6 +1429,7 @@ class _ChannelCard extends StatelessWidget {
   const _ChannelCard({
     required this.channel,
     required this.favourite,
+    required this.selected,
     required this.captionHeight,
     required this.cell,
     required this.now,
@@ -1412,6 +1457,7 @@ class _ChannelCard extends StatelessWidget {
 
   final LiveChannel channel;
   final bool favourite;
+  final bool selected;
   final double captionHeight;
   final double cell;
   final DateTime now;
@@ -1428,20 +1474,32 @@ class _ChannelCard extends StatelessWidget {
     return Semantics(
       container: true,
       button: true,
+      selected: selected,
       label: slot == null ? channel.name : '${channel.name}. ${slot.title}',
       child: Material(
-        color: AppColors.card,
+        color: selected
+            ? Color.alphaBlend(
+                AppColors.primary.withValues(alpha: 0.14),
+                AppColors.card,
+              )
+            : AppColors.card,
         borderRadius: BorderRadius.circular(14),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onPlay,
           onLongPress: onMore,
           onSecondaryTap: onMore,
-          child: Container(
+          child: AnimatedContainer(
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 180),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: favourite
+                width: selected ? 2 : 1,
+                color: selected
+                    ? AppColors.primary
+                    : favourite
                     ? AppColors.primary.withValues(alpha: 0.45)
                     : Colors.white.withValues(alpha: 0.06),
               ),
@@ -1473,6 +1531,32 @@ class _ChannelCard extends StatelessWidget {
                                 ),
                         ),
                       ),
+                      if (selected)
+                        Positioned(
+                          top: 6,
+                          left: 6,
+                          child: Tooltip(
+                            message: 'live_tv.last_opened'.tr(),
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.check_rounded,
+                                size: 14,
+                                color:
+                                    ThemeData.estimateBrightnessForColor(
+                                          AppColors.primary,
+                                        ) ==
+                                        Brightness.light
+                                    ? Colors.black
+                                    : Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
                       if (favourite)
                         Positioned(
                           top: 6,

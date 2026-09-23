@@ -1696,7 +1696,8 @@
       "other": "{} channels"
     },
     "up_next": "UP NEXT",
-    "minutes_left": "{} min left"
+    "minutes_left": "{} min left",
+    "last_opened": "Last opened channel"
   },
   "time": {
     "now": "just now",

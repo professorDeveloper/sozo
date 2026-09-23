@@ -1696,7 +1696,8 @@
       "other": "{} kanal"
     },
     "up_next": "KEYINGI",
-    "minutes_left": "{} daqiqa qoldi"
+    "minutes_left": "{} daqiqa qoldi",
+    "last_opened": "Oxirgi ochilgan kanal"
   },
   "time": {
     "now": "hozirgina",
