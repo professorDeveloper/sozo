@@ -98,12 +98,12 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
   }
 
   /// Installed sources minus the adult ones while the opt-in is off.
-  List<Map<String, dynamic>> get _visibleSources => _hive.showNsfwMangaSources
+  List<Map<String, dynamic>> get _visibleSources => _hive.showAdultContent
       ? _sources
       : _sources.where((s) => s['nsfw'] != true).toList();
 
   Future<void> _setShowNsfw(bool value) async {
-    await _hive.setShowNsfwMangaSources(value);
+    await _hive.setShowAdultContent(value);
     if (!mounted) return;
     setState(() {});
     // The provider picker builds its manga entries from the same plugin list,
@@ -242,7 +242,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
             busy: _busy,
             accent: _accent,
             fallbackIcon: _logo,
-            nsfwAllowed: _hive.showNsfwMangaSources,
+            nsfwAllowed: _hive.showAdultContent,
             title: 'manga.recommended'.tr(),
             onInstall: (repo) => _install(repo.url),
           ),
@@ -318,7 +318,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
             ),
             const SizedBox(width: 6),
             Switch.adaptive(
-              value: _hive.showNsfwMangaSources,
+              value: _hive.showAdultContent,
               activeThumbColor: _accent,
               onChanged: _setShowNsfw,
             ),

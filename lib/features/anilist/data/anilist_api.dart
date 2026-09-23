@@ -26,6 +26,14 @@ class AnilistApi {
 
   final Dio _dio;
 
+  /// Whether adult titles may be returned — the app's 18+ setting.
+  ///
+  /// A hook rather than a constructor argument: this class is built in several
+  /// places that know nothing of settings, and every one of them must follow
+  /// the same switch. Wired to the setting at startup; until then, and in
+  /// tests, nothing adult comes back.
+  static bool Function() allowAdult = () => false;
+
   /// When the next request may be sent, after AniList answered 429.
   ///
   /// AniList's budget is small and enforced hard, and the calendar spends
@@ -336,7 +344,7 @@ class AnilistApi {
             season: \$season
             seasonYear: \$seasonYear
             status: \$status
-            isAdult: false
+            ${allowAdult() ? '' : 'isAdult: false'}
           ) {
             $_mediaFields
           }
@@ -363,7 +371,7 @@ class AnilistApi {
     return media
         .whereType<Map>()
         .map((e) => AnilistMedia.fromJson(e.cast<String, dynamic>()))
-        .where((m) => !m.isAdult)
+        .where((m) => allowAdult() || !m.isAdult)
         .toList(growable: false);
   }
 
@@ -402,6 +410,10 @@ class AnilistApi {
     return media
         .whereType<Map>()
         .map((e) => AnilistMedia.fromJson(e.cast<String, dynamic>()))
+        // Search feeds suggestions a person sees, as well as the matcher; an
+        // adult title matched while the setting is off would be one they are
+        // then shown.
+        .where((m) => allowAdult() || !m.isAdult)
         .toList(growable: false);
   }
 
@@ -647,8 +659,9 @@ class AnilistApi {
   Future<List<AnilistScheduledAiring>> airingSchedule({
     required DateTime from,
     required DateTime to,
-    bool includeAdult = false,
+    bool? includeAdult,
   }) async {
+    final adult = includeAdult ?? allowAdult();
     final gql =
         '''
       query (\$start: Int, \$end: Int, \$page: Int) {
@@ -690,7 +703,7 @@ class AnilistApi {
             raw.cast<String, dynamic>(),
           );
           if (airing == null) continue;
-          if (!includeAdult && airing.media.isAdult) continue;
+          if (!adult && airing.media.isAdult) continue;
           out.add(airing);
         }
       }

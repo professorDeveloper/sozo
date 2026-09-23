@@ -582,7 +582,13 @@
     "start_paused_desc": "Der Player öffnet, spielt aber nicht. Das automatische Weiterspielen läuft trotzdem.",
     "date_format": "Datumsformat",
     "date_format_desc": "Sonst entscheidet das die Sprache.",
-    "date_format_auto": "Der Sprache folgen"
+    "date_format_auto": "Der Sprache folgen",
+    "section_content": "Inhalte",
+    "adult_content": "18+-Inhalte",
+    "adult_content_desc": "Inhalte und Quellen für Erwachsene überall zeigen — AniList, TMDB, CloudStream, Aniyomi, Manga und Torrents.",
+    "adult_confirm_title": "Bist du 18 oder älter?",
+    "adult_confirm_body": "Inhalte und Quellen für Erwachsene erscheinen dann in der ganzen App. Du kannst das jederzeit in den Einstellungen ausschalten.",
+    "adult_confirm_yes": "Ich bin 18 oder älter"
   },
   "appearance": {
     "title": "Darstellung",

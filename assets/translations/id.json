@@ -582,7 +582,13 @@
     "start_paused_desc": "Pemutar terbuka tanpa memutar. Lanjut otomatis tetap memutar.",
     "date_format": "Format tanggal",
     "date_format_desc": "Jika tidak diatur, bahasa yang menentukan.",
-    "date_format_auto": "Ikuti bahasa"
+    "date_format_auto": "Ikuti bahasa",
+    "section_content": "Konten",
+    "adult_content": "Konten 18+",
+    "adult_content_desc": "Tampilkan judul dan sumber dewasa di mana saja — AniList, TMDB, CloudStream, Aniyomi, manga, dan torrent.",
+    "adult_confirm_title": "Apakah kamu berusia 18 tahun ke atas?",
+    "adult_confirm_body": "Judul dan sumber dewasa akan muncul di seluruh aplikasi. Kamu bisa mematikannya kapan saja di Pengaturan.",
+    "adult_confirm_yes": "Saya berusia 18+"
   },
   "appearance": {
     "title": "Tampilan",

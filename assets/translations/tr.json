@@ -582,7 +582,13 @@
     "start_paused_desc": "Oynatıcı açılır ama oynatmaz. Otomatik geçiş yine de oynatır.",
     "date_format": "Tarih biçimi",
     "date_format_desc": "Aksi hâlde bunu dil belirler.",
-    "date_format_auto": "Dile uy"
+    "date_format_auto": "Dile uy",
+    "section_content": "İçerik",
+    "adult_content": "18+ içerik",
+    "adult_content_desc": "Yetişkin içerikleri ve kaynakları her yerde göster — AniList, TMDB, CloudStream, Aniyomi, manga ve torrentler.",
+    "adult_confirm_title": "18 yaşında veya daha büyük müsünüz?",
+    "adult_confirm_body": "Yetişkin içerikler ve kaynaklar uygulamanın her yerinde görünecek. Bunu istediğiniz zaman Ayarlar'dan kapatabilirsiniz.",
+    "adult_confirm_yes": "18 yaşında veya büyüğüm"
   },
   "appearance": {
     "title": "Görünüm",

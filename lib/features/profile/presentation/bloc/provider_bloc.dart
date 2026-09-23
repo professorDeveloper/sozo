@@ -178,6 +178,10 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
 
   Future<void> _appendCloudStreamProviders(List<ProviderEntity> into) async {
     if (!CloudStreamChannel.isSupported) return;
+    // The one 18+ setting covers video sources too, and for the manga
+    // sources' reason: dropped here, a hidden source is also one the resolver
+    // will not keep selected.
+    final allowAdult = hiveService.showAdultContent;
     try {
       final list = await CloudStreamChannel.ensureLoaded();
       for (final e in list) {
@@ -185,6 +189,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         final m = Map<String, dynamic>.from(e);
         final id = (m['id'] as String?)?.trim() ?? '';
         if (id.isEmpty) continue;
+        if (m['nsfw'] == true && !allowAdult) continue;
         into.add(
           ProviderModel(
             id: id,
@@ -210,6 +215,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
 
   Future<void> _appendAniyomiProviders(List<ProviderEntity> into) async {
     if (!AniyomiChannel.isSupported) return;
+    final allowAdult = hiveService.showAdultContent;
     try {
       final list = await AniyomiChannel.ensureLoaded();
       for (final e in list) {
@@ -217,6 +223,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         final m = Map<String, dynamic>.from(e);
         final id = (m['id'] as String?)?.trim() ?? '';
         if (id.isEmpty) continue;
+        if (m['nsfw'] == true && !allowAdult) continue;
         into.add(
           ProviderModel(
             id: id,
@@ -248,7 +255,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     // a hidden source is also one the resolver will not keep selected. Turning
     // the setting off therefore retires a dangling 18+ selection on the next
     // load instead of leaving it live but invisible.
-    final allowNsfw = hiveService.showNsfwMangaSources;
+    final allowNsfw = hiveService.showAdultContent;
     try {
       final list = await MangaChannel.ensureLoaded();
       for (final e in list) {
@@ -288,7 +295,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
   /// "show 18+ sources", not one per ecosystem.
   Future<void> _appendMangayomiProviders(List<ProviderEntity> into) async {
     if (!MangayomiBridge.isSupported) return;
-    final allowNsfw = hiveService.showNsfwMangaSources;
+    final allowNsfw = hiveService.showAdultContent;
     try {
       final list = getIt<MangayomiBridge>().listProviders(
         includeNsfw: allowNsfw,

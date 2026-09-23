@@ -115,15 +115,17 @@ class PluginHost(private val appContext: Context) {
          * needs it. Empty means the repo did not say.
          */
         val lang: String = "",
+        /** From the repo's plugin list: the plugin is typed NSFW there. */
+        val nsfw: Boolean = false,
     )
     private val metas = LinkedHashMap<String, Meta>()
 
     /** Register provider metadata WITHOUT loading the plugin (startup path). */
     fun registerMeta(
         provider: String, icon: String?, internalName: String,
-        cs3Path: String, repo: String? = null, lang: String = "",
+        cs3Path: String, repo: String? = null, lang: String = "", nsfw: Boolean = false,
     ) {
-        metas[provider] = Meta(provider, icon, internalName, cs3Path, repo, lang)
+        metas[provider] = Meta(provider, icon, internalName, cs3Path, repo, lang, nsfw)
         if (!icon.isNullOrEmpty()) providerIcons[provider] = icon
     }
 
@@ -132,7 +134,7 @@ class PluginHost(private val appContext: Context) {
         val m = metas[provider] ?: return
         if (loaded.containsKey(m.internalName)) return
         val f = File(m.cs3Path)
-        if (f.exists()) loadCs3(f, m.internalName, m.icon, m.repo, m.lang)
+        if (f.exists()) loadCs3(f, m.internalName, m.icon, m.repo, m.lang, m.nsfw)
     }
 
     private data class Manifest(
@@ -155,7 +157,7 @@ class PluginHost(private val appContext: Context) {
     /** Load a downloaded .cs3; returns the provider names it registered. */
     fun loadCs3(
         file: File, internalName: String, iconUrl: String? = null,
-        repo: String? = null, lang: String = "",
+        repo: String? = null, lang: String = "", nsfw: Boolean = false,
     ): List<String> {
         // Already loaded this process → don't register twice (avoids duplicates).
         loaded[internalName]?.let { return pluginProviders[internalName] ?: emptyList() }
@@ -201,7 +203,7 @@ class PluginHost(private val appContext: Context) {
 
             val added = APIHolder.allProviders.map { it.name }.filter { it !in before }
             pluginProviders[internalName] = added
-            added.forEach { metas[it] = Meta(it, iconUrl, internalName, file.absolutePath, repo, lang) }
+            added.forEach { metas[it] = Meta(it, iconUrl, internalName, file.absolutePath, repo, lang, nsfw) }
             if (!iconUrl.isNullOrEmpty()) added.forEach { providerIcons[it] = iconUrl }
             Log.i(TAG, "loaded ${file.name}: providers=$added")
             added
@@ -305,6 +307,8 @@ class PluginHost(private val appContext: Context) {
                 if (m.lang.isNotEmpty()) put("lang", m.lang)
                 m.icon?.let { put("icon", it) }
                 m.repo?.let { if (it.isNotEmpty()) put("repo", it) }
+                // So the 18+ setting covers CloudStream as it does the others.
+                if (m.nsfw) put("nsfw", true)
             })
         }
         return arr.toString()

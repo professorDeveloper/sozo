@@ -582,7 +582,13 @@
     "start_paused_desc": "De speler opent zonder af te spelen. Automatisch doorgaan speelt wel.",
     "date_format": "Datumnotatie",
     "date_format_desc": "Anders bepaalt de taal dit.",
-    "date_format_auto": "Volg de taal"
+    "date_format_auto": "Volg de taal",
+    "section_content": "Inhoud",
+    "adult_content": "18+-inhoud",
+    "adult_content_desc": "Titels en bronnen voor volwassenen overal tonen — AniList, TMDB, CloudStream, Aniyomi, manga en torrents.",
+    "adult_confirm_title": "Ben je 18 of ouder?",
+    "adult_confirm_body": "Titels en bronnen voor volwassenen verschijnen dan in de hele app. Je kunt dit altijd uitzetten in Instellingen.",
+    "adult_confirm_yes": "Ik ben 18 of ouder"
   },
   "appearance": {
     "title": "Weergave",

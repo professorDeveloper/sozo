@@ -202,6 +202,8 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<ThemeController>(
     ThemeController(getIt<HiveService>()),
   );
+  // Everything that asks AniList directly follows the 18+ setting.
+  AnilistApi.allowAdult = () => getIt<HiveService>().showAdultContent;
   // Material You, asked for rather than awaited: it is a trip over a platform
   // channel, and the first frame is already painted in the colour the
   // wallpaper had last time.

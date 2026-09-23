@@ -1060,27 +1060,32 @@ class HiveService {
   Future<void> setPrivateAlwaysAsk(bool value) async =>
       _settingsBox.put('private_always_ask', value);
 
-  /// Whether adult manga sources are shown. On by default, and read by both the
-  /// manga sources list and [ProviderBloc] — the picker builds its manga
-  /// entries from the same plugin list, so a source hidden in one place has to
-  /// be hidden in the other or the setting means nothing.
+  /// Whether adult titles and sources appear anywhere in the app.
   ///
-  /// It used to default off, which hid a large part of the installable
-  /// catalogue behind a switch nobody knew to look for: a source searched for
-  /// by name simply was not in the list, with nothing to say it had been
-  /// filtered. The toggle stays — this is the default it starts from, not a
-  /// removal of the choice.
-  bool get showNsfwMangaSources {
-    return _settingsBox.get(
-          AppConstants.showNsfwMangaSourcesKey,
-          defaultValue: true,
-        ) ==
-        true;
+  /// One switch for all of it. There used to be a manga-only one, while
+  /// AniList and TMDB were filtered unconditionally and CloudStream and
+  /// Aniyomi not at all — so what "18+" meant depended on which screen asked.
+  /// Everything reads this now: the source lists and pickers, the catalogue
+  /// requests (sent to the backend as a header), AniList, torrent search.
+  ///
+  /// Off unless chosen. An install that had set the old manga-only switch
+  /// explicitly keeps that choice; one that never touched it starts off —
+  /// the old switch defaulted on, and a default is not a choice.
+  bool get showAdultContent {
+    final chosen = _settingsBox.get(AppConstants.adultContentKey);
+    if (chosen is bool) return chosen;
+    final legacy = _settingsBox.get(AppConstants.showNsfwMangaSourcesKey);
+    return legacy is bool && legacy;
   }
 
-  Future<void> setShowNsfwMangaSources(bool enabled) async {
-    await _settingsBox.put(AppConstants.showNsfwMangaSourcesKey, enabled);
+  Future<void> setShowAdultContent(bool enabled) async {
+    await _settingsBox.put(AppConstants.adultContentKey, enabled);
+    adultContentChanged.value = !adultContentChanged.value;
   }
+
+  /// Notified when [showAdultContent] changes, so every list built from it
+  /// narrows or widens at the same moment.
+  final ValueNotifier<bool> adultContentChanged = ValueNotifier<bool>(false);
 
   bool get readerSpread =>
       _settingsBox.get(AppConstants.readerSpreadKey, defaultValue: false) ==

@@ -1,11 +1,17 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/localization/app_language.dart';
 import 'package:soplay/core/localization/language_picker.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
+import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
+import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 
 /// Everything the user can configure about the app itself.
@@ -17,6 +23,45 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  final HiveService _hive = getIt<HiveService>();
+
+  /// The one 18+ switch. Turning it on asks once whether the viewer is an
+  /// adult; turning it off never asks. Either way every list built from it is
+  /// rebuilt at once — the sources the picker offers, and Home, whose
+  /// catalogue the backend now answers differently.
+  Future<void> _setAdult(bool value) async {
+    if (value && !await _confirmAdult()) return;
+    await _hive.setShowAdultContent(value);
+    if (!mounted) return;
+    setState(() {});
+    try {
+      context.read<ProviderBloc>().add(const ProviderLoad());
+    } catch (_) {}
+    try {
+      context.read<HomeBloc>().add(HomeLoad(silent: true));
+    } catch (_) {}
+  }
+
+  Future<bool> _confirmAdult() async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text('profile.adult_confirm_title'.tr()),
+          content: Text('profile.adult_confirm_body'.tr()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('general.cancel'.tr()),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text('profile.adult_confirm_yes'.tr()),
+            ),
+          ],
+        ),
+      ) ??
+      false;
 
   @override
   Widget build(BuildContext context) {
@@ -24,8 +69,10 @@ class _SettingsPageState extends State<SettingsPage> {
     return SettingsPageScaffold(
       title: 'profile.settings_title'.tr(),
       children: [
-        SettingsLabel('profile.section_general'.tr(),
-            featureIds: const ['home_rails', 'change_source']),
+        SettingsLabel(
+          'profile.section_general'.tr(),
+          featureIds: const ['home_rails', 'change_source'],
+        ),
         SettingsCard(
           children: [
             // The page, not a dropdown. Eleven languages in a menu that opens
@@ -63,6 +110,19 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         ),
         const SizedBox(height: 20),
+        SettingsLabel('profile.section_content'.tr()),
+        SettingsCard(
+          children: [
+            SettingsSwitchTile(
+              icon: Icons.eighteen_up_rating_outlined,
+              title: 'profile.adult_content'.tr(),
+              subtitle: 'profile.adult_content_desc'.tr(),
+              value: _hive.showAdultContent,
+              onChanged: _setAdult,
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
         SettingsLabel('app_lock.section_label'.tr()),
         SettingsCard(
           children: [
@@ -81,7 +141,10 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         ),
         const SizedBox(height: 20),
-        SettingsLabel('profile.section_data'.tr(), featureIds: const ['backup']),
+        SettingsLabel(
+          'profile.section_data'.tr(),
+          featureIds: const ['backup'],
+        ),
         SettingsCard(
           children: [
             SettingsNavTile(

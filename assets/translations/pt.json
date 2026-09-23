@@ -582,7 +582,13 @@
     "start_paused_desc": "O player abre sem reproduzir. O avanço automático continua tocando.",
     "date_format": "Formato da data",
     "date_format_desc": "Caso contrário, quem decide é o idioma.",
-    "date_format_auto": "Seguir o idioma"
+    "date_format_auto": "Seguir o idioma",
+    "section_content": "Conteúdo",
+    "adult_content": "Conteúdo +18",
+    "adult_content_desc": "Mostrar títulos e fontes adultos em todo lugar — AniList, TMDB, CloudStream, Aniyomi, mangá e torrents.",
+    "adult_confirm_title": "Você tem 18 anos ou mais?",
+    "adult_confirm_body": "Títulos e fontes adultos aparecerão em todo o app. Você pode desativar a qualquer momento nas Configurações.",
+    "adult_confirm_yes": "Tenho 18 anos ou mais"
   },
   "appearance": {
     "title": "Aparência",

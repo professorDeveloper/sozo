@@ -48,7 +48,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
     // sorting the branch that passed the original list straight through blew up
     // the whole page for any user with adult sources enabled and no sources yet.
     final all = _store.sources();
-    final visible = _hive.showNsfwMangaSources
+    final visible = _hive.showAdultContent
         ? all.toList()
         : all.where((s) => !s.isNsfw).toList();
     visible.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
@@ -203,7 +203,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
             busy: _busy,
             accent: _accent,
             fallbackIcon: _logo,
-            nsfwAllowed: _hive.showNsfwMangaSources,
+            nsfwAllowed: _hive.showAdultContent,
             onInstall: (repo) => _install(repo.allUrls),
           ),
           const SizedBox(height: 24),

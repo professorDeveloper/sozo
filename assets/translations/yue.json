@@ -582,7 +582,13 @@
     "start_paused_desc": "播放器會開，但唔會播。自動下一集照播。",
     "date_format": "日期格式",
     "date_format_desc": "唔揀嘅話由語言決定。",
-    "date_format_auto": "跟語言"
+    "date_format_auto": "跟語言",
+    "section_content": "內容",
+    "adult_content": "18+ 內容",
+    "adult_content_desc": "喺所有地方顯示成人作品同來源 — AniList、TMDB、CloudStream、Aniyomi、漫畫同 torrent。",
+    "adult_confirm_title": "你係咪 18 歲或以上？",
+    "adult_confirm_body": "成人作品同來源會喺成個 app 出現，隨時可以喺設定度關閂。",
+    "adult_confirm_yes": "我 18 歲或以上"
   },
   "appearance": {
     "title": "外觀",

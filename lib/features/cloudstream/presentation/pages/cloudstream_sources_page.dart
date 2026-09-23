@@ -4,6 +4,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
@@ -193,6 +195,7 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
           ],
           const SizedBox(height: 24),
           RecommendedReposSection(
+            nsfwAllowed: getIt<HiveService>().showAdultContent,
             kind: ExtensionRepoKind.cloudstream,
             installedUrls: {for (final r in _repos) (r['url'] ?? '').trim()},
             busy: _busy,

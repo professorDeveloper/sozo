@@ -582,7 +582,13 @@
     "start_paused_desc": "Le lecteur s'ouvre sans lancer la lecture. L'épisode suivant démarre quand même.",
     "date_format": "Format de date",
     "date_format_desc": "Sinon, c'est la langue qui décide.",
-    "date_format_auto": "Suivre la langue"
+    "date_format_auto": "Suivre la langue",
+    "section_content": "Contenu",
+    "adult_content": "Contenu 18+",
+    "adult_content_desc": "Afficher partout les titres et sources pour adultes — AniList, TMDB, CloudStream, Aniyomi, manga et torrents.",
+    "adult_confirm_title": "Avez-vous 18 ans ou plus ?",
+    "adult_confirm_body": "Les titres et sources pour adultes apparaîtront dans toute l'app. Vous pouvez désactiver cela à tout moment dans les Réglages.",
+    "adult_confirm_yes": "J'ai 18 ans ou plus"
   },
   "appearance": {
     "title": "Apparence",

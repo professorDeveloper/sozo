@@ -178,6 +178,7 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
         itemType: _itemType,
         query: _query,
         runnableOnly: true,
+        nsfw: getIt<HiveService>().showAdultContent,
         page: 1,
       );
       if (!mounted || generation != _generation) return;
@@ -225,6 +226,7 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
         itemType: _itemType,
         query: _query,
         runnableOnly: true,
+        nsfw: getIt<HiveService>().showAdultContent,
         page: _page + 1,
       );
       // A page of the previous filter's results must not land under the new
