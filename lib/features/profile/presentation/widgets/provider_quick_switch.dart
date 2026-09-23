@@ -923,6 +923,7 @@ class _ModeSegments extends StatelessWidget {
                         button: true,
                         selected: m == shown,
                         child: InkWell(
+                          borderRadius: BorderRadius.circular(11),
                           key: keys[m],
                           onTap: () => onTap(m),
                           child: Center(
@@ -1046,6 +1047,7 @@ class _CatalogueCard extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
+            borderRadius: BorderRadius.circular(14),
             onTap: onTap,
             // Loose, and centred: the text stack is what says how tall the
             // card is, and an expanded Stack would hand it the card's height

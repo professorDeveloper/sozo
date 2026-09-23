@@ -699,6 +699,7 @@ class _EpisodeRow extends StatelessWidget {
         ? 'player.episode_n'.tr(args: ['${episode.episode}'])
         : episode.label;
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       // On TV the panel opens with the remote already on the episode being
       // watched, so OK re-plays it and up/down walks the list from there.
@@ -766,6 +767,7 @@ class _VideoTrackRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final detail = track.detail;
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       autofocus: isTvPlatform && isActive,
       focusColor: _kTvFocusFill,
@@ -823,6 +825,7 @@ class _QualityRow extends StatelessWidget {
     final worst = StreamWarning.worst(source);
 
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       autofocus: isTvPlatform && isActive,
       focusColor: _kTvFocusFill,
@@ -1039,6 +1042,7 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final disabled = onTap == null;
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       focusColor: _kTvFocusFill,
       child: Padding(
@@ -1121,6 +1125,7 @@ class _OptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       onLongPress: onLongPress,
       // Land the remote on the value that is already active, the way the

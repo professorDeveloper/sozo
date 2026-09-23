@@ -142,6 +142,7 @@ class _PlayerInfoFieldsSheetState extends State<PlayerInfoFieldsSheet> {
                   final f = PlayerInfoFields.all[i];
                   final on = _enabled.contains(f.id);
                   return InkWell(
+                    borderRadius: BorderRadius.circular(12),
                     onTap: () => _toggle(f.id, !on),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(18, 2, 12, 2),

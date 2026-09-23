@@ -758,6 +758,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     return [
       const Divider(color: Colors.white12, height: 1),
       InkWell(
+        borderRadius: BorderRadius.circular(12),
         onTap: () => setState(() => _showSilent = !_showSilent),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),

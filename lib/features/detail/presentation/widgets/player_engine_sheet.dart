@@ -155,6 +155,7 @@ Future<bool> showPlayerEngineSheet(BuildContext context) async {
                 ),
               const SizedBox(height: 6),
               InkWell(
+                borderRadius: BorderRadius.circular(12),
                 onTap: () => setSheetState(() => dontAskAgain = !dontAskAgain),
                 child: Padding(
                   padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 18, 8),
