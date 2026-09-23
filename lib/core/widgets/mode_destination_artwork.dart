@@ -8,17 +8,26 @@ class ModeDestinationArtwork extends StatelessWidget {
     super.key,
     required this.mode,
     required this.color,
+    this.progress = 1,
   });
   final ContentMode mode;
   final Color color;
+  final double progress;
 
   @override
-  Widget build(BuildContext context) =>
-      CustomPaint(size: const Size.square(112), painter: _Artwork(mode, color));
+  Widget build(BuildContext context) => CustomPaint(
+    size: const Size.square(112),
+    painter: _Artwork(
+      mode,
+      color,
+      MediaQuery.disableAnimationsOf(context) ? 1 : progress,
+    ),
+  );
 }
 
 class _Artwork extends CustomPainter {
-  const _Artwork(this.mode, this.color);
+  const _Artwork(this.mode, this.color, this.progress);
+  final double progress;
   final ContentMode mode;
   final Color color;
 
@@ -36,7 +45,11 @@ class _Artwork extends CustomPainter {
     void line(Offset a, Offset b, Color c, [double width = 2]) =>
         canvas.drawLine(
           a,
-          b,
+          Offset.lerp(
+            a,
+            b,
+            Curves.easeOutCubic.transform(((progress - .45) / .5).clamp(0, 1)),
+          )!,
           paint
             ..shader = null
             ..color = c
@@ -55,6 +68,21 @@ class _Artwork extends CustomPainter {
         ..color = color.withValues(alpha: .25)
         ..style = PaintingStyle.stroke,
     );
+    // Reveal film across its frame, manga down its panels, and book pages
+    // out from the binding. Text strokes then write on inside that reveal.
+    final reveal = Curves.easeInOutCubic.transform(
+      ((progress - .10) / .68).clamp(0, 1),
+    );
+    canvas.save();
+    canvas.clipRect(switch (mode) {
+      ContentMode.video => Rect.fromLTWH(0, 0, 112 * reveal, 112),
+      ContentMode.manga => Rect.fromLTWH(0, 0, 112, 112 * reveal),
+      ContentMode.novel => Rect.fromCenter(
+        center: const Offset(56, 56),
+        width: 112 * reveal,
+        height: 112,
+      ),
+    });
     switch (mode) {
       case ContentMode.video:
         rect(const Rect.fromLTWH(17, 27, 78, 61), Colors.black26, 10);
@@ -167,8 +195,10 @@ class _Artwork extends CustomPainter {
           Paint()..color = color,
         );
     }
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_Artwork old) => old.mode != mode || old.color != color;
+  bool shouldRepaint(_Artwork old) =>
+      old.mode != mode || old.color != color || old.progress != progress;
 }

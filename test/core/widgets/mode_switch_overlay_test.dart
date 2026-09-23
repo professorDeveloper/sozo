@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/widgets/sozo_dragon_transition.dart';
+import 'package:soplay/core/widgets/catalogue_transition_mark.dart';
 import 'package:soplay/core/widgets/mode_switch_overlay.dart';
 
 void main() {
@@ -39,10 +40,11 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          final mark = tester.widget<SozoDragonTransition>(
-            find.byType(SozoDragonTransition),
+          final mark = tester.widget<CatalogueTransitionMark>(
+            find.byType(CatalogueTransitionMark),
           );
           expect(mark.progress, 1);
+          expect(find.byType(SozoDragonTransition), findsNothing);
           expect(
             find.textContaining(catalogue.mode.labelKey.toUpperCase()),
             findsOneWidget,
@@ -176,8 +178,8 @@ void main() {
         elapsed += const Duration(milliseconds: 20);
       }
 
-      final signature = tester.widget<SozoDragonTransition>(
-        find.byType(SozoDragonTransition),
+      final signature = tester.widget<CatalogueTransitionMark>(
+        find.byType(CatalogueTransitionMark),
       );
       expect(
         signature.progress,

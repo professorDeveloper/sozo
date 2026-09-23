@@ -10,12 +10,11 @@ import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/content/content_mode_style.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/widgets/catalogue_transition_mark.dart';
-import 'package:soplay/core/brand/sozo_mark_geometry.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 /// A bounded transition between catalogues and reading modes. The reveal starts
-/// at the selected chip; the splash's dragon signs the change, with a separate
-/// destination logo and shelf label so AniList’s three shelves stay distinct.
+/// at the selected chip; destination artwork assembles alongside a shelf label
+/// so AniList’s three shelves stay distinct.
 class ModeSwitchOverlay extends StatefulWidget {
   const ModeSwitchOverlay({
     super.key,
@@ -47,18 +46,12 @@ class ModeSwitchOverlay extends StatefulWidget {
   /// The cover lifting off the new content.
   static const Duration exitDuration = Duration(milliseconds: 280);
 
-  /// The mark being signed: outline, then fill, then the badge. Starts once
-  /// the cover has most of the screen and runs on into the hold.
-  ///
-  /// Sized against [minimumBeat] on purpose. The pen must have finished before
-  /// the cover starts lifting — a mark caught half-written reads as an
-  /// interrupted animation rather than a fast one — and every millisecond
-  /// beyond that is a millisecond the user waits on the app's most repeated
-  /// action.
+  /// Destination parts assemble after the cover begins opening. The mark
+  /// completes before [minimumBeat], leaving time to read the destination.
   static const Duration signDuration = Duration(milliseconds: 900);
 
   /// The floor on the whole thing: long enough to read the word and watch the
-  /// signature finish, short enough that nobody waits through it twice.
+  /// artwork settle without extending the loading deadline.
   static const Duration minimumBeat = Duration(milliseconds: 1600);
 
   /// How long the cover will wait for the new mode's first load before lifting
@@ -135,10 +128,6 @@ class ModeSwitchOverlay extends StatefulWidget {
   }) async {
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
     if (overlay == null) return;
-    // Started, not awaited: the pen does not begin until ~33ms in, which is
-    // more than the parse needs, and a mode switch must not wait on an asset
-    // read even once.
-    unawaited(SozoMarkGeometry.precache());
     final release = ValueNotifier<bool>(false);
     final entry = OverlayEntry(
       builder: (_) => ModeSwitchOverlay(
@@ -253,7 +242,7 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
   /// the word second.
   late final Animation<double> _labelIn = CurvedAnimation(
     parent: _sign,
-    curve: const Interval(0.64, 0.88, curve: Curves.easeOut),
+    curve: const Interval(0.48, 0.82, curve: Curves.easeOut),
   );
 
   late final Animation<Offset> _labelRise = Tween<Offset>(
