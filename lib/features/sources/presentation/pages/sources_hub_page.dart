@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:soplay/core/widgets/quick_return_header.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -39,7 +40,7 @@ class SourcesHubPage extends StatefulWidget {
 }
 
 class _SourcesHubPageState extends State<SourcesHubPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final TabController _tabs = TabController(
     length: ContentMode.values.length,
     initialIndex: ContentMode.fromId(
@@ -65,30 +66,14 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// "CloudStream" is two hundred sources and the question is which two
   /// hundred. See [SourceScope].
   SourceScope _scope = SourceScope.all;
-  bool _filtersCollapsed = false;
-  double _filterScrollDistance = 0;
 
-  bool _onSourceScroll(ScrollNotification notification) {
-    if (notification is ScrollStartNotification) _filterScrollDistance = 0;
-    if (notification is! ScrollUpdateNotification ||
-        notification.dragDetails == null ||
-        notification.metrics.axis != Axis.vertical ||
-        notification.metrics.maxScrollExtent < 120) {
-      return false;
-    }
-    final delta = notification.scrollDelta ?? 0;
-    if (_filterScrollDistance.sign != delta.sign) _filterScrollDistance = 0;
-    _filterScrollDistance += delta;
-    final collapse =
-        notification.metrics.extentBefore > 80 && _filterScrollDistance > 56;
-    final expand =
-        notification.metrics.extentBefore < 16 || _filterScrollDistance < -24;
-    if ((!_filtersCollapsed && collapse) || (_filtersCollapsed && expand)) {
-      setState(() => _filtersCollapsed = collapse && !expand);
-      _filterScrollDistance = 0;
-    }
-    return false;
-  }
+  /// The filters are the user's to fold away; scrolling moves the whole
+  /// header instead (see [_header]).
+  bool _filtersCollapsed = false;
+
+  /// Search and filters float over the lists and scroll away with them,
+  /// coming back the moment the list is pulled down.
+  late final QuickReturnController _header = QuickReturnController(vsync: this);
 
   List<String> get _languages => getIt<HiveService>().getProviderLanguages();
 
@@ -118,6 +103,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   void _onTabMoved() {
     if (_tabs.indexIsChanging || _tabs.index == _lastTab) return;
     _lastTab = _tabs.index;
+    _header.show();
     setState(() => _scope = SourceScope.all);
   }
 
@@ -151,6 +137,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       c.dispose();
     }
     _tabs.dispose();
+    _header.dispose();
     _searchDebounce?.cancel();
     _search.dispose();
     super.dispose();
@@ -220,6 +207,16 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         final ctx = key.currentContext;
         if (ctx == null) return;
         Scrollable.ensureVisible(ctx, alignment: 0.18);
+        // The header floats over the top of the list, so the row is moved
+        // down by its height to land below it rather than beneath it.
+        if (scroll.hasClients) {
+          scroll.jumpTo(
+            (scroll.offset - _header.extent.value).clamp(
+              0.0,
+              scroll.position.maxScrollExtent,
+            ),
+          );
+        }
       });
     });
   }
@@ -579,78 +576,49 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                   isScrollable: false,
                   labels: [for (final m in ContentMode.values) m.labelKey.tr()],
                 ),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: constraints.maxHeight * .55,
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(child: _searchField(state, mode)),
-                            Padding(
-                              padding: const EdgeInsetsDirectional.only(end: 8),
-                              child: IconButton(
-                                tooltip: 'sources.filter_type'.tr(),
-                                isSelected: !_filtersCollapsed,
-                                onPressed: () => setState(() {
-                                  _filtersCollapsed = !_filtersCollapsed;
-                                  _filterScrollDistance = 0;
-                                }),
-                                icon: const Icon(Icons.tune_rounded),
-                              ),
-                            ),
-                          ],
+                // Search stays put: it is how anyone finds one name in a
+                // few hundred, so it never scrolls out of reach.
+                Row(
+                  children: [
+                    Expanded(child: _searchField(state, mode)),
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 8),
+                      child: ValueListenableBuilder<double>(
+                        valueListenable: _header.hidden,
+                        builder: (context, hidden, _) => IconButton(
+                          tooltip: 'sources.filter_type'.tr(),
+                          isSelected: !_filtersCollapsed && hidden < 1,
+                          onPressed: () {
+                            // Scrolled away: bring them back. Showing: fold
+                            // them, or unfold them.
+                            if (hidden >= 1 && !_filtersCollapsed) {
+                              _header.show();
+                            } else {
+                              setState(
+                                () => _filtersCollapsed = !_filtersCollapsed,
+                              );
+                              _header.show();
+                            }
+                          },
+                          icon: const Icon(Icons.tune_rounded),
                         ),
-                        AnimatedSize(
-                          duration: MediaQuery.disableAnimationsOf(context)
-                              ? Duration.zero
-                              : const Duration(milliseconds: 260),
-                          curve: Curves.easeInOutCubic,
-                          alignment: Alignment.topCenter,
-                          child: _filtersCollapsed
-                              ? const SizedBox(width: double.infinity)
-                              : Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        16,
-                                        0,
-                                        16,
-                                        8,
-                                      ),
-                                      child: Align(
-                                        alignment:
-                                            AlignmentDirectional.centerStart,
-                                        child: Text(
-                                          'source_manager.selection_hint'.tr(),
-                                          style: const TextStyle(
-                                            color: AppColors.textSecondary,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    SourceScopeMenu(
-                                      counts: counts,
-                                      scope: scope,
-                                      onPick: (picked) =>
-                                          setState(() => _scope = picked),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
                 Expanded(
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: _onSourceScroll,
-                    child: TabBarView(
+                  child: QuickReturnLayout(
+                    controller: _header,
+                    background: AppColors.background,
+                    header: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: constraints.maxHeight * .45,
+                      ),
+                      child: SingleChildScrollView(
+                        child: _filterHeader(counts, scope),
+                      ),
+                    ),
+                    body: TabBarView(
                       controller: _tabs,
                       children: [
                         for (final m in ContentMode.values)
@@ -664,6 +632,43 @@ class _SourcesHubPageState extends State<SourcesHubPage>
           },
         );
       },
+    );
+  }
+
+  /// The filters under the search field: what floats away on scroll, and
+  /// what the tune button folds.
+  Widget _filterHeader(SourceScopeCounts counts, SourceScope scope) {
+    return AnimatedSize(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 240),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.topCenter,
+      child: _filtersCollapsed
+          ? const SizedBox(width: double.infinity)
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      'source_manager.selection_hint'.tr(),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                SourceScopeMenu(
+                  counts: counts,
+                  scope: scope,
+                  onPick: (picked) => setState(() => _scope = picked),
+                ),
+              ],
+            ),
     );
   }
 
@@ -767,20 +772,39 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     final unstated = narrow(tab.unstated);
 
     if (matched.isEmpty && unstated.isEmpty) {
-      return _Message(
-        text: needle.isEmpty && _languages.isEmpty
-            ? 'mode.none_installed'.tr(args: [mode.labelKey.tr()])
-            : 'profile.no_providers_in_category'.tr(),
-        hint: needle.isEmpty ? _modeHint(mode) : null,
-        // An empty mode is a dead end without this. Manga and novels are both
-        // extension ecosystems, so a fresh install has nothing in either tab
-        // and the only way out is a gear icon the message never mentions.
-        actionLabel: needle.isEmpty ? 'source_manager.manage'.tr() : null,
-        onAction: needle.isEmpty ? _openExtensions : null,
+      return Column(
+        children: [
+          QuickReturnSpacer(controller: _header),
+          Expanded(child: _emptyTab(mode, needle)),
+        ],
       );
     }
 
     _alignToCurrent(mode, matched, state.currentProviderId);
+    return _list(mode, scope, matched, unstated, state);
+  }
+
+  Widget _emptyTab(ContentMode mode, String needle) {
+    return _Message(
+      text: needle.isEmpty && _languages.isEmpty
+          ? 'mode.none_installed'.tr(args: [mode.labelKey.tr()])
+          : 'profile.no_providers_in_category'.tr(),
+      hint: needle.isEmpty ? _modeHint(mode) : null,
+      // An empty mode is a dead end without this. Manga and novels are both
+      // extension ecosystems, so a fresh install has nothing in either tab
+      // and the only way out is a gear icon the message never mentions.
+      actionLabel: needle.isEmpty ? 'source_manager.manage'.tr() : null,
+      onAction: needle.isEmpty ? _openExtensions : null,
+    );
+  }
+
+  Widget _list(
+    ContentMode mode,
+    SourceScope scope,
+    List<ProviderEntity> matched,
+    List<ProviderEntity> unstated,
+    ProviderLoaded state,
+  ) {
     return CustomScrollView(
       // No needle in the key. A changed key destroys the element and builds a
       // new one, so every character tore down all three lists: the scroll
@@ -794,6 +818,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       controller: _scrolls[mode],
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [
+        QuickReturnSpacer.sliver(_header),
         SliverPadding(
           padding: EdgeInsets.fromLTRB(12, 4, 12, unstated.isEmpty ? 24 : 4),
           sliver: _rows(matched, state, mode),
