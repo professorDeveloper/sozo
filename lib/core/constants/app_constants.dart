@@ -228,6 +228,8 @@ class AppConstants {
   /// Settings → 18+ content: whether adult titles and sources appear anywhere
   /// — AniList, TMDB, CloudStream, Aniyomi, manga, torrents. Absent ⇒ off.
   static const String adultContentKey = 'show_adult_content';
+  static const String libraryUpdateHoursKey = 'library_update_hours';
+  static const String libraryUpdateLastKey = 'library_update_last_at';
 
   static const String appLockEnabledKey = 'app_lock_enabled';
   static const String appLockPinLengthKey = 'app_lock_pin_length';

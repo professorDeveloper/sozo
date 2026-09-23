@@ -604,7 +604,11 @@
     "adult_confirm_body": "Inhalte und Quellen für Erwachsene erscheinen dann in der ganzen App. Du kannst das jederzeit in den Einstellungen ausschalten.",
     "adult_confirm_yes": "Ich bin 18 oder älter",
     "nav_compact_scroll": "Kompakte Navigation beim Scrollen",
-    "nav_compact_scroll_hint": "Verringert beim Scrollen die Höhe. Gilt für Glass und Solid."
+    "nav_compact_scroll_hint": "Verringert beim Scrollen die Höhe. Gilt für Glass und Solid.",
+    "library_update": "Nach neuen Folgen suchen",
+    "library_update_desc": "Prüft deine gefolgten Titel und meldet neue Folgen",
+    "library_update_every": "Alle {} Stunden",
+    "library_update_daily": "Einmal täglich"
   },
   "appearance": {
     "title": "Darstellung",

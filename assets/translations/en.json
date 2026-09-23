@@ -604,7 +604,11 @@
     "adult_content_desc": "Show adult titles and sources everywhere — AniList, TMDB, CloudStream, Aniyomi, manga and torrents.",
     "adult_confirm_title": "Are you 18 or older?",
     "adult_confirm_body": "Adult titles and sources will appear throughout the app. You can turn this off at any time in Settings.",
-    "adult_confirm_yes": "I'm 18 or older"
+    "adult_confirm_yes": "I'm 18 or older",
+    "library_update": "Check for new episodes",
+    "library_update_desc": "Looks at the titles you follow and notifies you when a new one is out",
+    "library_update_every": "Every {} hours",
+    "library_update_daily": "Once a day"
   },
   "appearance": {
     "title": "Appearance",

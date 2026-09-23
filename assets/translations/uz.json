@@ -604,7 +604,11 @@
     "adult_content_desc": "Kattalar uchun kontent va manbalarni hamma joyda ko‘rsatish — AniList, TMDB, CloudStream, Aniyomi, manga va torrentlar.",
     "adult_confirm_title": "Yoshingiz 18 dan kattami?",
     "adult_confirm_body": "Kattalar uchun kontent va manbalar ilovaning hamma joyida ko‘rinadi. Istalgan vaqt Sozlamalarda o‘chirishingiz mumkin.",
-    "adult_confirm_yes": "Ha, 18 yoshdan kattaman"
+    "adult_confirm_yes": "Ha, 18 yoshdan kattaman",
+    "library_update": "Yangi qismlarni tekshirish",
+    "library_update_desc": "Kuzatayotgan titullaringizni tekshirib, yangi qism chiqsa xabar beradi",
+    "library_update_every": "Har {} soatda",
+    "library_update_daily": "Kuniga bir marta"
   },
   "appearance": {
     "title": "Ko'rinish",

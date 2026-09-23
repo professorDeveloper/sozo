@@ -604,7 +604,11 @@
     "adult_confirm_body": "Títulos e fontes adultos aparecerão em todo o app. Você pode desativar a qualquer momento nas Configurações.",
     "adult_confirm_yes": "Tenho 18 anos ou mais",
     "nav_compact_scroll": "Navegação compacta ao rolar",
-    "nav_compact_scroll_hint": "Reduz a altura durante a rolagem. Vale para Glass e Solid."
+    "nav_compact_scroll_hint": "Reduz a altura durante a rolagem. Vale para Glass e Solid.",
+    "library_update": "Procurar novos episódios",
+    "library_update_desc": "Verifica os títulos que você segue e avisa quando sai um novo",
+    "library_update_every": "A cada {} horas",
+    "library_update_daily": "Uma vez por dia"
   },
   "appearance": {
     "title": "Aparência",

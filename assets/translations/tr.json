@@ -604,7 +604,11 @@
     "adult_confirm_body": "Yetişkin içerikler ve kaynaklar uygulamanın her yerinde görünecek. Bunu istediğiniz zaman Ayarlar'dan kapatabilirsiniz.",
     "adult_confirm_yes": "18 yaşında veya büyüğüm",
     "nav_compact_scroll": "Kaydırırken kompakt gezinme",
-    "nav_compact_scroll_hint": "Kaydırırken yüksekliği azaltır. Glass ve Solid için geçerlidir."
+    "nav_compact_scroll_hint": "Kaydırırken yüksekliği azaltır. Glass ve Solid için geçerlidir.",
+    "library_update": "Yeni bölümleri denetle",
+    "library_update_desc": "Takip ettiğin yapımları denetler, yenisi çıkınca haber verir",
+    "library_update_every": "{} saatte bir",
+    "library_update_daily": "Günde bir"
   },
   "appearance": {
     "title": "Görünüm",

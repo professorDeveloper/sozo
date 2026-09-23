@@ -604,7 +604,11 @@
     "adult_confirm_body": "Titels en bronnen voor volwassenen verschijnen dan in de hele app. Je kunt dit altijd uitzetten in Instellingen.",
     "adult_confirm_yes": "Ik ben 18 of ouder",
     "nav_compact_scroll": "Compacte navigatie bij scrollen",
-    "nav_compact_scroll_hint": "Verlaagt de hoogte tijdens het scrollen. Geldt voor Glass en Solid."
+    "nav_compact_scroll_hint": "Verlaagt de hoogte tijdens het scrollen. Geldt voor Glass en Solid.",
+    "library_update": "Zoeken naar nieuwe afleveringen",
+    "library_update_desc": "Controleert de titels die je volgt en meldt nieuwe afleveringen",
+    "library_update_every": "Elke {} uur",
+    "library_update_daily": "Eén keer per dag"
   },
   "appearance": {
     "title": "Weergave",

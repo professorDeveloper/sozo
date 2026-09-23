@@ -604,7 +604,11 @@
     "adult_confirm_body": "Judul dan sumber dewasa akan muncul di seluruh aplikasi. Kamu bisa mematikannya kapan saja di Pengaturan.",
     "adult_confirm_yes": "Saya berusia 18+",
     "nav_compact_scroll": "Navigasi ringkas saat menggulir",
-    "nav_compact_scroll_hint": "Mengurangi tinggi saat menggulir. Berlaku untuk Glass dan Solid."
+    "nav_compact_scroll_hint": "Mengurangi tinggi saat menggulir. Berlaku untuk Glass dan Solid.",
+    "library_update": "Periksa episode baru",
+    "library_update_desc": "Memeriksa judul yang kamu ikuti dan memberi tahu saat ada yang baru",
+    "library_update_every": "Setiap {} jam",
+    "library_update_daily": "Sekali sehari"
   },
   "appearance": {
     "title": "Tampilan",

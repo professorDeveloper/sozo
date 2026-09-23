@@ -604,7 +604,11 @@
     "adult_content_desc": "Показывать взрослые тайтлы и источники везде — AniList, TMDB, CloudStream, Aniyomi, манга и торренты.",
     "adult_confirm_title": "Вам есть 18 лет?",
     "adult_confirm_body": "Взрослые тайтлы и источники появятся во всём приложении. Отключить можно в любой момент в Настройках.",
-    "adult_confirm_yes": "Мне есть 18"
+    "adult_confirm_yes": "Мне есть 18",
+    "library_update": "Проверять новые серии",
+    "library_update_desc": "Проверяет отслеживаемые тайтлы и сообщает о новых сериях",
+    "library_update_every": "Каждые {} ч",
+    "library_update_daily": "Раз в день"
   },
   "appearance": {
     "title": "Внешний вид",
