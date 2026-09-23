@@ -204,10 +204,8 @@ class _RailPreviewTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Opacity(
-        // Dimmed rather than removed: a hidden band keeps its place in the
-        // order, so switching it back on puts it where it was instead of at
-        // the end.
-        opacity: hidden ? 0.42 : 1,
+        // Keep the control legible even when the rail is hidden.
+        opacity: 1,
         child: Container(
           decoration: BoxDecoration(
             color: AppColors.surface,
@@ -233,10 +231,31 @@ class _RailPreviewTile extends StatelessWidget {
                     ),
                   ),
                   if (canHide)
-                    Switch.adaptive(
+                    Switch(
                       value: !hidden,
                       onChanged: (_) => onToggle(),
-                      activeTrackColor: AppColors.primary,
+                      thumbColor: const WidgetStatePropertyAll(Colors.white),
+                      trackColor: WidgetStateProperty.resolveWith(
+                        (states) => states.contains(WidgetState.selected)
+                            ? AppColors.primary
+                            : AppColors.surfaceVariant,
+                      ),
+                      trackOutlineColor: WidgetStateProperty.resolveWith(
+                        (states) => states.contains(WidgetState.selected)
+                            ? Colors.transparent
+                            : AppColors.textHint,
+                      ),
+                      thumbIcon: WidgetStateProperty.resolveWith(
+                        (states) => Icon(
+                          states.contains(WidgetState.selected)
+                              ? Icons.check_rounded
+                              : Icons.remove_rounded,
+                          color: states.contains(WidgetState.selected)
+                              ? AppColors.primary
+                              : AppColors.surfaceVariant,
+                          size: 14,
+                        ),
+                      ),
                     )
                   else
                     // Locked rather than absent: an eye that is simply missing

@@ -377,10 +377,26 @@ class _HomeContentBody extends StatelessWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                  child: OutlinedButton.icon(
-                    onPressed: () => showHomeRailCustomizer(context),
-                    icon: const Icon(Icons.dashboard_customize_outlined),
-                    label: Text('home_rails.entry_title'.tr()),
+                  child: Center(
+                    child: TextButton.icon(
+                      onPressed: () => showHomeRailCustomizer(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.textSecondary,
+                        backgroundColor: AppColors.surface,
+                        minimumSize: const Size(0, 44),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        shape: const StadiumBorder(),
+                      ),
+                      icon: const Icon(Icons.tune_rounded, size: 16),
+                      label: Text('home_rails.entry_title'.tr()),
+                    ),
                   ),
                 ),
               ),
