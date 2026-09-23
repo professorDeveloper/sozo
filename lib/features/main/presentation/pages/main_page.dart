@@ -525,12 +525,17 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                           left: 0,
                           right: 0,
                           bottom: 0,
-                          child: ValueListenableBuilder<bool>(
-                            valueListenable: _navigationScroll,
-                            builder: (context, compact, child) =>
+                          child: ListenableBuilder(
+                            listenable: Listenable.merge([
+                              _navigationScroll,
+                              NavPrefs.navStyle,
+                            ]),
+                            builder: (context, child) =>
                                 ScrollCompactNavigation(
                                   compact:
-                                      compact &&
+                                      _navigationScroll.value &&
+                                      NavPrefs.navStyle.value !=
+                                          NavPrefs.classic &&
                                       _index != _shortsIndex &&
                                       MediaQuery.sizeOf(context).width >=
                                           defs.length * 48 + 40,
