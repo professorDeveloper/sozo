@@ -30,19 +30,16 @@ void main() {
     });
   });
 
-  group('bands nobody asked for', () {
-    test('the streaming line-up is one of them', () {
-      expect(HomeRail.watchServices.isOptIn, isTrue);
+  group('default visibility', () {
+    test('streaming services are enabled by default', () {
+      expect(HomeRail.watchServices.isOptIn, isFalse);
       expect(HomeRail.catalogue.isOptIn, isFalse);
       expect(HomeRail.liveTv.isOptIn, isFalse);
     });
 
-    test('and an opt-in band is not visible just for being in the order', () {
-      // The whole point: adding a band in a new version puts it in everybody's
-      // stored order, and without the hidden set carrying it that is a thing
-      // appearing on Home that nobody put there.
+    test('the default home includes streaming services', () {
       final shown = visibleRails(HomeRail.defaults, HomeRail.optIn);
-      expect(shown.contains(HomeRail.watchServices), isFalse);
+      expect(shown.contains(HomeRail.watchServices), isTrue);
       expect(shown.contains(HomeRail.catalogue), isTrue);
     });
 

@@ -29,10 +29,7 @@ enum HomeRail {
 
   /// What the streaming services carry, in the viewer's country.
   ///
-  /// Off until somebody says yes. Every other band here is something the app
-  /// already knows about you — what you were watching, what this source
-  /// serves. This one is a whole second catalogue, and putting it on Home
-  /// uninvited is how Home stops being yours.
+  /// Enabled by default on movie home; the customizer can hide it.
   watchServices(
     'watch_services',
     'home_rails.watch_services',
@@ -74,7 +71,7 @@ enum HomeRail {
   /// added in a new version arrives in everybody's order, and without this
   /// every existing install would find something new on Home that nobody put
   /// there.
-  static const Set<String> optIn = {'watch_services'};
+  static const Set<String> optIn = {};
 
   bool get isOptIn => optIn.contains(id);
 }

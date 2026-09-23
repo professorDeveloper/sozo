@@ -23,7 +23,7 @@ void main() {
   test(
     'an optional rail enabled in the editor stays enabled after reload',
     () async {
-      expect(store.getHomeRailHidden(), contains('watch_services'));
+      expect(store.getHomeRailHidden(), isNot(contains('watch_services')));
       await store.saveHomeRails(
         HomeRail.defaults.map((r) => r.id).toList(),
         {},
@@ -33,17 +33,14 @@ void main() {
         HiveService().getHomeRailHidden(),
         isNot(contains('watch_services')),
       );
-      expect(store.hasAnsweredHomeSuggestion('watch_services'), isTrue);
+      expect(store.getHomeRailHidden(), isEmpty);
     },
   );
-  test(
-    'reset can keep optional rails off; unrelated saves do not accept offers',
-    () async {
-      final order = HomeRail.defaults.map((r) => r.id).toList();
-      await store.saveHomeRails(order, {});
-      expect(store.hasAnsweredHomeSuggestion('watch_services'), isFalse);
-      await store.saveHomeRails(order, HomeRail.optIn, fromCustomizer: true);
-      expect(store.getHomeRailHidden(), contains('watch_services'));
-    },
-  );
+  test('explicitly hidden streaming services stay hidden', () async {
+    final order = HomeRail.defaults.map((r) => r.id).toList();
+    await store.saveHomeRails(order, {});
+    expect(store.hasAnsweredHomeSuggestion('watch_services'), isFalse);
+    await store.saveHomeRails(order, {'watch_services'}, fromCustomizer: true);
+    expect(store.getHomeRailHidden(), contains('watch_services'));
+  });
 }
