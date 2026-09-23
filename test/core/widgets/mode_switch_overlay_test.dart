@@ -113,7 +113,9 @@ void main() {
 
       // Well past the beat it would have used on its own, and short of the
       // wait it gives up after.
-      await tester.pump(ModeSwitchOverlay.minimumBeat * 1.6);
+      await tester.pump(
+        ModeSwitchOverlay.maxWait - const Duration(milliseconds: 200),
+      );
       expect(
         find.byType(ModeSwitchOverlay),
         findsOneWidget,

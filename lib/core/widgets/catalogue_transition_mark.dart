@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/catalogue_logo.dart';
 import 'package:soplay/core/content/content_mode.dart';
-import 'package:soplay/core/content/content_mode_style.dart';
+import 'package:soplay/core/widgets/mode_destination_artwork.dart';
 import 'package:soplay/core/widgets/sozo_dragon_transition.dart';
 
 /// One focal point: a destination-toned Sozo relief hands off to the catalogue
@@ -22,8 +22,11 @@ class CatalogueTransitionMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final handoff = Curves.easeInOut.transform(
-      ((progress - .48) / .52).clamp(0, 1),
+    final departure = Curves.easeInOut.transform(
+      ((progress - .44) / .14).clamp(0, 1),
+    );
+    final arrival = Curves.easeOutCubic.transform(
+      ((progress - .64) / .24).clamp(0, 1),
     );
     // Luminance tint preserves the dragon's relief instead of flattening it
     // with srcIn. The same destination colour also paints the screen reveal.
@@ -44,22 +47,25 @@ class CatalogueTransitionMark extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Opacity(
-            opacity: 1 - handoff,
+            opacity: 1 - departure,
             child: Transform.scale(
-              scale: 1 - .08 * handoff,
+              scale: 1 - .04 * departure,
               child: ColorFiltered(
                 colorFilter: ColorFilter.matrix(tint),
-                child: SozoDragonTransition(size: 144, progress: progress),
+                child: SozoDragonTransition(
+                  size: 144,
+                  progress: (progress / .4).clamp(0, 1),
+                ),
               ),
             ),
           ),
           Opacity(
-            opacity: handoff,
+            opacity: arrival,
             child: Transform.scale(
-              scale: .94 + .06 * handoff,
+              scale: .98 + .02 * arrival,
               child: catalogue != null
-                  ? CatalogueLogo(catalogue: catalogue!, size: 88)
-                  : ModeGlyph(mode: mode, color: accent, size: 88),
+                  ? CatalogueLogo(catalogue: catalogue!, size: 112)
+                  : ModeDestinationArtwork(mode: mode, color: accent),
             ),
           ),
         ],

@@ -55,11 +55,11 @@ class ModeSwitchOverlay extends StatefulWidget {
   /// interrupted animation rather than a fast one — and every millisecond
   /// beyond that is a millisecond the user waits on the app's most repeated
   /// action.
-  static const Duration signDuration = Duration(milliseconds: 500);
+  static const Duration signDuration = Duration(milliseconds: 900);
 
   /// The floor on the whole thing: long enough to read the word and watch the
   /// signature finish, short enough that nobody waits through it twice.
-  static const Duration minimumBeat = Duration(milliseconds: 820);
+  static const Duration minimumBeat = Duration(milliseconds: 1600);
 
   /// How long the cover will wait for the new mode's first load before lifting
   /// anyway. A reload that takes longer than this is not going to be saved by
@@ -151,7 +151,11 @@ class ModeSwitchOverlay extends StatefulWidget {
     overlay.insert(entry);
     try {
       await Future.wait<void>([
-        Future<void>.delayed(minimumBeat - exitDuration),
+        Future<void>.delayed(
+          (MediaQuery.maybeDisableAnimationsOf(context) ?? false)
+              ? const Duration(milliseconds: 160)
+              : minimumBeat - exitDuration,
+        ),
         if (until != null)
           // Neither a timeout nor a failed load is worth throwing over: the
           // cover's job is to come off either way.
@@ -233,7 +237,7 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
   /// is quick and the fill and badge settle.
   late final Animation<double> _draw = CurvedAnimation(
     parent: _sign,
-    curve: Curves.easeInOutCubic,
+    curve: Curves.linear,
   );
   bool _signing = false;
 
@@ -248,8 +252,8 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
   /// Fades in behind the glyph, so the eye lands on the shape first and reads
   /// the word second.
   late final Animation<double> _labelIn = CurvedAnimation(
-    parent: _enter,
-    curve: const Interval(0.45, 1, curve: Curves.easeOut),
+    parent: _sign,
+    curve: const Interval(0.64, 0.88, curve: Curves.easeOut),
   );
 
   late final Animation<Offset> _labelRise = Tween<Offset>(
@@ -272,16 +276,6 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
     super.initState();
     widget.release?.addListener(_onRelease);
     _enter.addListener(_maybeHaptic);
-    _sign.addStatusListener(_onSigned);
-  }
-
-  void _onSigned(AnimationStatus status) {
-    // Only while there is a release to wait for: a cover with none is a
-    // still frame, and a still frame should not tick.
-    final waiting = widget.release != null && !(widget.release!.value);
-    if (status == AnimationStatus.completed && !_reduceMotion && waiting) {
-      _pulse.repeat();
-    }
   }
 
   @override
@@ -323,7 +317,7 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
   void dispose() {
     widget.release?.removeListener(_onRelease);
     _enter.removeListener(_maybeHaptic);
-    _sign.removeStatusListener(_onSigned);
+
     _enter.dispose();
     _exit.dispose();
     _pulse.dispose();
@@ -507,7 +501,9 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
 
                     const SizedBox(height: 12),
                     FadeTransition(
-                      opacity: _labelIn,
+                      opacity: _reduceMotion
+                          ? const AlwaysStoppedAnimation(1.0)
+                          : _labelIn,
                       child: SlideTransition(
                         position: _reduceMotion
                             ? const AlwaysStoppedAnimation(Offset.zero)
