@@ -18,7 +18,8 @@ import 'package:soplay/features/live_tv/presentation/widgets/channel_sheet.dart'
 const double _kGutter = 14;
 const double _kSpacing = 10;
 
-int _columnsFor(double width) => width >= 900 ? 5 : (width >= 620 ? 4 : 2);
+// Keep channel tiles compact on phones; the skeleton uses the same layout.
+int _columnsFor(double width) => width >= 900 ? 5 : (width >= 480 ? 4 : 3);
 
 /// Width factor for a channel card's progress hairline, or null for no bar.
 ///
