@@ -110,19 +110,12 @@ class _HomeAiringCardState extends State<HomeAiringCard>
         child: InkWell(
           onTap: () => context.push('/anilist/calendar'),
           child: Ink(
+            // The same neutral card as the rest of Home: colour is kept for
+            // what is live — the dot and the countdown — not the background.
             decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainer,
               borderRadius: BorderRadius.circular(20),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  accent.withValues(alpha: 0.22),
-                  const Color(0xFF7C4DFF).withValues(alpha: 0.14),
-                  AppColors.surface,
-                ],
-                stops: const [0, 0.45, 1],
-              ),
-              border: Border.all(color: accent.withValues(alpha: 0.28)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
