@@ -4,33 +4,80 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
 
+import 'package:soplay/core/preview/mpv_frame_preview.dart';
+
 typedef PreviewInvoke =
     Future<dynamic> Function(String method, Map<String, dynamic>? arguments);
 
+/// Frames for the seek bar, from whichever decoder can open the stream.
+///
+/// Two backends behind one call. The platform one — `MediaMetadataRetriever`
+/// on Android, AVFoundation on iOS — is cheap and exact for a progressive
+/// file. It cannot read HLS on Android, and there is none on desktop, so those
+/// go to [MpvFramePreview], a silent second libmpv; a progressive file the
+/// platform decoder fails on goes there too. Between them every stream the
+/// app plays gets a preview, except a torrent (see the player's gate).
 class FramePreviewService {
   FramePreviewService._();
   static const MethodChannel _ch = MethodChannel('soplay/preview');
-  static bool get isSupported => Platform.isAndroid || Platform.isIOS;
-  static final _session = FramePreviewSession(
-    supported: isSupported,
+
+  static bool get _hasNative => Platform.isAndroid || Platform.isIOS;
+
+  /// libmpv ships everywhere but iOS.
+  static bool get _hasMpv =>
+      Platform.isAndroid ||
+      Platform.isMacOS ||
+      Platform.isWindows ||
+      Platform.isLinux;
+
+  static bool get isSupported => _hasNative || _hasMpv;
+
+  static final _native = FramePreviewSession(
+    supported: _hasNative,
     invoke: (method, args) => _ch.invokeMethod(method, args),
   );
+
+  static final _mpvBackend = MpvFramePreview();
+
+  /// Longer allowances than the platform decoder's: opening HLS means the
+  /// master playlist, a variant playlist and a segment before the first frame.
+  static final _mpv = FramePreviewSession(
+    supported: _hasMpv,
+    invoke: _mpvBackend.invoke,
+    openTimeout: const Duration(seconds: 10),
+    frameTimeout: const Duration(seconds: 4),
+    // Full-resolution JPEGs, so a larger budget for the same two dozen.
+    maxCacheBytes: 8 * 1024 * 1024,
+  );
+
   static const int bucketMs = FramePreviewSession.bucketMs;
 
-  /// Configures a source without starting a second decoder alongside playback.
-  static Future<void> open(
-    String url,
-    Map<String, String> headers, {
-    int warmMs = -1,
-  }) => _session.open(url, headers);
-  static Future<Uint8List?> frame(int positionMs) => _session.frame(positionMs);
+  /// Which backend a stream goes to first.
+  static bool _mpvFirst(bool hls) => !_hasNative || (Platform.isAndroid && hls);
+
   static Future<Uint8List?> previewFrame(
     String url,
     Map<String, String> headers,
-    int positionMs,
-  ) => _session.previewFrame(url, headers, positionMs);
-  static Future<void> endScrub() => _session.endScrub();
-  static Future<void> close() => _session.close();
+    int positionMs, {
+    bool hls = false,
+  }) async {
+    if (_mpvFirst(hls)) {
+      return _hasMpv ? _mpv.previewFrame(url, headers, positionMs) : null;
+    }
+    final frame = await _native.previewFrame(url, headers, positionMs);
+    if (frame != null || !_hasMpv) return frame;
+    // The platform decoder could not read it — an unusual container, a
+    // server it disagrees with. libmpv is the second opinion.
+    return _mpv.previewFrame(url, headers, positionMs);
+  }
+
+  static Future<void> endScrub() async {
+    await Future.wait([_native.endScrub(), _mpv.endScrub()]);
+  }
+
+  static Future<void> close() async {
+    await Future.wait([_native.close(), _mpv.close()]);
+  }
 }
 
 /// One decoder request plus the latest pending scrub position. Earlier queued

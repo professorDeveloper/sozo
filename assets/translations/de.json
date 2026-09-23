@@ -413,7 +413,9 @@
     "src_search_slow": "{} hat nicht rechtzeitig geantwortet. Sie ist vielleicht nur langsam — versuch es erneut.",
     "src_search_failed": "{} war nicht erreichbar. Prüfe die Quelle unter Quellen und versuch es erneut.",
     "src_search_unavailable": "{} ist auf diesem Gerät nicht mehr installiert.",
-    "open_subtitle_file": "Untertiteldatei öffnen …"
+    "open_subtitle_file": "Untertiteldatei öffnen …",
+    "media_kit_emulator": "Nicht im Emulator – Systemplayer aktiv",
+    "media_kit_fell_back": "media_kit ließ sich hier nicht starten – Systemplayer aktiv"
   },
   "profile": {
     "title": "Profil",

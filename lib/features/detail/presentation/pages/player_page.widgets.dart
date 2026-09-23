@@ -1490,11 +1490,13 @@ class _GeneratedFramePreview extends StatefulWidget {
     required this.url,
     required this.headers,
     required this.positionMs,
+    this.hls = false,
   });
 
   final String url;
   final Map<String, String> headers;
   final int positionMs;
+  final bool hls;
 
   @override
   State<_GeneratedFramePreview> createState() => _GeneratedFramePreviewState();
@@ -1528,6 +1530,7 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
       widget.url,
       widget.headers,
       widget.positionMs,
+      hls: widget.hls,
     );
     if (!mounted) return;
     if (bytes != null) {
@@ -1548,6 +1551,10 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
         b,
         width: _w,
         height: _h,
+        // Decoded at the size it is drawn: a frame from libmpv arrives at the
+        // stream's own resolution, and a 1080p bitmap per scrub step is
+        // memory for nothing.
+        cacheWidth: (_w * MediaQuery.devicePixelRatioOf(context)).round(),
         fit: BoxFit.cover,
         gaplessPlayback: true,
         filterQuality: FilterQuality.low,

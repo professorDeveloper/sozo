@@ -2,6 +2,25 @@
 part of 'player_page.dart';
 
 extension _PlayerPanels on _PlayerPageState {
+  /// Why a media_kit-only control is off, in words that match the cause.
+  ///
+  /// It used to say "needs the media_kit engine" to someone who had chosen
+  /// media_kit — true of the engine running, false of their setting, and
+  /// no help either way. The emulator never runs libmpv (its GL cannot draw
+  /// it), and a device where libmpv failed to start falls back the same way.
+  String _mediaKitMissing({bool onlyLabel = false}) {
+    if (resolvePlayerEngine() != PlayerEngine.mediaKit) {
+      return (onlyLabel
+              ? 'player.audio_track_engine_only'
+              : 'player.needs_media_kit')
+          .tr();
+    }
+    return (isAndroidEmulator
+            ? 'player.media_kit_emulator'
+            : 'player.media_kit_fell_back')
+        .tr();
+  }
+
   /// Opens the info-row picker over the player.
   ///
   /// The overlay is switched on as it opens: a checklist whose effect is
@@ -462,7 +481,7 @@ extension _PlayerPanels on _PlayerPageState {
                 _SettingsTile(
                   icon: Icons.auto_awesome_rounded,
                   label: 'player.shaders'.tr(),
-                  value: 'player.needs_media_kit'.tr(),
+                  value: _mediaKitMissing(),
                   onTap: null,
                 ),
               // Shown here, and not only in Settings, so a mode that suppresses
@@ -554,7 +573,7 @@ extension _PlayerPanels on _PlayerPageState {
                       return _SettingsTile(
                         icon: Icons.audiotrack_outlined,
                         label: 'player.audio_track'.tr(),
-                        value: 'player.audio_track_engine_only'.tr(),
+                        value: _mediaKitMissing(onlyLabel: true),
                         onTap: null,
                       );
                     }

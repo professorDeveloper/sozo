@@ -413,7 +413,9 @@
     "src_search_slow": "{} vaqtida javob bermadi. Sarlavha yo‘qligidan ko‘ra sekinligi mumkin — qayta urinib ko‘ring.",
     "src_search_failed": "{} ga ulanib bo‘lmadi. Manbalar bo‘limida tekshiring va qayta urinib ko‘ring.",
     "src_search_unavailable": "{} bu qurilmada endi o‘rnatilmagan.",
-    "open_subtitle_file": "Subtitr faylini ochish…"
+    "open_subtitle_file": "Subtitr faylini ochish…",
+    "media_kit_emulator": "Emulyatorda ishlamaydi — tizim pleyeri ishlatilmoqda",
+    "media_kit_fell_back": "media_kit bu yerda ishga tushmadi — tizim pleyeri ishlatilmoqda"
   },
   "profile": {
     "title": "Profil",

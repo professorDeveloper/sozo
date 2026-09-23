@@ -349,19 +349,25 @@ extension _PlayerControls on _PlayerPageState {
     }
   }
 
+  /// Whether the seek bar can show a frame it made itself.
+  ///
+  /// Every stream but two: a live broadcast, where there is nothing ahead to
+  /// preview, and a torrent. Scrub previews open a SECOND reader on the same
+  /// URL and seek it around — exactly the access pattern a torrent stream
+  /// cannot serve. The torrent server hands out one sequential reader with a
+  /// read-ahead buffer in front of it; a second one seeking backwards and
+  /// forwards thrashes that buffer, starves the player, and on a real device
+  /// took the whole process down mid-episode.
+  ///
+  /// HLS on Android and everything on desktop used to be excluded too, for
+  /// want of a decoder that could read them; [FramePreviewService] sends those
+  /// to libmpv now. Downloads are included: a local file is the cheapest
+  /// preview there is.
   bool get _canGeneratePreview =>
       FramePreviewService.isSupported &&
-      _isNetworkVideo &&
       _videoUrl != null &&
-      // Never on a torrent. Scrub previews work by opening a SECOND reader on
-      // the same URL and seeking it around to grab frames — which is exactly
-      // the access pattern a torrent stream cannot serve. The torrent server
-      // hands out one sequential reader with a read-ahead buffer in front of
-      // it; a second one seeking backwards and forwards thrashes that buffer,
-      // starves the player, and on a real device took the whole process down
-      // mid-episode.
-      TorrentStreamUrl.parse(_videoUrl) == null &&
-      (!_isHls || Platform.isIOS);
+      !_isLive &&
+      TorrentStreamUrl.parse(_videoUrl) == null;
 
   Widget _buildVideoLayer() {
     if (_initializing) {
@@ -623,6 +629,7 @@ extension _PlayerControls on _PlayerPageState {
                           url: _videoUrl!,
                           headers: _headers,
                           positionMs: preview.inMilliseconds,
+                          hls: _isHls,
                         ),
                       ),
                     ),
@@ -1370,6 +1377,7 @@ extension _PlayerControls on _PlayerPageState {
             url: _videoUrl!,
             headers: _headers,
             positionMs: position.inMilliseconds,
+            hls: _isHls,
           )
         : null;
     if (image == null) return null;

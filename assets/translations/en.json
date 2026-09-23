@@ -413,7 +413,9 @@
     "resolve_timeout": "The source did not answer in time. Try another server or another source.",
     "layout_center": "Around play",
     "layout_center_full": "No room left around play",
-    "open_subtitle_file": "Open a subtitle file…"
+    "open_subtitle_file": "Open a subtitle file…",
+    "media_kit_emulator": "Not on the emulator — platform player in use",
+    "media_kit_fell_back": "media_kit could not start here — platform player in use"
   },
   "profile": {
     "title": "Profile",

@@ -64,8 +64,10 @@ class FollowService {
         if (i >= items.length) return;
         final t = items[i];
         try {
-          final res = await getEpisodes(t.contentUrl, provider: t.provider)
-              .timeout(timeout);
+          final res = await getEpisodes(
+            t.contentUrl,
+            provider: t.provider,
+          ).timeout(timeout);
           if (!res.isSuccess) continue;
           final pb = res.getOrNull();
           if (pb == null) continue;

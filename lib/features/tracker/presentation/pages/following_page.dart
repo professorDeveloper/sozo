@@ -35,8 +35,9 @@ class FollowingPage extends StatefulWidget {
 class _FollowingPageState extends State<FollowingPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(length: 3, vsync: this);
-  late final AnilistLibraryController _anilist =
-      AnilistLibraryController(service: getIt<AnilistService>());
+  late final AnilistLibraryController _anilist = AnilistLibraryController(
+    service: getIt<AnilistService>(),
+  );
 
   @override
   void dispose() {
@@ -247,12 +248,12 @@ class _FollowTile extends StatelessWidget {
         onTap: title.contentUrl.isEmpty
             ? null
             : () => context.push(
-                  '/detail',
-                  extra: DetailArgs(
-                    contentUrl: title.contentUrl,
-                    provider: title.provider,
-                  ),
+                '/detail',
+                extra: DetailArgs(
+                  contentUrl: title.contentUrl,
+                  provider: title.provider,
                 ),
+              ),
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: Row(
@@ -295,8 +296,9 @@ class _FollowTile extends StatelessWidget {
                       children: [
                         AnilistChip(
                           label: title.lastEpisodeCount > 0
-                              ? 'tracker.n_episodes'
-                                  .tr(args: ['${title.lastEpisodeCount}'])
+                              ? 'tracker.n_episodes'.tr(
+                                  args: ['${title.lastEpisodeCount}'],
+                                )
                               : 'tracker.not_checked'.tr(),
                           color: AppColors.textSecondary,
                         ),
@@ -332,7 +334,7 @@ class _Placeholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        color: AppColors.surfaceVariant,
-        child: const Icon(Icons.movie_rounded, color: AppColors.textHint, size: 20),
-      );
+    color: AppColors.surfaceVariant,
+    child: const Icon(Icons.movie_rounded, color: AppColors.textHint, size: 20),
+  );
 }

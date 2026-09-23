@@ -413,7 +413,9 @@
     "src_search_slow": "{} n'a pas répondu à temps. Elle est peut-être lente plutôt que sans le titre — réessayez.",
     "src_search_failed": "Impossible de joindre {}. Vérifiez la source dans Sources, puis réessayez.",
     "src_search_unavailable": "{} n'est plus installée sur cet appareil.",
-    "open_subtitle_file": "Ouvrir un fichier de sous-titres…"
+    "open_subtitle_file": "Ouvrir un fichier de sous-titres…",
+    "media_kit_emulator": "Pas sur l’émulateur — lecteur système utilisé",
+    "media_kit_fell_back": "media_kit n’a pas pu démarrer ici — lecteur système utilisé"
   },
   "profile": {
     "title": "Profil",

@@ -1058,7 +1058,6 @@ extension _PlayerMedia on _PlayerPageState {
           ? const {}
           : _mergedStreamHeaders(Uri.parse(effectiveUrl), effectiveHeaders);
       _mediaType = type;
-      _isNetworkVideo = !isLocal;
       _plog('external engine — handing off to a third-party player');
       setState(() {
         _initializing = false;
@@ -1130,7 +1129,6 @@ extension _PlayerMedia on _PlayerPageState {
     _controller = controller;
     _videoUrl = effectiveUrl;
     _mediaType = type;
-    _isNetworkVideo = !isLocal;
     // Known BEFORE the first frame, not after it. A channel that is down at the
     // moment you open it fails during initialize(), and the error path has to
     // already know it is looking at a broadcast — otherwise the one case that

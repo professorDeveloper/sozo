@@ -224,7 +224,6 @@ class _PlayerPageState extends State<PlayerPage>
   /// strangers after the viewer thinks they are done watching.
   String? _torrentHash;
   Map<String, String> _headers = const {};
-  bool _isNetworkVideo = false;
   bool _isHls = false;
 
   /// True while the current media is a live broadcast.
