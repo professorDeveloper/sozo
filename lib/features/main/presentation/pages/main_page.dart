@@ -735,8 +735,8 @@ class _SoplayGlassCapsule extends StatelessWidget {
         for (final it in items)
           GlassTab(
             label: it.labelKey.tr(),
-            icon: Icon(it.icon, size: 24 - 3 * density),
-            activeIcon: Icon(it.activeIcon, size: 24 - 3 * density),
+            icon: Icon(it.icon, size: 24 - 2 * density),
+            activeIcon: Icon(it.activeIcon, size: 24 - 2 * density),
           ),
       ],
       selectedIndex: index,
@@ -747,17 +747,18 @@ class _SoplayGlassCapsule extends StatelessWidget {
       horizontalPadding: 0,
       verticalPadding: 0,
       barHeight: barHeight,
-      iconSize: 24 - 3 * density,
+      iconSize: 24 - 2 * density,
       barBorderRadius: barHeight / 2, // full capsule
+      iconLabelSpacing: 4 - 2 * density,
       magnification: glass
-          ? 1.12
+          ? 1.12 - .10 * density
           : 1.0, // subtle iOS-26 lens on the selected tab
-      indicatorPinchStrength: glass ? 0.3 : 0.0,
+      indicatorPinchStrength: glass ? .3 * (1 - density) : 0.0,
       // The selected pill used to expand 4dp past the top and bottom of the
       // 62dp capsule on every tap, clipping against the rim.
-      indicatorExpansion: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 2,
+      indicatorExpansion: EdgeInsets.symmetric(
+        horizontal: 12 - 6 * density,
+        vertical: 2 * (1 - density),
       ),
       // Selected-tab pill: a soft, restrained light pill on the dark body —
       // unless Appearance → "Colour the tab bar" is on, in which case the whole
@@ -798,7 +799,7 @@ class _SoplayGlassCapsule extends StatelessWidget {
       // large system text scale the icons ended up different sizes across the
       // bar. Capping the scale at 1.2 keeps the row even; the label stays
       // readable because it is a one-word tab name, not body copy.
-      labelFontSize: MediaQuery.textScalerOf(context).scale(12 - density),
+      labelFontSize: MediaQuery.textScalerOf(context).scale(12),
     );
 
     // The package drop shadow is light-mode only, so paint our own soft capsule
@@ -871,7 +872,7 @@ class _SoplayGlassCapsule extends StatelessWidget {
         // A modest width change balances the shorter capsule. Keep every tab
         // at least 48dp wide, including custom six-tab layouts on small phones.
         final availableInset = ((constraints.maxWidth - items.length * 48) / 2)
-            .clamp(0.0, constraints.maxWidth * .04);
+            .clamp(0.0, constraints.maxWidth * .025);
         return Padding(
           padding: EdgeInsets.symmetric(horizontal: availableInset * density),
           child: Stack(
