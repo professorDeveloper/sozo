@@ -1556,7 +1556,12 @@
     "kind_anime": "أنمي",
     "kind_manga": "مانغا",
     "kind_novel": "روايات",
-    "chapters_read": "فصول مقروءة"
+    "chapters_read": "فصول مقروءة",
+    "pending_updates": "{} تحديثات تقدّم بانتظار الإرسال",
+    "pending_updates_note": "تُرسل تلقائيًا عند عودة الاتصال. اضغط للإرسال الآن.",
+    "pending_sending": "جارٍ الإرسال…",
+    "pending_all_sent": "أُرسل {}. لا شيء بالانتظار.",
+    "pending_some_left": "لا يزال {} بالانتظار — ستُرسل تلقائيًا."
   },
   "mal": {
     "connect": "ربط MyAnimeList",

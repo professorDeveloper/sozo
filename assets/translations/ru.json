@@ -1556,7 +1556,12 @@
     "kind_anime": "Аниме",
     "kind_manga": "Манга",
     "kind_novel": "Ранобэ",
-    "chapters_read": "глав прочитано"
+    "chapters_read": "глав прочитано",
+    "pending_updates": "Ожидают отправки: {}",
+    "pending_updates_note": "Отправятся сами, когда появится связь. Нажмите, чтобы отправить сейчас.",
+    "pending_sending": "Отправка…",
+    "pending_all_sent": "Отправлено: {}. Больше ничего не ждёт.",
+    "pending_some_left": "Ещё ждут: {} — отправятся сами."
   },
   "mal": {
     "connect": "Подключить MyAnimeList",

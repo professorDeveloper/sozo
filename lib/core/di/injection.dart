@@ -61,6 +61,7 @@ import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/features/mal/data/mal_tracker.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
+import 'package:soplay/features/tracker/data/tracker_outbox.dart';
 import 'package:soplay/features/detail/data/aniskip_service.dart';
 import 'package:soplay/features/profile/data/backup_service.dart';
 import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
@@ -342,10 +343,14 @@ Future<void> configureDependencies() async {
     ),
   );
 
+  // Failed tracker writes, kept and sent again. Before both trackers, which
+  // register their senders with it as they are built.
+  getIt.registerSingleton<TrackerOutbox>(TrackerOutbox()..start());
   getIt.registerSingleton<AnilistTracker>(
     AnilistTracker(
       service: getIt<AnilistService>(),
       links: getIt<AnilistLinkStore>(),
+      outbox: getIt<TrackerOutbox>(),
     ),
   );
 
@@ -367,6 +372,16 @@ Future<void> configureDependencies() async {
       service: getIt<MalService>(),
       links: getIt<MalLinkStore>(),
       anilist: getIt<AnilistTracker>(),
+      outbox: getIt<TrackerOutbox>(),
+    ),
+  );
+  // Whatever was left waiting last time, once startup has settled: the
+  // trackers' own connections are restored asynchronously, and a send before
+  // then would find nobody connected and keep everything for next time.
+  unawaited(
+    Future<void>.delayed(
+      const Duration(seconds: 10),
+      () => getIt<TrackerOutbox>().flush(),
     ),
   );
 

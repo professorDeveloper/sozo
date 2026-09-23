@@ -3,6 +3,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:soplay/features/tracker/data/tracker_outbox.dart';
+import 'package:soplay/features/mal/data/mal_tracker.dart';
+import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -32,18 +35,64 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
   final AnilistLinkStore _links = getIt<AnilistLinkStore>();
   final MalService _mal = getIt<MalService>();
   final MalLinkStore _malLinks = getIt<MalLinkStore>();
+  final TrackerOutbox _outbox = getIt<TrackerOutbox>();
+  bool _sending = false;
 
   @override
   void initState() {
     super.initState();
     _anilist.addListener(_onAnilistChange);
     _mal.addListener(_onMalChange);
+    _outbox.addListener(_onOutboxChange);
+  }
+
+  void _onOutboxChange() {
+    if (mounted) setState(() {});
+  }
+
+  /// Sends everything waiting now, backoff or not, and says how it went.
+  Future<void> _sendPending() async {
+    if (_sending) return;
+    setState(() => _sending = true);
+    final sent = await _outbox.flush(force: true);
+    if (!mounted) return;
+    setState(() => _sending = false);
+    final left = _outbox.pending().length;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          left == 0
+              ? 'anilist.pending_all_sent'.tr(args: ['$sent'])
+              : 'anilist.pending_some_left'.tr(args: ['$left']),
+        ),
+      ),
+    );
+  }
+
+  /// The row saying [tracker] has writes waiting, or nothing when it has none.
+  List<Widget> _pendingRow(String tracker, Color accent) {
+    final count = _outbox.pending(tracker).length;
+    if (count == 0) return const [];
+    return [
+      const SizedBox(height: 8),
+      _Row(
+        icon: Icons.cloud_upload_outlined,
+        accent: accent,
+        title: 'anilist.pending_updates'.tr(args: ['$count']),
+        subtitle: _sending
+            ? 'anilist.pending_sending'.tr()
+            : 'anilist.pending_updates_note'.tr(),
+        onTap: _sending ? null : _sendPending,
+      ),
+    ];
   }
 
   @override
   void dispose() {
     _anilist.removeListener(_onAnilistChange);
     _mal.removeListener(_onMalChange);
+    _outbox.removeListener(_onOutboxChange);
     super.dispose();
   }
 
@@ -139,8 +188,9 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     await _anilist.disconnect();
     // The title-to-media map describes THIS account's shows; keeping it after a
     // disconnect would silently reattach them if a different AniList account
-    // were connected next.
+    // were connected next. Its unsent progress goes for the same reason.
     await _links.clear();
+    await _outbox.discard(AnilistTracker.outboxName);
   }
 
   Future<void> _disconnectMal() async {
@@ -152,6 +202,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     }
     await _mal.disconnect();
     await _malLinks.clear();
+    await _outbox.discard(MalTracker.outboxName);
   }
 
   @override
@@ -225,6 +276,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
                       if (mounted) setState(() {});
                     },
             ),
+            ..._pendingRow(AnilistTracker.outboxName, kAnilistBlue),
           ],
 
           const SizedBox(height: 20),
@@ -266,6 +318,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
                       if (mounted) setState(() {});
                     },
             ),
+            ..._pendingRow(MalTracker.outboxName, kMalBlue),
             const SizedBox(height: 8),
             _Row(
               icon: Icons.info_outline_rounded,

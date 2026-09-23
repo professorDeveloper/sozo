@@ -205,6 +205,10 @@ class AppConstants {
   /// open red and then turn blue.
   static const String systemAccentKey = 'system_accent';
 
+  /// Tracker progress writes that failed and are waiting to be sent again, as
+  /// a JSON list. See `TrackerOutbox`.
+  static const String trackerOutboxKey = 'tracker_outbox';
+
   /// Appearance → "Colour the tab bar". Absent ⇒ **on**: the accent is a
   /// setting people choose in order to see it, and the tab bar is the one piece
   /// of chrome that is on screen the whole time. Turning it off puts the

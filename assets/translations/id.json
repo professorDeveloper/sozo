@@ -1556,7 +1556,12 @@
     "kind_anime": "Anime",
     "kind_manga": "Manga",
     "kind_novel": "Novel",
-    "chapters_read": "bab dibaca"
+    "chapters_read": "bab dibaca",
+    "pending_updates": "{} pembaruan progres menunggu dikirim",
+    "pending_updates_note": "Dikirim otomatis saat koneksi kembali. Ketuk untuk kirim sekarang.",
+    "pending_sending": "Mengirim…",
+    "pending_all_sent": "{} terkirim. Tidak ada yang menunggu.",
+    "pending_some_left": "{} masih menunggu — akan dikirim otomatis."
   },
   "mal": {
     "connect": "Hubungkan MyAnimeList",

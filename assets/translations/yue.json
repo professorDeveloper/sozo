@@ -1556,7 +1556,12 @@
     "kind_anime": "動畫",
     "kind_manga": "漫畫",
     "kind_novel": "輕小說",
-    "chapters_read": "話睇咗"
+    "chapters_read": "話睇咗",
+    "pending_updates": "有 {} 個進度更新等緊發送",
+    "pending_updates_note": "網絡返嚟就會自動發送，撳一下即刻發。",
+    "pending_sending": "發送緊…",
+    "pending_all_sent": "已發送 {} 個，冇嘢等緊。",
+    "pending_some_left": "仲有 {} 個等緊 — 會自動發送。"
   },
   "mal": {
     "connect": "連結 MyAnimeList",

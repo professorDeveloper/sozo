@@ -1556,7 +1556,12 @@
     "kind_anime": "Anime",
     "kind_manga": "Manga",
     "kind_novel": "Novelas",
-    "chapters_read": "capítulos leídos"
+    "chapters_read": "capítulos leídos",
+    "pending_updates": "{} actualizaciones de progreso esperando envío",
+    "pending_updates_note": "Se envían solas cuando vuelva la conexión. Toca para enviarlas ya.",
+    "pending_sending": "Enviando…",
+    "pending_all_sent": "{} enviadas. No queda nada pendiente.",
+    "pending_some_left": "Aún esperan {}: se enviarán solas."
   },
   "mal": {
     "connect": "Conectar MyAnimeList",

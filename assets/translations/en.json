@@ -1556,7 +1556,12 @@
     "retry_in": "Try again in {}s",
     "kind_anime": "Anime",
     "kind_manga": "Manga",
-    "kind_novel": "Novels"
+    "kind_novel": "Novels",
+    "pending_updates": "{} progress updates waiting to be sent",
+    "pending_updates_note": "Sent automatically when the connection is back. Tap to send now.",
+    "pending_sending": "Sending…",
+    "pending_all_sent": "Sent {}. Nothing is waiting.",
+    "pending_some_left": "{} still waiting — they will be sent automatically."
   },
   "mal": {
     "connect": "Connect MyAnimeList",

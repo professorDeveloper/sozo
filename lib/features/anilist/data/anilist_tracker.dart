@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:soplay/core/content/content_mode.dart';
@@ -6,6 +8,7 @@ import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
 import 'package:soplay/features/anilist/domain/entities/tracker_lookup.dart';
+import 'package:soplay/features/tracker/data/tracker_outbox.dart';
 
 /// Turns "an episode finished playing" into "AniList knows about it".
 ///
@@ -18,15 +21,36 @@ import 'package:soplay/features/anilist/domain/entities/tracker_lookup.dart';
 ///   2. never move progress backwards — a rewatch, or a second device that is
 ///      further ahead, must not undo real progress;
 ///   3. never surface a failure to the viewer — this runs during playback.
+///
+/// A write that fails for a reason that says nothing about the title — the
+/// network, a lookup that never answered — goes to the [TrackerOutbox] and is
+/// sent again later, rather than being lost.
 class AnilistTracker {
   AnilistTracker({
     required AnilistService service,
     required AnilistLinkStore links,
+    TrackerOutbox? outbox,
   }) : _service = service,
-       _links = links;
+       _links = links,
+       _outbox = outbox {
+    outbox?.register(
+      outboxName,
+      send: (w) => _report(
+        provider: w.provider,
+        contentUrl: w.contentUrl,
+        title: w.title,
+        number: w.number,
+      ).then((r) => r.result),
+      account: () => _service.viewer?.id.toString(),
+    );
+  }
 
   final AnilistService _service;
   final AnilistLinkStore _links;
+  final TrackerOutbox? _outbox;
+
+  /// This tracker's name in the [TrackerOutbox].
+  static const String outboxName = 'anilist';
 
   AnilistLinkStore get links => _links;
 
@@ -57,17 +81,68 @@ class AnilistTracker {
     if (!isConnected || episodeNumber <= 0 || contentUrl.trim().isEmpty) {
       return null;
     }
+    final outcome = await _report(
+      provider: provider,
+      contentUrl: contentUrl,
+      title: title,
+      number: episodeNumber,
+    );
+    final outbox = _outbox;
+    switch (outcome.result) {
+      case TrackerWriteResult.failed when outbox != null:
+        // Bound to the account it was meant for, so a switch of account can
+        // never deliver it somewhere else.
+        final account = _service.viewer?.id.toString();
+        if (account == null) break;
+        unawaited(
+          outbox.queue(
+            PendingTrackerWrite(
+              tracker: outboxName,
+              provider: provider,
+              contentUrl: contentUrl,
+              title: title,
+              number: episodeNumber,
+              account: account,
+              queuedAt: DateTime.now().millisecondsSinceEpoch,
+            ),
+          ),
+        );
+      case TrackerWriteResult.written when outbox != null:
+        // The connection is evidently back: anything left waiting goes now.
+        unawaited(outbox.flush());
+      default:
+        break;
+    }
+    return outcome.result == TrackerWriteResult.written ? outcome.id : null;
+  }
 
-    final mediaId = await _resolveMediaId(
+  /// One report, start to finish, saying how it went — what the outbox
+  /// retries, and what [reportEpisode] turns into its caller's answer.
+  Future<({TrackerWriteResult result, int? id})> _report({
+    required String provider,
+    required String contentUrl,
+    required String title,
+    required int number,
+  }) async {
+    if (!isConnected) return (result: TrackerWriteResult.skipped, id: null);
+    final resolved = await _resolveMediaId(
       provider: provider,
       contentUrl: contentUrl,
       title: title,
     );
-    if (mediaId == null) return null;
-
-    return await _write(mediaId: mediaId, episodeNumber: episodeNumber)
-        ? mediaId
-        : null;
+    final mediaId = resolved.id;
+    if (mediaId == null) {
+      return (
+        result: resolved.unanswered
+            ? TrackerWriteResult.failed
+            : TrackerWriteResult.skipped,
+        id: null,
+      );
+    }
+    return (
+      result: await _write(mediaId: mediaId, episodeNumber: number),
+      id: mediaId,
+    );
   }
 
   /// Records that [chapterNumber] of a local title has been read.
@@ -94,17 +169,18 @@ class AnilistTracker {
   );
 
   /// Finds the AniList id for a local title: an existing link first, then an
-  /// exact title match.
-  Future<int?> _resolveMediaId({
+  /// exact title match. [unanswered] when there is no id because AniList was
+  /// not reached — the one case worth trying again.
+  Future<({int? id, bool unanswered})> _resolveMediaId({
     required String provider,
     required String contentUrl,
     required String title,
   }) async {
     final existing = _links.mediaIdFor(provider, contentUrl);
-    if (existing != null) return existing;
+    if (existing != null) return (id: existing, unanswered: false);
 
     final key = AnilistLinkStore.keyFor(provider, contentUrl);
-    if (_autoMatchFailed.contains(key)) return null;
+    if (_autoMatchFailed.contains(key)) return (id: null, unanswered: false);
 
     // Which half of AniList to look in, taken from the source: a reader's
     // title is not in the anime index at all, so searching it there would
@@ -120,7 +196,7 @@ class AnilistTracker {
       // it here would stop this title ever auto-linking again for the life of
       // the process — the next episode simply tries again instead.
       if (lookup.isSettledMiss) _autoMatchFailed.add(key);
-      return null;
+      return (id: null, unanswered: !lookup.answered);
     }
 
     await _links.save(
@@ -138,7 +214,7 @@ class AnilistTracker {
         auto: true,
       ),
     );
-    return match.id;
+    return (id: match.id, unanswered: false);
   }
 
   /// Searches AniList and returns a result only when one of its titles matches
@@ -189,12 +265,12 @@ class AnilistTracker {
 
   /// Reads the account's current position, then writes only if this episode is
   /// genuinely ahead of it.
-  Future<bool> _write({
+  Future<TrackerWriteResult> _write({
     required int mediaId,
     required int episodeNumber,
   }) async {
     final token = _service.token;
-    if (token == null) return false;
+    if (token == null) return TrackerWriteResult.skipped;
 
     try {
       final state = await _service.api.entryState(
@@ -204,7 +280,7 @@ class AnilistTracker {
       if (state != null && episodeNumber <= state.progress) {
         // Already at or beyond this episode — a rewatch, or another device got
         // here first. Writing would move the list backwards.
-        return false;
+        return TrackerWriteResult.skipped;
       }
 
       final total = state?.totalEpisodes;
@@ -221,11 +297,12 @@ class AnilistTracker {
       debugPrint(
         '$_tag media $mediaId → episode ${result.progress} (${result.status})',
       );
-      return true;
+      return TrackerWriteResult.written;
     } catch (e) {
-      // Playback must not be disturbed by a tracker outage.
+      // Playback must not be disturbed by a tracker outage — it is queued
+      // and sent later instead.
       debugPrint('$_tag write failed for media $mediaId: $e');
-      return false;
+      return TrackerWriteResult.failed;
     }
   }
 
