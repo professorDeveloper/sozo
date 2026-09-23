@@ -591,7 +591,9 @@
     "adult_content_desc": "إظهار العناوين والمصادر للبالغين في كل مكان — AniList وTMDB وCloudStream وAniyomi والمانغا والتورنت.",
     "adult_confirm_title": "هل عمرك 18 عامًا أو أكثر؟",
     "adult_confirm_body": "ستظهر عناوين ومصادر البالغين في كل التطبيق. يمكنك إيقاف ذلك في أي وقت من الإعدادات.",
-    "adult_confirm_yes": "عمري 18 أو أكثر"
+    "adult_confirm_yes": "عمري 18 أو أكثر",
+    "nav_compact_scroll": "شريط تنقل مضغوط عند التمرير",
+    "nav_compact_scroll_hint": "يقل الارتفاع أثناء التمرير. ينطبق على Glass وSolid."
   },
   "appearance": {
     "title": "المظهر",

@@ -591,7 +591,9 @@
     "adult_content_desc": "喺所有地方顯示成人作品同來源 — AniList、TMDB、CloudStream、Aniyomi、漫畫同 torrent。",
     "adult_confirm_title": "你係咪 18 歲或以上？",
     "adult_confirm_body": "成人作品同來源會喺成個 app 出現，隨時可以喺設定度關閂。",
-    "adult_confirm_yes": "我 18 歲或以上"
+    "adult_confirm_yes": "我 18 歲或以上",
+    "nav_compact_scroll": "捲動時縮細導航列",
+    "nav_compact_scroll_hint": "捲動期間降低高度。適用於 Glass 同 Solid。"
   },
   "appearance": {
     "title": "外觀",

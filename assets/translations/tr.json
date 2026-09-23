@@ -591,7 +591,9 @@
     "adult_content_desc": "Yetişkin içerikleri ve kaynakları her yerde göster — AniList, TMDB, CloudStream, Aniyomi, manga ve torrentler.",
     "adult_confirm_title": "18 yaşında veya daha büyük müsünüz?",
     "adult_confirm_body": "Yetişkin içerikler ve kaynaklar uygulamanın her yerinde görünecek. Bunu istediğiniz zaman Ayarlar'dan kapatabilirsiniz.",
-    "adult_confirm_yes": "18 yaşında veya büyüğüm"
+    "adult_confirm_yes": "18 yaşında veya büyüğüm",
+    "nav_compact_scroll": "Kaydırırken kompakt gezinme",
+    "nav_compact_scroll_hint": "Kaydırırken yüksekliği azaltır. Glass ve Solid için geçerlidir."
   },
   "appearance": {
     "title": "Görünüm",

@@ -170,32 +170,43 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('★ 8+'));
+      // Rating is a slider over 0..9; the far right is 9, one stop left is 8.
+      final slider = find.byType(Slider);
+      await tester.ensureVisible(slider);
       await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '★ 8+'))
-            .selected,
-        isTrue,
-      );
+      final box = tester.getRect(slider);
+      // Stops sit evenly between the track ends, which are inset by the
+      // slider's own padding; tap where 8 is.
+      const inset = 24.0;
+      final x = box.left + inset + (box.width - 2 * inset) * 8 / 9;
+      await tester.tapAt(Offset(x, box.center.dy));
+      await tester.pumpAndSettle();
+      expect(find.text('8.0+'), findsOneWidget);
+      expect(find.text('Great'), findsOneWidget);
       expect(
         tester.getBottomRight(find.text('Show results')).dy,
         lessThan(640),
       );
       expect(tester.takeException(), isNull);
-      final yearField = find.byKey(const ValueKey('year:null'));
-      await tester.ensureVisible(yearField);
-      await tester.tap(yearField);
+
+      // A year outside the quick chips comes from the year grid.
+      final other = find.text('Other…');
+      await tester.ensureVisible(other);
       await tester.pumpAndSettle();
-      final menuScroll = find.byType(Scrollable).last;
-      expect(tester.getSize(menuScroll).height, lessThanOrEqualTo(640 * .4));
+      await tester.tap(other);
+      await tester.pumpAndSettle();
+      final grid = find.descendant(
+        of: find.byType(YearPicker),
+        matching: find.byType(Scrollable),
+      );
       await tester.scrollUntilVisible(
         find.text('2020'),
-        120,
-        scrollable: menuScroll,
+        -120,
+        scrollable: grid,
       );
-      await tester.tap(find.text('2020').last);
+      await tester.tap(find.text('2020'));
       await tester.pumpAndSettle();
+      expect(find.widgetWithText(ChoiceChip, '2020'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('Show results'));
       await tester.pumpAndSettle();

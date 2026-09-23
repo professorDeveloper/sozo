@@ -19,6 +19,12 @@ class _Store implements HiveService {
   @override
   Map<String, Map<String, String>> getLiveTvCards() => {};
   @override
+  String? getLiveTvScope() => null;
+  @override
+  List<String> getLiveTvScopeHistory() => const [];
+  @override
+  Future<void> setLiveTvScope(String? scope) async {}
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 

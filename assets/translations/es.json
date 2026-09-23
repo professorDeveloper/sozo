@@ -591,7 +591,9 @@
     "adult_content_desc": "Mostrar títulos y fuentes para adultos en todas partes — AniList, TMDB, CloudStream, Aniyomi, manga y torrents.",
     "adult_confirm_title": "¿Tienes 18 años o más?",
     "adult_confirm_body": "Los títulos y fuentes para adultos aparecerán en toda la app. Puedes desactivarlo cuando quieras en Ajustes.",
-    "adult_confirm_yes": "Tengo 18 años o más"
+    "adult_confirm_yes": "Tengo 18 años o más",
+    "nav_compact_scroll": "Navegación compacta al desplazarse",
+    "nav_compact_scroll_hint": "Reduce la altura al desplazarse. Se aplica a Glass y Solid."
   },
   "appearance": {
     "title": "Apariencia",

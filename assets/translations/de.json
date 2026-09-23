@@ -591,7 +591,9 @@
     "adult_content_desc": "Inhalte und Quellen für Erwachsene überall zeigen — AniList, TMDB, CloudStream, Aniyomi, Manga und Torrents.",
     "adult_confirm_title": "Bist du 18 oder älter?",
     "adult_confirm_body": "Inhalte und Quellen für Erwachsene erscheinen dann in der ganzen App. Du kannst das jederzeit in den Einstellungen ausschalten.",
-    "adult_confirm_yes": "Ich bin 18 oder älter"
+    "adult_confirm_yes": "Ich bin 18 oder älter",
+    "nav_compact_scroll": "Kompakte Navigation beim Scrollen",
+    "nav_compact_scroll_hint": "Verringert beim Scrollen die Höhe. Gilt für Glass und Solid."
   },
   "appearance": {
     "title": "Darstellung",

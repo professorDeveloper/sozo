@@ -381,6 +381,22 @@ void main() {
     for (final language in ['en', 'ar']) {
       await open(language, 2);
       expect(tester.takeException(), isNull, reason: language);
+      // At 200% the search field and the source-type filters above the
+      // cards fill the first screen, so the list has to be scrolled to them.
+      final list = find
+          .descendant(
+            of: find.byType(CustomScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      // From the top each time: the sheet keeps its scroll offset between
+      // pumps, and the previous language may have left it past the cards.
+      tester.state<ScrollableState>(list).position.jumpTo(0);
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 20 && find.text('TMDB').evaluate().isEmpty; i++) {
+        await tester.drag(list, const Offset(0, -60));
+        await tester.pumpAndSettle();
+      }
       // At 200% the name and the hint are what say how tall the card is, so
       // it grows instead of spilling them out of the bottom.
       expect(cardHeight(), greaterThan(68), reason: language);
