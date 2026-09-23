@@ -157,6 +157,21 @@ class HomeRepositoryImp implements HomeRepository {
         return Failure(Exception(e.toString()));
       }
     }
+    final catalogue = Catalogue.fromId(provider);
+    if (catalogue != null) {
+      try {
+        return Success(
+          await dataSource.loadCatalogueViewAll(
+            kind: catalogue.kind,
+            type: key,
+            slug: slug,
+            page: page,
+          ),
+        );
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (provider != null && provider.startsWith('cs:')) {
       try {
         final map = await CloudStreamChannel.getSection(

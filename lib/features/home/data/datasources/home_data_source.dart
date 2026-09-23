@@ -56,6 +56,33 @@ class HomeDataSource {
     return ViewAllPagingModel.fromJson(result.data);
   }
 
+  /// Catalogue genre tiles share the View All screen with provider sections,
+  /// but must never send a cat: identifier to /contents.
+  Future<ViewAllPagingModel> loadCatalogueViewAll({
+    required String kind,
+    required String type,
+    required String slug,
+    required int page,
+  }) async {
+    final Response result;
+    if (type == 'genre' && slug.isNotEmpty) {
+      result = await dio.get(
+        '/catalogue/$kind/genre/${Uri.encodeComponent(slug)}',
+        queryParameters: {'page': page},
+      );
+    } else if (type == 'year' && int.tryParse(slug) != null) {
+      result = await dio.get(
+        '/catalogue/$kind/discover',
+        queryParameters: {'year': slug, 'page': page, 'sort': 'popular'},
+      );
+    } else {
+      throw UnsupportedError(
+        'This catalogue does not support this collection.',
+      );
+    }
+    return ViewAllPagingModel.fromJson(result.data as Map<String, dynamic>);
+  }
+
   Future<ViewAllPagingModel> loadViewAll({
     required String type,
     required String slug,
