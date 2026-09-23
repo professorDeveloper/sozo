@@ -9,57 +9,13 @@ import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/content/content_mode_style.dart';
 import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/core/widgets/sozo_signature.dart';
+import 'package:soplay/core/widgets/sozo_dragon_transition.dart';
+import 'package:soplay/core/brand/sozo_mark_geometry.dart';
 import 'package:easy_localization/easy_localization.dart';
 
-/// The beat between one mode and the next.
-///
-/// ## Why cover the screen at all
-///
-/// Switching mode replaces every rail on the home screen at once — different
-/// sources, different catalogue, different everything. Doing that in place
-/// looks like the app broke: the content someone was reading vanishes and
-/// something unrelated appears in its slot, with no signal that they caused it.
-///
-/// A brief cover turns that into a transition. It also hides the reload, which
-/// is the honest reason the timing works out: the new mode's first request is
-/// in flight underneath.
-///
-/// ## Why it grows from the chip
-///
-/// The first version filled the screen from nowhere, in the app's own
-/// background colour, and read as a flash rather than a move — nothing tied
-/// what appeared to the thing that had just been pressed. It opens from the
-/// chip now, so the cause is visible: you touched there, and the screen opened
-/// from there. The glyph column starts small and offset towards that point too,
-/// so the mark arrives *from* the press rather than materialising in the
-/// middle.
-///
-/// ## Why each mode opens differently
-///
-/// One iris for all three destinations made the transition a template: the
-/// colour changed and nothing else did. Each mode now has its own way of
-/// arriving — Watch opens as an iris, Manga cuts in as a panel on the diagonal
-/// its own glyph is built from, Novels opens outwards from the spine like a
-/// spread. It costs one [Path] per frame and it is the difference between a
-/// transition that was configured and one that was authored.
-///
-/// ## Why the mark hands off to a glyph
-///
-/// A spinner says "wait". The mark says "Sozo", which the viewer already knows.
-/// The mode's glyph says which way they went, and it is *drawn* rather than
-/// faded in — a single pen along every stroke. That is the difference between
-/// an image appearing and something making it.
-///
-/// ## Why it is wrapped in a [Material]
-///
-/// This is inserted straight into the root [Overlay], where the nearest
-/// ancestor text style is the one `MaterialApp` installs for text that has
-/// escaped a `Material`: 48px red monospace with a **double yellow underline**.
-/// The label sets a colour and a size, and a merge keeps everything it is not
-/// told to replace — so the underline came through and the switch animation
-/// drew a yellow line under the mode name. A `Material` replaces that default
-/// with the theme's own, which is what every other screen in the app gets.
+/// A bounded transition between catalogues and reading modes. The reveal starts
+/// at the selected chip; the splash's dragon signs the change, with a separate
+/// destination badge so AniList's three shelves remain distinguishable.
 class ModeSwitchOverlay extends StatefulWidget {
   const ModeSwitchOverlay({
     super.key,
@@ -155,14 +111,13 @@ class ModeSwitchOverlay extends StatefulWidget {
       // has most of its height from the first frame and the pages travel
       // outwards — a book being opened, rather than a hole being made.
       case ContentMode.novel:
-        return Path()
-          ..addRect(
-            Rect.fromCenter(
-              center: center,
-              width: 2 * reach * t,
-              height: 2 * reach * (0.25 + 0.75 * t),
-            ),
-          );
+        return Path()..addRect(
+          Rect.fromCenter(
+            center: center,
+            width: 2 * reach * t,
+            height: 2 * reach * (0.25 + 0.75 * t),
+          ),
+        );
     }
   }
 
@@ -183,7 +138,7 @@ class ModeSwitchOverlay extends StatefulWidget {
     // Started, not awaited: the pen does not begin until ~33ms in, which is
     // more than the parse needs, and a mode switch must not wait on an asset
     // read even once.
-    unawaited(SozoSignature.precache());
+    unawaited(SozoMarkGeometry.precache());
     final release = ValueNotifier<bool>(false);
     final entry = OverlayEntry(
       builder: (_) => ModeSwitchOverlay(
@@ -400,8 +355,8 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
     // Everything on the cover leans this way by a different amount, which is
     // what gives a flat colour field a front and a back.
     final lean = Offset(
-      (center.dx - size.width / 2) / size.width,
-      (center.dy - size.height / 2) / size.height,
+      (center.dx - size.width / 2) / math.max(1, size.width),
+      (center.dy - size.height / 2) / math.max(1, size.height),
     );
 
     return AbsorbPointer(
@@ -411,7 +366,10 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
       child: AnimatedBuilder(
         animation: Listenable.merge([_enter, _exit]),
         builder: (context, child) {
-          final cover = Transform.scale(scale: _coverGrow.value, child: child);
+          final cover = Transform.scale(
+            scale: _reduceMotion ? 1 : _coverGrow.value,
+            child: child,
+          );
           if (_reduceMotion) {
             // The lift is already in the cover's own colours; this is only the
             // arrival, which reduced motion turns from a reveal into a fade.
@@ -499,79 +457,96 @@ class _ModeSwitchOverlayState extends State<ModeSwitchOverlay>
               opacity: _coverOut,
               child: RepaintBoundary(
                 child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox.square(
-                    dimension: 104,
-                    child: AnimatedBuilder(
-                      animation: Listenable.merge([_draw, _land, _pulse, _exit]),
-                      builder: (context, _) {
-                        final land = _reduceMotion
-                            ? 1.0
-                            : _land.value.clamp(0.0, 1.2);
-                        // The breath fades out with the lift instead of being
-                        // stopped dead: halting the controller snapped the
-                        // scale back in a single frame, exactly as the cover
-                        // began to leave.
-                        final breath = _pulse.isAnimating
-                            ? 0.035 *
-                                  math.sin(_pulse.value * math.pi) *
-                                  (1 - _exit.value * 3).clamp(0.0, 1.0)
-                            : 0.0;
-                        return Transform.translate(
-                          // The mark comes in from the press and settles in
-                          // the middle — a sixth of the way there, so it is
-                          // felt as direction rather than seen as travel.
-                          offset: Offset(
-                            -lean.dx * 90 * (1 - land),
-                            -lean.dy * 90 * (1 - land),
-                          ),
-                          child: Transform.scale(
-                            scale: (0.62 + 0.38 * land) * (1 + breath),
-                            child: Center(
-                              child: SozoSignature(
-                                mode: widget.mode,
-                                catalogue: widget.catalogue,
-                                color: accent,
-                                size: 92,
-                                progress: _reduceMotion ? 1 : _draw.value,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox.square(
+                      dimension: 164,
+                      child: AnimatedBuilder(
+                        animation: Listenable.merge([
+                          _draw,
+                          _land,
+                          _pulse,
+                          _exit,
+                        ]),
+                        builder: (context, _) {
+                          final land = _reduceMotion
+                              ? 1.0
+                              : _land.value.clamp(0.0, 1.2);
+                          // The breath fades out with the lift instead of being
+                          // stopped dead: halting the controller snapped the
+                          // scale back in a single frame, exactly as the cover
+                          // began to leave.
+                          final breath = !_reduceMotion && _pulse.isAnimating
+                              ? 0.035 *
+                                    math.sin(_pulse.value * math.pi) *
+                                    (1 - _exit.value * 3).clamp(0.0, 1.0)
+                              : 0.0;
+                          return Transform.translate(
+                            // The mark comes in from the press and settles in
+                            // the middle — a sixth of the way there, so it is
+                            // felt as direction rather than seen as travel.
+                            offset: Offset(
+                              -lean.dx * 90 * (1 - land),
+                              -lean.dy * 90 * (1 - land),
+                            ),
+                            child: Transform.scale(
+                              scale: (0.62 + 0.38 * land) * (1 + breath),
+                              child: Center(
+                                child: SozoDragonTransition(
+                                  size: 156,
+                                  progress: _reduceMotion ? 1 : _draw.value,
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  FadeTransition(
-                    opacity: _labelIn,
-                    child: SlideTransition(
-                      position: _labelRise,
-                      child: AnimatedBuilder(
-                        animation: _labelTrack,
-                        builder: (context, _) => Padding(
-                          // Letter spacing is added after the last letter too,
-                          // so a tracked-out word sits half a space left of
-                          // centre under a mark that is exactly centred.
-                          padding: EdgeInsetsDirectional.only(
-                            start: _labelTrack.value,
-                          ),
-                          child: Text(
-                            _label,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: _labelTrack.value,
-                              decoration: TextDecoration.none,
+                    const SizedBox(height: 12),
+                    ModeGlyph(
+                      mode: widget.mode,
+                      catalogue: widget.catalogue,
+                      color: accent,
+                      size: 32,
+                    ),
+                    const SizedBox(height: 12),
+                    FadeTransition(
+                      opacity: _labelIn,
+                      child: SlideTransition(
+                        position: _reduceMotion
+                            ? const AlwaysStoppedAnimation(Offset.zero)
+                            : _labelRise,
+                        child: AnimatedBuilder(
+                          animation: _labelTrack,
+                          builder: (context, _) => Padding(
+                            // Letter spacing is added after the last letter too,
+                            // so a tracked-out word sits half a space left of
+                            // centre under a mark that is exactly centred.
+                            padding: EdgeInsetsDirectional.only(
+                              start:
+                                  24 + (_reduceMotion ? 0 : _labelTrack.value),
+                              end: 24,
+                            ),
+                            child: Text(
+                              _label,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: _reduceMotion
+                                    ? 1.2
+                                    : _labelTrack.value,
+                                decoration: TextDecoration.none,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
                 ),
               ),
             ),

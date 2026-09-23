@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/content_mode.dart';
-import 'package:soplay/core/widgets/sozo_signature.dart';
+import 'package:soplay/core/widgets/sozo_dragon_transition.dart';
 import 'package:soplay/core/widgets/mode_switch_overlay.dart';
 
 void main() {
@@ -15,16 +15,46 @@ void main() {
     /// visible.
     TextStyle resolvedLabelStyle(WidgetTester tester) {
       final rich = tester.widget<RichText>(
-        find.descendant(
-          of: find.byType(Text),
-          matching: find.byType(RichText),
-        ),
+        find.descendant(of: find.byType(Text), matching: find.byType(RichText)),
       );
       return rich.text.style!;
     }
 
-    testWidgets('the label carries no inherited error decoration',
+    for (final catalogue in Catalogue.values) {
+      testWidgets(
+        '${catalogue.name} retains its destination in reduced motion',
         (tester) async {
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MediaQuery(
+                data: const MediaQueryData(
+                  size: Size(390, 844),
+                  disableAnimations: true,
+                ),
+                child: ModeSwitchOverlay(
+                  mode: catalogue.mode,
+                  catalogue: catalogue,
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final mark = tester.widget<SozoDragonTransition>(
+            find.byType(SozoDragonTransition),
+          );
+          expect(mark.progress, 1);
+          expect(
+            find.textContaining(catalogue.mode.labelKey.toUpperCase()),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets('the label carries no inherited error decoration', (
+      tester,
+    ) async {
       // The regression this guards is visible and was reported as "a yellow
       // line when switching to manga".
       //
@@ -44,8 +74,9 @@ void main() {
       expect(style.fontFamily, isNot('monospace'));
     });
 
-    testWidgets('plays and removes itself without leaving an exception',
-        (tester) async {
+    testWidgets('plays and removes itself without leaving an exception', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(home: ModeSwitchOverlay(mode: ContentMode.manga)),
       );
@@ -53,8 +84,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the cover holds until the new mode has loaded',
-        (tester) async {
+    testWidgets('the cover holds until the new mode has loaded', (
+      tester,
+    ) async {
       // The point of the cover is to hide the reload. Lifting on a fixed timer
       // meant a slow source got uncovered mid-load: the switch looked like it
       // had failed, and the content arrived a second later as if unrelated.
@@ -94,8 +126,9 @@ void main() {
       await played;
     });
 
-    testWidgets('a load that never finishes does not strand the cover',
-        (tester) async {
+    testWidgets('a load that never finishes does not strand the cover', (
+      tester,
+    ) async {
       // It absorbs input, so a cover that never comes off is a frozen app.
       late BuildContext ctx;
       await tester.pumpWidget(
@@ -121,8 +154,9 @@ void main() {
       await played;
     });
 
-    testWidgets('the mark has finished being written before the cover lifts',
-        (tester) async {
+    testWidgets('the mark has finished being written before the cover lifts', (
+      tester,
+    ) async {
       // The whole point of signing the mark is that the viewer watches it
       // being made. A pen caught mid-stroke as the screen uncovers reads as an
       // animation that was interrupted, not as one that was quick — and the
@@ -140,8 +174,8 @@ void main() {
         elapsed += const Duration(milliseconds: 20);
       }
 
-      final signature = tester.widget<SozoSignature>(
-        find.byType(SozoSignature),
+      final signature = tester.widget<SozoDragonTransition>(
+        find.byType(SozoDragonTransition),
       );
       expect(
         signature.progress,
@@ -150,8 +184,9 @@ void main() {
       );
     });
 
-    testWidgets("a catalogue's cover names the shelf, not just the catalogue",
-        (tester) async {
+    testWidgets("a catalogue's cover names the shelf, not just the catalogue", (
+      tester,
+    ) async {
       // AniList is three shelves and all three share a name, a colour and a
       // logo. Without the mode in the word, asking for manga and asking for
       // light novels produced covers that were pixel for pixel the same.
