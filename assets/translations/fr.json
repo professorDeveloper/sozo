@@ -1625,6 +1625,8 @@
     "device_offline": "Hors ligne — ouvre Sozo dessus"
   },
   "live_tv": {
+    "channels": "Chaînes",
+    "all_channels": "Toutes les chaînes",
     "title": "TV en direct",
     "favourites": "Favoris",
     "recent": "Vues récemment",

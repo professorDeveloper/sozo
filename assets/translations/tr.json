@@ -1625,6 +1625,8 @@
     "device_offline": "Çevrimdışı — üzerinde Sozo’yu aç"
   },
   "live_tv": {
+    "channels": "Kanallar",
+    "all_channels": "Tüm kanallar",
     "title": "Canlı TV",
     "favourites": "Favoriler",
     "recent": "Son izlenenler",

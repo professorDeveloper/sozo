@@ -14,13 +14,10 @@ import 'package:soplay/features/home/domain/home_rail.dart';
 /// closing the sheet with the back gesture leaves whatever half-arrangement
 /// was on screen at that moment, and there is nothing to undo it with.
 ///
-/// ## A preview, not a list of names
+/// ## Compact editing rows
 ///
-/// The rows are shaped like the bands they stand for: a wide block for the
-/// hero, a row of cards for a rail, chips for the genres. "Continue Watching"
-/// and "Genres" as two identical list rows tell you their order and nothing
-/// about what you are ordering — and the whole question here is what the screen
-/// will look like.
+/// Each row has a visibility switch and a dedicated drag handle. Keeping the
+/// list compact lets the complete home order fit without placeholder artwork.
 Future<void> showHomeRailCustomizer(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
@@ -45,8 +42,9 @@ class _HomeRailCustomizerSheet extends StatefulWidget {
 }
 
 class _HomeRailCustomizerSheetState extends State<_HomeRailCustomizerSheet> {
-  late List<HomeRail> _order =
-      sanitizeRailOrder(getIt<HiveService>().getHomeRailOrder());
+  late List<HomeRail> _order = sanitizeRailOrder(
+    getIt<HiveService>().getHomeRailOrder(),
+  );
   late Set<String> _hidden = {...getIt<HiveService>().getHomeRailHidden()};
 
   /// The catalogue cannot be hidden.
@@ -71,17 +69,16 @@ class _HomeRailCustomizerSheetState extends State<_HomeRailCustomizerSheet> {
   }
 
   Future<void> _save() async {
-    await getIt<HiveService>().saveHomeRails(
-      [for (final r in _order) r.id],
-      _hidden,
-    );
+    await getIt<HiveService>().saveHomeRails([
+      for (final r in _order) r.id,
+    ], _hidden);
     if (mounted) Navigator.of(context).pop();
   }
 
   void _reset() => setState(() {
-        _order = List.of(HomeRail.defaults);
-        _hidden = {};
-      });
+    _order = List.of(HomeRail.defaults);
+    _hidden = {...HomeRail.optIn};
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -137,6 +134,7 @@ class _HomeRailCustomizerSheetState extends State<_HomeRailCustomizerSheet> {
           Expanded(
             child: ReorderableListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              buildDefaultDragHandles: false,
               itemCount: _order.length,
               onReorderItem: _reorder,
               proxyDecorator: (child, _, animation) => Material(
@@ -158,16 +156,24 @@ class _HomeRailCustomizerSheetState extends State<_HomeRailCustomizerSheet> {
           ),
           Padding(
             padding: EdgeInsets.fromLTRB(16, 4, 16, bottomPad + 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _save,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('nav_customize.cancel'.tr()),
                 ),
-                child: Text('nav_customize.save'.tr()),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _save,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: Text('nav_customize.save'.tr()),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -208,7 +214,7 @@ class _RailPreviewTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.divider),
           ),
-          padding: const EdgeInsets.fromLTRB(14, 12, 8, 14),
+          padding: const EdgeInsets.fromLTRB(14, 4, 8, 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -227,20 +233,10 @@ class _RailPreviewTile extends StatelessWidget {
                     ),
                   ),
                   if (canHide)
-                    IconButton(
-                      onPressed: onToggle,
-                      tooltip: hidden
-                          ? 'general.on'.tr()
-                          : 'general.off'.tr(),
-                      icon: Icon(
-                        hidden
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        size: 19,
-                        color: hidden
-                            ? AppColors.textHint
-                            : AppColors.textSecondary,
-                      ),
+                    Switch.adaptive(
+                      value: !hidden,
+                      onChanged: (_) => onToggle(),
+                      activeTrackColor: AppColors.primary,
                     )
                   else
                     // Locked rather than absent: an eye that is simply missing
@@ -256,8 +252,9 @@ class _RailPreviewTile extends StatelessWidget {
                     ),
                   ReorderableDragStartListener(
                     index: index,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: const SizedBox(
+                      width: 44,
+                      height: 48,
                       child: Icon(
                         Icons.drag_handle_rounded,
                         color: AppColors.textHint,
@@ -266,139 +263,10 @@ class _RailPreviewTile extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Padding(
-                padding: const EdgeInsetsDirectional.only(end: 6),
-                child: _RailShape(rail: rail),
-              ),
             ],
           ),
         ),
       ),
     );
-  }
-}
-
-/// The silhouette of a band — what it is, not what it is called.
-class _RailShape extends StatelessWidget {
-  const _RailShape({required this.rail});
-
-  final HomeRail rail;
-
-  static const Color _fill = Color(0x14FFFFFF);
-
-  Widget _block({double? width, double height = 26, double radius = 6}) =>
-      Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: _fill,
-          borderRadius: BorderRadius.circular(radius),
-        ),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (rail) {
-      // One wide banner.
-      HomeRail.hero => _block(height: 54, radius: 10),
-
-      // Wide cards with a progress line, which is what makes Continue
-      // Watching recognisable at a glance.
-      HomeRail.resume => SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              for (var i = 0; i < 3; i++) ...[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _block(height: 34, radius: 6),
-                      const SizedBox(height: 4),
-                      Container(
-                        height: 3,
-                        width: 34.0 - i * 8,
-                        color: AppColors.primary.withValues(alpha: 0.7),
-                      ),
-                    ],
-                  ),
-                ),
-                if (i < 2) const SizedBox(width: 8),
-              ],
-            ],
-          ),
-        ),
-
-      // Short pills.
-      HomeRail.genres => SizedBox(
-          height: 22,
-          child: Row(
-            children: [
-              for (final w in const [58.0, 44.0, 66.0, 38.0]) ...[
-                _block(width: w, height: 22, radius: 11),
-                const SizedBox(width: 8),
-              ],
-            ],
-          ),
-        ),
-
-      // Squares — channel logos are square where posters are tall.
-      HomeRail.liveTv => SizedBox(
-          height: 38,
-          child: Row(
-            children: [
-              for (var i = 0; i < 5; i++) ...[
-                _block(width: 38, height: 38, radius: 8),
-                const SizedBox(width: 8),
-              ],
-            ],
-          ),
-        ),
-
-      // One wide row with a mark on the left. It is a way in rather than a
-      // shelf, and the preview has to say so, or somebody turns it on
-      // expecting a rail of logos.
-      HomeRail.watchServices => SizedBox(
-          height: 34,
-          child: Row(
-            children: [
-              _block(width: 34, height: 34, radius: 9),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _block(width: 84, height: 7, radius: 3),
-                    const SizedBox(height: 6),
-                    _block(width: 130, height: 6, radius: 3),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-      // Tall posters, twice — the catalogue is several rails, not one.
-      HomeRail.catalogue => Column(
-          children: [
-            for (var row = 0; row < 2; row++) ...[
-              SizedBox(
-                height: 40,
-                child: Row(
-                  children: [
-                    for (var i = 0; i < 5; i++) ...[
-                      _block(width: 28, height: 40, radius: 5),
-                      const SizedBox(width: 8),
-                    ],
-                  ],
-                ),
-              ),
-              if (row == 0) const SizedBox(height: 8),
-            ],
-          ],
-        ),
-    };
   }
 }

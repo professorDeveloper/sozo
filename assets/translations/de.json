@@ -1625,6 +1625,8 @@
     "device_offline": "Offline — öffne Sozo darauf"
   },
   "live_tv": {
+    "channels": "Sender",
+    "all_channels": "Alle Sender",
     "title": "Live-TV",
     "favourites": "Favoriten",
     "recent": "Zuletzt gesehen",

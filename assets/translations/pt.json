@@ -1625,6 +1625,8 @@
     "device_offline": "Off-line — abra o Sozo nela"
   },
   "live_tv": {
+    "channels": "Canais",
+    "all_channels": "Todos os canais",
     "title": "TV ao vivo",
     "favourites": "Favoritos",
     "recent": "Vistos recentemente",

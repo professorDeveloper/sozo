@@ -1625,6 +1625,8 @@
     "device_offline": "غير متّصل — افتح Sozo عليه"
   },
   "live_tv": {
+    "channels": "القنوات",
+    "all_channels": "كل القنوات",
     "title": "البث المباشر",
     "favourites": "المفضّلة",
     "recent": "شوهدت مؤخراً",

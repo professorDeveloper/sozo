@@ -1625,6 +1625,8 @@
     "device_offline": "Oflayn — unda Sozo ni oching"
   },
   "live_tv": {
+    "channels": "Kanallar",
+    "all_channels": "Barcha kanallar",
     "title": "Jonli TV",
     "favourites": "Tanlanganlar",
     "recent": "Yaqinda ko‘rilgan",

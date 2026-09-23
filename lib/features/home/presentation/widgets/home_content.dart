@@ -1,3 +1,4 @@
+import 'package:soplay/features/profile/presentation/widgets/home_rail_customizer_sheet.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -373,6 +374,16 @@ class _HomeContentBody extends StatelessWidget {
                     ),
                   ),
               ],
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                  child: OutlinedButton.icon(
+                    onPressed: () => showHomeRailCustomizer(context),
+                    icon: const Icon(Icons.dashboard_customize_outlined),
+                    label: Text('home_rails.entry_title'.tr()),
+                  ),
+                ),
+              ),
               SliverToBoxAdapter(
                 child: SizedBox(
                   // Clear the floating nav capsule: desktop pill (~66+18) and

@@ -18,7 +18,7 @@ import 'package:soplay/features/live_tv/presentation/widgets/channel_sheet.dart'
 const double _kGutter = 14;
 const double _kSpacing = 10;
 
-int _columnsFor(double width) => width >= 900 ? 5 : (width >= 620 ? 4 : 3);
+int _columnsFor(double width) => width >= 900 ? 5 : (width >= 620 ? 4 : 2);
 
 /// Width factor for a channel card's progress hairline, or null for no bar.
 ///
@@ -66,6 +66,48 @@ class _LiveTvPageState extends State<LiveTvPage> {
 
   /// The folder being read, or empty for the top level.
   String _folder = '';
+  bool _allChannels = false;
+  List<LiveChannel> _lineup = const [];
+  bool _lineupLoading = true;
+  bool _lineupFailed = false;
+  int _lineupSeq = 0;
+
+  Future<void> _loadLineup() async {
+    final seq = ++_lineupSeq;
+    setState(() {
+      _lineupLoading = true;
+      _lineupFailed = false;
+    });
+    try {
+      final page = await _service.browse(limit: 12);
+      if (!mounted || seq != _lineupSeq) return;
+      setState(() {
+        _lineup = page.channels;
+        _lineupLoading = false;
+      });
+      _rememberCards(page.channels);
+    } catch (_) {
+      if (!mounted || seq != _lineupSeq) return;
+      setState(() {
+        _lineupLoading = false;
+        _lineupFailed = true;
+      });
+    }
+  }
+
+  void _openAllChannels() {
+    setState(() {
+      _allChannels = true;
+      _folder = '';
+      _country = '';
+      _query = '';
+      _search.clear();
+      _resetPaging();
+    });
+    _debounce?.cancel();
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    _loadPage();
+  }
 
   /// The country being read, or empty. Mutually exclusive with [_folder] —
   /// they are two ways of asking the same question and combining them produces
@@ -109,6 +151,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
     _scroll.addListener(_onScroll);
     _ticker = Timer.periodic(const Duration(seconds: 60), _onTick);
     _loadIndex();
+    _loadLineup();
   }
 
   @override
@@ -125,22 +168,27 @@ class _LiveTvPageState extends State<LiveTvPage> {
     if (!mounted) return;
     // The tab lives inside main_page's IndexedStack for the whole session, so
     // this refuses to rebuild anything that has no bar on it.
-    if (!_scoped) return;
-    if (!_channels.any((c) => c.now != null)) return;
+    if (!(_scoped ? _channels : _lineup).any((c) => c.now != null)) return;
     setState(() => _now = DateTime.now());
   }
 
   /// True while a folder, a country or a search is open — i.e. whenever the
   /// screen is showing channels rather than the line-up's index.
   bool get _scoped =>
-      _folder.isNotEmpty || _country.isNotEmpty || _query.trim().isNotEmpty;
+      _allChannels ||
+      _folder.isNotEmpty ||
+      _country.isNotEmpty ||
+      _query.trim().isNotEmpty;
 
   bool get _searching => _query.trim().isNotEmpty;
 
   String get _scopeName {
     if (_folder.isNotEmpty) return _folder;
     if (_country.isNotEmpty) return _countryName(_country);
-    return 'live_tv.results'.tr();
+    return (_allChannels && !_searching
+            ? 'live_tv.all_channels'
+            : 'live_tv.results')
+        .tr();
   }
 
   Future<void> _loadIndex({bool silent = false}) async {
@@ -241,13 +289,20 @@ class _LiveTvPageState extends State<LiveTvPage> {
 
   void _toast(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Pull to refresh. Silent because RefreshIndicator draws its own spinner and
   /// raising [_loading] would swap the grid for skeletons underneath it.
-  Future<void> _refresh() =>
-      _scoped ? _loadPage(silent: true) : _loadIndex(silent: true);
+  Future<void> _refresh() async {
+    if (_scoped) {
+      await _loadPage(silent: true);
+      return;
+    }
+    await Future.wait([_loadIndex(silent: true), _loadLineup()]);
+  }
 
   /// Everything a scope change must forget. Always called inside a setState.
   void _resetPaging() {
@@ -260,6 +315,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
 
   void _openFolder(String name) {
     setState(() {
+      _allChannels = false;
       _folder = name;
       _country = '';
       _resetPaging();
@@ -270,6 +326,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
 
   void _openCountry(String code) {
     setState(() {
+      _allChannels = false;
       _country = code;
       _folder = '';
       _resetPaging();
@@ -283,6 +340,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
     _search.clear();
     _seq++; // drop anything already in flight for the scope being left
     setState(() {
+      _allChannels = false;
       _folder = '';
       _country = '';
       _query = '';
@@ -299,7 +357,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
       _resetPaging();
     });
     if (value.trim().isEmpty) {
-      if (_folder.isEmpty && _country.isEmpty) {
+      if (!_allChannels && _folder.isEmpty && _country.isEmpty) {
         _seq++; // back to the top level; nothing to fetch, nothing in flight
         return;
       }
@@ -478,9 +536,10 @@ class _LiveTvPageState extends State<LiveTvPage> {
     _cards[channel.id] = _cardOf(channel);
     hive.setLiveTvCards(_cards);
     setState(() {
-      _recent = [channel.id, ..._recent.where((e) => e != channel.id)]
-          .take(12)
-          .toList();
+      _recent = [
+        channel.id,
+        ..._recent.where((e) => e != channel.id),
+      ].take(12).toList();
       _rebuildPins();
     });
     context.push(
@@ -616,9 +675,81 @@ class _LiveTvPageState extends State<LiveTvPage> {
   }
 
   List<Widget> _topSlivers(double width) {
-    final indexEmpty = _booted && _folders.isEmpty;
+    final indexEmpty = _booted && _folders.isEmpty && _lineup.isEmpty;
 
     return [
+      if (!_booted || _countries.isNotEmpty) ...[
+        _SectionHeader(
+          icon: Icons.public_rounded,
+          label: 'live_tv.countries'.tr(),
+        ),
+        if (!_booted)
+          const _CountryRailSkeleton()
+        else
+          _CountryRail(
+            countries: _countries,
+            nameOf: _countryName,
+            flagOf: _flagOf,
+            onOpen: _openCountry,
+          ),
+      ],
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: _kGutter,
+            vertical: 8,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'live_tv.channels'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _openAllChannels,
+                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                label: Text('home.view_all'.tr()),
+              ),
+            ],
+          ),
+        ),
+      ),
+      if (_lineupLoading && _lineup.isEmpty)
+        _GridSkeleton(width: width, count: 6)
+      else if (_lineup.isNotEmpty)
+        _ChannelGrid(
+          channels: _lineup,
+          favourites: _favourites,
+          width: width,
+          now: _now,
+          onPlay: _play,
+          onMore: _openSheet,
+        ),
+      if (_lineupFailed || (!_lineupLoading && _lineup.isEmpty))
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Text(
+                  (_lineupFailed ? 'live_tv.load_failed' : 'live_tv.empty')
+                      .tr(),
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+                TextButton(
+                  onPressed: _loadLineup,
+                  child: Text('live_tv.retry'.tr()),
+                ),
+              ],
+            ),
+          ),
+        ),
       if (_recentCards.isNotEmpty) ...[
         _SectionHeader(
           icon: Icons.history_rounded,
@@ -672,21 +803,6 @@ class _LiveTvPageState extends State<LiveTvPage> {
           _CategorySkeleton(width: width)
         else
           _CategoryGrid(folders: _folders, width: width, onOpen: _openFolder),
-        if (!_booted || _countries.isNotEmpty) ...[
-          _SectionHeader(
-            icon: Icons.public_rounded,
-            label: 'live_tv.countries'.tr(),
-          ),
-          if (!_booted)
-            const _CountryRailSkeleton()
-          else
-            _CountryRail(
-              countries: _countries,
-              nameOf: _countryName,
-              flagOf: _flagOf,
-              onOpen: _openCountry,
-            ),
-        ],
       ],
     ];
   }

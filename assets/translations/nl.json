@@ -1625,6 +1625,8 @@
     "device_offline": "Offline — open Sozo erop"
   },
   "live_tv": {
+    "channels": "Kanalen",
+    "all_channels": "Alle kanalen",
     "title": "Live tv",
     "favourites": "Favorieten",
     "recent": "Laatst bekeken",

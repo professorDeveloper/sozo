@@ -393,7 +393,19 @@ class HiveService {
     await saveHomeRails(getHomeRailOrder(), {...getHomeRailHidden(), id});
   }
 
-  Future<void> saveHomeRails(List<String> order, Set<String> hidden) async {
+  Future<void> saveHomeRails(
+    List<String> order,
+    Set<String> hidden, {
+    bool fromCustomizer = false,
+  }) async {
+    // Saving the editor is an explicit choice for every optional rail. Without
+    // acknowledging it, getHomeRailHidden would hide a newly enabled rail again.
+    if (fromCustomizer) {
+      await _settingsBox.put(
+        AppConstants.homeSuggestionsAnsweredKey,
+        {...getAnsweredHomeSuggestions(), ...HomeRail.optIn}.toList(),
+      );
+    }
     await _settingsBox.put(AppConstants.homeRailOrderKey, order);
     await _settingsBox.put(AppConstants.homeRailHiddenKey, hidden.toList());
     homeRailsChanged.value = !homeRailsChanged.value;

@@ -1625,6 +1625,8 @@
     "device_offline": "Luring — buka Sozo di sana"
   },
   "live_tv": {
+    "channels": "Saluran",
+    "all_channels": "Semua saluran",
     "title": "TV langsung",
     "favourites": "Favorit",
     "recent": "Baru ditonton",

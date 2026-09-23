@@ -1625,6 +1625,8 @@
     "device_offline": "Desconectada: abre Sozo en ella"
   },
   "live_tv": {
+    "channels": "Canales",
+    "all_channels": "Todos los canales",
     "title": "TV en vivo",
     "favourites": "Favoritos",
     "recent": "Vistos hace poco",

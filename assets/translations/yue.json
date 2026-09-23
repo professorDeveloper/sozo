@@ -1625,6 +1625,8 @@
     "device_offline": "離線 — 喺部電視開 Sozo"
   },
   "live_tv": {
+    "channels": "頻道",
+    "all_channels": "所有頻道",
     "title": "直播電視",
     "favourites": "收藏",
     "recent": "最近睇過",

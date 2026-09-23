@@ -1625,6 +1625,8 @@
     "device_offline": "Не в сети — откройте на нём Sozo"
   },
   "live_tv": {
+    "channels": "Каналы",
+    "all_channels": "Все каналы",
     "title": "Эфир",
     "favourites": "Избранное",
     "recent": "Недавно смотрели",

@@ -13,6 +13,8 @@ import 'package:soplay/core/theme/theme_controller.dart';
 import 'package:soplay/features/profile/presentation/widgets/library_accents.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 import 'package:soplay/features/profile/presentation/widgets/theme_preview.dart';
+import 'package:soplay/features/profile/presentation/widgets/home_rail_customizer_sheet.dart';
+import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
 
 /// Settings → Appearance.
 ///
@@ -120,6 +122,25 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          SettingsCard(
+            children: [
+              _ActionRow(
+                icon: Icons.dashboard_customize_outlined,
+                title: 'home_rails.entry_title'.tr(),
+                subtitle: 'home_rails.entry_subtitle'.tr(),
+                onTap: () => showHomeRailCustomizer(context),
+              ),
+              const SettingsDivider(),
+              _ActionRow(
+                icon: Icons.view_week_outlined,
+                title: 'nav_customize.entry_title'.tr(),
+                subtitle: 'nav_customize.entry_subtitle'.tr(),
+                onTap: () => showTabCustomizer(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
           // ── Live preview ────────────────────────────────────────────────
           SettingsLabel('appearance.section_preview'.tr()),
           const _PreviewStage(),
