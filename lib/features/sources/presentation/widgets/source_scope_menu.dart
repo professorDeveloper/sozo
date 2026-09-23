@@ -24,21 +24,24 @@ class SourceScopeMenu extends StatelessWidget {
   /// The sheet is tighter than the page and its controls are smaller.
   final bool dense;
 
-  /// The ecosystems worth offering: the ones that are actually here.
+  /// Keep Sozo visible even when its server catalogue is unavailable.
   ///
   /// An ecosystem with nothing in it filters to an empty list, which teaches
   /// people the filter is broken.
   List<SourceEcosystem> get _ecosystems => [
     for (final e in SourceEcosystem.values)
-      if ((counts.byEcosystem[e] ?? 0) > 0) e,
+      if (e == SourceEcosystem.sozo || (counts.byEcosystem[e] ?? 0) > 0) e,
   ];
 
   @override
   Widget build(BuildContext context) {
     final ecosystems = _ecosystems;
     if (ecosystems.isEmpty) return const SizedBox.shrink();
+    final populated = ecosystems
+        .where((e) => (counts.byEcosystem[e] ?? 0) > 0)
+        .toList();
     final ecosystem =
-        scope.ecosystem ?? (ecosystems.length == 1 ? ecosystems.single : null);
+        scope.ecosystem ?? (populated.length == 1 ? populated.single : null);
     final hasRepos = ecosystem != null && counts.reposIn(ecosystem).isNotEmpty;
     final colors = Theme.of(context).colorScheme;
     return Padding(
@@ -83,10 +86,12 @@ class SourceScopeMenu extends StatelessWidget {
                         : colors.onSurface,
                   ),
                   materialTapTargetSize: MaterialTapTargetSize.padded,
-                  onSelected: (_) {
-                    HapticFeedback.selectionClick();
-                    onPick(SourceScope(ecosystem: entry.$1));
-                  },
+                  onSelected: entry.$1 != null && entry.$3 == 0
+                      ? null
+                      : (_) {
+                          HapticFeedback.selectionClick();
+                          onPick(SourceScope(ecosystem: entry.$1));
+                        },
                 ),
             ],
           ),

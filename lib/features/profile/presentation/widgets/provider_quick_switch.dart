@@ -179,7 +179,7 @@ Future<void> _openSwitcher(
   // providers — which is the version of this that sent people to Settings.
   final all = [
     for (final p in state.providers)
-      if (state.isUsable(p) && p.id.contentMode == mode) p,
+      if (p.id.contentMode == mode) p,
   ];
   // Where the chip was when it was pressed, so the cover can open from it.
   // Read here rather than carried in the pop result: the result is a string
@@ -200,6 +200,10 @@ Future<void> _openSwitcher(
           if (f.id.contentMode == mode) f,
       ],
       all: all,
+      unavailableIds: {
+        for (final p in all)
+          if (!state.isUsable(p)) p.id,
+      },
       mode: mode,
       currentProviderId: state.currentProviderId,
     ),
@@ -269,6 +273,7 @@ class ProviderQuickSwitchSheet extends StatefulWidget {
     required this.mode,
     required this.currentProviderId,
     this.onModeTap,
+    this.unavailableIds = const {},
   });
 
   /// Reports where a mode chip was on screen when it was pressed, so the
@@ -277,6 +282,7 @@ class ProviderQuickSwitchSheet extends StatefulWidget {
 
   final List<ProviderEntity> favorites;
   final List<ProviderEntity> all;
+  final Set<String> unavailableIds;
 
   /// The kind of catalogue these sources belong to. Shown as a row of chips at
   /// the top, because the mode is the thing that decides what the rest of the
@@ -704,6 +710,8 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                                       items[index],
                                       widget.currentProviderId,
                                       favorite: index < favorites.length,
+                                      available: !widget.unavailableIds
+                                          .contains(items[index].id),
                                     ),
                                   ),
                                 );
@@ -1260,6 +1268,7 @@ Widget _favoriteProviderTile(
   ProviderEntity p,
   String currentProviderId, {
   bool favorite = false,
+  bool available = true,
 }) {
   final selected = p.id == currentProviderId;
   final eco = SourceEcosystem.of(p.id);
@@ -1280,6 +1289,7 @@ Widget _favoriteProviderTile(
   final lang = p.displayLang;
   final meta = [
     eco.label,
+    if (!available) 'profile.offline_badge'.tr(),
     if (lang.isNotEmpty && lang != kAllLanguages) shortLabelFor(lang),
   ].join(' · ');
   // Announced the way the mode segments and the catalogue cards are: a thing
@@ -1294,6 +1304,7 @@ Widget _favoriteProviderTile(
           ? AppColors.primary.withValues(alpha: 0.08)
           : Colors.transparent,
       child: ListTile(
+        enabled: available,
         leading: Container(
           decoration: selected
               ? BoxDecoration(
@@ -1335,12 +1346,14 @@ Widget _favoriteProviderTile(
             : favorite
             ? const Icon(Icons.star_rounded, color: Colors.amber, size: 20)
             : null,
-        onTap: () {
-          // The same tick the mode segments answer a tap with, so a source
-          // and a mode feel like one control between them.
-          HapticFeedback.selectionClick();
-          Navigator.of(context).pop(p.id);
-        },
+        onTap: !available
+            ? null
+            : () {
+                // The same tick the mode segments answer a tap with, so a source
+                // and a mode feel like one control between them.
+                HapticFeedback.selectionClick();
+                Navigator.of(context).pop(p.id);
+              },
       ),
     ),
   );

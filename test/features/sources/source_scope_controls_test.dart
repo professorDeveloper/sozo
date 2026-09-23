@@ -70,6 +70,8 @@ void main() {
         ),
         (s) => picked = s,
       );
+      await tester.tap(find.text('Sozo · 4'));
+      expect(picked, const SourceScope(ecosystem: SourceEcosystem.sozo));
       expect(find.text('CloudStream · 100').hitTestable(), findsOneWidget);
       expect(find.text('Aniyomi · 12').hitTestable(), findsOneWidget);
       await tester.tap(find.text('CloudStream · 100'));
@@ -90,6 +92,13 @@ void main() {
           },
         ),
         (s) => picked = s,
+      );
+      expect(find.text('Sozo · 0'), findsOneWidget);
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Sozo · 0'))
+            .onSelected,
+        isNull,
       );
       await tester.tap(find.byKey(const ValueKey('repository-picker')));
       await tester.pumpAndSettle();
