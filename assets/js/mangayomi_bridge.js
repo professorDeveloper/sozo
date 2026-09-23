@@ -245,13 +245,19 @@
     }
   }
 
+  // Never null, as upstream's is never null. Mangayomi's selectFirst hands
+  // back an element whatever it finds, and a miss reads as empty — so its
+  // sources are written as `el.selectFirst("img").getSrc` with no guard. Ours
+  // returned null, and that one line on Anna's Archive ran against every
+  // <a> on the page, so the first anchor without an image threw and the
+  // whole list was lost. An empty element answers '' to everything, which is
+  // what the source was written to expect.
   function selectOne(root, query) {
-    if (!root || !query) return null;
+    if (!root || !query) return new MElement(null);
     try {
-      const n = root.querySelector(query);
-      return n ? new MElement(n) : null;
+      return new MElement(root.querySelector(query));
     } catch (_) {
-      return null;
+      return new MElement(null);
     }
   }
 
