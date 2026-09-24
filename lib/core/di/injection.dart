@@ -135,6 +135,7 @@ import 'package:soplay/features/tracker/data/follow_service.dart';
 import 'package:soplay/features/tracker/data/library_update_scheduler.dart';
 import 'package:soplay/features/trakt/data/trakt_link_store.dart';
 import 'package:soplay/features/trakt/data/trakt_service.dart';
+import 'package:soplay/features/trakt/data/trakt_tracker.dart';
 import 'package:soplay/features/search/domain/repositories/search_repository.dart';
 import 'package:soplay/features/search/domain/usecases/genre_usecase.dart';
 import 'package:soplay/features/search/domain/usecases/search_usecase.dart';
@@ -726,6 +727,12 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<TraktLinkStore>(TraktLinkStore());
   getIt.registerSingleton<TraktService>(
     TraktService(backendDio: getIt<Dio>(), links: getIt<TraktLinkStore>()),
+  );
+  getIt.registerSingleton<TraktTracker>(
+    TraktTracker(
+      service: getIt<TraktService>(),
+      outbox: getIt<TrackerOutbox>(),
+    ),
   );
   getIt.registerSingleton<LibraryUpdateScheduler>(
     LibraryUpdateScheduler(follow: getIt<FollowService>())..start(),

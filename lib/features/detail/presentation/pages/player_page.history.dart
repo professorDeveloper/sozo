@@ -197,7 +197,10 @@ extension _PlayerHistory on _PlayerPageState {
 
     final anilist = getIt<AnilistTracker>();
     final mal = getIt<MalTracker>();
-    if (!anilist.isConnected && !mal.isConnected) return;
+    final trakt = getIt<TraktTracker>();
+    if (!anilist.isConnected && !mal.isConnected && !trakt.isConnected) {
+      return;
+    }
 
     // The window says which episode; WatchProgress decides whether to report
     // it. The movie-is-episode-1 rule, the zero-or-less guard and the
@@ -224,9 +227,63 @@ extension _PlayerHistory on _PlayerPageState {
           title: widget.args.title,
           episodeNumber: episodeNumber,
         ),
+      if (trakt.isConnected && _traktApplies)
+        () => trakt
+            .reportWatched(
+              provider: widget.args.provider,
+              contentUrl: contentUrl,
+              title: widget.args.title,
+              isSerial: widget.args.isSerial,
+              episode: episodeNumber,
+              progress: _playbackPercent.clamp(80, 100).toDouble(),
+            )
+            .then((_) => null),
     ]) {
       unawaited(tracker().catchError((Object _) => null));
     }
+  }
+
+  /// Trakt is for films and series: not live channels, not trailers.
+  bool get _traktApplies =>
+      !_isLive && widget.args.provider != 'trailer' && widget.args.contentUrl != null;
+
+  double get _playbackPercent {
+    final v = _controller?.value;
+    if (v == null) return 0;
+    final d = v.duration.inMilliseconds;
+    return d <= 0 ? 0 : v.position.inMilliseconds * 100 / d;
+  }
+
+  /// "Watching now" on the viewer's Trakt profile: a start when playback
+  /// starts or resumes, a pause when it pauses. Only on a change of state —
+  /// the listener behind this fires on every frame.
+  void _syncTraktScrobble(bool playing) {
+    if (playing == _traktPlaying) return;
+    _traktPlaying = playing;
+    if (_hive.isIncognito) return;
+    final trakt = getIt<TraktTracker>();
+    if (!trakt.isConnected || !_traktApplies) return;
+    final c = _controller;
+    if (c == null || c.value.duration.inMilliseconds <= 0) return;
+    // Past the watched mark the stop has been sent; a later start or pause
+    // would open a fresh "in progress" playback on Trakt for a finished one.
+    if (WatchProgress.isWatched(c.value.position, c.value.duration)) return;
+    final offlineEp = widget.args.offlineEpisodeNumber;
+    final episode = widget.args.isSerial
+        ? (_window.current?.episode ?? offlineEp ?? 0)
+        : 1;
+    if (episode <= 0) return;
+    unawaited(
+      trakt.scrobble(
+        playing ? 'start' : 'pause',
+        provider: widget.args.provider,
+        contentUrl: widget.args.contentUrl!,
+        title: widget.args.title,
+        isSerial: widget.args.isSerial,
+        episode: episode,
+        progress: _playbackPercent,
+      ),
+    );
   }
 
   Future<void> _pingStreak() async {

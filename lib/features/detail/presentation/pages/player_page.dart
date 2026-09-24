@@ -78,6 +78,7 @@ import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
 import 'package:soplay/core/preview/frame_preview_service.dart';
+import 'package:soplay/features/trakt/data/trakt_tracker.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/video_option_groups.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
@@ -231,6 +232,9 @@ class _PlayerPageState extends State<PlayerPage>
 
   /// Fires [_schedulePreviewWarm]'s delayed start; cancelled on every change of media.
   Timer? _previewWarm;
+
+  /// Last playing state sent to Trakt, so only changes are scrobbled.
+  bool _traktPlaying = false;
 
   /// True while the current media is a live broadcast.
   ///
@@ -681,6 +685,8 @@ class _PlayerPageState extends State<PlayerPage>
   @override
   void dispose() {
     _previewWarm?.cancel();
+    // Leaving mid-play is a pause as far as Trakt's "watching now" goes.
+    if (_traktPlaying) _syncTraktScrobble(false);
     _mediaGeneration++;
     // Discord first, and unconditionally.
     //

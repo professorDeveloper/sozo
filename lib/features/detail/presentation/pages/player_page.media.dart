@@ -257,6 +257,9 @@ extension _PlayerMedia on _PlayerPageState {
     // row would count as one.
     _countedComplete = false;
     _endHandled = false;
+    // The next episode's first frame is a new "watching now" on Trakt; the
+    // start replaces the previous one there, so no pause is needed first.
+    _traktPlaying = false;
     // And a new episode is a new question for the auto-translator: episode 4
     // may carry a subtitle in the viewer's language when episode 3 did not.
     _autoTranslateDone = false;
@@ -1460,6 +1463,7 @@ extension _PlayerMedia on _PlayerPageState {
     final v = c.value;
 
     _syncWakelock(v.isPlaying);
+    _syncTraktScrobble(v.isPlaying);
 
     if (v.hasError) {
       final msg = v.errorDescription;
