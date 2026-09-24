@@ -2435,5 +2435,22 @@
     "error_too_many_pending": "Trop de demandes en attente. Annules-en quelques-unes d'abord.",
     "error_rate_limited": "Trop de tentatives. Patiente un peu et réessaie.",
     "error_generic": "Un problème est survenu. Réessaie."
+  },
+  "recap": {
+    "action": "Récap",
+    "action_hint": "Rattrapez tout ce qui précède l'épisode {}",
+    "previously_on": "Précédemment dans",
+    "up_to": "Jusqu'à {}",
+    "code_season_episode": "S{} · É{}",
+    "code_episode": "Épisode {}",
+    "season_n": "Saison {}",
+    "loading": "On vous remet à niveau…",
+    "spoiler_safe": "Sans spoiler : rien à partir de {} n'est inclus.",
+    "covers": "Épisodes couverts",
+    "source": "Synopsis : {}",
+    "ai_note": "Résumé par l'IA à partir de ces synopsis",
+    "unavailable_title": "Pas encore de récap pour ce titre",
+    "unavailable": "Il n'y a pas assez de synopsis d'épisodes pour le résumer sans risque, alors nous ne devinerons pas.",
+    "error": "Impossible de charger le récap"
   }
 }

@@ -165,6 +165,7 @@ import 'package:soplay/features/shorts/domain/usecases/get_shorts_usecase.dart';
 import 'package:soplay/features/shorts/domain/usecases/increase_short_view_usecase.dart';
 import 'package:soplay/features/shorts/domain/usecases/toggle_short_like_usecase.dart';
 import 'package:soplay/features/shorts/presentation/bloc/shorts_bloc.dart';
+import 'package:soplay/features/recap/data/recap_remote_data_source.dart';
 import 'package:soplay/features/trivia/data/datasources/trivia_remote_data_source.dart';
 import 'package:soplay/features/trivia/data/repositories/trivia_repository_impl.dart';
 import 'package:soplay/features/trivia/domain/repositories/trivia_repository.dart';
@@ -757,6 +758,10 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<ToggleShortLikeUseCase>(
     ToggleShortLikeUseCase(getIt<ShortsRepository>()),
+  );
+
+  getIt.registerLazySingleton<RecapRemoteDataSource>(
+    () => RecapRemoteDataSource(dio: getIt<Dio>()),
   );
 
   // ---- Buff (trivia) ----

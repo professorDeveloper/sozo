@@ -2435,5 +2435,22 @@
     "error_too_many_pending": "Too many pending requests. Cancel some first.",
     "error_rate_limited": "Too many tries. Wait a moment and try again.",
     "error_generic": "Something went wrong. Try again."
+  },
+  "recap": {
+    "action": "Recap",
+    "action_hint": "Catch up on everything before episode {}",
+    "previously_on": "Previously on",
+    "up_to": "Up to {}",
+    "code_season_episode": "S{} · E{}",
+    "code_episode": "Episode {}",
+    "season_n": "Season {}",
+    "loading": "Catching you up…",
+    "spoiler_safe": "Spoiler-safe: nothing from {} onward is included.",
+    "covers": "Episodes covered",
+    "source": "Synopses: {}",
+    "ai_note": "Summarised by AI from these synopses",
+    "unavailable_title": "No recap for this one yet",
+    "unavailable": "There aren't enough episode synopses to recap it safely, so we won't guess.",
+    "error": "Couldn't load the recap"
   }
 }

@@ -2435,5 +2435,22 @@
     "error_too_many_pending": "Zu viele offene Anfragen. Zieh zuerst einige zurück.",
     "error_rate_limited": "Zu viele Versuche. Warte kurz und versuch es noch mal.",
     "error_generic": "Etwas ist schiefgelaufen. Versuch es noch mal."
+  },
+  "recap": {
+    "action": "Rückblick",
+    "action_hint": "Alles bis vor Folge {} auffrischen",
+    "previously_on": "Was bisher geschah",
+    "up_to": "Bis {}",
+    "code_season_episode": "S{} · F{}",
+    "code_episode": "Folge {}",
+    "season_n": "Staffel {}",
+    "loading": "Wir bringen dich auf den Stand…",
+    "spoiler_safe": "Spoilerfrei: nichts ab {} ist enthalten.",
+    "covers": "Enthaltene Folgen",
+    "source": "Inhaltsangaben: {}",
+    "ai_note": "Von KI aus diesen Inhaltsangaben zusammengefasst",
+    "unavailable_title": "Für diesen Titel gibt es noch keinen Rückblick",
+    "unavailable": "Es gibt nicht genug Inhaltsangaben für einen spoilerfreien Rückblick, darum raten wir nicht.",
+    "error": "Rückblick konnte nicht geladen werden"
   }
 }

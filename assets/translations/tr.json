@@ -2435,5 +2435,22 @@
     "error_too_many_pending": "Bekleyen çok fazla istek var. Önce bazılarını iptal et.",
     "error_rate_limited": "Çok fazla deneme. Biraz bekleyip tekrar dene.",
     "error_generic": "Bir şeyler ters gitti. Tekrar dene."
+  },
+  "recap": {
+    "action": "Özet",
+    "action_hint": "{}. bölümden öncesini hatırla",
+    "previously_on": "Önceki bölümlerde",
+    "up_to": "{} dahil",
+    "code_season_episode": "S{} · B{}",
+    "code_episode": "{}. bölüm",
+    "season_n": "{}. sezon",
+    "loading": "Hafızanı tazeliyoruz…",
+    "spoiler_safe": "Spoiler yok: {} ve sonrasından hiçbir şey dahil değil.",
+    "covers": "Kapsanan bölümler",
+    "source": "Özetler: {}",
+    "ai_note": "Bu özetlerden yapay zekâ tarafından derlendi",
+    "unavailable_title": "Bu yapım için henüz özet yok",
+    "unavailable": "Güvenle özetlemek için yeterli bölüm özeti yok, bu yüzden tahmin yürütmüyoruz.",
+    "error": "Özet yüklenemedi"
   }
 }

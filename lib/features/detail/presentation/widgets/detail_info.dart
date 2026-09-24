@@ -20,6 +20,8 @@ import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/home/domain/entities/view_all.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_row.dart';
+import 'package:soplay/features/recap/domain/recap.dart';
+import 'package:soplay/features/recap/presentation/recap_sheet.dart';
 
 class DetailContentHeader extends StatefulWidget {
   const DetailContentHeader({
@@ -81,9 +83,24 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
     setState(() => _item = item);
   }
 
+  RecapRequest? _recapRequest(HistoryItem? item) {
+    final detail = widget.detail;
+    if (item == null || !detail.isSerial || detail.provider.opensReader) {
+      return null;
+    }
+    final record = detail.record;
+    final ids = record != null && !record.isManga;
+    return RecapRequest.fromHistory(
+      item,
+      tmdbId: ids ? record.tmdbId : null,
+      anilistId: ids ? record.anilistId : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = _item;
+    final recap = _recapRequest(item);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       // Each block lands a beat after the one above it, top to bottom, so
@@ -191,6 +208,14 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
                 reader: widget.detail.provider.opensReader,
                 playButtonKey: widget.playButtonKey,
                 trailing: [
+                  if (recap != null) ...[
+                    const SizedBox(width: 10),
+                    _SquareAction(
+                      icon: Icons.history_edu_rounded,
+                      tooltip: 'recap.action'.tr(),
+                      onTap: () => RecapSheet.show(context, recap),
+                    ),
+                  ],
                   // Offline used to be reachable only from inside the player:
                   // open the title, wait for a source to resolve, start playing,
                   // then find it in a menu. Four steps and a started stream to

@@ -2435,5 +2435,22 @@
     "error_too_many_pending": "Kutilayotgan so'rovlar juda ko'p. Avval ba'zilarini bekor qiling.",
     "error_rate_limited": "Urinishlar juda ko'p. Biroz kutib, qayta urining.",
     "error_generic": "Nimadir xato ketdi. Qayta urining."
+  },
+  "recap": {
+    "action": "Qisqacha",
+    "action_hint": "{}-qismgacha bo'lgan voqealarni eslang",
+    "previously_on": "Avvalgi qismlarda",
+    "up_to": "{} gacha",
+    "code_season_episode": "{}-fasl · {}-qism",
+    "code_episode": "{}-qism",
+    "season_n": "{}-fasl",
+    "loading": "Esingizga solyapmiz…",
+    "spoiler_safe": "Spoylersiz: {} va undan keyingi voqealar kiritilmagan.",
+    "covers": "Qamrab olingan qismlar",
+    "source": "Tavsiflar: {}",
+    "ai_note": "Ushbu tavsiflar asosida sun'iy intellekt qisqartirgan",
+    "unavailable_title": "Bu serial uchun hozircha qisqacha mazmun yo'q",
+    "unavailable": "Xavfsiz qisqacha mazmun tuzish uchun qismlar tavsifi yetarli emas, shuning uchun taxmin qilmaymiz.",
+    "error": "Qisqacha mazmunni yuklab bo'lmadi"
   }
 }

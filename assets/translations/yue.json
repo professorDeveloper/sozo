@@ -2435,5 +2435,22 @@
     "error_too_many_pending": "待處理嘅邀請太多。請先取消部分。",
     "error_rate_limited": "試得太多次。等一陣再試。",
     "error_generic": "出咗啲問題。請再試。"
+  },
+  "recap": {
+    "action": "前情提要",
+    "action_hint": "重溫第 {} 集之前嘅劇情",
+    "previously_on": "前情提要",
+    "up_to": "直至 {}",
+    "code_season_episode": "第 {} 季 · 第 {} 集",
+    "code_episode": "第 {} 集",
+    "season_n": "第 {} 季",
+    "loading": "幫你溫故知新…",
+    "spoiler_safe": "無劇透：唔包括 {} 或之後嘅內容。",
+    "covers": "涵蓋嘅集數",
+    "source": "劇情簡介：{}",
+    "ai_note": "由 AI 根據呢啲簡介整理",
+    "unavailable_title": "呢套暫時未有前情提要",
+    "unavailable": "集數簡介唔夠，冇辦法安全咁整理提要，所以我哋唔會亂估。",
+    "error": "載入唔到前情提要"
   }
 }

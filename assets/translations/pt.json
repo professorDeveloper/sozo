@@ -2435,5 +2435,22 @@
     "error_too_many_pending": "Muitos pedidos pendentes. Cancele alguns primeiro.",
     "error_rate_limited": "Muitas tentativas. Aguarde um pouco e tente de novo.",
     "error_generic": "Algo deu errado. Tente de novo."
+  },
+  "recap": {
+    "action": "Resumo",
+    "action_hint": "Relembre tudo antes do episódio {}",
+    "previously_on": "Anteriormente em",
+    "up_to": "Até {}",
+    "code_season_episode": "T{} · E{}",
+    "code_episode": "Episódio {}",
+    "season_n": "Temporada {}",
+    "loading": "Relembrando para você…",
+    "spoiler_safe": "Sem spoilers: nada a partir de {} foi incluído.",
+    "covers": "Episódios incluídos",
+    "source": "Sinopses: {}",
+    "ai_note": "Resumido por IA a partir destas sinopses",
+    "unavailable_title": "Ainda não há resumo para este título",
+    "unavailable": "Não há sinopses de episódios suficientes para resumir com segurança, então não vamos adivinhar.",
+    "error": "Não foi possível carregar o resumo"
   }
 }

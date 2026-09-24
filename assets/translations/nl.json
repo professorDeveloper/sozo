@@ -2435,5 +2435,22 @@
     "error_too_many_pending": "Te veel openstaande verzoeken. Trek er eerst een paar in.",
     "error_rate_limited": "Te veel pogingen. Wacht even en probeer het opnieuw.",
     "error_generic": "Er ging iets mis. Probeer het opnieuw."
+  },
+  "recap": {
+    "action": "Samenvatting",
+    "action_hint": "Alles tot aflevering {} ophalen",
+    "previously_on": "Eerder in",
+    "up_to": "Tot en met {}",
+    "code_season_episode": "S{} · A{}",
+    "code_episode": "Aflevering {}",
+    "season_n": "Seizoen {}",
+    "loading": "We praten je bij…",
+    "spoiler_safe": "Spoilervrij: niets vanaf {} is opgenomen.",
+    "covers": "Behandelde afleveringen",
+    "source": "Samenvattingen: {}",
+    "ai_note": "Door AI samengevat uit deze samenvattingen",
+    "unavailable_title": "Nog geen samenvatting voor deze titel",
+    "unavailable": "Er zijn te weinig afleveringsbeschrijvingen om dit veilig samen te vatten, dus we gokken niet.",
+    "error": "Samenvatting kon niet worden geladen"
   }
 }

@@ -2435,5 +2435,22 @@
     "error_too_many_pending": "Terlalu banyak permintaan tertunda. Batalkan beberapa dulu.",
     "error_rate_limited": "Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.",
     "error_generic": "Terjadi kesalahan. Coba lagi."
+  },
+  "recap": {
+    "action": "Rekap",
+    "action_hint": "Ingat kembali semua sebelum episode {}",
+    "previously_on": "Sebelumnya di",
+    "up_to": "Sampai {}",
+    "code_season_episode": "S{} · E{}",
+    "code_episode": "Episode {}",
+    "season_n": "Musim {}",
+    "loading": "Mengingatkanmu kembali…",
+    "spoiler_safe": "Bebas spoiler: tidak ada apa pun dari {} dan seterusnya.",
+    "covers": "Episode yang dicakup",
+    "source": "Sinopsis: {}",
+    "ai_note": "Diringkas oleh AI dari sinopsis ini",
+    "unavailable_title": "Belum ada rekap untuk judul ini",
+    "unavailable": "Sinopsis episode belum cukup untuk merangkumnya dengan aman, jadi kami tidak akan menebak.",
+    "error": "Gagal memuat rekap"
   }
 }
