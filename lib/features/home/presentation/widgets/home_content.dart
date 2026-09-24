@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
@@ -76,23 +78,56 @@ class _HomeContentState extends State<HomeContent> {
   final HistoryService _historyService = getIt<HistoryService>();
   List<HistoryItem> _historyItems = const [];
 
+  /// Where each source's Home was scrolled to, for this session. Coming back
+  /// to Watch from Manga put the viewer at the top of a Home they had left
+  /// halfway down.
+  static final Map<String, double> _offsets = {};
+  String? _shownProvider;
+  StreamSubscription<HomeState>? _homeSub;
+
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController()..addListener(_handleScroll);
     _historyService.revision.addListener(_loadHistory);
+    getIt<HiveService>().contentModeChanged.addListener(_loadHistory);
     _loadHistory();
     TelegramPromo.maybeShow(context);
+    final bloc = context.read<HomeBloc>();
+    final initial = bloc.state;
+    if (initial is HomeLoaded) _shownProvider = initial.homeData.provider;
+    _homeSub = bloc.stream.listen(_onHomeState);
   }
 
+  void _onHomeState(HomeState state) {
+    if (state is! HomeLoaded) return;
+    final provider = state.homeData.provider;
+    if (provider == _shownProvider) return;
+    _shownProvider = provider;
+    final target = _offsets[provider] ?? 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final max = _scrollController.position.maxScrollExtent;
+      _scrollController.jumpTo(target.clamp(0.0, max));
+    });
+  }
+
+  /// The resume rail holds the current mode's titles only: a manga being read
+  /// sat at the front of Watch's Home, and a film at the front of Manga's.
   void _loadHistory() {
-    final items = _historyService.getAll();
+    final mode = ContentMode.fromId(getIt<HiveService>().getContentMode());
+    final items = [
+      for (final item in _historyService.getAll())
+        if (item.provider.contentMode == mode) item,
+    ];
     if (!mounted) return;
     setState(() => _historyItems = items);
   }
 
   void _handleScroll() {
     if (!_scrollController.hasClients) return;
+    final shown = _shownProvider;
+    if (shown != null) _offsets[shown] = _scrollController.offset;
     final next = ((_scrollController.offset - 250) / 150).clamp(0.0, 1.0);
     if ((next - widget.blurProgress.value).abs() < 0.02) return;
     widget.blurProgress.value = next;
@@ -100,7 +135,9 @@ class _HomeContentState extends State<HomeContent> {
 
   @override
   void dispose() {
+    _homeSub?.cancel();
     _historyService.revision.removeListener(_loadHistory);
+    getIt<HiveService>().contentModeChanged.removeListener(_loadHistory);
     _scrollController
       ..removeListener(_handleScroll)
       ..dispose();

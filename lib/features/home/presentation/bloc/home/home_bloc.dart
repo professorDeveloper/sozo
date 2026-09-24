@@ -26,13 +26,36 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   /// to speak. Same pattern, and for the same reason, as SearchBloc's run token.
   int _runToken = 0;
 
-  HomeBloc({required this.useCase}) : super(HomeInitial()) {
+  /// Which source a load is for. Null in tests that do not care, and then
+  /// nothing is cached.
+  final String Function()? currentProvider;
+
+  /// The last Home each source produced, newest last.
+  ///
+  /// Switching Watch → Manga → Watch reloaded Watch's Home from the network
+  /// behind a skeleton, for rows the app had shown seconds earlier. A source
+  /// that has been shown recently now comes back at once and refreshes
+  /// underneath.
+  final Map<String, ({DateTime at, HomeLoaded home})> _recent = {};
+  static const int _recentLimit = 6;
+  static const Duration _recentFor = Duration(hours: 2);
+
+  HomeBloc({required this.useCase, this.currentProvider})
+    : super(HomeInitial()) {
     on<HomeLoad>(_onHomeLoad);
   }
 
   Future<void> _onHomeLoad(HomeLoad event, Emitter<HomeState> emit) async {
     final token = ++_runToken;
-    if (!event.silent || state is! HomeLoaded) {
+    final provider = currentProvider?.call() ?? '';
+    final recent = provider.isEmpty ? null : _recent[provider];
+    var showedRecent = false;
+    if (recent != null &&
+        DateTime.now().difference(recent.at) < _recentFor &&
+        state != recent.home) {
+      emit(recent.home);
+      showedRecent = true;
+    } else if (!event.silent || state is! HomeLoaded) {
       emit(HomeLoading());
     }
 
@@ -62,8 +85,19 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         debugPrint(
           '[HomeBloc] genres: ${genreResult.isSuccess ? 'ok (${genreResult.getOrNull()?.length})' : 'fail'}',
         );
-        emit(HomeLoaded(genreResult.getOrNull() ?? [], value));
+        final loaded = HomeLoaded(genreResult.getOrNull() ?? [], value);
+        if (provider.isNotEmpty) {
+          _recent.remove(provider);
+          _recent[provider] = (at: DateTime.now(), home: loaded);
+          if (_recent.length > _recentLimit) {
+            _recent.remove(_recent.keys.first);
+          }
+        }
+        emit(loaded);
       case Failure(:final error):
+        // The rows just restored stay: a refresh that failed is not a reason
+        // to replace a Home that was working a moment ago with an error.
+        if (showedRecent) return;
         emit(HomeError(error.toString()));
     }
   }
