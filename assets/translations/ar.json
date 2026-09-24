@@ -2199,7 +2199,15 @@
     "v_empty": "فارغ",
     "v_failing": "لا يستجيب",
     "v_outdated": "يحتاج تحديثًا",
-    "v_unknown": "لم يُفحص بعد"
+    "v_unknown": "لم يُفحص بعد",
+    "auto_sweep": "افحص القليل كل مرة على Wi-Fi",
+    "check_now": "افحص الآن",
+    "check_shown": "كل ما يظهر · {}",
+    "check_stale": "الجديدة والقديمة · {}",
+    "check_troubled": "المتوقفة والمتعثرة · {}",
+    "checking_one": "جارٍ الفحص…",
+    "never_checked": "لم يُفحص على هذا الهاتف بعد",
+    "problems_only": "إظهار ما به مشكلة فقط"
   },
   "settings": {
     "dns_title": "DNS",

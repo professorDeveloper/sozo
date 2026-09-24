@@ -177,7 +177,14 @@ class MangayomiBridge {
         s.contains('is not a function');
   }
 
-  Future<Map<String, dynamic>> getMainPage(String id, {int page = 1}) async {
+  /// [popularOnly] is for a health check: one call instead of two when the
+  /// first already shows the source works. Latest is still asked when popular
+  /// has nothing, so a source that only implements latest is not condemned.
+  Future<Map<String, dynamic>> getMainPage(
+    String id, {
+    int page = 1,
+    bool popularOnly = false,
+  }) async {
     final src = _source(id);
     if (src == null) {
       return {'provider': 'my:$id', 'error': 'source not installed: my:$id'};
@@ -215,6 +222,14 @@ class MangayomiBridge {
       outcomes.add(
         _isNotImplemented(e) ? 'popular: not implemented' : 'popular: $e',
       );
+    }
+
+    if (popularOnly && sections.isNotEmpty) {
+      return {
+        'provider': src.providerId,
+        'banner': banner,
+        'sections': sections,
+      };
     }
 
     try {

@@ -2195,7 +2195,15 @@
     "v_empty": "空白",
     "v_failing": "冇回應",
     "v_outdated": "要更新",
-    "v_unknown": "未檢查"
+    "v_unknown": "未檢查",
+    "auto_sweep": "用 Wi-Fi 陣逐少檢查",
+    "check_now": "而家檢查",
+    "check_shown": "畫面上全部 · {}",
+    "check_stale": "新加同過期 · {}",
+    "check_troubled": "用唔到同出錯 · {}",
+    "checking_one": "檢查緊…",
+    "never_checked": "呢部手機未檢查過",
+    "problems_only": "淨係顯示有問題嘅"
   },
   "settings": {
     "dns_title": "DNS",

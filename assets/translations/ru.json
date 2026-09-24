@@ -2196,7 +2196,15 @@
     "v_empty": "Пусто",
     "v_failing": "Не отвечает",
     "v_outdated": "Нужно обновить",
-    "v_unknown": "Ещё не проверен"
+    "v_unknown": "Ещё не проверен",
+    "auto_sweep": "Проверять понемногу по Wi-Fi",
+    "check_now": "Проверить сейчас",
+    "check_shown": "Всё, что на экране · {}",
+    "check_stale": "Новые и устаревшие · {}",
+    "check_troubled": "Неработающие и сбоящие · {}",
+    "checking_one": "Проверка…",
+    "never_checked": "На этом телефоне ещё не проверялся",
+    "problems_only": "Только с проблемами"
   },
   "settings": {
     "dns_title": "DNS",

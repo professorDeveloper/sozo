@@ -1470,7 +1470,11 @@ Widget _favoriteProviderTile(
             ),
             if (health != null) ...[
               const SizedBox(width: 6),
-              SourceHealthBadge(verdict: health, sourceName: p.name),
+              SourceHealthBadge(
+                verdict: health,
+                sourceName: p.name,
+                sourceId: p.id,
+              ),
             ],
           ],
         ),

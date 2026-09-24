@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
+
 import 'package:soplay/features/search/data/source_health_store.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
 import 'package:soplay/features/sources/data/source_check_store.dart';
@@ -79,12 +82,101 @@ class SourceCheckService {
   final int Function() _now;
 
   static const Duration deadSpacing = Duration(minutes: 10);
-  static const Duration timeout = Duration(seconds: 35);
 
-  /// How many sources are asked at once. Extension hosts load code on first
-  /// use and share one JS runtime; more than this only queues inside them
-  /// while making the phone warm.
-  static const int parallel = 3;
+  /// How far apart two failures seen in ordinary use must be to count twice.
+  static const Duration observeSpacing = Duration(minutes: 1);
+
+  /// Long enough for a slow site's first page; a check that takes longer
+  /// than this is a source nobody would wait for either.
+  static const Duration timeout = Duration(seconds: 20);
+
+  /// How many sources are asked at once, in all.
+  static const int parallel = 8;
+
+  /// And per host. Mangayomi sources share one JS runtime that runs one call
+  /// at a time, so a second one in flight only waits — with its timeout
+  /// running, and a queue of them timing out looks like a dead network. The
+  /// native hosts and the server take a few each.
+  static int limitFor(String id) {
+    if (id.startsWith('my:')) return 1;
+    if (id.startsWith('cs:') || id.startsWith('an:') || id.startsWith('mn:')) {
+      return 3;
+    }
+    return 4;
+  }
+
+  static String _familyOf(String id) =>
+      id.length > 3 && id[2] == ':' ? id.substring(0, 2) : '';
+
+  /// The run in progress, for any screen that wants to show it — the Sources
+  /// screen can be left and come back to a run that kept going.
+  final ValueNotifier<SourceCheckProgress?> progress = ValueNotifier(null);
+
+  /// [ids] in the order worth checking them in, most in need first.
+  List<String> plan(Iterable<String> ids) {
+    final list = ids.toSet().toList();
+    final urgency = {for (final id in list) id: store.urgencyOf(id)};
+    list.sort((a, b) {
+      final x = urgency[a]!, y = urgency[b]!;
+      final c = x.$1.compareTo(y.$1);
+      return c != 0 ? c : x.$2.compareTo(y.$2);
+    });
+    return list;
+  }
+
+  /// Of [ids], the ones with nothing known on this phone, or nothing recent.
+  List<String> staleOf(Iterable<String> ids) => [
+    for (final id in ids)
+      if (store.of(id) == null) id,
+  ];
+
+  /// Of [ids], the ones marked down or failing here.
+  List<String> troubledOf(Iterable<String> ids) => [
+    for (final id in ids)
+      if (switch (store.verdictOf(id)) {
+        SourceVerdict.dead ||
+        SourceVerdict.outdated ||
+        SourceVerdict.failing => true,
+        _ => false,
+      })
+        id,
+  ];
+
+  Timer? _sweepTimer;
+
+  /// Once per launch, a while after it: a quiet [sweep] on Wi-Fi, when the
+  /// setting allows. [ids] is read when the time comes, so it sees the
+  /// sources as they are then.
+  void scheduleSweep(
+    List<String> Function() ids, {
+    Duration after = const Duration(seconds: 90),
+  }) {
+    if (_sweepTimer != null) return;
+    _sweepTimer = Timer(after, () async {
+      if (!store.autoSweep || !await _onWifi()) return;
+      await sweep(ids());
+    });
+  }
+
+  static Future<bool> _onWifi() async {
+    try {
+      final result = await Connectivity().checkConnectivity();
+      return result.contains(ConnectivityResult.wifi) ||
+          result.contains(ConnectivityResult.ethernet);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// A few of [ids] that need it most, checked quietly — for keeping a large
+  /// collection's verdicts fresh a handful at a time rather than all at once.
+  /// Does nothing while another run is going.
+  Future<void> sweep(Iterable<String> ids, {int limit = 12}) async {
+    if (_running) return;
+    final picked = plan(staleOf(ids)).take(limit).toList();
+    if (picked.isEmpty) return;
+    await checkAll(picked).drain<void>();
+  }
 
   /// Above this share of "could not connect", a run is the network's fault.
   static const double networkDownShare = 0.7;
@@ -100,7 +192,7 @@ class SourceCheckService {
     if (custom != null) return custom(id);
     final sw = Stopwatch()..start();
     try {
-      final home = await browse.load(id).timeout(timeout);
+      final home = await browse.probe(id).timeout(timeout);
       final items = home.sections.fold<int>(
         home.banner.length,
         (n, s) => n + s.items.length,
@@ -224,6 +316,14 @@ class SourceCheckService {
         failure.kind == SourceFailureKind.unknown) {
       return;
     }
+    // Retries in quick succession are one failure seen several times, not
+    // several failures: tapping Retry three times on a 404 used to be
+    // "gone twice", and dead, inside ten seconds.
+    if (previous != null &&
+        previous.fails > 0 &&
+        _now() - previous.at < observeSpacing.inMilliseconds) {
+      return;
+    }
     await store.put(
       id,
       judge(SourceAttempt(items: 0, ms: 0, failure: failure), previous),
@@ -236,7 +336,7 @@ class SourceCheckService {
   /// into a verdict inside one run.
   Stream<SourceCheckProgress> checkAll(List<String> ids) {
     final controller = StreamController<SourceCheckProgress>();
-    unawaited(_run(ids, controller));
+    unawaited(_run(plan(ids), controller));
     return controller.stream;
   }
 
@@ -254,43 +354,74 @@ class SourceCheckService {
     final counts = <SourceVerdict, int>{};
     var done = 0;
     void report({bool networkDown = false}) {
-      if (!out.isClosed) {
-        out.add(
-          SourceCheckProgress(
-            done: done,
-            total: ids.length,
-            counts: Map.of(counts),
-            networkDown: networkDown,
-          ),
-        );
-      }
+      final now = SourceCheckProgress(
+        done: done,
+        total: ids.length,
+        counts: Map.of(counts),
+        networkDown: networkDown,
+      );
+      progress.value = now;
+      if (!out.isClosed) out.add(now);
     }
 
     report();
+    // Hands out work as slots free, within the per-host limits.
     Future<void> pool(
       List<String> queue,
       void Function(String, SourceAttempt) on,
-    ) async {
-      var next = 0;
-      Future<void> worker() async {
-        while (next < queue.length && !_cancelled) {
-          final id = queue[next++];
-          on(id, await _try(id));
+    ) {
+      final pending = List.of(queue);
+      final active = <String, int>{};
+      var inFlight = 0;
+      final finished = Completer<void>();
+      void pump() {
+        var i = 0;
+        while (!_cancelled && inFlight < parallel && i < pending.length) {
+          final id = pending[i];
+          final family = _familyOf(id);
+          if ((active[family] ?? 0) >= limitFor(id)) {
+            i++;
+            continue;
+          }
+          pending.removeAt(i);
+          active[family] = (active[family] ?? 0) + 1;
+          inFlight++;
+          unawaited(
+            _try(id).then((a) => on(id, a)).whenComplete(() {
+              active[family] = active[family]! - 1;
+              inFlight--;
+              pump();
+            }),
+          );
+        }
+        if (inFlight == 0 &&
+            (pending.isEmpty || _cancelled) &&
+            !finished.isCompleted) {
+          finished.complete();
         }
       }
 
-      await Future.wait(List.generate(parallel, (_) => worker()));
+      pump();
+      return finished.future;
     }
 
     try {
       await pool(ids, (id, a) {
         results[id] = a;
         done++;
-        final provisional = judge(a, store.of(id)).verdict;
-        counts[provisional] = (counts[provisional] ?? 0) + 1;
+        final verdict = judge(a, store.of(id));
+        counts[verdict.verdict] = (counts[verdict.verdict] ?? 0) + 1;
+        // An answer is kept at once — it holds whatever else the run finds,
+        // and a run stopped halfway through a thousand sources keeps what it
+        // learned. A failure waits for the retry and the network check.
+        if (a.failure == null) unawaited(store.put(id, verdict, defer: true));
         report();
       });
-      if (_cancelled) return;
+      if (_cancelled) {
+        await store.flush();
+        SourceHealthStore.bumpChanges();
+        return;
+      }
 
       final unreachable = results.values
           .where((a) => a.failure?.kind == SourceFailureKind.unreachable)
@@ -314,6 +445,7 @@ class SourceCheckService {
       ];
       final checks = <String, SourceCheck>{};
       for (final e in results.entries) {
+        if (e.value.failure == null) continue;
         checks[e.key] = judge(e.value, store.of(e.key));
       }
       if (retry.isNotEmpty && !_cancelled) {
@@ -327,11 +459,12 @@ class SourceCheckService {
         ..clear()
         ..addAll({
           for (final v in SourceVerdict.values)
-            v: checks.values.where((c) => c.verdict == v).length,
+            v: ids.where((id) => store.verdictOf(id) == v).length,
         });
       report();
     } finally {
       _running = false;
+      progress.value = null;
       await out.close();
     }
   }

@@ -2195,7 +2195,15 @@
     "v_empty": "Boş",
     "v_failing": "Yanıt vermiyor",
     "v_outdated": "Güncelleme gerekli",
-    "v_unknown": "Henüz kontrol edilmedi"
+    "v_unknown": "Henüz kontrol edilmedi",
+    "auto_sweep": "Wi-Fi’da azar azar kontrol et",
+    "check_now": "Şimdi kontrol et",
+    "check_shown": "Ekranda görünenlerin tümü · {}",
+    "check_stale": "Yeni ve eskimiş · {}",
+    "check_troubled": "Çalışmayan ve sorunlu · {}",
+    "checking_one": "Kontrol ediliyor…",
+    "never_checked": "Bu telefonda henüz kontrol edilmedi",
+    "problems_only": "Yalnızca sorunluları göster"
   },
   "settings": {
     "dns_title": "DNS",

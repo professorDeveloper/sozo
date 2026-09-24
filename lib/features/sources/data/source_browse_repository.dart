@@ -62,6 +62,18 @@ class SourceBrowseRepository {
     return HomeDataModel.fromJson(res.data ?? const <String, dynamic>{});
   }
 
+  /// The cheapest call that shows whether [providerId] works: the same as
+  /// [load], except that a Mangayomi source stops after its first list.
+  Future<HomeDataEntity> probe(String providerId) {
+    if (providerId.startsWith('my:')) {
+      return _fromHost(
+        () => bridge.getMainPage(providerId.substring(3), popularOnly: true),
+        'Mangayomi',
+      );
+    }
+    return load(providerId);
+  }
+
   /// An on-device host's catalogue.
   ///
   /// Each reports *why* it came back empty in an `error` field — a bad apk, a

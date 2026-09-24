@@ -2195,7 +2195,15 @@
     "v_empty": "Vazia",
     "v_failing": "Não responde",
     "v_outdated": "Precisa de atualização",
-    "v_unknown": "Ainda não verificada"
+    "v_unknown": "Ainda não verificada",
+    "auto_sweep": "Verificar aos poucos no Wi-Fi",
+    "check_now": "Verificar agora",
+    "check_shown": "Tudo o que está na tela · {}",
+    "check_stale": "Novas e antigas · {}",
+    "check_troubled": "Fora do ar e com falhas · {}",
+    "checking_one": "Verificando…",
+    "never_checked": "Ainda não verificada neste telefone",
+    "problems_only": "Mostrar só as com problema"
   },
   "settings": {
     "dns_title": "DNS",

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
+import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/sources/data/source_check_store.dart';
 import 'package:soplay/features/sources/domain/source_check_service.dart';
@@ -217,17 +218,17 @@ class CheckSummarySheet extends StatelessWidget {
               if (!r.networkDown && bad.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Flexible(
-                  child: ListView(
+                  // Built lazily: a run over a thousand sources can come
+                  // back with hundreds of them.
+                  child: ListView.builder(
                     shrinkWrap: true,
-                    children: [
-                      for (final id in bad)
-                        ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(names[id] ?? id),
-                          subtitle: VerdictLine(id: id, store: store),
-                        ),
-                    ],
+                    itemCount: bad.length,
+                    itemBuilder: (_, i) => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(names[bad[i]] ?? bad[i]),
+                      subtitle: VerdictLine(id: bad[i], store: store),
+                    ),
                   ),
                 ),
                 if (!hidingDown) ...[
@@ -265,3 +266,113 @@ class CheckSummarySheet extends StatelessWidget {
     );
   }
 }
+
+/// Checks one source on request and says what it found — the manual check,
+/// for the one source somebody is looking at among hundreds.
+class CheckNowButton extends StatefulWidget {
+  const CheckNowButton({super.key, required this.id});
+
+  final String id;
+
+  @override
+  State<CheckNowButton> createState() => _CheckNowButtonState();
+}
+
+class _CheckNowButtonState extends State<CheckNowButton> {
+  bool _busy = false;
+
+  SourceCheckService? get _service => getIt.isRegistered<SourceCheckService>()
+      ? getIt<SourceCheckService>()
+      : null;
+
+  Future<void> _run() async {
+    final service = _service;
+    if (service == null) return;
+    setState(() => _busy = true);
+    try {
+      await service.check(widget.id);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final service = _service;
+    if (service == null) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ValueListenableBuilder<int>(
+          valueListenable: service.store.revision,
+          builder: (_, _, _) => service.store.of(widget.id) == null
+              ? Text(
+                  'sources.never_checked'.tr(),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12.5,
+                  ),
+                )
+              : VerdictLine(id: widget.id, store: service.store),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _busy ? null : _run,
+            icon: _busy
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.health_and_safety_outlined, size: 18),
+            label: Text(
+              _busy ? 'sources.checking_one'.tr() : 'sources.check_now'.tr(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// What this phone knows about one source, and a way to ask again.
+Future<void> showSourceCheckSheet(
+  BuildContext context, {
+  required String id,
+  required String name,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 10),
+            CheckNowButton(id: id),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
