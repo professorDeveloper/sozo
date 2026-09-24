@@ -153,7 +153,9 @@ class SocialRemoteDataSource {
   }) => _call(() async {
     final res = await dio.get(
       path,
-      queryParameters: {'cursor': ?cursor, 'limit': ?limit},
+      // This app draws badge cards; the server leaves them out for apps
+      // that do not say so.
+      queryParameters: {'cursor': ?cursor, 'limit': ?limit, 'achievements': 1},
     );
     return CursorPage.fromJson(_body(res), parse);
   });

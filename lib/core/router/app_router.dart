@@ -103,6 +103,7 @@ import 'package:soplay/features/watch_party/presentation/pages/watch_party_page.
 import '../../features/home/presentation/pages/home_view_all_page.dart';
 import '../../features/home/presentation/pages/genres_page.dart';
 import '../../features/search/domain/entities/genre_entity.dart';
+import 'package:soplay/features/achievements/presentation/pages/achievements_page.dart';
 
 /// The arrival every "opening a thing" route shares.
 ///
@@ -431,6 +432,10 @@ class AppRouter {
         builder: (context, state) => const NotificationsPage(),
       ),
       GoRoute(path: '/streak', builder: (context, state) => const StreakPage()),
+      GoRoute(
+        path: '/achievements',
+        builder: (context, state) => const AchievementsPage(),
+      ),
       GoRoute(
         path: '/friends',
         builder: (context, state) => FriendsPage(

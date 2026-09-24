@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
+import 'package:soplay/features/achievements/domain/achievements.dart';
+import 'package:soplay/features/achievements/presentation/widgets/achievement_medal.dart';
 
 const Color _ember = Color(0xFFFFA94D);
 const Color _emberDeep = Color(0xFFEF7A35);
@@ -17,15 +19,21 @@ class StreakMilestoneDialog extends StatefulWidget {
     super.key,
     required this.days,
     this.freezeAwarded = false,
+    this.badgeTier,
   });
 
   final int days;
   final bool freezeAwarded;
 
+  /// The streak badge this day earned, when it earned one: shown here, in
+  /// place of a second dialog about the same day.
+  final int? badgeTier;
+
   static Future<void> show(
     BuildContext context,
     int days, {
     bool freezeAwarded = false,
+    int? badgeTier,
   }) {
     return showGeneralDialog<void>(
       context: context,
@@ -34,7 +42,11 @@ class StreakMilestoneDialog extends StatefulWidget {
       barrierColor: Colors.black.withValues(alpha: 0.78),
       transitionDuration: const Duration(milliseconds: 320),
       pageBuilder: (_, _, _) =>
-          StreakMilestoneDialog(days: days, freezeAwarded: freezeAwarded),
+          StreakMilestoneDialog(
+            days: days,
+            freezeAwarded: freezeAwarded,
+            badgeTier: badgeTier,
+          ),
       transitionBuilder: (_, anim, _, child) {
         final scale = Curves.easeOutBack.transform(anim.value.clamp(0, 1));
         return Opacity(
@@ -142,6 +154,10 @@ class _StreakMilestoneDialogState extends State<StreakMilestoneDialog>
                         height: 1.45,
                       ),
                     ),
+                    if (widget.badgeTier != null) ...[
+                      const SizedBox(height: 16),
+                      _BadgeEarned(tier: widget.badgeTier!),
+                    ],
                     if (widget.freezeAwarded) ...[
                       const SizedBox(height: 16),
                       const _FreezeAwardedChip(),
@@ -229,6 +245,59 @@ class _Flame extends StatelessWidget {
         Icons.local_fire_department_rounded,
         color: Colors.white,
         size: 50,
+      ),
+    );
+  }
+}
+
+/// "Flame badge · Gold", with the medal, when the day earned one.
+class _BadgeEarned extends StatelessWidget {
+  const _BadgeEarned({required this.tier});
+
+  final int tier;
+
+  @override
+  Widget build(BuildContext context) {
+    final medal = MedalTier.ofLevel(tier);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
+      decoration: BoxDecoration(
+        color: medal.labelColor.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: medal.labelColor.withValues(alpha: 0.35),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AchievementBadge(id: 'streak', tier: medal, size: 38, glow: false),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'achievements.new_badge'.tr(),
+                  style: TextStyle(
+                    color: medal.labelColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  '${'achievements.name_streak'.tr()} · ${medal.labelKey.tr()}',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
