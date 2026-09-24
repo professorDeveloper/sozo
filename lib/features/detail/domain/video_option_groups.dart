@@ -10,9 +10,31 @@
 class VideoOptionGroups {
   const VideoOptionGroups._();
 
-  static final RegExp _resolution = RegExp(r'\d{3,4}');
-  static final RegExp _separator = RegExp(r'\s*[·•|]\s*');
+  /// A height with its "p" ("1080p"), a bare standard height ("720"), or a
+  /// named one ("4K", "FHD"). Any three or four digits used to count, so
+  /// "x265" was a 265-line quality and "2024" a resolution.
+  static final RegExp _resolution = RegExp(
+    r'(?<![\dxX])(?:\d{3,4}[pP](?![a-zA-Z\d])|(?:144|240|288|360|480|540|576|720|900|1080|1440|2160|4320)(?![\d]))|(?<![a-zA-Z\d])(?:4K|2K|8K|UHD|FHD|QHD)(?![a-zA-Z\d])',
+    caseSensitive: false,
+  );
+  static final RegExp _digits = RegExp(r'\d{3,4}');
+
+  /// "·", "•", "|", a spaced dash ("Filemoon - 1080p") and a colon
+  /// ("StreamWish:720p"). A dash inside a word ("Erai-raws") is not one.
+  static final RegExp _separator = RegExp(r'\s*(?:[·•|:]|\s[-–—]\s)\s*');
   static final RegExp _spaces = RegExp(r'\s+');
+  static final RegExp _edgePunctuation = RegExp(
+    r'^[\s\-–—:·•|]+|[\s\-–—:·•|]+$',
+  );
+
+  static const Map<String, int> _named = {
+    '4k': 2160,
+    'uhd': 2160,
+    '8k': 4320,
+    '2k': 1440,
+    'qhd': 1440,
+    'fhd': 1080,
+  };
 
   /// Labels that name no host at all still need something to group under.
   static const String _fallbackServer = 'Default';
@@ -50,8 +72,12 @@ class VideoOptionGroups {
   /// quality of its own.
   static String qualityOf(String label) => _split(label).quality;
 
-  static int? resolutionOf(String label) =>
-      int.tryParse(_resolution.firstMatch(qualityOf(label))?.group(0) ?? '');
+  static int? resolutionOf(String label) {
+    final token = _resolution.firstMatch(qualityOf(label))?.group(0);
+    if (token == null) return null;
+    return _named[token.toLowerCase()] ??
+        int.tryParse(_digits.firstMatch(token)?.group(0) ?? '');
+  }
 
   /// The index to land on when switching to [server], keeping the current
   /// resolution where that server has it.
@@ -95,7 +121,9 @@ class VideoOptionGroups {
       // quality called 1-server.
       final at = parts.indexWhere(_resolution.hasMatch);
       if (at >= 0) {
-        final host = [...parts.take(at), ...parts.skip(at + 1)].join(' · ');
+        final host = _tidy(
+          [...parts.take(at), ...parts.skip(at + 1)].join(' · '),
+        );
         return (
           server: host.isEmpty ? _fallbackServer : host,
           quality: parts[at],
@@ -113,7 +141,10 @@ class VideoOptionGroups {
     // "Server 1" or "SUB Mp4Upload" does.
     if (at < 0) return (server: text, quality: '');
 
-    final host = [...words.take(at), ...words.skip(at + 1)].join(' ');
+    final host = _tidy([...words.take(at), ...words.skip(at + 1)].join(' '));
     return (server: host.isEmpty ? _fallbackServer : host, quality: words[at]);
   }
+
+  /// A host without the separator it was cut from: "Filemoon -" → "Filemoon".
+  static String _tidy(String host) => host.replaceAll(_edgePunctuation, '');
 }

@@ -80,4 +80,31 @@ void main() {
       expect(VideoOptionGroups.switchTo(labels, 1, 'C'), 1);
     });
   });
+
+  group('extension labels', () {
+    test('a spaced dash and a colon separate the server from the quality', () {
+      expect(VideoOptionGroups.serverOf('Filemoon - 1080p'), 'Filemoon');
+      expect(VideoOptionGroups.qualityOf('Filemoon - 1080p'), '1080p');
+      expect(VideoOptionGroups.serverOf('StreamWish:720p'), 'StreamWish');
+      expect(VideoOptionGroups.resolutionOf('StreamWish:720p'), 720);
+    });
+
+    test('a dash inside a name is not a separator', () {
+      expect(VideoOptionGroups.serverOf('Erai-raws 720p'), 'Erai-raws');
+    });
+
+    test('codecs and years are not resolutions', () {
+      expect(
+        VideoOptionGroups.serverOf('Torrentio x265 · 1080p'),
+        'Torrentio x265',
+      );
+      expect(VideoOptionGroups.resolutionOf('Torrentio x265 · 1080p'), 1080);
+      expect(VideoOptionGroups.resolutionOf('Movie 2024 x264'), isNull);
+    });
+
+    test('named resolutions count', () {
+      expect(VideoOptionGroups.resolutionOf('Vidsrc · 4K'), 2160);
+      expect(VideoOptionGroups.resolutionOf('Server · FHD'), 1080);
+    });
+  });
 }

@@ -83,6 +83,9 @@ class PluginHost(private val appContext: Context) {
 
     companion object {
         private const val TAG = "CloudStreamHost"
+
+        // CloudStream's Qualities.Unknown: "no quality given", not 400 lines.
+        private const val UNKNOWN_QUALITY = 400
         // Chrome-mobile UA used by the interactive Cloudflare solver for cs: sources
         // (best-effort — cs plugins drive their own HTTP client). Mirrors the
         // Tachiyomi default so a single solved cookie tends to satisfy both.
@@ -674,11 +677,29 @@ class PluginHost(private val appContext: Context) {
                             val headers = JSONObject(link.getAllHeaders() as Map<*, *>)
                             // quality is a resolution int (e.g. 1080) or a Qualities
                             // sentinel; build a readable, distinct "<host> · <res>p".
+                            //
+                            // Qualities.Unknown is 400, and it is what every link built
+                            // without a quality carries — most HLS masters. Read as a
+                            // resolution it labelled them "400p", which hid the master's
+                            // own variants from the quality panel and sorted an adaptive
+                            // stream below a 480p file.
                             val q = link.quality
-                            val res = if (q in 144..4320) "${q}p" else null
+                            val known = q in 144..4320 && q != UNKNOWN_QUALITY
+                            val res = when {
+                                !known -> null
+                                q >= 2160 -> "4K"
+                                else -> "${q}p"
+                            }
                             val nm = link.name.ifBlank { "Source" }
                             val label = if (res != null) "$nm · $res" else nm
-                            collected.add((if (q in 144..4320) q else 0) to JSONObject().apply {
+                            // An adaptive master of unknown height usually tops out at
+                            // 1080p: ahead of a fixed 720p file, behind a stated 1080p.
+                            val rank = when {
+                                known -> q
+                                link.type == ExtractorLinkType.M3U8 -> 1000
+                                else -> 0
+                            }
+                            collected.add(rank to JSONObject().apply {
                                 put("quality", label)
                                 put("videoUrl", link.url)
                                 // DASH used to fall into the `else` branch and be handed
