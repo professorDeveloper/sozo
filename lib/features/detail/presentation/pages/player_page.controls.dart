@@ -992,7 +992,12 @@ extension _PlayerControls on _PlayerPageState {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (hasLangSwitcher) ...[
+                              // TV and desktop only. A phone draws its bar
+                              // from the viewer's arrangement below, which
+                              // has the language pill in it — adding this one
+                              // as well put two SUB pills side by side.
+                              if (hasLangSwitcher &&
+                                  (isTvPlatform || isDesktopPlatform)) ...[
                                 _LangPill(
                                   label: (_currentLang ?? _kSubLang)
                                       .toUpperCase(),

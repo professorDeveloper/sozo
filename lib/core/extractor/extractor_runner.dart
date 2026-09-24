@@ -130,6 +130,8 @@ try {
         useOnLoadResource: false,
         useShouldOverrideUrlLoading: false,
         mediaPlaybackRequiresUserGesture: false,
+        // No system picture-in-picture for a page nobody is looking at.
+        allowsPictureInPictureMediaPlayback: false,
       ),
       onWebViewCreated: (controller) {
         _webViewController = controller;

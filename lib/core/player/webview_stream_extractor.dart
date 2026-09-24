@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:soplay/core/system/webview_media_guard.dart';
 import 'package:soplay/core/network/user_agent.dart';
 import 'package:soplay/core/system/webview_env.dart';
 import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
@@ -358,6 +359,8 @@ class WebViewStreamExtractor {
         databaseEnabled: true,
         cacheEnabled: true,
         mediaPlaybackRequiresUserGesture: false,
+        // No system picture-in-picture for a page nobody is looking at.
+        allowsPictureInPictureMediaPlayback: false,
         useShouldInterceptRequest: true,
         mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
         blockNetworkImage: true,
@@ -371,6 +374,14 @@ class WebViewStreamExtractor {
           await controller.addUserScript(
             userScript: UserScript(
               source: _antiDebuggerShim,
+              injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+            ),
+          );
+          // Muted, no picture-in-picture, paused once it has asked for what
+          // was worth sniffing — see [kWebViewMediaGuard].
+          await controller.addUserScript(
+            userScript: UserScript(
+              source: kWebViewMediaGuard,
               injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
             ),
           );

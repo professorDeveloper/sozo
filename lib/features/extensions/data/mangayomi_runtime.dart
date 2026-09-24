@@ -111,6 +111,8 @@ class MangayomiRuntime {
         javaScriptEnabled: true,
         javaScriptCanOpenWindowsAutomatically: false,
         mediaPlaybackRequiresUserGesture: true,
+        // No system picture-in-picture for a page nobody is looking at.
+        allowsPictureInPictureMediaPlayback: false,
         clearCache: false,
         cacheEnabled: false,
         transparentBackground: true,
