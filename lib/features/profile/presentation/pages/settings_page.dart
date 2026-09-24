@@ -201,6 +201,15 @@ class _SettingsPageState extends State<SettingsPage> {
                 if (mounted) setState(() {});
               },
             ),
+            if (_hive.isLoggedIn && !ProfileScope.isKids) ...[
+              const SettingsDivider(),
+              SettingsNavTile(
+                icon: Icons.shield_outlined,
+                title: 'social.privacy_title'.tr(),
+                subtitle: 'social.privacy_entry_subtitle'.tr(),
+                onTap: () => context.push('/friends/privacy'),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 20),

@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/comments/domain/entities/comment_entity.dart';
 import 'package:soplay/features/reports/domain/entities/report_payload.dart';
@@ -54,7 +55,14 @@ class CommentCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CommentAvatar(author: comment.user, size: compact ? 30 : 36),
+          GestureDetector(
+            onTap: canInteract && comment.user.username.isNotEmpty
+                ? () => context.push(
+                    '/u/${Uri.encodeComponent(comment.user.username)}',
+                  )
+                : null,
+            child: CommentAvatar(author: comment.user, size: compact ? 30 : 36),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

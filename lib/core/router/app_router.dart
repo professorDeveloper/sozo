@@ -78,6 +78,10 @@ import 'package:soplay/features/auth/domain/entities/user_entity.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_edit_page.dart';
 import 'package:soplay/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:soplay/features/private_list/presentation/pages/private_list_page.dart';
+import 'package:soplay/features/social/presentation/pages/friends_page.dart';
+import 'package:soplay/features/social/presentation/pages/social_privacy_page.dart';
+import 'package:soplay/features/social/presentation/pages/user_profile_page.dart';
+import 'package:soplay/features/social/presentation/pages/user_search_page.dart';
 import 'package:soplay/features/splash/presentation/pages/splash_page.dart';
 import 'package:soplay/features/streak/presentation/pages/streak_page.dart';
 import 'package:soplay/features/automation/presentation/pages/automation_settings_page.dart';
@@ -405,6 +409,29 @@ class AppRouter {
         builder: (context, state) => const NotificationsPage(),
       ),
       GoRoute(path: '/streak', builder: (context, state) => const StreakPage()),
+      GoRoute(
+        path: '/friends',
+        builder: (context, state) => FriendsPage(
+          initialTab: FriendsPage.tabFrom(state.uri.queryParameters['tab']),
+        ),
+      ),
+      GoRoute(
+        path: '/friends/search',
+        builder: (context, state) => const UserSearchPage(),
+      ),
+      GoRoute(
+        path: '/friends/privacy',
+        builder: (context, state) => const SocialPrivacyPage(),
+      ),
+      GoRoute(
+        path: '/friends/blocked',
+        builder: (context, state) => const BlockedUsersPage(),
+      ),
+      GoRoute(
+        path: '/u/:username',
+        builder: (context, state) =>
+            UserProfilePage(username: state.pathParameters['username']!),
+      ),
       GoRoute(
         path: '/watch-party',
         builder: (context, state) {

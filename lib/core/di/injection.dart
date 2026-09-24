@@ -213,6 +213,8 @@ import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/login_usecase.dart';
 import '../../features/home/domain/usecase/home_usecase.dart';
 import '../navigation/nav_controller.dart';
+import 'package:soplay/features/social/data/social_remote_data_source.dart';
+import 'package:soplay/features/social/data/social_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -487,6 +489,15 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<StreakService>(
     StreakService(
       remote: getIt<StreakRemoteDataSource>(),
+      hive: getIt<HiveService>(),
+    ),
+  );
+  getIt.registerSingleton<SocialRemoteDataSource>(
+    SocialRemoteDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<SocialService>(
+    SocialService(
+      remote: getIt<SocialRemoteDataSource>(),
       hive: getIt<HiveService>(),
     ),
   );

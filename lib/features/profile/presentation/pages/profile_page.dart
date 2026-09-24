@@ -45,6 +45,9 @@ import 'package:soplay/features/mal/presentation/widgets/mal_brand.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 import 'package:soplay/features/watch_party/presentation/party_entry.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
+import 'package:soplay/features/social/data/social_service.dart';
+import 'package:soplay/features/social/domain/social_models.dart';
 
 // Split into parts the way player_page.dart is: the page was 2721 lines
 // across nine sections, which is past the point where anyone can find
@@ -177,7 +180,7 @@ class _ProfileViewState extends State<_ProfileView> {
                           if (signedIn || _StatsStripState.hasNumbers)
                             const _StatsStrip(),
                           if (signedIn) const StreakCard(),
-                          const _HubOverview(),
+                          _HubOverview(signedIn: signedIn),
                           // signedIn is passed rather than read inside: a
                           // const widget is the same instance every build, so
                           // Flutter would skip rebuilding it and the Watch
