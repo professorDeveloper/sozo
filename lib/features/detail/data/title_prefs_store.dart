@@ -120,6 +120,14 @@ class TitlePrefsStore {
     return height != null && height > 0 ? height : null;
   }
 
+  /// Like [heightFor], but 0 when Auto was picked on purpose — which has to
+  /// beat the global preferred quality, where "nothing picked" must not.
+  int? heightChoiceFor(String provider, String contentUrl) {
+    final value = _entry(provider, contentUrl)?['height'];
+    final height = value is String ? int.tryParse(value) : null;
+    return height != null && height >= 0 ? height : null;
+  }
+
   /// [height] 0 is Auto: the choice not to pin one, which a stale height
   /// must not override on the next episode.
   Future<void> rememberHeight(String provider, String contentUrl, int height) =>

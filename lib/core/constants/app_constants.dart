@@ -259,6 +259,7 @@ class AppConstants {
   /// mid-playback still works exactly as before.
   static const String defaultPlaybackSpeedKey = 'default_playback_speed';
   static const String defaultPlayerFitKey = 'default_player_fit';
+  static const String preferredQualityKey = 'preferred_quality';
   static const String autoPlayNextEpisodeKey = 'auto_play_next_episode';
 
   /// Open the player without starting it.

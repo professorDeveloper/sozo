@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/app_constants.dart';
+import '../player/quality_preference.dart';
 import '../subtitles/subtitle_languages.dart';
 import '../../features/auth/data/models/user_model.dart';
 import '../../features/home/domain/home_rail.dart';
@@ -595,6 +596,15 @@ class HiveService {
 
   Future<void> saveDefaultPlayerFit(String fit) async {
     await _settingsBox.put(AppConstants.defaultPlayerFitKey, fit);
+  }
+
+  /// A [QualityPreference] value; anything unknown reads as Auto.
+  int get preferredQuality => QualityPreference.normalize(
+    _settingsBox.get(AppConstants.preferredQualityKey),
+  );
+
+  Future<void> savePreferredQuality(int value) async {
+    await _settingsBox.put(AppConstants.preferredQualityKey, value);
   }
 
   /// Defaults to true — auto-advance is what the player has always done, and

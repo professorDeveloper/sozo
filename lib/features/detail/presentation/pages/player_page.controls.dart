@@ -1867,9 +1867,10 @@ extension _PlayerControls on _PlayerPageState {
         if (isTvPlatform || !a.hasQualities) return null;
         return _BottomTextButton(
           icon: Icons.high_quality_rounded,
-          label: _currentQuality == null
-              ? 'player.quality'.tr()
-              : _qualityLabel(_currentQuality!),
+          label: _qualityChipLabel,
+          // The height is the point of this button, so it stays readable
+          // even where every other label is dropped.
+          compactLabel: _qualityChipShort,
           compact: compact,
           enabled: true,
           onTap: () => _openPanel(_SidePanel.quality),

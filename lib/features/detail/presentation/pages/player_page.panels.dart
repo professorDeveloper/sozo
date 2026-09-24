@@ -190,6 +190,7 @@ extension _PlayerPanels on _PlayerPageState {
   }
 
   Future<void> _switchVideoTrack(PlayerVideoTrack track) async {
+    _manualHeight = track.isAuto ? 0 : (track.height ?? 0);
     setState(() => _panel = _SidePanel.none);
     await _controller?.setVideoTrack(track.id);
     if (mounted) setState(() {});
@@ -242,6 +243,53 @@ extension _PlayerPanels on _PlayerPageState {
     // renditions were hung off. Painting it "Server 1" among 1080p and 720p
     // read as a stray server row.
     return _hasParsedSiblings(label) ? 'player.auto'.tr() : label;
+  }
+
+  /// What the quality button reads: the pinned height, or Auto with the
+  /// height the engine settled on once the picture says so.
+  String get _qualityChipLabel {
+    final auto = 'player.auto'.tr();
+    final playing = _playingHeight;
+    final withPlaying = playing == null ? auto : '$auto · ${playing}p';
+    final c = _controller;
+    final tracks = _engineVideoTracks;
+    if (c != null && tracks.isNotEmpty) {
+      final active = tracks.where((t) => t.id == c.activeVideoTrackId);
+      final track = active.isEmpty ? null : active.first;
+      if (track == null || track.isAuto || track.height == null) {
+        return withPlaying;
+      }
+      return '${track.height}p';
+    }
+    final idx = _currentSourceIndex;
+    final source = idx >= 0 && idx < _videoSources.length
+        ? _videoSources[idx]
+        : null;
+    if (source == null) return 'player.quality'.tr();
+    final pinned =
+        source.height ?? VideoOptionGroups.resolutionOf(source.quality);
+    if (pinned != null) return '${pinned}p';
+    return _hasParsedSiblings(source.quality)
+        ? withPlaying
+        : _qualityLabel(source.quality);
+  }
+
+  /// For the icon-only portrait row, where "Auto · 720p" does not fit: the
+  /// height alone, or null to keep the icon when no height is known.
+  String? get _qualityChipShort {
+    final label = _qualityChipLabel;
+    final dot = label.lastIndexOf(' · ');
+    final tail = dot < 0 ? label : label.substring(dot + 3);
+    return RegExp(r'^\d{3,4}p$').hasMatch(tail) ? tail : null;
+  }
+
+  int? get _playingHeight {
+    final size = _controller?.value.size;
+    if (size == null) return null;
+    return QualityPreference.displayHeight(
+      size.width.round(),
+      size.height.round(),
+    );
   }
 
   bool _hasParsedSiblings(String label) {
@@ -334,7 +382,7 @@ extension _PlayerPanels on _PlayerPageState {
     // left to ask where we came from.
     _serverSwitch = ServerSwitch(from: _currentServer, to: server);
     try {
-      await _switchQuality(_videoSources[target]);
+      await _switchQuality(_videoSources[target], pickedHeight: false);
     } finally {
       if (mounted) setState(() => _serverSwitch = null);
     }

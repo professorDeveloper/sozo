@@ -291,6 +291,43 @@ extension _PlayerSubtitles on _PlayerPageState {
                     ),
                   ),
                 ),
+              // Size is the one style setting people change mid-film, usually
+              // because the captions are too small from the sofa; the full
+              // editor is a sheet further away. The sample is drawn by the
+              // same code as the captions, so it is what they will look like.
+              if (_subtitles.isNotEmpty ||
+                  (_controller?.subtitleTracks.isNotEmpty ?? false))
+                StatefulBuilder(
+                  builder: (_, setSheet) => Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Divider(color: Colors.white12, height: 1),
+                      _SheetSectionLabel('player.font_size'.tr()),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                        child: Center(
+                          child: _styledSubtitle(
+                            'player.subtitle_preview_text'.tr(),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: SubtitleSizeControl(
+                          fontSize: _subtitleStyle.fontSize,
+                          showSlider: !isTvPlatform,
+                          onChanged: (v) {
+                            _applySubtitleStyle(
+                              _subtitleStyle.copyWith(fontSize: v),
+                            );
+                            setSheet(() {});
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const Divider(color: Colors.white12, height: 1),
               ListTile(
                 focusColor: _kTvFocusFill,
@@ -1664,88 +1701,12 @@ extension _PlayerSubtitles on _PlayerPageState {
                     const SizedBox(height: 4),
                     _SheetSectionLabel('player.font_size'.tr()),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          const Text(
-                            'A',
-                            style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Expanded(
-                            child: isTvPlatform
-                                ? _TvStepper(
-                                    display:
-                                        '${_subtitleStyle.fontSize.round()}',
-                                    onDecrease: _subtitleStyle.fontSize > 12
-                                        ? () => apply(
-                                            _subtitleStyle.copyWith(
-                                              fontSize:
-                                                  (_subtitleStyle.fontSize - 2)
-                                                      .clamp(12, 32),
-                                            ),
-                                          )
-                                        : null,
-                                    onIncrease: _subtitleStyle.fontSize < 32
-                                        ? () => apply(
-                                            _subtitleStyle.copyWith(
-                                              fontSize:
-                                                  (_subtitleStyle.fontSize + 2)
-                                                      .clamp(12, 32),
-                                            ),
-                                          )
-                                        : null,
-                                  )
-                                : SliderTheme(
-                                    data: SliderTheme.of(ctx).copyWith(
-                                      activeTrackColor: AppColors.primary,
-                                      inactiveTrackColor: Colors.white12,
-                                      thumbColor: AppColors.primary,
-                                      overlayColor: AppColors.primary
-                                          .withValues(alpha: 0.15),
-                                      trackHeight: 3,
-                                    ),
-                                    child: Slider(
-                                      min: 12,
-                                      max: 32,
-                                      divisions: 20,
-                                      value: _subtitleStyle.fontSize.clamp(
-                                        12,
-                                        32,
-                                      ),
-                                      label:
-                                          '${_subtitleStyle.fontSize.round()}',
-                                      onChanged: (v) => apply(
-                                        _subtitleStyle.copyWith(fontSize: v),
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                          const Text(
-                            'A',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 36,
-                            child: Text(
-                              '${_subtitleStyle.fontSize.round()}',
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SubtitleSizeControl(
+                        fontSize: _subtitleStyle.fontSize,
+                        showSlider: !isTvPlatform,
+                        onChanged: (v) =>
+                            apply(_subtitleStyle.copyWith(fontSize: v)),
                       ),
                     ),
                     // Typeface before colour: the face decides whether a
