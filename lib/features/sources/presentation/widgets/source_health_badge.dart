@@ -93,6 +93,8 @@ String healthReasonText(String? reason) {
     'slow_response',
     'maintainer_down',
     'maintainer_slow',
+    'device_dead',
+    'device_outdated',
   };
   return (known.contains(reason)
           ? 'sources.health_reason_$reason'
@@ -238,7 +240,9 @@ class _HealthSheet extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               (dead
-                      ? 'sources.health_down_body'
+                      ? (verdict.onDevice
+                            ? 'sources.health_down_body_device'
+                            : 'sources.health_down_body')
                       : 'sources.health_cloudflare_body')
                   .tr(),
               style: const TextStyle(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -41,7 +42,7 @@ class ProfileSession extends ChangeNotifier {
 
   List<HouseholdProfile> _profiles = const [];
   HouseholdProfile? _active;
-  int _max = 5;
+  int _max = 3;
   bool _chosenThisRun = false;
   bool _loaded = false;
 
@@ -52,6 +53,9 @@ class ProfileSession extends ChangeNotifier {
   List<HouseholdProfile> get profiles => _profiles;
   HouseholdProfile? get active => _active;
   int get max => _max;
+
+  /// A household's cap, whatever an older server still reports.
+  static const int maxProfiles = 3;
 
   /// True once the list has come from the server in this run.
   bool get loaded => _loaded;
@@ -103,7 +107,7 @@ class ProfileSession extends ChangeNotifier {
       final raw = _settings.get(cacheKey);
       if (raw is String && raw.isNotEmpty) {
         final data = jsonDecode(raw) as Map<String, dynamic>;
-        _max = (data['max'] as num?)?.toInt() ?? 5;
+        _max = math.min((data['max'] as num?)?.toInt() ?? 3, maxProfiles);
         _profiles = [
           for (final p in (data['profiles'] as List? ?? const []))
             if (p is Map) HouseholdProfile.fromJson(p.cast<String, dynamic>()),
@@ -164,7 +168,7 @@ class ProfileSession extends ChangeNotifier {
     }
     if (!_isLoggedIn()) return false;
     _profiles = List.unmodifiable(listing.profiles);
-    _max = listing.max;
+    _max = math.min(listing.max, maxProfiles);
     _loaded = true;
 
     final current = _active;

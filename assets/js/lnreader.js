@@ -18,7 +18,7 @@
  * The plugins are CommonJS bundles that `require()` a small set of modules, so
  * that is what is provided here:
  *
- *   @libs/fetch          fetchApi / fetchFile
+ *   @libs/fetch          fetchApi / fetchFile / fetchText / fetchProto
  *   @libs/novelStatus    the status enum
  *   @libs/filterInputs   filter shapes, which Sozo does not surface yet
  *   @libs/defaultCover   the placeholder cover
@@ -27,7 +27,7 @@
  *   htmlparser2          what cheerio is built on; plugins only ever pass it on
  *   dayjs                release dates
  *
- * cheerio, htmlparser2 and dayjs are the real packages, bundled into
+ * cheerio, htmlparser2 and dayjs (and protobufjs, for fetchProto) are the real packages, bundled into
  * `lnreader_deps.js` (see tool/lnreader_deps/) and loaded before this file —
  * LNReader itself runs them unmodified. A hand-written stand-in over the
  * WebView's DOM came first and covered too little: `new htmlparser2.Parser`,
@@ -455,8 +455,59 @@
     return btoa(binary);
   }
 
-  async function fetchProto() {
-    throw new Error('this source speaks protobuf, which Sozo does not carry');
+  function bytesToBase64(bytes) {
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(binary);
+  }
+
+  function base64ToBytes(b64) {
+    const binary = atob(String(b64 || ''));
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+    return out;
+  }
+
+  /**
+   * A POST of raw bytes that answers with raw bytes. `dartFetch` carries
+   * text, which mangles both, so they cross as base64.
+   */
+  async function postBytes(url, bytes, init) {
+    const headers = headerObject((init || {}).headers);
+    const host = bridge();
+    if (!host) {
+      const res = await fetch(url, { method: 'POST', headers, body: bytes });
+      return new Uint8Array(await res.arrayBuffer());
+    }
+    const raw = await host.dartFetch({
+      url: String(url),
+      method: 'POST',
+      headers,
+      bodyBase64: bytesToBase64(bytes),
+      responseType: 'base64',
+    });
+    return base64ToBytes(raw && raw.data);
+  }
+
+  /** LNReader's fetchProto: one gRPC-web call, framed and decoded. */
+  async function fetchProto(protoInit, url, init) {
+    const protobuf = deps && deps.protobuf;
+    if (!protobuf) {
+      throw new Error('this source speaks protobuf, which Sozo does not carry');
+    }
+    const root = protobuf.parse(protoInit.proto).root;
+    const Request = root.lookupType(protoInit.requestType);
+    const message = Request.encode(Request.fromObject(protoInit.requestData)).finish();
+    // A frame is a flag byte and a big-endian length, then the message.
+    const frame = new Uint8Array(5 + message.length);
+    new DataView(frame.buffer).setUint32(1, message.length);
+    frame.set(message, 5);
+    const payload = await postBytes(url, frame, init);
+    if (payload.length < 5) throw new Error('empty protobuf response from ' + url);
+    const length = new DataView(payload.buffer, payload.byteOffset).getUint32(1);
+    return root.lookupType(protoInit.responseType).decode(payload.subarray(5, 5 + length));
   }
 
   function makeRequire(pluginId) {

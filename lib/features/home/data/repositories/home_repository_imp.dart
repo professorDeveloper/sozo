@@ -29,7 +29,12 @@ class HomeRepositoryImp implements HomeRepository {
     this.jellyfin,
     this.jsRuntime,
     this.hive,
+    this.onOutcome,
   });
+
+  /// Told how each home load went, for the source health record: opening a
+  /// source's home is the same evidence a check would gather, for free.
+  final void Function(String providerId, bool ok, String? error)? onOutcome;
 
   final MangayomiBridge mangayomi;
   final JellyfinBridge? jellyfin;
@@ -63,6 +68,24 @@ class HomeRepositoryImp implements HomeRepository {
 
   @override
   Future<Result<HomeDataEntity>> loadHome() async {
+    final provider = _currentProvider;
+    final result = await _loadHome();
+    final report = onOutcome;
+    if (report != null && provider != null && !Catalogue.isId(provider)) {
+      switch (result) {
+        case Success(:final value):
+          final items =
+              value.banner.length +
+              value.sections.fold<int>(0, (n, s) => n + s.items.length);
+          if (items > 0) report(provider, true, null);
+        case Failure(:final error):
+          report(provider, false, error.toString());
+      }
+    }
+    return result;
+  }
+
+  Future<Result<HomeDataEntity>> _loadHome() async {
     final js = jsRuntime;
     final provider = _currentProvider;
     // Every on-device host reports *why* it came back empty in an `error` field

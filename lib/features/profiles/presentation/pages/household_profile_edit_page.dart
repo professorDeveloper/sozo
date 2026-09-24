@@ -38,9 +38,12 @@ class _HouseholdProfileEditPageState extends State<HouseholdProfileEditPage> {
     text: _original?.name ?? '',
   );
   late String? _avatar =
-      _original?.avatar ?? (_original == null ? 'smile' : null);
+      _original?.avatar ?? (_original == null ? _nextAvatar() : null);
   late String? _color =
-      _original?.color ?? (_original == null ? _nextColor() : null);
+      _original?.color ??
+      (_original == null
+          ? ProfileAvatars.imageColors[_avatar] ?? _nextColor()
+          : null);
   late bool _kids = _original?.isKids ?? false;
   _PinEdit _pinEdit = _PinEdit.keep;
   String? _newPin;
@@ -54,6 +57,14 @@ class _HouseholdProfileEditPageState extends State<HouseholdProfileEditPage> {
     _PinEdit.set => true,
     _PinEdit.remove => false,
   };
+
+  String _nextAvatar() {
+    final used = {for (final p in _session.profiles) p.avatar};
+    return ProfileAvatars.images.firstWhere(
+      (id) => !used.contains(id),
+      orElse: () => ProfileAvatars.images.first,
+    );
+  }
 
   String _nextColor() {
     final used = {for (final p in _session.profiles) p.color};
@@ -299,14 +310,20 @@ class _HouseholdProfileEditPageState extends State<HouseholdProfileEditPage> {
           selected: _avatar,
           color: _color,
           name: _name.text,
-          onSelected: (id) => setState(() => _avatar = id),
+          onSelected: (id) => setState(() {
+            _avatar = id;
+            _color = ProfileAvatars.imageColors[id] ?? _color;
+          }),
         ),
-        const SizedBox(height: 20),
-        SettingsLabel('profiles.color'.tr()),
-        _ColorRow(
-          selected: _color,
-          onSelected: (c) => setState(() => _color = c),
-        ),
+        // An illustrated avatar brings its own colour.
+        if (ProfileAvatars.imageFor(_avatar) == null) ...[
+          const SizedBox(height: 20),
+          SettingsLabel('profiles.color'.tr()),
+          _ColorRow(
+            selected: _color,
+            onSelected: (c) => setState(() => _color = c),
+          ),
+        ],
         const SizedBox(height: 24),
         SettingsCard(
           children: [
@@ -384,31 +401,44 @@ class _AvatarGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ids = <String?>[null, ...ProfileAvatars.presets.keys];
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        for (final id in ids)
-          Semantics(
-            button: true,
-            selected: id == selected,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => onSelected(id),
-              child: Opacity(
-                opacity: id == selected ? 1 : 0.55,
-                child: ProfileAvatar(
-                  name: name.trim().isEmpty ? '?' : name,
-                  avatar: id,
-                  color: color,
-                  size: 52,
-                  selected: id == selected,
+    // A profile still on an old icon keeps it offered, so opening the page
+    // does not silently change it.
+    final ids = <String?>[
+      if (selected != null && !ProfileAvatars.images.contains(selected))
+        selected,
+      ...ProfileAvatars.images,
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 12.0;
+        final columns = constraints.maxWidth >= 520 ? 6 : 4;
+        final size = (constraints.maxWidth - spacing * (columns - 1)) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final id in ids)
+              Semantics(
+                button: true,
+                selected: id == selected,
+                child: GestureDetector(
+                  onTap: () => onSelected(id),
+                  child: AnimatedScale(
+                    duration: const Duration(milliseconds: 140),
+                    scale: id == selected ? 1 : 0.92,
+                    child: ProfileAvatar(
+                      name: name.trim().isEmpty ? '?' : name,
+                      avatar: id,
+                      color: color,
+                      size: size,
+                      selected: id == selected,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 }

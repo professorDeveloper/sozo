@@ -380,6 +380,8 @@ function realHost() {
     TextEncoder,
     TextDecoder,
     Headers,
+    atob,
+    btoa,
   };
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
@@ -513,4 +515,50 @@ test('a FormData body goes as multipart, the form it is', async () => {
   assert.ok(seen.body.trimEnd().endsWith('--' + boundary + '--'));
   // The plugin's own Content-Type could not describe this body; it is replaced.
   assert.equal(Object.keys(seen.headers).filter((k) => k.toLowerCase() === 'content-type').length, 1);
+});
+
+test('fetchProto makes a gRPC-web call through the bridge, as bytes', async () => {
+  // Wuxiaworld's plugin speaks nothing else; it failed on every call.
+  const sandbox = realHost();
+  const proto = `syntax = "proto3";
+    message GetNovelRequest { string slug = 1; }
+    message GetNovelResponse { string name = 1; int32 id = 2; }`;
+  const { protobuf } = sandbox.__sozoLnReaderInternals.deps;
+  const root = protobuf.parse(proto).root;
+  let seen = null;
+  sandbox.window = {
+    dartFetch: async (req) => {
+      seen = req;
+      const reply = root.lookupType('GetNovelResponse')
+        .encode({ name: 'Martial World', id: 36 }).finish();
+      const frame = Buffer.alloc(5 + reply.length);
+      frame.writeUInt32BE(reply.length, 1);
+      Buffer.from(reply).copy(frame, 5);
+      return { status: 200, data: frame.toString('base64'), headers: {} };
+    },
+  };
+  const p = sandbox.__sozoLoadLnReader(
+    `const { fetchProto } = require('@libs/fetch');
+     module.exports.default = { site: 'https://s.test/',
+       parseChapter: async () => {
+         const r = await fetchProto({ proto: ${JSON.stringify(proto)},
+           requestType: 'GetNovelRequest', responseType: 'GetNovelResponse',
+           requestData: { slug: 'martial-world' } },
+           'https://api.s.test/Novels/GetNovel',
+           { headers: { 'Content-Type': 'application/grpc-web+proto' } });
+         return r.name + '|' + r.id;
+       } };`,
+    { id: 'p' },
+  );
+  assert.equal(await p.getHtmlContent('S', 'x'), 'Martial World|36');
+  assert.equal(seen.method, 'POST');
+  assert.equal(seen.responseType, 'base64');
+  assert.equal(seen.headers['Content-Type'], 'application/grpc-web+proto');
+  const body = Buffer.from(seen.bodyBase64, 'base64');
+  assert.equal(body[0], 0);
+  assert.equal(body.readUInt32BE(1), body.length - 5);
+  // The library belongs to the sandbox's realm, and so must its bytes.
+  const Bytes = vm.runInContext('Uint8Array', sandbox);
+  const request = root.lookupType('GetNovelRequest').decode(Bytes.from(body.subarray(5)));
+  assert.equal(request.slug, 'martial-world');
 });

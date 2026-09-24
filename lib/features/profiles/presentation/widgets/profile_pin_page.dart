@@ -1,13 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/core/widgets/app_buttons.dart';
 import 'package:soplay/features/app_lock/presentation/widgets/pin_dots.dart';
 import 'package:soplay/features/app_lock/presentation/widgets/pin_keypad.dart';
 
-/// A profile PIN is 4 to 8 digits, and its length is not known when checking
-/// it (the server keeps only a hash), so entry ends with Continue rather than
-/// on the last digit.
+/// A profile PIN is four digits, checked as soon as the last one is entered.
 class ProfilePinPage extends StatefulWidget {
   const ProfilePinPage._({
     required this.creating,
@@ -17,8 +14,7 @@ class ProfilePinPage extends StatefulWidget {
     this.onSubmit,
   });
 
-  static const int minLength = 4;
-  static const int maxLength = 8;
+  static const int length = 4;
 
   final bool creating;
   final String title;
@@ -76,11 +72,17 @@ class _ProfilePinPageState extends State<ProfilePinPage> {
   bool get _confirming => widget.creating && _first != null;
 
   void _digit(String d) {
-    if (_busy || _entered.length >= ProfilePinPage.maxLength) return;
+    if (_busy || _entered.length >= ProfilePinPage.length) return;
     setState(() {
       _entered += d;
       _error = null;
     });
+    if (_entered.length == ProfilePinPage.length) {
+      // A beat so the last dot is seen filling before the page reacts.
+      Future<void>.delayed(const Duration(milliseconds: 120), () {
+        if (mounted && _entered.length == ProfilePinPage.length) _continue();
+      });
+    }
   }
 
   void _backspace() {
@@ -98,7 +100,7 @@ class _ProfilePinPageState extends State<ProfilePinPage> {
 
   Future<void> _continue() async {
     final pin = _entered;
-    if (pin.length < ProfilePinPage.minLength || _busy) return;
+    if (pin.length != ProfilePinPage.length || _busy) return;
     if (widget.creating) {
       if (_first == null) {
         setState(() {
@@ -134,9 +136,6 @@ class _ProfilePinPageState extends State<ProfilePinPage> {
     final subtitle = _confirming
         ? 'profiles.pin_confirm_subtitle'.tr()
         : widget.subtitle;
-    final dots = _entered.length
-        .clamp(ProfilePinPage.minLength, ProfilePinPage.maxLength)
-        .toInt();
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -187,14 +186,24 @@ class _ProfilePinPageState extends State<ProfilePinPage> {
                     ),
                     const SizedBox(height: 28),
                     PinDots(
-                      length: dots,
+                      length: ProfilePinPage.length,
                       filled: _entered.length,
                       errorTick: _errorTick,
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
                       height: 36,
-                      child: _error == null
+                      child: _busy
+                          ? const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : _error == null
                           ? null
                           : Padding(
                               padding: const EdgeInsets.symmetric(
@@ -214,18 +223,7 @@ class _ProfilePinPageState extends State<ProfilePinPage> {
                     ),
                     const Spacer(),
                     PinKeypad(onDigit: _digit, onBackspace: _backspace),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-                      child: AppPrimaryButton(
-                        label: 'profiles.continue'.tr(),
-                        loading: _busy,
-                        onPressed:
-                            _entered.length >= ProfilePinPage.minLength &&
-                                !_busy
-                            ? _continue
-                            : null,
-                      ),
-                    ),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),

@@ -33,9 +33,12 @@ void main() {
     () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final dir = await Directory.systemTemp.createTemp('sozo-image-headers-');
-      final received = <String>[];
+      // By path: pages are fetched several at a time, so arrival order says
+      // nothing.
+      final received = <String, String>{};
       server.listen((request) async {
-        received.add(request.headers.value('authorization') ?? 'missing');
+        received[request.uri.path] =
+            request.headers.value('authorization') ?? 'missing';
         request.response.headers.contentType = ContentType('image', 'png');
         request.response.add([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]);
         await request.response.close();
@@ -57,7 +60,7 @@ void main() {
           onProgress: (_) {},
         );
         expect(result.ok, isTrue, reason: result.detail);
-        expect(received, ['first', 'second']);
+        expect(received, {'/1.png': 'first', '/2.png': 'second'});
       } finally {
         await server.close(force: true);
         await dir.delete(recursive: true);

@@ -156,9 +156,9 @@ class ExtensionRepoDefaults {
     // downstream — search, home, detail, chapters, the reader, downloads, EPUB
     // export — can tell the two apart.
     //
-    // 280 plugins; about 200 of the sites answer, and 102 read end to end
+    // 284 plugins; about 200 of the sites answer, and 115 read end to end
     // (list, detail, chapter) through the adapter from a plain client — more
-    // in the app, which solves Cloudflare.
+    // in the app, which solves Cloudflare. Checked 2026-09-24.
     ExtensionRepoEntity(
       kind: ExtensionRepoKind.mangayomi,
       name: 'LNReader',
@@ -180,6 +180,31 @@ class ExtensionRepoDefaults {
       novelUrl:
           'https://raw.githubusercontent.com/9vsv6/mangayomi-ar-extensions/main/novel_index.json',
       order: 5,
+    ),
+    // LNReader plugins outside the official index. Every source named below
+    // read end to end (search, detail, chapter text) on 2026-09-24.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'SpaceBattles & SV',
+      description: 'Fan fiction & quests · SpaceBattles, SufficientVelocity',
+      url:
+          'https://raw.githubusercontent.com/greatnameincoming/lnreader-custom-plugins/plugins/v1.0.0/.dist/plugins.min.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/greatnameincoming/lnreader-custom-plugins/plugins/v1.0.0/.dist/plugins.min.json',
+      order: 6,
+    ),
+    // Four of its seven read: KariStudio, MZNovels, DarkStar (brightnovels)
+    // and LeafStudio. Its MyNovels shares the official plugin's id, so one
+    // replaces the other; both sit behind Cloudflare.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'Tausif-Husine',
+      description: 'Translated web novels · KariStudio, MZNovels and more',
+      url:
+          'https://raw.githubusercontent.com/Tausif-Husine/LNreader-Plugins/plugins/v3.0.0/.dist/plugins.min.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/Tausif-Husine/LNreader-Plugins/plugins/v3.0.0/.dist/plugins.min.json',
+      order: 7,
     ),
   ];
 

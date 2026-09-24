@@ -372,7 +372,8 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
         if (p.id != widget.provider &&
             !p.browseOnly &&
             !answered.contains(p.id) &&
-            _sameKind(widget.category, p.category))
+            _sameKind(widget.category, p.category) &&
+            (!_reads || p.id.contentMode == widget.provider.contentMode))
           p,
     ];
     out.sort(

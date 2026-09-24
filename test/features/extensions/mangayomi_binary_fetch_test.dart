@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -87,4 +88,51 @@ void main() {
       fetch.dio.close(force: true);
     },
   );
+  test('a binary body and answer cross the bridge as base64', () async {
+    final fetch = DartFetch.create();
+    List<int>? sent;
+    fetch.dio.httpClientAdapter = _BodyAdapter((body) {
+      sent = body;
+      return ResponseBody.fromBytes(
+        [0, 0, 0, 0, 2, 0xff, 0x80],
+        200,
+        headers: {
+          'content-type': ['application/grpc-web+proto'],
+        },
+      );
+    });
+    final result = await fetch.call({
+      'url': '$public/api.v2.Novels/GetNovel',
+      'method': 'POST',
+      'headers': {'Content-Type': 'application/grpc-web+proto'},
+      'bodyBase64': base64Encode([0, 0, 0, 0, 1, 0xc3]),
+      'responseType': 'base64',
+    });
+    expect(sent, [0, 0, 0, 0, 1, 0xc3]);
+    expect(result['status'], 200);
+    expect(base64Decode(result['data'] as String), [0, 0, 0, 0, 2, 0xff, 0x80]);
+    fetch.dio.close(force: true);
+  });
+}
+
+class _BodyAdapter implements HttpClientAdapter {
+  _BodyAdapter(this.reply);
+  final ResponseBody Function(List<int> body) reply;
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final body = <int>[];
+    if (requestStream != null) {
+      await for (final chunk in requestStream) {
+        body.addAll(chunk);
+      }
+    }
+    return reply(body);
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

@@ -36,10 +36,9 @@ class CatalogueLink {
   /// This source is not of the catalogue's kind, and is a guess rather than an
   /// answer.
   ///
-  /// Only the light-novel shelf can set it, and only by falling back to a
-  /// manga source, because on most installs there is no novel source to ask —
-  /// see [CatalogueResolver.kindsFor]. The title will often be right and the
-  /// WORK still wrong: a light novel and its manga adaptation share a name,
+  /// [CatalogueResolver.kindsFor] asks only the catalogue's own kind, so this
+  /// is false for every link it makes today; older stored links may carry it.
+  /// The title can be right and the WORK still wrong: a light novel and its manga adaptation share a name,
   /// which is exactly what makes the title score untrustworthy here. Anything
   /// that puts this in front of somebody has to say so; presenting it as a
   /// found source is the one thing this flag exists to prevent.
@@ -157,11 +156,7 @@ typedef AlternateFinder =
 /// a list of sources to pick from before every title — is a tap before
 /// playing, every time, for a decision most people do not want to make.
 ///
-/// Silent has one exception, and it is the light-novel shelf. There, "the right
-/// kind of source" is a kind most installs do not have at all, so the manga
-/// readers are asked as well and whatever they answer is returned marked
-/// [CatalogueLink.approximate] — an offer the page has to caveat, never an
-/// answer. See [kindsFor].
+/// Only sources of the catalogue's own kind are asked. See [kindsFor].
 class CatalogueResolver {
   CatalogueResolver({
     required AlternateFinder finder,
@@ -260,34 +255,10 @@ class CatalogueResolver {
     CatalogueLink link,
   ) => _hive.setCatalogueLink(_key(catalogueId, contentUrl), link.encode());
 
-  /// Which kinds of source a catalogue's titles are looked for on.
-  ///
-  /// Its own, except for light novels, which also look at the manga readers.
-  ///
-  /// A novel-mode source is a Mangayomi (`my:`) source whose repo index
-  /// declares `itemType: novel`, and that is the only kind there is — a Mihon
-  /// (`mn:`) extension is a Tachiyomi catalogue source with no notion of a
-  /// novel to declare, so it can never be one. Novel repos are a handful next
-  /// to the manga ones and most installs carry none, which left every title on
-  /// the light-novel shelf with an empty candidate list: a page that rendered
-  /// from AniList's record and a Play button that could not resolve, because no
-  /// search ever ran.
-  ///
-  /// Asking the manga readers is worth doing because the reader screen is the
-  /// same one either way — it renders a chapter as prose or as pages according
-  /// to what the source returns, not according to what the source was labelled
-  /// — so a manga source that happens to carry the text opens correctly. What
-  /// it usually carries is the ADAPTATION, a different work under the same
-  /// name, which is why every such answer comes back
-  /// [CatalogueLink.approximate] and is never remembered.
-  ///
-  /// It deliberately does not run the other way. A manga shelf on an install
-  /// with only novel sources is a state essentially nobody is in, and
-  /// [CatalogueMiss.noSourcesOfKind] already tells the truth there.
-  static Set<ContentMode> kindsFor(Catalogue catalogue) =>
-      catalogue == Catalogue.anilistNovel
-      ? const {ContentMode.novel, ContentMode.manga}
-      : {catalogue.mode};
+  /// Which kinds of source a catalogue's titles are looked for on: only its
+  /// own. A light novel is searched on novel sources, never on the manga
+  /// readers, which carry its adaptation rather than the novel.
+  static Set<ContentMode> kindsFor(Catalogue catalogue) => {catalogue.mode};
 
   /// What a source of the catalogue's own kind is worth in the ranking, and
   /// what one of the wrong kind costs.
@@ -496,8 +467,8 @@ class CatalogueResolver {
     // Every source of a kind this catalogue can be answered by, that is not
     // browse-only: an anime title is looked for on video sources, a manga title
     // on manga sources. A leg spent asking a reader for an anime is a leg not
-    // spent on a source that might have it. [kindsFor] is where the light-novel
-    // shelf widens that, and why.
+    // spent on a source that might have it. A light novel is looked for on
+    // novel sources only.
     final kinds = kindsFor(catalogue);
     final candidates = [
       for (final p in await _providers())
@@ -517,19 +488,10 @@ class CatalogueResolver {
 
     // Whether an answer of the catalogue's own kind can arrive at all.
     //
-    // It decides how long the fan-out is allowed to hold out. On every shelf
-    // but the light-novel one this is always true — [kindsFor] asks only that
-    // catalogue's own kind — so the stop below is exactly what it was, and an
+    // It decides how long the fan-out is allowed to hold out. It is always
+    // true while [kindsFor] asks only the catalogue's own kind, so the stop below is exactly what it was, and an
     // anime shelf still waits out a film source's perfect title for the anime
     // source that may answer late.
-    //
-    // On the light-novel shelf of an install with no novel source it is false,
-    // and that is the case this exists for: the comic readers were widened in
-    // precisely because there is nothing better to ask, every answer they give
-    // scores [_wrongKind], and a stop that requires a non-negative fit can
-    // therefore never fire. That shelf sat on a spinner until the last leg
-    // settled or the whole [_budget] expired, on the one shelf whose answer was
-    // never going to be more than a guess.
     final ownKindAsked = candidates.any((p) => _kindOf(p.id) == catalogue.mode);
 
     // Under the catalogue's own name first, and under one of its other names
@@ -585,8 +547,7 @@ class CatalogueResolver {
             : CatalogueMiss.notCarried,
       );
     }
-    // Only [kindsFor] can produce this, so today it means exactly one thing: a
-    // light novel answered by a manga source, most likely with its adaptation.
+    // Only a source outside the catalogue's kind can make this true.
     final approximate = _kindOf(pick.provider.id) != catalogue.mode;
     final link = CatalogueLink(
       providerId: pick.provider.id,

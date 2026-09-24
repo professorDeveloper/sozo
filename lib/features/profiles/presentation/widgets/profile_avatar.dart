@@ -7,6 +7,48 @@ import 'package:soplay/features/profiles/domain/household_profile.dart';
 class ProfileAvatars {
   ProfileAvatars._();
 
+  /// Illustrated avatars bundled under `assets/avatars/` (DiceBear, CC0),
+  /// drawn over the profile's colour. These are what the picker offers.
+  /// Each one has its own background, as on Netflix, rather than the
+  /// profile's colour behind every face.
+  static const Map<String, String> imageColors = {
+    'lorelei-1': '#e50914',
+    'lorelei-2': '#1e88e5',
+    'lorelei-3': '#43a047',
+    'lorelei-4': '#8e24aa',
+    'lorelei-5': '#fb8c00',
+    'lorelei-6': '#00acc1',
+    'lorelei-7': '#d81b60',
+    'lorelei-8': '#3949ab',
+    'open-peeps-1': '#5c6bc0',
+    'open-peeps-2': '#26a69a',
+    'open-peeps-3': '#ec407a',
+    'open-peeps-4': '#ffca28',
+    'open-peeps-5': '#7e57c2',
+    'open-peeps-6': '#29b6f6',
+    'open-peeps-7': '#ef5350',
+    'open-peeps-8': '#66bb6a',
+    'notionists-1': '#ffb300',
+    'notionists-2': '#00897b',
+    'notionists-3': '#f4511e',
+    'notionists-4': '#5e35b1',
+    'thumbs-1': '#1a237e',
+    'thumbs-2': '#00695c',
+    'thumbs-3': '#c2185b',
+    'thumbs-4': '#ffd54f',
+  };
+
+  /// What the picker offers. The `thumbs-` set was dropped from it, but stays
+  /// bundled so profiles that picked one still render.
+  static final List<String> images = [
+    for (final id in imageColors.keys)
+      if (!id.startsWith('thumbs-')) id,
+  ];
+
+  static String? imageFor(String? id) =>
+      imageColors.containsKey(id) ? 'assets/avatars/$id.png' : null;
+
+  /// Kept so profiles made before the illustrations still render.
   static const Map<String, IconData> presets = {
     'smile': Icons.sentiment_satisfied_alt_rounded,
     'star': Icons.star_rounded,
@@ -87,8 +129,12 @@ class ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = ProfileAvatars.parse(color, name);
+    final base = ProfileAvatars.parse(
+      ProfileAvatars.imageColors[avatar] ?? color,
+      name,
+    );
     final icon = ProfileAvatars.presets[avatar];
+    final image = ProfileAvatars.imageFor(avatar);
     final initial = name.trim().isEmpty
         ? '?'
         : name.trim().characters.first.toUpperCase();
@@ -113,13 +159,30 @@ class ProfileAvatar extends StatelessWidget {
                   Color.lerp(base, Colors.black, 0.28)!,
                 ],
               ),
+            ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: radius,
               border: Border.all(
                 color: selected ? Colors.white : Colors.transparent,
                 width: size * 0.035,
               ),
             ),
             alignment: Alignment.center,
-            child: icon != null
+            clipBehavior: Clip.antiAlias,
+            child: image != null
+                ? Image.asset(
+                    image,
+                    width: size,
+                    height: size,
+                    // Decoded at the size shown: a grid of full 384px bitmaps
+                    // made the edit page stutter.
+                    cacheWidth: (size * MediaQuery.devicePixelRatioOf(context))
+                        .round(),
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.medium,
+                    gaplessPlayback: true,
+                  )
+                : icon != null
                 ? Icon(icon, color: Colors.white, size: size * 0.5)
                 : Text(
                     initial,
