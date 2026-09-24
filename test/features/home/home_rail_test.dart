@@ -22,6 +22,7 @@ void main() {
       expect(HomeRail.defaults.map((r) => r.id).toList(), [
         'hero',
         'resume',
+        'picked_for_you',
         'genres',
         'live_tv',
         'watch_services',
@@ -112,9 +113,10 @@ void main() {
         'hero',
         'genres',
         'live_tv',
-        // Appended, because it is newer than this stored order. Being in the
-        // order is not being on Home: it is an opt-in band, so it arrives
-        // switched off and the customizer has a row for it either way.
+        // Appended, because they are newer than this stored order. Being in
+        // the order is not being on Home: each still decides for itself
+        // whether it has anything to show.
+        'picked_for_you',
         'watch_services',
       ]);
     });

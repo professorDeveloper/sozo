@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:soplay/features/onboarding/data/genre_catalog.dart';
+import 'package:soplay/features/onboarding/data/picked_for_you.dart';
 
 import 'package:soplay/features/watch_services/data/datasources/watch_services_data_source.dart';
 import 'package:soplay/features/watch_services/data/repositories/watch_services_repository_imp.dart';
@@ -623,6 +625,20 @@ Future<void> configureDependencies() async {
       hive: getIt<HiveService>(),
       onOutcome: (id, ok, error) =>
           getIt<SourceCheckService>().observe(id, ok: ok, error: error),
+    ),
+  );
+  getIt.registerLazySingleton<PickedForYouSource>(
+    () => PickedForYouSource(
+      load: (slug) => getIt<HomeRepository>().loadViewAll(
+        key: 'catalogue-genre',
+        slug: slug,
+      ),
+    ),
+  );
+  getIt.registerLazySingleton<GenreCatalog>(
+    () => GenreCatalog(
+      fetch: (catalogue) =>
+          getIt<SearchDataSource>().getCatalogueGenres(catalogue),
     ),
   );
   getIt.registerSingleton<SearchRepository>(

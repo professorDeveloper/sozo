@@ -28,6 +28,7 @@ import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/features/home/domain/entities/hero_slide.dart';
 import 'package:soplay/features/home/presentation/widgets/home_watch_services_section.dart';
+import 'package:soplay/features/home/presentation/widgets/home_picked_for_you_section.dart';
 import 'package:soplay/features/home/domain/entities/home_section_entity.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
@@ -320,6 +321,10 @@ class _HomeContentBody extends StatelessWidget {
                     ),
                   );
                 }
+              case HomeRail.pickedForYou:
+                yield const SliverToBoxAdapter(
+                  child: RepaintBoundary(child: HomePickedForYouSection()),
+                );
               case HomeRail.genres:
                 if (loaded != null && loaded.genres.isNotEmpty) {
                   yield SliverToBoxAdapter(

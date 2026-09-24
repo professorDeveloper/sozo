@@ -21,6 +21,14 @@ enum HomeRail {
   /// Continue Watching.
   resume('resume', 'home_rails.resume', Icons.play_circle_outline),
 
+  /// Titles from the genres picked in onboarding. Draws nothing until
+  /// something has been picked.
+  pickedForYou(
+    'picked_for_you',
+    'home_rails.picked_for_you',
+    Icons.auto_awesome_outlined,
+  ),
+
   /// The genre chips.
   genres('genres', 'home_rails.genres', Icons.category_outlined),
 
@@ -58,6 +66,7 @@ enum HomeRail {
   static const List<HomeRail> defaults = [
     hero,
     resume,
+    pickedForYou,
     genres,
     liveTv,
     watchServices,
