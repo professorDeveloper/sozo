@@ -61,6 +61,10 @@ class ProfileScope {
     'source_choices',
     'search_recent_queries',
     'followed_titles',
+    'release_feed',
+    'follow_sync_outbox',
+    'follow_sync_tombstones',
+    'follow_sync_at',
   };
 
   static String box(String base) => boxFor(base, _namespace);
