@@ -16,6 +16,7 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/player/source_ladder.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/detail/data/title_prefs_store.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/download_choices.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
@@ -164,6 +165,40 @@ class _EpisodesPageState extends State<EpisodesPage> {
   /// fill it. Both change only when the window or the query changes, and while
   /// something is downloading the rows rebuild twice a second.
   List<int>? _visibleCache;
+
+  /// The translation group the list is narrowed to, or null for all of them.
+  /// Remembered per title: a source listing each chapter once per group is
+  /// read through one group, chapter after chapter.
+  String? _group;
+  final TitlePrefsStore _titlePrefs = TitlePrefsStore();
+
+  /// The groups among the loaded chapters, most chapters first.
+  List<(String, int)> get _groups {
+    final counts = <String, int>{};
+    for (final e in _episodes) {
+      final g = e.scanlator;
+      if (g != null && g.isNotEmpty) counts[g] = (counts[g] ?? 0) + 1;
+    }
+    return counts.entries.map((e) => (e.key, e.value)).toList()
+      ..sort((a, b) => b.$2.compareTo(a.$2));
+  }
+
+  void _setGroup(String? group) {
+    setState(() {
+      _group = group;
+      _invalidateDerived();
+    });
+    if (widget.args.contentUrl.isNotEmpty) {
+      unawaited(
+        _titlePrefs.rememberScanlator(
+          widget.args.provider,
+          widget.args.contentUrl,
+          group,
+        ),
+      );
+    }
+  }
+
   List<EpisodeBlock>? _blocksCache;
 
   /// Which block the reader is looking at, as opposed to where the window
@@ -187,6 +222,12 @@ class _EpisodesPageState extends State<EpisodesPage> {
     _total = widget.args.total > 0 ? widget.args.total : _episodes.length;
     _size = widget.args.size;
     _showImages = _hasAnyImage(_episodes);
+    if (_isManga && widget.args.contentUrl.isNotEmpty) {
+      _group = _titlePrefs.scanlatorFor(
+        widget.args.provider,
+        widget.args.contentUrl,
+      );
+    }
     _scroll.addListener(_onScroll);
     _historyService.revision.addListener(_refreshHistory);
     _refreshHistory();
@@ -257,10 +298,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
 
   void _refreshRead() {
     if (!_isManga) return;
-    final read = _readStore.read(
-      widget.args.provider,
-      widget.args.contentUrl,
-    );
+    final read = _readStore.read(widget.args.provider, widget.args.contentUrl);
     if (!mounted || setEquals(read, _read)) return;
     setState(() => _read = read);
   }
@@ -467,14 +505,24 @@ class _EpisodesPageState extends State<EpisodesPage> {
   List<int> get _visibleIndices => _visibleCache ??= _computeVisible();
 
   List<int> _computeVisible() {
+    // A remembered group that is not among these chapters narrows nothing:
+    // the list must never come up empty because of a filter nobody can see.
+    final group = _group != null && _groups.any((g) => g.$1 == _group)
+        ? _group
+        : null;
+    bool inGroup(int i) => group == null || _episodes[i].scanlator == group;
     if (_query.isEmpty) {
-      return [for (var i = 0; i < _episodes.length; i++) i];
+      return [
+        for (var i = 0; i < _episodes.length; i++)
+          if (inGroup(i)) i,
+      ];
     }
     final q = _query.toLowerCase();
     return [
       for (var i = 0; i < _episodes.length; i++)
-        if ('${_episodes[i].episode}'.contains(q) ||
-            _episodes[i].label.toLowerCase().contains(q))
+        if (inGroup(i) &&
+            ('${_episodes[i].episode}'.contains(q) ||
+                _episodes[i].label.toLowerCase().contains(q)))
           i,
     ];
   }
@@ -1155,6 +1203,16 @@ class _EpisodesPageState extends State<EpisodesPage> {
                               activePage: _activePage,
                               busy: _jumping,
                               onPick: _jumpToBlock,
+                            ),
+                          ),
+                        // Translation groups, when the source lists more than
+                        // one — the same chapter three times over otherwise.
+                        if (_isManga && _groups.length > 1)
+                          SliverToBoxAdapter(
+                            child: _GroupStrip(
+                              groups: _groups,
+                              selected: _group,
+                              onPick: _setGroup,
                             ),
                           ),
                         if (_episodes.length > 12)
@@ -2611,6 +2669,56 @@ class _EmptyState extends StatelessWidget {
               fontSize: 14,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One chip per translation group, with how many chapters it has here.
+class _GroupStrip extends StatelessWidget {
+  const _GroupStrip({
+    required this.groups,
+    required this.selected,
+    required this.onPick,
+  });
+
+  final List<(String, int)> groups;
+  final String? selected;
+  final ValueChanged<String?> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = groups.any((g) => g.$1 == selected) ? selected : null;
+    Widget chip(String label, bool on, VoidCallback tap) => Padding(
+      padding: const EdgeInsetsDirectional.only(end: 8),
+      child: ChoiceChip(
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        selected: on,
+        showCheckmark: false,
+        onSelected: (_) => tap(),
+        selectedColor: AppColors.primary.withValues(alpha: 0.22),
+        backgroundColor: AppColors.surface,
+        side: BorderSide(
+          color: on ? AppColors.primary : AppColors.border,
+          width: 0.8,
+        ),
+        labelStyle: TextStyle(
+          color: on ? AppColors.textPrimary : AppColors.textSecondary,
+          fontWeight: FontWeight.w700,
+          fontSize: 12.5,
+        ),
+      ),
+    );
+    return SizedBox(
+      height: 46,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+        children: [
+          chip('episodes.all_groups'.tr(), active == null, () => onPick(null)),
+          for (final (name, count) in groups)
+            chip('$name · $count', active == name, () => onPick(name)),
         ],
       ),
     );

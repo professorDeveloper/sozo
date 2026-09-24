@@ -105,7 +105,13 @@ abstract class DownloadRepository {
 
   /// Copies a finished download into the device's shared Downloads folder.
   /// Returns the user-visible location, or null when it could not be done.
-  Future<String?> exportToPublicDownloads(String id);
+  ///
+  /// [onProgress] is told how many of the chapters an EPUB export has read,
+  /// out of how many — a long novel takes a while to gather.
+  Future<String?> exportToPublicDownloads(
+    String id, {
+    void Function(int done, int total)? onProgress,
+  });
 
   /// The pages of a finished manga chapter, as local file paths.
   Future<List<MangaPageEntity>> localMangaPages(String id);

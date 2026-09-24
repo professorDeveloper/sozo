@@ -1,3 +1,4 @@
+import 'dart:isolate';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -1011,14 +1012,17 @@ class DownloadRepositoryImpl implements DownloadRepository {
   }
 
   @override
-  Future<String?> exportToPublicDownloads(String id) async {
+  Future<String?> exportToPublicDownloads(
+    String id, {
+    void Function(int done, int total)? onProgress,
+  }) async {
     final item = _local.get(id);
     if (item == null || item.status != DownloadStatus.completed) return null;
     // A downloaded novel lived in the app and nowhere else — no way to put it
     // on an e-reader, send it to anyone, or keep it once the app is gone. A
     // chapter of prose, unlike an episode of video, is exactly the sort of
     // thing people expect to be able to take with them.
-    if (item.isProse) return _exportEpub(item);
+    if (item.isProse) return _exportEpub(item, onProgress: onProgress);
     // A comic chapter is still a folder of pictures, and what to do with that
     // is a different question with a different answer.
     if (item.artefactIsDirectory) return null;
@@ -1034,7 +1038,10 @@ class DownloadRepositoryImpl implements DownloadRepository {
   /// chapters and asked to export wants the thirty. They are ordered by chapter
   /// number, which is the only ordering that survives a source re-keying its
   /// list — see [ChapterReadStore] for the same reasoning.
-  Future<String?> _exportEpub(DownloadItem item) async {
+  Future<String?> _exportEpub(
+    DownloadItem item, {
+    void Function(int done, int total)? onProgress,
+  }) async {
     final siblings =
         _local
             .all()
@@ -1052,7 +1059,9 @@ class DownloadRepositoryImpl implements DownloadRepository {
     if (siblings.isEmpty) return null;
 
     final chapters = <EpubChapter>[];
-    for (final chapter in siblings) {
+    onProgress?.call(0, siblings.length);
+    for (final (i, chapter) in siblings.indexed) {
+      onProgress?.call(i, siblings.length);
       final dir = Directory(_storage.dirOf(chapter.id));
       final file = File('${dir.path}/${DownloadLayout.chapterHtmlName}');
       if (!await file.exists()) continue;
@@ -1078,11 +1087,18 @@ class DownloadRepositoryImpl implements DownloadRepository {
       );
     }
     if (chapters.isEmpty) return null;
+    onProgress?.call(siblings.length, siblings.length);
 
-    final bytes = EpubBuilder.build(
-      title: item.title,
-      chapters: chapters,
-      identifier: 'sozo:${item.provider}:${item.contentUrl}',
+    // Off the UI isolate: zipping a few hundred chapters with their images
+    // froze the app for the seconds it took.
+    final title = item.title;
+    final identifier = 'sozo:${item.provider}:${item.contentUrl}';
+    final bytes = await Isolate.run(
+      () => EpubBuilder.build(
+        title: title,
+        chapters: chapters,
+        identifier: identifier,
+      ),
     );
     // Written into the app's own space first. The exporter copies a path out;
     // it has no way to be handed bytes, and inventing one for this would mean a

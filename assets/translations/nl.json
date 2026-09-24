@@ -1289,6 +1289,7 @@
   },
   "episodes": {
     "filter_hint": "Afleveringsnummer of titel",
+    "all_groups": "Alle groepen",
     "filter_none": "Geen aflevering die past bij “{query}” in dit blok",
     "jump_to": "Naar aflevering {n}",
     "jump_loads": "Laadt {range}",
@@ -1355,6 +1356,7 @@
     "export": "Opslaan in Downloads",
     "export_hint": "Maakt het bestand zichtbaar voor andere apps",
     "export_running": "Opslaan…",
+    "export_progress": "EPUB maken… {} van {} hoofdstukken",
     "export_done": "Opgeslagen in {}",
     "export_failed": "Opslaan in Downloads is mislukt",
     "downloading": "Bezig met downloaden",
@@ -2214,5 +2216,11 @@
     "today": "Vandaag",
     "tomorrow": "Morgen",
     "yesterday": "Gisteren"
+  },
+  "webview": {
+    "back": "Terug",
+    "forward": "Vooruit",
+    "reload": "Opnieuw laden",
+    "open_outside": "Openen in browser"
   }
 }

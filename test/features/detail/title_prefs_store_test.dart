@@ -126,4 +126,12 @@ void main() {
     await s.rememberHeight('p', 'a', 0);
     expect(s.heightFor('p', 'a'), isNull);
   });
+
+  test('the chapter group is kept per title, and "all" clears it', () async {
+    final s = TitlePrefsStore();
+    await s.rememberScanlator('mn:x', 'a', 'Asura Scans');
+    expect(s.scanlatorFor('mn:x', 'a'), 'Asura Scans');
+    await s.rememberScanlator('mn:x', 'a', null);
+    expect(s.scanlatorFor('mn:x', 'a'), isNull);
+  });
 }

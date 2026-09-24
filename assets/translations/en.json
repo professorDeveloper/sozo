@@ -1289,6 +1289,7 @@
   },
   "episodes": {
     "filter_hint": "Episode number or title",
+    "all_groups": "All groups",
     "filter_none": "No episode matching “{query}” in this block",
     "jump_to": "Go to episode {n}",
     "jump_loads": "Loads {range}",
@@ -1355,6 +1356,7 @@
     "export": "Save to Downloads",
     "export_hint": "Makes the file visible to other apps",
     "export_running": "Saving…",
+    "export_progress": "Making the EPUB… {} of {} chapters",
     "export_done": "Saved to {}",
     "export_failed": "Could not save to Downloads",
     "downloading": "Downloading",
@@ -2214,5 +2216,11 @@
     "today": "Today",
     "tomorrow": "Tomorrow",
     "yesterday": "Yesterday"
+  },
+  "webview": {
+    "back": "Back",
+    "forward": "Forward",
+    "reload": "Reload",
+    "open_outside": "Open in browser"
   }
 }

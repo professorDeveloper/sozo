@@ -381,10 +381,12 @@ class MangayomiBridge {
         final c = ordered[i];
         final ref = (c['url'] ?? c['link'])?.toString() ?? '';
         if (ref.isEmpty) continue;
+        final group = (c['scanlator'] ?? '').toString().trim();
         episodes.add({
           'episode': i + 1,
           'label': (c['name'] ?? 'Chapter ${i + 1}').toString(),
           'mediaRef': ref,
+          if (group.isNotEmpty) 'scanlator': group,
         });
       }
     }

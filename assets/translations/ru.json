@@ -1289,6 +1289,7 @@
   },
   "episodes": {
     "filter_hint": "Номер или название серии",
+    "all_groups": "Все группы",
     "filter_none": "В этом блоке нет серии «{query}»",
     "jump_to": "Перейти к серии {n}",
     "jump_loads": "Загрузит {range}",
@@ -1355,6 +1356,7 @@
     "export": "Сохранить в «Загрузки»",
     "export_hint": "Файл станет виден другим приложениям",
     "export_running": "Сохранение…",
+    "export_progress": "Собираем EPUB… {} из {} глав",
     "export_done": "Сохранено в {}",
     "export_failed": "Не удалось сохранить в «Загрузки»",
     "downloading": "Загрузка",
@@ -2215,5 +2217,11 @@
     "today": "Сегодня",
     "tomorrow": "Завтра",
     "yesterday": "Вчера"
+  },
+  "webview": {
+    "back": "Назад",
+    "forward": "Вперёд",
+    "reload": "Обновить",
+    "open_outside": "Открыть в браузере"
   }
 }

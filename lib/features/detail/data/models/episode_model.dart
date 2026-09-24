@@ -13,6 +13,7 @@ class EpisodeModel extends EpisodeEntity {
     super.runtime,
     super.overview,
     super.webUrl,
+    super.scanlator,
   });
 
   factory EpisodeModel.fromJson(Map<String, dynamic> json) => EpisodeModel(
@@ -27,6 +28,7 @@ class EpisodeModel extends EpisodeEntity {
     runtime: _stringOrNull(json['runtime']),
     overview: _stringOrNull(json['overview']),
     webUrl: _stringOrNull(json['webUrl']),
+    scanlator: _stringOrNull(json['scanlator']),
   );
 
   static List<String> _parseLangs(dynamic raw) {

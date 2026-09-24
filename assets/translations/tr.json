@@ -1289,6 +1289,7 @@
   },
   "episodes": {
     "filter_hint": "Bölüm numarası veya adı",
+    "all_groups": "Tüm gruplar",
     "filter_none": "Bu blokta “{query}” ile eşleşen bölüm yok",
     "jump_to": "{n}. bölüme git",
     "jump_loads": "{range} yüklenir",
@@ -1355,6 +1356,7 @@
     "export": "İndirilenler’e kaydet",
     "export_hint": "Dosyayı diğer uygulamalara görünür yapar",
     "export_running": "Kaydediliyor…",
+    "export_progress": "EPUB hazırlanıyor… {} / {} bölüm",
     "export_done": "{} konumuna kaydedildi",
     "export_failed": "İndirilenler’e kaydedilemedi",
     "downloading": "İndiriliyor",
@@ -2214,5 +2216,11 @@
     "today": "Bugün",
     "tomorrow": "Yarın",
     "yesterday": "Dün"
+  },
+  "webview": {
+    "back": "Geri",
+    "forward": "İleri",
+    "reload": "Yenile",
+    "open_outside": "Tarayıcıda aç"
   }
 }

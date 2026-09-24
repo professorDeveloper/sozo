@@ -1289,6 +1289,7 @@
   },
   "episodes": {
     "filter_hint": "رقم الحلقة أو عنوانها",
+    "all_groups": "كل المجموعات",
     "filter_none": "لا توجد حلقة تطابق “{query}” في هذا الجزء",
     "jump_to": "الانتقال إلى الحلقة {n}",
     "jump_loads": "سيتم تحميل {range}",
@@ -1355,6 +1356,7 @@
     "export": "حفظ في التنزيلات",
     "export_hint": "يجعل الملف مرئيًا للتطبيقات الأخرى",
     "export_running": "جارٍ الحفظ…",
+    "export_progress": "جارٍ إنشاء EPUB… {} من {} فصل",
     "export_done": "تم الحفظ في {}",
     "export_failed": "تعذر الحفظ في التنزيلات",
     "downloading": "جارٍ التنزيل",
@@ -2218,5 +2220,11 @@
     "today": "اليوم",
     "tomorrow": "غدًا",
     "yesterday": "أمس"
+  },
+  "webview": {
+    "back": "رجوع",
+    "forward": "تقدّم",
+    "reload": "إعادة التحميل",
+    "open_outside": "فتح في المتصفح"
   }
 }

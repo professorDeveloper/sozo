@@ -1289,6 +1289,7 @@
   },
   "episodes": {
     "filter_hint": "Epizod raqami yoki nomi",
+    "all_groups": "Barcha guruhlar",
     "filter_none": "Bu blokda “{query}” ga mos epizod yo‘q",
     "jump_to": "{n}-epizodga o‘tish",
     "jump_loads": "{range} yuklanadi",
@@ -1355,6 +1356,7 @@
     "export": "Downloads papkasiga saqlash",
     "export_hint": "Fayl boshqa ilovalarga ham ko'rinadi",
     "export_running": "Saqlanyapti…",
+    "export_progress": "EPUB tayyorlanmoqda… {} / {} bob",
     "export_done": "{} ga saqlandi",
     "export_failed": "Downloads papkasiga saqlab bo'lmadi",
     "downloading": "Yuklanmoqda",
@@ -2214,5 +2216,11 @@
     "today": "Bugun",
     "tomorrow": "Ertaga",
     "yesterday": "Kecha"
+  },
+  "webview": {
+    "back": "Orqaga",
+    "forward": "Oldinga",
+    "reload": "Qayta yuklash",
+    "open_outside": "Brauzerda ochish"
   }
 }

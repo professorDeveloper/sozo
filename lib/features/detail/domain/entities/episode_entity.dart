@@ -20,6 +20,10 @@ class EpisodeEntity {
   /// opening something that is not there.
   final String? webUrl;
 
+  /// The group that translated a manga chapter. A source often lists the
+  /// same chapter once per group; the chapter list filters by it.
+  final String? scanlator;
+
   const EpisodeEntity({
     required this.episode,
     required this.label,
@@ -32,5 +36,6 @@ class EpisodeEntity {
     this.runtime,
     this.overview,
     this.webUrl,
+    this.scanlator,
   });
 }

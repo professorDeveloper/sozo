@@ -633,6 +633,8 @@ class MangaHost(private val context: Context) {
                 put("label", c.name.ifEmpty { "Chapter ${i + 1}" })
                 put("mediaRef", chapterRef(c))
                 chapterWebUrl(src, c).takeIf { it.isNotEmpty() }?.let { put("webUrl", it) }
+                // The translating group, for the chapter list's filter.
+                c.scanlator?.trim()?.takeIf { it.isNotEmpty() }?.let { put("scanlator", it) }
             })
         }
 

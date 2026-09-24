@@ -1289,6 +1289,7 @@
   },
   "episodes": {
     "filter_hint": "Nomor atau judul episode",
+    "all_groups": "Semua grup",
     "filter_none": "Tidak ada episode yang cocok dengan “{query}” di blok ini",
     "jump_to": "Ke episode {n}",
     "jump_loads": "Memuat {range}",
@@ -1355,6 +1356,7 @@
     "export": "Simpan ke Unduhan",
     "export_hint": "Membuat berkas terlihat oleh aplikasi lain",
     "export_running": "Menyimpan…",
+    "export_progress": "Membuat EPUB… {} dari {} bab",
     "export_done": "Disimpan ke {}",
     "export_failed": "Tidak bisa menyimpan ke Unduhan",
     "downloading": "Mengunduh",
@@ -2214,5 +2216,11 @@
     "today": "Hari ini",
     "tomorrow": "Besok",
     "yesterday": "Kemarin"
+  },
+  "webview": {
+    "back": "Kembali",
+    "forward": "Maju",
+    "reload": "Muat ulang",
+    "open_outside": "Buka di browser"
   }
 }

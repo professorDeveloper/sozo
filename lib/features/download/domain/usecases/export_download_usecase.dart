@@ -12,5 +12,8 @@ class ExportDownloadUseCase {
   final DownloadRepository repository;
 
   /// The user-visible location, or null when it could not be copied.
-  Future<String?> call(String id) => repository.exportToPublicDownloads(id);
+  Future<String?> call(
+    String id, {
+    void Function(int done, int total)? onProgress,
+  }) => repository.exportToPublicDownloads(id, onProgress: onProgress);
 }

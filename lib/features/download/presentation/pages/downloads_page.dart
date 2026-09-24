@@ -343,10 +343,45 @@ class _DownloadsView extends StatelessWidget {
   /// location is the same dead end the export exists to fix.
   Future<void> _export(BuildContext context, DownloadItem item) async {
     final messenger = ScaffoldMessenger.of(context);
+    // How far a novel's export has got: gathering thirty chapters into one
+    // book is not instant, and a bare "exporting" for that long reads as
+    // stuck.
+    final progress = ValueNotifier<(int, int)>((0, 0));
     messenger.showSnackBar(
-      SnackBar(content: Text('downloads.export_running'.tr())),
+      SnackBar(
+        duration: const Duration(minutes: 5),
+        content: ValueListenableBuilder<(int, int)>(
+          valueListenable: progress,
+          builder: (_, p, _) {
+            final (done, total) = p;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  total > 1
+                      ? 'downloads.export_progress'.tr(
+                          args: ['$done', '$total'],
+                        )
+                      : 'downloads.export_running'.tr(),
+                ),
+                if (total > 1) ...[
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: done >= total ? null : done / total,
+                    minHeight: 3,
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
     );
-    final location = await getIt<ExportDownloadUseCase>()(item.id);
+    final location = await getIt<ExportDownloadUseCase>()(
+      item.id,
+      onProgress: (done, total) => progress.value = (done, total),
+    );
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -358,6 +393,7 @@ class _DownloadsView extends StatelessWidget {
           ),
         ),
       );
+    progress.dispose();
   }
 
   void _snack(BuildContext context, String message) {

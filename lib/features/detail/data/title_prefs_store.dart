@@ -92,6 +92,23 @@ class TitlePrefsStore {
     String choice,
   ) => _write(provider, contentUrl, 'subtitle', choice);
 
+  /// The translation group the chapter list is narrowed to for this title,
+  /// or null for every group.
+  String? scanlatorFor(String provider, String contentUrl) {
+    final value = _entry(provider, contentUrl)?['scanlator'];
+    return (value is String && value.isNotEmpty && value != _allGroups)
+        ? value
+        : null;
+  }
+
+  static const String _allGroups = '\u0000all';
+
+  Future<void> rememberScanlator(
+    String provider,
+    String contentUrl,
+    String? group,
+  ) => _write(provider, contentUrl, 'scanlator', group ?? _allGroups);
+
   /// The picture height last picked for this title, or null.
   ///
   /// Beside the label because a height outlives it: "Server · 720p" from a

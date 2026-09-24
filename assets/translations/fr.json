@@ -1289,6 +1289,7 @@
   },
   "episodes": {
     "filter_hint": "Numéro ou titre de l’épisode",
+    "all_groups": "Tous les groupes",
     "filter_none": "Aucun épisode ne correspond à « {query} » dans ce bloc",
     "jump_to": "Aller à l’épisode {n}",
     "jump_loads": "Charge {range}",
@@ -1355,6 +1356,7 @@
     "export": "Enregistrer dans Téléchargements",
     "export_hint": "Rend le fichier visible aux autres applis",
     "export_running": "Enregistrement…",
+    "export_progress": "Création de l’EPUB… {} sur {} chapitres",
     "export_done": "Enregistré dans {}",
     "export_failed": "Impossible d’enregistrer dans Téléchargements",
     "downloading": "Téléchargement",
@@ -2214,5 +2216,11 @@
     "today": "Aujourd’hui",
     "tomorrow": "Demain",
     "yesterday": "Hier"
+  },
+  "webview": {
+    "back": "Retour",
+    "forward": "Suivant",
+    "reload": "Recharger",
+    "open_outside": "Ouvrir dans le navigateur"
   }
 }

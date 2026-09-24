@@ -1289,6 +1289,7 @@
   },
   "episodes": {
     "filter_hint": "集數或者標題",
+    "all_groups": "所有字幕組",
     "filter_none": "呢一段冇符合「{query}」嘅集數",
     "jump_to": "去第 {n} 集",
     "jump_loads": "載入 {range}",
@@ -1355,6 +1356,7 @@
     "export": "儲存到下載資料夾",
     "export_hint": "令其他 app 都睇到呢個檔案",
     "export_running": "儲存緊…",
+    "export_progress": "整緊 EPUB… {} / {} 章",
     "export_done": "已儲存到 {}",
     "export_failed": "儲存唔到去下載資料夾",
     "downloading": "下載緊",
@@ -2214,5 +2216,11 @@
     "today": "今日",
     "tomorrow": "聽日",
     "yesterday": "琴日"
+  },
+  "webview": {
+    "back": "返回",
+    "forward": "向前",
+    "reload": "重新載入",
+    "open_outside": "喺瀏覽器開"
   }
 }
