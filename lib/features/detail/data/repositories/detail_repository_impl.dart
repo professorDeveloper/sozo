@@ -4,6 +4,7 @@ import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/features/manga/data/models/manga_pages_model.dart';
@@ -26,11 +27,13 @@ class DetailRepositoryImpl implements DetailRepository {
   const DetailRepositoryImpl(
     this.dataSource, {
     required this.mangayomi,
+    this.jellyfin,
     this.jsRuntime,
     this.hive,
   });
 
   final MangayomiBridge mangayomi;
+  final JellyfinBridge? jellyfin;
 
   /// The reason the host gave, when it gave one.
   ///
@@ -96,6 +99,17 @@ class DetailRepositoryImpl implements DetailRepository {
         final map = await mangayomi.load(effective.substring(3), contentUrl);
         if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
         return Failure(Exception('Mangayomi: details not found'));
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
+    final jf = jellyfin;
+    if (jf != null && effective != null && effective.startsWith('jf:')) {
+      try {
+        final map = await jf.load(JellyfinBridge.bare(effective), contentUrl);
+        final err = _hostError(map);
+        if (err != null) return Failure(Exception('Jellyfin: $err'));
+        return Success(DetailModel.fromJson(map));
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -196,6 +210,15 @@ class DetailRepositoryImpl implements DetailRepository {
         return Failure(Exception(_normalizeJsError(e)));
       }
     }
+    final jf = jellyfin;
+    if (jf != null && effective != null && effective.startsWith('jf:')) {
+      try {
+        final map = await jf.load(JellyfinBridge.bare(effective), contentUrl);
+        return _playbackFrom(map, 'Jellyfin', sort);
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
     if (js != null && effective != null) {
       try {
         final map = await js.tryGetEpisodes(effective, contentUrl);
@@ -285,6 +308,21 @@ class DetailRepositoryImpl implements DetailRepository {
         );
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] Mangayomi path failed: $e');
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
+    final jf = jellyfin;
+    if (jf != null && provider.startsWith('jf:')) {
+      try {
+        final map = await jf.loadLinks(JellyfinBridge.bare(provider), ref);
+        final sources = map['videoSources'];
+        if (sources is List && sources.isNotEmpty) {
+          return await _postProcess(MediaResolveModel.fromJson(map));
+        }
+        return Failure(
+          Exception(_hostError(map) ?? 'Jellyfin: stream not found'),
+        );
+      } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
     }

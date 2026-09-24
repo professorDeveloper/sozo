@@ -349,6 +349,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     'aniyomi',
     'manga',
     'mangayomi',
+    'jellyfin',
   };
 
   static bool _sameKind(String want, String have) {

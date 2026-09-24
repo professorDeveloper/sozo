@@ -6,6 +6,7 @@ import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/core/extractor/provider_manager.dart';
 import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -69,6 +70,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     final localAniyomi = <ProviderEntity>[];
     final localManga = <ProviderEntity>[];
     final localMangayomi = <ProviderEntity>[];
+    final localJellyfin = <ProviderEntity>[];
 
     // Kept as its own STRONGLY TYPED future rather than one element of a
     // Future.wait<Object?>. Collapsing it into an untyped list erases
@@ -104,6 +106,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
       _appendAniyomiProviders(localAniyomi),
       _appendMangaProviders(localManga),
       _appendMangayomiProviders(localMangayomi),
+      _appendJellyfinProviders(localJellyfin),
     ]);
 
     final result = await backend;
@@ -128,7 +131,8 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
       ..addAll(localCloudStream)
       ..addAll(localAniyomi)
       ..addAll(localManga)
-      ..addAll(localMangayomi);
+      ..addAll(localMangayomi)
+      ..addAll(localJellyfin);
 
     if (providers.isEmpty) {
       if (previous is! ProviderLoaded) {
@@ -320,6 +324,32 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             category: 'mangayomi',
             lang: (m['lang'] as String?)?.trim() ?? '',
             nsfw: m['nsfw'] == true,
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
+  /// Signed-in Jellyfin servers, one source each. Read from the local store,
+  /// so they list with the backend down and on every platform.
+  Future<void> _appendJellyfinProviders(List<ProviderEntity> into) async {
+    try {
+      for (final m in getIt<JellyfinBridge>().listProviders()) {
+        final id = (m['id'] as String?)?.trim() ?? '';
+        if (id.isEmpty) continue;
+        final host = (m['repo'] as String?) ?? '';
+        into.add(
+          ProviderModel(
+            id: id,
+            name: (m['name'] as String?) ?? id,
+            image: (m['icon'] as String?) ?? JellyfinBridge.icon,
+            url: (m['baseUrl'] as String?) ?? '',
+            description: host.isEmpty ? 'Jellyfin' : 'Jellyfin · $host',
+            repo: host,
+            domains: const [],
+            mode: 'client',
+            category: 'jellyfin',
+            lang: 'all',
           ),
         );
       }

@@ -6,6 +6,7 @@ import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -25,11 +26,13 @@ class SearchRepositoryImp extends SearchRepository
   SearchRepositoryImp({
     required this.dataSource,
     required this.mangayomi,
+    this.jellyfin,
     this.jsRuntime,
     this.hive,
   });
 
   final MangayomiBridge mangayomi;
+  final JellyfinBridge? jellyfin;
 
   String? get _currentProvider {
     final id = hive?.getCurrentProvider();
@@ -91,6 +94,17 @@ class SearchRepositoryImp extends SearchRepository
     if (provider != null && provider.startsWith('my:')) {
       return const Success(<GenreModel>[]);
     }
+    final jf = jellyfin;
+    if (jf != null && provider != null && provider.startsWith('jf:')) {
+      try {
+        final list = await jf
+            .genres(JellyfinBridge.bare(provider))
+            .timeout(_hostBudget);
+        return Success(list.map(GenreModel.fromJson).toList());
+      } catch (e) {
+        return Failure(Exception(jf.describe(e)));
+      }
+    }
     final hostGenres = switch (provider) {
       final p? when p.startsWith('cs:') => CloudStreamChannel.getGenres,
       final p? when p.startsWith('an:') => AniyomiChannel.getGenres,
@@ -146,6 +160,17 @@ class SearchRepositoryImp extends SearchRepository
         final p? when p.startsWith('mn:') => MangaChannel.getSection,
         _ => null,
       };
+      final jf = jellyfin;
+      if (jf != null && provider != null && provider.startsWith('jf:')) {
+        final map = await jf
+            .getSection(
+              JellyfinBridge.bare(provider),
+              'genre:$genre',
+              page: page,
+            )
+            .timeout(_hostBudget);
+        return Success(SearchModel.fromJson(map));
+      }
       if (section != null && provider != null) {
         final map = await section(
           provider.substring(3),
@@ -265,6 +290,13 @@ class SearchRepositoryImp extends SearchRepository
       return _viaHost(
         'Mangayomi',
         () => mangayomi.search(provider.substring(3), query, page: page),
+      );
+    }
+    final jf = jellyfin;
+    if (jf != null && provider != null && provider.startsWith('jf:')) {
+      return _viaHost(
+        'Jellyfin',
+        () => jf.search(JellyfinBridge.bare(provider), query, page: page),
       );
     }
     // Why the JS extractor said no, when it said no at all. Kept so that if

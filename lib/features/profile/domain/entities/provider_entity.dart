@@ -98,7 +98,8 @@ class ProviderEntity {
       id.startsWith('cs:') ||
       id.startsWith('an:') ||
       id.startsWith('mn:') ||
-      id.startsWith('my:');
+      id.startsWith('my:') ||
+      id.startsWith('jf:');
 
   bool get scopesResolveMedia =>
       extractor != null &&

@@ -13,7 +13,8 @@ enum SourceEcosystem {
   cloudstream('cs:', 'sources.eco_cloudstream'),
   aniyomi('an:', 'sources.eco_aniyomi'),
   manga('mn:', 'sources.eco_manga'),
-  mangayomi('my:', 'sources.eco_mangayomi');
+  mangayomi('my:', 'sources.eco_mangayomi'),
+  jellyfin('jf:', 'sources.eco_jellyfin');
 
   const SourceEcosystem(this.prefix, this.labelKey);
 

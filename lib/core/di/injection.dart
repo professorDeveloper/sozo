@@ -102,6 +102,11 @@ import 'package:soplay/features/notifications/presentation/bloc/notifications_bl
 import 'package:soplay/features/extensions/data/catalog_repository.dart';
 import 'package:soplay/features/extensions/data/extension_repo_repository.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_api.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_reporter.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_server_store.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
 import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
@@ -509,6 +514,30 @@ Future<void> configureDependencies() async {
       store: getIt<MangayomiRepoStore>(),
     ),
   );
+  getIt.registerLazySingleton<JellyfinServerStore>(JellyfinServerStore.new);
+  getIt.registerLazySingleton<JellyfinApi>(() {
+    final api = JellyfinApi(
+      deviceId: () => getIt<JellyfinServerStore>().deviceId,
+    );
+    PackageInfo.fromPlatform()
+        .then((info) => api.clientVersion = info.version)
+        .catchError((Object _) => api.clientVersion);
+    return api;
+  });
+  getIt.registerLazySingleton<JellyfinBridge>(
+    () => JellyfinBridge(
+      api: getIt<JellyfinApi>(),
+      store: getIt<JellyfinServerStore>(),
+    ),
+  );
+  getIt.registerLazySingleton<JellyfinReporter>(
+    () => JellyfinReporter(
+      bridge: getIt<JellyfinBridge>(),
+      api: getIt<JellyfinApi>(),
+      store: getIt<JellyfinServerStore>(),
+      suppressed: () => getIt<HiveService>().isIncognito,
+    ),
+  );
 
   // Browsing a source without becoming it: both kinds of catalogue answer
   // through one repository, so the hub renders them with one widget.
@@ -516,6 +545,7 @@ Future<void> configureDependencies() async {
     () => SourceBrowseRepository(
       dio: getIt<Dio>(),
       bridge: getIt<MangayomiBridge>(),
+      jellyfin: getIt<JellyfinBridge>(),
     ),
   );
   getIt.registerLazySingleton<ExtractorRunner>(
@@ -534,6 +564,7 @@ Future<void> configureDependencies() async {
     HomeRepositoryImp(
       getIt<HomeDataSource>(),
       mangayomi: getIt<MangayomiBridge>(),
+      jellyfin: getIt<JellyfinBridge>(),
       jsRuntime: getIt<JsRuntimeService>(),
       hive: getIt<HiveService>(),
     ),
@@ -542,6 +573,7 @@ Future<void> configureDependencies() async {
     SearchRepositoryImp(
       dataSource: getIt<SearchDataSource>(),
       mangayomi: getIt<MangayomiBridge>(),
+      jellyfin: getIt<JellyfinBridge>(),
       jsRuntime: getIt<JsRuntimeService>(),
       hive: getIt<HiveService>(),
     ),
@@ -570,6 +602,7 @@ Future<void> configureDependencies() async {
       jsRuntime: getIt<JsRuntimeService>(),
       dataSource: getIt<SearchDataSource>(),
       mangayomi: getIt<MangayomiBridge>(),
+      jellyfin: getIt<JellyfinBridge>(),
       health: SourceHealthStore(
         remote: getIt<SearchDataSource>().providerHealth,
       ),
@@ -580,6 +613,7 @@ Future<void> configureDependencies() async {
     DetailRepositoryImpl(
       getIt<DetailDataSource>(),
       mangayomi: getIt<MangayomiBridge>(),
+      jellyfin: getIt<JellyfinBridge>(),
       jsRuntime: getIt<JsRuntimeService>(),
       hive: getIt<HiveService>(),
     ),

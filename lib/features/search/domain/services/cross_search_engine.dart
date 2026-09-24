@@ -8,6 +8,7 @@ import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/search/data/datasources/search_data_source.dart';
 import 'package:soplay/features/search/data/source_health_store.dart';
@@ -69,12 +70,14 @@ class CrossSearchEngine implements SearchFanOut {
     required this.jsRuntime,
     required this.dataSource,
     required this.mangayomi,
+    this.jellyfin,
     SourceHealthStore? health,
   }) : health = health ?? SourceHealthStore();
 
   final JsRuntimeService jsRuntime;
   final SearchDataSource dataSource;
   final MangayomiBridge mangayomi;
+  final JellyfinBridge? jellyfin;
 
   /// What each source did last time. Decides who is asked first and for how
   /// long — see [SourceHealthStore].
@@ -308,6 +311,13 @@ class CrossSearchEngine implements SearchFanOut {
     if (id.startsWith('my:')) {
       return _unwrap(
         await mangayomi.search(id.substring(3), query, page: page),
+        ref.name,
+      );
+    }
+    final jf = jellyfin;
+    if (jf != null && id.startsWith('jf:')) {
+      return _unwrap(
+        await jf.search(JellyfinBridge.bare(id), query, page: page),
         ref.name,
       );
     }

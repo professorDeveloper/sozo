@@ -24,6 +24,7 @@ import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/extensions/presentation/pages/source_catalog_page.dart';
 import 'package:soplay/features/extensions/domain/entities/catalog_source_entity.dart';
+import 'package:soplay/features/jellyfin/presentation/pages/jellyfin_servers_page.dart';
 import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
 import 'package:soplay/features/sources/domain/source_scope.dart';
@@ -273,11 +274,17 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       backgroundColor: AppColors.background,
       actions: [
         PopupMenuButton<String>(
-          onSelected: (_) => _openExtensions(),
+          onSelected: (v) => v == 'jellyfin'
+              ? JellyfinServersPage.open(context)
+              : _openExtensions(),
           itemBuilder: (_) => [
             PopupMenuItem(
               value: 'manage',
               child: Text('source_manager.manage_repositories'.tr()),
+            ),
+            PopupMenuItem(
+              value: 'jellyfin',
+              child: Text('jellyfin.connect_server'.tr()),
             ),
           ],
         ),
@@ -348,11 +355,22 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         const Divider(height: 1),
         SafeArea(
           top: false,
-          child: ListTile(
-            leading: const Icon(Icons.folder_copy_outlined),
-            title: Text('source_manager.manage_repositories'.tr()),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: _openExtensions,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.folder_copy_outlined),
+                title: Text('source_manager.manage_repositories'.tr()),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: _openExtensions,
+              ),
+              ListTile(
+                leading: const Icon(Icons.dns_outlined),
+                title: Text('jellyfin.connect_server'.tr()),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => JellyfinServersPage.open(context),
+              ),
+            ],
           ),
         ),
       ],
