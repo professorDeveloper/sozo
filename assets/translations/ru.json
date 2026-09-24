@@ -424,7 +424,9 @@
     "src_search_unavailable": "{} больше не установлен на этом устройстве.",
     "open_subtitle_file": "Открыть файл субтитров…",
     "media_kit_emulator": "Не в эмуляторе — работает системный плеер",
-    "media_kit_fell_back": "media_kit не запустился — работает системный плеер"
+    "media_kit_fell_back": "media_kit не запустился — работает системный плеер",
+    "segment_opening": "Опенинг",
+    "segment_ending": "Эндинг"
   },
   "profile": {
     "title": "Профиль",

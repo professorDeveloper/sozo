@@ -15,6 +15,8 @@ import 'package:soplay/core/network/fetch_metadata.dart';
 import 'package:soplay/core/network/user_agent.dart';
 import 'dart:async';
 import 'dart:io';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:dio/dio.dart';
@@ -226,6 +228,9 @@ class _PlayerPageState extends State<PlayerPage>
   String? _torrentHash;
   Map<String, String> _headers = const {};
   bool _isHls = false;
+
+  /// Fires [_schedulePreviewWarm]'s delayed start; cancelled on every change of media.
+  Timer? _previewWarm;
 
   /// True while the current media is a live broadcast.
   ///
@@ -675,6 +680,7 @@ class _PlayerPageState extends State<PlayerPage>
 
   @override
   void dispose() {
+    _previewWarm?.cancel();
     _mediaGeneration++;
     // Discord first, and unconditionally.
     //

@@ -424,7 +424,9 @@
     "src_search_unavailable": "{} tidak lagi terpasang di perangkat ini.",
     "open_subtitle_file": "Buka berkas subtitle…",
     "media_kit_emulator": "Tidak di emulator — pemutar sistem digunakan",
-    "media_kit_fell_back": "media_kit gagal berjalan di sini — pemutar sistem digunakan"
+    "media_kit_fell_back": "media_kit gagal berjalan di sini — pemutar sistem digunakan",
+    "segment_opening": "Opening",
+    "segment_ending": "Ending"
   },
   "profile": {
     "title": "Profil",

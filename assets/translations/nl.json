@@ -424,7 +424,9 @@
     "src_search_unavailable": "{} is niet meer geïnstalleerd op dit apparaat.",
     "open_subtitle_file": "Ondertitelbestand openen…",
     "media_kit_emulator": "Niet in de emulator — systeemspeler actief",
-    "media_kit_fell_back": "media_kit kon hier niet starten — systeemspeler actief"
+    "media_kit_fell_back": "media_kit kon hier niet starten — systeemspeler actief",
+    "segment_opening": "Intro",
+    "segment_ending": "Aftiteling"
   },
   "profile": {
     "title": "Profiel",

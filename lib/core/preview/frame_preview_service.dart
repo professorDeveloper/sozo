@@ -52,11 +52,67 @@ class FramePreviewService {
     return _native.previewFrame(url, headers, positionMs);
   }
 
+  static FramePreviewSession _sessionFor(bool hls) =>
+      hls && Platform.isAndroid ? _hls : _native;
+
+  /// The cached frame nearest [positionMs] for [url], if any is close enough —
+  /// shown at once while the exact one is decoded.
+  static Uint8List? nearest(
+    String url,
+    int positionMs, {
+    bool hls = false,
+    int withinMs = 30000,
+  }) {
+    final s = _sessionFor(hls);
+    return s.serves(url) ? s.nearest(positionMs, withinMs: withinMs) : null;
+  }
+
+  /// Spacing of the background grid for [durationMs], for [nearest]'s reach.
+  static int gridSpacingMs(int durationMs, {required bool metered}) {
+    final count = metered ? _gridOnData : _gridOnWifi;
+    return (durationMs ~/ count).clamp(bucketMs, 1 << 30);
+  }
+
+  static const int _gridOnWifi = 60;
+  static const int _gridOnData = 16;
+
+  static _Warmer? _warmer;
+  static bool _scrubbing = false;
+
+  /// A drag on the seek bar started or ended. The warmer yields to it: the
+  /// frame the viewer is pointing at always goes first.
+  static set scrubbing(bool value) => _scrubbing = value;
+
+  /// Starts filling the grid for [url] — evenly across [durationMs], coarse
+  /// to fine, a frame at a time and paced so playback keeps the bandwidth —
+  /// so a scrub finds a frame already there instead of waiting for one.
+  /// Fewer frames on mobile data: each one costs a segment download.
+  static void warm({
+    required String url,
+    required Map<String, String> headers,
+    required int durationMs,
+    bool hls = false,
+    bool metered = false,
+  }) {
+    if (!isSupported || durationMs < 60000) return;
+    _warmer?.stop();
+    _warmer = _Warmer(
+      session: _sessionFor(hls),
+      url: url,
+      headers: headers,
+      durationMs: durationMs,
+      count: metered ? _gridOnData : _gridOnWifi,
+      pace: Duration(milliseconds: metered ? 900 : 350),
+    )..start();
+  }
+
   static Future<void> endScrub() async {
     await Future.wait([_native.endScrub(), _hls.endScrub()]);
   }
 
   static Future<void> close() async {
+    _warmer?.stop();
+    _warmer = null;
     await Future.wait([_native.close(), _hls.close()]);
   }
 
@@ -188,6 +244,12 @@ class FramePreviewSession {
   int _generation = DateTime.now().microsecondsSinceEpoch;
   int? _openedGeneration;
   final _cache = <int, Uint8List>{};
+
+  /// Frames fetched ahead of any scrub, evenly across the video. Kept apart
+  /// from [_cache] so a burst of scrubbing cannot evict the grid that makes
+  /// the next scrub instant.
+  final _grid = <int, Uint8List>{};
+  static const int maxGridFrames = 64;
   final _misses = <int, DateTime>{};
   DateTime? _retryOpenAfter;
   int _cacheBytes = 0;
@@ -205,6 +267,7 @@ class FramePreviewSession {
     if (_identity != null || _running != null) unawaited(endScrub());
     _generation++;
     _cache.clear();
+    _grid.clear();
     _cacheBytes = 0;
     _misses.clear();
     _retryOpenAfter = null;
@@ -223,6 +286,52 @@ class FramePreviewSession {
     return frame(positionMs);
   }
 
+  /// Whether [url] is the source this session is configured for.
+  bool serves(String url) => _url == url;
+
+  /// A request of the viewer's is out or waiting.
+  bool get busy => _running != null || _queued != null;
+
+  int _bucketOf(int positionMs) =>
+      (positionMs.clamp(0, 1 << 53) ~/ bucketMs) * bucketMs;
+
+  /// The cached frame closest to [positionMs], within [withinMs]; null when
+  /// nothing is near enough. What the card shows while the exact frame is
+  /// still being decoded.
+  Uint8List? nearest(int positionMs, {int withinMs = 30000}) {
+    Uint8List? best;
+    var bestGap = withinMs + 1;
+    void consider(Map<int, Uint8List> from) {
+      for (final e in from.entries) {
+        final gap = (e.key - positionMs).abs();
+        if (gap < bestGap) {
+          bestGap = gap;
+          best = e.value;
+        }
+      }
+    }
+
+    consider(_grid);
+    consider(_cache);
+    return best;
+  }
+
+  /// One frame for the background grid. Skips a position already held, and
+  /// declines — returning false, to be retried — while the viewer has a
+  /// request of their own out.
+  Future<bool> gridFrame(int positionMs) async {
+    if (!supported || _url == null) return true;
+    if (busy) return false;
+    final bucket = _bucketOf(positionMs);
+    if (_grid.containsKey(bucket)) return true;
+    final bytes = _cache.remove(bucket) ?? await frame(bucket);
+    if (bytes != null && _grid.length < maxGridFrames) {
+      _cache.remove(bucket);
+      _grid[bucket] = bytes;
+    }
+    return true;
+  }
+
   bool _sameHeaders(Map<String, String> first, Map<String, String> second) =>
       first.length == second.length &&
       first.entries.every((entry) => second[entry.key] == entry.value);
@@ -230,7 +339,12 @@ class FramePreviewSession {
   Future<Uint8List?> frame(int positionMs) {
     if (!supported || _url == null) return Future.value(null);
     _idle?.cancel();
-    final bucket = (positionMs.clamp(0, 1 << 53) ~/ bucketMs) * bucketMs;
+    final bucket = _bucketOf(positionMs);
+    final gridded = _grid[bucket];
+    if (gridded != null) {
+      _scheduleIdle();
+      return Future.value(gridded);
+    }
     final cached = _cache.remove(bucket);
     if (cached != null) {
       _cache[bucket] = cached;
@@ -356,10 +470,67 @@ class FramePreviewSession {
     _url = null;
     _headers = {};
     _cache.clear();
+    _grid.clear();
     _cacheBytes = 0;
     _misses.clear();
     _retryOpenAfter = null;
     await endScrub();
+  }
+}
+
+/// Fills a session's grid in the background. See [FramePreviewService.warm].
+class _Warmer {
+  _Warmer({
+    required this.session,
+    required this.url,
+    required this.headers,
+    required this.durationMs,
+    required this.count,
+    required this.pace,
+  });
+
+  final FramePreviewSession session;
+  final String url;
+  final Map<String, String> headers;
+  final int durationMs;
+  final int count;
+  final Duration pace;
+  bool _stopped = false;
+
+  void stop() => _stopped = true;
+
+  void start() => unawaited(_loop());
+
+  /// Coarse to fine: every eighth point first, then the fourths, halves and
+  /// the rest, so a scrub early on already finds something near wherever it
+  /// lands instead of only near the start.
+  static List<int> order(int count) {
+    final out = <int>[];
+    final seen = <int>{};
+    for (final step in const [8, 4, 2, 1]) {
+      for (var i = 0; i < count; i += step) {
+        if (seen.add(i)) out.add(i);
+      }
+    }
+    return out;
+  }
+
+  Future<void> _loop() async {
+    await session.open(url, headers);
+    // The first and last few percent are logos and credits.
+    final start = durationMs * 0.02;
+    final span = durationMs * 0.96;
+    for (final i in order(count)) {
+      final at = (start + span * i / (count - 1)).round();
+      while (true) {
+        if (_stopped || !session.serves(url)) return;
+        if (!FramePreviewService._scrubbing && await session.gridFrame(at)) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      }
+      await Future<void>.delayed(pace);
+    }
   }
 }
 

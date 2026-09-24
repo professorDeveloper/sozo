@@ -424,7 +424,9 @@
     "src_search_unavailable": "{} n'est plus installée sur cet appareil.",
     "open_subtitle_file": "Ouvrir un fichier de sous-titres…",
     "media_kit_emulator": "Pas sur l’émulateur — lecteur système utilisé",
-    "media_kit_fell_back": "media_kit n’a pas pu démarrer ici — lecteur système utilisé"
+    "media_kit_fell_back": "media_kit n’a pas pu démarrer ici — lecteur système utilisé",
+    "segment_opening": "Générique de début",
+    "segment_ending": "Générique de fin"
   },
   "profile": {
     "title": "Profil",

@@ -424,7 +424,9 @@
     "src_search_unavailable": "{} ya no está instalada en este dispositivo.",
     "open_subtitle_file": "Abrir un archivo de subtítulos…",
     "media_kit_emulator": "No en el emulador: se usa el reproductor del sistema",
-    "media_kit_fell_back": "media_kit no pudo iniciarse aquí: se usa el reproductor del sistema"
+    "media_kit_fell_back": "media_kit no pudo iniciarse aquí: se usa el reproductor del sistema",
+    "segment_opening": "Opening",
+    "segment_ending": "Ending"
   },
   "profile": {
     "title": "Perfil",

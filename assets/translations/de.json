@@ -424,7 +424,9 @@
     "src_search_unavailable": "{} ist auf diesem Gerät nicht mehr installiert.",
     "open_subtitle_file": "Untertiteldatei öffnen …",
     "media_kit_emulator": "Nicht im Emulator – Systemplayer aktiv",
-    "media_kit_fell_back": "media_kit ließ sich hier nicht starten – Systemplayer aktiv"
+    "media_kit_fell_back": "media_kit ließ sich hier nicht starten – Systemplayer aktiv",
+    "segment_opening": "Opening",
+    "segment_ending": "Ending"
   },
   "profile": {
     "title": "Profil",

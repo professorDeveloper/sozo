@@ -424,7 +424,9 @@
     "src_search_unavailable": "{} artık bu cihazda yüklü değil.",
     "open_subtitle_file": "Altyazı dosyası aç…",
     "media_kit_emulator": "Emülatörde yok — sistem oynatıcısı kullanılıyor",
-    "media_kit_fell_back": "media_kit burada başlatılamadı — sistem oynatıcısı kullanılıyor"
+    "media_kit_fell_back": "media_kit burada başlatılamadı — sistem oynatıcısı kullanılıyor",
+    "segment_opening": "Açılış",
+    "segment_ending": "Kapanış"
   },
   "profile": {
     "title": "Profil",

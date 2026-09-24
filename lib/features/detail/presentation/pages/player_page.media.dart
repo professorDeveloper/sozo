@@ -1246,6 +1246,7 @@ extension _PlayerMedia on _PlayerPageState {
         }
       }
       _plog('play started — total ${stopwatch.elapsedMilliseconds}ms');
+      _schedulePreviewWarm(generation);
       // Against the source that SERVED this, which is the whole point.
       //
       // Searching well and playing are different skills, and until now the only
@@ -1893,7 +1894,39 @@ extension _PlayerMedia on _PlayerPageState {
     }
   }
 
-  bool get _hasThumbnails => _vttThumbnails.isNotEmpty || _storyboard != null;
+  /// Starts filling the seek-preview grid once playback has settled.
+  ///
+  /// Eight seconds in, not at once: the first seconds are when playback is
+  /// fighting for bandwidth to fill its buffer, and a scrub that early is
+  /// rare. Skipped when the source has a storyboard (its sprites already are
+  /// the grid), for live streams, and for anything shorter than a minute.
+  void _schedulePreviewWarm(int generation) {
+    _previewWarm?.cancel();
+    if (_vttThumbnails.isNotEmpty || _storyboard != null) return;
+    _previewWarm = Timer(const Duration(seconds: 8), () async {
+      if (!mounted || generation != _mediaGeneration) return;
+      if (!_canGeneratePreview || _isLive) return;
+      final url = _videoUrl;
+      final ms = _controller?.value.duration.inMilliseconds ?? 0;
+      if (url == null || ms < 60000) return;
+      var metered = true;
+      try {
+        final c = await Connectivity().checkConnectivity();
+        metered =
+            !(c.contains(ConnectivityResult.wifi) ||
+                c.contains(ConnectivityResult.ethernet));
+      } catch (_) {}
+      if (!mounted || generation != _mediaGeneration) return;
+      FramePreviewService.warm(
+        url: url,
+        headers: _headers,
+        durationMs: ms,
+        hls: _isHls,
+        metered: metered,
+      );
+      _plog('preview grid warming (${metered ? 'mobile data' : 'wifi'})');
+    });
+  }
 
   _VttThumbnail? _thumbnailAt(Duration position) {
     final sb = _storyboard;

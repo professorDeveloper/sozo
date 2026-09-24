@@ -424,7 +424,9 @@
     "src_search_unavailable": "{} já não está instalada neste dispositivo.",
     "open_subtitle_file": "Abrir um arquivo de legendas…",
     "media_kit_emulator": "Não no emulador — player do sistema em uso",
-    "media_kit_fell_back": "media_kit não iniciou aqui — player do sistema em uso"
+    "media_kit_fell_back": "media_kit não iniciou aqui — player do sistema em uso",
+    "segment_opening": "Abertura",
+    "segment_ending": "Encerramento"
   },
   "profile": {
     "title": "Perfil",

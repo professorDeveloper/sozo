@@ -311,8 +311,9 @@ extension _PlayerControls on _PlayerPageState {
     );
   }
 
-  String _speedLabel(double s) =>
-      s == 1.0 ? '1x' : '${s.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')}x';
+  String _speedLabel(double s) => s == 1.0
+      ? '1x'
+      : '${s.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')}x';
 
   /// The next fill mode, wrapping. Three of them, so stepping is the whole
   /// interaction and the sheet was pure overhead.
@@ -460,7 +461,8 @@ extension _PlayerControls on _PlayerPageState {
                 // title with several servers had no way to pick a different
                 // one from the error screen at all: the control exists, on the
                 // bar, which is not on screen when playback never started.
-                if (_affordances.hasServers && !(_inParty && !_isPartyHost)) ...[
+                if (_affordances.hasServers &&
+                    !(_inParty && !_isPartyHost)) ...[
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: _openServerSheet,
@@ -600,7 +602,6 @@ extension _PlayerControls on _PlayerPageState {
         final preview = state.previewPosition(_scrubSecondsPerFullSwipe);
         final deltaSeconds = (preview - state.baseline).inSeconds;
         final isForward = deltaSeconds >= 0;
-        final thumb = _thumbnailAt(preview);
         return IgnorePointer(
           child: Center(
             child: Container(
@@ -612,25 +613,20 @@ extension _PlayerControls on _PlayerPageState {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (thumb != null)
+                  if (_previewImage(preview, 240, 240 / _previewAspect)
+                      case final frame?)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: _buildThumbnailImage(thumb),
-                      ),
-                    )
-                  else if (_canGeneratePreview)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: _GeneratedFramePreview(
-                          url: _videoUrl!,
-                          headers: _headers,
-                          positionMs: preview.inMilliseconds,
-                          hls: _isHls,
-                        ),
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Stack(
+                        children: [
+                          frame,
+                          if (_segmentAt(preview) case final segment?)
+                            Positioned(
+                              left: 8,
+                              top: 8,
+                              child: _SegmentTag(segment),
+                            ),
+                        ],
                       ),
                     ),
                   Row(
@@ -672,10 +668,11 @@ extension _PlayerControls on _PlayerPageState {
     );
   }
 
-  Widget _buildThumbnailImage(_VttThumbnail thumb) {
-    const double displayWidth = 160;
-    const double displayHeight = 90;
-
+  Widget _buildThumbnailImage(
+    _VttThumbnail thumb, {
+    double displayWidth = 160,
+    double displayHeight = 90,
+  }) {
     if (thumb.hasSprite) {
       final sx = displayWidth / thumb.w;
       final sy = displayHeight / thumb.h;
@@ -711,7 +708,7 @@ extension _PlayerControls on _PlayerPageState {
       filterQuality: FilterQuality.low,
       gaplessPlayback: true,
       errorBuilder: (_, _, _) =>
-          const SizedBox(width: displayWidth, height: displayHeight),
+          SizedBox(width: displayWidth, height: displayHeight),
     );
   }
 
@@ -1368,34 +1365,80 @@ extension _PlayerControls on _PlayerPageState {
     return end < 0 ? null : end.toDouble().clamp(0.0, maxMs);
   }
 
-  Widget? _buildScrubPreviewCard(Duration position) {
+  /// Preview width: a phone held upright has less room above the bar.
+  double get _previewWidth => isDesktopPlatform || !_isPortrait ? 208.0 : 176.0;
+
+  /// The video's own shape, so a 4:3 or a 2.39:1 frame is not squashed into
+  /// 16:9. Clamped: a bad or not-yet-known ratio falls back to 16:9.
+  double get _previewAspect {
+    final r = _controller?.value.aspectRatio ?? 0;
+    return r.isFinite && r > 0 ? r.clamp(1.25, 2.4) : 16 / 9;
+  }
+
+  /// "Opening" or "Ending" when [position] falls inside one.
+  String? _segmentAt(Duration position) {
+    for (final i in _skips.intervals) {
+      if (position >= i.start && position < i.end) {
+        return (i.type == 'ed'
+                ? 'player.segment_ending'
+                : 'player.segment_opening')
+            .tr();
+      }
+    }
+    return null;
+  }
+
+  static String _signedDelta(Duration target, Duration from) {
+    final d = target - from;
+    if (d.inSeconds.abs() < 2) return '';
+    final sign = d.isNegative ? '−' : '+';
+    final abs = d.abs();
+    final h = abs.inHours;
+    final m = abs.inMinutes % 60;
+    final sec = (abs.inSeconds % 60).toString().padLeft(2, '0');
+    return h > 0
+        ? '$sign$h:${m.toString().padLeft(2, '0')}:$sec'
+        : '$sign$m:$sec';
+  }
+
+  /// The framed picture for [position], from the storyboard when the source
+  /// has one and from the decoder otherwise; null when neither exists.
+  Widget? _previewImage(Duration position, double w, double h) {
     final thumb = _thumbnailAt(position);
-    final Widget? image = thumb != null
-        ? _buildThumbnailImage(thumb)
-        : _canGeneratePreview
-        ? _GeneratedFramePreview(
-            url: _videoUrl!,
-            headers: _headers,
-            positionMs: position.inMilliseconds,
-            hls: _isHls,
-          )
-        : null;
-    if (image == null) return null;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ClipRRect(borderRadius: BorderRadius.circular(6), child: image),
-        const SizedBox(height: 4),
-        Text(
-          _formatDuration(position),
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            shadows: _kControlShadow,
-          ),
-        ),
-      ],
+    if (thumb != null) {
+      return _PreviewFrame(
+        width: w,
+        height: h,
+        child: _buildThumbnailImage(thumb, displayWidth: w, displayHeight: h),
+      );
+    }
+    if (_canGeneratePreview) {
+      return _GeneratedFramePreview(
+        url: _videoUrl!,
+        headers: _headers,
+        positionMs: position.inMilliseconds,
+        width: w,
+        height: h,
+        hls: _isHls,
+      );
+    }
+    return null;
+  }
+
+  Widget _buildScrubPreviewCard(
+    Duration position, {
+    Duration? current,
+    double? caretX,
+  }) {
+    final w = _previewWidth;
+    final h = w / _previewAspect;
+    return _ScrubPreviewCard(
+      frame: _previewImage(position, w, h),
+      width: w,
+      time: _formatDuration(position),
+      delta: current == null ? '' : _signedDelta(position, current),
+      segment: _segmentAt(position),
+      caretX: caretX,
     );
   }
 
@@ -1457,6 +1500,7 @@ extension _PlayerControls on _PlayerPageState {
                 max: maxMs,
                 secondaryTrackValue: _bufferedMs(value, maxMs),
                 onChangeStart: (v) {
+                  FramePreviewService.scrubbing = true;
                   _sliderDragValue.value = v;
                   _hideTimer?.cancel();
                 },
@@ -1465,6 +1509,7 @@ extension _PlayerControls on _PlayerPageState {
                   _hideTimer?.cancel();
                 },
                 onChangeEnd: (v) {
+                  FramePreviewService.scrubbing = false;
                   unawaited(FramePreviewService.endScrub());
                   final target = Duration(milliseconds: v.toInt());
                   _seekTo(target);
@@ -1474,29 +1519,38 @@ extension _PlayerControls on _PlayerPageState {
             ),
           );
 
-    final preview = scrubbing && (_hasThumbnails || _canGeneratePreview)
-        ? _buildScrubPreviewCard(previewPosition)
-        : null;
+    final showPreview = scrubbing && !_isLive;
 
     // The wrapper is unconditional: swapping it in when the preview appears
     // would rebuild the slider mid-drag and drop the gesture.
     return LayoutBuilder(
       builder: (context, box) {
-        const previewWidth = 160.0;
+        final previewWidth = _previewWidth;
         // Each bar insets its track by its own overlay allowance.
         final inset = isTvPlatform ? 24.0 : 16.0;
         final track = (box.maxWidth - inset * 2).clamp(0.0, double.infinity);
         final fraction = maxMs > 0 ? (sliderVal / maxMs).clamp(0.0, 1.0) : 0.0;
-        final left = (inset + fraction * track - previewWidth / 2).clamp(
-          0.0,
-          (box.maxWidth - previewWidth).clamp(0.0, double.infinity),
+        final thumbX = inset + fraction * track;
+        // Kept 8pt off either edge; the caret still points at the thumb when
+        // the card cannot centre over it.
+        final left = (thumbX - previewWidth / 2).clamp(
+          8.0,
+          (box.maxWidth - previewWidth - 8).clamp(8.0, double.infinity),
         );
         return Stack(
           clipBehavior: Clip.none,
           children: [
             bar,
-            if (preview != null)
-              Positioned(left: left, bottom: 46, child: preview),
+            if (showPreview)
+              Positioned(
+                left: left,
+                bottom: 40,
+                child: _buildScrubPreviewCard(
+                  previewPosition,
+                  current: value.position,
+                  caretX: thumbX - left,
+                ),
+              ),
           ],
         );
       },
@@ -1699,10 +1753,7 @@ extension _PlayerControls on _PlayerPageState {
         );
       case 'sleep':
         if (_isLive) return null;
-        return _IconButton(
-          icon: Icons.bedtime_rounded,
-          onTap: _openSleepSheet,
-        );
+        return _IconButton(icon: Icons.bedtime_rounded, onTap: _openSleepSheet);
       case 'cast':
         if (!_canCast) return null;
         return _IconButton(

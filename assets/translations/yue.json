@@ -424,7 +424,9 @@
     "layout_center_full": "播放掣附近冇位喇",
     "open_subtitle_file": "開字幕檔案…",
     "media_kit_emulator": "模擬器用唔到 — 而家用緊系統播放器",
-    "media_kit_fell_back": "media_kit 喺呢度開唔到 — 而家用緊系統播放器"
+    "media_kit_fell_back": "media_kit 喺呢度開唔到 — 而家用緊系統播放器",
+    "segment_opening": "片頭",
+    "segment_ending": "片尾"
   },
   "profile": {
     "title": "個人檔案",

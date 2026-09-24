@@ -1490,6 +1490,8 @@ class _GeneratedFramePreview extends StatefulWidget {
     required this.url,
     required this.headers,
     required this.positionMs,
+    required this.width,
+    required this.height,
     this.hls = false,
   });
 
@@ -1497,15 +1499,21 @@ class _GeneratedFramePreview extends StatefulWidget {
   final Map<String, String> headers;
   final int positionMs;
   final bool hls;
+  final double width;
+  final double height;
 
   @override
   State<_GeneratedFramePreview> createState() => _GeneratedFramePreviewState();
 }
 
+/// The frame under the finger, in three steps: the nearest frame already
+/// held (from the background grid or an earlier scrub) at once; the exact one
+/// cross-faded in when it is decoded; a dark skeleton only while there is
+/// nothing at all. A position that cannot be decoded and has nothing near it
+/// draws no box — the time alone is honest, an empty frame is not.
 class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
-  static const double _w = 160;
-  static const double _h = 90;
-  Uint8List? _bytes;
+  Uint8List? _exact;
+  Uint8List? _near;
   bool _failed = false;
 
   int get _bucket => widget.positionMs ~/ FramePreviewService.bucketMs;
@@ -1513,7 +1521,7 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
   @override
   void initState() {
     super.initState();
-    _fetch();
+    _refresh();
   }
 
   @override
@@ -1521,75 +1529,302 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
     super.didUpdateWidget(old);
     if (old.positionMs ~/ FramePreviewService.bucketMs != _bucket ||
         old.url != widget.url) {
-      _fetch();
+      _refresh();
     }
   }
 
+  void _refresh() {
+    _near = FramePreviewService.nearest(
+      widget.url,
+      widget.positionMs,
+      hls: widget.hls,
+    );
+    _fetch();
+  }
+
   Future<void> _fetch() async {
+    final asked = _bucket;
     final bytes = await FramePreviewService.previewFrame(
       widget.url,
       widget.headers,
       widget.positionMs,
       hls: widget.hls,
     );
-    if (!mounted) return;
-    if (bytes != null) {
-      setState(() {
-        _bytes = bytes;
+    if (!mounted || asked != _bucket) return;
+    setState(() {
+      if (bytes != null) {
+        _exact = bytes;
         _failed = false;
-      });
-    } else if (_bytes == null && !_failed) {
-      setState(() => _failed = true);
-    }
+      } else if (_exact == null) {
+        _failed = true;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final b = _bytes;
-    if (b != null) {
-      return Image.memory(
-        b,
-        width: _w,
-        height: _h,
-        // Decoded at the size it is drawn: a frame from libmpv arrives at the
-        // stream's own resolution, and a 1080p bitmap per scrub step is
-        // memory for nothing.
-        cacheWidth: (_w * MediaQuery.devicePixelRatioOf(context)).round(),
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        filterQuality: FilterQuality.low,
-      );
-    }
-    if (_failed) return const SizedBox.shrink();
-    return Container(
-      width: _w,
-      height: _h,
-      color: Colors.black54,
-      alignment: Alignment.center,
-      child: const SizedBox(
-        width: 18,
-        height: 18,
-        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+    final shown = _exact ?? _near;
+    if (shown == null && _failed) return const SizedBox.shrink();
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return _PreviewFrame(
+      width: widget.width,
+      height: widget.height,
+      child: shown == null
+          ? const _PreviewSkeleton()
+          : AnimatedSwitcher(
+              duration: const Duration(milliseconds: 140),
+              child: Image.memory(
+                shown,
+                key: ValueKey(identityHashCode(shown)),
+                width: widget.width,
+                height: widget.height,
+                // Decoded at the size it is drawn, not at the stream's own
+                // resolution.
+                cacheWidth: (widget.width * dpr).round(),
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                filterQuality: FilterQuality.medium,
+              ),
+            ),
+    );
+  }
+}
+
+/// The box every preview frame sits in, whatever it came from.
+class _PreviewFrame extends StatelessWidget {
+  const _PreviewFrame({
+    required this.width,
+    required this.height,
+    required this.child,
+  });
+
+  final double width;
+  final double height;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: Colors.black,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x80000000),
+          blurRadius: 16,
+          offset: Offset(0, 6),
+        ),
+      ],
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: child,
+  );
+}
+
+/// What stands in for a frame that has not arrived: a dark surface with a
+/// slow shimmer, never a spinner that reads as the player stalling.
+class _PreviewSkeleton extends StatefulWidget {
+  const _PreviewSkeleton();
+
+  @override
+  State<_PreviewSkeleton> createState() => _PreviewSkeletonState();
+}
+
+class _PreviewSkeletonState extends State<_PreviewSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _c,
+    builder: (_, _) => DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment(-1.6 + _c.value * 3.2, 0),
+          end: Alignment(-0.6 + _c.value * 3.2, 0),
+          colors: const [
+            Color(0xFF15181C),
+            Color(0xFF262B31),
+            Color(0xFF15181C),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// The scrub preview: the frame, the time under it, how far that is from
+/// where playback is, the opening or ending it falls in, and a caret down to
+/// the thumb. Appears with a short rise, never a pop.
+class _ScrubPreviewCard extends StatelessWidget {
+  const _ScrubPreviewCard({
+    required this.frame,
+    required this.width,
+    required this.time,
+    required this.delta,
+    this.segment,
+    this.caretX,
+  });
+
+  /// The framed image, or null when there is no picture to show.
+  final Widget? frame;
+  final double width;
+  final String time;
+
+  /// "+1:25" / "−0:40" from the current position; empty when negligible.
+  final String delta;
+
+  /// "Opening" or "Ending" when the position falls inside one.
+  final String? segment;
+
+  /// Where the thumb is, measured from the card's left edge; null for no
+  /// caret (the swipe-to-seek overlay, which has no thumb).
+  final double? caretX;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 120),
+      curve: Curves.easeOutCubic,
+      builder: (_, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, (1 - t) * 6),
+          child: Transform.scale(scale: 0.94 + 0.06 * t, child: child),
+        ),
+      ),
+      child: SizedBox(
+        width: width,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (frame != null)
+              Stack(
+                children: [
+                  frame!,
+                  if (segment != null)
+                    Positioned(left: 6, top: 6, child: _SegmentTag(segment!)),
+                ],
+              ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    time,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  if (frame == null && segment != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      segment!,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  if (delta.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      delta,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (caretX != null)
+              SizedBox(
+                width: width,
+                height: 7,
+                child: CustomPaint(painter: _CaretPainter(caretX!)),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// What the player shows while it moves from one mirror to another.
-///
-/// ## Why this is not the ordinary loading screen
-///
-/// Switching servers is what somebody does when the stream they had was not
-/// working. The generic spinner they got in return looked exactly like the
-/// state they were trying to leave, gave no sign the tap had registered, and
-/// named neither the server they picked nor the one being left behind. On a
-/// mirror that takes eight seconds to answer, that is eight seconds of
-/// wondering whether the app heard you.
-///
-/// So this says the one thing worth saying: which server, on its way. The two
-/// badges make it legible without reading — the mark you just chose is the one
-/// arriving on the right — and they are the same marks as in the picker, which
-/// is what lets somebody learn "the teal one works for this show".
+/// "Opening" / "Ending" on a preview frame.
+class _SegmentTag extends StatelessWidget {
+  const _SegmentTag(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: 0.72),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 10.5,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.3,
+      ),
+    ),
+  );
+}
+
+/// A small downward triangle at [x], pointing at the thumb.
+class _CaretPainter extends CustomPainter {
+  const _CaretPainter(this.x);
+  final double x;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = x.clamp(8.0, size.width - 8.0);
+    final path = Path()
+      ..moveTo(cx - 6, 0)
+      ..lineTo(cx + 6, 0)
+      ..lineTo(cx, size.height)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()..color = Colors.black.withValues(alpha: 0.72),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CaretPainter old) => old.x != x;
+}
+
 class _ServerSwitchOverlay extends StatelessWidget {
   const _ServerSwitchOverlay({required this.switch_});
 
