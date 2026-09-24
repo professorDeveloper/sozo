@@ -218,25 +218,81 @@ test('prose comes back as prose, which is the whole point', async () => {
   assert.deepEqual([...(await p.getPageList())], []);
 });
 
-test('the plugin fetches through the app, not around it', async () => {
-  // fetchApi has to be the fetch the bridge installs: that is what carries
-  // Sozo's user agent, its cookie jar and any Cloudflare clearance it has
-  // earned. The raw one would be blocked where the rest of the app is not.
-  let seen = null;
+test('the plugin fetches through dartFetch, not the page', async () => {
+  // The page's origin is https://sozo.local, so the WebView's own fetch made
+  // every plugin request cross-origin — and almost no novel site sends a CORS
+  // header, so the browser threw the answers away. dartFetch goes out from
+  // Dart, with the app's cookie jar and Cloudflare clearance.
   const sandbox = host({
-    fetchImpl: async (url) => {
-      seen = url;
-      return { text: async () => 'ok' };
+    fetchImpl: async () => {
+      throw new Error('the raw fetch must not be used');
     },
   });
+  let seen = null;
+  sandbox.window = {
+    dartFetch: async (req) => {
+      seen = req;
+      return { status: 200, data: 'ok', headers: { 'content-type': 'text/html' } };
+    },
+  };
   const p = sandbox.__sozoLoadLnReader(
     `const { fetchApi } = require('@libs/fetch');
      module.exports.default = { site: 'https://s.test/',
-       parseChapter: async (path) => (await fetchApi('https://s.test/' + path)).text() };`,
+       parseChapter: async (path) => {
+         const body = new URLSearchParams({ action: 'load', id: '7' });
+         const res = await fetchApi('https://s.test/' + path, {
+           method: 'post', headers: { Referer: 'https://s.test/' }, body });
+         return res.ok && res.status === 200 ? res.text() : 'failed';
+       } };`,
     { id: 'p' },
   );
-  assert.equal(await p.getHtmlContent('a/b'), 'ok');
-  assert.equal(seen, 'https://s.test/a/b');
+  assert.equal(await p.getHtmlContent('Source', 'https://s.test/a/b'), 'ok');
+  assert.equal(seen.url, 'https://s.test/a/b');
+  assert.equal(seen.method, 'POST');
+  assert.equal(seen.body, 'action=load&id=7');
+  assert.equal(seen.headers.Referer, 'https://s.test/');
+  assert.match(seen.headers['Content-Type'], /x-www-form-urlencoded/);
+});
+
+test('a JSON answer reaches the plugin as text it can parse', async () => {
+  // dartFetch decodes application/json; plugins call res.json() themselves.
+  const sandbox = host();
+  sandbox.window = {
+    dartFetch: async () => ({ status: 200, data: { n: 1 }, headers: {} }),
+  };
+  const p = sandbox.__sozoLoadLnReader(
+    `const { fetchApi } = require('@libs/fetch');
+     module.exports.default = { site: 'https://s.test/',
+       parseChapter: async () => String((await (await fetchApi('https://s.test/x')).json()).n) };`,
+    { id: 'p' },
+  );
+  assert.equal(await p.getHtmlContent('Source', 'x'), '1');
+});
+
+test('the chapter address is the second argument, as the app calls it', async () => {
+  // The bridge calls getHtmlContent(sourceName, url). Taking one argument read
+  // the source's name as the address, so every chapter asked for the wrong page.
+  const sandbox = host();
+  const p = sandbox.__sozoLoadLnReader(plugin, { id: 'demo' });
+  assert.equal(
+    await p.getHtmlContent('Demo Novels', 'https://novels.test/novel/one/1'),
+    '<p>novel/one/1</p>',
+  );
+});
+
+test('a path the plugin handed out comes back to it unchanged', () => {
+  const { linkFor, pathOf } = host().__sozoLnReaderInternals;
+  const site = 'https://s.test/';
+  for (const path of ['novel/x', '/novels/x', 'https://s.test/n/x', 'x?id=3']) {
+    assert.equal(pathOf(site, linkFor(site, path)), path);
+  }
+  // A plain one stays a plain url.
+  assert.equal(linkFor(site, 'novel/x'), 'https://s.test/novel/x');
+});
+
+test('escaped names are decoded', () => {
+  const { decodeEntities } = host().__sozoLnReaderInternals;
+  assert.equal(decodeEntities('48 &#x633;&#x627; &amp; &#8217;s'), '48 سا & ’s');
 });
 
 /* ---- cheerio over the DOM --------------------------------------------- */
@@ -305,4 +361,82 @@ test('genres come as a list whichever way the plugin sends them', () => {
   assert.deepEqual([...splitGenres('A, B ,C')], ['A', 'B', 'C']);
   assert.deepEqual([...splitGenres('')], []);
   assert.deepEqual([...splitGenres(undefined)], []);
+});
+
+/* ---- the real libraries ------------------------------------------------ */
+
+const deps = fs.readFileSync(
+  path.join(__dirname, '../../assets/js/lnreader_deps.js'),
+  'utf8',
+);
+
+/// A context with the bundled cheerio, htmlparser2 and dayjs loaded first,
+/// the way the runtime loads them.
+function realHost() {
+  const sandbox = {
+    console: { warn: () => {}, error: () => {}, log: () => {} },
+    URL,
+    URLSearchParams,
+    TextEncoder,
+    TextDecoder,
+    Headers,
+  };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(deps, sandbox);
+  vm.runInContext(shim, sandbox);
+  return sandbox;
+}
+
+test('plugins get the real cheerio: :contains, contents, attribs', async () => {
+  // About 170 of the 280 plugins use something the hand-written stand-in
+  // lacked, and each one threw.
+  const sandbox = realHost();
+  const p = sandbox.__sozoLoadLnReader(
+    `const { load } = require('cheerio');
+     module.exports.default = { site: 'https://s.test/',
+       parseChapter: async () => {
+         const $ = load('<div class="i"><h5>Genre</h5><a class="premium-block" href="/x">A</a> text</div>');
+         const genre = $('h5:contains("Genre")').text();
+         const cls = $('a').get(0).attribs.class;
+         const nodes = $('.i').contents().length;
+         return [genre, cls, nodes].join('|');
+       } };`,
+    { id: 'p' },
+  );
+  assert.equal(await p.getHtmlContent('S', 'x'), 'Genre|premium-block|3');
+});
+
+test('plugins get the real htmlparser2 Parser', async () => {
+  const sandbox = realHost();
+  const p = sandbox.__sozoLoadLnReader(
+    `const { Parser } = require('htmlparser2');
+     module.exports.default = { site: 'https://s.test/',
+       parseChapter: async () => {
+         const seen = [];
+         const parser = new Parser({ onopentag: (name) => seen.push(name) });
+         parser.write('<p><b>x</b></p>'); parser.end();
+         return seen.join(',');
+       } };`,
+    { id: 'p' },
+  );
+  assert.equal(await p.getHtmlContent('S', 'x'), 'p,b');
+});
+
+test('a paged chapter list is fetched whole', async () => {
+  const sandbox = realHost();
+  const p = sandbox.__sozoLoadLnReader(
+    `module.exports.default = { site: 'https://s.test/',
+       parseNovel: async (path) => ({ path, name: 'N', totalPages: 3, chapters: [] }),
+       parsePage: async (path, page) => ({ chapters: [
+         { name: 'c' + page + 'a', path: path + '/' + page + 'a' },
+         { name: 'c' + page + 'b', path: path + '/' + page + 'b' }] }),
+       parseChapter: async () => '' };`,
+    { id: 'p' },
+  );
+  const detail = await p.getDetail('https://s.test/n');
+  assert.deepEqual(
+    [...detail.chapters].map((c) => c.name),
+    ['c3b', 'c3a', 'c2b', 'c2a', 'c1b', 'c1a'],
+  );
 });

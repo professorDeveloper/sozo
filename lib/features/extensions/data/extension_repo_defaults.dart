@@ -82,7 +82,8 @@ class ExtensionRepoDefaults {
       kind: ExtensionRepoKind.manga,
       name: 'Keiyoushi',
       description: 'Manga / manhwa / webtoon · 1300+ extensions',
-      url: 'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb',
+      url:
+          'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb',
       badge: '1300+',
       order: 0,
     ),
@@ -91,11 +92,12 @@ class ExtensionRepoDefaults {
     ExtensionRepoEntity(
       kind: ExtensionRepoKind.mangayomi,
       name: 'Kodjodevf (official)',
-      description: 'Manga & novels · official Mangayomi repo',
+      // No novel index: its novel sources reuse m2k3a's ids with older code
+      // from an unmaintained fork, so installing both had one replace the
+      // other's.
+      description: 'Manga · official Mangayomi repo',
       url:
           'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json',
-      novelUrl:
-          'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/novel_index.json',
       order: 0,
     ),
     ExtensionRepoEntity(
@@ -128,11 +130,15 @@ class ExtensionRepoDefaults {
     ExtensionRepoEntity(
       kind: ExtensionRepoKind.mangayomi,
       name: 'Mallyd11',
-      description: 'Anime · all-JavaScript, runs on iOS',
+      description: 'Anime & novels · all-JavaScript, runs on iOS',
       url:
           'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/index.json',
       animeUrl:
           'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
+      // NovelFire, bookReadFree, Novelbuddy and J-Garden, written for the
+      // app's call time limit — checked live 2026-09-24.
+      novelUrl:
+          'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/novel_index.json',
       order: 3,
     ),
     // The light-novel answer.
@@ -149,15 +155,31 @@ class ExtensionRepoDefaults {
     // in `assets/js/lnreader.js` turns it into the same object shape. Nothing
     // downstream — search, home, detail, chapters, the reader, downloads, EPUB
     // export — can tell the two apart.
+    //
+    // 280 plugins; about 200 of the sites answer, and 102 read end to end
+    // (list, detail, chapter) through the adapter from a plain client — more
+    // in the app, which solves Cloudflare.
     ExtensionRepoEntity(
       kind: ExtensionRepoKind.mangayomi,
       name: 'LNReader',
-      description: 'Light novels · 279 sources',
+      description: 'Light novels · 200+ live sources',
+      badge: '200+',
       url:
           'https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json',
       novelUrl:
           'https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json',
       order: 4,
+    ),
+    // Arabic light novels: kolnovel, mknov, markazriwayat, cenele.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'Arabic novels (9vsv6)',
+      description: 'Arabic light novels · kolnovel, mknov and more',
+      url:
+          'https://raw.githubusercontent.com/9vsv6/mangayomi-ar-extensions/main/novel_index.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/9vsv6/mangayomi-ar-extensions/main/novel_index.json',
+      order: 5,
     ),
   ];
 

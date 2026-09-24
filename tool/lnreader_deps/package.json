@@ -1,0 +1,14 @@
+{
+  "name": "sozo-lnreader-deps",
+  "private": true,
+  "description": "Builds assets/js/lnreader_deps.js: the real cheerio, htmlparser2 and dayjs that LNReader plugins require.",
+  "scripts": {
+    "build": "esbuild entry.js --bundle --minify --format=iife --platform=browser --target=es2019 --legal-comments=none --outfile=../../assets/js/lnreader_deps.js"
+  },
+  "devDependencies": {
+    "cheerio": "1.0.0",
+    "dayjs": "1.11.23",
+    "esbuild": "0.28.2",
+    "htmlparser2": "9.1.0"
+  }
+}

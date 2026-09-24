@@ -126,6 +126,27 @@ class MangayomiRuntime {
             return await dartFetch.call(args.first);
           },
         );
+        // LNReader's fetchFile: bytes, as base64, through the same client.
+        controller.addJavaScriptHandler(
+          handlerName: 'dartFetchBytes',
+          callback: (args) async {
+            try {
+              final req = args.isEmpty ? null : args.first;
+              if (req is! Map || req['url'] is! String) return {'base64': ''};
+              final headers = <String, String>{
+                for (final e in ((req['headers'] as Map?) ?? const {}).entries)
+                  e.key.toString(): e.value.toString(),
+              };
+              final bytes = await dartFetch.fetchBytes(
+                req['url'] as String,
+                headers,
+              );
+              return {'base64': base64Encode(bytes)};
+            } catch (error) {
+              return {'base64': '', 'error': error.toString()};
+            }
+          },
+        );
         controller.addJavaScriptHandler(
           handlerName: 'mangayomiEpub',
           callback: (args) async {
@@ -170,10 +191,12 @@ class MangayomiRuntime {
 
     final bridge = await rootBundle.loadString('assets/js/mangayomi_bridge.js');
     await controller.evaluateJavascript(source: bridge);
-    // After the bridge, because it uses the `fetch` the bridge installs — which
-    // is what carries Sozo's user agent, cookie jar and Cloudflare clearance.
-    // An LNReader plugin reaching the raw one would be blocked where the rest
-    // of the app is not.
+    // The real cheerio, htmlparser2 and dayjs LNReader plugins require, then
+    // the adapter that hands them over. The adapter sends plugin requests
+    // through `dartFetch` — the WebView's own fetch is cross-origin from
+    // this page, and almost no novel site allows that.
+    final deps = await rootBundle.loadString('assets/js/lnreader_deps.js');
+    await controller.evaluateJavascript(source: deps);
     final lnreader = await rootBundle.loadString('assets/js/lnreader.js');
     await controller.evaluateJavascript(source: lnreader);
   }

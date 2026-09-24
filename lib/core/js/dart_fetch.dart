@@ -407,6 +407,8 @@ class DartFetch {
         'status': status,
         'data': _decodeBody(response.data, headers['content-type']),
         'headers': headers,
+        // Where the redirects ended, which plugins read as `response.url`.
+        'url': response.realUri.toString(),
       };
     } catch (e) {
       JsLog.err('fetch', '${req.method} ${_shortUrl(req.url)} — $e');

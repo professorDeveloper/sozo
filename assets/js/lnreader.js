@@ -27,14 +27,21 @@
  *   htmlparser2          what cheerio is built on; plugins only ever pass it on
  *   dayjs                release dates
  *
- * cheerio is the only hard one, and it is only hard if you try to port it. This
- * runs in a WebView with a real `DOMParser` and real `querySelectorAll`, so the
- * subset the plugins actually use is a wrapper over a NodeList.
+ * cheerio, htmlparser2 and dayjs are the real packages, bundled into
+ * `lnreader_deps.js` (see tool/lnreader_deps/) and loaded before this file —
+ * LNReader itself runs them unmodified. A hand-written stand-in over the
+ * WebView's DOM came first and covered too little: `new htmlparser2.Parser`,
+ * `.contents()`, `.attribs`, `:contains(...)` and the rest are used by about
+ * 170 of the 280 plugins, and each missing one threw. The stand-in below is
+ * now only the fallback for a page where the bundle did not load.
  */
 (function () {
   'use strict';
 
-  /* ---- cheerio over the DOM ------------------------------------------- */
+  /** The real libraries, when `lnreader_deps.js` has run. */
+  const deps = globalThis.__lnDeps || null;
+
+  /* ---- fallback cheerio over the DOM ----------------------------------- */
 
   /**
    * Cheerio's contract is that every call returns a new wrapped set, never a
@@ -277,17 +284,123 @@
     'https://placehold.co/400x600/1a1a1a/eeeeee/png?text=No%20Cover';
 
   /**
-   * The plugin's HTTP.
+   * The plugin's HTTP, through the app's `dartFetch`.
    *
-   * Routed through the same `fetch` the Mangayomi bridge installs, which is
-   * what carries Sozo's user agent, its cookie jar and any Cloudflare clearance
-   * the app has earned. A plugin reaching for the raw one would bypass all
-   * three and be blocked where the rest of the app is not.
+   * Not the WebView's `fetch`: this page's origin is https://sozo.local, so
+   * every plugin request was cross-origin, and 196 of the 208 LNReader sites
+   * that answer send no CORS header — the browser threw the responses away.
+   * `dartFetch` goes out from Dart instead, with the app's user agent, cookie
+   * jar and Cloudflare clearance, and no CORS. The raw `fetch` is only used
+   * where there is no bridge (the tests' plain node).
    */
-  async function fetchApi(url, init) {
-    return fetch(url, init || {});
+  function headerObject(h) {
+    const out = {};
+    if (!h) return out;
+    if (Array.isArray(h)) {
+      for (const pair of h) if (pair && pair.length >= 2) out[String(pair[0])] = String(pair[1]);
+      return out;
+    }
+    if (typeof h.forEach === 'function') {
+      h.forEach((v, k) => {
+        out[String(k)] = String(v);
+      });
+      return out;
+    }
+    for (const k of Object.keys(h)) if (h[k] != null) out[k] = String(h[k]);
+    return out;
   }
+
+  function hasHeader(headers, name) {
+    return Object.keys(headers).some((k) => k.toLowerCase() === name);
+  }
+
+  const FORM = 'application/x-www-form-urlencoded;charset=UTF-8';
+
+  function bodyOf(body, headers) {
+    if (body == null) return undefined;
+    if (typeof body === 'string') return body;
+    if (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams) {
+      if (!hasHeader(headers, 'content-type')) headers['Content-Type'] = FORM;
+      return body.toString();
+    }
+    // Sent as a form: Dart's side takes a string body, and the sites that
+    // post a FormData read it as fields either way.
+    if (typeof FormData !== 'undefined' && body instanceof FormData) {
+      const form = new URLSearchParams();
+      body.forEach((v, k) => form.append(k, String(v)));
+      if (!hasHeader(headers, 'content-type')) headers['Content-Type'] = FORM;
+      return form.toString();
+    }
+    if (body instanceof ArrayBuffer || ArrayBuffer.isView(body)) {
+      return new TextDecoder().decode(body);
+    }
+    return JSON.stringify(body);
+  }
+
+  /** What `fetch` resolves to, for a body Dart has already read as text. */
+  function makeResponse(text, status, headers, url) {
+    let h;
+    try {
+      h = new Headers(headers || {});
+    } catch (_) {
+      const lower = {};
+      for (const k of Object.keys(headers || {})) lower[k.toLowerCase()] = headers[k];
+      h = { get: (k) => lower[String(k).toLowerCase()] ?? null, has: (k) => String(k).toLowerCase() in lower };
+    }
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      statusText: '',
+      url,
+      redirected: false,
+      headers: h,
+      text: async () => text,
+      json: async () => JSON.parse(text),
+      arrayBuffer: async () => new TextEncoder().encode(text).buffer,
+      clone: () => makeResponse(text, status, headers, url),
+    };
+  }
+
+  function bridge() {
+    return typeof window !== 'undefined' && window && typeof window.dartFetch === 'function'
+      ? window
+      : null;
+  }
+
+  async function fetchApi(url, init) {
+    const options = init || {};
+    const host = bridge();
+    if (!host) return fetch(url, options);
+    const headers = headerObject(options.headers);
+    const body = bodyOf(options.body, headers);
+    const raw = await host.dartFetch({
+      url: String(url),
+      method: String(options.method || 'GET').toUpperCase(),
+      headers,
+      body,
+    });
+    const data = raw ? raw.data : null;
+    const text = data == null ? '' : typeof data === 'string' ? data : JSON.stringify(data);
+    const status = raw && raw.status ? Number(raw.status) : 0;
+    return makeResponse(text, status, (raw && raw.headers) || {}, (raw && raw.url) || String(url));
+  }
+
+  /** LNReader's fetchText: the body, or '' for a failed request. */
+  async function fetchText(url, init) {
+    const res = await fetchApi(url, init);
+    return res.ok ? res.text() : '';
+  }
+
+  /** Base64 of the bytes — covers and images a plugin inlines. */
   async function fetchFile(url, init) {
+    const host = bridge();
+    if (host && host.flutter_inappwebview) {
+      const res = await host.flutter_inappwebview.callHandler('dartFetchBytes', {
+        url: String(url),
+        headers: headerObject((init || {}).headers),
+      });
+      return (res && res.base64) || '';
+    }
     const res = await fetch(url, init || {});
     const buf = await res.arrayBuffer();
     let binary = '';
@@ -296,10 +409,14 @@
     return btoa(binary);
   }
 
+  async function fetchProto() {
+    throw new Error('this source speaks protobuf, which Sozo does not carry');
+  }
+
   function makeRequire(pluginId) {
     const storage = makeStorage();
     const modules = {
-      '@libs/fetch': { fetchApi, fetchFile },
+      '@libs/fetch': { fetchApi, fetchFile, fetchText, fetchProto },
       '@libs/novelStatus': { NovelStatus },
       '@libs/filterInputs': { FilterTypes, FilterInputs: FilterTypes },
       '@libs/defaultCover': { defaultCover },
@@ -328,9 +445,9 @@
           );
         },
       },
-      cheerio: { load, CheerioAPI: load },
-      htmlparser2: { parseDocument: (html) => load(html) },
-      dayjs: dayjs,
+      cheerio: deps ? deps.cheerio : { load, CheerioAPI: load },
+      htmlparser2: deps ? deps.htmlparser2 : { parseDocument: (html) => load(html) },
+      dayjs: deps ? deps.dayjs : dayjs,
       urlencode: {
         encode: encodeURIComponent,
         decode: decodeURIComponent,
@@ -367,10 +484,42 @@
     }
   }
 
+  /**
+   * The app's link for a path a plugin returned, from which [pathOf] gives
+   * back exactly that path.
+   *
+   * A plugin is called again with the path it handed out, character for
+   * character — "/novels/x", "novels/x" and "x" are different requests to
+   * it. Most paths survive the round trip through a url; the ones that do
+   * not (a leading slash, a full url, a path under a sub-folder of the site)
+   * carry the original in the fragment, which never reaches the server.
+   */
+  function linkFor(site, path) {
+    const p = String(path == null ? '' : path);
+    const abs = absolute(site, p);
+    if (!abs || pathOf(site, abs) === p) return abs;
+    return abs + PATH_MARK + encodeURIComponent(p);
+  }
+
+  const PATH_MARK = '#sozo-path=';
+
+  const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'" };
+
+  /** A name some plugins hand back still HTML-escaped ("&#x633;…"). */
+  function decodeEntities(text) {
+    return String(text == null ? '' : text).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+|#39);/gi, (m, e) => {
+      if (e[0] === '#') {
+        const code = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+        return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : m;
+      }
+      return ENTITIES[e.toLowerCase()] ?? m;
+    });
+  }
+
   function novelCard(plugin, n) {
     return {
-      name: n.name || n.title || '',
-      link: absolute(plugin.site, n.path || n.url || ''),
+      name: decodeEntities(n.name || n.title || ''),
+      link: linkFor(plugin.site, n.path || n.url || ''),
       imageUrl: absolute(plugin.site, n.cover || defaultCover),
     };
   }
@@ -390,7 +539,9 @@
         showLatestNovels: !!(options && options.latest),
         filters: plugin.filters || {},
       });
-      return { list: (novels || []).map((n) => novelCard(plugin, n)), hasNextPage: true };
+      const found = (novels || []).map((n) => novelCard(plugin, n));
+      // An empty page is the end. Always-true made "load more" ask forever.
+      return { list: found, hasNextPage: found.length > 0 };
     };
 
     return {
@@ -405,32 +556,51 @@
 
       search: async (query, page) => {
         const novels = await plugin.searchNovels(query, page || 1);
-        return {
-          list: (novels || []).map((n) => novelCard(plugin, n)),
-          hasNextPage: true,
-        };
+        const found = (novels || []).map((n) => novelCard(plugin, n));
+        return { list: found, hasNextPage: found.length > 0 };
       },
 
       getDetail: async (url) => {
-        const novel = await plugin.parseNovel(pathOf(site, url));
-        const chapters = (novel.chapters || []).map((c, i) => ({
-          name: c.name || `Chapter ${i + 1}`,
-          url: absolute(site, c.path || c.url || ''),
+        const path = pathOf(site, url);
+        const novel = await plugin.parseNovel(path);
+        const chapters = (novel.chapters || []).slice();
+        // Paged chapter lists: parseNovel gives the page count (and often
+        // no chapters), parsePage gives each page. LNReader asks page by page
+        // as the list scrolls; the app takes the list whole, so the pages are
+        // fetched here — a few at a time, within the call's time limit.
+        const pages = Number(novel.totalPages) || 0;
+        if (typeof plugin.parsePage === 'function' && (pages > 1 || !chapters.length)) {
+          const first = chapters.length ? 2 : 1;
+          const last = Math.min(Math.max(pages, 1), first + MAX_CHAPTER_PAGES - 1);
+          const deadline = Date.now() + CHAPTER_PAGES_BUDGET_MS;
+          for (let p = first; p <= last && Date.now() < deadline; p += 4) {
+            const batch = [];
+            for (let q = p; q < p + 4 && q <= last; q++) {
+              batch.push(plugin.parsePage(path, String(q)).catch(() => null));
+            }
+            for (const result of await Promise.all(batch)) {
+              if (result && result.chapters) chapters.push(...result.chapters);
+            }
+          }
+        }
+        const mapped = chapters.map((c, i) => ({
+          name: decodeEntities(c.name || `Chapter ${i + 1}`),
+          url: linkFor(site, c.path || c.url || ''),
           dateUpload: c.releaseTime ? String(Date.parse(c.releaseTime) || '') : '',
           scanlator: '',
         }));
         return {
-          name: novel.name || '',
+          name: decodeEntities(novel.name || ''),
           imageUrl: absolute(site, novel.cover || defaultCover),
           description: novel.summary || '',
           author: novel.author || '',
           artist: novel.artist || '',
           status: statusOf(novel.status),
           genre: splitGenres(novel.genres),
-          link: absolute(site, novel.path || url),
+          link: novel.path ? linkFor(site, novel.path) : url,
           // Newest first, which is the order every Mangayomi source returns and
           // therefore the order the app's chapter list expects to reverse.
-          chapters: chapters.reverse(),
+          chapters: mapped.reverse(),
         };
       },
 
@@ -442,9 +612,21 @@
        * novel source reads — so an LNReader plugin lands in exactly the same
        * reader, with the same offline download and the same EPUB export.
        */
-      getHtmlContent: async (url) => {
-        const html = await plugin.parseChapter(pathOf(site, url));
+      //
+      // Called as (sourceName, url), the Mangayomi signature. Taking one
+      // argument read the source's name as the chapter address, so every
+      // chapter of every LNReader source asked for the wrong page.
+      getHtmlContent: async (name, url) => {
+        const target = url === undefined ? name : url;
+        const html = await plugin.parseChapter(pathOf(site, target));
         return String(html == null ? '' : html);
+      },
+
+      // Covers on sites that check the Referer.
+      getHeaders: () => {
+        const init = plugin.imageRequestInit;
+        const own = init && init.headers ? headerObject(init.headers) : {};
+        return hasHeader(own, 'referer') ? own : Object.assign({ Referer: site }, own);
       },
 
       getPageList: async () => [],
@@ -453,9 +635,14 @@
     };
   }
 
+  const MAX_CHAPTER_PAGES = 60;
+  const CHAPTER_PAGES_BUDGET_MS = 35000;
+
   /** LNReader passes paths, not urls; the app stores urls. */
   function pathOf(site, url) {
     const u = String(url == null ? '' : url);
+    const mark = u.indexOf(PATH_MARK);
+    if (mark >= 0) return decodeURIComponent(u.slice(mark + PATH_MARK.length));
     if (!site || !u.startsWith(site)) return u;
     const rest = u.slice(site.replace(/\/+$/, '').length);
     return rest.startsWith('/') ? rest.slice(1) : rest;
@@ -514,8 +701,12 @@
   // Exposed so the shim's own pieces can be exercised without a plugin.
   globalThis.__sozoLnReaderInternals = {
     load,
+    fetchApi,
+    deps,
     makeRequire,
     pathOf,
+    linkFor,
+    decodeEntities,
     absolute,
     statusOf,
     splitGenres,

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:dio/dio.dart';
 
 import 'package:soplay/features/extensions/data/extension_repo_defaults.dart';
@@ -39,10 +40,10 @@ class ExtensionRepoRepository {
       final items = (resp.data is Map ? resp.data['items'] : null);
       list = items is List
           ? items
-              .whereType<Map>()
-              .map((e) => _fromJson(Map<String, dynamic>.from(e)))
-              .whereType<ExtensionRepoEntity>()
-              .toList()
+                .whereType<Map>()
+                .map((e) => _fromJson(Map<String, dynamic>.from(e)))
+                .whereType<ExtensionRepoEntity>()
+                .toList()
           : const [];
     } catch (_) {
       list = const [];
@@ -50,10 +51,37 @@ class ExtensionRepoRepository {
 
     // Empty is treated as "backend has nothing to say", not "the curated list is
     // intentionally empty" — a misconfigured deploy shouldn't hide every repo.
-    if (list.isEmpty) list = ExtensionRepoDefaults.forKind(kind);
+    //
+    // Otherwise the server's list comes first and the app's own picks it does
+    // not have follow. All-or-nothing hid every repo added to the app after
+    // the server was seeded: the server listed three Mangayomi repos, so
+    // LNReader and the novel indexes never reached anyone.
+    list = mergeWithDefaults(list, ExtensionRepoDefaults.forKind(kind));
 
     _cache[kind] = list;
     return _visible(list, nsfwAllowed);
+  }
+
+  @visibleForTesting
+  static List<ExtensionRepoEntity> mergeWithDefaults(
+    List<ExtensionRepoEntity> server,
+    List<ExtensionRepoEntity> defaults,
+  ) {
+    if (server.isEmpty) return defaults;
+    String norm(String? u) =>
+        (u ?? '').trim().toLowerCase().replaceAll(RegExp(r'/+$'), '');
+    final known = <String>{
+      for (final r in server) ...[
+        norm(r.url),
+        if (r.novelUrl != null) norm(r.novelUrl),
+        if (r.animeUrl != null) norm(r.animeUrl),
+      ],
+    }..remove('');
+    return [
+      ...server,
+      for (final d in defaults)
+        if (!known.contains(norm(d.url))) d,
+    ];
   }
 
   /// Drops the memory cache so the next read re-fetches. Used by pull-to-refresh.
@@ -62,8 +90,7 @@ class ExtensionRepoRepository {
   List<ExtensionRepoEntity> _visible(
     List<ExtensionRepoEntity> list,
     bool nsfwAllowed,
-  ) =>
-      nsfwAllowed ? list : list.where((r) => !r.nsfw).toList();
+  ) => nsfwAllowed ? list : list.where((r) => !r.nsfw).toList();
 
   ExtensionRepoEntity? _fromJson(Map<String, dynamic> json) {
     final kind = ExtensionRepoKind.parse(json['kind'] as String?);

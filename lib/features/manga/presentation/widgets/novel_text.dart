@@ -265,7 +265,33 @@ const String _kBreak = '@@SOZO_BR@@';
 /// actually return — which is the only way to know it handles them, since every
 /// source writes its own markup.
 List<NovelBlock> parseNovelBlocks(String html) {
+  // The same chapter is laid out on every rebuild — each tap that shows the
+  // reader's controls — and this is fifteen passes over the whole chapter.
+  // The last one is kept.
+  if (identical(html, _lastHtml) || html == _lastHtml) return _lastBlocks!;
+  final blocks = List<NovelBlock>.unmodifiable(_parseNovelBlocks(html));
+  _lastHtml = html;
+  _lastBlocks = blocks;
+  return blocks;
+}
+
+String? _lastHtml;
+List<NovelBlock>? _lastBlocks;
+
+final RegExp _blockTag = RegExp(
+  r'<(p|div|br|li|blockquote|h[1-6])\b',
+  caseSensitive: false,
+);
+
+List<NovelBlock> _parseNovelBlocks(String html) {
   var s = html;
+
+  // A chapter that arrives as plain text, one paragraph per line, has no
+  // tags to split on and rendered as one wall. Its line breaks are its
+  // paragraphs.
+  if (!_blockTag.hasMatch(s) && s.contains('\n')) {
+    s = s.replaceAll(RegExp(r'\r\n?'), '\n').replaceAll('\n', '<br>');
+  }
 
   // Everything that is not prose. Script and style carry text that would
   // otherwise be rendered as if it were the chapter.
@@ -403,9 +429,16 @@ String _unescape(String s) => s
     .replaceAll('&lsquo;', '‘')
     .replaceAll('&ldquo;', '“')
     .replaceAll('&rdquo;', '”')
-    .replaceAllMapped(
-      RegExp(r'&#(\d+);'),
-      (m) => String.fromCharCode(int.parse(m[1]!)),
-    )
+    // Decimal and hex, the whole Unicode range: "&#x2019;" stayed as typed,
+    // and a code point the parse could not take threw.
+    .replaceAllMapped(RegExp(r'&#([xX][0-9a-fA-F]+|\d+);'), (m) {
+      final raw = m[1]!;
+      final code = raw[0] == 'x' || raw[0] == 'X'
+          ? int.tryParse(raw.substring(1), radix: 16)
+          : int.tryParse(raw);
+      return code != null && code > 0 && code <= 0x10FFFF
+          ? String.fromCharCode(code)
+          : m[0]!;
+    })
     // Ampersand last, or an escaped entity would be decoded twice.
     .replaceAll('&amp;', '&');

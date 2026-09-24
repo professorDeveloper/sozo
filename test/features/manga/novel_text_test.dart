@@ -5,11 +5,13 @@ import 'package:soplay/features/manga/presentation/widgets/novel_text.dart';
 /// `cleanHtmlContent` wraps a WordPress `content.rendered` in a heading and a
 /// rule, and the body is whatever the site wrote.
 void main() {
-  List<String> texts(String html) =>
-      [for (final b in parseNovelBlocks(html)) b.text];
+  List<String> texts(String html) => [
+    for (final b in parseNovelBlocks(html)) b.text,
+  ];
 
-  List<NovelBlockKind> kinds(String html) =>
-      [for (final b in parseNovelBlocks(html)) b.kind];
+  List<NovelBlockKind> kinds(String html) => [
+    for (final b in parseNovelBlocks(html)) b.kind,
+  ];
 
   group('structure', () {
     test('the wrapper a real source produces parses into its parts', () {
@@ -39,9 +41,9 @@ void main() {
 
     test('a rule between text survives; a trailing one does not', () {
       expect(
-        kinds('<p>a</p><hr><p>b</p>')
-            .where((k) => k == NovelBlockKind.rule)
-            .length,
+        kinds(
+          '<p>a</p><hr><p>b</p>',
+        ).where((k) => k == NovelBlockKind.rule).length,
         1,
       );
       // A separator with nothing after it separates nothing.
@@ -56,8 +58,9 @@ void main() {
 
   group('emphasis', () {
     test('bold and italic become runs', () {
-      final blocks =
-          parseNovelBlocks('<p>He said <b>no</b> and <i>left</i>.</p>');
+      final blocks = parseNovelBlocks(
+        '<p>He said <b>no</b> and <i>left</i>.</p>',
+      );
       final runs = blocks.single.runs;
       expect(runs.any((r) => r.text == 'no' && r.bold), isTrue);
       expect(runs.any((r) => r.text == 'left' && r.italic), isTrue);
@@ -65,8 +68,9 @@ void main() {
     });
 
     test('strong and em are the same thing', () {
-      final blocks =
-          parseNovelBlocks('<p><strong>A</strong> and <em>B</em></p>');
+      final blocks = parseNovelBlocks(
+        '<p><strong>A</strong> and <em>B</em></p>',
+      );
       expect(blocks.single.runs.any((r) => r.text == 'A' && r.bold), isTrue);
       expect(blocks.single.runs.any((r) => r.text == 'B' && r.italic), isTrue);
     });
@@ -80,7 +84,8 @@ void main() {
     test('script and style contents are dropped, not shown as prose', () {
       // These come from arbitrary third-party sites. Their text would
       // otherwise appear in the middle of the chapter.
-      const html = '<p>Real.</p><script>var x = "fake";</script>'
+      const html =
+          '<p>Real.</p><script>var x = "fake";</script>'
           '<style>.a{color:red}</style>';
       expect(texts(html), ['Real.']);
     });
@@ -90,10 +95,9 @@ void main() {
     });
 
     test('an unknown tag keeps its text', () {
-      expect(
-        texts('<p>Hello <span class="x">world</span>.</p>'),
-        ['Hello world.'],
-      );
+      expect(texts('<p>Hello <span class="x">world</span>.</p>'), [
+        'Hello world.',
+      ]);
     });
   });
 
@@ -117,6 +121,25 @@ void main() {
 
     test('a non-breaking space becomes a real space', () {
       expect(texts('<p>a&nbsp;b</p>'), ['a b']);
+    });
+
+    test('hex entities and characters past U+FFFF are decoded', () {
+      expect(texts('<p>it&#x2019;s &#X1F600; &#128512;</p>'), ['it’s 😀 😀']);
+    });
+  });
+
+  group('plain text', () {
+    test('a chapter without tags keeps its lines as paragraphs', () {
+      expect(texts('First line.\nSecond line.\r\nThird.'), [
+        'First line.',
+        'Second line.',
+        'Third.',
+      ]);
+    });
+
+    test('the same chapter is parsed once', () {
+      const html = '<p>One</p><p>Two</p>';
+      expect(identical(parseNovelBlocks(html), parseNovelBlocks(html)), isTrue);
     });
   });
 }
