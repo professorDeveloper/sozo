@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
 
@@ -13,6 +14,33 @@ enum SourceHealth {
 
   /// Timed out or threw. Asked again, on a shorter leash.
   broken,
+}
+
+/// What the server's sweep said about a source. Only the bad news is sent;
+/// a source with no verdict is fine as far as anyone knows.
+enum RemoteHealth {
+  /// Unreachable on two nightly sweeps in a row, parked, or flagged down by
+  /// its maintainer.
+  dead,
+
+  /// The site answered the sweep with a Cloudflare challenge. Not dead: a
+  /// phone often gets through where a datacenter address does not.
+  cloudflare,
+
+  /// Answered, but slowly.
+  slow,
+}
+
+class RemoteVerdict {
+  const RemoteVerdict({required this.state, this.reason, this.checkedAt});
+
+  final RemoteHealth state;
+
+  /// The sweep's reason code (`dns`, `parked`, `timeout`, …), or null when the
+  /// server gave none.
+  final String? reason;
+
+  final DateTime? checkedAt;
 }
 
 /// What each source did last time, so the next search does not repeat the wait.
@@ -55,13 +83,20 @@ enum SourceHealth {
 class SourceHealthStore {
   SourceHealthStore({this.remote});
 
-  /// The server's verdicts: `{checkedAt, sources: {id: {ok}}}`. Null where
-  /// there is no server to ask, which is every test.
+  /// The server's verdicts: `{checkedAt, sources: {id: {ok}}, extCheckedAt,
+  /// extensions: {id: {state, cf, reason}}}`. Null where there is no server
+  /// to ask, which is every test.
   final Future<Map<String, dynamic>> Function()? remote;
 
   static const String _key = 'search_source_health';
   static const String _remoteKey = 'search_source_health_remote';
   static const String _playsKey = 'search_source_plays';
+  static const String _hideDownKey = 'search_source_health_hide_down';
+
+  /// Ticks whenever the server's verdicts or the hide preference change, so a
+  /// list showing badges can rebuild. Static for the same reason as [_cache].
+  static final ValueNotifier<int> _changes = ValueNotifier(0);
+  ValueListenable<int> get changes => _changes;
 
   /// How many plays it takes before a source counts as proven, and the point
   /// past which more of them mean nothing.
@@ -197,7 +232,11 @@ class SourceHealthStore {
 
   /// The remembered health of one source, or [SourceHealth.ok] when there is
   /// nothing to remember.
-  SourceHealth statusOf(String id) => _local(id) ?? _remote(id);
+  ///
+  /// [key] is the id the server knows the source by, when it differs from the
+  /// app's — see `ProviderEntity.healthKey`. Local marks stay keyed by [id].
+  SourceHealth statusOf(String id, {String? key}) =>
+      _local(id) ?? _remote(key ?? id);
 
   /// This device's own fresh mark, or null when there is none.
   SourceHealth? _local(String id) {
@@ -215,21 +254,109 @@ class SourceHealthStore {
     };
   }
 
-  /// What the server last said, or [SourceHealth.ok] when it said nothing
-  /// about this source or said it too long ago.
-  SourceHealth _remote(String id) {
+  /// What the server last said, as an ordering band. A Cloudflare wall is
+  /// ranked with slow sources rather than broken ones: it costs the phone a
+  /// challenge, not a timeout, so it keeps its full budget.
+  SourceHealth _remote(String key) => switch (remoteVerdictOf(key)?.state) {
+    RemoteHealth.dead => SourceHealth.broken,
+    RemoteHealth.cloudflare || RemoteHealth.slow => SourceHealth.slow,
+    null => SourceHealth.ok,
+  };
+
+  static bool _fresh(Object? at) =>
+      at is int &&
+      DateTime.now().millisecondsSinceEpoch - at <= remoteTtl.inMilliseconds;
+
+  /// The server's verdict on [key], or null when it has nothing to say or
+  /// said it too long ago.
+  RemoteVerdict? remoteVerdictOf(String key) {
     final raw = _box?.get(_remoteKey);
-    if (raw is! Map) return SourceHealth.ok;
+    if (raw is! Map) return null;
     final checkedAt = raw['checkedAt'];
-    if (checkedAt is! int ||
-        DateTime.now().millisecondsSinceEpoch - checkedAt >
-            remoteTtl.inMilliseconds) {
-      return SourceHealth.ok;
-    }
     final down = raw['down'];
-    return down is List && down.contains(id)
-        ? SourceHealth.broken
-        : SourceHealth.ok;
+    if (_fresh(checkedAt) && down is List && down.contains(key)) {
+      return RemoteVerdict(
+        state: RemoteHealth.dead,
+        checkedAt: DateTime.fromMillisecondsSinceEpoch(checkedAt as int),
+      );
+    }
+    final extAt = raw['extCheckedAt'];
+    final ext = raw['ext'];
+    if (!_fresh(extAt) || ext is! Map) return null;
+    final row = ext[key];
+    if (row is! Map) return null;
+    final state = _parseState(row['s']);
+    if (state == null) return null;
+    final reason = row['r'];
+    return RemoteVerdict(
+      state: state,
+      reason: reason is String ? reason : null,
+      checkedAt: DateTime.fromMillisecondsSinceEpoch(extAt as int),
+    );
+  }
+
+  static RemoteHealth? _parseState(Object? s) => switch (s) {
+    'dead' => RemoteHealth.dead,
+    'cloudflare' => RemoteHealth.cloudflare,
+    'slow' => RemoteHealth.slow,
+    _ => null,
+  };
+
+  /// The verdict worth putting on a row: dead or Cloudflare, never slow.
+  ///
+  /// A dead verdict is dropped once this device has had a fresh answer from
+  /// the source, for the reason [statusOf] prefers the device: the badge
+  /// would otherwise call a source down that just worked.
+  RemoteVerdict? badgeOf(String id, {String? key}) {
+    final v = remoteVerdictOf(key ?? id);
+    if (v == null || v.state == RemoteHealth.slow) return null;
+    if (v.state == RemoteHealth.dead) {
+      final local = _local(id);
+      if (local != null && local != SourceHealth.broken) return null;
+    }
+    return v;
+  }
+
+  bool isDown(String id, {String? key}) =>
+      badgeOf(id, key: key)?.state == RemoteHealth.dead;
+
+  /// Down sources moved to the end, or left out when [hide] is set. Stable,
+  /// so the order the list arrived in survives within each half. [keep] names
+  /// rows that are never hidden — the source in use has to stay findable.
+  List<T> sinkDown<T>(
+    List<T> rows,
+    String Function(T) idOf, {
+    String Function(T)? keyOf,
+    bool hide = false,
+    bool Function(T)? keep,
+  }) {
+    final up = <T>[];
+    final down = <T>[];
+    for (final r in rows) {
+      (isDown(idOf(r), key: keyOf?.call(r)) ? down : up).add(r);
+    }
+    if (down.isEmpty) return rows;
+    return [
+      ...up,
+      for (final r in down)
+        if (!hide || (keep?.call(r) ?? false)) r,
+    ];
+  }
+
+  /// Whether lists should leave down sources out. Search still asks them.
+  bool get hideDown {
+    try {
+      return _box?.get(_hideDownKey) == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> setHideDown(bool value) async {
+    try {
+      await _box?.put(_hideDownKey, value);
+    } catch (_) {}
+    _changes.value++;
   }
 
   /// Pulls the server's verdicts if it has been [remoteRefreshEvery] since
@@ -241,7 +368,11 @@ class SourceHealthStore {
     if (fetch == null || box == null) return;
     final raw = box.get(_remoteKey);
     final fetchedAt = raw is Map ? raw['fetchedAt'] : null;
-    if (fetchedAt is int &&
+    // A record from before extension verdicts existed is refetched at once
+    // rather than waiting out the window with nothing to show.
+    final hasExt = raw is Map && raw.containsKey('extCheckedAt');
+    if (hasExt &&
+        fetchedAt is int &&
         DateTime.now().millisecondsSinceEpoch - fetchedAt <
             remoteRefreshEvery.inMilliseconds) {
       return;
@@ -250,6 +381,8 @@ class SourceHealthStore {
       final report = await fetch();
       final sources = report['sources'];
       final checkedAt = DateTime.tryParse('${report['checkedAt']}');
+      final extCheckedAt = DateTime.tryParse('${report['extCheckedAt']}');
+      final extensions = report['extensions'];
       await box.put(_remoteKey, {
         'fetchedAt': DateTime.now().millisecondsSinceEpoch,
         // The report's own date, not the fetch's: a fetch that brings back
@@ -260,7 +393,18 @@ class SourceHealthStore {
             for (final e in sources.entries)
               if (e.value is Map && e.value['ok'] == false) e.key.toString(),
         ],
+        'extCheckedAt': extCheckedAt?.millisecondsSinceEpoch,
+        'ext': {
+          if (extensions is Map)
+            for (final e in extensions.entries)
+              if (e.value is Map && _parseState(e.value['state']) != null)
+                e.key.toString(): {
+                  's': e.value['state'],
+                  if (e.value['reason'] is String) 'r': e.value['reason'],
+                },
+        },
       });
+      _changes.value++;
     } catch (_) {
       // Whatever the server said last time stands until it answers again.
     }
@@ -294,8 +438,7 @@ class SourceHealthStore {
     // So a penalised failure leaves the existing record exactly as it is. It
     // still counts as broken; it simply does not get to renew its own
     // sentence, and the TTL can run out and give the source a real chance.
-    final penalised =
-        honestBudget != null && budget < honestBudget;
+    final penalised = honestBudget != null && budget < honestBudget;
     if (!succeeded && penalised && map[id] is Map) return;
 
     final state = !succeeded
@@ -321,8 +464,15 @@ class SourceHealthStore {
   /// penalty budget and confirmed the failure it inherited; the diagnostic
   /// then reported a source as dead because it had been given four seconds to
   /// do forty-five seconds of work.
-  Duration budgetFor(String id, Duration base, {bool deliberate = false}) =>
-      !deliberate && statusOf(id) == SourceHealth.broken && base > brokenBudget
+  Duration budgetFor(
+    String id,
+    Duration base, {
+    bool deliberate = false,
+    String? key,
+  }) =>
+      !deliberate &&
+          statusOf(id, key: key) == SourceHealth.broken &&
+          base > brokenBudget
       ? brokenBudget
       : base;
 
@@ -330,7 +480,11 @@ class SourceHealthStore {
   ///
   /// Stable because the order the user arranged their sources in is meaningful
   /// to them, and within one health band there is no reason to disturb it.
-  List<T> order<T>(List<T> refs, String Function(T) idOf) {
+  List<T> order<T>(
+    List<T> refs,
+    String Function(T) idOf, {
+    String Function(T)? keyOf,
+  }) {
     if (refs.length < 2) return refs;
     int rank(SourceHealth h) => switch (h) {
       SourceHealth.ok => 0,
@@ -342,7 +496,7 @@ class SourceHealthStore {
         (
           index: i,
           ref: refs[i],
-          rank: rank(statusOf(idOf(refs[i]))),
+          rank: rank(statusOf(idOf(refs[i]), key: keyOf?.call(refs[i]))),
           plays: playsOf(idOf(refs[i])),
         ),
     ];
@@ -376,5 +530,6 @@ class SourceHealthStore {
       await _box?.delete(_remoteKey);
       await _box?.delete(_playsKey);
     } catch (_) {}
+    _changes.value++;
   }
 }

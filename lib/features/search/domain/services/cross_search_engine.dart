@@ -121,7 +121,11 @@ class CrossSearchEngine implements SearchFanOut {
   List<ProviderRef> planLegs(List<ProviderRef> set, {int limit = maxLegs}) {
     if (set.length <= limit) return set;
     return health
-        .order(List<ProviderRef>.of(set), (r) => r.id)
+        .order(
+          List<ProviderRef>.of(set),
+          (r) => r.id,
+          keyOf: (r) => r.healthKey,
+        )
         .take(limit)
         .toList();
   }
@@ -137,7 +141,11 @@ class CrossSearchEngine implements SearchFanOut {
     // Healthiest first. With a bounded pool, the order is the whole game: a
     // dead source at the head of the queue occupies a worker for its full
     // budget while results that were ready in 400ms wait behind it.
-    final tasks = health.order(List<ProviderRef>.of(set), (r) => r.id);
+    final tasks = health.order(
+      List<ProviderRef>.of(set),
+      (r) => r.id,
+      keyOf: (r) => r.healthKey,
+    );
     // For the next run, not this one — see [SourceHealthStore.refreshRemote].
     unawaited(health.refreshRemote());
     final controller = StreamController<ProviderSearchResult>();
@@ -189,11 +197,18 @@ class CrossSearchEngine implements SearchFanOut {
     // shape of "search only works on one source".
     final onDevice =
         ref.kind == ProviderKind.channel || ref.kind == ProviderKind.js;
-    final full = onDevice && timeout < channelTimeout ? channelTimeout : timeout;
+    final full = onDevice && timeout < channelTimeout
+        ? channelTimeout
+        : timeout;
     // A source that broke last time is still asked, on a shorter leash. Enough
     // for a recovered source to prove it; not enough to hold up the batch.
     // Never for a run the user asked for by name.
-    final effective = health.budgetFor(ref.id, full, deliberate: deliberate);
+    final effective = health.budgetFor(
+      ref.id,
+      full,
+      deliberate: deliberate,
+      key: ref.healthKey,
+    );
     final started = DateTime.now();
     Future<void> mark(bool succeeded) => health.record(
       ref.id,

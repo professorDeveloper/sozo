@@ -19,6 +19,7 @@ import 'package:soplay/features/home/domain/entities/home_data_entity.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/home/presentation/widgets/view_all_widgets.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
+import 'package:soplay/features/search/data/source_health_store.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
@@ -28,6 +29,7 @@ import 'package:soplay/features/jellyfin/presentation/pages/jellyfin_servers_pag
 import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
 import 'package:soplay/features/sources/domain/source_scope.dart';
+import 'package:soplay/features/sources/presentation/widgets/source_health_badge.dart';
 import 'package:soplay/features/sources/presentation/widgets/source_scope_menu.dart';
 import 'package:soplay/features/sources/domain/source_failure.dart';
 import 'package:soplay/features/sources/domain/source_index.dart';
@@ -99,6 +101,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     // animation would re-sort three tabs' worth of sources on every frame of
     // it, which is the cost this page was already paying before.
     _tabs.addListener(_onTabMoved);
+    unawaited(sourceHealth().refreshRemote());
   }
 
   void _onTabMoved() {
@@ -566,6 +569,13 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// Tabs and search stay available while optional filters contract on scroll.
   /// The header takes only its measured height; the list owns all remaining space.
   Widget _hub() {
+    return ValueListenableBuilder<int>(
+      valueListenable: sourceHealth().changes,
+      builder: (context, _, _) => _hubBody(),
+    );
+  }
+
+  Widget _hubBody() {
     return BlocBuilder<ProviderBloc, ProviderState>(
       builder: (context, state) {
         if (state is ProviderError) {
@@ -581,8 +591,14 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         }
         final mode = ContentMode.values[_tabs.index];
         final needle = _query;
-        final counts = _tabFor(state, mode, needle).counts;
+        final tab = _tabFor(state, mode, needle);
+        final counts = tab.counts;
         final scope = _liveScope(counts);
+        final health = sourceHealth();
+        final downCount = [
+          ...tab.matched,
+          ...tab.unstated,
+        ].where((p) => health.isDown(p.id, key: p.healthKey)).length;
 
         return LayoutBuilder(
           builder: (context, constraints) {
@@ -633,7 +649,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                         maxHeight: constraints.maxHeight * .45,
                       ),
                       child: SingleChildScrollView(
-                        child: _filterHeader(counts, scope),
+                        child: _filterHeader(counts, scope, downCount),
                       ),
                     ),
                     body: TabBarView(
@@ -655,7 +671,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
 
   /// The filters under the search field: what floats away on scroll, and
   /// what the tune button folds.
-  Widget _filterHeader(SourceScopeCounts counts, SourceScope scope) {
+  Widget _filterHeader(
+    SourceScopeCounts counts,
+    SourceScope scope,
+    int downCount,
+  ) {
+    final health = sourceHealth();
     return AnimatedSize(
       duration: MediaQuery.disableAnimationsOf(context)
           ? Duration.zero
@@ -685,6 +706,18 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                   scope: scope,
                   onPick: (picked) => setState(() => _scope = picked),
                 ),
+                if (downCount > 0 || health.hideDown)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: HideDownChip(
+                        count: downCount,
+                        hidden: health.hideDown,
+                        onChanged: health.setHideDown,
+                      ),
+                    ),
+                  ),
               ],
             ),
     );
@@ -786,8 +819,18 @@ class _SourcesHubPageState extends State<SourcesHubPage>
             for (final p in rows)
               if (scope.matches(p)) p,
           ];
-    final matched = narrow(tab.matched);
-    final unstated = narrow(tab.unstated);
+    // Down sources sink rather than vanish unless the user asked: a sweep
+    // from a datacenter is not the last word on what works from a phone.
+    final health = sourceHealth();
+    List<ProviderEntity> arrange(List<ProviderEntity> rows) => health.sinkDown(
+      rows,
+      (p) => p.id,
+      keyOf: (p) => p.healthKey,
+      hide: health.hideDown,
+      keep: (p) => p.id == state.currentProviderId,
+    );
+    final matched = arrange(narrow(tab.matched));
+    final unstated = arrange(narrow(tab.unstated));
 
     if (matched.isEmpty && unstated.isEmpty) {
       return Column(
@@ -880,6 +923,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
               ? _currentRows[mode]
               : null,
           source: rows[i],
+          health: sourceHealth().badgeOf(rows[i].id, key: rows[i].healthKey),
           current: rows[i].id == state.currentProviderId,
           onTap: () => _use(rows[i]),
           onBrowse: () => setState(() => _open = rows[i]),
@@ -896,9 +940,11 @@ class _SourceTile extends StatelessWidget {
     required this.onTap,
     required this.onBrowse,
     this.current = false,
+    this.health,
   });
 
   final ProviderEntity source;
+  final RemoteVerdict? health;
 
   /// Whether this is the currently selected source.
   final bool current;
@@ -934,7 +980,10 @@ class _SourceTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _SourceMark(url: source.image, size: 40),
+            Opacity(
+              opacity: health?.state == RemoteHealth.dead ? 0.45 : 1,
+              child: _SourceMark(url: source.image, size: 40),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -959,6 +1008,13 @@ class _SourceTile extends StatelessWidget {
                           Icons.check_rounded,
                           size: 16,
                           color: AppColors.primary,
+                        ),
+                      ],
+                      if (health != null) ...[
+                        const SizedBox(width: 6),
+                        SourceHealthBadge(
+                          verdict: health!,
+                          sourceName: source.name,
                         ),
                       ],
                     ],

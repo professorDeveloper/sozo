@@ -211,6 +211,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             category: 'cloudstream',
             lang: (m['lang'] as String?)?.trim() ?? '',
             nsfw: m['nsfw'] == true,
+            internalName: (m['internalName'] as String?)?.trim() ?? '',
           ),
         );
       }

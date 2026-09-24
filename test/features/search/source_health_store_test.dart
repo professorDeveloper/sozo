@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/features/profile/data/models/provider_model.dart';
+import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/search/data/source_health_store.dart';
+import 'package:soplay/features/search/domain/entities/cross_search_result.dart';
 
 /// A source, reduced to the only thing the store cares about.
 typedef _Src = ({String id});
@@ -394,6 +397,232 @@ void main() {
       final store = SourceHealthStore();
       expect(store.budgetFor('fresh', base), base);
       expect(store.budgetFor('fresh', base, deliberate: true), base);
+    });
+  });
+
+  group('extension verdicts', () {
+    Map<String, dynamic> report({
+      DateTime? extCheckedAt,
+      Map<String, Map<String, dynamic>> extensions = const {},
+    }) => {
+      'checkedAt': DateTime.now().toIso8601String(),
+      'sources': const <String, dynamic>{},
+      'extCheckedAt': (extCheckedAt ?? DateTime.now()).toIso8601String(),
+      'extensions': extensions,
+    };
+
+    Future<SourceHealthStore> storeWith(
+      Map<String, Map<String, dynamic>> extensions, {
+      DateTime? extCheckedAt,
+    }) async {
+      final s = SourceHealthStore(
+        remote: () async =>
+            report(extensions: extensions, extCheckedAt: extCheckedAt),
+      );
+      await s.refreshRemote();
+      return s;
+    }
+
+    test('a dead extension goes last, on the short leash', () async {
+      final s = await storeWith({
+        'mn:1': {'state': 'dead', 'cf': false, 'reason': 'dns'},
+      });
+      const set = <_Src>[(id: 'mn:1'), (id: 'mn:2')];
+      expect(s.order(set, (r) => r.id).map((r) => r.id), ['mn:2', 'mn:1']);
+      expect(s.budgetFor('mn:1', base), SourceHealthStore.brokenBudget);
+      final v = s.badgeOf('mn:1')!;
+      expect(v.state, RemoteHealth.dead);
+      expect(v.reason, 'dns');
+      expect(v.checkedAt, isNotNull);
+    });
+
+    test('a Cloudflare wall sits between healthy and dead, with its full '
+        'budget', () async {
+      final s = await storeWith({
+        'an:dead': {'state': 'dead', 'reason': 'parked'},
+        'an:cf': {'state': 'cloudflare', 'cf': true, 'reason': 'blocked'},
+      });
+      const set = <_Src>[(id: 'an:dead'), (id: 'an:cf'), (id: 'an:ok')];
+      expect(s.order(set, (r) => r.id).map((r) => r.id), [
+        'an:ok',
+        'an:cf',
+        'an:dead',
+      ]);
+      expect(s.budgetFor('an:cf', base), base);
+      expect(s.badgeOf('an:cf')!.state, RemoteHealth.cloudflare);
+      expect(s.isDown('an:cf'), isFalse);
+    });
+
+    test('slow is used for ordering but never badged', () async {
+      final s = await storeWith({
+        'my:s': {'state': 'slow', 'reason': 'slow_response'},
+      });
+      expect(s.statusOf('my:s'), SourceHealth.slow);
+      expect(s.remoteVerdictOf('my:s')!.state, RemoteHealth.slow);
+      expect(s.badgeOf('my:s'), isNull);
+    });
+
+    test('CloudStream verdicts are found through the plugin key', () async {
+      final s = await storeWith({
+        'csp:FooProvider': {'state': 'dead', 'reason': 'maintainer_down'},
+      });
+      expect(s.statusOf('cs:Foo'), SourceHealth.ok);
+      expect(s.statusOf('cs:Foo', key: 'csp:FooProvider'), SourceHealth.broken);
+      expect(
+        s.badgeOf('cs:Foo', key: 'csp:FooProvider')?.reason,
+        'maintainer_down',
+      );
+      const set = <_Src>[(id: 'cs:Foo'), (id: 'cs:Bar')];
+      expect(
+        s
+            .order(
+              set,
+              (r) => r.id,
+              keyOf: (r) => r.id == 'cs:Foo' ? 'csp:FooProvider' : r.id,
+            )
+            .map((r) => r.id),
+        ['cs:Bar', 'cs:Foo'],
+      );
+    });
+
+    test('a sweep older than the window says nothing', () async {
+      final s = await storeWith(
+        {
+          'mn:1': {'state': 'dead'},
+        },
+        extCheckedAt: DateTime.now().subtract(
+          SourceHealthStore.remoteTtl + const Duration(hours: 1),
+        ),
+      );
+      expect(s.statusOf('mn:1'), SourceHealth.ok);
+      expect(s.badgeOf('mn:1'), isNull);
+    });
+
+    test('unknown states are ignored rather than trusted', () async {
+      final s = await storeWith({
+        'mn:1': {'state': 'exploded'},
+        'mn:2': {'state': 'ok'},
+      });
+      expect(s.remoteVerdictOf('mn:1'), isNull);
+      expect(s.remoteVerdictOf('mn:2'), isNull);
+    });
+
+    test('a record saved before extension verdicts existed is refetched at '
+        'once', () async {
+      final box = Hive.box(AppConstants.settingsBox);
+      await box.put('search_source_health_remote', {
+        'fetchedAt': DateTime.now().millisecondsSinceEpoch,
+        'checkedAt': DateTime.now().millisecondsSinceEpoch,
+        'down': <String>[],
+      });
+      var calls = 0;
+      final s = SourceHealthStore(
+        remote: () async {
+          calls++;
+          return report(
+            extensions: {
+              'mn:1': {'state': 'dead'},
+            },
+          );
+        },
+      );
+      await s.refreshRemote();
+      await s.refreshRemote();
+      expect(calls, 1);
+      expect(s.isDown('mn:1'), isTrue);
+    });
+
+    test('a fresh success on this device clears the Down badge', () async {
+      final s = await storeWith({
+        'mn:1': {'state': 'dead', 'reason': 'timeout'},
+      });
+      expect(s.isDown('mn:1'), isTrue);
+      await s.record(
+        'mn:1',
+        succeeded: true,
+        elapsed: const Duration(milliseconds: 300),
+        budget: base,
+      );
+      expect(s.badgeOf('mn:1'), isNull);
+      expect(s.statusOf('mn:1'), SourceHealth.ok);
+    });
+
+    test('down rows sink stably, hide on request, and the kept one '
+        'stays', () async {
+      final s = await storeWith({
+        'a': {'state': 'dead'},
+        'c': {'state': 'dead'},
+        'b': {'state': 'cloudflare'},
+      });
+      const rows = ['a', 'b', 'c', 'd'];
+      expect(s.sinkDown(rows, (r) => r), ['b', 'd', 'a', 'c']);
+      expect(s.sinkDown(rows, (r) => r, hide: true), ['b', 'd']);
+      expect(s.sinkDown(rows, (r) => r, hide: true, keep: (r) => r == 'c'), [
+        'b',
+        'd',
+        'c',
+      ]);
+      const clean = ['b', 'd'];
+      expect(identical(s.sinkDown(clean, (r) => r), clean), isTrue);
+    });
+
+    test('the hide preference persists and announces itself', () async {
+      final s = SourceHealthStore();
+      var ticks = 0;
+      void listener() => ticks++;
+      s.changes.addListener(listener);
+      addTearDown(() => s.changes.removeListener(listener));
+      expect(s.hideDown, isFalse);
+      await s.setHideDown(true);
+      expect(SourceHealthStore().hideDown, isTrue);
+      await s.setHideDown(false);
+      expect(s.hideDown, isFalse);
+      expect(ticks, 2);
+    });
+  });
+
+  group('health keys', () {
+    ProviderEntity entity(String id, {String internalName = ''}) =>
+        ProviderEntity(
+          id: id,
+          name: id,
+          image: '',
+          url: '',
+          description: '',
+          domains: const [],
+          internalName: internalName,
+        );
+
+    test('CloudStream maps to its plugin, everything else to itself', () {
+      expect(
+        entity('cs:Foo', internalName: 'FooProvider').healthKey,
+        'csp:FooProvider',
+      );
+      expect(entity('cs:Foo').healthKey, 'cs:Foo');
+      expect(entity('mn:123', internalName: 'x').healthKey, 'mn:123');
+      expect(entity('hdrezka').healthKey, 'hdrezka');
+    });
+
+    test('the key travels into cross-search refs and through json', () {
+      final ref = ProviderRef.fromEntity(
+        entity('cs:Foo', internalName: 'FooProvider'),
+      );
+      expect(ref.healthKey, 'csp:FooProvider');
+      expect(
+        const ProviderRef(
+          id: 'x',
+          name: 'x',
+          kind: ProviderKind.server,
+        ).healthKey,
+        'x',
+      );
+      final model = ProviderModel.fromJson({
+        'id': 'cs:Foo',
+        'name': 'Foo',
+        'internalName': 'FooProvider',
+      });
+      expect(model.healthKey, 'csp:FooProvider');
+      expect(model.toJson()['internalName'], 'FooProvider');
     });
   });
 }

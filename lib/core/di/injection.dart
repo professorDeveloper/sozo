@@ -636,15 +636,16 @@ Future<void> configureDependencies() async {
       dataSource: getIt<SearchDataSource>(),
     ),
   );
+  getIt.registerLazySingleton<SourceHealthStore>(
+    () => SourceHealthStore(remote: getIt<SearchDataSource>().providerHealth),
+  );
   getIt.registerLazySingleton<CrossSearchEngine>(
     () => CrossSearchEngine(
       jsRuntime: getIt<JsRuntimeService>(),
       dataSource: getIt<SearchDataSource>(),
       mangayomi: getIt<MangayomiBridge>(),
       jellyfin: getIt<JellyfinBridge>(),
-      health: SourceHealthStore(
-        remote: getIt<SearchDataSource>().providerHealth,
-      ),
+      health: getIt<SourceHealthStore>(),
     ),
   );
   getIt.registerSingleton<WebViewStreamExtractor>(WebViewStreamExtractor());

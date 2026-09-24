@@ -309,6 +309,8 @@ class PluginHost(private val appContext: Context) {
             arr.put(JSONObject().apply {
                 put("id", "cs:${m.provider}")
                 put("name", m.provider)
+                // The server keys CloudStream health by plugin, not by MainAPI name.
+                put("internalName", m.internalName)
                 // The other three hosts have always sent this; CloudStream was
                 // the one that did not, so its providers arrived in the picker
                 // with no language at all and could not be filtered.
