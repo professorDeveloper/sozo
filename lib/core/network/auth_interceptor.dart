@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -55,7 +57,9 @@ class AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     final request = err.requestOptions;
-    final isRefreshCall = request.path.contains('/auth/refresh');
+    final isRefreshCall =
+        request.path.contains('/auth/refresh') ||
+        request.path.contains('/auth/device/refresh');
     final alreadyRetried = request.extra[_retriedKey] == true;
     final isSkipped = request.extra[_skipKey] == true;
 
@@ -131,7 +135,9 @@ class AuthInterceptor extends Interceptor {
   ) async {
     try {
       final response = await dio.post(
-        '/auth/refresh',
+        isDeviceRefreshToken(refreshToken)
+            ? '/auth/device/refresh'
+            : '/auth/refresh',
         data: {'refreshToken': refreshToken},
         options: Options(extra: const {_skipKey: true}),
       );
@@ -162,5 +168,20 @@ class AuthInterceptor extends Interceptor {
   Future<void> _expireSession() async {
     await hiveService.clearAuth();
     onSessionExpired?.call();
+  }
+}
+
+/// Whether [token] is a paired TV's refresh token, which carries a `sid` and
+/// is only accepted by `/auth/device/refresh`.
+bool isDeviceRefreshToken(String token) {
+  final parts = token.split('.');
+  if (parts.length != 3) return false;
+  try {
+    final payload = jsonDecode(
+      utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+    );
+    return payload is Map && payload['sid'] is String;
+  } catch (_) {
+    return false;
   }
 }

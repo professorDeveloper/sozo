@@ -138,6 +138,9 @@ class _TvFocusableState extends State<TvFocusable> {
     // activations while the long-press timer is still running.
     if (event is KeyRepeatEvent) return KeyEventResult.handled;
     if (event is KeyUpEvent) {
+      // Without a long press the down already fired; firing again here made
+      // every toggle switch on and straight back off.
+      if (widget.onLongPressed == null) return KeyEventResult.handled;
       _longPressTimer?.cancel();
       _longPressTimer = null;
       if (!_longPressFired) widget.onPressed?.call();

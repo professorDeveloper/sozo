@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:soplay/features/onboarding/data/genre_catalog.dart';
 import 'package:soplay/features/onboarding/data/picked_for_you.dart';
+import 'package:soplay/features/onboarding/data/tv_pairing_service.dart';
 
 import 'package:soplay/features/watch_services/data/datasources/watch_services_data_source.dart';
 import 'package:soplay/features/watch_services/data/repositories/watch_services_repository_imp.dart';
@@ -640,6 +641,9 @@ Future<void> configureDependencies() async {
       fetch: (catalogue) =>
           getIt<SearchDataSource>().getCatalogueGenres(catalogue),
     ),
+  );
+  getIt.registerLazySingleton<TvPairingService>(
+    () => TvPairingService(dio: getIt<Dio>(), hive: getIt<HiveService>()),
   );
   getIt.registerSingleton<SearchRepository>(
     SearchRepositoryImp(
