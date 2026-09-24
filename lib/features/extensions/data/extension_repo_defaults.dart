@@ -156,9 +156,10 @@ class ExtensionRepoDefaults {
     // downstream — search, home, detail, chapters, the reader, downloads, EPUB
     // export — can tell the two apart.
     //
-    // 284 plugins; about 200 of the sites answer, and 115 read end to end
-    // (list, detail, chapter) through the adapter from a plain client — more
-    // in the app, which solves Cloudflare. Checked 2026-09-24.
+    // 284 plugins. 140 read end to end (list, search, detail, chapter)
+    // through the adapter from a plain client, 24 of them only with the fixed
+    // builds the app carries (LnReaderPatches); about 30 more sit behind a
+    // Cloudflare challenge the app solves. Checked 2026-09-24.
     ExtensionRepoEntity(
       kind: ExtensionRepoKind.mangayomi,
       name: 'LNReader',
