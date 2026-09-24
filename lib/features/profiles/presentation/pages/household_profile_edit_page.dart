@@ -40,7 +40,10 @@ class _HouseholdProfileEditPageState extends State<HouseholdProfileEditPage> {
   late String? _avatar =
       _original?.avatar ?? (_original == null ? _nextAvatar() : null);
   late String? _color =
-      _original?.color ?? (_original == null ? _nextColor() : null);
+      _original?.color ??
+      (_original == null
+          ? ProfileAvatars.imageColors[_avatar] ?? _nextColor()
+          : null);
   late bool _kids = _original?.isKids ?? false;
   _PinEdit _pinEdit = _PinEdit.keep;
   String? _newPin;
@@ -307,14 +310,20 @@ class _HouseholdProfileEditPageState extends State<HouseholdProfileEditPage> {
           selected: _avatar,
           color: _color,
           name: _name.text,
-          onSelected: (id) => setState(() => _avatar = id),
+          onSelected: (id) => setState(() {
+            _avatar = id;
+            _color = ProfileAvatars.imageColors[id] ?? _color;
+          }),
         ),
-        const SizedBox(height: 20),
-        SettingsLabel('profiles.color'.tr()),
-        _ColorRow(
-          selected: _color,
-          onSelected: (c) => setState(() => _color = c),
-        ),
+        // An illustrated avatar brings its own colour.
+        if (ProfileAvatars.imageFor(_avatar) == null) ...[
+          const SizedBox(height: 20),
+          SettingsLabel('profiles.color'.tr()),
+          _ColorRow(
+            selected: _color,
+            onSelected: (c) => setState(() => _color = c),
+          ),
+        ],
         const SizedBox(height: 24),
         SettingsCard(
           children: [
