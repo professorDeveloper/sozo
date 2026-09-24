@@ -1,17 +1,25 @@
-import 'dart:convert';
-import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
+import 'package:soplay/features/notifications/data/notification_actions.dart';
+import 'package:soplay/features/notifications/data/notification_payload.dart';
+import 'package:soplay/features/notifications/data/notification_prefs.dart';
+import 'package:soplay/features/notifications/data/priming_cooldown.dart';
+import 'package:soplay/features/notifications/data/release_notifier.dart';
 import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:soplay/features/social/data/social_service.dart';
 
@@ -19,6 +27,20 @@ typedef NotificationTapHandler = void Function(Map<String, dynamic> data);
 
 class NotificationService {
   final NotificationsRepository repository;
+
+  NotificationService({
+    required this.repository,
+    NotificationPrefsStore? prefs,
+    PrimingCooldown? cooldown,
+  }) : _prefs = prefs,
+       _cooldown = cooldown;
+
+  NotificationPrefsStore? _prefs;
+  PrimingCooldown? _cooldown;
+
+  NotificationPrefsStore get prefsStore => _prefs ??= NotificationPrefsStore();
+  PrimingCooldown get cooldown => _cooldown ??= PrimingCooldown();
+  NotificationPrefs get prefs => prefsStore.read();
 
   NotificationTapHandler? _onTap;
 
@@ -39,6 +61,13 @@ class NotificationService {
     }
   }
 
+  /// A release push that reached the running app, for the feed and the
+  /// follow counts. Set by ReleaseWatch.
+  Future<void> Function(ReleaseAlert alert, {String? profileId})? onReleasePush;
+
+  /// "Mark seen" pressed on a release while the app is running.
+  void Function(Map<String, dynamic> data)? onSeenAction;
+
   /// Route a tap immediately if a handler is wired, otherwise buffer it until
   /// one is assigned. Never drops the tap.
   void _dispatchTap(Map<String, dynamic> data) {
@@ -53,6 +82,7 @@ class NotificationService {
   bool _initialized = false;
   String? _registeredToken;
   String? _registeredLanguage;
+  String? _registeredProfile;
   StreamSubscription<RemoteMessage>? _foregroundSub;
   StreamSubscription<RemoteMessage>? _openedSub;
   StreamSubscription<String>? _tokenRefreshSub;
@@ -60,16 +90,49 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _local =
       FlutterLocalNotificationsPlugin();
 
-  static const _channel = AndroidNotificationChannel(
-    'soplay_default',
-    'SoPlay bildirishnomalari',
-    description: 'Asosiy bildirishnomalar kanali',
-    importance: Importance.high,
-    playSound: true,
-    enableVibration: true,
-  );
+  late final ReleaseNotifier releases = ReleaseNotifier(_local);
 
-  NotificationService({required this.repository});
+  static const MethodChannel _platform = MethodChannel('soplay/platform');
+
+  /// The words for channels and release notifications in the current
+  /// language. Falls back to English while translations are still loading —
+  /// this runs before the first frame, and a channel named after its
+  /// translation key would be shown to the user in system settings.
+  NotificationLabels labels() {
+    const d = NotificationLabels();
+    String t(String key, String fallback) {
+      try {
+        final v = 'release_notify.$key'.tr();
+        return v.isEmpty || v == 'release_notify.$key' ? fallback : v;
+      } catch (_) {
+        return fallback;
+      }
+    }
+
+    return NotificationLabels(
+      channelGeneral: t('channel_general', d.channelGeneral),
+      channelGeneralDesc: t('channel_general_desc', d.channelGeneralDesc),
+      channelReleases: t('channel_releases', d.channelReleases),
+      channelReleasesDesc: t('channel_releases_desc', d.channelReleasesDesc),
+      channelAiring: t('channel_airing', d.channelAiring),
+      channelAiringDesc: t('channel_airing_desc', d.channelAiringDesc),
+      channelQuiet: t('channel_quiet', d.channelQuiet),
+      channelQuietDesc: t('channel_quiet_desc', d.channelQuietDesc),
+      episodeOne: t('episode_one', d.episodeOne),
+      episodesMany: t('episodes_many', d.episodesMany),
+      chapterOne: t('chapter_one', d.chapterOne),
+      chaptersMany: t('chapters_many', d.chaptersMany),
+      actionWatch: t('action_watch', d.actionWatch),
+      actionRead: t('action_read', d.actionRead),
+      actionSeen: t('action_seen', d.actionSeen),
+      summaryTitle: t('summary_title', d.summaryTitle),
+      summaryMore: t('summary_more', d.summaryMore),
+      badgeEpisode: t('badge_episode', d.badgeEpisode),
+      badgeChapter: t('badge_chapter', d.badgeChapter),
+      epShort: t('ep_short', d.epShort),
+      chShort: t('ch_short', d.chShort),
+    );
+  }
 
   Future<void> ensureInitialized() async {
     if (_initialized) return;
@@ -88,25 +151,62 @@ class NotificationService {
     tz.setLocalLocation(tz.getLocation(await _deviceTimeZone()));
 
     await _local.initialize(
-      InitializationSettings(
-        android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
-        iOS: const DarwinInitializationSettings(
+      const InitializationSettings(
+        android: AndroidInitializationSettings(ReleaseNotifier.smallIcon),
+        iOS: DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
           requestSoundPermission: false,
         ),
       ),
-      onDidReceiveNotificationResponse: (resp) {
-        final payload = _decodePayload(resp.payload);
-        if (payload != null) _dispatchTap(payload);
-      },
+      onDidReceiveNotificationResponse: _onResponse,
+      onDidReceiveBackgroundNotificationResponse: onBackgroundNotificationAction,
     );
-    final androidImpl = _local
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-    await androidImpl?.createNotificationChannel(_channel);
-    await androidImpl?.createNotificationChannel(_airingChannel);
+    await releases.ensureChannels(labels());
     _initialized = true;
+
+    // A tap on a local notification that started the app — the background
+    // check's releases, airing reminders. FCM's own taps come through
+    // getInitialMessage instead.
+    try {
+      final launch = await _local.getNotificationAppLaunchDetails();
+      final response = launch?.notificationResponse;
+      if (launch?.didNotificationLaunchApp == true && response != null) {
+        _onResponse(response);
+      }
+    } catch (_) {}
+  }
+
+  void _onResponse(NotificationResponse resp) {
+    final payload = decodeNotificationPayload(resp.payload);
+    if (payload == null) return;
+    if (resp.actionId == ReleaseNotifier.actionSeen) {
+      final seen = onSeenAction;
+      if (seen != null) {
+        seen(payload);
+      } else {
+        unawaited(_postSeen(payload));
+      }
+      unawaited(releases.refreshSummary(labels()));
+      return;
+    }
+    _dispatchTap(payload);
+  }
+
+  Future<void> _postSeen(Map<String, dynamic> payload) async {
+    final response = NotificationResponse(
+      notificationResponseType: NotificationResponseType.selectedNotificationAction,
+      actionId: ReleaseNotifier.actionSeen,
+      payload: encodeNotificationPayload(payload),
+    );
+    await onBackgroundNotificationAction(response);
+  }
+
+  /// Renames the channels into the current language. Called once the
+  /// translations have loaded, and after the language changes.
+  Future<void> refreshChannels() async {
+    if (!_initialized || !Platform.isAndroid) return;
+    await releases.ensureChannels(labels());
   }
 
   /// The zone the phone is actually in.
@@ -121,17 +221,91 @@ class NotificationService {
     }
   }
 
-  /// Reminders for episodes about to air.
-  ///
-  /// Its own channel so a person can silence airing reminders without losing
-  /// the notifications that matter to their account.
-  static const AndroidNotificationChannel _airingChannel =
-      AndroidNotificationChannel(
-    'sozo_airing',
-    'Airing reminders',
-    description: 'Fires shortly before an episode you follow goes out',
-    importance: Importance.defaultImportance,
-  );
+  // ─── permission ───────────────────────────────────────────────────────────
+
+  /// Whether the OS lets this app post notifications right now.
+  Future<bool> get permissionGranted async {
+    if (!Platform.isAndroid && !Platform.isIOS) return false;
+    await ensureInitialized();
+    try {
+      if (Platform.isAndroid) {
+        final android = _local
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+        return await android?.areNotificationsEnabled() ?? false;
+      }
+      final ios = _local
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      final options = await ios?.checkPermissions();
+      return options?.isEnabled ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Asks the OS for permission to post notifications. Never called on its
+  /// own — only behind the priming sheet or a switch the user flipped.
+  Future<bool> requestPermission() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return false;
+    await ensureInitialized();
+    if (await permissionGranted) {
+      await cooldown.accepted();
+      return true;
+    }
+    var granted = false;
+    try {
+      if (Platform.isAndroid) {
+        final android = _local
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+        granted = await android?.requestNotificationsPermission() ?? false;
+      } else {
+        final ios = _local
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >();
+        granted =
+            await ios?.requestPermissions(alert: true, badge: true, sound: true) ??
+            false;
+      }
+    } catch (_) {
+      granted = false;
+    }
+    await cooldown.markSystemPromptShown();
+    if (granted) await cooldown.accepted();
+    return granted;
+  }
+
+  /// Denied in a way only system settings can undo: Android stops showing
+  /// its prompt after the second refusal, and says so only by no longer
+  /// wanting to explain itself.
+  Future<bool> get permanentlyDenied async {
+    if (!Platform.isAndroid) return false;
+    if (await permissionGranted) return false;
+    if (!cooldown.systemPromptShown) return false;
+    try {
+      final rationale = await _platform.invokeMethod<bool>('notificationRationale');
+      return rationale != true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// The app's notification page in system settings.
+  Future<bool> openSystemSettings() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      return await _platform.invokeMethod<bool>('openNotificationSettings') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── scheduling ───────────────────────────────────────────────────────────
 
   /// Schedules one reminder. Ids are the caller's, so it can replace its own.
   ///
@@ -149,6 +323,11 @@ class NotificationService {
     if (!Platform.isAndroid && !Platform.isIOS) return;
     // A reminder for a moment that has passed would fire immediately.
     if (!when.isAfter(DateTime.now())) return;
+    final p = prefs;
+    if (!p.allows('airing_reminder')) return;
+    // Scheduled ahead, so quiet hours are judged for the moment it fires.
+    final quiet = p.quiet.contains(when);
+    final l = labels();
 
     await _local.zonedSchedule(
       id,
@@ -157,18 +336,21 @@ class NotificationService {
       tz.TZDateTime.from(when, tz.local),
       NotificationDetails(
         android: AndroidNotificationDetails(
-          _airingChannel.id,
-          _airingChannel.name,
-          channelDescription: _airingChannel.description,
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
+          quiet ? ReleaseNotifier.quietChannel : ReleaseNotifier.airingChannel,
+          quiet ? l.channelQuiet : l.channelAiring,
+          channelDescription: quiet ? l.channelQuietDesc : l.channelAiringDesc,
+          icon: ReleaseNotifier.smallIcon,
+          color: ReleaseNotifier.accent,
+          importance: quiet ? Importance.low : Importance.defaultImportance,
+          priority: quiet ? Priority.low : Priority.defaultPriority,
+          silent: quiet,
         ),
         iOS: const DarwinNotificationDetails(),
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      payload: payload == null ? null : jsonEncode(payload),
+      payload: encodeNotificationPayload(payload),
     );
   }
 
@@ -185,6 +367,8 @@ class NotificationService {
     }
   }
 
+  // ─── push ─────────────────────────────────────────────────────────────────
+
   /// Puts this DEVICE on the push list, account or no account.
   ///
   /// Called once at startup rather than from the login flow. Push used to begin
@@ -192,20 +376,17 @@ class NotificationService {
   /// signed up — everyone else had the app installed and no way to be told
   /// anything.
   ///
-  /// Registration also survives a denied permission prompt: the token is what
-  /// the server addresses, and someone who turns notifications on in system
-  /// settings a week later should not have to be asked again here.
+  /// It no longer asks for permission. The prompt used to be raised on every
+  /// launch before anyone knew what they would be told about; now it is asked
+  /// for once there is a reason — a first follow, onboarding, a settings
+  /// switch — behind the priming sheet. Registration still happens either way:
+  /// someone who turns notifications on in system settings a week later should
+  /// not have to be asked again here.
   Future<void> setup() async {
     // Every platform initialises: the local plugin is what schedules airing
     // reminders, and this is the only startup call that reaches it.
     await ensureInitialized();
     if (!Platform.isAndroid) return;
-
-    await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
 
     final token = await FirebaseMessaging.instance.getToken();
     if (token != null) {
@@ -245,6 +426,7 @@ class NotificationService {
     // and a later sign-in claims the same token.
     _registeredToken = null;
     _registeredLanguage = null;
+    _registeredProfile = null;
     await _registerToken(token);
   }
 
@@ -257,11 +439,13 @@ class NotificationService {
     _tokenRefreshSub = null;
   }
 
-  /// Re-sends the registration after the UI language changed.
+  /// Re-sends the registration after the UI language or the active profile
+  /// changed, and renames the channels.
   ///
   /// Safe to call when nothing is registered yet — the token is only known once
   /// Firebase has handed one over, and until then the next launch does the work.
   Future<void> refreshRegistration() async {
+    unawaited(refreshChannels());
     final token = _registeredToken;
     if (token == null || token.isEmpty) return;
     await _registerToken(token);
@@ -275,11 +459,18 @@ class NotificationService {
   /// learns it: it happens on every launch, which means an account that never
   /// touches its profile still ends up on the right language.
   ///
-  /// The guard keys on the language as well as the token, so switching language
-  /// re-registers instead of being swallowed as a duplicate.
+  /// The guard keys on the language and the household profile as well as the
+  /// token: the server records the profile from `X-Sozo-Profile` on this call,
+  /// so a profile switch has to re-register or pushes keep going to the last
+  /// one.
   Future<void> _registerToken(String token) async {
     final language = getIt<HiveService>().getLanguage();
-    if (_registeredToken == token && _registeredLanguage == language) return;
+    final profile = ProfileScope.remoteId;
+    if (_registeredToken == token &&
+        _registeredLanguage == language &&
+        _registeredProfile == profile) {
+      return;
+    }
     final platform = Platform.isIOS ? 'ios' : 'android';
     final result = await repository.registerFcmToken(
       token: token,
@@ -289,12 +480,18 @@ class NotificationService {
     if (result is Success) {
       _registeredToken = token;
       _registeredLanguage = language;
+      _registeredProfile = profile;
     } else if (kDebugMode) {
       debugPrint('[FCM] register failed');
     }
   }
 
-  /// Show a local notification not tied to FCM (e.g. tracker "new episode").
+  // ─── showing ──────────────────────────────────────────────────────────────
+
+  /// Show a local notification not tied to FCM (e.g. automatic downloads).
+  ///
+  /// Held back entirely when its type is switched off or quiet hours are on:
+  /// what the app raises for itself can always wait for the app to be opened.
   Future<void> showLocalNotification({
     required int id,
     required String title,
@@ -310,72 +507,135 @@ class NotificationService {
     // check: an iPhone user following forty series was told about a new
     // episode exactly never.
     if (!Platform.isAndroid && !Platform.isIOS) return;
+    final p = prefs;
+    if (!p.allows(data?['type']?.toString()) || p.quiet.contains(DateTime.now())) {
+      return;
+    }
     await ensureInitialized();
+    final l = labels();
     await _local.show(
       id,
       title,
       body,
       NotificationDetails(
         android: AndroidNotificationDetails(
-          _channel.id,
-          _channel.name,
-          channelDescription: _channel.description,
+          ReleaseNotifier.generalChannel,
+          l.channelGeneral,
+          channelDescription: l.channelGeneralDesc,
+          icon: ReleaseNotifier.smallIcon,
+          color: ReleaseNotifier.accent,
           importance: Importance.high,
           priority: Priority.high,
         ),
         iOS: const DarwinNotificationDetails(),
       ),
-      payload: (data == null || data.isEmpty) ? null : _encodePayload(data),
+      payload: encodeNotificationPayload(data),
+    );
+  }
+
+  /// A release this device found itself, drawn in the rich style.
+  Future<void> showRelease(ReleaseAlert alert) async {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    final p = prefs;
+    if (!p.allows('new_release') || p.quiet.contains(DateTime.now())) return;
+    await ensureInitialized();
+    try {
+      await releases.showRelease(alert, labels());
+    } catch (e) {
+      if (kDebugMode) debugPrint('[notify] release failed: $e');
+    }
+  }
+
+  /// Takes a title's notification down once it has been opened or marked.
+  Future<void> clearRelease(String provider, String contentUrl) async {
+    if (!_initialized || !Platform.isAndroid) return;
+    try {
+      await releases.cancelFor(provider, contentUrl, labels());
+    } catch (_) {}
+  }
+
+  /// "Send test notification" in settings. Ignores the per-type switches and
+  /// quiet hours on purpose: it is asked for, now.
+  Future<void> showTest({ReleaseAlert? sample}) async {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    await ensureInitialized();
+    final l = labels();
+    if (sample != null) {
+      await releases.showRelease(sample, l);
+      return;
+    }
+    await _local.show(
+      0x7E57,
+      'Sozo',
+      'release_notify.test_body'.tr(),
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          ReleaseNotifier.generalChannel,
+          l.channelGeneral,
+          icon: ReleaseNotifier.smallIcon,
+          color: ReleaseNotifier.accent,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: const DarwinNotificationDetails(),
+      ),
     );
   }
 
   Future<void> _showLocal(RemoteMessage msg) async {
-    final n = msg.notification;
-    if (n == null) return;
     final data = _normalizeData(msg.data);
-    final type = data['type'];
+    final type = data['type']?.toString();
     if ((type == 'friend_request' || type == 'friend_accept') &&
         getIt.isRegistered<SocialService>()) {
       getIt<SocialService>().refreshOverview();
     }
+    final p = prefs;
+    final quiet = p.quiet.contains(DateTime.now());
+
+    if (type == 'new_release') {
+      final alert = ReleaseAlert.fromData(data);
+      if (alert == null) return;
+      final record = onReleasePush;
+      if (record != null) {
+        await record(alert, profileId: data['profileId']?.toString());
+      }
+      if (!p.allows(type)) return;
+      await ensureInitialized();
+      try {
+        await releases.showRelease(alert, labels(), quiet: quiet);
+      } catch (e) {
+        if (kDebugMode) debugPrint('[notify] push release failed: $e');
+      }
+      return;
+    }
+
+    final n = msg.notification;
+    final title = n?.title ?? data['title']?.toString();
+    final body = n?.body ?? data['body']?.toString();
+    if (title == null && body == null) return;
+    if (!p.allows(type)) return;
+    final l = labels();
     await _local.show(
-      n.hashCode,
-      n.title ?? 'SoPlay',
-      n.body ?? '',
+      n?.hashCode ?? msg.messageId.hashCode,
+      title ?? 'Sozo',
+      body ?? '',
       NotificationDetails(
         android: AndroidNotificationDetails(
-          _channel.id,
-          _channel.name,
-          channelDescription: _channel.description,
-          importance: Importance.high,
-          priority: Priority.high,
+          quiet ? ReleaseNotifier.quietChannel : ReleaseNotifier.generalChannel,
+          quiet ? l.channelQuiet : l.channelGeneral,
+          channelDescription: quiet ? l.channelQuietDesc : l.channelGeneralDesc,
+          icon: ReleaseNotifier.smallIcon,
+          color: ReleaseNotifier.accent,
+          importance: quiet ? Importance.low : Importance.high,
+          priority: quiet ? Priority.low : Priority.high,
+          silent: quiet,
         ),
       ),
-      payload: _encodePayload(data),
+      payload: encodeNotificationPayload(data),
     );
   }
 
   Map<String, dynamic> _normalizeData(Map<String, dynamic> data) {
     return data.map((k, v) => MapEntry(k.toString(), v));
-  }
-
-  String? _encodePayload(Map<String, dynamic> data) {
-    if (data.isEmpty) return null;
-    final entries = data.entries
-        .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent('${e.value}')}')
-        .join('&');
-    return entries;
-  }
-
-  Map<String, dynamic>? _decodePayload(String? payload) {
-    if (payload == null || payload.isEmpty) return null;
-    final out = <String, dynamic>{};
-    for (final part in payload.split('&')) {
-      final i = part.indexOf('=');
-      if (i <= 0) continue;
-      out[Uri.decodeComponent(part.substring(0, i))] =
-          Uri.decodeComponent(part.substring(i + 1));
-    }
-    return out;
   }
 }

@@ -7,6 +7,10 @@ import 'package:soplay/features/watch_services/domain/usecase/watch_services_use
 import 'package:soplay/features/watch_services/presentation/bloc/watch_services/watch_services_bloc.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:dio/dio.dart';
+import 'package:soplay/features/tracker/data/follow_sync_remote_data_source.dart';
+import 'package:soplay/features/tracker/data/follow_sync_service.dart';
+import 'package:soplay/features/tracker/data/release_feed_store.dart';
+import 'package:soplay/features/tracker/data/release_watch.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
@@ -842,6 +846,15 @@ Future<void> configureDependencies() async {
       notifications: getIt<NotificationService>(),
     ),
   );
+  getIt.registerSingleton<ReleaseFeedStore>(ReleaseFeedStore());
+  getIt.registerSingleton<FollowSyncService>(
+    FollowSyncService(
+      remote: FollowSyncRemoteDataSource(dio: getIt<Dio>()),
+      follows: getIt<FollowService>(),
+      isSignedIn: () => getIt<HiveService>().isLoggedIn,
+    ),
+  );
+  getIt<FollowService>().sink = getIt<FollowSyncService>();
   getIt.registerSingleton<TraktLinkStore>(TraktLinkStore());
   getIt.registerSingleton<TraktService>(
     TraktService(backendDio: getIt<Dio>(), links: getIt<TraktLinkStore>()),
@@ -884,12 +897,27 @@ Future<void> configureDependencies() async {
       ),
     )..start(),
   );
+  getIt.registerSingleton<ReleaseWatch>(
+    ReleaseWatch(
+      follows: getIt<FollowService>(),
+      sync: getIt<FollowSyncService>(),
+      feed: getIt<ReleaseFeedStore>(),
+      notifications: getIt<NotificationService>(),
+      isSignedIn: () => getIt<HiveService>().isLoggedIn,
+      intervalHours: () => getIt<LibraryUpdateScheduler>().intervalHours,
+      adult: () => getIt<HiveService>().showAdultContent,
+      namespaceOf: (id) => getIt<ProfileSession>().byId(id)?.namespace,
+    ),
+  );
   getIt.registerSingleton<LibraryUpdateScheduler>(
     LibraryUpdateScheduler(
       follow: getIt<FollowService>(),
       autoDownload: getIt<AutoDownloadService>(),
+      runCheck: (auto) =>
+          getIt<ReleaseWatch>().checkNow(onChecked: auto?.collect),
     )..start(),
   );
+  getIt<ReleaseWatch>().start();
   getIt.registerSingleton<ViewAllUseCase>(
     ViewAllUseCase(getIt<HomeRepository>()),
   );
@@ -1083,7 +1111,13 @@ Future<void> _onProfileScopeChanged({required bool resync}) async {
   hive.adultContentChanged.value = !hive.adultContentChanged.value;
   hive.incognitoChanged.value = hive.isIncognito;
   hive.homeRailsChanged.value = !hive.homeRailsChanged.value;
+  getIt<FollowService>().revision.value++;
+  getIt<ReleaseWatch>().onProfileChanged();
   if (!resync || !hive.isLoggedIn) return;
+  // Push goes to whichever profile registered last, so every switch
+  // re-registers under the new X-Sozo-Profile.
+  unawaited(getIt<NotificationService>().refreshRegistration());
+  unawaited(getIt<FollowSyncService>().fullSync(force: true));
   unawaited(() async {
     final sync = getIt<HistorySyncService>();
     final userId = hive.getUser()?.id;

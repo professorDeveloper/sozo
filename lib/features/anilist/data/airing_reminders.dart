@@ -63,7 +63,16 @@ class AiringReminders {
 
       final now = DateTime.now();
       final until = now.add(horizon);
-      final due = <({DateTime at, String title, int episode, bool released})>[];
+      final due =
+          <
+            ({
+              DateTime at,
+              String title,
+              int episode,
+              bool released,
+              String url,
+            })
+          >[];
 
       for (final entry in entries) {
         final airing = entry.media.nextAiring;
@@ -75,6 +84,8 @@ class AiringReminders {
             entry.media.nativeTitle ??
             '';
         if (title.isEmpty) continue;
+        final url =
+            entry.media.siteUrl ?? 'https://anilist.co/anime/${entry.media.id}';
 
         // Two moments matter, and only one of them was ever scheduled: the
         // heads-up before it airs, and the episode actually being out. The
@@ -87,6 +98,7 @@ class AiringReminders {
             title: title,
             episode: airing.episode,
             released: false,
+            url: url,
           ));
         }
         final out = airing.airsAt.add(releaseDelay);
@@ -96,6 +108,7 @@ class AiringReminders {
             title: title,
             episode: airing.episode,
             released: true,
+            url: url,
           ));
         }
       }
@@ -114,6 +127,14 @@ class AiringReminders {
                       ? 'anilist.released_body'
                       : 'anilist.reminder_body')
                   .tr(namedArgs: {'episode': '${item.episode}'}),
+          // Opens the title on that episode; without a payload the tap only
+          // brought the app forward.
+          payload: {
+            'type': 'airing_reminder',
+            'provider': 'cat:anilist',
+            'contentUrl': item.url,
+            'episodeNumber': item.episode,
+          },
         );
         scheduled++;
       }

@@ -32,6 +32,8 @@ class _Follow implements FollowService {
     int concurrency = 3,
     Duration timeout = const Duration(seconds: 12),
     bool notify = true,
+    bool Function(FollowedTitle title)? announce,
+    Future<void> Function(FollowGrowth growth)? onGrown,
     void Function(FollowedTitle title, List<EpisodeEntity> episodes)? onChecked,
   }) async {
     calls++;
@@ -71,7 +73,8 @@ void main() {
       expect(s.intervalHours, LibraryUpdateScheduler.defaultHours);
       expect(await s.maybeRun(), 2);
       expect(await s.maybeRun(), 0, reason: 'just checked');
-      now = now.add(const Duration(hours: 11));
+      const interval = LibraryUpdateScheduler.defaultHours;
+      now = now.add(const Duration(hours: interval - 1));
       expect(s.due, isFalse);
       now = now.add(const Duration(hours: 1));
       expect(s.due, isTrue);

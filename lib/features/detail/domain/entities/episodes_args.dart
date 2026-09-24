@@ -24,6 +24,10 @@ class EpisodesArgs {
   /// be played or read.
   final bool offline;
 
+  /// The episode a new-release tap is about: the list scrolls to it and
+  /// marks it.
+  final int? focusEpisode;
+
   const EpisodesArgs({
     required this.title,
     required this.episodes,
@@ -37,5 +41,6 @@ class EpisodesArgs {
     this.totalPages = 1,
     this.resumeFromHistory = false,
     this.offline = false,
+    this.focusEpisode,
   });
 }

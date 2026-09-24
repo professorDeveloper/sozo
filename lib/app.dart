@@ -16,6 +16,7 @@ import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/features/sources/domain/source_check_service.dart';
+import 'package:soplay/features/tracker/data/release_watch.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
 
@@ -62,6 +63,11 @@ class _MyAppState extends State<MyApp> {
     // and initState is too early to depend on one.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) AppLanguage.syncFromDevice(context);
+      // The translations exist from here on: name the notification channels
+      // in the user's language, and hand the same words to the background
+      // check, which has no translations of its own.
+      getIt<NotificationService>().refreshChannels();
+      getIt<ReleaseWatch>().writeSnapshot();
     });
     // Desktop: hide the custom title-bar strip on the immersive full-bleed
     // routes (player / reader) by watching the router itself — reliable

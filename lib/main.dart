@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -38,6 +39,7 @@ import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/features/download/domain/repositories/download_repository.dart';
 import 'package:soplay/core/brand/sozo_mark_geometry.dart';
+import 'package:soplay/features/notifications/data/push_background.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 
 import 'package:soplay/core/network/user_agent.dart';
@@ -469,6 +471,9 @@ Future<void> _initFirebaseSafely() async {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp();
     }
+    // Before runApp, as the plugin requires: a release push that lands while
+    // the app is closed is drawn by this handler, in its own isolate.
+    FirebaseMessaging.onBackgroundMessage(firebaseBackgroundMessage);
     await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
       !kDebugMode,
     );

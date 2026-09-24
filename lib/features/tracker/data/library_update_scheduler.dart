@@ -24,6 +24,7 @@ class LibraryUpdateScheduler with WidgetsBindingObserver {
   LibraryUpdateScheduler({
     required this.follow,
     this.autoDownload,
+    this.runCheck,
     Box? box,
     DateTime Function()? now,
   }) : _override = box,
@@ -31,14 +32,20 @@ class LibraryUpdateScheduler with WidgetsBindingObserver {
 
   final FollowService follow;
   final AutoDownloadService? autoDownload;
+
+  /// The check itself, when something above decides who announces what
+  /// (ReleaseWatch). Without it, every grown title is announced.
+  final Future<int> Function(AutoDownloadService? auto)? runCheck;
   final Box? _override;
   final DateTime Function() _now;
 
   Box get _box => _override ?? Hive.box(AppConstants.settingsBox);
 
-  /// The choices offered, in hours; 0 is off.
-  static const List<int> choices = [0, 6, 12, 24];
-  static const int defaultHours = 12;
+  /// The choices offered, in hours; 0 is off. The same interval paces the
+  /// background check, which Android will not run more often than every few
+  /// hours anyway.
+  static const List<int> choices = [0, 4, 6, 12, 24];
+  static const int defaultHours = 6;
 
   Future<int>? _running;
 
@@ -90,10 +97,10 @@ class LibraryUpdateScheduler with WidgetsBindingObserver {
     );
     final auto = autoDownload;
     try {
-      final grown = await follow.checkForUpdates(
-        notify: true,
-        onChecked: auto?.collect,
-      );
+      final check = runCheck;
+      final grown = check != null
+          ? await check(auto)
+          : await follow.checkForUpdates(notify: true, onChecked: auto?.collect);
       if (auto != null) unawaited(auto.afterCheck());
       return grown;
     } catch (e) {
