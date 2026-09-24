@@ -94,6 +94,46 @@ List<ProviderEntity> _resolveFavorites(ProviderLoaded state) {
 /// Nothing happens at all when the new mode has no sources: switching into an
 /// empty mode is a dead end nobody can get out of except by switching back,
 /// and saying so beats stranding them there.
+/// Which source a switch into [mode] lands on.
+///
+/// The source last used in that mode comes first: leaving Watch for Manga and
+/// coming back is coming back to where the viewer was. Then the older rules —
+/// somebody on a catalogue stays on one, an empty mode lands on its catalogue,
+/// otherwise a favourite, otherwise the first source.
+///
+/// [remember] is false only for a stand-in chosen because the remembered
+/// source has not enumerated yet (a host still starting, a repo still
+/// loading), so the memory is not overwritten by it.
+@visibleForTesting
+({String id, bool remember}) pickSourceForMode({
+  required ContentMode mode,
+  required String remembered,
+  required String currentId,
+  required List<ProviderEntity> candidates,
+  required Set<String> favorites,
+}) {
+  final catalogues = Catalogue.forMode(mode);
+  final rememberedCatalogue = Catalogue.fromId(remembered);
+  final available =
+      remembered.isNotEmpty &&
+      ((rememberedCatalogue != null && rememberedCatalogue.mode == mode) ||
+          candidates.any((p) => p.id == remembered));
+  if (available) return (id: remembered, remember: true);
+  final String id;
+  if ((Catalogue.isId(currentId) || candidates.isEmpty) &&
+      catalogues.isNotEmpty) {
+    id = catalogues.first.id;
+  } else {
+    id = candidates
+        .firstWhere(
+          (p) => favorites.contains(p.id),
+          orElse: () => candidates.first,
+        )
+        .id;
+  }
+  return (id: id, remember: remembered.isEmpty);
+}
+
 Future<void> _switchMode(
   BuildContext context,
   ProviderBloc bloc,
@@ -115,37 +155,20 @@ Future<void> _switchMode(
     );
     return;
   }
-  // Somebody browsing a catalogue stays on a catalogue across modes: they
-  // chose the wide view over one site, and the new mode has the same. With
-  // no source installed for the mode the catalogue is the landing anyway —
-  // an empty mode used to be a dead end, and now it is AniList's shelf.
-  final favIds = hive.getFavoriteProviders().toSet();
   // The mode being left keeps its source for the way back — also for a
   // source picked before modes remembered theirs.
   final leaving = state.currentProviderId;
   if (leaving.isNotEmpty) {
     await hive.rememberProviderForMode(leaving.contentMode.id, leaving);
   }
-  // The source last used in this mode, if it is still there to use.
-  final remembered = hive.providerForMode(mode.id);
-  final rememberedUsable =
-      remembered != null &&
-      (candidates.any((p) => p.id == remembered) ||
-          Catalogue.fromId(remembered)?.mode == mode);
-  final String pickId;
-  if (rememberedUsable) {
-    pickId = remembered;
-  } else if ((Catalogue.isId(state.currentProviderId) || candidates.isEmpty) &&
-      catalogues.isNotEmpty) {
-    pickId = catalogues.first.id;
-  } else {
-    pickId = candidates
-        .firstWhere(
-          (p) => favIds.contains(p.id),
-          orElse: () => candidates.first,
-        )
-        .id;
-  }
+  final pick = pickSourceForMode(
+    mode: mode,
+    remembered: hive.providerForMode(mode.id) ?? '',
+    currentId: state.currentProviderId,
+    candidates: candidates,
+    favorites: hive.getFavoriteProviders().toSet(),
+  );
+  final pickId = pick.id;
 
   await hive.setContentMode(mode.id);
   if (!context.mounted) return;
@@ -167,7 +190,7 @@ Future<void> _switchMode(
 
   // Selected BEFORE the animation, so the reload runs underneath the cover
   // rather than starting when it lifts onto an empty screen.
-  bloc.add(ProviderSelect(pickId));
+  bloc.add(ProviderSelect(pickId, remember: pick.remember));
   // The mode's own glyph even when the landing is a catalogue: the viewer
   // changed MODE, and that is what the cover should say.
   await ModeSwitchOverlay.play(context, mode, until: loaded, origin: origin);

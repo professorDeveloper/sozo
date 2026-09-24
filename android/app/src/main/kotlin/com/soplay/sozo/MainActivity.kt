@@ -578,6 +578,17 @@ class MainActivity : FlutterFragmentActivity() {
                     val data = call.argument<String>("data").orEmpty()
                     csAsync(result) { aniyomiHost.loadLinksJson(provider, data) }
                 }
+                "getPreferences" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    csAsync(result) { aniyomiHost.getPrefsJson(provider) }
+                }
+                "setPreference" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val key = call.argument<String>("key").orEmpty()
+                    val type = call.argument<String>("type").orEmpty()
+                    val value = call.argument<Any>("value")
+                    csAsync(result) { aniyomiHost.setPrefJson(provider, key, value, type) }
+                }
                 "cloudflareInfo" -> {
                     val id = call.argument<String>("id").orEmpty()
                     csAsync(result) { aniyomiHost.cloudflareInfo(id) }

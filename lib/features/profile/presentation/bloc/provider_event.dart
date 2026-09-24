@@ -11,5 +11,10 @@ class ProviderLoad extends ProviderEvent {
 
 class ProviderSelect extends ProviderEvent {
   final String providerId;
-  const ProviderSelect(this.providerId);
+
+  /// Whether this becomes the source the mode returns to. False only for a
+  /// stand-in picked because the remembered one is not available right now,
+  /// so the memory survives until it is.
+  final bool remember;
+  const ProviderSelect(this.providerId, {this.remember = true});
 }

@@ -1,17 +1,42 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
+import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
+/// A source's own settings — a manga (`mn:`) or an Aniyomi (`an:`) source.
+/// Both ecosystems describe settings the same way and the page draws either;
+/// [sourceId] is the id without its prefix, [anime] picks the host.
 class MangaSourceSettingsPage extends StatefulWidget {
   final String sourceId;
   final String name;
+  final bool anime;
   const MangaSourceSettingsPage({
     super.key,
     required this.sourceId,
     required this.name,
+    this.anime = false,
   });
+
+  /// The page for a full provider id, or null when its ecosystem has no
+  /// per-source settings.
+  static MangaSourceSettingsPage? forProvider(String providerId, String name) {
+    if (providerId.startsWith('mn:')) {
+      return MangaSourceSettingsPage(
+        sourceId: providerId.substring(3),
+        name: name,
+      );
+    }
+    if (providerId.startsWith('an:')) {
+      return MangaSourceSettingsPage(
+        sourceId: providerId.substring(3),
+        name: name,
+        anime: true,
+      );
+    }
+    return null;
+  }
 
   @override
   State<MangaSourceSettingsPage> createState() =>
@@ -33,7 +58,9 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
   }
 
   Future<void> _load() async {
-    final raw = await MangaChannel.getPreferences(widget.sourceId);
+    final raw = widget.anime
+        ? await AniyomiChannel.getPreferences(widget.sourceId)
+        : await MangaChannel.getPreferences(widget.sourceId);
     if (!mounted) return;
     setState(() {
       _prefs = raw
@@ -45,7 +72,11 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
   }
 
   Future<void> _save(String key, Object? value, String type) async {
-    await MangaChannel.setPreference(widget.sourceId, key, value, type);
+    if (widget.anime) {
+      await AniyomiChannel.setPreference(widget.sourceId, key, value, type);
+    } else {
+      await MangaChannel.setPreference(widget.sourceId, key, value, type);
+    }
   }
 
   @override
@@ -61,25 +92,30 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
       ),
       body: _loading
           ? Center(
-              child: CircularProgressIndicator(color: _accent, strokeWidth: 2))
+              child: CircularProgressIndicator(color: _accent, strokeWidth: 2),
+            )
           : _prefs.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(28),
-                    child: Text(
-                      'manga.no_preferences'.tr(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.textHint),
-                    ),
-                  ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: _prefs.length,
-                  separatorBuilder: (_, _) => const Divider(
-                      height: 1, color: Colors.white10, indent: 16, endIndent: 16),
-                  itemBuilder: (context, i) => _tile(_prefs[i]),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Text(
+                  'manga.no_preferences'.tr(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.textHint),
                 ),
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _prefs.length,
+              separatorBuilder: (_, _) => const Divider(
+                height: 1,
+                color: Colors.white10,
+                indent: 16,
+                endIndent: 16,
+              ),
+              itemBuilder: (context, i) => _tile(_prefs[i]),
+            ),
     );
   }
 
@@ -94,12 +130,18 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
         final value = p['value'] == true;
         return SwitchListTile(
           activeThumbColor: _accent,
-          title: Text(title?.isNotEmpty == true ? title! : key,
-              style: const TextStyle(color: Colors.white, fontSize: 14)),
+          title: Text(
+            title?.isNotEmpty == true ? title! : key,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
           subtitle: summary?.isNotEmpty == true
-              ? Text(summary!,
+              ? Text(
+                  summary!,
                   style: const TextStyle(
-                      color: AppColors.textHint, fontSize: 12))
+                    color: AppColors.textHint,
+                    fontSize: 12,
+                  ),
+                )
               : null,
           value: value,
           onChanged: (v) {
@@ -117,10 +159,14 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
             ? entries[idx].toString()
             : current;
         return ListTile(
-          title: Text(title?.isNotEmpty == true ? title! : key,
-              style: const TextStyle(color: Colors.white, fontSize: 14)),
-          subtitle: Text(label.isNotEmpty ? label : (summary ?? ''),
-              style: const TextStyle(color: AppColors.textHint, fontSize: 12)),
+          title: Text(
+            title?.isNotEmpty == true ? title! : key,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+          subtitle: Text(
+            label.isNotEmpty ? label : (summary ?? ''),
+            style: const TextStyle(color: AppColors.textHint, fontSize: 12),
+          ),
           trailing: const Icon(Icons.expand_more, color: AppColors.textHint),
           onTap: () => _pickList(p, key, entries, values, current),
         );
@@ -128,16 +174,19 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
       case 'multi':
         final entries = (p['entries'] as List?)?.cast<dynamic>() ?? const [];
         final values = (p['entryValues'] as List?)?.cast<dynamic>() ?? const [];
-        final current =
-            ((p['value'] as List?) ?? const []).map((e) => e.toString()).toSet();
+        final current = ((p['value'] as List?) ?? const [])
+            .map((e) => e.toString())
+            .toSet();
         return ListTile(
-          title: Text(title?.isNotEmpty == true ? title! : key,
-              style: const TextStyle(color: Colors.white, fontSize: 14)),
+          title: Text(
+            title?.isNotEmpty == true ? title! : key,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
           subtitle: Text(
             current.isEmpty
                 ? (summary?.isNotEmpty == true
-                    ? summary!
-                    : 'manga.not_selected'.tr())
+                      ? summary!
+                      : 'manga.not_selected'.tr())
                 : 'manga.n_selected'.tr(args: ['${current.length}']),
             style: const TextStyle(color: AppColors.textHint, fontSize: 12),
           ),
@@ -148,58 +197,79 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
       case 'text':
         final current = p['value']?.toString() ?? '';
         return ListTile(
-          title: Text(title?.isNotEmpty == true ? title! : key,
-              style: const TextStyle(color: Colors.white, fontSize: 14)),
+          title: Text(
+            title?.isNotEmpty == true ? title! : key,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
           subtitle: Text(
             current.isNotEmpty ? current : (summary ?? ''),
             style: const TextStyle(color: AppColors.textHint, fontSize: 12),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          trailing: const Icon(Icons.edit_outlined,
-              color: AppColors.textHint, size: 18),
+          trailing: const Icon(
+            Icons.edit_outlined,
+            color: AppColors.textHint,
+            size: 18,
+          ),
           onTap: () => _editText(p, key, title ?? key, current),
         );
 
       default:
         return ListTile(
-          title: Text(title?.isNotEmpty == true ? title! : key,
-              style: const TextStyle(color: Colors.white, fontSize: 14)),
+          title: Text(
+            title?.isNotEmpty == true ? title! : key,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
           subtitle: summary?.isNotEmpty == true
-              ? Text(summary!,
+              ? Text(
+                  summary!,
                   style: const TextStyle(
-                      color: AppColors.textHint, fontSize: 12))
+                    color: AppColors.textHint,
+                    fontSize: 12,
+                  ),
+                )
               : null,
         );
     }
   }
 
-  Future<void> _pickList(Map<String, dynamic> p, String key, List entries,
-      List values, String current) async {
+  Future<void> _pickList(
+    Map<String, dynamic> p,
+    String key,
+    List entries,
+    List values,
+    String current,
+  ) async {
     final picked = await showDialog<String>(
       context: context,
       builder: (_) => SimpleDialog(
         backgroundColor: AppColors.surface,
-        title: Text(p['title']?.toString() ?? key,
-            style: const TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text(
+          p['title']?.toString() ?? key,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
         children: [
           for (var i = 0; i < entries.length; i++)
-            Builder(builder: (context) {
-              final value = i < values.length
-                  ? values[i].toString()
-                  : entries[i].toString();
-              final isSelected = value == current;
-              return ListTile(
-                dense: true,
-                title: Text(entries[i].toString(),
-                    style:
-                        const TextStyle(color: Colors.white, fontSize: 14)),
-                trailing: isSelected
-                    ? Icon(Icons.check, color: _accent, size: 20)
-                    : null,
-                onTap: () => Navigator.of(context).pop(value),
-              );
-            }),
+            Builder(
+              builder: (context) {
+                final value = i < values.length
+                    ? values[i].toString()
+                    : entries[i].toString();
+                final isSelected = value == current;
+                return ListTile(
+                  dense: true,
+                  title: Text(
+                    entries[i].toString(),
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                  ),
+                  trailing: isSelected
+                      ? Icon(Icons.check, color: _accent, size: 20)
+                      : null,
+                  onTap: () => Navigator.of(context).pop(value),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -209,16 +279,23 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
     }
   }
 
-  Future<void> _pickMulti(Map<String, dynamic> p, String key, List entries,
-      List values, Set<String> current) async {
+  Future<void> _pickMulti(
+    Map<String, dynamic> p,
+    String key,
+    List entries,
+    List values,
+    Set<String> current,
+  ) async {
     final selected = Set<String>.from(current);
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (context, setLocal) => AlertDialog(
           backgroundColor: AppColors.surface,
-          title: Text(p['title']?.toString() ?? key,
-              style: const TextStyle(color: Colors.white, fontSize: 16)),
+          title: Text(
+            p['title']?.toString() ?? key,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView(
@@ -228,14 +305,15 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
                   CheckboxListTile(
                     activeColor: _accent,
                     dense: true,
-                    title: Text(entries[i].toString(),
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 14)),
+                    title: Text(
+                      entries[i].toString(),
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
                     value: selected.contains(
-                        i < values.length ? values[i].toString() : ''),
+                      i < values.length ? values[i].toString() : '',
+                    ),
                     onChanged: (v) {
-                      final val =
-                          i < values.length ? values[i].toString() : '';
+                      final val = i < values.length ? values[i].toString() : '';
                       setLocal(() {
                         if (v == true) {
                           selected.add(val);
@@ -250,11 +328,13 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text('general.cancel'.tr())),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('general.cancel'.tr()),
+            ),
             TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text('general.save'.tr())),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text('general.save'.tr()),
+            ),
           ],
         ),
       ),
@@ -265,15 +345,21 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
     }
   }
 
-  Future<void> _editText(Map<String, dynamic> p, String key, String title,
-      String current) async {
+  Future<void> _editText(
+    Map<String, dynamic> p,
+    String key,
+    String title,
+    String current,
+  ) async {
     final controller = TextEditingController(text: current);
     final result = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: Text(title,
-            style: const TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text(
+          title,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -281,19 +367,22 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
           decoration: InputDecoration(
             hintStyle: TextStyle(color: AppColors.textHint),
             enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24)),
+              borderSide: BorderSide(color: Colors.white24),
+            ),
             focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: _accent)),
+              borderSide: BorderSide(color: _accent),
+            ),
           ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('general.cancel'.tr())),
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('general.cancel'.tr()),
+          ),
           TextButton(
-              onPressed: () =>
-                  Navigator.of(context).pop(controller.text),
-              child: Text('general.save'.tr())),
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: Text('general.save'.tr()),
+          ),
         ],
       ),
     );

@@ -155,6 +155,25 @@ class AniyomiChannel {
     await _call<String>('loadLinks', {'provider': provider, 'data': data}),
   );
 
+  /// The source's own settings (quality, server, language…), in the shape
+  /// the manga settings page already renders. Empty when it has none.
+  static Future<List<dynamic>> getPreferences(String provider) async =>
+      _arr(await _call<String>('getPreferences', {'provider': provider}));
+
+  static Future<void> setPreference(
+    String provider,
+    String key,
+    Object? value,
+    String type,
+  ) async {
+    await _call<String>('setPreference', {
+      'provider': provider,
+      'key': key,
+      'value': value,
+      'type': type,
+    });
+  }
+
   static Future<Map<String, dynamic>> cloudflareInfo(String id) async =>
       _obj(await _call<String>('cloudflareInfo', {'id': id}));
 }

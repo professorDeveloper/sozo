@@ -836,7 +836,12 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton(
     () => WatchServicesBloc(useCase: getIt<WatchServicesUseCase>()),
   );
-  getIt.registerFactory(() => HomeBloc(useCase: getIt<HomeUseCase>()));
+  getIt.registerFactory(
+    () => HomeBloc(
+      useCase: getIt<HomeUseCase>(),
+      currentProvider: () => getIt<HiveService>().getCurrentProvider(),
+    ),
+  );
   getIt.registerFactory(
     () => SearchBloc(
       searchUseCase: getIt<SearchUseCase>(),

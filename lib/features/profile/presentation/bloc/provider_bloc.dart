@@ -142,6 +142,14 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
       providers,
       offline: offline,
     );
+    // Seeds the memory for installs from before it existed: the source in use
+    // is the one its mode should come back to, unless it is a stand-in.
+    if (hiveService.getPreOutageProvider().isEmpty) {
+      final modeId = resolvedId.contentMode.id;
+      if (hiveService.providerForMode(modeId) == null) {
+        await hiveService.rememberProviderForMode(modeId, resolvedId);
+      }
+    }
 
     providerManager.updateProviders(providers);
     providerRegistry.invalidate();
@@ -161,14 +169,22 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     Emitter<ProviderState> emit,
   ) async {
     await hiveService.saveCurrentProvider(event.providerId);
-    // Remembered for its mode, so switching to Manga and back returns here.
-    await hiveService.rememberProviderForMode(
-      event.providerId.contentMode.id,
-      event.providerId,
-    );
+    final mode = event.providerId.contentMode;
+    // Remembered for its mode, so switching to Manga and back returns here —
+    // unless it is only a stand-in for a remembered source that has not
+    // enumerated yet.
+    if (event.remember) {
+      await hiveService.rememberProviderForMode(mode.id, event.providerId);
+    }
     // An explicit pick supersedes any provider parked by the outage handler,
     // so it is not undone when the backend comes back.
     await hiveService.clearPreOutageProvider();
+    // The mode follows the source. Five places select a source and only two
+    // moved the mode with it, so picking a manga source from the providers
+    // page left Home labelled Watch with manga rows under it.
+    if (hiveService.getContentMode() != mode.id) {
+      await hiveService.setContentMode(mode.id);
+    }
     if (state is ProviderLoaded) {
       final loaded = state as ProviderLoaded;
       emit(
