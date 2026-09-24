@@ -107,6 +107,7 @@ import 'package:soplay/core/torrent/torrent_engine.dart';
 import 'package:soplay/core/torrent/torrent_stream_url.dart';
 import 'package:soplay/features/torrent/presentation/torrent_playback.dart';
 import 'package:soplay/features/torrent/presentation/widgets/torrent_stats_overlay.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_reporter.dart';
 
 part 'player_page.models.dart';
 part 'player_page.widgets.dart';
@@ -122,6 +123,7 @@ part 'player_page.cast.dart';
 part 'player_page.aniskip.dart';
 part 'player_page.party.dart';
 part 'player_page.tv.dart';
+part 'player_page.jellyfin.dart';
 
 /// Hard ceiling on auto-retries per episode — see [_PlayerPageState._lifetimeRetries].
 const int _kMaxLifetimeRetries = RetryPolicy.maxLifetimeRetries;
@@ -702,6 +704,7 @@ class _PlayerPageState extends State<PlayerPage>
     } else {
       _torrentEngine.dispose();
     }
+    _jellyfinStop();
     _saveHistory();
     // Push the position the viewer just stopped at, so another device can pick
     // it up. Without this the progress only leaves the phone the next time the

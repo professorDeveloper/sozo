@@ -107,7 +107,10 @@ extension _PlayerMedia on _PlayerPageState {
         url: source?.videoUrl ?? widget.args.movieUrl ?? '',
         headers: widget.args.headers,
         type: _typeOf(source),
-        resumeAt: resume,
+        resumeAt: _jellyfinResume(
+          source?.videoUrl ?? widget.args.movieUrl,
+          resume,
+        ),
       );
     }
   }
@@ -382,7 +385,7 @@ extension _PlayerMedia on _PlayerPageState {
       url: url,
       headers: headers,
       type: useSources ? _typeOf(sources[pickedIdx]) : value.type,
-      resumeAt: resumeAt,
+      resumeAt: _jellyfinResume(url, resumeAt),
     );
     if (!mounted || generation != _mediaGeneration) return;
     // Host announces the new episode identity (never a video URL).
@@ -1756,6 +1759,7 @@ extension _PlayerMedia on _PlayerPageState {
   }
 
   Future<int> _disposeController() async {
+    _jellyfinStop();
     final generation = ++_mediaGeneration;
     _hideTimer?.cancel();
     final c = _controller;

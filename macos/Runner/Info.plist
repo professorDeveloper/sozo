@@ -48,5 +48,12 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- A Jellyfin server on the LAN is usually plain http; this lets the
+	     system player (AVPlayer) open it without relaxing ATS for the internet. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

@@ -14,6 +14,7 @@ extension _PlayerHistory on _PlayerPageState {
     _historyTimer?.cancel();
     _historyTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _saveHistory();
+      _jellyfinProgress();
       // Deliberately not inside _saveHistory: that returns early for a
       // finished episode, a title with no url and a session under ten seconds,
       // and none of those are reasons to leave a stale line on somebody's
@@ -31,6 +32,7 @@ extension _PlayerHistory on _PlayerPageState {
     _historyTimer?.cancel();
     _historyTimer = null;
     _saveHistory();
+    _jellyfinProgress(paused: true);
   }
 
   /// Tells Discord what is playing, if the viewer asked for that.
