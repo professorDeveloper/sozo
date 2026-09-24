@@ -12,6 +12,7 @@ import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/extensions/source_language.dart' as srclang;
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/widgets/app_tab_bar.dart';
@@ -28,6 +29,9 @@ import 'package:soplay/features/extensions/domain/entities/catalog_source_entity
 import 'package:soplay/features/jellyfin/presentation/pages/jellyfin_servers_page.dart';
 import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
+import 'package:soplay/features/sources/presentation/widgets/source_verdict.dart';
+import 'package:soplay/features/sources/domain/source_check_service.dart';
+import 'package:soplay/features/sources/data/source_check_store.dart';
 import 'package:soplay/features/sources/domain/source_scope.dart';
 import 'package:soplay/features/sources/presentation/widgets/source_health_badge.dart';
 import 'package:soplay/features/sources/presentation/widgets/source_scope_menu.dart';
@@ -144,7 +148,71 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     _header.dispose();
     _searchDebounce?.cancel();
     _search.dispose();
+    _checking.dispose();
     super.dispose();
+  }
+
+  /// Null where the checker is not wired up — widget tests of this page.
+  final SourceCheckService? _checker = getIt.isRegistered<SourceCheckService>()
+      ? getIt<SourceCheckService>()
+      : null;
+
+  /// A check run in progress, for the strip under the tabs; null otherwise.
+  final ValueNotifier<SourceCheckProgress?> _checking = ValueNotifier(null);
+
+  /// Checks every installed source of the tab that is showing, on this
+  /// device. The server sweeps extension sites every night; this runs each
+  /// source's own code, which is what breaks when a site changes, and covers
+  /// sources the server cannot see.
+  Future<void> _checkAll() async {
+    final checker = _checker;
+    if (checker == null || checker.running) return;
+    final state = context.read<ProviderBloc>().state;
+    if (state is! ProviderLoaded) return;
+    final mode = ContentMode.values[_tabs.index];
+    final ids = [
+      for (final p in state.providers)
+        if (state.isUsable(p) &&
+            p.id.contentMode == mode &&
+            !Catalogue.isId(p.id))
+          p.id,
+    ];
+    if (ids.isEmpty) return;
+    SourceCheckProgress? last;
+    await for (final progress in checker.checkAll(ids)) {
+      last = progress;
+      _checking.value = progress;
+    }
+    _checking.value = null;
+    if (!mounted || last == null) return;
+    setState(() => _tabCache.clear());
+    final checks = SourceCheckStore.shared;
+    final names = {for (final p in state.providers) p.id: p.name};
+    final bad = [
+      for (final id in ids)
+        if (checks.of(id)?.isBad ?? false) id,
+    ];
+    final health = sourceHealth();
+    await showAdaptiveModal<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheet) => CheckSummarySheet(
+        result: last!,
+        bad: bad,
+        names: names,
+        store: checks,
+        hidingDown: health.hideDown,
+        onHideDown: () async {
+          Navigator.of(sheet).pop();
+          await health.setHideDown(true);
+          if (mounted) setState(() => _tabCache.clear());
+        },
+      ),
+    );
   }
 
   void _close() => setState(() => _open = null);
@@ -276,6 +344,15 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       title: Text('profile.sources_title'.tr()),
       backgroundColor: AppColors.background,
       actions: [
+        if (_checker != null)
+          ValueListenableBuilder<SourceCheckProgress?>(
+            valueListenable: _checking,
+            builder: (_, progress, _) => IconButton(
+              tooltip: 'sources.check_all'.tr(),
+              onPressed: progress == null ? _checkAll : null,
+              icon: const Icon(Icons.health_and_safety_outlined),
+            ),
+          ),
         PopupMenuButton<String>(
           onSelected: (v) => v == 'jellyfin'
               ? JellyfinServersPage.open(context)
@@ -608,6 +685,10 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                   onChanged: (_) => setState(() => _scope = SourceScope.all),
                   isScrollable: false,
                   labels: [for (final m in ContentMode.values) m.labelKey.tr()],
+                ),
+                CheckProgressStrip(
+                  progress: _checking,
+                  onCancel: () => _checker?.cancel(),
                 ),
                 // Search stays put: it is how anyone finds one name in a
                 // few hundred, so it never scrolls out of reach.
