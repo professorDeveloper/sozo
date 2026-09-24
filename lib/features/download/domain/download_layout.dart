@@ -102,6 +102,17 @@ abstract final class DownloadLayout {
   static String hlsMapName(int index, String extension) =>
       'init_$index$extension';
 
+  /// A stream whose audio is a rendition of its own (`#EXT-X-MEDIA`) is saved
+  /// as two playlists under a small master at [hlsIndexName]: the video one
+  /// here, the audio one at [hlsAudioPlaylistName]. Audio files carry an
+  /// `aud_` prefix so the `seg_` count the verifier checks is the video's.
+  static const String hlsVideoPlaylistName = 'video.m3u8';
+  static const String hlsAudioPlaylistName = 'audio.m3u8';
+  static String audioSegmentName(int index) => 'aud_$index.ts';
+  static String hlsAudioKeyName(int index) => 'aud_key_$index.bin';
+  static String hlsAudioMapName(int index, String extension) =>
+      'aud_init_$index$extension';
+
   static String pageName(int index, String extension) =>
       'p_${index.toString().padLeft(3, '0')}$extension';
 

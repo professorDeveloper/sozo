@@ -472,8 +472,14 @@ Future<void> _initFirebaseSafely() async {
     await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
       !kDebugMode,
     );
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    FlutterError.onError = (details) {
+      // Collection is off in debug, so without this a widget error showed a
+      // red screen and left nothing in the console to say where it came from.
+      if (kDebugMode) FlutterError.presentError(details);
+      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+    };
     PlatformDispatcher.instance.onError = (error, stack) {
+      if (kDebugMode) debugPrint('[uncaught] $error\n$stack');
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
     };

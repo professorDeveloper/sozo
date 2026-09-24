@@ -18,6 +18,7 @@ import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/profile/presentation/widgets/provider_quick_switch.dart';
 import 'package:soplay/features/search/data/source_health_store.dart';
+import 'package:soplay/features/sources/data/source_check_store.dart';
 import 'package:soplay/features/sources/presentation/pages/sources_hub_page.dart';
 
 class _Translations extends AssetLoader {
@@ -211,5 +212,50 @@ void main() {
     );
     expect(find.text('Alpha Dead'), findsOneWidget);
     expect(find.text('Down'), findsOneWidget);
+  });
+
+  testWidgets('a source this phone found dead, in use, badges and explains', (
+    tester,
+  ) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await SourceCheckStore.shared.put(
+      'mn:3',
+      SourceCheck(
+        verdict: SourceVerdict.dead,
+        at: now,
+        detail: 'Could not download RoyalRoad (HTTP 404)',
+        fails: 4,
+        firstFailAt: now,
+      ),
+    );
+    addTearDown(
+      () => SourceCheckStore.shared.put(
+        'mn:3',
+        SourceCheck(verdict: SourceVerdict.alive, at: now),
+      ),
+    );
+    await pump(tester, const SourcesHubPage());
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Down').first);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    await pump(
+      tester,
+      Scaffold(
+        body: ProviderQuickSwitchSheet(
+          favorites: const [],
+          all: _sources,
+          mode: ContentMode.manga,
+          currentProviderId: 'mn:3',
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Down').first);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 }

@@ -139,7 +139,11 @@ object HlsDownloadPlaylist {
         return out
     }
 
-    fun buildLocalPlaylist(playlist: String, auxNames: Map<String, String>): String {
+    fun buildLocalPlaylist(
+        playlist: String,
+        auxNames: Map<String, String>,
+        segmentName: (Int) -> String = { "seg_$it.ts" }
+    ): String {
         var index = 0
         val out = ArrayList<String>()
         for (line in playlist.lines()) {
@@ -164,7 +168,7 @@ object HlsDownloadPlaylist {
                         out.add(rewritten)
                     }
                 }
-                else -> out.add("seg_${index++}.ts")
+                else -> out.add(segmentName(index++))
             }
         }
         return out.joinToString("\n")
@@ -190,6 +194,74 @@ object HlsDownloadPlaylist {
             "$baseUrl$path"
         }
     }
+
+    const val VIDEO_PLAYLIST = "video.m3u8"
+    const val AUDIO_PLAYLIST = "audio.m3u8"
+
+    data class AudioRendition(val url: String, val mediaTag: String, val streamTag: String)
+
+    /**
+     * The audio rendition [variantUrl] plays with, when [master] gives its
+     * audio a playlist of its own: the group's DEFAULT=YES track, else its
+     * first. Null when the audio is inside the variant's own segments.
+     */
+    fun audioRendition(master: String, baseUrl: String, variantUrl: String): AudioRendition? {
+        val lines = master.lines().map { it.trim() }
+        var streamTag: String? = null
+        for (i in lines.indices) {
+            if (!lines[i].startsWith("#EXT-X-STREAM-INF")) continue
+            val uri = lines.drop(i + 1).firstOrNull { it.isNotEmpty() && !it.startsWith("#") } ?: continue
+            if (resolveUrl(uri, baseUrl) == variantUrl) {
+                streamTag = lines[i]
+                break
+            }
+        }
+        val group = streamTag?.let { AUDIO_GROUP.find(it)?.groupValues?.get(1) } ?: return null
+        var chosen: String? = null
+        for (line in lines) {
+            if (!line.startsWith("#EXT-X-MEDIA:") || !line.contains("TYPE=AUDIO")) continue
+            if (GROUP_ID.find(line)?.groupValues?.get(1) != group) continue
+            if (URI_ATTRIBUTE.find(line) == null) continue
+            if (chosen == null) chosen = line
+            if (line.contains("DEFAULT=YES")) {
+                chosen = line
+                break
+            }
+        }
+        val media = chosen ?: return null
+        val uri = URI_ATTRIBUTE.find(media)!!.groupValues[1]
+        return AudioRendition(resolveUrl(uri, baseUrl), media, streamTag)
+    }
+
+    /**
+     * The master written beside a video and an audio playlist: the one audio
+     * track, switched on, and the one variant. References to groups that were
+     * not saved (subtitles, captions, other angles) are dropped, or a player
+     * looks for a group that is not there.
+     */
+    fun localMaster(master: String, mediaTag: String, streamTag: String): String {
+        val out = StringBuilder("#EXTM3U\n")
+        for (raw in master.lines()) {
+            val line = raw.trim()
+            if (line.startsWith("#EXT-X-VERSION") || line.startsWith("#EXT-X-INDEPENDENT-SEGMENTS")) {
+                out.append(line).append('\n')
+            }
+        }
+        var media = URI_ATTRIBUTE.replaceFirst(mediaTag, "URI=\"$AUDIO_PLAYLIST\"")
+        media = if (media.contains("DEFAULT=")) {
+            media.replaceFirst(Regex("DEFAULT=(YES|NO)"), "DEFAULT=YES")
+        } else {
+            "$media,DEFAULT=YES"
+        }
+        out.append(media).append('\n')
+        out.append(streamTag.replace(OTHER_GROUPS, "")).append('\n')
+        out.append(VIDEO_PLAYLIST).append('\n')
+        return out.toString()
+    }
+
+    private val AUDIO_GROUP = Regex("AUDIO=\"([^\"]*)\"")
+    private val GROUP_ID = Regex("GROUP-ID=\"([^\"]*)\"")
+    private val OTHER_GROUPS = Regex(",(SUBTITLES|CLOSED-CAPTIONS|VIDEO)=(\"[^\"]*\"|[A-Z]+)")
 
     private val NAMED_HEIGHT = Regex("[-_/]s(\\d{3,4})p\\b")
     private val RESOLUTION = Regex("RESOLUTION=\\d+x(\\d+)")

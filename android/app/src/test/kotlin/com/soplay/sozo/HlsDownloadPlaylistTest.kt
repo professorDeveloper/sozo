@@ -59,6 +59,29 @@ class HlsDownloadPlaylistTest {
     }
 
     @Test
+    fun `separate audio is found, and the local master points at both`() {
+        val master = """
+            #EXTM3U
+            #EXT-X-VERSION:6
+            #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English",DEFAULT=NO,URI="audio/en.m3u8"
+            #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="Japanese",DEFAULT=YES,URI="audio/ja.m3u8"
+            #EXT-X-STREAM-INF:BANDWIDTH=900000,RESOLUTION=1280x720,AUDIO="aud",SUBTITLES="subs"
+            video/720.m3u8
+        """.trimIndent()
+        val variant = HlsDownloadPlaylist.pickVariantUrl(master, base)!!
+        val audio = HlsDownloadPlaylist.audioRendition(master, base, variant)!!
+        assertEquals("${base}audio/ja.m3u8", audio.url)
+        val local = HlsDownloadPlaylist.localMaster(master, audio.mediaTag, audio.streamTag)
+        assertTrue(local.contains("NAME=\"Japanese\",DEFAULT=YES,URI=\"audio.m3u8\""))
+        assertTrue(local.contains("AUDIO=\"aud\""))
+        assertFalse(local.contains("SUBTITLES"))
+        assertEquals("video.m3u8", local.trim().lines().last())
+
+        val muxed = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,RESOLUTION=1x720\nv.m3u8\n"
+        assertNull(HlsDownloadPlaylist.audioRendition(muxed, base, "${base}v.m3u8"))
+    }
+
+    @Test
     fun `byte ranges become slices that continue from the last one`() {
         val playlist = """
             #EXTM3U
