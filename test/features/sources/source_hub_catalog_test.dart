@@ -50,6 +50,13 @@ class _Hive implements HiveService {
   @override
   String getPreOutageProvider() => '';
   @override
+  String getLastProviderForMode(String modeId) => '';
+  @override
+  Future<void> saveLastProviderForMode(
+    String modeId,
+    String providerId,
+  ) async {}
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 

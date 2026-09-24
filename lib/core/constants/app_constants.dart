@@ -48,6 +48,7 @@ class AppConstants {
   /// Which kind of catalogue the app is showing — video, manga or novel.
   /// Absent ⇒ video, which is what every install had before modes existed.
   static const String contentModeKey = 'content_mode';
+  static const String lastProviderByModeKey = 'last_provider_by_mode';
 
   /// Which bands the home screen shows, and in what order. See [HomeRail].
   static const String homeRailOrderKey = 'home_rail_order';

@@ -486,6 +486,26 @@ class HiveService {
   /// narrows at the same moment rather than on its next rebuild.
   final ValueNotifier<bool> contentModeChanged = ValueNotifier<bool>(false);
 
+  /// The source last chosen in each mode, so leaving Watch for Manga and
+  /// coming back lands on the same CloudStream source rather than on the
+  /// first favourite.
+  String getLastProviderForMode(String modeId) {
+    final raw = _settingsBox.get(AppConstants.lastProviderByModeKey);
+    if (raw is! Map) return '';
+    return raw[modeId]?.toString() ?? '';
+  }
+
+  Future<void> saveLastProviderForMode(String modeId, String providerId) async {
+    if (providerId.isEmpty) return;
+    final raw = _settingsBox.get(AppConstants.lastProviderByModeKey);
+    final map = raw is Map
+        ? Map<String, String>.from(raw.map((k, v) => MapEntry('$k', '$v')))
+        : <String, String>{};
+    if (map[modeId] == providerId) return;
+    map[modeId] = providerId;
+    await _settingsBox.put(AppConstants.lastProviderByModeKey, map);
+  }
+
   String getPlayerEngine() {
     return _settingsBox.get(
       AppConstants.playerEngineKey,

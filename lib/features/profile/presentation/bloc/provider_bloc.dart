@@ -1,4 +1,5 @@
 import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
@@ -141,6 +142,14 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
       providers,
       offline: offline,
     );
+    // Seeds the memory for installs from before it existed: the source in use
+    // is the one its mode should come back to, unless it is a stand-in.
+    if (hiveService.getPreOutageProvider().isEmpty) {
+      final modeId = resolvedId.contentMode.id;
+      if (hiveService.getLastProviderForMode(modeId).isEmpty) {
+        await hiveService.saveLastProviderForMode(modeId, resolvedId);
+      }
+    }
 
     providerManager.updateProviders(providers);
     providerRegistry.invalidate();
@@ -163,6 +172,16 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     // An explicit pick supersedes any provider parked by the outage handler,
     // so it is not undone when the backend comes back.
     await hiveService.clearPreOutageProvider();
+    // The mode follows the source. Five places select a source and only two
+    // moved the mode with it, so picking a manga source from the providers
+    // page left Home labelled Watch with manga rows under it.
+    final mode = event.providerId.contentMode;
+    if (event.remember) {
+      await hiveService.saveLastProviderForMode(mode.id, event.providerId);
+    }
+    if (hiveService.getContentMode() != mode.id) {
+      await hiveService.setContentMode(mode.id);
+    }
     if (state is ProviderLoaded) {
       final loaded = state as ProviderLoaded;
       emit(
