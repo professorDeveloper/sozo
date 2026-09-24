@@ -135,9 +135,7 @@ class AuthInterceptor extends Interceptor {
   ) async {
     try {
       final response = await dio.post(
-        isDeviceRefreshToken(refreshToken)
-            ? '/auth/device/refresh'
-            : '/auth/refresh',
+        refreshPathFor(refreshToken),
         data: {'refreshToken': refreshToken},
         options: Options(extra: const {_skipKey: true}),
       );
@@ -159,7 +157,10 @@ class AuthInterceptor extends Interceptor {
       // if they were is how a tunnel signs somebody out and wipes their
       // history on the way.
       final rejected = code != null && code >= 400 && code < 500;
-      return (null, rejected ? _RefreshOutcome.rejected : _RefreshOutcome.unreachable);
+      return (
+        null,
+        rejected ? _RefreshOutcome.rejected : _RefreshOutcome.unreachable,
+      );
     } catch (_) {
       return (null, _RefreshOutcome.unreachable);
     }
@@ -170,6 +171,11 @@ class AuthInterceptor extends Interceptor {
     onSessionExpired?.call();
   }
 }
+
+/// Where [refreshToken] is rotated.
+String refreshPathFor(String refreshToken) => isDeviceRefreshToken(refreshToken)
+    ? '/auth/device/refresh'
+    : '/auth/refresh';
 
 /// Whether [token] is a paired TV's refresh token, which carries a `sid` and
 /// is only accepted by `/auth/device/refresh`.

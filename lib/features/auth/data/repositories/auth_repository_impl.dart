@@ -253,7 +253,9 @@ class AuthRepositoryImpl implements AuthRepository {
     // local wipe is the part that matters on this device, so it runs whatever
     // the call does; it used to be skipped on anything but a DioException.
     try {
-      await _remoteDataSource.logout();
+      await _remoteDataSource.logout(
+        refreshToken: _hiveService.getRefreshToken(),
+      );
     } catch (_) {
     } finally {
       await _clearAccountScopedData();

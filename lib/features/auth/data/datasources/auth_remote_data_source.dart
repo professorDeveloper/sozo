@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:soplay/core/network/auth_interceptor.dart';
 import '../models/auth_model.dart';
 import '../models/user_model.dart';
 
@@ -126,7 +127,16 @@ class AuthRemoteDataSource {
     };
   }
 
-  Future<void> logout() async {
+  Future<void> logout({String? refreshToken}) async {
+    // A paired TV's session is its own record, ended by its refresh token;
+    // /auth/logout would leave it valid and clear the phone's legacy session.
+    if (refreshToken != null && isDeviceRefreshToken(refreshToken)) {
+      await dio.post(
+        '/auth/device/logout',
+        data: {'refreshToken': refreshToken},
+      );
+      return;
+    }
     await dio.post('/auth/logout');
   }
 }
