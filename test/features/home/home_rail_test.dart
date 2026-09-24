@@ -22,6 +22,7 @@ void main() {
       expect(HomeRail.defaults.map((r) => r.id).toList(), [
         'hero',
         'resume',
+        'new_releases',
         'genres',
         'live_tv',
         'watch_services',
@@ -109,6 +110,9 @@ void main() {
       expect(out.map((r) => r.id).toList(), [
         'catalogue',
         'resume',
+        // Newer than this stored order too, but anchored beside Continue
+        // Watching rather than buried at the end.
+        'new_releases',
         'hero',
         'genres',
         'live_tv',

@@ -34,7 +34,10 @@ import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite
 import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite_state.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
-import 'package:soplay/features/tracker/domain/entities/followed_title.dart';
+import 'package:soplay/features/tracker/data/release_watch.dart';
+import 'package:soplay/features/tracker/domain/release_entry.dart';
+import 'package:soplay/features/tracker/presentation/widgets/follow_bell.dart';
+import 'package:soplay/features/tracker/presentation/widgets/release_callout.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
 import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
@@ -104,6 +107,7 @@ class DetailPage extends StatelessWidget {
         resumeEpisodeIndex: args.resumeEpisodeIndex,
         preview: args.preview,
         heroTag: args.heroTag,
+        focusEpisode: args.focusEpisode,
       ),
     );
   }
@@ -117,6 +121,7 @@ class _DetailScaffold extends StatelessWidget {
     this.resumeEpisodeIndex,
     this.preview,
     this.heroTag,
+    this.focusEpisode,
   });
   final String contentUrl;
   final String? provider;
@@ -127,6 +132,7 @@ class _DetailScaffold extends StatelessWidget {
   /// Enough to draw the top of the page before the request lands.
   final MovieEntity? preview;
   final String? heroTag;
+  final int? focusEpisode;
 
   @override
   Widget build(BuildContext context) {
@@ -208,6 +214,7 @@ class _DetailScaffold extends StatelessWidget {
                         autoPlay: autoPlay,
                         resumeEpisodeIndex: resumeEpisodeIndex,
                         heroTag: heroTag,
+                        focusEpisode: focusEpisode,
                       );
                     },
                   ),
@@ -265,6 +272,7 @@ class _DetailView extends StatefulWidget {
     this.autoPlay = false,
     this.resumeEpisodeIndex,
     this.heroTag,
+    this.focusEpisode,
   });
   final DetailEntity detail;
 
@@ -280,6 +288,10 @@ class _DetailView extends StatefulWidget {
   final bool autoPlay;
   final int? resumeEpisodeIndex;
   final String? heroTag;
+
+  /// The new episode a release notification was about. See
+  /// [DetailArgs.focusEpisode].
+  final int? focusEpisode;
 
   @override
   State<_DetailView> createState() => _DetailViewState();
@@ -329,6 +341,12 @@ class _DetailViewState extends State<_DetailView>
   bool _autoPlayTriggered = false;
   bool _isFollowing = false;
 
+  /// The release this page was opened for, while its card is up.
+  ReleaseEntry? _release;
+
+  /// Handed to the episode list the next time it opens, then spent.
+  int? _focusOnOpen;
+
   /// Whether the next episode list opened should go straight on to the
   /// episode history points at. True only for the auto-play that Continue
   /// Watching starts, and spent by the first list it opens: a later Play from
@@ -344,6 +362,14 @@ class _DetailViewState extends State<_DetailView>
         (widget.detail.director?.trim().isNotEmpty ?? false);
     _hasShots = widget.detail.screenshots.isNotEmpty;
     _isFollowing = getIt<FollowService>().isFollowed(widget.detail.contentUrl);
+    getIt<FollowService>().revision.addListener(_onFollowsChanged);
+    _release = releaseForCallout(
+      widget.detail.contentUrl,
+      widget.focusEpisode,
+      reading: widget.detail.provider.opensReader,
+    );
+    // Opening the title is what "seen" means for the feed and its NEW badge.
+    unawaited(getIt<ReleaseWatch>().markOpened(widget.detail.contentUrl));
     _tabs = [
       // First for a title that came with a record: the record is the point
       // of a catalogue page. A source's page has no such tab.
@@ -478,6 +504,7 @@ class _DetailViewState extends State<_DetailView>
 
   @override
   void dispose() {
+    getIt<FollowService>().revision.removeListener(_onFollowsChanged);
     _showcaseView?.unregister();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
@@ -961,28 +988,20 @@ class _DetailViewState extends State<_DetailView>
     context.push('/player', extra: args);
   }
 
-  Future<void> _toggleFollow() async {
-    final svc = getIt<FollowService>();
-    if (_isFollowing) {
-      await svc.unfollow(widget.detail.contentUrl);
-    } else {
-      final d = widget.detail;
-      await svc.follow(
-        FollowedTitle(
-          contentUrl: d.contentUrl,
-          provider: d.provider,
-          title: d.title,
-          thumbnail: d.thumbnail ?? '',
-          year: d.year,
-          addedAt: DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
-    }
-    if (!mounted) return;
-    setState(() => _isFollowing = !_isFollowing);
-    _showSnack(
-      _isFollowing ? 'detail.following_on'.tr() : 'detail.following_off'.tr(),
-    );
+  Future<void> _toggleFollow() => toggleFollow(context, widget.detail);
+
+  void _onFollowsChanged() {
+    final now = getIt<FollowService>().isFollowed(widget.detail.contentUrl);
+    if (mounted && now != _isFollowing) setState(() => _isFollowing = now);
+  }
+
+  /// "Watch episode 12" on the release card: the list, opened on it.
+  void _openRelease() {
+    final release = _release;
+    if (release == null) return;
+    _focusOnOpen = release.fromEpisode;
+    _resumeOnOpen = false;
+    _onPrimaryAction();
   }
 
   /// The public link to this title — the one Share sends and Copy hands over.
@@ -1110,8 +1129,15 @@ class _DetailViewState extends State<_DetailView>
         totalPages: playback.totalPages,
         resumeFromHistory: resume,
         offline: _episodesOffline,
+        focusEpisode: _takeFocus(),
       ),
     );
+  }
+
+  int? _takeFocus() {
+    final focus = _focusOnOpen;
+    _focusOnOpen = null;
+    return focus;
   }
 
   /// The stream a movie should use: the provider's own pick, else the default
@@ -1401,6 +1427,14 @@ class _DetailViewState extends State<_DetailView>
                   ),
                 ),
               ),
+              if (_release != null)
+                SliverToBoxAdapter(
+                  child: ReleaseCallout(
+                    entry: _release!,
+                    onOpen: _openRelease,
+                    onDismiss: () => setState(() => _release = null),
+                  ),
+                ),
               SliverToBoxAdapter(
                 child: DetailContentHeader(
                   detail: detail,

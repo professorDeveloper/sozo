@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/features/tracker/data/library_update_scheduler.dart';
 import 'package:soplay/core/localization/app_language.dart';
 import 'package:soplay/core/localization/language_picker.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -31,44 +30,6 @@ class _SettingsPageState extends State<SettingsPage> {
   /// adult; turning it off never asks. Either way every list built from it is
   /// rebuilt at once — the sources the picker offers, and Home, whose
   /// catalogue the backend now answers differently.
-  static String _libraryUpdateLabel(int hours) => switch (hours) {
-    0 => 'general.off'.tr(),
-    24 => 'profile.library_update_daily'.tr(),
-    _ => 'profile.library_update_every'.tr(args: ['$hours']),
-  };
-
-  /// How often followed titles are checked for new episodes.
-  Future<void> _pickLibraryUpdate() async {
-    final scheduler = getIt<LibraryUpdateScheduler>();
-    final current = scheduler.intervalHours;
-    final picked = await showDialog<int>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        backgroundColor: AppColors.surface,
-        title: Text('profile.library_update'.tr()),
-        children: [
-          RadioGroup<int>(
-            groupValue: current,
-            onChanged: (v) => Navigator.of(ctx).pop(v),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final h in LibraryUpdateScheduler.choices)
-                  RadioListTile<int>(
-                    value: h,
-                    title: Text(_libraryUpdateLabel(h)),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-    if (picked == null || picked == current) return;
-    await scheduler.setIntervalHours(picked);
-    if (mounted) setState(() {});
-  }
-
   Future<void> _setAdult(bool value) async {
     if (value && !await _confirmAdult()) return;
     await _hive.setShowAdultContent(value);
@@ -164,14 +125,13 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: _setAdult,
             ),
             const SettingsDivider(),
+            // How often follows are checked lives with the rest of what
+            // decides when Sozo speaks up.
             SettingsNavTile(
-              icon: Icons.update_rounded,
-              title: 'profile.library_update'.tr(),
-              subtitle: 'profile.library_update_desc'.tr(),
-              value: _libraryUpdateLabel(
-                getIt<LibraryUpdateScheduler>().intervalHours,
-              ),
-              onTap: _pickLibraryUpdate,
+              icon: Icons.notifications_rounded,
+              title: 'release_notify.settings_title'.tr(),
+              subtitle: 'release_notify.settings_entry_subtitle'.tr(),
+              onTap: () => context.push('/notification-settings'),
             ),
             const SettingsDivider(),
             SettingsNavTile(

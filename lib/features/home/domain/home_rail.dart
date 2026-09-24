@@ -21,6 +21,14 @@ enum HomeRail {
   /// Continue Watching.
   resume('resume', 'home_rails.resume', Icons.play_circle_outline),
 
+  /// New episodes and chapters of followed titles. Draws nothing until there
+  /// is something unseen.
+  newReleases(
+    'new_releases',
+    'home_rails.new_releases',
+    Icons.new_releases_outlined,
+  ),
+
   /// The genre chips.
   genres('genres', 'home_rails.genres', Icons.category_outlined),
 
@@ -58,6 +66,7 @@ enum HomeRail {
   static const List<HomeRail> defaults = [
     hero,
     resume,
+    newReleases,
     genres,
     liveTv,
     watchServices,
@@ -74,6 +83,11 @@ enum HomeRail {
   static const Set<String> optIn = {};
 
   bool get isOptIn => optIn.contains(id);
+
+  /// Where a band lands in an order stored before it existed, when the end
+  /// of the list would bury it. New episodes belong beside Continue
+  /// Watching, not under an endless catalogue.
+  static const Map<HomeRail, HomeRail> arrivesAfter = {newReleases: resume};
 }
 
 /// Repairs a stored order into one that can actually be rendered.
@@ -87,7 +101,8 @@ enum HomeRail {
 ///  * unknown ids are dropped — they name a rail this build does not have;
 ///  * duplicates are dropped — a rail can only be in one place;
 ///  * rails missing from the list are appended, so a new one appears rather
-///    than being invisible until somebody opens the customizer;
+///    than being invisible until somebody opens the customizer — or, for one
+///    named in [HomeRail.arrivesAfter], placed after its anchor;
 ///  * an empty result falls back to the defaults, because a home screen with no
 ///    bands is not a preference, it is a broken screen.
 List<HomeRail> sanitizeRailOrder(List<String> stored) {
@@ -98,7 +113,13 @@ List<HomeRail> sanitizeRailOrder(List<String> stored) {
   }
   if (out.isEmpty) return List.of(HomeRail.defaults);
   for (final rail in HomeRail.defaults) {
-    if (!out.contains(rail)) out.add(rail);
+    if (out.contains(rail)) continue;
+    final anchor = HomeRail.arrivesAfter[rail];
+    if (anchor != null && out.contains(anchor)) {
+      out.insert(out.indexOf(anchor) + 1, rail);
+    } else {
+      out.add(rail);
+    }
   }
   return out;
 }

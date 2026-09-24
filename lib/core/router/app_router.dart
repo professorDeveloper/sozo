@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:soplay/features/notifications/presentation/pages/notification_settings_page.dart';
+import 'package:soplay/features/tracker/presentation/pages/release_feed_page.dart';
 import 'package:soplay/features/trakt/presentation/trakt_hub_page.dart';
 import 'package:soplay/features/watch_services/presentation/pages/watch_service_browse_page.dart';
 import 'package:soplay/features/watch_services/presentation/pages/watch_services_page.dart';
@@ -294,6 +296,15 @@ class AppRouter {
       GoRoute(
         path: '/following',
         builder: (context, state) => const FollowingPage(),
+      ),
+      GoRoute(
+        path: '/releases',
+        pageBuilder: (context, state) =>
+            _bloomPage(state, const ReleaseFeedPage()),
+      ),
+      GoRoute(
+        path: '/notification-settings',
+        builder: (context, state) => const NotificationSettingsPage(),
       ),
       GoRoute(
         path: '/live-tv',

@@ -241,7 +241,29 @@ class _EpisodesPageState extends State<EpisodesPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_resumeFromHistory());
       });
+    } else if (widget.args.focusEpisode != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_focusOn(widget.args.focusEpisode!));
+      });
     }
+  }
+
+  /// Opened for a new release: puts that episode in view and marks it, from
+  /// whichever block holds it.
+  Future<void> _focusOn(int number) async {
+    final index = _episodes.indexWhere((e) => e.episode == number);
+    if (index >= 0) {
+      _flashRow(index, hold: const Duration(milliseconds: 3200));
+      return;
+    }
+    final block = blockContaining(
+      number,
+      total: _total,
+      size: _size,
+      descending: _sort == 'desc',
+      firstNumber: _firstNumber,
+    );
+    if (block != null) await _jumpToEpisode(number, block);
   }
 
   /// Plays the episode history points at — what Continue Watching asked for.
@@ -695,10 +717,13 @@ class _EpisodesPageState extends State<EpisodesPage> {
   }
 
   /// Tints the row a jump landed on, long enough to find it and no longer.
-  void _flashRow(int index) {
+  void _flashRow(
+    int index, {
+    Duration hold = const Duration(milliseconds: 1600),
+  }) {
     _flashTimer?.cancel();
     setState(() => _flashIndex = index);
-    _flashTimer = Timer(const Duration(milliseconds: 1600), () {
+    _flashTimer = Timer(hold, () {
       if (mounted) setState(() => _flashIndex = null);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _revealRow(index));

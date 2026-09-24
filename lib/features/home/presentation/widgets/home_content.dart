@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:soplay/features/tracker/presentation/widgets/release_widgets.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
@@ -320,6 +321,11 @@ class _HomeContentBody extends StatelessWidget {
                     ),
                   );
                 }
+              case HomeRail.newReleases:
+                // Renders nothing until a followed title has something new.
+                yield const SliverToBoxAdapter(
+                  child: RepaintBoundary(child: NewReleasesRail()),
+                );
               case HomeRail.genres:
                 if (loaded != null && loaded.genres.isNotEmpty) {
                   yield SliverToBoxAdapter(

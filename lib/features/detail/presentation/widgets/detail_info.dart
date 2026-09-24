@@ -1,3 +1,4 @@
+import 'package:soplay/features/tracker/presentation/widgets/follow_bell.dart';
 import 'package:soplay/features/detail/presentation/widgets/tracking_row.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
@@ -235,9 +236,15 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
                 ],
               ),
             ),
+          // Following is for things that keep coming: a series, a manga, a
+          // novel. A film has nothing to be told about.
+          if (widget.detail.isSerial || widget.detail.provider.opensReader) ...[
+            const SizedBox(height: 12),
+            ItemAppear(index: 6, child: FollowBellPill(detail: widget.detail)),
+          ],
           // Brings its own gap, so a page with nothing to track has no
           // blank band under the buttons.
-          ItemAppear(index: 6, child: TrackingRow(detail: widget.detail)),
+          ItemAppear(index: 7, child: TrackingRow(detail: widget.detail)),
         ],
       ),
     );
