@@ -68,10 +68,10 @@ void main() {
         isNull,
       );
       expect(
-        MangayomiSource.fromLnReaderJson(
-          const {'id': 'x', 'name': 'X'},
-          repoUrl: 'r',
-        ),
+        MangayomiSource.fromLnReaderJson(const {
+          'id': 'x',
+          'name': 'X',
+        }, repoUrl: 'r'),
         isNull,
         reason: 'no code url',
       );
@@ -144,6 +144,17 @@ void main() {
       ).firstWhere((r) => r.name == 'LNReader');
       expect(repo.url, contains('lnreader-plugins'));
       expect(repo.novelUrl, isNotNull);
+    });
+
+    test('community plugin repos are offered as novel indexes too', () {
+      final repos = ExtensionRepoDefaults.forKind(ExtensionRepoKind.mangayomi);
+      for (final name in ['SpaceBattles & SV', 'Tausif-Husine']) {
+        final repo = repos.firstWhere((r) => r.name == name);
+        expect(repo.url, endsWith('/.dist/plugins.min.json'));
+        expect(repo.novelUrl, repo.url);
+      }
+      final orders = repos.map((r) => r.order).toList();
+      expect(orders.toSet().length, orders.length);
     });
   });
 }
