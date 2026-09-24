@@ -1,0 +1,184 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:soplay/features/profiles/domain/household_profile.dart';
+
+/// The avatar presets. The server stores only the id, so these ids must never
+/// be renamed; an unknown id (from a newer build) falls back to the initial.
+class ProfileAvatars {
+  ProfileAvatars._();
+
+  static const Map<String, IconData> presets = {
+    'smile': Icons.sentiment_satisfied_alt_rounded,
+    'star': Icons.star_rounded,
+    'rocket': Icons.rocket_launch_rounded,
+    'pets': Icons.pets_rounded,
+    'game': Icons.sports_esports_rounded,
+    'music': Icons.headphones_rounded,
+    'moon': Icons.nightlight_round,
+    'bolt': Icons.bolt_rounded,
+    'heart': Icons.favorite_rounded,
+    'leaf': Icons.eco_rounded,
+    'ball': Icons.sports_soccer_rounded,
+    'palette': Icons.palette_rounded,
+    'cake': Icons.cake_rounded,
+    'crown': Icons.workspace_premium_rounded,
+    'movie': Icons.movie_rounded,
+    'book': Icons.auto_stories_rounded,
+  };
+
+  static const List<String> colors = [
+    '#e50914',
+    '#f5a623',
+    '#2ecc71',
+    '#1e88e5',
+    '#8e44ad',
+    '#e91e63',
+    '#00acc1',
+    '#ff7043',
+  ];
+
+  static Color parse(String? hex, String seed) {
+    final h = hex?.replaceFirst('#', '');
+    if (h != null && h.length == 6) {
+      final v = int.tryParse(h, radix: 16);
+      if (v != null) return Color(0xFF000000 | v);
+    }
+    final i = seed.codeUnits.fold<int>(0, (a, b) => a + b) % colors.length;
+    return parse(colors[i], '');
+  }
+}
+
+class ProfileAvatar extends StatelessWidget {
+  const ProfileAvatar({
+    super.key,
+    required this.name,
+    this.avatar,
+    this.color,
+    this.size = 96,
+    this.isKids = false,
+    this.locked = false,
+    this.selected = false,
+  });
+
+  ProfileAvatar.of(
+    HouseholdProfile profile, {
+    Key? key,
+    double size = 96,
+    bool showLock = true,
+    bool selected = false,
+  }) : this(
+         key: key,
+         name: profile.name,
+         avatar: profile.avatar,
+         color: profile.color,
+         size: size,
+         isKids: profile.isKids,
+         locked: showLock && profile.hasPin,
+         selected: selected,
+       );
+
+  final String name;
+  final String? avatar;
+  final String? color;
+  final double size;
+  final bool isKids;
+  final bool locked;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = ProfileAvatars.parse(color, name);
+    final icon = ProfileAvatars.presets[avatar];
+    final initial = name.trim().isEmpty
+        ? '?'
+        : name.trim().characters.first.toUpperCase();
+    final radius = BorderRadius.circular(size * 0.22);
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.lerp(base, Colors.white, 0.12)!,
+                  Color.lerp(base, Colors.black, 0.28)!,
+                ],
+              ),
+              border: Border.all(
+                color: selected ? Colors.white : Colors.transparent,
+                width: size * 0.035,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: icon != null
+                ? Icon(icon, color: Colors.white, size: size * 0.5)
+                : Text(
+                    initial,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: size * 0.42,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+          ),
+          if (isKids && size >= 64)
+            PositionedDirectional(
+              start: size * 0.08,
+              bottom: size * 0.08,
+              child: const KidsBadge(),
+            ),
+          if (locked)
+            PositionedDirectional(
+              end: size * 0.08,
+              top: size * 0.08,
+              child: Container(
+                padding: EdgeInsets.all(size * 0.045),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.lock_rounded,
+                  color: Colors.white,
+                  size: (size * 0.16).clamp(10.0, 18.0),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class KidsBadge extends StatelessWidget {
+  const KidsBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFC107),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        'profiles.kids_badge'.tr(),
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/core/matching/title_match.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 
@@ -167,7 +168,7 @@ class SourceChoiceStore {
   }
 
   Map<String, dynamic> _load() {
-    final raw = _box?.get(storeKey);
+    final raw = _box?.get(ProfileScope.key(storeKey));
     if (raw is! String || raw.isEmpty) return const {};
     try {
       final decoded = jsonDecode(raw);
@@ -246,13 +247,13 @@ class SourceChoiceStore {
 
   Future<void> clear() async {
     try {
-      await _box?.delete(storeKey);
+      await _box?.delete(ProfileScope.key(storeKey));
     } catch (_) {}
   }
 
   Future<void> _put(Map<String, dynamic> map) async {
     try {
-      await _box?.put(storeKey, jsonEncode(map));
+      await _box?.put(ProfileScope.key(storeKey), jsonEncode(map));
     } catch (_) {}
   }
 

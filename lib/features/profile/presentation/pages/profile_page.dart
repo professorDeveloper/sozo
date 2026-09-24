@@ -23,6 +23,7 @@ import 'package:soplay/core/system/nav_prefs.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/private_list/presentation/private_unlock.dart';
+import 'package:soplay/features/profiles/presentation/widgets/active_profile_card.dart';
 import 'package:soplay/features/auth/domain/entities/user_entity.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
@@ -169,6 +170,7 @@ class _ProfileViewState extends State<_ProfileView> {
                         // no matter how much the app grows behind it.
                         final sections = <Widget>[
                           _ProfileHeader(user: user),
+                          if (signedIn) const ActiveProfileCard(),
                           // Watch counters are local, so a guest who has
                           // watched something has real numbers; a guest who
                           // has not would only get three zeroes.
@@ -372,7 +374,16 @@ class _ProfileViewState extends State<_ProfileView> {
             BlocBuilder<AuthBloc, AuthState>(
               builder: (context, state) {
                 final user = state is AuthLoaded ? state.token.user : null;
-                return _ProfileHeader(user: user);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ProfileHeader(user: user),
+                    if (user != null) ...[
+                      const SizedBox(height: 8),
+                      const ActiveProfileCard(),
+                    ],
+                  ],
+                );
               },
             ),
             const SizedBox(height: 8),

@@ -1,5 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 
@@ -28,7 +29,7 @@ class SearchRecentsStore {
   /// emit that would have shown its results. Search fetched, and then showed
   /// nothing, on every query.
   List<String> load() {
-    final raw = _box?.get(_key);
+    final raw = _box?.get(ProfileScope.key(_key));
     if (raw is! List) return <String>[];
     return raw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
   }
@@ -73,7 +74,7 @@ class SearchRecentsStore {
 
   Future<void> _write(List<String> list) async {
     try {
-      await _box?.put(_key, list);
+      await _box?.put(ProfileScope.key(_key), list);
     } catch (_) {}
   }
 }

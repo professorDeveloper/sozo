@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/data/history_sync_remote_data_source.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
@@ -43,9 +45,10 @@ class HistorySyncService {
   static const String _ownerKey = 'history_sync_owner';
 
   bool _running = false;
+  Completer<void>? _idle;
 
   /// True once this account has ever synced here.
-  bool get hasSynced => _state.get(_cursorKey) != null;
+  bool get hasSynced => _state.get(ProfileScope.key(_cursorKey)) != null;
 
   /// Canonical identity, mirroring the server's `buildHistoryKey` EXACTLY.
   ///
@@ -71,9 +74,10 @@ class HistorySyncService {
   Future<bool> sync() async {
     if (_running) return false;
     _running = true;
+    final done = _idle = Completer<void>();
     try {
-      final since = _state.get(_cursorKey) as String?;
-      final pushedAt = (_state.get(_pushedAtKey) as num?)?.toInt() ?? 0;
+      final since = _state.get(ProfileScope.key(_cursorKey)) as String?;
+      final pushedAt = (_state.get(ProfileScope.key(_pushedAtKey)) as num?)?.toInt() ?? 0;
       final tombstones = _readTombstones();
 
       final outgoing = <HistorySyncItem>[
@@ -94,14 +98,14 @@ class HistorySyncService {
       final result = await _remote.sync(items: outgoing, since: since);
       await _applyRemote(result.items);
 
-      await _state.put(_cursorKey, result.serverTime ?? since);
+      await _state.put(ProfileScope.key(_cursorKey), result.serverTime ?? since);
       // Stamped from the rows just sent, not from "now": a row written while
       // the request was in flight must still be picked up next time.
       final highest = outgoing
           .map((e) => DateTime.tryParse(e.watchedAt ?? '')?.millisecondsSinceEpoch ?? 0)
           .fold<int>(pushedAt, (a, b) => b > a ? b : a);
-      await _state.put(_pushedAtKey, highest);
-      await _state.delete(_tombstonesKey);
+      await _state.put(ProfileScope.key(_pushedAtKey), highest);
+      await _state.delete(ProfileScope.key(_tombstonesKey));
       return true;
     } catch (_) {
       // Offline or signed out. Tombstones are deliberately kept: they must
@@ -109,8 +113,13 @@ class HistorySyncService {
       return false;
     } finally {
       _running = false;
+      done.complete();
     }
   }
+
+  /// Waits out a sync in flight, so a profile switch cannot land one
+  /// profile's rows in the next profile's box.
+  Future<void> settle() => _idle?.future ?? Future<void>.value();
 
   /// Records a delete so it can travel. Call BEFORE removing the local row.
   Future<void> rememberDeleted(HistoryItem item) async {
@@ -118,7 +127,7 @@ class HistorySyncService {
     if (key == null) return;
     final all = _readTombstones()
       ..[key] = DateTime.now().toUtc().toIso8601String();
-    await _state.put(_tombstonesKey, jsonEncode(all));
+    await _state.put(ProfileScope.key(_tombstonesKey), jsonEncode(all));
   }
 
   /// Records a full clear. Call BEFORE clearing local history.
@@ -130,7 +139,7 @@ class HistorySyncService {
       if (key != null) all[key] = now;
     }
     if (all.isEmpty) return;
-    await _state.put(_tombstonesKey, jsonEncode(all));
+    await _state.put(ProfileScope.key(_tombstonesKey), jsonEncode(all));
   }
 
   /// Sign-out must not leave one account's cursor pointing at another's history.
@@ -139,9 +148,9 @@ class HistorySyncService {
   /// keeps watching still has their Continue Watching list. What makes that safe
   /// is [adoptFor], which refuses to hand those rows to a different account.
   Future<void> clear() async {
-    await _state.delete(_cursorKey);
-    await _state.delete(_pushedAtKey);
-    await _state.delete(_tombstonesKey);
+    await _state.delete(ProfileScope.key(_cursorKey));
+    await _state.delete(ProfileScope.key(_pushedAtKey));
+    await _state.delete(ProfileScope.key(_tombstonesKey));
   }
 
   /// Signing out takes the personal record off the screen with it.
@@ -160,14 +169,14 @@ class HistorySyncService {
   /// into whichever account signs in next, and the rows are not deleted — they
   /// are simply no longer on this device.
   Future<void> forgetAfterSignOut() async {
-    final owner = _state.get(_ownerKey) as String?;
+    final owner = _state.get(ProfileScope.key(_ownerKey)) as String?;
     // Nobody ever signed in on this device, so nothing here belongs to an
     // account and there is nothing to hand back. Someone who watched signed
     // out keeps what they watched.
     if (owner == null) return;
     await _local.clearLocalOnly();
     await clear();
-    await _state.delete(_ownerKey);
+    await _state.delete(ProfileScope.key(_ownerKey));
   }
 
   /// Decides whether the rows already on this phone belong to [userId].
@@ -189,7 +198,7 @@ class HistorySyncService {
     final id = userId.trim();
     if (id.isEmpty) return;
 
-    final owner = _state.get(_ownerKey) as String?;
+    final owner = _state.get(ProfileScope.key(_ownerKey)) as String?;
     if (owner == id) return;
 
     if (owner != null && owner != id) {
@@ -197,7 +206,7 @@ class HistorySyncService {
       // The cursor and the outgoing tombstones described the previous account.
       await clear();
     }
-    await _state.put(_ownerKey, id);
+    await _state.put(ProfileScope.key(_ownerKey), id);
   }
 
   // ─── applying the server's answer ──────────────────────────────────────────
@@ -282,7 +291,7 @@ class HistorySyncService {
   );
 
   Map<String, String> _readTombstones() {
-    final raw = _state.get(_tombstonesKey);
+    final raw = _state.get(ProfileScope.key(_tombstonesKey));
     if (raw is! String) return <String, String>{};
     try {
       return (jsonDecode(raw) as Map).cast<String, String>();

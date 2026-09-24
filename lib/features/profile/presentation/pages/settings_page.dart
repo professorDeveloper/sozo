@@ -8,6 +8,7 @@ import 'package:soplay/core/localization/app_language.dart';
 import 'package:soplay/core/localization/language_picker.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
@@ -155,8 +156,11 @@ class _SettingsPageState extends State<SettingsPage> {
             SettingsSwitchTile(
               icon: Icons.eighteen_up_rating_outlined,
               title: 'profile.adult_content'.tr(),
-              subtitle: 'profile.adult_content_desc'.tr(),
+              subtitle: ProfileScope.isKids
+                  ? 'profiles.adult_kids_off'.tr()
+                  : 'profile.adult_content_desc'.tr(),
               value: _hive.showAdultContent,
+              enabled: !ProfileScope.isKids,
               onChanged: _setAdult,
             ),
             const SettingsDivider(),

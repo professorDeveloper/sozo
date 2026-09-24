@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/features/my_list/data/models/favorite_model.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 
@@ -17,7 +18,7 @@ class PrivateListService {
 
   void lock() => _unlocked = false;
 
-  Box get _box => Hive.box(AppConstants.privateFavoritesBox);
+  Box get _box => Hive.box(ProfileScope.box(AppConstants.privateFavoritesBox));
 
   List<FavoriteEntity> getAll() {
     final items = <FavoriteModel>[];

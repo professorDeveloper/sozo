@@ -58,6 +58,10 @@ import 'package:soplay/features/trivia/presentation/trivia_args.dart';
 import 'package:soplay/features/user_lists/domain/entities/user_list_kind.dart';
 import 'package:soplay/features/user_lists/presentation/pages/user_lists_page.dart';
 import 'package:soplay/features/profile/presentation/pages/appearance_page.dart';
+import 'package:soplay/features/profiles/domain/household_profile.dart';
+import 'package:soplay/features/profiles/presentation/pages/manage_profiles_page.dart';
+import 'package:soplay/features/profiles/presentation/pages/household_profile_edit_page.dart';
+import 'package:soplay/features/profiles/presentation/pages/profile_picker_page.dart';
 import 'package:soplay/features/profile/presentation/pages/player_settings_page.dart';
 import 'package:soplay/features/profile/presentation/pages/providers_page.dart';
 import 'package:soplay/features/profile/presentation/pages/about_page.dart';
@@ -414,6 +418,19 @@ class AppRouter {
       ),
       GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
       GoRoute(path: '/main', builder: (context, state) => const MainPage()),
+      GoRoute(
+        path: '/profiles',
+        builder: (context, state) => const ProfilePickerPage(),
+      ),
+      GoRoute(
+        path: '/profiles/manage',
+        builder: (context, state) => const ManageProfilesPage(),
+      ),
+      GoRoute(
+        path: '/profiles/edit',
+        builder: (context, state) =>
+            HouseholdProfileEditPage(profile: state.extra as HouseholdProfile?),
+      ),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingPage(),

@@ -55,6 +55,10 @@ import 'package:soplay/features/download/domain/usecases/verify_downloads_usecas
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/data/history_sync_remote_data_source.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
+import 'package:soplay/core/network/profile_interceptor.dart';
+import 'package:soplay/core/storage/profile_storage.dart';
+import 'package:soplay/features/profiles/data/profile_session.dart';
+import 'package:soplay/features/profiles/data/profiles_remote_data_source.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/mal/data/mal_link_store.dart';
 import 'package:soplay/features/mal/data/mal_service.dart';
@@ -268,6 +272,15 @@ Future<void> configureDependencies() async {
 
   final dio = DioClient.instance;
   dio.interceptors.add(ProviderInterceptor(hiveService: getIt<HiveService>()));
+  dio.interceptors.add(
+    ProfileInterceptor(
+      onStaleProfile: () {
+        if (getIt.isRegistered<ProfileSession>()) {
+          unawaited(getIt<ProfileSession>().refresh());
+        }
+      },
+    ),
+  );
   // Debug builds only. `debugPrint` is not stripped from release builds, and
   // this logs every request with its query string — search terms, content
   // urls — into logcat, where other tooling on the device can read it.
@@ -300,6 +313,17 @@ Future<void> configureDependencies() async {
     HistorySyncService(
       remote: getIt<HistorySyncRemoteDataSource>(),
       local: getIt<HistoryService>(),
+    ),
+  );
+  getIt.registerSingleton<ProfilesRemoteDataSource>(
+    ProfilesRemoteDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<ProfileSession>(
+    ProfileSession(
+      remote: getIt<ProfilesRemoteDataSource>(),
+      isLoggedIn: () => getIt<HiveService>().isLoggedIn,
+      beforeSwitch: () => getIt<HistorySyncService>().settle(),
+      onScopeChanged: _onProfileScopeChanged,
     ),
   );
 
@@ -886,10 +910,34 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<AppLockRepository>(
     AppLockRepositoryImpl(
       getIt<AppLockLocalDataSource>(),
-      wipeProtected: () => getIt<PrivateListService>().clearAll(),
+      wipeProtected: () async {
+        await getIt<PrivateListService>().clearAll();
+        await ProfileStorage.clearPrivateLists();
+      },
     ),
   );
   getIt.registerSingleton<AppLockGate>(AppLockGate(getIt<AppLockRepository>()));
 
   getIt.registerLazySingleton<NavController>(() => NavController());
+}
+
+/// Everything that caches what the active profile's boxes held, told that
+/// they now hold someone else's; then the new profile's server data pulled.
+Future<void> _onProfileScopeChanged({required bool resync}) async {
+  getIt<HistoryService>().revision.value++;
+  getIt<MyListLocalDataSource>().revision.value++;
+  final private = getIt<PrivateListService>()..lock();
+  private.revision.value++;
+  final hive = getIt<HiveService>();
+  hive.adultContentChanged.value = !hive.adultContentChanged.value;
+  hive.incognitoChanged.value = hive.isIncognito;
+  hive.homeRailsChanged.value = !hive.homeRailsChanged.value;
+  if (!resync || !hive.isLoggedIn) return;
+  unawaited(() async {
+    final sync = getIt<HistorySyncService>();
+    final userId = hive.getUser()?.id;
+    if (userId != null && userId.isNotEmpty) await sync.adoptFor(userId);
+    await sync.sync();
+    await getIt<SyncFavoritesUseCase>()();
+  }());
 }
