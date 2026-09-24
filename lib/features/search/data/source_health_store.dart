@@ -1,3 +1,4 @@
+import 'package:soplay/features/sources/data/source_check_store.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
@@ -32,15 +33,21 @@ enum RemoteHealth {
 }
 
 class RemoteVerdict {
-  const RemoteVerdict({required this.state, this.reason, this.checkedAt});
+  const RemoteVerdict({
+    required this.state,
+    this.reason,
+    this.checkedAt,
+    this.onDevice = false,
+  });
 
   final RemoteHealth state;
 
-  /// The sweep's reason code (`dns`, `parked`, `timeout`, …), or null when the
-  /// server gave none.
   final String? reason;
 
   final DateTime? checkedAt;
+
+  /// Found by a check from this phone rather than by the server's sweep.
+  final bool onDevice;
 }
 
 /// What each source did last time, so the next search does not repeat the wait.
@@ -96,6 +103,10 @@ class SourceHealthStore {
   /// Ticks whenever the server's verdicts or the hide preference change, so a
   /// list showing badges can rebuild. Static for the same reason as [_cache].
   static final ValueNotifier<int> _changes = ValueNotifier(0);
+
+  /// For a change the store did not make itself — a device check landing —
+  /// so the badges and the order follow it.
+  static void bumpChanges() => _changes.value++;
   ValueListenable<int> get changes => _changes;
 
   /// How many plays it takes before a source counts as proven, and the point
@@ -308,6 +319,38 @@ class SourceHealthStore {
   /// the source, for the reason [statusOf] prefers the device: the badge
   /// would otherwise call a source down that just worked.
   RemoteVerdict? badgeOf(String id, {String? key}) {
+    // A check from this phone first: it ran the source's own code, which is
+    // what fails when a site changes, and it wins over the server's probe of
+    // the site root the way any fresh answer from here does.
+    final device = SourceCheckStore.shared.of(id);
+    if (device != null) {
+      final at = DateTime.fromMillisecondsSinceEpoch(device.at);
+      switch (device.verdict) {
+        case SourceVerdict.dead:
+        case SourceVerdict.outdated:
+          return RemoteVerdict(
+            state: RemoteHealth.dead,
+            reason: device.verdict == SourceVerdict.outdated
+                ? 'device_outdated'
+                : 'device_dead',
+            checkedAt: at,
+            onDevice: true,
+          );
+        case SourceVerdict.blocked:
+          return RemoteVerdict(
+            state: RemoteHealth.cloudflare,
+            reason: 'blocked',
+            checkedAt: at,
+            onDevice: true,
+          );
+        case SourceVerdict.alive:
+        case SourceVerdict.empty:
+          return null;
+        case SourceVerdict.failing:
+        case SourceVerdict.unknown:
+          break;
+      }
+    }
     final v = remoteVerdictOf(key ?? id);
     if (v == null || v.state == RemoteHealth.slow) return null;
     if (v.state == RemoteHealth.dead) {
