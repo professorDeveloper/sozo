@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/features/notifications/data/notification_payload.dart';
+import 'package:soplay/features/notifications/data/release_notifier.dart';
 
 void main() {
   test('round-trips, keeping numbers as numbers', () {
@@ -35,5 +36,43 @@ void main() {
     expect(encodeNotificationPayload(null), isNull);
     expect(decodeNotificationPayload(''), isNull);
     expect(decodeNotificationPayload('garbage'), isNull);
+  });
+
+  test('a release push drawn by the app keeps the profile it was sent to', () {
+    // Pushes are data-only, so every tap comes back through this payload;
+    // without the profile the tap opened the title in whoever was active.
+    final alert = ReleaseAlert.fromData({
+      'type': 'new_release',
+      'provider': 'hdrezka',
+      'contentUrl': 'https://x/y',
+      'episodeNumber': '7',
+      'count': '2',
+      'profileId': 'p2',
+    })!;
+    final tap = decodeNotificationPayload(
+      encodeNotificationPayload(alert.toPayload()),
+    )!;
+    expect(tap['profileId'], 'p2');
+    expect(tap['episodeNumber'], 6);
+
+    final own = ReleaseAlert.fromData({'contentUrl': 'u', 'episodeNumber': 1})!;
+    expect(own.toPayload().containsKey('profileId'), isFalse);
+  });
+
+  test("a push's own wording wins over the app's running number", () {
+    const labels = NotificationLabels();
+    final server = ReleaseAlert.fromData({
+      'contentUrl': 'https://www.themoviedb.org/tv/9',
+      'episodeNumber': '17',
+      'episodeLabel': 'S2 E5',
+      'body': 'Season 2, episode 5 is out',
+    })!;
+    expect(labels.bodyFor(server), 'Season 2, episode 5 is out');
+    final local = ReleaseAlert.fromData({
+      'contentUrl': 'https://a/b',
+      'episodeNumber': '3',
+    })!;
+    expect(local.body, isNull);
+    expect(labels.bodyFor(local), isNotEmpty);
   });
 }

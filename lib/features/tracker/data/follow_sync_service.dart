@@ -71,6 +71,7 @@ class FollowSyncService implements FollowChangeSink {
 
   bool _flushing = false;
   bool _syncing = false;
+  bool _requeued = false;
   Timer? _retry;
   int _attempt = 0;
 
@@ -144,6 +145,7 @@ class FollowSyncService implements FollowChangeSink {
       'contentUrl': t.contentUrl,
     });
     await _writeMap(_outboxKey, outbox);
+    if (_flushing || _syncing) _requeued = true;
     if (op['op'] == 'delete') {
       final tombs = _readMap(_tombstonesKey);
       tombs[t.key] = {
@@ -184,6 +186,8 @@ class FollowSyncService implements FollowChangeSink {
     if (outbox.isEmpty) return true;
     if (outbox.length > batchThreshold) return fullSync(force: true);
     _flushing = true;
+    _requeued = false;
+    final scope = ProfileScope.namespace;
     try {
       final local = {for (final t in _follows.list()) t.key: t};
       for (final entry in outbox.entries.toList()) {
@@ -220,7 +224,13 @@ class FollowSyncService implements FollowChangeSink {
           _scheduleRetry();
           return false;
         }
-        outbox = _readOutbox()..remove(entry.key);
+        // Another profile's queue is in the box now; this one's goes up
+        // when it is active again.
+        if (ProfileScope.namespace != scope) return false;
+        outbox = _readOutbox();
+        // Changed while this one was in flight: the newer op still has to go.
+        if (!_same(outbox[entry.key], op)) continue;
+        outbox.remove(entry.key);
         await _writeMap(_outboxKey, outbox);
         if (op['op'] == 'delete') {
           final tombs = _readMap(_tombstonesKey)..remove(entry.key);
@@ -235,6 +245,21 @@ class FollowSyncService implements FollowChangeSink {
       return false;
     } finally {
       _flushing = false;
+      _followUp(scope);
+    }
+  }
+
+  static bool _same(Map<String, dynamic>? a, Map<String, dynamic> b) =>
+      a != null && jsonEncode(a) == jsonEncode(b);
+
+  /// What was queued, or which profile is active, changed during a send.
+  void _followUp(String? scope) {
+    if (ProfileScope.namespace != scope) {
+      _requeued = false;
+      unawaited(fullSync(force: true));
+    } else if (_requeued) {
+      _requeued = false;
+      unawaited(flush());
     }
   }
 
@@ -259,8 +284,10 @@ class FollowSyncService implements FollowChangeSink {
       return flush();
     }
     _syncing = true;
+    _requeued = false;
+    final scope = ProfileScope.namespace;
     final started = _now().millisecondsSinceEpoch;
-    final sentKeys = _readOutbox().keys.toSet();
+    final sent = _readOutbox();
     final tombs = _readMap(_tombstonesKey);
     try {
       final merged = await _remote.sync(
@@ -275,9 +302,11 @@ class FollowSyncService implements FollowChangeSink {
         ],
       );
       await _setLive(true);
+      // The answer is the old profile's list; the new one syncs next.
+      if (ProfileScope.namespace != scope) return false;
       await _follows.adoptRemote(merged, keepAddedAfter: started);
       final outbox = _readOutbox()
-        ..removeWhere((k, _) => sentKeys.contains(k));
+        ..removeWhere((k, v) => _same(sent[k], v));
       await _writeMap(_outboxKey, outbox);
       final remaining = _readMap(_tombstonesKey)
         ..removeWhere((k, _) => tombs.containsKey(k));
@@ -295,6 +324,7 @@ class FollowSyncService implements FollowChangeSink {
       return false;
     } finally {
       _syncing = false;
+      _followUp(scope);
     }
   }
 

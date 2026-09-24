@@ -425,12 +425,17 @@ class _PermissionBanner extends StatelessWidget {
             ),
           ),
           if (!ok)
-            FilledButton(
-              onPressed: onFix,
-              child: Text(
-                blocked
-                    ? 'release_notify.priming_open_settings'.tr()
-                    : 'release_notify.permission_fix'.tr(),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 160),
+              child: FilledButton(
+                onPressed: onFix,
+                child: Text(
+                  blocked
+                      ? 'release_notify.priming_open_settings'.tr()
+                      : 'release_notify.permission_fix'.tr(),
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
         ],

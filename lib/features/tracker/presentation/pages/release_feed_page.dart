@@ -316,13 +316,14 @@ class _SwipeRow extends StatelessWidget {
         return true;
       },
       onDismissed: (_) => onRemove(),
-      child: _ReleaseCard(entry: entry, onSeen: onSeen),
+      child: ReleaseCard(entry: entry, onSeen: onSeen),
     );
   }
 }
 
-class _ReleaseCard extends StatelessWidget {
-  const _ReleaseCard({required this.entry, required this.onSeen});
+@visibleForTesting
+class ReleaseCard extends StatelessWidget {
+  const ReleaseCard({super.key, required this.entry, required this.onSeen});
 
   final ReleaseEntry entry;
   final VoidCallback onSeen;
@@ -381,101 +382,112 @@ class _ReleaseCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: SizedBox(
-                    height: 112,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                entry.title.isEmpty ? '—' : entry.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.25,
-                                ),
-                              ),
-                            ),
-                            if (fresh) ...[
-                              const SizedBox(width: 6),
-                              const NewBadge(),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 7),
-                        Row(
-                          children: [
-                            EpisodePill(
-                              text: releaseEpisodeLabel(entry),
-                              strong: fresh,
-                            ),
-                            const SizedBox(width: 7),
-                            Flexible(
-                              child: Text(
-                                releaseAgo(entry.time),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppColors.textHint,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        Row(
-                          children: [
-                            SizedBox(
-                              height: 34,
-                              child: FilledButton.icon(
-                                onPressed: () => openRelease(context, entry),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: fresh
-                                      ? Colors.white
-                                      : AppColors.surfaceVariant,
-                                  foregroundColor: fresh
-                                      ? Colors.black
-                                      : AppColors.textPrimary,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(kButtonRadius),
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 13,
+                  // At least the poster's height, taller when the text is.
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 112),
+                    child: IntrinsicHeight(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  entry.title.isEmpty ? '—' : entry.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 14.5,
                                     fontWeight: FontWeight.w800,
+                                    height: 1.25,
                                   ),
                                 ),
-                                icon: Icon(
-                                  reading
-                                      ? Icons.menu_book_rounded
-                                      : Icons.play_arrow_rounded,
-                                  size: 18,
-                                ),
-                                label: Text(cta),
                               ),
-                            ),
-                            const Spacer(),
-                            if (fresh)
-                              IconButton(
-                                tooltip: 'release_notify.action_seen'.tr(),
-                                visualDensity: VisualDensity.compact,
-                                onPressed: onSeen,
-                                icon: const Icon(
-                                  Icons.done_rounded,
-                                  size: 20,
-                                  color: AppColors.textSecondary,
+                              if (fresh) ...[
+                                const SizedBox(width: 6),
+                                const NewBadge(),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 7),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: EpisodePill(
+                                  text: releaseEpisodeLabel(entry),
+                                  strong: fresh,
                                 ),
                               ),
-                          ],
-                        ),
-                      ],
+                              const SizedBox(width: 7),
+                              Flexible(
+                                child: Text(
+                                  releaseAgo(entry.time),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textHint,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          const Spacer(),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: FilledButton.icon(
+                                  onPressed: () => openRelease(context, entry),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: fresh
+                                        ? Colors.white
+                                        : AppColors.surfaceVariant,
+                                    foregroundColor: fresh
+                                        ? Colors.black
+                                        : AppColors.textPrimary,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    minimumSize: const Size(0, 34),
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(kButtonRadius),
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  icon: Icon(
+                                    reading
+                                        ? Icons.menu_book_rounded
+                                        : Icons.play_arrow_rounded,
+                                    size: 18,
+                                  ),
+                                  label: Text(
+                                    cta,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                              const Spacer(),
+                              if (fresh)
+                                IconButton(
+                                  tooltip: 'release_notify.action_seen'.tr(),
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: onSeen,
+                                  icon: const Icon(
+                                    Icons.done_rounded,
+                                    size: 20,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

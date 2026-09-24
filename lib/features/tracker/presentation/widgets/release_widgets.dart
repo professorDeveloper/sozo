@@ -48,11 +48,16 @@ class ReleasePoster extends StatelessWidget {
       borderRadius: BorderRadius.circular(radius),
       child: url.isEmpty
           ? placeholder
-          : CachedNetworkImage(
-              imageUrl: url,
-              fit: BoxFit.cover,
-              placeholder: (_, _) => placeholder,
-              errorWidget: (_, _, _) => placeholder,
+          : LayoutBuilder(
+              builder: (context, box) => CachedNetworkImage(
+                imageUrl: url,
+                fit: BoxFit.cover,
+                memCacheWidth: box.maxWidth.isFinite
+                    ? (box.maxWidth * MediaQuery.devicePixelRatioOf(context)).round()
+                    : null,
+                placeholder: (_, _) => placeholder,
+                errorWidget: (_, _, _) => placeholder,
+              ),
             ),
     );
   }
@@ -148,6 +153,7 @@ class EpisodePill extends StatelessWidget {
       child: Text(
         text,
         maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: strong ? AppColors.primaryLight : AppColors.textSecondary,
           fontSize: 11.5,
@@ -356,8 +362,11 @@ class NewReleasesRail extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
+                        flex: 2,
                         child: Text(
                           'release_notify.home_rail'.tr(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 17,
@@ -366,12 +375,16 @@ class NewReleasesRail extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Text(
-                        'home.view_all'.tr(),
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          'home.view_all'.tr(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       const Icon(
@@ -384,7 +397,8 @@ class NewReleasesRail extends StatelessWidget {
                 ),
               ),
               SizedBox(
-                height: 206,
+                // Poster and gaps, then the two lines of text as they scale.
+                height: 173 + MediaQuery.textScalerOf(context).scale(23.5) * 1.5,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -476,6 +490,8 @@ class _RailCard extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 releaseAgo(entry.time),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: AppColors.textHint, fontSize: 11),
               ),
             ],

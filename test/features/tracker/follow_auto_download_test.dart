@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
@@ -25,6 +26,7 @@ class _Hive implements HiveService {
 
 class _Episodes implements GetEpisodesUseCase {
   int highest = 12;
+  void Function()? during;
 
   @override
   Future<Result<PlaybackEntity>> call(
@@ -33,7 +35,12 @@ class _Episodes implements GetEpisodesUseCase {
     int size = 100,
     String sort = 'asc',
     String? provider,
-  }) async => Success(
+  }) async {
+    during?.call();
+    return _answer(contentUrl);
+  }
+
+  Result<PlaybackEntity> _answer(String contentUrl) => Success(
     PlaybackEntity(
       provider: 'p1',
       contentUrl: contentUrl,
@@ -133,5 +140,29 @@ void main() {
     expect(grown, 1);
     expect(got!.length, 14);
     expect(follow.list().single.autoDownloadFrom, 10, reason: 'floor kept');
+  });
+
+  test('a profile switch mid-check leaves the new profile untouched', () async {
+    await addTitle(last: 10);
+    episodes.during = () {
+      ProfileScope.set(namespace: 'kid');
+      hive.raw = [
+        const FollowedTitle(
+          contentUrl: 'u',
+          provider: 'p1',
+          title: 'T',
+          thumbnail: '',
+          lastEpisodeCount: 10,
+        ).toJson(),
+      ];
+    };
+    final grown = <int>[];
+    await follow.checkForUpdates(
+      notify: false,
+      onGrown: (g) async => grown.add(g.episode),
+    );
+    ProfileScope.reset();
+    expect(grown, isEmpty);
+    expect(follow.list().single.lastEpisodeCount, 10);
   });
 }

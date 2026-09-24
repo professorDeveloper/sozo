@@ -1,11 +1,13 @@
 // The follow list travels to the account when there is one, survives being
 // offline, and carries on locally when the server has no /follows yet.
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
@@ -46,6 +48,7 @@ class _Remote implements FollowSyncRemoteDataSource {
   List<FollowedTitle> server = [];
   List<FollowedTitle>? lastSyncItems;
   List<({String provider, String contentUrl, int at})>? lastDeleted;
+  Completer<void>? hold;
 
   void _gate() {
     switch (mode) {
@@ -64,6 +67,7 @@ class _Remote implements FollowSyncRemoteDataSource {
   @override
   Future<FollowedTitle?> add(FollowedTitle title) async {
     calls.add('add ${title.contentUrl}');
+    await hold?.future;
     _gate();
     return title;
   }
@@ -92,6 +96,7 @@ class _Remote implements FollowSyncRemoteDataSource {
     required List<({String provider, String contentUrl, int at})> deleted,
   }) async {
     calls.add('sync');
+    await hold?.future;
     _gate();
     lastSyncItems = items;
     lastDeleted = deleted;
@@ -127,6 +132,7 @@ void main() {
   tearDownAll(() async => Hive.close());
 
   setUp(() async {
+    ProfileScope.reset();
     await box.clear();
     signedIn = true;
     hive = _Hive();
@@ -223,6 +229,38 @@ void main() {
     expect(remote.calls, isNot(contains('sync')));
     await sync.fullSync(force: true);
     expect(remote.calls, contains('sync'));
+  });
+
+  test('an unfollow made while the follow is in flight still goes up', () async {
+    remote.hold = Completer<void>();
+    await follows.follow(_title('a'));
+    await pumpEventQueue();
+    expect(remote.calls, ['add a']);
+    await follows.unfollow('a');
+    await pumpEventQueue();
+    remote.hold!.complete();
+    remote.hold = null;
+    await pumpEventQueue();
+    expect(remote.calls, ['add a', 'remove a']);
+    expect(sync.pendingCount, 0);
+  });
+
+  test('a profile switch mid-sync keeps the old list out of the new profile', () async {
+    hive.raw = [_title('mine').toJson()];
+    remote.server = [_title('theirs')];
+    remote.hold = Completer<void>();
+    final first = sync.fullSync(force: true);
+    await pumpEventQueue();
+    ProfileScope.set(namespace: 'kid', remoteId: 'kid');
+    remote.hold!.complete();
+    remote.hold = null;
+    remote.server = [_title('mine')];
+    expect(await first, isFalse);
+    expect(hive.raw.map((e) => e['contentUrl']), ['mine']);
+    await pumpEventQueue();
+    // The new profile gets a sync of its own instead of being skipped.
+    expect(remote.calls.where((c) => c == 'sync'), hasLength(2));
+    ProfileScope.reset();
   });
 
   group('collapse', () {

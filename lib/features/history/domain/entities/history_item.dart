@@ -15,6 +15,10 @@ class HistoryItem {
   /// server can tell reading from watching in friends' activity.
   final String? mediaType;
 
+  /// The last episode or chapter on offer: finishing it finishes the title,
+  /// which is what the "series finished" and "manga finished" badges count.
+  final bool isFinale;
+
   const HistoryItem({
     required this.contentUrl,
     required this.provider,
@@ -28,6 +32,7 @@ class HistoryItem {
     this.durationMs = 0,
     required this.watchedAt,
     this.mediaType,
+    this.isFinale = false,
   });
 
   double get progress =>
@@ -72,6 +77,7 @@ class HistoryItem {
     durationMs: durationMs ?? this.durationMs,
     watchedAt: watchedAt ?? this.watchedAt,
     mediaType: mediaType,
+    isFinale: isFinale,
   );
 
   Map<String, dynamic> toJson() => {
@@ -87,6 +93,7 @@ class HistoryItem {
     'durationMs': durationMs,
     'watchedAt': watchedAt,
     if (mediaType != null) 'mediaType': mediaType,
+    if (isFinale) 'finale': true,
   };
 
   factory HistoryItem.fromJson(Map<String, dynamic> json) => HistoryItem(
@@ -102,5 +109,6 @@ class HistoryItem {
     durationMs: json['durationMs'] as int? ?? 0,
     watchedAt: json['watchedAt'] as int? ?? 0,
     mediaType: json['mediaType'] as String?,
+    isFinale: json['finale'] == true,
   );
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:soplay/features/tracker/presentation/widgets/release_widgets.dart';
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
@@ -295,6 +296,11 @@ class _HomeContentBody extends StatelessWidget {
                 : '',
           );
           final showServices = medium == HomeContentKind.movie;
+          final catalogueHome = Catalogue.fromId(
+            providerState is ProviderLoaded
+                ? providerState.currentProviderId
+                : hive.getCurrentProvider(),
+          );
           final rails = visibleRails(
             sanitizeRailOrder(hive.getHomeRailOrder()),
             hive.getHomeRailHidden(),
@@ -328,9 +334,18 @@ class _HomeContentBody extends StatelessWidget {
                   child: RepaintBoundary(child: NewReleasesRail()),
                 );
               case HomeRail.pickedForYou:
-                yield const SliverToBoxAdapter(
-                  child: RepaintBoundary(child: HomePickedForYouSection()),
-                );
+                // Catalogue homes only: a source's own home has its own
+                // sections, and the picks are browsed in the catalogue shown.
+                if (catalogueHome != null) {
+                  yield SliverToBoxAdapter(
+                    child: RepaintBoundary(
+                      child: HomePickedForYouSection(
+                        key: ValueKey(catalogueHome.kind),
+                        catalogue: catalogueHome.kind,
+                      ),
+                    ),
+                  );
+                }
               case HomeRail.genres:
                 if (loaded != null && loaded.genres.isNotEmpty) {
                   yield SliverToBoxAdapter(

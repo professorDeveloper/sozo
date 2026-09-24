@@ -134,7 +134,16 @@ class NotificationService {
     );
   }
 
-  Future<void> ensureInitialized() async {
+  Future<void>? _initializing;
+
+  /// Shared by concurrent callers: two initialisations would each read the
+  /// launch details and open a tapped notification twice.
+  Future<void> ensureInitialized() {
+    if (_initialized) return Future.value();
+    return _initializing ??= _initialize().whenComplete(() => _initializing = null);
+  }
+
+  Future<void> _initialize() async {
     if (_initialized) return;
     if (!Platform.isAndroid && !Platform.isIOS) {
       _initialized = true;

@@ -126,6 +126,11 @@ extension _PlayerHistory on _PlayerPageState {
         positionMs: posMs,
         durationMs: durMs,
         watchedAt: DateTime.now().millisecondsSinceEpoch,
+        // The last episode on offer: finishing it finishes the series.
+        isFinale:
+            widget.args.isSerial &&
+            _episodes.length > 1 &&
+            _episodeIndex == _episodes.length - 1,
       ),
     );
   }
@@ -298,6 +303,7 @@ extension _PlayerHistory on _PlayerPageState {
           context,
           milestone,
           freezeAwarded: result.freezeAwarded,
+          badgeTier: result.streakBadgeTier,
         );
       }
       // Independent of the milestone: a ping can both cross a milestone AND

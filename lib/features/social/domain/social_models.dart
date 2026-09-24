@@ -3,6 +3,8 @@
 /// newer server long after either was written.
 library;
 
+import 'package:soplay/features/achievements/domain/achievements.dart';
+
 enum SocialRelation {
   self,
   friends,
@@ -119,11 +121,16 @@ class SocialProfile {
     this.friendsCount,
     this.canSeeActivity = false,
     this.acceptsRequests = true,
+    this.achievements,
   });
 
   final SocialUser user;
   final SocialRelation relation;
   final String? requestId;
+
+  /// Earned badges and the showcase; null when the profile hides its numbers
+  /// from this viewer.
+  final AchievementsView? achievements;
 
   /// Null when the profile hides it from this viewer.
   final int? friendsCount;
@@ -137,6 +144,9 @@ class SocialProfile {
     friendsCount: _int(json['friendsCount']),
     canSeeActivity: json['canSeeActivity'] == true,
     acceptsRequests: json['acceptsRequests'] != false,
+    achievements: json['achievements'] is Map
+        ? AchievementsView.fromJson(_map(json['achievements']))
+        : null,
   );
 
   SocialProfile copyWith({
@@ -150,6 +160,7 @@ class SocialProfile {
     friendsCount: friendsCount,
     canSeeActivity: canSeeActivity,
     acceptsRequests: acceptsRequests,
+    achievements: achievements,
   );
 }
 
@@ -207,9 +218,11 @@ enum ActivityType {
   favorited,
   planned,
   completed,
+  achieved,
   unknown;
 
   static ActivityType parse(Object? raw) => switch (raw) {
+    'achieved' => achieved,
     'watched' => watched,
     'read' => read,
     'favorited' => favorited,
@@ -247,10 +260,16 @@ class ActivityItem {
     this.finished = false,
     this.at,
     this.actor,
+    this.achievementId,
+    this.achievementTier,
   });
 
   final String id;
   final ActivityType type;
+
+  /// [ActivityType.achieved] only: the badge, and the tier reached.
+  final String? achievementId;
+  final int? achievementTier;
   final ActivityMedia media;
   final String provider;
   final String? contentUrl;
@@ -286,6 +305,8 @@ class ActivityItem {
     actor: json['actor'] is Map
         ? SocialUser.fromJson(_map(json['actor']))
         : null,
+    achievementId: _str(json['achievementId']),
+    achievementTier: _int(json['achievementTier']),
   );
 }
 

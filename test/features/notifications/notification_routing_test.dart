@@ -59,4 +59,11 @@ void main() {
       '/watch-party?code=AB',
     );
   });
+
+  test('a cold-start tap waits out the routes the launch replaces', () {
+    expect(isLaunchRoute('/splash'), isTrue);
+    expect(isLaunchRoute('/profiles'), isTrue);
+    expect(isLaunchRoute('/main'), isFalse);
+    expect(isLaunchRoute('/detail'), isFalse);
+  });
 }

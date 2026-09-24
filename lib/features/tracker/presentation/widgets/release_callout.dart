@@ -109,7 +109,7 @@ class ReleaseCallout extends StatelessWidget {
                       color: AppColors.onPrimary,
                       ringColor: Colors.white,
                       size: 18,
-                      ringToken: 1,
+                      ringOnAppear: true,
                     ),
                   ),
                   const SizedBox(width: 12),

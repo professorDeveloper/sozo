@@ -17,6 +17,7 @@ class AnimatedBell extends StatefulWidget {
     this.size = 22,
     this.ringToken = 0,
     this.ringColor,
+    this.ringOnAppear = false,
   });
 
   final BellState state;
@@ -24,6 +25,9 @@ class AnimatedBell extends StatefulWidget {
   final Color? ringColor;
   final double size;
   final int ringToken;
+
+  /// Rings once when first shown.
+  final bool ringOnAppear;
 
   @override
   State<AnimatedBell> createState() => _AnimatedBellState();
@@ -35,6 +39,16 @@ class _AnimatedBellState extends State<AnimatedBell>
     vsync: this,
     duration: const Duration(milliseconds: 900),
   );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.ringOnAppear) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _play();
+      });
+    }
+  }
 
   @override
   void didUpdateWidget(AnimatedBell old) {

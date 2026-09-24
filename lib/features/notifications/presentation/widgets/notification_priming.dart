@@ -528,9 +528,13 @@ class _MockCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      _MockAction(label: 'release_notify.action_watch'.tr()),
+                      Flexible(
+                        child: _MockAction(label: 'release_notify.action_watch'.tr()),
+                      ),
                       const SizedBox(width: 14),
-                      _MockAction(label: 'release_notify.action_seen'.tr()),
+                      Flexible(
+                        child: _MockAction(label: 'release_notify.action_seen'.tr()),
+                      ),
                     ],
                   ),
                 ],
@@ -567,6 +571,8 @@ class _MockAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     label.toUpperCase(),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
     style: TextStyle(
       color: AppColors.primary,
       fontSize: 11.5,
