@@ -120,8 +120,22 @@ Future<void> _switchMode(
   // no source installed for the mode the catalogue is the landing anyway —
   // an empty mode used to be a dead end, and now it is AniList's shelf.
   final favIds = hive.getFavoriteProviders().toSet();
+  // The mode being left keeps its source for the way back — also for a
+  // source picked before modes remembered theirs.
+  final leaving = state.currentProviderId;
+  if (leaving.isNotEmpty) {
+    await hive.rememberProviderForMode(leaving.contentMode.id, leaving);
+  }
+  // The source last used in this mode, if it is still there to use.
+  final remembered = hive.providerForMode(mode.id);
+  final rememberedUsable =
+      remembered != null &&
+      (candidates.any((p) => p.id == remembered) ||
+          Catalogue.fromId(remembered)?.mode == mode);
   final String pickId;
-  if ((Catalogue.isId(state.currentProviderId) || candidates.isEmpty) &&
+  if (rememberedUsable) {
+    pickId = remembered;
+  } else if ((Catalogue.isId(state.currentProviderId) || candidates.isEmpty) &&
       catalogues.isNotEmpty) {
     pickId = catalogues.first.id;
   } else {

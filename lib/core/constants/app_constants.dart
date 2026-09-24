@@ -45,6 +45,9 @@ class AppConstants {
   static const String languageKey = 'language';
   static const String currentProviderKey = 'current_provider';
 
+  /// The source last picked in each content mode.
+  static const String modeProvidersKey = 'mode_providers';
+
   /// Which kind of catalogue the app is showing — video, manga or novel.
   /// Absent ⇒ video, which is what every install had before modes existed.
   static const String contentModeKey = 'content_mode';

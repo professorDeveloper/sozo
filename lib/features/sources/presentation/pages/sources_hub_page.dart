@@ -421,6 +421,9 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     final hive = getIt<HiveService>();
     final mode = source.id.contentMode;
     if (ContentMode.fromId(hive.getContentMode()) != mode) {
+      // The mode being left keeps its source for the way back.
+      final leaving = hive.getCurrentProvider();
+      await hive.rememberProviderForMode(leaving.contentMode.id, leaving);
       await hive.setContentMode(mode.id);
     }
     if (!mounted) return;

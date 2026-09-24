@@ -1,3 +1,4 @@
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
@@ -160,6 +161,11 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     Emitter<ProviderState> emit,
   ) async {
     await hiveService.saveCurrentProvider(event.providerId);
+    // Remembered for its mode, so switching to Manga and back returns here.
+    await hiveService.rememberProviderForMode(
+      event.providerId.contentMode.id,
+      event.providerId,
+    );
     // An explicit pick supersedes any provider parked by the outage handler,
     // so it is not undone when the backend comes back.
     await hiveService.clearPreOutageProvider();

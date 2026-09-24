@@ -120,6 +120,27 @@ class HiveService {
     '',
   );
 
+  /// The source last picked in each mode, by mode id — Watch, Manga,
+  /// Novels. Switching mode and back landed on the mode's first source
+  /// (VidAPI) instead of the CloudStream source the viewer had left it on.
+  String? providerForMode(String modeId) {
+    final raw = _settingsBox.get(AppConstants.modeProvidersKey);
+    if (raw is! Map) return null;
+    final id = raw[modeId];
+    return id is String && id.isNotEmpty ? id : null;
+  }
+
+  Future<void> rememberProviderForMode(String modeId, String providerId) async {
+    if (providerId.isEmpty) return;
+    final raw = _settingsBox.get(AppConstants.modeProvidersKey);
+    final map = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
+    if (map[modeId] == providerId) return;
+    map[modeId] = providerId;
+    await _settingsBox.put(AppConstants.modeProvidersKey, map);
+  }
+
   Future<void> saveCurrentProvider(String providerId) async {
     final before = getCurrentProvider();
     await _settingsBox.put(AppConstants.currentProviderKey, providerId);
