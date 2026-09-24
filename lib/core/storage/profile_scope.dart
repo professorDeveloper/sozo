@@ -58,6 +58,7 @@ class ProfileScope {
     AppConstants.homeSuggestionsAnsweredKey,
     AppConstants.watchStatsKey,
     AppConstants.titlePrefsKey,
+    AppConstants.tasteProfileKey,
     'source_choices',
     'search_recent_queries',
     'followed_titles',

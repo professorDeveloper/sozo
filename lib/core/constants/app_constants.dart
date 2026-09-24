@@ -223,6 +223,12 @@ class AppConstants {
   /// original white pill back.
   static const String tintNavKey = 'tint_nav';
   static const String onboardingSeenKey = 'onboarding_seen';
+
+  /// The setup in progress, so a killed app reopens on the same step.
+  static const String onboardingFlowKey = 'onboarding_flow';
+
+  /// What a profile said it likes, as JSON. Per profile.
+  static const String tasteProfileKey = 'taste_profile';
   static const String deeplinkPromptSeenKey = 'deeplink_prompt_seen';
   static const String deeplinkOptInKey = 'deeplink_opt_in';
   static const String openSubtitlesKeyKey = 'opensubtitles_api_key';

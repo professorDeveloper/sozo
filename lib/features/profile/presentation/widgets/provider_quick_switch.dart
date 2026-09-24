@@ -107,7 +107,6 @@ List<ProviderEntity> _resolveFavorites(ProviderLoaded state) {
 /// [remember] is false only for a stand-in chosen because the remembered
 /// source has not enumerated yet (a host still starting, a repo still
 /// loading), so the memory is not overwritten by it.
-@visibleForTesting
 ({String id, bool remember}) pickSourceForMode({
   required ContentMode mode,
   required String remembered,
