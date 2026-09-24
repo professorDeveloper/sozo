@@ -251,7 +251,7 @@ class HistorySyncService {
       // contentUrl is a stream address this app cannot open, and a History
       // entry that leads nowhere is worse than a missing one.
       final contentUrl = remote.contentUrl;
-      if (remote.extra != null || contentUrl == null || contentUrl.isEmpty) {
+      if (remote.isForeign || contentUrl == null || contentUrl.isEmpty) {
         continue;
       }
       await _local.save(
@@ -269,6 +269,7 @@ class HistorySyncService {
           watchedAt: watchedAt == 0
               ? DateTime.now().millisecondsSinceEpoch
               : watchedAt,
+          mediaType: remote.mediaType,
         ),
       );
     }
@@ -285,6 +286,7 @@ class HistorySyncService {
     episodeLabel: item.episodeLabel,
     positionMs: item.positionMs,
     durationMs: item.durationMs,
+    extra: item.mediaType == null ? null : {'mediaType': item.mediaType},
     watchedAt: DateTime.fromMillisecondsSinceEpoch(
       item.watchedAt,
     ).toUtc().toIso8601String(),

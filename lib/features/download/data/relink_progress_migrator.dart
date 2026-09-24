@@ -41,6 +41,7 @@ class RelinkProgressMigrator {
           positionMs: h.positionMs,
           durationMs: h.durationMs,
           watchedAt: h.watchedAt,
+          mediaType: h.mediaType,
         ),
       );
     }

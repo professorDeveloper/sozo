@@ -608,6 +608,7 @@ class _ReaderPageState extends State<ReaderPage> {
         positionMs: isNovel ? _novelPermille : _currentPage,
         durationMs: isNovel ? 1000 : (_pageCount > 1 ? _pageCount - 1 : 0),
         watchedAt: DateTime.now().millisecondsSinceEpoch,
+        mediaType: isNovel ? 'novel' : 'manga',
       ),
     );
     // On the same tick as the history write, because the two answer questions
