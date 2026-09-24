@@ -11,6 +11,9 @@ import 'package:soplay/features/download/domain/download_layout.dart';
 import 'package:soplay/features/download/domain/entities/download_failure.dart';
 import 'package:soplay/features/download/domain/entities/download_kind.dart';
 
+/// A slice of a larger file, as an HLS `#EXT-X-BYTERANGE` names it.
+typedef HlsByteRange = ({int offset, int length});
+
 /// A step forward, reported to whoever is driving the transfer.
 class TransferProgress {
   const TransferProgress({
@@ -94,6 +97,20 @@ class DownloadTransferDataSource {
 
   /// One failed segment out of a thousand should not cost the episode.
   static const int _segmentAttempts = 3;
+
+  /// Segments in flight at once. One at a time left most of a connection idle
+  /// — each segment is a few hundred KB, so the round trip, not the bandwidth,
+  /// set the pace — and a 24-minute episode took as long to save as to watch.
+  /// Four keeps a CDN busy without looking like a crawler.
+  static const int _segmentWorkers = 4;
+
+  /// Pages and chapter pictures in flight at once. Image hosts are smaller and
+  /// quicker to rate-limit than video CDNs.
+  static const int _pageWorkers = 3;
+
+  /// A single file whose connection drops midway picks up from the bytes it
+  /// has, this many times, before the download is called failed.
+  static const int _fileResumes = 3;
 
   /// Content types that mean "this is not the file you asked for".
   static const List<String> _nonMediaTypes = [
@@ -193,54 +210,49 @@ class DownloadTransferDataSource {
     final target = File('$dirPath/${DownloadLayout.videoStemName}$extension');
     final part = File(DownloadLayout.partOf(target.path));
 
-    // Resume from whatever a previous attempt left in the `.part`.
-    final existing = await part.exists() ? await part.length() : 0;
-
-    final response = await _dio.get<ResponseBody>(
-      url,
-      cancelToken: cancel,
-      options: Options(
-        headers: {...headers, if (existing > 0) 'Range': 'bytes=$existing-'},
-        responseType: ResponseType.stream,
-      ),
-    );
-
-    _rejectNonMedia(response.headers.value('content-type'));
-
-    // 206 means the server honoured the range; anything else means starting
-    // over, and appending to the old bytes would corrupt the file silently.
-    final append = existing > 0 && response.statusCode == 206;
-    if (!append && await part.exists()) await part.delete();
-
-    final declared = _contentLength(response.headers);
-    final total = declared > 0 ? (append ? existing + declared : declared) : 0;
-    var written = append ? existing : 0;
-
-    final sink = part.openWrite(
-      mode: append ? FileMode.append : FileMode.write,
-    );
-    try {
-      await for (final chunk in response.data!.stream) {
+    var written = 0;
+    var total = 0;
+    // A dropped connection used to fail the whole file and wait out the
+    // queue's retry backoff before a new request resumed it. It resumes here,
+    // at once, from the bytes already on disk.
+    for (var round = 0; ; round++) {
+      try {
+        final got = await _directOnce(
+          url: url,
+          part: part,
+          headers: headers,
+          cancel: cancel,
+          knownTotal: total,
+          onProgress: onProgress,
+        );
+        written = got.written;
+        total = got.total;
         if (cancel.isCancelled) {
-          await sink.flush();
           return const TransferResult.failed(
             DownloadFailureKind.unknown,
             'cancelled',
           );
         }
-        sink.add(chunk);
-        written += chunk.length;
-        onProgress(
-          TransferProgress(
-            completedUnits: written,
-            totalUnits: total,
-            sizeBytes: written,
-          ),
-        );
+        if (total > 0 && written < total && round < _fileResumes) continue;
+        break;
+      } on DioException catch (e) {
+        if (CancelToken.isCancel(e) ||
+            !_resumable(e) ||
+            round >= _fileResumes) {
+          rethrow;
+        }
+        await Future<void>.delayed(Duration(milliseconds: 800 * (round + 1)));
+      } on FileSystemException {
+        rethrow;
+      } on _NotMediaException {
+        rethrow;
+      } on SocketException {
+        if (round >= _fileResumes) rethrow;
+        await Future<void>.delayed(Duration(milliseconds: 800 * (round + 1)));
+      } on HttpException {
+        if (round >= _fileResumes) rethrow;
+        await Future<void>.delayed(Duration(milliseconds: 800 * (round + 1)));
       }
-      await sink.flush();
-    } finally {
-      await sink.close();
     }
 
     if (written <= 0) {
@@ -269,6 +281,97 @@ class DownloadTransferDataSource {
     );
   }
 
+  /// One request for the rest of [part]: from the bytes it already holds, or
+  /// from the start when the server will not serve a range.
+  Future<({int written, int total})> _directOnce({
+    required String url,
+    required File part,
+    required Map<String, String> headers,
+    required CancelToken cancel,
+    required int knownTotal,
+    required void Function(TransferProgress) onProgress,
+  }) async {
+    final existing = await part.exists() ? await part.length() : 0;
+    if (knownTotal > 0 && existing >= knownTotal) {
+      return (written: existing, total: knownTotal);
+    }
+
+    final response = await _dio.get<ResponseBody>(
+      url,
+      cancelToken: cancel,
+      options: Options(
+        headers: {...headers, if (existing > 0) 'Range': 'bytes=$existing-'},
+        responseType: ResponseType.stream,
+      ),
+    );
+
+    _rejectNonMedia(response.headers.value('content-type'));
+
+    // 206 means the server honoured the range; anything else means starting
+    // over, and appending to the old bytes would corrupt the file silently.
+    final append = existing > 0 && response.statusCode == 206;
+    if (!append && await part.exists()) await part.delete();
+
+    final declared = _contentLength(response.headers);
+    final total = declared > 0
+        ? (append && !_hasContentRange(response.headers)
+              ? existing + declared
+              : declared)
+        : knownTotal;
+    var written = append ? existing : 0;
+
+    // Reported every quarter second rather than per chunk: a fast link
+    // delivers hundreds of chunks a second, and each report is a row rebuilt
+    // on the other side.
+    final sinceReport = Stopwatch()..start();
+    final sink = part.openWrite(
+      mode: append ? FileMode.append : FileMode.write,
+    );
+    try {
+      await for (final chunk in response.data!.stream) {
+        if (cancel.isCancelled) break;
+        sink.add(chunk);
+        written += chunk.length;
+        if (sinceReport.elapsedMilliseconds >= 250) {
+          sinceReport.reset();
+          onProgress(
+            TransferProgress(
+              completedUnits: written,
+              totalUnits: total,
+              sizeBytes: written,
+            ),
+          );
+        }
+      }
+      await sink.flush();
+    } finally {
+      await sink.close();
+    }
+    onProgress(
+      TransferProgress(
+        completedUnits: written,
+        totalUnits: total,
+        sizeBytes: written,
+      ),
+    );
+    return (written: written, total: total);
+  }
+
+  /// A failure the bytes already on disk can recover from: the connection,
+  /// not the answer.
+  static bool _resumable(DioException e) => switch (e.type) {
+    DioExceptionType.connectionTimeout ||
+    DioExceptionType.receiveTimeout ||
+    DioExceptionType.sendTimeout ||
+    DioExceptionType.connectionError => true,
+    DioExceptionType.unknown =>
+      e.error is SocketException || e.error is HttpException,
+    _ => false,
+  };
+
+  static bool _hasContentRange(Headers headers) =>
+      (headers.value('content-range') ?? '').contains('/');
+
   // --- playlist ------------------------------------------------------------
 
   Future<TransferResult> _hls({
@@ -293,7 +396,7 @@ class DownloadTransferDataSource {
       playlist = await _text(variant, headers, cancel);
     }
 
-    final segments = _segmentUrls(playlist, _baseOf(playlistUrl));
+    final segments = mediaSegments(playlist, _baseOf(playlistUrl));
     if (segments.isEmpty) {
       return const TransferResult.failed(
         DownloadFailureKind.notMedia,
@@ -334,22 +437,18 @@ class DownloadTransferDataSource {
           headers: headers,
           cancel: cancel,
           attempts: _segmentAttempts,
+          range: entry.range,
           // A key is sixteen raw bytes, and servers label it as anything —
           // text/plain included. The media check would refuse a good key.
           checkMedia: false,
         );
       }
-      auxNames[entry.uri] = name;
+      auxNames[entry.key] = name;
     }
 
     var bytes = 0;
-    for (var i = 0; i < segments.length; i++) {
-      if (cancel.isCancelled) {
-        return const TransferResult.failed(
-          DownloadFailureKind.unknown,
-          'cancelled',
-        );
-      }
+    var done = 0;
+    await _pool(segments.length, _segmentWorkers, cancel, (i) async {
       final file = File('$dirPath/${DownloadLayout.segmentName(i)}');
       // A segment already on disk is only trusted if it is non-empty. The old
       // code trusted any file that existed, so a segment truncated by a killed
@@ -357,20 +456,29 @@ class DownloadTransferDataSource {
       // stopped.
       if (!await file.exists() || await file.length() <= 0) {
         await _fetchToFile(
-          url: segments[i],
+          url: segments[i].url,
           file: file,
           headers: headers,
           cancel: cancel,
           attempts: _segmentAttempts,
+          range: segments[i].range,
         );
       }
+      if (cancel.isCancelled) return;
       bytes += await file.length();
+      done++;
       onProgress(
         TransferProgress(
-          completedUnits: i + 1,
+          completedUnits: done,
           totalUnits: segments.length,
           sizeBytes: bytes,
         ),
+      );
+    });
+    if (cancel.isCancelled) {
+      return const TransferResult.failed(
+        DownloadFailureKind.unknown,
+        'cancelled',
       );
     }
 
@@ -473,16 +581,11 @@ class DownloadTransferDataSource {
     final base = Uri.tryParse(sourceUrl);
     final replacements = <String, String>{};
     var bytes = 0;
+    var done = 0;
 
-    for (var i = 0; i < sources.length; i++) {
-      if (cancel.isCancelled) {
-        return const TransferResult.failed(
-          DownloadFailureKind.unknown,
-          'cancelled',
-        );
-      }
+    await _pool(sources.length, _pageWorkers, cancel, (i) async {
       final resolved = _absolute(sources[i], base);
-      if (resolved == null) continue;
+      if (resolved == null) return;
       final name = DownloadLayout.pageName(
         i,
         DownloadLayout.imageExtensionFor(resolved),
@@ -501,15 +604,22 @@ class DownloadTransferDataSource {
         bytes += await file.length();
         replacements[sources[i]] = name;
       } catch (e) {
-        if (cancel.isCancelled) rethrow;
+        if (cancel.isCancelled) return;
         debugPrint('[downloads] chapter image ${sources[i]} failed: $e');
       }
+      done++;
       onProgress(
         TransferProgress(
-          completedUnits: i + 1,
+          completedUnits: done,
           totalUnits: sources.length + 1,
           sizeBytes: bytes,
         ),
+      );
+    });
+    if (cancel.isCancelled) {
+      return const TransferResult.failed(
+        DownloadFailureKind.unknown,
+        'cancelled',
       );
     }
 
@@ -565,13 +675,8 @@ class DownloadTransferDataSource {
     }
 
     var bytes = 0;
-    for (var i = 0; i < pageUrls.length; i++) {
-      if (cancel.isCancelled) {
-        return const TransferResult.failed(
-          DownloadFailureKind.unknown,
-          'cancelled',
-        );
-      }
+    var done = 0;
+    await _pool(pageUrls.length, _pageWorkers, cancel, (i) async {
       final name = DownloadLayout.pageName(
         i,
         DownloadLayout.imageExtensionFor(pageUrls[i]),
@@ -589,13 +694,21 @@ class DownloadTransferDataSource {
           attempts: _segmentAttempts,
         );
       }
+      if (cancel.isCancelled) return;
       bytes += await file.length();
+      done++;
       onProgress(
         TransferProgress(
-          completedUnits: i + 1,
+          completedUnits: done,
           totalUnits: pageUrls.length,
           sizeBytes: bytes,
         ),
+      );
+    });
+    if (cancel.isCancelled) {
+      return const TransferResult.failed(
+        DownloadFailureKind.unknown,
+        'cancelled',
       );
     }
 
@@ -628,6 +741,7 @@ class DownloadTransferDataSource {
     required Map<String, String> headers,
     required CancelToken cancel,
     required int attempts,
+    HlsByteRange? range,
     bool checkMedia = true,
   }) async {
     final part = File(DownloadLayout.partOf(file.path));
@@ -638,21 +752,53 @@ class DownloadTransferDataSource {
         final response = await _dio.get<ResponseBody>(
           url,
           cancelToken: cancel,
-          options: Options(headers: headers, responseType: ResponseType.stream),
+          options: Options(
+            headers: {
+              ...headers,
+              if (range != null)
+                'Range':
+                    'bytes=${range.offset}-${range.offset + range.length - 1}',
+            },
+            responseType: ResponseType.stream,
+          ),
         );
         if (checkMedia) {
           _rejectNonMedia(response.headers.value('content-type'));
         }
+        // A server that ignores the Range header sends the whole file. The
+        // slice is cut out of it rather than saving every segment as a full
+        // copy of the one file they all live in.
+        var skip = range != null && response.statusCode != 206
+            ? range.offset
+            : 0;
+        var want = range?.length ?? -1;
         var written = 0;
         final sink = part.openWrite();
         try {
-          await for (final chunk in response.data!.stream) {
+          await for (var chunk in response.data!.stream) {
+            if (cancel.isCancelled) break;
+            if (skip > 0) {
+              if (chunk.length <= skip) {
+                skip -= chunk.length;
+                continue;
+              }
+              chunk = Uint8List.sublistView(chunk, skip);
+              skip = 0;
+            }
+            if (want >= 0 && chunk.length > want - written) {
+              chunk = Uint8List.sublistView(chunk, 0, want - written);
+            }
             sink.add(chunk);
             written += chunk.length;
+            if (want >= 0 && written >= want) break;
           }
           await sink.flush();
         } finally {
           await sink.close();
+        }
+        if (cancel.isCancelled) {
+          if (await part.exists()) await part.delete();
+          return;
         }
         if (written <= 0) {
           throw const _NotMediaException('empty part');
@@ -737,13 +883,49 @@ class DownloadTransferDataSource {
     return at > 0 ? url.substring(0, at + 1) : url;
   }
 
-  String _resolve(String path, String base) {
+  String _resolve(String path, String base) => _resolveStatic(path, base);
+
+  static String _resolveStatic(String path, String base) {
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
     try {
       return Uri.parse(base).resolve(path).toString();
     } catch (_) {
       return '$base$path';
     }
+  }
+
+  /// Runs [task] for every index below [count], [workers] at a time.
+  ///
+  /// The first failure stops new work from being handed out; the parts in
+  /// flight finish (or fail) and then it is rethrown. A cancel stops the
+  /// hand-out the same way and returns quietly — the caller asks the token.
+  static Future<void> _pool(
+    int count,
+    int workers,
+    CancelToken cancel,
+    Future<void> Function(int index) task,
+  ) async {
+    var next = 0;
+    Object? error;
+    StackTrace? trace;
+    Future<void> worker() async {
+      while (error == null && !cancel.isCancelled) {
+        final i = next++;
+        if (i >= count) return;
+        try {
+          await task(i);
+        } catch (e, st) {
+          error ??= e;
+          trace ??= st;
+          return;
+        }
+      }
+    }
+
+    await Future.wait([
+      for (var w = 0; w < (count < workers ? count : workers); w++) worker(),
+    ]);
+    if (error != null) Error.throwWithStackTrace(error!, trace!);
   }
 
   /// The rendition to save out of a master playlist: the best one.
@@ -777,21 +959,68 @@ class DownloadTransferDataSource {
     return null;
   }
 
-  List<String> _segmentUrls(String playlist, String base) => [
-    for (final line in playlist.split('\n'))
-      if (line.trim().isNotEmpty && !line.trim().startsWith('#'))
-        _resolve(line.trim(), base),
-  ];
+  /// Every media segment in [playlist], resolved against [base], with the
+  /// slice of its file when the playlist says `#EXT-X-BYTERANGE`.
+  ///
+  /// A byte-range playlist names one file for every segment. Read as plain
+  /// urls it downloaded that whole file once per segment — a 1 GB episode
+  /// became hundreds of gigabytes, or a full disk.
+  @visibleForTesting
+  static List<({String url, HlsByteRange? range})> mediaSegments(
+    String playlist,
+    String base,
+  ) {
+    final out = <({String url, HlsByteRange? range})>[];
+    // Where the previous slice of each file ended: a BYTERANGE with no offset
+    // continues from there.
+    final ends = <String, int>{};
+    ({int length, int? offset})? pending;
+    for (final raw in playlist.split('\n')) {
+      final line = raw.trim();
+      if (line.isEmpty) continue;
+      if (line.startsWith('#EXT-X-BYTERANGE:')) {
+        pending = _byteRange(line.substring('#EXT-X-BYTERANGE:'.length));
+        continue;
+      }
+      if (line.startsWith('#')) continue;
+      final url = _resolveStatic(line, base);
+      HlsByteRange? range;
+      final p = pending;
+      if (p != null) {
+        final offset = p.offset ?? ends[url] ?? 0;
+        range = (offset: offset, length: p.length);
+        ends[url] = offset + p.length;
+      }
+      pending = null;
+      out.add((url: url, range: range));
+    }
+    return out;
+  }
+
+  /// `length[@offset]`, as `#EXT-X-BYTERANGE` and `BYTERANGE=` write it.
+  static ({int length, int? offset})? _byteRange(String raw) {
+    final m = RegExp(r'^\s*"?(\d+)(?:@(\d+))?"?').firstMatch(raw);
+    final length = int.tryParse(m?.group(1) ?? '');
+    if (length == null || length <= 0) return null;
+    return (length: length, offset: int.tryParse(m?.group(2) ?? ''));
+  }
 
   static final RegExp _uriAttribute = RegExp(r'URI="([^"]*)"');
+  static final RegExp _byteRangeAttribute = RegExp(r',?BYTERANGE="([^"]*)"');
+
+  /// How one key or init-segment line is told apart from another: its URI,
+  /// and for an init segment cut from a larger file, the slice.
+  static String _auxKey(String uri, String? byteRange) =>
+      byteRange == null ? uri : '$uri#$byteRange';
 
   /// The key and init-segment URIs a media playlist refers to, each once, in
   /// the order they first appear.
   ///
   /// `METHOD=NONE` keys carry no file and are left out.
   @visibleForTesting
-  static List<({String uri, bool isMap})> auxiliaryUris(String playlist) {
-    final out = <({String uri, bool isMap})>[];
+  static List<({String uri, bool isMap, String key, HlsByteRange? range})>
+  auxiliaryUris(String playlist) {
+    final out = <({String uri, bool isMap, String key, HlsByteRange? range})>[];
     final seen = <String>{};
     for (final raw in playlist.split('\n')) {
       final line = raw.trim();
@@ -800,8 +1029,21 @@ class DownloadTransferDataSource {
       if (!isKey && !isMap) continue;
       if (isKey && line.contains('METHOD=NONE')) continue;
       final uri = _uriAttribute.firstMatch(line)?.group(1);
-      if (uri == null || uri.isEmpty || !seen.add(uri)) continue;
-      out.add((uri: uri, isMap: isMap));
+      if (uri == null || uri.isEmpty) continue;
+      final rawRange = isMap
+          ? _byteRangeAttribute.firstMatch(line)?.group(1)
+          : null;
+      final key = _auxKey(uri, rawRange);
+      if (!seen.add(key)) continue;
+      final parsed = rawRange == null ? null : _byteRange(rawRange);
+      out.add((
+        uri: uri,
+        isMap: isMap,
+        key: key,
+        range: parsed == null
+            ? null
+            : (offset: parsed.offset ?? 0, length: parsed.length),
+      ));
     }
     return out;
   }
@@ -819,15 +1061,29 @@ class DownloadTransferDataSource {
       final trimmed = line.trim();
       if (trimmed.isEmpty) {
         out.writeln(trimmed);
+      } else if (trimmed.startsWith('#EXT-X-BYTERANGE:')) {
+        // Each slice is its own file on disk now; the range would be read
+        // against that file and point past its end.
+        continue;
       } else if (trimmed.startsWith('#')) {
-        out.writeln(
-          auxNames.isEmpty
-              ? trimmed
-              : trimmed.replaceAllMapped(_uriAttribute, (m) {
-                  final local = auxNames[m.group(1)];
-                  return local == null ? m.group(0)! : 'URI="$local"';
-                }),
-        );
+        if (auxNames.isEmpty) {
+          out.writeln(trimmed);
+          continue;
+        }
+        final range = trimmed.startsWith('#EXT-X-MAP:')
+            ? _byteRangeAttribute.firstMatch(trimmed)?.group(1)
+            : null;
+        final uri = _uriAttribute.firstMatch(trimmed)?.group(1);
+        final local = uri == null ? null : auxNames[_auxKey(uri, range)];
+        if (local == null) {
+          out.writeln(trimmed);
+          continue;
+        }
+        var rewritten = trimmed.replaceFirst(_uriAttribute, 'URI="$local"');
+        if (range != null) {
+          rewritten = rewritten.replaceFirst(_byteRangeAttribute, '');
+        }
+        out.writeln(rewritten);
       } else {
         out.writeln(DownloadLayout.segmentName(index++));
       }

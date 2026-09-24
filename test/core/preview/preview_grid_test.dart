@@ -68,6 +68,16 @@ void main() {
     Future<void> flush() =>
         Future<void>.delayed(const Duration(milliseconds: 50));
 
+    // The frame is written in the background; under a loaded test run 50 ms
+    // is not always long enough, so wait for it rather than for a guess.
+    Future<void> saved(String key) async {
+      final deadline = DateTime.now().add(const Duration(seconds: 5));
+      while ((await PreviewDiskCache.load(key)).isEmpty &&
+          DateTime.now().isBefore(deadline)) {
+        await flush();
+      }
+    }
+
     test('an episode opened again has its frames without decoding', () async {
       final first = <int>[];
       final a = session(first);
@@ -75,7 +85,7 @@ void main() {
       await a.attachDisk('prov|show|3');
       expect(await a.gridFrame(60000), isTrue);
       expect(first, [60000]);
-      await flush();
+      await saved('prov|show|3');
       await a.close();
 
       // Another session, another signed address, the same episode.

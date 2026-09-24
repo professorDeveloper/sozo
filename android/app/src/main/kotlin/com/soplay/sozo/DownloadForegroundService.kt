@@ -25,8 +25,13 @@ import java.net.URI
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
+import kotlin.math.min
 
 /**
  * The Android downloader.
@@ -257,44 +262,32 @@ class DownloadForegroundService : Service() {
         target.parentFile?.mkdirs()
         val part = File("$artefactPath.part")
 
-        // Resume from the partial, never from the finished name: a file at the
-        // final name is a download that already succeeded.
-        var written = if (part.exists()) part.length() else 0L
-        val connection = openConnection(url, headers, written)
-        val code = connection.responseCode
-        rejectFailedResponse(code, connection)
-        rejectNonMedia(connection)
-
-        val append = written > 0 && code == HttpURLConnection.HTTP_PARTIAL
-        if (!append) {
-            part.delete()
-            written = 0L
-        }
-
-        val declared = connection.getHeaderFieldLong("Content-Length", -1L)
-        val total = if (declared > 0) written + declared else 0L
-        updateState(id, title, url, artefactPath, STATUS_DOWNLOADING, written, total, written, null)
-        updateProgressNotification(id, title, written, total)
-
-        connection.inputStream.use { input ->
-            FileOutputStream(part, append).use { output ->
-                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                while (true) {
-                    if (token.get()) {
-                        output.flush()
-                        return Transferred(written, total, written)
-                    }
-                    val read = input.read(buffer)
-                    if (read == -1) break
-                    output.write(buffer, 0, read)
-                    written += read
-                    updateState(
-                        id, title, url, artefactPath, STATUS_DOWNLOADING,
-                        written, total, written, null
-                    )
-                    updateProgressNotification(id, title, written, total)
+        var written = 0L
+        var total = 0L
+        // A dropped connection used to fail the file outright, and the retry
+        // waited out the queue's backoff before a new request resumed it. It
+        // resumes here, at once, from the bytes already on disk.
+        var round = 0
+        while (true) {
+            try {
+                val got = downloadFileOnce(id, title, url, artefactPath, part, headers, token, total)
+                written = got.first
+                total = got.second
+                if (token.get()) return Transferred(written, total, written)
+                if (total > 0L && written < total && round < FILE_RESUMES) {
+                    round++
+                    continue
                 }
-                output.flush()
+                break
+            } catch (e: IOException) {
+                if (token.get() || !isResumable(e) || round >= FILE_RESUMES) throw e
+                round++
+                try {
+                    Thread.sleep(800L * round)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    throw e
+                }
             }
         }
 
@@ -309,6 +302,65 @@ class DownloadForegroundService : Service() {
         target.delete()
         if (!part.renameTo(target)) throw IOException("could not finish the file")
         return Transferred(written, written, written)
+    }
+
+    /** One request for the rest of [part]; returns what is on disk and the size. */
+    private fun downloadFileOnce(
+        id: String,
+        title: String,
+        url: String,
+        artefactPath: String,
+        part: File,
+        headers: Map<String, String>,
+        token: AtomicBoolean,
+        knownTotal: Long
+    ): Pair<Long, Long> {
+        // Resume from the partial, never from the finished name: a file at the
+        // final name is a download that already succeeded.
+        var written = if (part.exists()) part.length() else 0L
+        if (knownTotal > 0L && written >= knownTotal) return written to knownTotal
+        val connection = openConnection(url, headers, written)
+        val code = connection.responseCode
+        rejectFailedResponse(code, connection)
+        rejectNonMedia(connection)
+
+        val append = written > 0 && code == HttpURLConnection.HTTP_PARTIAL
+        if (!append) {
+            part.delete()
+            written = 0L
+        }
+
+        val declared = connection.getHeaderFieldLong("Content-Length", -1L)
+        val total = if (declared > 0) written + declared else knownTotal
+        updateState(id, title, url, artefactPath, STATUS_DOWNLOADING, written, total, written, null)
+        updateProgressNotification(id, title, written, total)
+
+        connection.inputStream.use { input ->
+            FileOutputStream(part, append).use { output ->
+                val buffer = ByteArray(IO_BUFFER)
+                while (true) {
+                    if (token.get()) break
+                    val read = input.read(buffer)
+                    if (read == -1) break
+                    output.write(buffer, 0, read)
+                    written += read
+                    reportProgress(id, title, url, artefactPath, written, total, written)
+                }
+                output.flush()
+            }
+        }
+        return written to total
+    }
+
+    /**
+     * A failure the bytes on disk can recover from: the connection, not the
+     * answer. A refused link or a page that is not media fails the same way
+     * every time, and asking again only spends the viewer's data.
+     */
+    private fun isResumable(e: IOException): Boolean {
+        val message = e.message.orEmpty()
+        if (message.startsWith("HTTP ") || message.startsWith("not media")) return false
+        return e !is java.io.FileNotFoundException
     }
 
     // --- playlist ------------------------------------------------------------
@@ -328,39 +380,109 @@ class DownloadForegroundService : Service() {
         var playlistUrl = url
         var playlist = readText(url, headers)
         if (playlist.contains("#EXT-X-STREAM-INF")) {
-            playlistUrl = pickVariantUrl(playlist, baseUrlOf(url))
+            playlistUrl = HlsDownloadPlaylist.pickVariantUrl(playlist, HlsDownloadPlaylist.baseUrlOf(url))
                 ?: throw IOException("no variant in the master playlist")
             playlist = readText(playlistUrl, headers)
         }
 
-        val segments = parseSegments(playlist, baseUrlOf(playlistUrl))
+        val segments = HlsDownloadPlaylist.parseSegments(playlist, HlsDownloadPlaylist.baseUrlOf(playlistUrl))
         if (segments.isEmpty()) throw IOException("no segments in the playlist")
 
-        var bytes = 0L
-        for (i in segments.indices) {
-            if (token.get()) return Transferred(i.toLong(), segments.size.toLong(), bytes)
+        // Keys and init segments, fetched and pointed at locally. They used to
+        // stay as CDN urls (or urls relative to a folder that does not exist on
+        // the phone), so an AES-128 episode could not be decrypted offline and
+        // an fMP4 one had no header to start from. Names match the Dart
+        // downloader's, so either can read the other's folder.
+        val auxNames = HashMap<String, String>()
+        val aux = HlsDownloadPlaylist.auxiliaryEntries(playlist)
+        for (i in aux.indices) {
+            if (token.get()) return Transferred(0, segments.size.toLong(), 0)
+            val entry = aux[i]
+            val resolved = HlsDownloadPlaylist.resolveUrl(entry.uri, HlsDownloadPlaylist.baseUrlOf(playlistUrl))
+            // A data: key is already inline; skd:// is FairPlay. Both stay.
+            if (!resolved.startsWith("http://") && !resolved.startsWith("https://")) continue
+            val name = if (entry.isMap) "init_$i${HlsDownloadPlaylist.mapExtensionOf(resolved)}" else "key_$i.bin"
+            val file = File(folder, name)
+            if (!file.exists() || file.length() == 0L) {
+                // A key is sixteen raw bytes that servers label as anything,
+                // text/plain included; the media check would refuse a good one.
+                fetchPart(resolved, file, headers, token, entry.range, checkMedia = false)
+            }
+            auxNames[entry.key] = name
+        }
+
+        // Several at a time. One by one left the connection idle between
+        // round trips, and a 24-minute episode took about as long to save as
+        // to watch.
+        val done = AtomicInteger(0)
+        val bytes = AtomicLong(0L)
+        inParallel(segments.size, SEGMENT_WORKERS, token) { i ->
             val segment = File(folder, "seg_$i.ts")
             // A zero-length or missing segment is re-fetched. The old code
             // trusted any file that existed, so a segment truncated by a killed
             // process was never fetched again and the episode played to that
             // point and stopped.
             if (!segment.exists() || segment.length() == 0L) {
-                fetchPart(segments[i], segment, headers, token)
+                fetchPart(segments[i].url, segment, headers, token, segments[i].range)
             }
-            bytes += segment.length()
-            updateState(
-                id, title, url, artefactPath, STATUS_DOWNLOADING,
-                (i + 1).toLong(), segments.size.toLong(), bytes, null
-            )
-            updateProgressNotification(id, title, (i + 1).toLong(), segments.size.toLong())
+            if (token.get()) return@inParallel
+            val size = bytes.addAndGet(segment.length())
+            val count = done.incrementAndGet().toLong()
+            reportProgress(id, title, url, artefactPath, count, segments.size.toLong(), size)
         }
+        if (token.get()) return Transferred(done.get().toLong(), segments.size.toLong(), bytes.get())
 
         // The manifest first, the playlist last. The playlist is what the
         // verifier treats as "this download exists", so a crash between the two
         // leaves something that still reads as incomplete.
-        writeManifest(folder, KIND_HLS, segments.size, bytes)
-        target.writeText(buildLocalPlaylist(playlist))
-        return Transferred(segments.size.toLong(), segments.size.toLong(), bytes)
+        writeManifest(folder, KIND_HLS, segments.size, bytes.get())
+        target.writeText(HlsDownloadPlaylist.buildLocalPlaylist(playlist, auxNames))
+        return Transferred(segments.size.toLong(), segments.size.toLong(), bytes.get())
+    }
+
+    /**
+     * Runs [task] for each index below [count], [workers] at a time, on
+     * threads of their own. The first failure stops new work being handed out
+     * and is rethrown once the parts in flight are done; a stop does the same
+     * quietly.
+     */
+    private fun inParallel(
+        count: Int,
+        workers: Int,
+        token: AtomicBoolean,
+        task: (Int) -> Unit
+    ) {
+        if (count <= 0) return
+        val threads = min(workers, count)
+        val next = AtomicInteger(0)
+        val error = AtomicReference<Throwable?>(null)
+        val pool = Executors.newFixedThreadPool(threads)
+        try {
+            repeat(threads) {
+                pool.execute {
+                    while (error.get() == null && !token.get()) {
+                        val i = next.getAndIncrement()
+                        if (i >= count) break
+                        try {
+                            task(i)
+                        } catch (t: Throwable) {
+                            error.compareAndSet(null, t)
+                            break
+                        }
+                    }
+                }
+            }
+        } finally {
+            pool.shutdown()
+        }
+        try {
+            pool.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS)
+        } catch (e: InterruptedException) {
+            pool.shutdownNow()
+            Thread.currentThread().interrupt()
+            throw IOException("interrupted")
+        }
+        error.get()?.let { throw it }
     }
 
     // --- pages ---------------------------------------------------------------
@@ -378,9 +500,9 @@ class DownloadForegroundService : Service() {
         folder.mkdirs()
         if (pageUrls.isEmpty()) throw IOException("the chapter has no pages")
 
-        var bytes = 0L
-        for (i in pageUrls.indices) {
-            if (token.get()) return Transferred(i.toLong(), pageUrls.size.toLong(), bytes)
+        val done = AtomicInteger(0)
+        val bytes = AtomicLong(0L)
+        inParallel(pageUrls.size, PAGE_WORKERS, token) { i ->
             val page = File(folder, "p_${i.toString().padStart(3, '0')}${imageExtensionFrom(pageUrls[i])}")
             if (!page.exists() || page.length() == 0L) {
                 val perImage = imageHeaders.getOrNull(i).orEmpty()
@@ -390,16 +512,15 @@ class DownloadForegroundService : Service() {
                 } + perImage
                 fetchPart(pageUrls[i], page, requestHeaders, token)
             }
-            bytes += page.length()
-            updateState(
-                id, title, "", folderPath, STATUS_DOWNLOADING,
-                (i + 1).toLong(), pageUrls.size.toLong(), bytes, null
-            )
-            updateProgressNotification(id, title, (i + 1).toLong(), pageUrls.size.toLong())
+            if (token.get()) return@inParallel
+            val size = bytes.addAndGet(page.length())
+            val count = done.incrementAndGet().toLong()
+            reportProgress(id, title, "", folderPath, count, pageUrls.size.toLong(), size)
         }
+        if (token.get()) return Transferred(done.get().toLong(), pageUrls.size.toLong(), bytes.get())
 
-        writeManifest(folder, KIND_MANGA, pageUrls.size, bytes)
-        return Transferred(pageUrls.size.toLong(), pageUrls.size.toLong(), bytes)
+        writeManifest(folder, KIND_MANGA, pageUrls.size, bytes.get())
+        return Transferred(pageUrls.size.toLong(), pageUrls.size.toLong(), bytes.get())
     }
 
     // --- finishing -----------------------------------------------------------
@@ -481,7 +602,9 @@ class DownloadForegroundService : Service() {
         url: String,
         file: File,
         headers: Map<String, String>,
-        token: AtomicBoolean
+        token: AtomicBoolean,
+        range: HlsDownloadPlaylist.ByteRange? = null,
+        checkMedia: Boolean = true
     ) {
         val part = File("${file.path}.part")
         var lastError: Exception? = null
@@ -489,17 +612,38 @@ class DownloadForegroundService : Service() {
             if (token.get()) return
             try {
                 file.parentFile?.mkdirs()
-                val connection = openConnection(url, headers, 0L)
-                rejectFailedResponse(connection.responseCode, connection)
-                rejectNonMedia(connection)
+                val connection = openConnection(url, headers, 0L, range)
+                val code = connection.responseCode
+                rejectFailedResponse(code, connection)
+                if (checkMedia) rejectNonMedia(connection)
+                // A server that ignores Range sends the whole file; the slice
+                // is cut out of it rather than every segment being saved as a
+                // full copy of the one file they all live in.
+                var skip = if (range != null && code != HttpURLConnection.HTTP_PARTIAL) range.offset else 0L
+                val want = range?.length ?: -1L
+                var written = 0L
                 connection.inputStream.use { input ->
                     FileOutputStream(part, false).use { output ->
-                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        val buffer = ByteArray(IO_BUFFER)
                         while (true) {
                             if (token.get()) return
                             val read = input.read(buffer)
                             if (read == -1) break
-                            output.write(buffer, 0, read)
+                            var from = 0
+                            var n = read
+                            if (skip > 0) {
+                                if (n <= skip) {
+                                    skip -= n
+                                    continue
+                                }
+                                from = skip.toInt()
+                                n -= from
+                                skip = 0
+                            }
+                            if (want >= 0 && n > want - written) n = (want - written).toInt()
+                            output.write(buffer, from, n)
+                            written += n
+                            if (want >= 0 && written >= want) break
                         }
                         output.flush()
                     }
@@ -532,7 +676,8 @@ class DownloadForegroundService : Service() {
     private fun openConnection(
         url: String,
         headers: Map<String, String>,
-        rangeStart: Long
+        rangeStart: Long,
+        slice: HlsDownloadPlaylist.ByteRange? = null
     ): HttpURLConnection {
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.connectTimeout = 20_000
@@ -543,7 +688,11 @@ class DownloadForegroundService : Service() {
                 connection.setRequestProperty(key, value)
             }
         }
-        if (rangeStart > 0L) connection.setRequestProperty("Range", "bytes=$rangeStart-")
+        if (slice != null) {
+            connection.setRequestProperty("Range", "bytes=${slice.offset}-${slice.offset + slice.length - 1}")
+        } else if (rangeStart > 0L) {
+            connection.setRequestProperty("Range", "bytes=$rangeStart-")
+        }
         return connection
     }
 
@@ -591,47 +740,6 @@ class DownloadForegroundService : Service() {
             // worse than a download somebody did not expect, because nothing on
             // screen explains it.
             true
-        }
-    }
-
-    // --- playlists -----------------------------------------------------------
-
-    private fun pickVariantUrl(playlist: String, baseUrl: String): String? {
-        val lines = playlist.lines()
-        for (i in lines.indices) {
-            if (!lines[i].startsWith("#EXT-X-STREAM-INF")) continue
-            for (j in i + 1 until lines.size) {
-                val line = lines[j].trim()
-                if (line.isEmpty() || line.startsWith("#")) continue
-                return resolveUrl(line, baseUrl)
-            }
-        }
-        return null
-    }
-
-    private fun parseSegments(playlist: String, baseUrl: String): List<String> =
-        playlist.lines()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && !it.startsWith("#") }
-            .map { resolveUrl(it, baseUrl) }
-
-    private fun buildLocalPlaylist(playlist: String): String {
-        var index = 0
-        return playlist.lines().joinToString("\n") { line ->
-            val trimmed = line.trim()
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) trimmed else "seg_${index++}.ts"
-        }
-    }
-
-    private fun baseUrlOf(url: String): String =
-        url.substringBeforeLast("/", missingDelimiterValue = url) + "/"
-
-    private fun resolveUrl(path: String, baseUrl: String): String {
-        if (path.startsWith("http://") || path.startsWith("https://")) return path
-        return try {
-            URI(baseUrl).resolve(path).toString()
-        } catch (_: Exception) {
-            "$baseUrl$path"
         }
     }
 
@@ -721,6 +829,31 @@ class DownloadForegroundService : Service() {
 
     // --- state ---------------------------------------------------------------
 
+    /**
+     * A step forward in a running transfer.
+     *
+     * Every buffer used to be a full [updateState]: the whole table of
+     * downloads parsed from preferences, rebuilt and written back — thousands
+     * of times a second on a fast link, on the same thread moving the bytes.
+     * The table is kept in memory now and written out at most once a second
+     * while bytes are flowing; Dart reads it every two.
+     */
+    private fun reportProgress(
+        id: String,
+        title: String,
+        url: String,
+        artefactPath: String,
+        completed: Long,
+        total: Long,
+        sizeBytes: Long
+    ) {
+        updateState(
+            id, title, url, artefactPath, STATUS_DOWNLOADING,
+            completed, total, sizeBytes, null, progress = true
+        )
+        updateProgressNotification(id, title, completed, total)
+    }
+
     private fun updateState(
         id: String,
         title: String,
@@ -730,10 +863,11 @@ class DownloadForegroundService : Service() {
         completedUnits: Long,
         totalUnits: Long,
         sizeBytes: Long,
-        error: String?
+        error: String?,
+        progress: Boolean = false
     ) {
         synchronized(stateLock) {
-            val json = JSONObject(readStates(this))
+            val json = states(this)
             val item = JSONObject()
                 .put("id", id)
                 .put("title", title)
@@ -745,6 +879,9 @@ class DownloadForegroundService : Service() {
                 .put("sizeBytes", sizeBytes)
             if (error != null) item.put("error", error)
             json.put(id, item)
+            val now = System.currentTimeMillis()
+            if (progress && now - lastPersistedAt < PERSIST_INTERVAL_MS) return
+            lastPersistedAt = now
             prefs(this).edit().putString(PREF_STATES, json.toString()).apply()
         }
     }
@@ -950,6 +1087,14 @@ class DownloadForegroundService : Service() {
         const val MANIFEST_NAME = "manifest.json"
 
         private const val MAX_CONCURRENT = 2
+        private const val SEGMENT_WORKERS = 4
+        private const val PAGE_WORKERS = 3
+        private const val FILE_RESUMES = 3
+        private const val PERSIST_INTERVAL_MS = 1_000L
+
+        /** 64 KB reads: 8 KB meant eight times the syscalls for the same bytes. */
+        private const val IO_BUFFER = 64 * 1024
+
         private const val TASK_CLEAR_TIMEOUT_MS = 4_000L
         private const val PART_ATTEMPTS = 3
         private const val NOTIFY_INTERVAL_MS = 500L
@@ -974,13 +1119,27 @@ class DownloadForegroundService : Service() {
         private val lastNotifiedAt = ConcurrentHashMap<String, Long>()
         private val stateLock = Any()
 
+        /** The state table, read from preferences once per process. */
+        private var cachedStates: JSONObject? = null
+        private var lastPersistedAt = 0L
+
+        private fun states(context: Context): JSONObject {
+            cachedStates?.let { return it }
+            val loaded = runCatching {
+                JSONObject(prefs(context).getString(PREF_STATES, "{}") ?: "{}")
+            }.getOrDefault(JSONObject())
+            cachedStates = loaded
+            return loaded
+        }
+
+        /** From memory, so Dart sees progress that has not been written out yet. */
         fun readStates(context: Context): String =
-            prefs(context).getString(PREF_STATES, "{}") ?: "{}"
+            synchronized(stateLock) { states(context).toString() }
 
         fun removeState(context: Context, id: String) {
             if (id.isBlank()) return
             synchronized(stateLock) {
-                val json = JSONObject(readStates(context))
+                val json = states(context)
                 json.remove(id)
                 prefs(context).edit().putString(PREF_STATES, json.toString()).apply()
             }
