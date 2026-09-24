@@ -12,6 +12,9 @@ import 'package:soplay/features/social/presentation/pages/friends_page.dart';
 import 'package:soplay/features/social/presentation/widgets/activity_card.dart';
 import 'package:soplay/features/social/presentation/widgets/relation_actions.dart';
 import 'package:soplay/features/social/presentation/widgets/social_widgets.dart';
+import 'package:soplay/features/achievements/domain/achievements.dart';
+import 'package:soplay/features/achievements/presentation/widgets/achievement_medal.dart';
+import 'package:soplay/features/achievements/presentation/widgets/achievement_sheets.dart';
 
 /// Someone's public card and, when they allow it, their recent activity.
 class UserProfilePage extends StatefulWidget {
@@ -286,6 +289,46 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 }
 
+/// The badges this person chose to show, and how many they have in all.
+class _Showcase extends StatelessWidget {
+  const _Showcase({required this.view});
+
+  final AchievementsView view;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final id in view.showcase.take(3))
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => openAchievement(context, view: view, id: id),
+                  child: AchievementBadge(
+                    id: id,
+                    tier: view.medalOf(id),
+                    size: 48,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'achievements.unlocked_n'.tr(
+            args: ['${view.unlockedCount}', '${view.total}'],
+          ),
+          style: const TextStyle(color: AppColors.textHint, fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
 class _Header extends StatelessWidget {
   const _Header({required this.profile, required this.onRelation});
 
@@ -326,6 +369,11 @@ class _Header extends StatelessWidget {
               '@${user.username}',
               style: const TextStyle(color: AppColors.textHint, fontSize: 13),
             ),
+            if (profile.achievements case final badges?
+                when badges.showcase.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _Showcase(view: badges),
+            ],
             if (count != null) ...[
               const SizedBox(height: 12),
               Row(

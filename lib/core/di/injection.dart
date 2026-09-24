@@ -234,6 +234,8 @@ import '../../features/home/domain/usecase/home_usecase.dart';
 import '../navigation/nav_controller.dart';
 import 'package:soplay/features/social/data/social_remote_data_source.dart';
 import 'package:soplay/features/social/data/social_service.dart';
+import 'package:soplay/features/achievements/data/achievements_remote_data_source.dart';
+import 'package:soplay/features/achievements/data/achievements_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -366,10 +368,17 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<HistorySyncRemoteDataSource>(
     HistorySyncRemoteDataSource(dio: getIt<Dio>()),
   );
+  getIt.registerSingleton<AchievementsService>(
+    AchievementsService(
+      remote: AchievementsRemoteDataSource(dio: getIt<Dio>()),
+      hive: getIt<HiveService>(),
+    ),
+  );
   getIt.registerSingleton<HistorySyncService>(
     HistorySyncService(
       remote: getIt<HistorySyncRemoteDataSource>(),
       local: getIt<HistoryService>(),
+      onAchievements: getIt<AchievementsService>().celebrate,
     ),
   );
   getIt.registerSingleton<ProfilesRemoteDataSource>(
@@ -511,6 +520,7 @@ Future<void> configureDependencies() async {
     StreakService(
       remote: getIt<StreakRemoteDataSource>(),
       hive: getIt<HiveService>(),
+      onAchievements: getIt<AchievementsService>().celebrate,
     ),
   );
   getIt.registerSingleton<SocialRemoteDataSource>(
@@ -1147,6 +1157,7 @@ Future<void> _onProfileScopeChanged({required bool resync}) async {
   hive.homeRailsChanged.value = !hive.homeRailsChanged.value;
   getIt<FollowService>().revision.value++;
   getIt<ReleaseWatch>().onProfileChanged();
+  getIt<AchievementsService>().reload();
   if (!resync || !hive.isLoggedIn) return;
   // Push goes to whichever profile registered last, so every switch
   // re-registers under the new X-Sozo-Profile.

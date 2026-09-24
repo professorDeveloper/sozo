@@ -8,15 +8,21 @@ import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/streak/data/streak_remote_data_source.dart';
 import 'package:soplay/features/streak/domain/entities/streak_state.dart';
+import 'package:soplay/features/achievements/domain/achievements.dart';
 
 class StreakService {
   StreakService({
     required StreakRemoteDataSource remote,
     required HiveService hive,
+    this.onAchievements,
   })  : _remote = remote,
         _hive = hive {
     state.value = _readCache();
   }
+
+  /// Told what a ping earned. A streak badge that arrives with a milestone
+  /// is left out: the milestone dialog shows it.
+  final void Function(List<AchievementUnlock>)? onAchievements;
 
   final StreakRemoteDataSource _remote;
   final HiveService _hive;
@@ -100,6 +106,11 @@ class StreakService {
       if (result.newMilestone != null && !milestones.isClosed) {
         milestones.add(result.newMilestone!);
       }
+      final earned = [
+        for (final a in result.achievements)
+          if (!(a.id == 'streak' && result.newMilestone != null)) a,
+      ];
+      if (earned.isNotEmpty) onAchievements?.call(earned);
       return result;
     } catch (_) {
       return null;

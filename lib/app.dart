@@ -28,6 +28,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/home/presentation/bloc/home/home_bloc.dart';
+import 'package:soplay/features/achievements/presentation/widgets/achievement_celebration_host.dart';
 
 /// Desktop scroll behaviour: adds mouse + trackpad + stylus as drag devices so
 /// touch-oriented scrollables (PageView, horizontal ListViews) can be dragged
@@ -190,7 +191,11 @@ class _MyAppState extends State<MyApp> {
             // away the pages below, and the `extra` arguments pages like the
             // player are opened with.
             final app = AppLockOverlay(
-              child: ProfileGate(child: child ?? const SizedBox.shrink()),
+              child: ProfileGate(
+                child: AchievementCelebrationHost(
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              ),
             );
             // Android TV: Flutter's default shortcut map activates the focused
             // widget on enter/space, but a remote's OK button arrives as

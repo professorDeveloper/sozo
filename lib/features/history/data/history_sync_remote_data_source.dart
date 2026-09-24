@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:soplay/features/achievements/domain/achievements.dart';
 
 /// One history row on the wire.
 ///
@@ -53,9 +54,10 @@ class HistorySyncItem {
   bool get isDeleted => deletedAt != null;
 
   /// A row from another platform. This app's own rows carry at most a media
-  /// type in [extra]; the TV puts its whole Room row there.
+  /// type and a finale mark in [extra]; the TV puts its whole Room row there.
   bool get isForeign =>
-      extra != null && extra!.keys.any((k) => k != 'mediaType');
+      extra != null &&
+      extra!.keys.any((k) => k != 'mediaType' && k != 'finale');
 
   String? get mediaType {
     final t = extra?['mediaType'];
@@ -101,13 +103,20 @@ class HistorySyncItem {
 }
 
 class HistorySyncResult {
-  const HistorySyncResult({required this.items, this.serverTime});
+  const HistorySyncResult({
+    required this.items,
+    this.serverTime,
+    this.achievements = const [],
+  });
 
   final List<HistorySyncItem> items;
 
   /// The server's clock. Becomes the next request's `since`, so a phone with a
   /// wrong clock still pages correctly.
   final String? serverTime;
+
+  /// Badges the rows just sent earned.
+  final List<AchievementUnlock> achievements;
 }
 
 /// Transport for `/auth/history/sync`.
@@ -147,6 +156,9 @@ class HistorySyncRemoteDataSource {
                 .toList(growable: false)
           : const [],
       serverTime: data is Map ? data['serverTime'] as String? : null,
+      achievements: data is Map
+          ? AchievementUnlock.listOf(data['achievements'])
+          : const [],
     );
   }
 }
