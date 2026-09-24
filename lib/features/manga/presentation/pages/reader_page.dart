@@ -30,12 +30,19 @@ import 'package:soplay/features/download/domain/usecases/enqueue_download_usecas
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
+import 'package:soplay/features/manga/presentation/widgets/novel_chapter_header.dart';
+import 'package:soplay/features/manga/presentation/widgets/novel_highlight_sheets.dart';
+import 'package:soplay/features/manga/presentation/widgets/novel_pagination.dart';
 import 'package:soplay/features/manga/presentation/widgets/novel_text.dart';
+import 'package:soplay/features/manga/presentation/widgets/novel_theme.dart';
+import 'package:soplay/features/manga/presentation/widgets/page_curl.dart';
 import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
 import 'package:soplay/features/manga/domain/reading/chapter_groups.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:soplay/features/manga/data/chapter_read_store.dart';
+import 'package:soplay/features/manga/data/novel_highlight_store.dart';
+import 'package:soplay/features/manga/domain/reading/novel_highlight.dart';
 import 'package:soplay/features/manga/data/page_tiles.dart';
 import 'package:soplay/features/manga/presentation/widgets/tiled_zoom.dart';
 import 'package:soplay/features/manga/domain/reading/chapter_progress.dart';
@@ -121,12 +128,51 @@ class _ReaderPageState extends State<ReaderPage> {
   late double _novelLeading;
   late String _novelFamily;
   late bool _novelJustify;
+  late String _novelLayout;
+  late String _novelThemeId;
+  late double _novelMargin;
 
-  Color get _backgroundColor => switch (_bgPref) {
-    'white' => const Color(0xFFFAFAFA),
-    'gray' => const Color(0xFF2A2A2A),
-    _ => const Color(0xFF0A0A0A),
-  };
+  NovelTheme get _novelTheme =>
+      NovelTheme.of(_novelThemeId, background: _bgPref);
+
+  /// Prose in pages that turn, rather than one long scroll.
+  bool get _book => _html != null && _novelLayout == 'book';
+
+  /// The book layout: the chapter cut into pages for [_bookMetrics], the page
+  /// on screen, and where that page starts, which is what finds the place
+  /// again after the text is cut anew — a rotation, a font size.
+  List<NovelPage> _bookPages = const [];
+  NovelPageMetrics? _bookMetrics;
+  String? _bookHtml;
+  int _bookPage = 0;
+  (int, int)? _bookAnchor;
+
+  /// A saved position, in thousandths, waiting for the chapter to be cut.
+  int? _bookPendingPermille;
+
+  /// A place to open at once the chapter loading now is on screen, as a block
+  /// and an offset: a highlight in another chapter.
+  (int, int)? _pendingJump;
+  bool _ttsTurning = false;
+  final GlobalKey<PageCurlViewState> _curlKey = GlobalKey();
+
+  final NovelHighlightStore _highlightStore = NovelHighlightStore();
+  List<NovelHighlight> _highlights = const [];
+  HighlightColor _lastHighlightColor = HighlightColor.yellow;
+  int _revealBlock = -1;
+  final GlobalKey _revealKey = GlobalKey();
+
+  Offset? _tapDown;
+  DateTime _tapDownAt = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _tapStoppedScroll = false;
+
+  Color get _backgroundColor => _html != null
+      ? _novelTheme.paper
+      : switch (_bgPref) {
+          'white' => const Color(0xFFFAFAFA),
+          'gray' => const Color(0xFF2A2A2A),
+          _ => const Color(0xFF0A0A0A),
+        };
 
   final ValueNotifier<int> _page = ValueNotifier<int>(0);
   final ValueNotifier<int?> _dragging = ValueNotifier<int?>(null);
@@ -207,6 +253,9 @@ class _ReaderPageState extends State<ReaderPage> {
     _novelLeading = _hive.getNovelLineHeight();
     _novelFamily = _hive.getNovelFontFamily();
     _novelJustify = _hive.getNovelJustify();
+    _novelLayout = _hive.getNovelLayout();
+    _novelThemeId = _hive.getNovelTheme();
+    _novelMargin = _hive.getNovelMargin();
     _itemPositionsListener.itemPositions.addListener(_onItemPositions);
     _page.addListener(_maybePrefetchNextChapter);
     _novelProgress.addListener(_maybePrefetchNextChapter);
@@ -325,6 +374,13 @@ class _ReaderPageState extends State<ReaderPage> {
       _localChapter = false;
       _pages = const [];
       _html = null;
+      _bookPages = const [];
+      _bookMetrics = null;
+      _bookHtml = null;
+      _bookAnchor = null;
+      _bookPage = 0;
+      _revealBlock = -1;
+      _highlights = const [];
     });
     _page.value = 0;
     _furthestSeenPage = 0;
@@ -350,7 +406,7 @@ class _ReaderPageState extends State<ReaderPage> {
         _loading = false;
         _refreshFind();
       });
-      _restoreNovelPosition(_novelPermille);
+      _afterTextLoaded();
       _scheduleSave();
       return;
     }
@@ -394,13 +450,26 @@ class _ReaderPageState extends State<ReaderPage> {
           _loading = false;
           _refreshFind();
         });
-        if (isText) _restoreNovelPosition(_novelPermille);
+        if (isText) _afterTextLoaded();
         _scheduleSave();
       case Failure(:final error):
+        _pendingJump = null;
         setState(() {
           _error = error.toString().replaceFirst('Exception: ', '');
           _loading = false;
         });
+    }
+  }
+
+  void _afterTextLoaded() {
+    _highlights = _chapterHighlights();
+    _bookPendingPermille = _novelPermille;
+    final jump = _pendingJump;
+    if (jump == null) {
+      _restoreNovelPosition(_novelPermille);
+    } else if (!_book) {
+      _pendingJump = null;
+      _reveal(jump.$1);
     }
   }
 
@@ -729,6 +798,12 @@ class _ReaderPageState extends State<ReaderPage> {
   void _toggleOverlay() => setState(() => _showOverlay = !_showOverlay);
 
   void _seekNovel(int permille) {
+    if (_book) {
+      if (_bookPages.isNotEmpty) {
+        _onBookTurn(_pageAtPermille(permille, _bookPages.length));
+      }
+      return;
+    }
     if (!_novelScrollController.hasClients) return;
     final position = _novelScrollController.position;
     _novelScrollController.jumpTo(
@@ -737,6 +812,11 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _scrollNovel(int direction) {
+    if (_book) {
+      final curl = _curlKey.currentState;
+      direction > 0 ? curl?.turnForward() : curl?.turnBackward();
+      return;
+    }
     if (!_novelScrollController.hasClients) return;
     final position = _novelScrollController.position;
     _novelScrollController.animateTo(
@@ -828,6 +908,16 @@ class _ReaderPageState extends State<ReaderPage> {
     }
   }
 
+  /// Turning back past a book's first page lands on the previous chapter's
+  /// last, the way a book does.
+  void _prevChapterAtEnd() {
+    if (_chapterIndex > 0) {
+      _loadChapter(_chapterIndex - 1, startPage: 1000);
+    } else {
+      _snack('manga.first_chapter'.tr());
+    }
+  }
+
   void _setMode(String mode) {
     if (mode == _mode) return;
     final page = _currentPage;
@@ -891,6 +981,8 @@ class _ReaderPageState extends State<ReaderPage> {
             _findBar()
           else if (_showOverlay)
             _topBar(),
+          if (_html != null && !_book && !_showOverlay && !_loading)
+            _progressLine(),
           if (isDesktopPlatform && !_showOverlay) _persistentClose(),
           if (_showOverlay && !_loading && _error == null) _bottomBar(),
           if (_tts != null && _tts!.isActive) _ttsBar(),
@@ -1030,16 +1122,12 @@ class _ReaderPageState extends State<ReaderPage> {
 
   /// A chapter of prose.
   ///
-  /// Always vertical: paging a novel by screenful is a choice comic readers
-  /// have because a page is a fixed unit, and prose has no such unit — a page
-  /// boundary would land mid-sentence and move every time the font size did.
-  ///
-  /// The reader's own background and text settings apply, so a novel and a
-  /// comic read as the same app rather than as one screen borrowing whatever
-  /// styling its source shipped.
+  /// A scroll by default, or pages that turn. Either way the reader's own
+  /// theme and text settings apply, so a novel and a comic read as the same
+  /// app rather than as one screen borrowing whatever styling its source
+  /// shipped.
   Widget _novelReader(String html) {
-    final onWhite = _bgPref == 'white';
-    final spoken = _ttsChapter == _chapterIndex ? _tts?.current : null;
+    if (_book) return _bookReader(html);
     return Listener(
       onPointerSignal: (_) => _userScrolledAt = DateTime.now(),
       child: NotificationListener<ScrollNotification>(
@@ -1050,45 +1138,375 @@ class _ReaderPageState extends State<ReaderPage> {
           }
           return false;
         },
-        child: _novelScroll(html, onWhite, spoken),
+        child: _novelScroll(html),
       ),
     );
   }
 
-  Widget _novelScroll(String html, bool onWhite, TtsUtterance? spoken) {
-    return GestureDetector(
-      onTapUp: _handleTapZone,
+  double get _paragraphSpacing =>
+      // Paragraphs need air in proportion to their leading, or a generous line
+      // height closes the gap between them and the page reads as one block.
+      _novelSize * _novelLeading * 0.85;
+
+  String? get _novelFamilyOrNull => _novelFamily.isEmpty ? null : _novelFamily;
+
+  List<NovelMark> get _marks {
+    final alpha = _novelTheme.markAlpha;
+    return [
+      for (final h in _highlights)
+        NovelMark(
+          h.block,
+          h.start,
+          h.end,
+          Color(h.color.argb).withValues(alpha: alpha),
+          noted: h.note.isNotEmpty,
+        ),
+    ];
+  }
+
+  /// The chapter's text as the reader has set it up. A page of the book gets
+  /// [slices] and no keys: while a page turns it is on screen twice.
+  NovelText _novelText(
+    String html, {
+    List<NovelSlice>? slices,
+    TextScaler? textScaler,
+  }) {
+    final spoken = _ttsChapter == _chapterIndex ? _tts?.current : null;
+    final keyed = slices == null;
+    final theme = _novelTheme;
+    return NovelText(
+      html: html,
+      color: theme.ink,
+      fontSize: _novelSize,
+      lineHeight: _novelLeading,
+      fontFamily: _novelFamilyOrNull,
+      justify: _novelJustify,
+      paragraphSpacing: _paragraphSpacing,
+      query: _finding ? _findQuery : '',
+      activeMatch: _findIndex,
+      activeKey: keyed ? _findKey : null,
+      speakingBlock: spoken?.block ?? -1,
+      speakingStart: spoken?.start ?? 0,
+      speakingEnd: spoken?.end ?? 0,
+      speakingKey: keyed ? _ttsKey : null,
+      speakingColor: _accent.withValues(alpha: theme.isLight ? 0.22 : 0.32),
+      marks: _marks,
+      slices: slices,
+      onHighlight: _createHighlight,
+      onUnhighlight: _removeHighlightsIn,
+      revealBlock: _revealBlock,
+      revealKey: keyed ? _revealKey : null,
+      textScaler: textScaler,
+    );
+  }
+
+  /// The chapter's name for its opening, or empty when the text opens with
+  /// the same title and would only say it twice.
+  String _headerLabel(String html) {
+    final label = widget.args.chapters[_chapterIndex].label.trim();
+    final blocks = parseNovelBlocks(html);
+    if (blocks.isEmpty || blocks.first.kind != NovelBlockKind.heading) {
+      return label;
+    }
+    final heading = blocks.first.text.toLowerCase();
+    final own = label.toLowerCase();
+    return own.isNotEmpty && (heading.contains(own) || own.contains(heading))
+        ? ''
+        : label;
+  }
+
+  Widget _chapterHeader(String html) => NovelChapterHeader(
+    chapter: _headerLabel(html),
+    book: widget.args.title,
+    ink: _novelTheme.ink,
+    accent: _accent,
+    fontFamily: _novelFamilyOrNull,
+  );
+
+  Widget _novelScroll(String html) {
+    return _tapCatcher(
+      book: false,
       child: SingleChildScrollView(
         controller: _novelScrollController,
         // Comfortable measure on a phone and not edge-to-edge: text running
         // into the bezel is the single most common thing that makes a reader
         // tiring.
         padding: EdgeInsets.fromLTRB(
-          20,
-          MediaQuery.paddingOf(context).top + 64,
-          20,
+          _novelMargin,
+          MediaQuery.paddingOf(context).top + 48,
+          _novelMargin,
           MediaQuery.paddingOf(context).bottom +
-              ((_tts?.isActive ?? false) ? 170 : 96),
+              ((_tts?.isActive ?? false) ? 150 : 24),
         ),
-        child: NovelText(
-          html: html,
-          color: onWhite ? const Color(0xFF16181C) : Colors.white,
-          fontSize: _novelSize,
-          lineHeight: _novelLeading,
-          fontFamily: _novelFamily.isEmpty ? null : _novelFamily,
-          justify: _novelJustify,
-          // Paragraphs need air in proportion to their leading, or a generous
-          // line height closes the gap between them and the page reads as one
-          // block.
-          paragraphSpacing: _novelSize * _novelLeading * 0.85,
-          query: _finding ? _findQuery : '',
-          activeMatch: _findIndex,
-          activeKey: _findKey,
-          speakingBlock: spoken?.block ?? -1,
-          speakingStart: spoken?.start ?? 0,
-          speakingEnd: spoken?.end ?? 0,
-          speakingKey: _ttsKey,
-          speakingColor: _accent.withValues(alpha: onWhite ? 0.22 : 0.32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [_chapterHeader(html), _novelText(html), _chapterFooter()],
+        ),
+      ),
+    );
+  }
+
+  /// Taps on prose, seen without joining the gesture arena: the selectable
+  /// text wins every tap it is under, which left the controls reachable only
+  /// from the margins.
+  Widget _tapCatcher({required bool book, required Widget child}) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (e) {
+        _tapDown = e.position;
+        _tapDownAt = DateTime.now();
+        // A tap that stops a fling is not a request for the controls.
+        _tapStoppedScroll =
+            !book &&
+            _novelScrollController.hasClients &&
+            _novelScrollController.position.isScrollingNotifier.value;
+      },
+      onPointerCancel: (_) => _tapDown = null,
+      onPointerUp: (e) {
+        final down = _tapDown;
+        _tapDown = null;
+        if (down == null || _tapStoppedScroll) return;
+        if ((e.position - down).distance > 16 ||
+            DateTime.now().difference(_tapDownAt) >
+                const Duration(milliseconds: 350)) {
+          return;
+        }
+        _onProseTap(e.position, book);
+      },
+      child: child,
+    );
+  }
+
+  void _onProseTap(Offset position, bool book) {
+    // A tap with text selected only clears the selection.
+    final editing = FocusManager.instance.primaryFocus?.context
+        ?.findAncestorStateOfType<EditableTextState>();
+    if (editing != null && !editing.textEditingValue.selection.isCollapsed) {
+      return;
+    }
+    if (!book) {
+      _toggleOverlay();
+      return;
+    }
+    final w = MediaQuery.sizeOf(context).width;
+    if (position.dx < w * 0.3) {
+      _goPrevPage();
+    } else if (position.dx > w * 0.7) {
+      _goNextPage();
+    } else {
+      _toggleOverlay();
+    }
+  }
+
+  EdgeInsets _bookPadding(BuildContext context) {
+    final safe = MediaQuery.paddingOf(context);
+    final voice = (_tts?.isActive ?? false) ? 76.0 : 0.0;
+    return EdgeInsets.fromLTRB(
+      safe.left + _novelMargin,
+      safe.top + 40,
+      safe.right + _novelMargin,
+      safe.bottom + 40 + voice,
+    );
+  }
+
+  static int _pageAtPermille(int permille, int pages) =>
+      pages <= 1 ? 0 : (permille.clamp(0, 1000) * (pages - 1) / 1000).round();
+
+  static int _permilleOfPage(int page, int pages) =>
+      pages <= 1 ? 1000 : (page * 1000 / (pages - 1)).round().clamp(0, 1000);
+
+  /// Cuts the chapter into pages when anything that decides a page break has
+  /// changed, and finds the place again in the new pages.
+  void _paginate(String html, NovelPageMetrics metrics) {
+    if (identical(html, _bookHtml) && metrics == _bookMetrics) return;
+    final pages = paginateNovel(parseNovelBlocks(html), metrics);
+    final jump = _pendingJump;
+    final saved = _bookPendingPermille;
+    final anchor = _bookAnchor;
+    var page = 0;
+    if (jump != null) {
+      page = novelPageOf(pages, jump.$1, jump.$2);
+    } else if (saved != null) {
+      page = _pageAtPermille(saved, pages.length);
+    } else if (anchor != null) {
+      page = novelPageOf(pages, anchor.$1, anchor.$2);
+    }
+    _pendingJump = null;
+    _bookPendingPermille = null;
+    _bookHtml = html;
+    _bookMetrics = metrics;
+    _bookPages = pages;
+    _bookPage = page;
+    _bookAnchor = (pages[page].block, pages[page].offset);
+    // Cut during layout, after the bars were built from the old pages.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_book) return;
+      setState(() {});
+      if (jump != null) _recordBookPage();
+    });
+  }
+
+  void _onBookTurn(int page) {
+    if (_bookPages.isEmpty) return;
+    final target = page.clamp(0, _bookPages.length - 1);
+    if (_ttsTurning) {
+      _ttsTurning = false;
+    } else {
+      _userScrolledAt = DateTime.now();
+    }
+    setState(() {
+      _bookPage = target;
+      _bookAnchor = (_bookPages[target].block, _bookPages[target].offset);
+    });
+    _recordBookPage();
+  }
+
+  void _recordBookPage() {
+    _novelPermille = _permilleOfPage(_bookPage, _bookPages.length);
+    _scheduleSave();
+  }
+
+  Widget _bookReader(String html) {
+    return LayoutBuilder(
+      builder: (context, box) {
+        final pad = _bookPadding(context);
+        final scaler = MediaQuery.textScalerOf(context);
+        _paginate(
+          html,
+          NovelPageMetrics(
+            width: box.maxWidth - pad.horizontal,
+            height: box.maxHeight - pad.vertical,
+            fontSize: _novelSize,
+            lineHeight: _novelLeading,
+            justify: _novelJustify,
+            paragraphSpacing: _paragraphSpacing,
+            fontFamily: _novelFamilyOrNull,
+            textScaler: scaler,
+            baseStyle: DefaultTextStyle.of(context).style,
+            firstPageInset: NovelChapterHeader.height,
+            textDirection: Directionality.of(context),
+            locale: Localizations.maybeLocaleOf(context),
+          ),
+        );
+        return _tapCatcher(
+          book: true,
+          child: PageCurlView(
+            key: _curlKey,
+            pageCount: _bookPages.length,
+            page: _bookPage,
+            paper: _novelTheme.paper,
+            pageBuilder: (context, i) => _bookPageView(html, i, pad, scaler),
+            onPageChanged: _onBookTurn,
+            onPastEnd: _nextChapter,
+            onPastStart: _prevChapterAtEnd,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _bookPageView(
+    String html,
+    int index,
+    EdgeInsets pad,
+    TextScaler scaler,
+  ) {
+    final theme = _novelTheme;
+    if (index >= _bookPages.length) return ColoredBox(color: theme.paper);
+    final page = _bookPages[index];
+    final total = _bookPages.length;
+    final label = widget.args.chapters[_chapterIndex].label;
+    final small = TextStyle(
+      color: theme.muted,
+      fontSize: 11,
+      letterSpacing: 0.3,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        // The inner edge of a bound page is a shade darker.
+        gradient: LinearGradient(
+          colors: [
+            Color.lerp(theme.paper, Colors.black, theme.isLight ? 0.07 : 0.3)!,
+            theme.paper,
+            theme.paper,
+          ],
+          stops: const [0, 0.05, 1],
+        ),
+      ),
+      child: Stack(
+        children: [
+          if (index > 0)
+            Positioned(
+              top: pad.top - 28,
+              left: pad.left,
+              right: pad.right,
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: small,
+              ),
+            ),
+          Positioned.fill(
+            left: pad.left,
+            top: pad.top,
+            right: pad.right,
+            bottom: pad.bottom,
+            child: ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.topCenter,
+                minHeight: 0,
+                maxHeight: double.infinity,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (index == 0) _chapterHeader(html),
+                    _novelText(html, slices: page.slices, textScaler: scaler),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: pad.left,
+            right: pad.right,
+            bottom: pad.bottom - 30,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${_permilleOfPage(index, total) ~/ 10}%',
+                    style: small,
+                  ),
+                ),
+                Text('${index + 1} / $total', style: small),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// How far through the chapter, along the bottom edge while the controls
+  /// are hidden.
+  Widget _progressLine() {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: IgnorePointer(
+        child: ValueListenableBuilder<int>(
+          valueListenable: _novelProgress,
+          builder: (context, permille, _) => LinearProgressIndicator(
+            value: permille / 1000,
+            minHeight: 2,
+            color: _accent.withValues(alpha: 0.8),
+            backgroundColor: Colors.transparent,
+          ),
         ),
       ),
     );
@@ -1232,7 +1650,7 @@ class _ReaderPageState extends State<ReaderPage> {
     final nextLabel = hasNext
         ? widget.args.chapters[_chapterIndex + 1].label
         : null;
-    final onWhite = _bgPref == 'white';
+    final onWhite = _html != null ? _novelTheme.isLight : _bgPref == 'white';
     final muted = onWhite ? Colors.black54 : Colors.white54;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 48, 20, 60),
@@ -1337,6 +1755,11 @@ class _ReaderPageState extends State<ReaderPage> {
   /// frame that tags it.
   void _showFound() {
     if (_findTotal == 0) return;
+    if (_book) {
+      final at = NovelText.locateMatch(_html ?? '', _findQuery, _findIndex);
+      if (at != null) _jumpTo(at.$1, at.$2);
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = _findKey.currentContext;
       if (ctx == null) return;
@@ -1491,8 +1914,27 @@ class _ReaderPageState extends State<ReaderPage> {
     _ttsChapter = _chapterIndex;
     _ttsFollowedIndex = -1;
     _userScrolledAt = DateTime.fromMillisecondsSinceEpoch(0);
+    if (_book) {
+      final anchor = _bookAnchor;
+      await tts.play(
+        from: _bookPage == 0 || anchor == null
+            ? 0
+            : _ttsIndexAt(tts.script!, anchor.$1, anchor.$2),
+      );
+      return;
+    }
     final at = _viewportTopPermille();
     await tts.play(from: at < 5 ? 0 : tts.script!.indexAtPermille(at));
+  }
+
+  /// The first utterance that reaches past character [offset] of [block].
+  static int _ttsIndexAt(TtsScript script, int block, int offset) {
+    for (var i = 0; i < script.length; i++) {
+      final u = script[i];
+      if (u.block < 0) continue;
+      if (u.block > block || (u.block == block && u.end > offset)) return i;
+    }
+    return 0;
   }
 
   /// Where the top of the screen sits in the chapter, in thousandths: where
@@ -1530,6 +1972,20 @@ class _ReaderPageState extends State<ReaderPage> {
   void _followSpoken(TtsUtterance u) {
     final idle = DateTime.now().difference(_userScrolledAt);
     if (idle < const Duration(seconds: 6)) return;
+    if (_book) {
+      if (_bookPages.isEmpty) return;
+      final target = novelPageOf(_bookPages, u.block, u.start);
+      if (target == _bookPage) return;
+      final curl = _curlKey.currentState;
+      if (target == _bookPage + 1 && curl != null && !curl.isTurning) {
+        _ttsTurning = true;
+        curl.turnForward();
+      } else {
+        _ttsTurning = true;
+        _onBookTurn(target);
+      }
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_novelScrollController.hasClients) return;
       final box = _ttsKey.currentContext?.findRenderObject();
@@ -1703,7 +2159,9 @@ class _ReaderPageState extends State<ReaderPage> {
             // Only when there is somewhere to go. A provider with no web page
             // for this chapter gets no button rather than a button that
             // apologises.
-            if (_chapterOnSite case final uri?)
+            if (_html != null)
+              _novelMenu()
+            else if (_chapterOnSite case final uri?)
               IconButton(
                 tooltip: 'manga.open_on_site'.tr(),
                 icon: const Icon(
@@ -1737,6 +2195,47 @@ class _ReaderPageState extends State<ReaderPage> {
       ),
     );
   }
+
+  /// Prose has more to offer than fits along the bar on a phone.
+  Widget _novelMenu() {
+    final site = _chapterOnSite;
+    return PopupMenuButton<String>(
+      tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+      icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+      color: const Color(0xFF1E1E1E),
+      onSelected: (v) {
+        if (v == 'highlights') _openHighlights();
+        if (v == 'site' && site != null) _openOnSite(site);
+      },
+      itemBuilder: (_) => [
+        _menuItem(
+          'highlights',
+          Icons.border_color_outlined,
+          'manga.highlights',
+        ),
+        if (site != null)
+          _menuItem('site', Icons.open_in_new_rounded, 'manga.open_on_site'),
+      ],
+    );
+  }
+
+  PopupMenuItem<String> _menuItem(String value, IconData icon, String label) =>
+      PopupMenuItem<String>(
+        value: value,
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white70, size: 20),
+            const SizedBox(width: 14),
+            Flexible(
+              child: Text(
+                label.tr(),
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      );
 
   Widget _downloadButton(EpisodeEntity ch) {
     if (_html != null) {
@@ -1847,6 +2346,174 @@ class _ReaderPageState extends State<ReaderPage> {
         },
       ),
     );
+  }
+
+  List<NovelHighlight> _chapterHighlights() {
+    final ch = widget.args.chapters[_chapterIndex];
+    return _highlightStore.forChapter(
+      widget.args.provider,
+      widget.args.contentUrl,
+      ref: ch.mediaRef,
+      number: ch.episode,
+    );
+  }
+
+  void _reloadHighlights() {
+    if (!mounted) return;
+    setState(() => _highlights = _chapterHighlights());
+  }
+
+  Future<void> _createHighlight(int block, int start, int end) async {
+    final html = _html;
+    if (html == null) return;
+    final blocks = parseNovelBlocks(html);
+    if (block < 0 || block >= blocks.length) return;
+    final text = blocks[block].text;
+    var a = start.clamp(0, text.length);
+    var b = end.clamp(a, text.length);
+    while (a < b && text[a].trim().isEmpty) {
+      a++;
+    }
+    while (b > a && text[b - 1].trim().isEmpty) {
+      b--;
+    }
+    if (b <= a) return;
+    final quote = text.substring(a, b);
+    final chapter = _chapterIndex;
+    final edit = await showHighlightEditor(
+      context,
+      quote: quote,
+      accent: _accent,
+      color: _lastHighlightColor,
+    );
+    if (edit == null || !mounted || chapter != _chapterIndex) return;
+    _lastHighlightColor = edit.color;
+    final ch = widget.args.chapters[chapter];
+    final now = DateTime.now();
+    await _highlightStore.add(
+      widget.args.provider,
+      widget.args.contentUrl,
+      NovelHighlight(
+        id: '${now.microsecondsSinceEpoch}',
+        chapterRef: ch.mediaRef,
+        chapter: ch.episode,
+        chapterLabel: ch.label,
+        block: block,
+        start: a,
+        end: b,
+        text: quote,
+        color: edit.color,
+        note: edit.note,
+        createdAt: now.millisecondsSinceEpoch,
+      ),
+    );
+    _reloadHighlights();
+  }
+
+  Future<void> _removeHighlightsIn(int block, int start, int end) async {
+    final ids = {
+      for (final h in _highlights)
+        if (h.overlaps(block, start, end)) h.id,
+    };
+    if (ids.isEmpty) return;
+    await _highlightStore.remove(
+      widget.args.provider,
+      widget.args.contentUrl,
+      ids,
+    );
+    _reloadHighlights();
+  }
+
+  Future<void> _editHighlight(NovelHighlight h) async {
+    final edit = await showHighlightEditor(
+      context,
+      quote: h.text,
+      accent: _accent,
+      color: h.color,
+      note: h.note,
+      existing: true,
+    );
+    if (edit == null) return;
+    if (edit.delete) {
+      await _highlightStore.remove(
+        widget.args.provider,
+        widget.args.contentUrl,
+        {h.id},
+      );
+    } else {
+      await _highlightStore.update(
+        widget.args.provider,
+        widget.args.contentUrl,
+        h.copyWith(color: edit.color, note: edit.note),
+      );
+    }
+    _reloadHighlights();
+  }
+
+  void _openHighlights() {
+    showAdaptiveModal<void>(
+      context: context,
+      backgroundColor: const Color(0xFF161616),
+      isScrollControlled: true,
+      showDragHandle: !isDesktopPlatform,
+      builder: (sheet) => NovelHighlightsSheet(
+        load: () =>
+            _highlightStore.all(widget.args.provider, widget.args.contentUrl),
+        accent: _accent,
+        onOpen: (h) {
+          Navigator.of(sheet).pop();
+          _openHighlight(h);
+        },
+        onEdit: _editHighlight,
+        onDelete: (h) async {
+          await _highlightStore.remove(
+            widget.args.provider,
+            widget.args.contentUrl,
+            {h.id},
+          );
+          _reloadHighlights();
+        },
+      ),
+    );
+  }
+
+  void _openHighlight(NovelHighlight h) {
+    var index = _chapters.indexWhere((c) => c.mediaRef == h.chapterRef);
+    if (index < 0 && h.chapter > 0) {
+      index = _chapters.indexWhere((c) => c.episode == h.chapter);
+    }
+    if (index < 0) return;
+    if (index != _chapterIndex || _html == null) {
+      _pendingJump = (h.block, h.start);
+      _loadChapter(index);
+      return;
+    }
+    _jumpTo(h.block, h.start);
+  }
+
+  /// Brings character [offset] of [block] into view.
+  void _jumpTo(int block, int offset) {
+    if (_book) {
+      if (_bookPages.isNotEmpty) {
+        _onBookTurn(novelPageOf(_bookPages, block, offset));
+      }
+      return;
+    }
+    _reveal(block);
+  }
+
+  void _reveal(int block) {
+    setState(() => _revealBlock = block);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _revealKey.currentContext;
+      if (!mounted || ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.25,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   /// This chapter's page on the source's own website, or null when there is
@@ -1983,6 +2650,23 @@ class _ReaderPageState extends State<ReaderPage> {
                   ],
                 ],
                 if (_html != null) ...[
+                  _sheetLabel('manga.layout'),
+                  const SizedBox(height: 8),
+                  _segmented(
+                    options: {
+                      'scroll': 'manga.mode_scroll'.tr(),
+                      'book': 'manga.mode_book'.tr(),
+                    },
+                    value: _novelLayout,
+                    onChanged: (v) {
+                      _setNovelLayout(v);
+                      setSheet(() {});
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  _sheetLabel('manga.reading_theme'),
+                  const SizedBox(height: 10),
+                  _themePicker(() => setSheet(() {})),
                   const SizedBox(height: 18),
                   Text(
                     'manga.text_size'.tr(),
@@ -2036,6 +2720,23 @@ class _ReaderPageState extends State<ReaderPage> {
                     },
                   ),
                   const SizedBox(height: 18),
+                  _sheetLabel('manga.margins'),
+                  const SizedBox(height: 8),
+                  _segmented(
+                    options: {
+                      '12': 'manga.margin_narrow'.tr(),
+                      '20': 'manga.margin_normal'.tr(),
+                      '32': 'manga.margin_wide'.tr(),
+                    },
+                    value: '${_novelMargin.round()}',
+                    onChanged: (v) {
+                      final margin = double.parse(v);
+                      _hive.saveNovelMargin(margin);
+                      setState(() => _novelMargin = margin);
+                      setSheet(() {});
+                    },
+                  ),
+                  const SizedBox(height: 18),
                   Text(
                     'manga.alignment'.tr(),
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
@@ -2062,25 +2763,27 @@ class _ReaderPageState extends State<ReaderPage> {
                     ),
                   ],
                 ],
-                const SizedBox(height: 18),
-                Text(
-                  'manga.background'.tr(),
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                _segmented(
-                  options: {
-                    'black': 'manga.bg_black'.tr(),
-                    'gray': 'manga.bg_gray'.tr(),
-                    'white': 'manga.bg_white'.tr(),
-                  },
-                  value: _bgPref,
-                  onChanged: (v) {
-                    _hive.saveReaderBackground(v);
-                    setState(() => _bgPref = v);
-                    setSheet(() {});
-                  },
-                ),
+                if (_html == null) ...[
+                  const SizedBox(height: 18),
+                  Text(
+                    'manga.background'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  _segmented(
+                    options: {
+                      'black': 'manga.bg_black'.tr(),
+                      'gray': 'manga.bg_gray'.tr(),
+                      'white': 'manga.bg_white'.tr(),
+                    },
+                    value: _bgPref,
+                    onChanged: (v) {
+                      _hive.saveReaderBackground(v);
+                      setState(() => _bgPref = v);
+                      setSheet(() {});
+                    },
+                  ),
+                ],
                 if (!isDesktopPlatform) ...[
                   const SizedBox(height: 18),
                   Row(
@@ -2112,6 +2815,85 @@ class _ReaderPageState extends State<ReaderPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _sheetLabel(String key) => Text(
+    key.tr(),
+    style: const TextStyle(color: Colors.white70, fontSize: 12),
+  );
+
+  void _setNovelLayout(String layout) {
+    if (layout == _novelLayout) return;
+    _hive.saveNovelLayout(layout);
+    setState(() {
+      _novelLayout = layout;
+      _bookPendingPermille = _novelPermille;
+      _bookMetrics = null;
+      _bookHtml = null;
+      _bookAnchor = null;
+      _revealBlock = -1;
+    });
+    if (layout != 'book') _restoreNovelPosition(_novelPermille);
+  }
+
+  /// Paper swatches, each set in its own ink.
+  Widget _themePicker(VoidCallback refresh) {
+    final current = _novelTheme;
+    return Row(
+      children: [
+        for (final theme in NovelTheme.all)
+          Expanded(
+            child: HoverTap(
+              onTap: () {
+                _hive.saveNovelTheme(theme.id);
+                setState(() => _novelThemeId = theme.id);
+                refresh();
+              },
+              child: Column(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    width: 48,
+                    height: 48,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: theme.paper,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: theme.id == current.id
+                            ? _accent
+                            : Colors.white.withValues(alpha: 0.14),
+                        width: theme.id == current.id ? 2.5 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      'Aa',
+                      style: TextStyle(
+                        color: theme.ink,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: _novelFamilyOrNull,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    theme.label.tr(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: theme.id == current.id
+                          ? Colors.white
+                          : Colors.white54,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -2193,6 +2975,7 @@ class _ReaderPageState extends State<ReaderPage> {
     final hasPrevChapter = _chapterIndex > 0;
     final hasNextChapter = _chapterIndex < _chapters.length - 1;
     final isNovel = _html != null;
+    final bookPages = _book ? _bookPages.length : 0;
     final maxPage = isNovel
         ? 1000.0
         : (_pageCount - 1).clamp(0, 9999).toDouble();
@@ -2246,6 +3029,7 @@ class _ReaderPageState extends State<ReaderPage> {
                             child: Slider(
                               min: 0,
                               max: maxPage,
+                              divisions: bookPages > 1 ? bookPages - 1 : null,
                               value: display.toDouble(),
                               onChanged: isNovel || _pageCount > 1
                                   ? (v) => _dragging.value = v.round()
@@ -2260,7 +3044,9 @@ class _ReaderPageState extends State<ReaderPage> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          isNovel
+                          bookPages > 0
+                              ? '${_pageAtPermille(display, bookPages) + 1}/$bookPages'
+                              : isNovel
                               ? '${(display / 10).round()}%'
                               : '${display + 1}/$_pageCount',
                           style: const TextStyle(

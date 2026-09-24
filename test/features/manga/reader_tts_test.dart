@@ -27,6 +27,7 @@ import 'fake_tts_engine.dart';
 class Settings implements HiveService {
   double rate = 1.0;
   bool autoNext = true;
+  String layout = 'scroll';
   final voices = <String, String>{};
 
   @override
@@ -45,6 +46,12 @@ class Settings implements HiveService {
   String getNovelFontFamily() => '';
   @override
   bool getNovelJustify() => false;
+  @override
+  String getNovelLayout() => layout;
+  @override
+  String getNovelTheme() => '';
+  @override
+  double getNovelMargin() => 20;
   @override
   bool get isIncognito => false;
   @override
@@ -88,6 +95,8 @@ class Downloads implements DownloadRepository {
 }
 
 class Content implements DetailRepository {
+  Content({this.long = false});
+  final bool long;
   final refs = <String>[];
   @override
   Future<Result<MangaPagesEntity>> getPages({
@@ -99,9 +108,11 @@ class Content implements DetailRepository {
       MangaPagesEntity(
         pages: const [],
         headers: const {},
-        html:
-            '<h2>Chapter $ref</h2><hr>'
-            '<p>First of $ref. Second of $ref.</p><p>Last of $ref.</p>',
+        html: long
+            ? '<h2>Chapter $ref</h2>'
+                  '${List.generate(60, (i) => '<p>Line $i of $ref.</p>').join()}'
+            : '<h2>Chapter $ref</h2><hr>'
+                  '<p>First of $ref. Second of $ref.</p><p>Last of $ref.</p>',
       ),
     );
   }
@@ -129,11 +140,15 @@ void main() {
   late Content content;
   late History history;
 
-  Future<void> open(WidgetTester t) async {
+  Future<void> open(
+    WidgetTester t, {
+    String layout = 'scroll',
+    bool long = false,
+  }) async {
     engine = FakeEngine();
-    content = Content();
+    content = Content(long: long);
     history = History();
-    getIt.registerSingleton<HiveService>(Settings());
+    getIt.registerSingleton<HiveService>(Settings()..layout = layout);
     getIt.registerSingleton<AnilistTracker>(Tracker());
     getIt.registerSingleton<GetDownloadsUseCase>(
       GetDownloadsUseCase(Downloads()),
@@ -277,11 +292,48 @@ void main() {
     await t.tap(find.widgetWithIcon(IconButton, Icons.tune));
     await t.pumpAndSettle();
     expect(find.byType(TtsSettingsSection), findsOneWidget);
+    await t.ensureVisible(find.text('manga.tts_voice').first);
+    await t.pumpAndSettle();
     await t.tap(find.text('manga.tts_voice').first);
     await t.pumpAndSettle();
     // Only the chapter's language is offered.
     expect(find.text('en-us-x-iol-local'), findsOneWidget);
     expect(find.text('ru-ru-x-dfc-local'), findsNothing);
+    await close(t);
+  });
+
+  testWidgets('in the book layout the voice paints on the page and turns '
+      'it when it reads on', (t) async {
+    await open(t, layout: 'book', long: true);
+    String counter() => t
+        .widgetList<Text>(find.byType(Text))
+        .map((w) => w.data ?? '')
+        .firstWhere((s) => RegExp(r'^\d+/\d+$').hasMatch(s));
+    expect(counter(), startsWith('1/'));
+    await t.tap(find.widgetWithIcon(IconButton, Icons.headphones_rounded));
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 50));
+    expect(engine.spoken, ['Chapter one']);
+    await finishSentence(t);
+    expect(engine.spoken.last, 'Line 0 of one.');
+    var painted = false;
+    for (final w in t.widgetList<SelectableText>(find.byType(SelectableText))) {
+      w.textSpan!.visitChildren((s) {
+        if (s is TextSpan &&
+            s.text == 'Line 0 of one.' &&
+            s.style?.backgroundColor != null) {
+          painted = true;
+        }
+        return true;
+      });
+    }
+    expect(painted, isTrue);
+    for (var i = 0; i < 30 && counter().startsWith('1/'); i++) {
+      await finishSentence(t);
+      await t.pump(const Duration(milliseconds: 700));
+    }
+    expect(counter(), startsWith('2/'));
+    expect(t.takeException(), isNull);
     await close(t);
   });
 }

@@ -24,7 +24,12 @@ import 'package:soplay/features/manga/presentation/pages/reader_page.dart';
 class Settings implements HiveService {
   final bool spread;
   final String mode;
-  Settings({this.spread = false, this.mode = 'horizontal'});
+  String layout;
+  Settings({
+    this.spread = false,
+    this.mode = 'horizontal',
+    this.layout = 'scroll',
+  });
   @override
   bool get readerSpread => spread;
   @override
@@ -41,6 +46,14 @@ class Settings implements HiveService {
   String getNovelFontFamily() => '';
   @override
   bool getNovelJustify() => false;
+  @override
+  String getNovelLayout() => layout;
+  @override
+  Future<void> saveNovelLayout(String v) async => layout = v;
+  @override
+  String getNovelTheme() => '';
+  @override
+  double getNovelMargin() => 20;
   // The reader asks before telling a tracker anything; incognito is the one
   // reader setting that reaches past this screen.
   @override

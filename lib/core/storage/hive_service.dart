@@ -1254,6 +1254,26 @@ class HiveService {
   Future<void> saveNovelJustify(bool v) async =>
       _settingsBox.put('novel_justify', v);
 
+  /// 'scroll', or 'book' for pages that turn.
+  String getNovelLayout() =>
+      _settingsBox.get('novel_layout', defaultValue: 'scroll') as String;
+
+  Future<void> saveNovelLayout(String v) async =>
+      _settingsBox.put('novel_layout', v);
+
+  /// Empty until chosen; the reader then follows its background setting.
+  String getNovelTheme() =>
+      _settingsBox.get('novel_theme', defaultValue: '') as String;
+
+  Future<void> saveNovelTheme(String v) async =>
+      _settingsBox.put('novel_theme', v);
+
+  double getNovelMargin() =>
+      (_settingsBox.get('novel_margin', defaultValue: 20.0) as num).toDouble();
+
+  Future<void> saveNovelMargin(double v) async =>
+      _settingsBox.put('novel_margin', v);
+
   // ── Novel read-aloud ──────────────────────────────────────────────────────
   //
   // Device-level, like the typography above: which voices exist is a fact

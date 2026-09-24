@@ -47,6 +47,12 @@ class Settings implements HiveService {
   @override
   bool getNovelJustify() => false;
   @override
+  String getNovelLayout() => 'scroll';
+  @override
+  String getNovelTheme() => '';
+  @override
+  double getNovelMargin() => 20;
+  @override
   bool get isIncognito => false;
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
