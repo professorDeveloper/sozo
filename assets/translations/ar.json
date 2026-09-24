@@ -2340,7 +2340,7 @@
     "pin_enter_title": "أدخل رمز PIN",
     "pin_enter_subtitle": "أدخل رمز PIN الخاص بـ {}.",
     "pin_create_title": "اختر رمز PIN",
-    "pin_create_subtitle": "من 4 إلى 8 أرقام.",
+    "pin_create_subtitle": "4 أرقام.",
     "pin_confirm_title": "أكّد رمز PIN",
     "pin_confirm_subtitle": "أدخل رمز PIN نفسه مرة أخرى.",
     "pin_current_title": "رمز PIN الحالي",

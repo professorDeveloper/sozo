@@ -38,7 +38,7 @@ class _HouseholdProfileEditPageState extends State<HouseholdProfileEditPage> {
     text: _original?.name ?? '',
   );
   late String? _avatar =
-      _original?.avatar ?? (_original == null ? 'smile' : null);
+      _original?.avatar ?? (_original == null ? _nextAvatar() : null);
   late String? _color =
       _original?.color ?? (_original == null ? _nextColor() : null);
   late bool _kids = _original?.isKids ?? false;
@@ -54,6 +54,14 @@ class _HouseholdProfileEditPageState extends State<HouseholdProfileEditPage> {
     _PinEdit.set => true,
     _PinEdit.remove => false,
   };
+
+  String _nextAvatar() {
+    final used = {for (final p in _session.profiles) p.avatar};
+    return ProfileAvatars.images.firstWhere(
+      (id) => !used.contains(id),
+      orElse: () => ProfileAvatars.images.first,
+    );
+  }
 
   String _nextColor() {
     final used = {for (final p in _session.profiles) p.color};
@@ -384,31 +392,44 @@ class _AvatarGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ids = <String?>[null, ...ProfileAvatars.presets.keys];
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        for (final id in ids)
-          Semantics(
-            button: true,
-            selected: id == selected,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => onSelected(id),
-              child: Opacity(
-                opacity: id == selected ? 1 : 0.55,
-                child: ProfileAvatar(
-                  name: name.trim().isEmpty ? '?' : name,
-                  avatar: id,
-                  color: color,
-                  size: 52,
-                  selected: id == selected,
+    // A profile still on an old icon keeps it offered, so opening the page
+    // does not silently change it.
+    final ids = <String?>[
+      if (selected != null && !ProfileAvatars.images.contains(selected))
+        selected,
+      ...ProfileAvatars.images,
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 12.0;
+        final columns = constraints.maxWidth >= 520 ? 6 : 4;
+        final size = (constraints.maxWidth - spacing * (columns - 1)) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final id in ids)
+              Semantics(
+                button: true,
+                selected: id == selected,
+                child: GestureDetector(
+                  onTap: () => onSelected(id),
+                  child: AnimatedScale(
+                    duration: const Duration(milliseconds: 140),
+                    scale: id == selected ? 1 : 0.92,
+                    child: ProfileAvatar(
+                      name: name.trim().isEmpty ? '?' : name,
+                      avatar: id,
+                      color: color,
+                      size: size,
+                      selected: id == selected,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 }

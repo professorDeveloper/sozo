@@ -2336,7 +2336,7 @@
     "pin_enter_title": "Enter PIN",
     "pin_enter_subtitle": "Enter the PIN for {}.",
     "pin_create_title": "Choose a PIN",
-    "pin_create_subtitle": "4 to 8 digits.",
+    "pin_create_subtitle": "4 digits.",
     "pin_confirm_title": "Confirm PIN",
     "pin_confirm_subtitle": "Enter the same PIN again.",
     "pin_current_title": "Current PIN",

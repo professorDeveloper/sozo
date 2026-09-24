@@ -2336,7 +2336,7 @@
     "pin_enter_title": "PIN kodni kiriting",
     "pin_enter_subtitle": "{} uchun PIN kodni kiriting.",
     "pin_create_title": "PIN kod tanlang",
-    "pin_create_subtitle": "4 dan 8 tagacha raqam.",
+    "pin_create_subtitle": "4 ta raqam.",
     "pin_confirm_title": "PIN kodni tasdiqlang",
     "pin_confirm_subtitle": "Xuddi shu PIN kodni yana kiriting.",
     "pin_current_title": "Joriy PIN kod",

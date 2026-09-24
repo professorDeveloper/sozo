@@ -30,7 +30,7 @@ class ProfilesRemoteDataSource {
           if (p is Map) HouseholdProfile.fromJson(p.cast<String, dynamic>()),
       ],
       activeProfileId: data['activeProfileId'] as String?,
-      max: (data['max'] as num?)?.toInt() ?? 5,
+      max: (data['max'] as num?)?.toInt() ?? 3,
     );
   });
 

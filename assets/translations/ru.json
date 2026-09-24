@@ -2337,7 +2337,7 @@
     "pin_enter_title": "Введите PIN",
     "pin_enter_subtitle": "Введите PIN профиля {}.",
     "pin_create_title": "Придумайте PIN",
-    "pin_create_subtitle": "От 4 до 8 цифр.",
+    "pin_create_subtitle": "4 цифры.",
     "pin_confirm_title": "Подтвердите PIN",
     "pin_confirm_subtitle": "Введите тот же PIN ещё раз.",
     "pin_current_title": "Текущий PIN",

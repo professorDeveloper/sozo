@@ -2336,7 +2336,7 @@
     "pin_enter_title": "PIN girin",
     "pin_enter_subtitle": "{} için PIN girin.",
     "pin_create_title": "Bir PIN seçin",
-    "pin_create_subtitle": "4 ile 8 hane arası.",
+    "pin_create_subtitle": "4 hane.",
     "pin_confirm_title": "PIN'i onaylayın",
     "pin_confirm_subtitle": "Aynı PIN'i tekrar girin.",
     "pin_current_title": "Mevcut PIN",

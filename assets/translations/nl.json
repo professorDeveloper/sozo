@@ -2336,7 +2336,7 @@
     "pin_enter_title": "Voer pincode in",
     "pin_enter_subtitle": "Voer de pincode voor {} in.",
     "pin_create_title": "Kies een pincode",
-    "pin_create_subtitle": "4 tot 8 cijfers.",
+    "pin_create_subtitle": "4 cijfers.",
     "pin_confirm_title": "Bevestig pincode",
     "pin_confirm_subtitle": "Voer dezelfde pincode nog een keer in.",
     "pin_current_title": "Huidige pincode",

@@ -7,6 +7,19 @@ import 'package:soplay/features/profiles/domain/household_profile.dart';
 class ProfileAvatars {
   ProfileAvatars._();
 
+  /// Illustrated avatars bundled under `assets/avatars/` (DiceBear, CC0),
+  /// drawn over the profile's colour. These are what the picker offers.
+  static final List<String> images = [
+    for (var i = 1; i <= 8; i++) 'lorelei-$i',
+    for (var i = 1; i <= 8; i++) 'open-peeps-$i',
+    for (var i = 1; i <= 4; i++) 'notionists-$i',
+    for (var i = 1; i <= 4; i++) 'thumbs-$i',
+  ];
+
+  static String? imageFor(String? id) =>
+      id != null && images.contains(id) ? 'assets/avatars/$id.png' : null;
+
+  /// Kept so profiles made before the illustrations still render.
   static const Map<String, IconData> presets = {
     'smile': Icons.sentiment_satisfied_alt_rounded,
     'star': Icons.star_rounded,
@@ -89,6 +102,7 @@ class ProfileAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final base = ProfileAvatars.parse(color, name);
     final icon = ProfileAvatars.presets[avatar];
+    final image = ProfileAvatars.imageFor(avatar);
     final initial = name.trim().isEmpty
         ? '?'
         : name.trim().characters.first.toUpperCase();
@@ -113,13 +127,25 @@ class ProfileAvatar extends StatelessWidget {
                   Color.lerp(base, Colors.black, 0.28)!,
                 ],
               ),
+            ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: radius,
               border: Border.all(
                 color: selected ? Colors.white : Colors.transparent,
                 width: size * 0.035,
               ),
             ),
             alignment: Alignment.center,
-            child: icon != null
+            clipBehavior: Clip.antiAlias,
+            child: image != null
+                ? Image.asset(
+                    image,
+                    width: size,
+                    height: size,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.medium,
+                  )
+                : icon != null
                 ? Icon(icon, color: Colors.white, size: size * 0.5)
                 : Text(
                     initial,

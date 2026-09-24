@@ -2336,7 +2336,7 @@
     "pin_enter_title": "輸入 PIN",
     "pin_enter_subtitle": "輸入 {} 嘅 PIN。",
     "pin_create_title": "揀個 PIN",
-    "pin_create_subtitle": "4 至 8 位數字。",
+    "pin_create_subtitle": "4 位數字。",
     "pin_confirm_title": "確認 PIN",
     "pin_confirm_subtitle": "再輸入一次同一個 PIN。",
     "pin_current_title": "而家嘅 PIN",

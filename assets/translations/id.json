@@ -2336,7 +2336,7 @@
     "pin_enter_title": "Masukkan PIN",
     "pin_enter_subtitle": "Masukkan PIN untuk {}.",
     "pin_create_title": "Pilih PIN",
-    "pin_create_subtitle": "4 sampai 8 digit.",
+    "pin_create_subtitle": "4 digit.",
     "pin_confirm_title": "Konfirmasi PIN",
     "pin_confirm_subtitle": "Masukkan PIN yang sama sekali lagi.",
     "pin_current_title": "PIN saat ini",
