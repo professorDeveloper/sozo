@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 
 /// Which chapters of a title have been read.
 ///
@@ -32,7 +33,7 @@ class ChapterReadStore {
 
   Box<dynamic>? get _box {
     try {
-      return Hive.box(AppConstants.historyBox);
+      return Hive.box(ProfileScope.box(AppConstants.historyBox));
     } catch (_) {
       return null;
     }

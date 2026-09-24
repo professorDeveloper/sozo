@@ -1,5 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 
 /// What the viewer chose last time they watched a particular title.
 ///
@@ -49,7 +50,7 @@ class TitlePrefsStore {
   String _key(String provider, String contentUrl) => '$provider::$contentUrl';
 
   Map<String, dynamic> _load() {
-    final raw = _box?.get(AppConstants.titlePrefsKey);
+    final raw = _box?.get(ProfileScope.key(AppConstants.titlePrefsKey));
     if (raw is! Map) return const {};
     return raw.map((k, v) => MapEntry(k.toString(), v));
   }
@@ -172,7 +173,7 @@ class TitlePrefsStore {
     }
 
     try {
-      await _box?.put(AppConstants.titlePrefsKey, map);
+      await _box?.put(ProfileScope.key(AppConstants.titlePrefsKey), map);
     } catch (_) {}
   }
 
@@ -181,7 +182,7 @@ class TitlePrefsStore {
 
   Future<void> clear() async {
     try {
-      await _box?.delete(AppConstants.titlePrefsKey);
+      await _box?.delete(ProfileScope.key(AppConstants.titlePrefsKey));
     } catch (_) {}
   }
 }

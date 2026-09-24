@@ -13,6 +13,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
+import 'package:soplay/features/social/data/social_service.dart';
 
 typedef NotificationTapHandler = void Function(Map<String, dynamic> data);
 
@@ -332,6 +333,11 @@ class NotificationService {
     final n = msg.notification;
     if (n == null) return;
     final data = _normalizeData(msg.data);
+    final type = data['type'];
+    if ((type == 'friend_request' || type == 'friend_accept') &&
+        getIt.isRegistered<SocialService>()) {
+      getIt<SocialService>().refreshOverview();
+    }
     await _local.show(
       n.hashCode,
       n.title ?? 'SoPlay',

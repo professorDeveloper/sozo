@@ -52,6 +52,16 @@ class HistorySyncItem {
 
   bool get isDeleted => deletedAt != null;
 
+  /// A row from another platform. This app's own rows carry at most a media
+  /// type in [extra]; the TV puts its whole Room row there.
+  bool get isForeign =>
+      extra != null && extra!.keys.any((k) => k != 'mediaType');
+
+  String? get mediaType {
+    final t = extra?['mediaType'];
+    return t is String && t.isNotEmpty ? t : null;
+  }
+
   Map<String, dynamic> toJson() => {
     'provider': provider,
     if (key != null) 'key': key,

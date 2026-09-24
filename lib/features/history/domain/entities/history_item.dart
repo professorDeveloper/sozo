@@ -11,6 +11,10 @@ class HistoryItem {
   final int durationMs;
   final int watchedAt;
 
+  /// 'manga' or 'novel' for reader rows; null means video. Synced so the
+  /// server can tell reading from watching in friends' activity.
+  final String? mediaType;
+
   const HistoryItem({
     required this.contentUrl,
     required this.provider,
@@ -23,6 +27,7 @@ class HistoryItem {
     this.positionMs = 0,
     this.durationMs = 0,
     required this.watchedAt,
+    this.mediaType,
   });
 
   double get progress =>
@@ -66,6 +71,7 @@ class HistoryItem {
     positionMs: positionMs ?? this.positionMs,
     durationMs: durationMs ?? this.durationMs,
     watchedAt: watchedAt ?? this.watchedAt,
+    mediaType: mediaType,
   );
 
   Map<String, dynamic> toJson() => {
@@ -80,6 +86,7 @@ class HistoryItem {
     'positionMs': positionMs,
     'durationMs': durationMs,
     'watchedAt': watchedAt,
+    if (mediaType != null) 'mediaType': mediaType,
   };
 
   factory HistoryItem.fromJson(Map<String, dynamic> json) => HistoryItem(
@@ -94,5 +101,6 @@ class HistoryItem {
     positionMs: json['positionMs'] as int? ?? 0,
     durationMs: json['durationMs'] as int? ?? 0,
     watchedAt: json['watchedAt'] as int? ?? 0,
+    mediaType: json['mediaType'] as String?,
   );
 }

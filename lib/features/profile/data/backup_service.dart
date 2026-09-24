@@ -7,7 +7,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/features/profile/data/extension_backup.dart';
+import 'package:soplay/features/profiles/data/profile_session.dart';
 
 /// What a restore actually changed, so the user is told rather than reassured.
 class BackupSummary {
@@ -102,7 +104,28 @@ class BackupService {
     // Writes queued for a tracker account, due on this device. Replayed on
     // another they would be old news sent twice.
     AppConstants.trackerOutboxKey,
+    // Which household profile this device acts as; the account decides that.
+    ProfileSession.cacheKey,
+    ProfileSession.activeKey,
   };
+
+  /// The file always holds one person's data under the plain names, so it
+  /// restores into whichever profile is active when it is read back.
+  static Iterable<(String, String)> _settingsKeys(Box box) sync* {
+    for (final key in box.keys) {
+      final k = '$key';
+      if (_settingsDenyList.contains(k) ||
+          ProfileScope.isProfileKey(k) ||
+          ProfileScope.profileKeys.contains(k)) {
+        continue;
+      }
+      yield (k, k);
+    }
+    for (final k in ProfileScope.profileKeys) {
+      final stored = ProfileScope.key(k);
+      if (box.containsKey(stored)) yield (k, stored);
+    }
+  }
 
   /// Write a backup and return the file.
   Future<File> export() async {
@@ -110,22 +133,22 @@ class BackupService {
     var skipped = 0;
 
     for (final name in _boxes) {
-      if (!Hive.isBoxOpen(name)) continue;
-      final box = Hive.box(name);
+      final actual = ProfileScope.box(name);
+      if (!Hive.isBoxOpen(actual)) continue;
+      final box = Hive.box(actual);
       final out = <String, dynamic>{};
-      for (final key in box.keys) {
-        if (name == AppConstants.settingsBox &&
-            _settingsDenyList.contains('$key')) {
-          continue;
-        }
-        final value = box.get(key);
+      final keys = name == AppConstants.settingsBox
+          ? _settingsKeys(box)
+          : box.keys.map((k) => ('$k', k));
+      for (final (key, stored) in keys) {
+        final value = box.get(stored);
         // Hive holds whatever it was given. Anything that will not survive a
         // JSON round trip is dropped rather than allowed to abort the whole
         // export — one unencodable setting should not cost someone their
         // history.
         try {
           jsonEncode(value);
-          out['$key'] = value;
+          out[key] = value;
         } catch (_) {
           skipped++;
         }
@@ -261,7 +284,8 @@ class BackupService {
       // Only boxes this build knows and has open. A backup naming something
       // else is either from a newer version or corrupt, and opening a box by a
       // name from a file is not something to do on a user's behalf.
-      if (!_boxes.contains(name) || !Hive.isBoxOpen(name)) {
+      final actual = ProfileScope.box(name);
+      if (!_boxes.contains(name) || !Hive.isBoxOpen(actual)) {
         skipped++;
         continue;
       }
@@ -270,15 +294,17 @@ class BackupService {
         skipped++;
         continue;
       }
-      final box = Hive.box(name);
+      final box = Hive.box(actual);
+      final settings = name == AppConstants.settingsBox;
       for (final kv in values.entries) {
         final key = '${kv.key}';
-        if (name == AppConstants.settingsBox &&
-            _settingsDenyList.contains(key)) {
+        if (settings &&
+            (_settingsDenyList.contains(key) ||
+                ProfileScope.isProfileKey(key))) {
           continue;
         }
         try {
-          await box.put(key, kv.value);
+          await box.put(settings ? ProfileScope.key(key) : key, kv.value);
           restored++;
         } catch (_) {
           skipped++;

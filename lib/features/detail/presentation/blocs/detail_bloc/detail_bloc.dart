@@ -7,6 +7,7 @@ import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_detail.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:soplay/features/detail/domain/usecases/get_detail_usecase.dart';
+import 'package:soplay/features/download/domain/repositories/offline_title_repository.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 
 part 'detail_event.dart';
@@ -22,11 +23,21 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
   /// Fetches TMDB's record for a catalogue url. Null in tests.
   final Future<Map<String, dynamic>> Function(String contentUrl)? tmdbDetail;
 
+  /// The saved copy of a downloaded title. Null in tests that never go
+  /// offline.
+  final OfflineTitleRepository? offline;
+
+  /// True when the device has no network at all, so a title with a saved copy
+  /// opens from it without waiting for a request that cannot succeed.
+  final Future<bool> Function()? isOffline;
+
   DetailBloc({
     required this.useCase,
     this.resolver,
     this.anilist,
     this.tmdbDetail,
+    this.offline,
+    this.isOffline,
   }) : super(const DetailInitial()) {
     on<DetailLoad>(_onLoad);
   }
@@ -45,11 +56,22 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
       return;
     }
 
+    final saved = offline?.get(event.contentUrl);
+    if (saved != null && await (isOffline?.call() ?? Future.value(false))) {
+      emit(DetailLoaded(saved.toDetail(), offline: true));
+      return;
+    }
+
     final result = await useCase(event.contentUrl, provider: event.provider);
     switch (result) {
       case Success(:final value):
         emit(DetailLoaded(value));
+        await offline?.noteDetail(value);
       case Failure(:final error):
+        if (saved != null) {
+          emit(DetailLoaded(saved.toDetail(), offline: true));
+          return;
+        }
         emit(DetailError(error.toString().replaceFirst('Exception: ', '')));
     }
   }
@@ -178,7 +200,13 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
     switch (result) {
       case Success(:final value):
         emit(DetailLoaded(value, via: via));
+        await offline?.noteDetail(value);
       case Failure(:final error):
+        final saved = offline?.get(via.contentUrl);
+        if (saved != null) {
+          emit(DetailLoaded(saved.toDetail(), via: via, offline: true));
+          return;
+        }
         // A remembered link that no longer loads should not be tried again
         // next time: the source may have moved the title or dropped it.
         await resolver.forget(event.provider!, event.contentUrl);

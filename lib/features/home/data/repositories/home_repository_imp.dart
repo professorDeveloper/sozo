@@ -4,6 +4,7 @@ import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -25,11 +26,13 @@ class HomeRepositoryImp implements HomeRepository {
   const HomeRepositoryImp(
     this.dataSource, {
     required this.mangayomi,
+    this.jellyfin,
     this.jsRuntime,
     this.hive,
   });
 
   final MangayomiBridge mangayomi;
+  final JellyfinBridge? jellyfin;
 
   String? get _currentProvider {
     final id = hive?.getCurrentProvider();
@@ -105,6 +108,13 @@ class HomeRepositoryImp implements HomeRepository {
       return _fromHost(
         () => mangayomi.getMainPage(provider.substring(3)),
         'Mangayomi',
+      );
+    }
+    final jf = jellyfin;
+    if (jf != null && provider != null && provider.startsWith('jf:')) {
+      return _fromHost(
+        () => jf.getMainPage(JellyfinBridge.bare(provider)),
+        'Jellyfin',
       );
     }
     if (js != null && provider != null) {
@@ -243,6 +253,20 @@ class HomeRepositoryImp implements HomeRepository {
         return Failure(Exception(e.toString()));
       }
     }
+    final jf = jellyfin;
+    if (jf != null && provider != null && provider.startsWith('jf:')) {
+      try {
+        // Home's genre tiles open a view-all keyed `genre` with the bare id.
+        final map = await jf.getSection(
+          JellyfinBridge.bare(provider),
+          key == 'genre' ? 'genre:$slug' : slug,
+          page: page,
+        );
+        return Success(ViewAllPagingModel.fromJson(map));
+      } catch (e) {
+        return Failure(Exception(jf.describe(e)));
+      }
+    }
     if (js != null && provider != null && key == 'category') {
       try {
         final map = await js.tryGetCategory(provider, slug, page);
@@ -309,6 +333,15 @@ class HomeRepositoryImp implements HomeRepository {
     if (provider != null && provider.startsWith('my:')) {
       // Mangayomi exposes filters, not the app's flat genre list.
       return const Success(<GenreEntity>[]);
+    }
+    final jf = jellyfin;
+    if (jf != null && provider != null && provider.startsWith('jf:')) {
+      try {
+        final list = await jf.genres(JellyfinBridge.bare(provider));
+        return Success(list.map(GenreModel.fromJson).toList());
+      } catch (_) {
+        return const Success(<GenreEntity>[]);
+      }
     }
     if (provider != null && provider.startsWith('mn:')) {
       try {

@@ -60,7 +60,9 @@ import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
 import 'package:soplay/features/download/presentation/download_messages.dart';
+import 'package:soplay/features/download/presentation/widgets/offline_copy_banner.dart';
 import 'package:showcaseview/showcaseview.dart';
 
 class DetailPage extends StatelessWidget {
@@ -185,7 +187,12 @@ class _DetailScaffold extends StatelessWidget {
                 // showListAction. It also removes a latent lock-up — a silent
                 // DetailLoaded refresh that skips DetailLoading would strand
                 // the page on the skeleton for good.
-                DetailLoaded(:final detail, :final via, :final resolving) =>
+                DetailLoaded(
+                  :final detail,
+                  :final via,
+                  :final resolving,
+                  :final offline,
+                ) =>
                   Builder(
                     builder: (context) {
                       return _DetailView(
@@ -196,6 +203,7 @@ class _DetailScaffold extends StatelessWidget {
                         provider: via?.providerId ?? provider,
                         via: via,
                         resolvingSource: resolving,
+                        offline: offline,
                         autoPlay: autoPlay,
                         resumeEpisodeIndex: resumeEpisodeIndex,
                         heroTag: heroTag,
@@ -252,11 +260,15 @@ class _DetailView extends StatefulWidget {
     this.provider,
     this.via,
     this.resolvingSource = false,
+    this.offline = false,
     this.autoPlay = false,
     this.resumeEpisodeIndex,
     this.heroTag,
   });
   final DetailEntity detail;
+
+  /// Opened from the copy saved with the downloads. See [DetailLoaded.offline].
+  final bool offline;
   final String? provider;
 
   /// The source this title was found on, when it came from a catalogue.
@@ -555,6 +567,7 @@ class _DetailViewState extends State<_DetailView>
       _onFindOtherSources();
       return;
     }
+    if (_playLocalMovie()) return;
     final state = context.read<EpisodesBloc>().state;
     if (state is EpisodesLoading) return;
     _pendingDownload = false;
@@ -562,6 +575,38 @@ class _DetailViewState extends State<_DetailView>
       EpisodesLoad(widget.detail.contentUrl, provider: widget.provider),
     );
   }
+
+  /// A downloaded film plays from disk without asking the source anything.
+  bool _playLocalMovie() {
+    final downloads = getIt<GetDownloadsUseCase>();
+    final local = downloads.localVideo(contentUrl: widget.detail.contentUrl);
+    if (local == null) return false;
+    unawaited(_openLocalMovie(local, downloads.thumbnailOf(local.item)));
+    return true;
+  }
+
+  Future<void> _openLocalMovie(LocalVideo local, String? thumbnail) async {
+    final detail = widget.detail;
+    final history = getIt<HistoryService>().get(detail.contentUrl);
+    if (!await confirmPlayerEngine(context) || !mounted) return;
+    context.push(
+      '/player',
+      extra: PlayerArgs(
+        title: detail.title,
+        provider: local.item.provider,
+        headers: const {},
+        contentUrl: detail.contentUrl,
+        thumbnail: thumbnail ?? detail.thumbnail,
+        movieUrl: local.url,
+        type: local.type,
+        showDownloadAction: false,
+        resumePosition: Duration(milliseconds: history?.positionMs ?? 0),
+      ),
+    );
+  }
+
+  /// The last episode list came from the saved copy; the list page says so.
+  bool _episodesOffline = false;
 
   /// Play and download need the same thing first — the provider's playback
   /// payload — and it arrives asynchronously through the bloc. Rather than a
@@ -1058,6 +1103,7 @@ class _DetailViewState extends State<_DetailView>
         total: playback.total,
         totalPages: playback.totalPages,
         resumeFromHistory: resume,
+        offline: _episodesOffline,
       ),
     );
   }
@@ -1243,6 +1289,7 @@ class _DetailViewState extends State<_DetailView>
           listenWhen: (prev, curr) => prev.runtimeType != curr.runtimeType,
           listener: (context, state) {
             if (state is EpisodesLoaded) {
+              _episodesOffline = state.offline;
               if (_pendingDownload) {
                 _pendingDownload = false;
                 _handleDownload(state.playback);
@@ -1360,6 +1407,15 @@ class _DetailViewState extends State<_DetailView>
                   onFindSource: _onFindOtherSources,
                 ),
               ),
+              if (widget.offline)
+                SliverToBoxAdapter(
+                  child: OfflineCopyBanner(
+                    message: 'detail.offline_copy_desc'.tr(),
+                    onRetry: () => context.read<DetailBloc>().add(
+                      DetailLoad(detail.contentUrl, provider: widget.provider),
+                    ),
+                  ),
+                ),
               // Sponsor/CMS banner (detail_top placement). Opt-in: self-collapses
               // to nothing unless an admin creates a detail_top banner. Guest-safe.
               const SliverToBoxAdapter(

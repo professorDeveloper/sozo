@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
@@ -15,7 +16,7 @@ class HistoryService {
 
   final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
-  Box get _box => Hive.box(AppConstants.historyBox);
+  Box get _box => Hive.box(ProfileScope.box(AppConstants.historyBox));
 
   List<HistoryItem> getAll() {
     final items = <HistoryItem>[];

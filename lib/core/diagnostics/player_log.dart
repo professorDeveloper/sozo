@@ -93,6 +93,13 @@ class PlayerLog {
 
   static final RegExp _bearer = RegExp(r'(Bearer\s+)[A-Za-z0-9\-._~+/]+=*');
 
+  /// Jellyfin's `Authorization: MediaBrowser ..., Token="…"` when it shows up
+  /// inside a logged map rather than on a header line of its own.
+  static final RegExp _mediaBrowserToken = RegExp(
+    r'(Token=")[^"]+',
+    caseSensitive: false,
+  );
+
   /// Strips credentials out of a line before it is kept.
   ///
   /// The log is shareable by design — the viewer's Share and Copy buttons
@@ -110,7 +117,8 @@ class PlayerLog {
           (m) => '${m[1]}${m[2]}${m[3]}<redacted>',
         )
         .replaceAllMapped(_secretParam, (m) => '${m[1]}<redacted>')
-        .replaceAllMapped(_bearer, (m) => '${m[1]}<redacted>');
+        .replaceAllMapped(_bearer, (m) => '${m[1]}<redacted>')
+        .replaceAllMapped(_mediaBrowserToken, (m) => '${m[1]}<redacted>');
   }
 
   void i(String message) => add(message);

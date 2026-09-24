@@ -1,6 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 
 /// How much has been watched, and when.
 ///
@@ -45,14 +46,14 @@ class WatchStatsStore {
   }
 
   Map<String, dynamic> _load() {
-    final raw = _box?.get(AppConstants.watchStatsKey);
+    final raw = _box?.get(ProfileScope.key(AppConstants.watchStatsKey));
     if (raw is! Map) return {};
     return raw.map((k, v) => MapEntry(k.toString(), v));
   }
 
   Future<void> _write(Map<String, dynamic> data) async {
     try {
-      await _box?.put(AppConstants.watchStatsKey, data);
+      await _box?.put(ProfileScope.key(AppConstants.watchStatsKey), data);
     } catch (_) {}
   }
 
@@ -176,7 +177,7 @@ class WatchStatsStore {
 
   Future<void> clear() async {
     try {
-      await _box?.delete(AppConstants.watchStatsKey);
+      await _box?.delete(ProfileScope.key(AppConstants.watchStatsKey));
     } catch (_) {}
   }
 

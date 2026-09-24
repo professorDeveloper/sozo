@@ -63,6 +63,10 @@ class ProviderEntity {
 
   final ExtractorRef? extractor;
 
+  /// The CloudStream plugin this source was registered by. Empty for every
+  /// other kind.
+  final String internalName;
+
   const ProviderEntity({
     required this.id,
     required this.name,
@@ -79,7 +83,17 @@ class ProviderEntity {
     this.nsfw = false,
     this.lang = '',
     this.extractor,
+    this.internalName = '',
   });
+
+  /// The id the server's health report knows this source by.
+  ///
+  /// The same as [id] except for CloudStream: `cs:` is the MainAPI name, which
+  /// exists only once the plugin has loaded, so the server can key its verdict
+  /// only by the plugin's internal name.
+  String get healthKey => id.startsWith('cs:') && internalName.isNotEmpty
+      ? 'csp:$internalName'
+      : id;
 
   /// Normalised for comparison: `pt-BR` and `pt-br` are the same language, and
   /// a source tagged `all` belongs to every selection rather than to none.
@@ -98,7 +112,8 @@ class ProviderEntity {
       id.startsWith('cs:') ||
       id.startsWith('an:') ||
       id.startsWith('mn:') ||
-      id.startsWith('my:');
+      id.startsWith('my:') ||
+      id.startsWith('jf:');
 
   bool get scopesResolveMedia =>
       extractor != null &&

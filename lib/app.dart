@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/material.dart';
+import 'package:soplay/features/profiles/presentation/widgets/profile_gate.dart';
 import 'package:soplay/core/localization/yue_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -173,7 +174,9 @@ class _MyAppState extends State<MyApp> {
           // keeps the whole navigation stack — a redirect would have thrown
           // away the pages below, and the `extra` arguments pages like the
           // player are opened with.
-          final app = AppLockOverlay(child: child ?? const SizedBox.shrink());
+          final app = AppLockOverlay(
+            child: ProfileGate(child: child ?? const SizedBox.shrink()),
+          );
           // Android TV: Flutter's default shortcut map activates the focused
           // widget on enter/space, but a remote's OK button arrives as
           // DPAD_CENTER (LogicalKeyboardKey.select) and a game controller's as

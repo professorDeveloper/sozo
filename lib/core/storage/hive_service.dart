@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/app_constants.dart';
 import '../player/quality_preference.dart';
+import 'profile_scope.dart';
 import '../subtitles/subtitle_languages.dart';
 import '../../features/auth/data/models/user_model.dart';
 import '../../features/home/domain/home_rail.dart';
@@ -276,7 +277,7 @@ class HiveService {
   }
 
   List<Map<String, dynamic>> getFollowedRaw() {
-    final raw = _settingsBox.get('followed_titles');
+    final raw = _settingsBox.get(ProfileScope.key('followed_titles'));
     if (raw is String && raw.isNotEmpty) {
       try {
         final decoded = jsonDecode(raw);
@@ -292,7 +293,10 @@ class HiveService {
   }
 
   Future<void> setFollowedRaw(List<Map<String, dynamic>> items) async {
-    await _settingsBox.put('followed_titles', jsonEncode(items));
+    await _settingsBox.put(
+      ProfileScope.key('followed_titles'),
+      jsonEncode(items),
+    );
   }
 
   String getOpenSubtitlesKey() {
@@ -341,7 +345,9 @@ class HiveService {
   /// you set rather than a thing you are in.
   /// The home bands, repaired on the way out — see [sanitizeRailOrder].
   List<String> getHomeRailOrder() {
-    final raw = _settingsBox.get(AppConstants.homeRailOrderKey);
+    final raw = _settingsBox.get(
+      ProfileScope.key(AppConstants.homeRailOrderKey),
+    );
     if (raw is! List) return const [];
     return raw.map((e) => e.toString()).toList();
   }
@@ -353,7 +359,9 @@ class HiveService {
   /// hidden set would mean every existing install found something new on Home
   /// that nobody asked for.
   Set<String> getHomeRailHidden() {
-    final raw = _settingsBox.get(AppConstants.homeRailHiddenKey);
+    final raw = _settingsBox.get(
+      ProfileScope.key(AppConstants.homeRailHiddenKey),
+    );
     if (raw is! List) return HomeRail.optIn;
     final stored = raw.map((e) => e.toString()).toSet();
     // An opt-in band that predates this install's stored set has never been
@@ -369,7 +377,9 @@ class HiveService {
 
   /// Home suggestions that have been put to the viewer and answered.
   Set<String> getAnsweredHomeSuggestions() {
-    final raw = _settingsBox.get(AppConstants.homeSuggestionsAnsweredKey);
+    final raw = _settingsBox.get(
+      ProfileScope.key(AppConstants.homeSuggestionsAnsweredKey),
+    );
     if (raw is! List) return const {};
     return raw.map((e) => e.toString()).toSet();
   }
@@ -393,7 +403,7 @@ class HiveService {
   }) async {
     final answered = {...getAnsweredHomeSuggestions(), id};
     await _settingsBox.put(
-      AppConstants.homeSuggestionsAnsweredKey,
+      ProfileScope.key(AppConstants.homeSuggestionsAnsweredKey),
       answered.toList(),
     );
     final hidden = getHomeRailHidden();
@@ -424,12 +434,18 @@ class HiveService {
     // acknowledging it, getHomeRailHidden would hide a newly enabled rail again.
     if (fromCustomizer) {
       await _settingsBox.put(
-        AppConstants.homeSuggestionsAnsweredKey,
+        ProfileScope.key(AppConstants.homeSuggestionsAnsweredKey),
         {...getAnsweredHomeSuggestions(), ...HomeRail.optIn}.toList(),
       );
     }
-    await _settingsBox.put(AppConstants.homeRailOrderKey, order);
-    await _settingsBox.put(AppConstants.homeRailHiddenKey, hidden.toList());
+    await _settingsBox.put(
+      ProfileScope.key(AppConstants.homeRailOrderKey),
+      order,
+    );
+    await _settingsBox.put(
+      ProfileScope.key(AppConstants.homeRailHiddenKey),
+      hidden.toList(),
+    );
     homeRailsChanged.value = !homeRailsChanged.value;
   }
 
@@ -642,7 +658,10 @@ class HiveService {
   /// on. Surviving a restart errs toward privacy; the player and the settings
   /// row both show it is active so it cannot be left on unnoticed.
   bool get isIncognito {
-    return _settingsBox.get(AppConstants.incognitoKey, defaultValue: false) ==
+    return _settingsBox.get(
+          ProfileScope.key(AppConstants.incognitoKey),
+          defaultValue: false,
+        ) ==
         true;
   }
 
@@ -655,7 +674,7 @@ class HiveService {
   final ValueNotifier<bool> incognitoChanged = ValueNotifier<bool>(false);
 
   Future<void> setIncognito(bool value) async {
-    await _settingsBox.put(AppConstants.incognitoKey, value);
+    await _settingsBox.put(ProfileScope.key(AppConstants.incognitoKey), value);
     incognitoChanged.value = value;
   }
 
@@ -1142,14 +1161,22 @@ class HiveService {
   /// explicitly keeps that choice; one that never touched it starts off —
   /// the old switch defaulted on, and a default is not a choice.
   bool get showAdultContent {
-    final chosen = _settingsBox.get(AppConstants.adultContentKey);
+    if (ProfileScope.isKids) return false;
+    final chosen = _settingsBox.get(
+      ProfileScope.key(AppConstants.adultContentKey),
+    );
     if (chosen is bool) return chosen;
+    if (ProfileScope.namespace != null) return false;
     final legacy = _settingsBox.get(AppConstants.showNsfwMangaSourcesKey);
     return legacy is bool && legacy;
   }
 
   Future<void> setShowAdultContent(bool enabled) async {
-    await _settingsBox.put(AppConstants.adultContentKey, enabled);
+    if (ProfileScope.isKids) return;
+    await _settingsBox.put(
+      ProfileScope.key(AppConstants.adultContentKey),
+      enabled,
+    );
     adultContentChanged.value = !adultContentChanged.value;
   }
 
@@ -1226,6 +1253,59 @@ class HiveService {
 
   Future<void> saveNovelJustify(bool v) async =>
       _settingsBox.put('novel_justify', v);
+
+  // ── Novel read-aloud ──────────────────────────────────────────────────────
+  //
+  // Device-level, like the typography above: which voices exist is a fact
+  // about this device's speech engine.
+
+  double getTtsRate() =>
+      (_settingsBox.get('tts_rate', defaultValue: 1.0) as num).toDouble();
+
+  Future<void> saveTtsRate(double v) async => _settingsBox.put('tts_rate', v);
+
+  double getTtsPitch() =>
+      (_settingsBox.get('tts_pitch', defaultValue: 1.0) as num).toDouble();
+
+  Future<void> saveTtsPitch(double v) async => _settingsBox.put('tts_pitch', v);
+
+  bool getTtsAutoNext() =>
+      _settingsBox.get('tts_auto_next', defaultValue: true) == true;
+
+  Future<void> saveTtsAutoNext(bool v) async =>
+      _settingsBox.put('tts_auto_next', v);
+
+  /// The chosen voice per language, by the engine's voice name. Per language
+  /// because a reader of both Russian and English novels wants a voice for
+  /// each, and one choice would be wrong for the other every time.
+  String? getTtsVoice(String lang) {
+    final raw = _settingsBox.get('tts_voices');
+    if (raw is! String || raw.isEmpty) return null;
+    try {
+      final map = jsonDecode(raw);
+      final name = map is Map ? map[lang] : null;
+      return name is String && name.isNotEmpty ? name : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveTtsVoice(String lang, String? name) async {
+    final raw = _settingsBox.get('tts_voices');
+    var map = <String, dynamic>{};
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) map = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    if (name == null || name.isEmpty) {
+      map.remove(lang);
+    } else {
+      map[lang] = name;
+    }
+    await _settingsBox.put('tts_voices', jsonEncode(map));
+  }
 
   /// Whether to translate a subtitle on play when the source has none in the
   /// chosen language. Off by default — it spends a shared, capped budget.

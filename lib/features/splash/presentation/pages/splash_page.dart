@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/profiles/data/profile_session.dart';
 import 'package:soplay/features/splash/presentation/widgets/sozo_splash.dart';
 
 class SplashPage extends StatefulWidget {
@@ -37,7 +38,7 @@ class _SplashPageState extends State<SplashPage> {
     // The PIN itself is asked for by the lock overlay, which has covered the
     // app since the first frame (see AppLockGate) — so a deep link that lands
     // before this runs is behind it too.
-    if (lock.isEnabled) return '/main';
+    if (lock.isEnabled) return await _profilesDue() ? '/profiles' : '/main';
     // Once, on a device nobody has signed in on. A PIN means the device has
     // been used before, so the question only arises on the branch with no lock
     // to unlock.
@@ -45,7 +46,22 @@ class _SplashPageState extends State<SplashPage> {
     if (!hive.hasOnboardingSeen && (hive.getToken() ?? '').isEmpty) {
       return '/onboarding';
     }
-    return '/main';
+    return await _profilesDue() ? '/profiles' : '/main';
+  }
+
+  /// The cached list decides when there is one; otherwise the account is
+  /// asked, but only briefly — a slow network must not hold the splash.
+  Future<bool> _profilesDue() async {
+    final session = getIt<ProfileSession>();
+    if (!getIt<HiveService>().isLoggedIn) return false;
+    final refreshed = session.refresh();
+    if (session.profiles.isEmpty) {
+      await refreshed.timeout(
+        const Duration(milliseconds: 1500),
+        onTimeout: () => false,
+      );
+    }
+    return session.shouldPick;
   }
 
   @override

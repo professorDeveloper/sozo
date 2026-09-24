@@ -55,6 +55,17 @@ void openNotification(Map<String, dynamic> data, {bool fromList = false}) {
       } else if (!fromList) {
         router.push('/following');
       }
+    case 'auto_download':
+      router.push('/downloads');
+    case 'friend_request':
+      router.push('/friends?tab=requests');
+    case 'friend_accept':
+      final username = data['username']?.toString() ?? '';
+      router.push(
+        username.isEmpty
+            ? '/friends?tab=friends'
+            : '/u/${Uri.encodeComponent(username)}',
+      );
     case 'streak_risk':
       // The tab lives on /main; switching it from a pushed page would change
       // a tab nobody can see.

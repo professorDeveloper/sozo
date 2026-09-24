@@ -17,6 +17,7 @@ import '../datasources/auth_remote_data_source.dart';
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
+import 'package:soplay/features/profiles/data/profile_session.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/mal/data/mal_link_store.dart';
@@ -273,6 +274,11 @@ class AuthRepositoryImpl implements AuthRepository {
   /// person's viewing under a stranger's AniList or MyAnimeList profile.
   Future<void> _clearAccountScopedData() async {
     await _hiveService.clearAuth();
+    // First, so everything below clears the default profile's boxes, which
+    // are the ones that stay on the device.
+    if (getIt.isRegistered<ProfileSession>()) {
+      await getIt<ProfileSession>().forgetAll();
+    }
     if (getIt.isRegistered<HistorySyncService>()) {
       // The rows as well as the cursor. Clearing only the cursor left the
       // previous account's watch history on screen after they signed out —

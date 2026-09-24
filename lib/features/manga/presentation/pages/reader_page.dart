@@ -4,12 +4,15 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/extensions/source_language.dart';
+import 'package:soplay/core/extractor/provider_manager.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/network/http_headers.dart';
 import 'package:soplay/core/system/desktop_window.dart';
@@ -36,7 +39,15 @@ import 'package:soplay/features/manga/data/chapter_read_store.dart';
 import 'package:soplay/features/manga/data/page_tiles.dart';
 import 'package:soplay/features/manga/presentation/widgets/tiled_zoom.dart';
 import 'package:soplay/features/manga/domain/reading/chapter_progress.dart';
+import 'package:soplay/features/manga/domain/reading/tts_language.dart';
+import 'package:soplay/features/manga/domain/reading/tts_segmenter.dart';
+import 'package:soplay/features/manga/data/tts/tts_engine.dart';
+import 'package:soplay/features/manga/presentation/tts/novel_tts_controller.dart';
+import 'package:soplay/features/manga/presentation/tts/tts_player_bar.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/automation/data/automation_settings.dart';
+import 'package:soplay/features/automation/domain/prefetch_slot.dart';
+import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
 
 class ReaderPage extends StatefulWidget {
   final ReaderArgs args;
@@ -72,6 +83,22 @@ class _ReaderPageState extends State<ReaderPage> {
   int _findTotal = 0;
   final GlobalKey _findKey = GlobalKey();
   final TextEditingController _findController = TextEditingController();
+
+  /// Read-aloud. Created on first use, so a comic or an unheard chapter never
+  /// touches the speech engine. [_ttsChapter] is the chapter its script was
+  /// cut from; the highlight only applies while that is the one on screen.
+  NovelTtsController? _tts;
+  AppLifecycleListener? _ttsLifecycle;
+  int _ttsChapter = -1;
+  List<NovelBlock> _ttsBlocks = const [];
+  final GlobalKey _ttsKey = GlobalKey();
+  bool _ttsAdvancing = false;
+  bool _ttsScrolling = false;
+  int _ttsFollowedIndex = -1;
+
+  /// Following the voice stops for a while after the reader scrolls by hand,
+  /// or it would drag them back mid-glance.
+  DateTime _userScrolledAt = DateTime.fromMillisecondsSinceEpoch(0);
   Map<String, String> _headers = const {};
   bool _loading = true;
   bool _localChapter = false;
@@ -145,6 +172,10 @@ class _ReaderPageState extends State<ReaderPage> {
   /// instead of painting the wrong chapter under the new chapter's title.
   int _loadToken = 0;
 
+  /// The next chapter's page list, fetched while this one is being read.
+  final PrefetchSlot<MangaPagesEntity> _chapterPrefetch =
+      PrefetchSlot<MangaPagesEntity>();
+
   /// How far through a novel chapter the reader is, in thousandths.
   ///
   /// Prose has no page index, so the history row carries this where a comic
@@ -177,6 +208,8 @@ class _ReaderPageState extends State<ReaderPage> {
     _novelFamily = _hive.getNovelFontFamily();
     _novelJustify = _hive.getNovelJustify();
     _itemPositionsListener.itemPositions.addListener(_onItemPositions);
+    _page.addListener(_maybePrefetchNextChapter);
+    _novelProgress.addListener(_maybePrefetchNextChapter);
     _novelScrollController.addListener(_onNovelScroll);
     if (!isDesktopPlatform) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -245,6 +278,11 @@ class _ReaderPageState extends State<ReaderPage> {
 
   @override
   void dispose() {
+    // Reading stops with the reader: nothing else on screen shows what is
+    // being read or offers a way to stop it.
+    _ttsLifecycle?.dispose();
+    _tts?.removeListener(_onTtsChanged);
+    _tts?.dispose();
     _spreadController.dispose();
     _novelScrollController.removeListener(_onNovelScroll);
     _saveProgress();
@@ -276,6 +314,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   Future<void> _loadChapter(int index, {int startPage = 0}) async {
     if (index < 0 || index >= _chapters.length) return;
+    if (!_ttsAdvancing) _tts?.stop();
     _saveDebounce?.cancel();
     _saveProgress();
     final token = ++_loadToken;
@@ -332,10 +371,13 @@ class _ReaderPageState extends State<ReaderPage> {
     }
     _localChapter = false;
 
-    final result = await getIt<GetPagesUseCase>()(
-      ref: ref,
-      provider: widget.args.provider,
-    );
+    final prefetched = await _chapterPrefetch.take(_prefetchKey(ch));
+    final result = prefetched != null
+        ? Success(prefetched)
+        : await getIt<GetPagesUseCase>()(
+            ref: ref,
+            provider: widget.args.provider,
+          );
     if (!mounted || token != _loadToken) return;
     switch (result) {
       case Success(:final value):
@@ -359,6 +401,77 @@ class _ReaderPageState extends State<ReaderPage> {
           _error = error.toString().replaceFirst('Exception: ', '');
           _loading = false;
         });
+    }
+  }
+
+  String _prefetchKey(EpisodeEntity ch) =>
+      '${widget.args.provider}|${ch.mediaRef}';
+
+  static const double _prefetchAt = 0.7;
+  static const int _prefetchImages = 4;
+
+  /// Lists the next chapter's pages and warms the disk cache with its first
+  /// few images once this chapter is mostly read, so turning the page onto it
+  /// does not start with a spinner. Downloaded chapters are already local.
+  void _maybePrefetchNextChapter() {
+    if (_loading || _error != null || _localChapter) return;
+    final next = _chapterIndex + 1;
+    if (next >= _chapters.length) return;
+    final ch = _chapters[next];
+    if (ch.mediaRef.isEmpty) return;
+    final isNovel = _html != null;
+    final read = isNovel
+        ? _novelPermille / 1000
+        : _pageCount == 0
+        ? 0.0
+        : ((_furthestSeenPage > _currentPage
+                      ? _furthestSeenPage
+                      : _currentPage) +
+                  1) /
+              _pageCount;
+    if (read < _prefetchAt) return;
+    final key = _prefetchKey(ch);
+    if (_chapterPrefetch.covers(key)) return;
+    if (!getIt.isRegistered<AutomationSettings>() ||
+        !getIt<AutomationSettings>().prefetchNextChapter) {
+      return;
+    }
+    final origin = _chapterIndex;
+    unawaited(
+      _chapterPrefetch.fill(key, () async {
+        final result = await getIt<GetPagesUseCase>()(
+          ref: ch.mediaRef,
+          provider: widget.args.provider,
+        );
+        if (result is! Success<MangaPagesEntity>) return null;
+        unawaited(_warmImages(result.value, origin));
+        return result.value;
+      }),
+    );
+  }
+
+  Future<void> _warmImages(MangaPagesEntity pages, int origin) async {
+    if (pages.isText) return;
+    for (final page in pages.pages.take(_prefetchImages)) {
+      if (!mounted ||
+          (_chapterIndex != origin && _chapterIndex != origin + 1)) {
+        return;
+      }
+      if (!page.imageUrl.startsWith('http')) continue;
+      final cookie = page.cookie;
+      try {
+        await DefaultCacheManager().getSingleFile(
+          page.imageUrl,
+          key: page.cacheKey,
+          headers: mergeHttpHeaders([
+            pages.headers,
+            page.headers,
+            if (cookie != null && cookie.isNotEmpty) {'Cookie': cookie},
+          ]),
+        );
+      } catch (_) {
+        // The reader fetches it again when the page is shown.
+      }
     }
   }
 
@@ -455,6 +568,9 @@ class _ReaderPageState extends State<ReaderPage> {
 
   void _onNovelScroll() {
     if (_html == null || !_novelScrollController.hasClients) return;
+    // The voice's own scrolling says nothing about where the reader is; the
+    // spoken position is recorded in [_onTtsChanged] instead.
+    if (_ttsScrolling) return;
     final max = _novelScrollController.position.maxScrollExtent;
     if (max <= 0) return;
     final permille = (_novelScrollController.offset / max * 1000).round().clamp(
@@ -492,6 +608,7 @@ class _ReaderPageState extends State<ReaderPage> {
         positionMs: isNovel ? _novelPermille : _currentPage,
         durationMs: isNovel ? 1000 : (_pageCount > 1 ? _pageCount - 1 : 0),
         watchedAt: DateTime.now().millisecondsSinceEpoch,
+        mediaType: isNovel ? 'novel' : 'manga',
       ),
     );
     // On the same tick as the history write, because the two answer questions
@@ -776,6 +893,7 @@ class _ReaderPageState extends State<ReaderPage> {
             _topBar(),
           if (isDesktopPlatform && !_showOverlay) _persistentClose(),
           if (_showOverlay && !_loading && _error == null) _bottomBar(),
+          if (_tts != null && _tts!.isActive) _ttsBar(),
         ],
       ),
     );
@@ -788,6 +906,10 @@ class _ReaderPageState extends State<ReaderPage> {
     final k = event.logicalKey;
     if (k == LogicalKeyboardKey.escape) {
       if (context.canPop()) context.pop();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.space && (_tts?.isActive ?? false)) {
+      _tts!.toggle();
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowRight ||
@@ -917,6 +1039,23 @@ class _ReaderPageState extends State<ReaderPage> {
   /// styling its source shipped.
   Widget _novelReader(String html) {
     final onWhite = _bgPref == 'white';
+    final spoken = _ttsChapter == _chapterIndex ? _tts?.current : null;
+    return Listener(
+      onPointerSignal: (_) => _userScrolledAt = DateTime.now(),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if ((n is ScrollStartNotification && n.dragDetails != null) ||
+              (n is ScrollUpdateNotification && n.dragDetails != null)) {
+            _userScrolledAt = DateTime.now();
+          }
+          return false;
+        },
+        child: _novelScroll(html, onWhite, spoken),
+      ),
+    );
+  }
+
+  Widget _novelScroll(String html, bool onWhite, TtsUtterance? spoken) {
     return GestureDetector(
       onTapUp: _handleTapZone,
       child: SingleChildScrollView(
@@ -928,7 +1067,8 @@ class _ReaderPageState extends State<ReaderPage> {
           20,
           MediaQuery.paddingOf(context).top + 64,
           20,
-          MediaQuery.paddingOf(context).bottom + 96,
+          MediaQuery.paddingOf(context).bottom +
+              ((_tts?.isActive ?? false) ? 170 : 96),
         ),
         child: NovelText(
           html: html,
@@ -944,6 +1084,11 @@ class _ReaderPageState extends State<ReaderPage> {
           query: _finding ? _findQuery : '',
           activeMatch: _findIndex,
           activeKey: _findKey,
+          speakingBlock: spoken?.block ?? -1,
+          speakingStart: spoken?.start ?? 0,
+          speakingEnd: spoken?.end ?? 0,
+          speakingKey: _ttsKey,
+          speakingColor: _accent.withValues(alpha: onWhite ? 0.22 : 0.32),
         ),
       ),
     );
@@ -1284,6 +1429,205 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
+  bool get _ttsAvailable =>
+      getIt.isRegistered<TtsEngine>() && getIt<TtsEngine>().isSupported;
+
+  NovelTtsController get _ttsController {
+    final existing = _tts;
+    if (existing != null) return existing;
+    final tts =
+        NovelTtsController(
+            engine: getIt<TtsEngine>(),
+            prefs: HiveTtsPreferences(_hive),
+          )
+          ..onChapterEnd = _ttsNextChapter
+          ..onNotice = _onTtsNotice
+          ..addListener(_onTtsChanged);
+    // The app declares no background audio on iOS, so the system silences
+    // speech as soon as it is hidden. Pausing keeps the place instead of
+    // leaving the loop waiting on a sentence that will never finish.
+    if (Platform.isIOS) {
+      _ttsLifecycle = AppLifecycleListener(onHide: tts.pause);
+    }
+    return _tts = tts;
+  }
+
+  List<NovelBlock> _ttsBlocksForCurrent() {
+    if (_ttsChapter == _chapterIndex && _ttsBlocks.isNotEmpty) {
+      return _ttsBlocks;
+    }
+    return parseNovelBlocks(_html ?? '');
+  }
+
+  Future<void> _prepareTtsLanguage(List<NovelBlock> blocks) {
+    final provider = getIt.isRegistered<ProviderManager>()
+        ? getIt<ProviderManager>().getProvider(widget.args.provider)
+        : null;
+    final sample = [for (final b in blocks.take(16)) b.text].join(' ');
+    return _ttsController.setLanguage(
+      resolveTtsLanguage(declared: provider?.displayLang, sample: sample),
+    );
+  }
+
+  /// The chapter's label, said first when the text does not open with a
+  /// title of its own — otherwise auto-continue runs chapters together.
+  String? _ttsPreface(List<NovelBlock> blocks) {
+    if (blocks.isNotEmpty && blocks.first.kind == NovelBlockKind.heading) {
+      return null;
+    }
+    final label = widget.args.chapters[_chapterIndex].label.trim();
+    return label.isEmpty ? null : label;
+  }
+
+  Future<void> _startTts() async {
+    final html = _html;
+    if (html == null) return;
+    final tts = _ttsController;
+    final blocks = parseNovelBlocks(html);
+    await _prepareTtsLanguage(blocks);
+    if (!mounted || _html != html) return;
+    tts.setChapter(blocks, preface: _ttsPreface(blocks));
+    _ttsBlocks = blocks;
+    _ttsChapter = _chapterIndex;
+    _ttsFollowedIndex = -1;
+    _userScrolledAt = DateTime.fromMillisecondsSinceEpoch(0);
+    final at = _viewportTopPermille();
+    await tts.play(from: at < 5 ? 0 : tts.script!.indexAtPermille(at));
+  }
+
+  /// Where the top of the screen sits in the chapter, in thousandths: where
+  /// somebody pressing play expects to hear from.
+  int _viewportTopPermille() {
+    if (!_novelScrollController.hasClients) return 0;
+    final p = _novelScrollController.position;
+    final total = p.maxScrollExtent + p.viewportDimension;
+    if (total <= 0) return 0;
+    return (p.pixels / total * 1000).round().clamp(0, 1000);
+  }
+
+  void _onTtsChanged() {
+    if (!mounted) return;
+    final tts = _tts!;
+    setState(() {});
+    if (_ttsChapter != _chapterIndex || _html == null) return;
+    // Heard counts as read: history and the chapter's read mark follow the
+    // voice even when the page has been scrolled somewhere else.
+    final spoken = tts.spokenPermille;
+    if (tts.isActive && spoken > _novelPermille) {
+      _novelPermille = spoken;
+      _scheduleSave();
+    }
+    final u = tts.current;
+    if (u != null && u.block >= 0 && tts.index != _ttsFollowedIndex) {
+      _ttsFollowedIndex = tts.index;
+      _followSpoken(u);
+    }
+  }
+
+  /// Keeps the spoken sentence in the upper part of the screen, scrolling only
+  /// once it drifts out of the comfortable band so the page is not always
+  /// moving under the eye.
+  void _followSpoken(TtsUtterance u) {
+    final idle = DateTime.now().difference(_userScrolledAt);
+    if (idle < const Duration(seconds: 6)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_novelScrollController.hasClients) return;
+      final box = _ttsKey.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached) return;
+      final viewport = RenderAbstractViewport.maybeOf(box);
+      if (viewport == null) return;
+      final position = _novelScrollController.position;
+      final blockTop = viewport.getOffsetToReveal(box, 0).offset;
+      final length = u.block < _ttsBlocks.length
+          ? _ttsBlocks[u.block].text.length
+          : 0;
+      // A paragraph can be taller than the screen; aim at the sentence's
+      // share of it rather than at its first line.
+      final fraction = length == 0 ? 0.0 : (u.start + u.end) / 2 / length;
+      final y = blockTop + box.size.height * fraction;
+      final view = position.viewportDimension;
+      final onScreen = y - position.pixels;
+      if (onScreen > view * 0.2 && onScreen < view * 0.65) return;
+      final target = (y - view * 0.35).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      _ttsScrolling = true;
+      _novelScrollController
+          .animateTo(
+            target,
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.easeInOutCubic,
+          )
+          .whenComplete(() => _ttsScrolling = false);
+    });
+  }
+
+  /// Auto-continue: loads the next chapter the way "next" does, and hands its
+  /// text back once it is on screen. Null stops reading.
+  Future<TtsChapter?> _ttsNextChapter() async {
+    if (!mounted) return null;
+    if (_chapterIndex >= _chapters.length - 1) {
+      _ttsSnack('manga.last_chapter'.tr());
+      return null;
+    }
+    // Heard to the end: recorded before the load so the chapter is marked
+    // read by the save [_loadChapter] makes on the way out.
+    _novelPermille = 1000;
+    _ttsAdvancing = true;
+    try {
+      await _loadChapter(_chapterIndex + 1);
+    } finally {
+      _ttsAdvancing = false;
+    }
+    final html = _html;
+    if (!mounted || html == null || _loading) return null;
+    final blocks = parseNovelBlocks(html);
+    _ttsBlocks = blocks;
+    _ttsChapter = _chapterIndex;
+    _ttsFollowedIndex = -1;
+    return TtsChapter(blocks, preface: _ttsPreface(blocks));
+  }
+
+  void _onTtsNotice(TtsNotice notice) {
+    switch (notice) {
+      case TtsNotice.noVoiceForLanguage:
+        _ttsSnack(
+          'manga.tts_no_voice_for_lang'.tr(
+            args: [labelFor(_tts?.language ?? '')],
+          ),
+        );
+      case TtsNotice.failed:
+        _ttsSnack('manga.tts_failed'.tr());
+      case TtsNotice.sleepStopped:
+        _ttsSnack('manga.tts_sleep_stopped'.tr());
+    }
+  }
+
+  void _ttsSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
+    );
+  }
+
+  Widget _ttsBar() {
+    final overBar = _showOverlay && !_loading && _error == null;
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      left: 12,
+      right: 12,
+      bottom: MediaQuery.paddingOf(context).bottom + (overBar ? 70 : 14),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: TtsPlayerBar(controller: _tts!, accent: _accent),
+        ),
+      ),
+    );
+  }
+
   Widget _topBar() {
     final ch = widget.args.chapters[_chapterIndex];
     return Positioned(
@@ -1341,6 +1685,19 @@ class _ReaderPageState extends State<ReaderPage> {
                 tooltip: 'manga.find_in_chapter'.tr(),
                 icon: const Icon(Icons.search_rounded, color: Colors.white),
                 onPressed: () => setState(() => _finding = true),
+              ),
+            if (_html != null && _ttsAvailable)
+              IconButton(
+                tooltip: (_tts?.isActive ?? false)
+                    ? 'manga.tts_stop'.tr()
+                    : 'manga.tts_listen'.tr(),
+                icon: Icon(
+                  Icons.headphones_rounded,
+                  color: (_tts?.isActive ?? false) ? _accent : Colors.white,
+                ),
+                onPressed: (_tts?.isActive ?? false)
+                    ? () => _tts!.stop()
+                    : _startTts,
               ),
             _downloadButton(ch),
             // Only when there is somewhere to go. A provider with no web page
@@ -1530,6 +1887,11 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _openSettingsSheet() {
+    // The voice list is per language, so the language has to be known before
+    // the sheet can offer one.
+    if (_html != null && _ttsAvailable) {
+      unawaited(_prepareTtsLanguage(_ttsBlocksForCurrent()));
+    }
     showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF161616),
@@ -1692,6 +2054,13 @@ class _ReaderPageState extends State<ReaderPage> {
                       setSheet(() {});
                     },
                   ),
+                  if (_ttsAvailable) ...[
+                    const SizedBox(height: 22),
+                    TtsSettingsSection(
+                      controller: _ttsController,
+                      accent: _accent,
+                    ),
+                  ],
                 ],
                 const SizedBox(height: 18),
                 Text(

@@ -14,6 +14,8 @@ import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_sourc
 import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
 import 'package:soplay/features/extensions/presentation/pages/source_catalog_page.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
+import 'package:soplay/features/jellyfin/presentation/pages/jellyfin_servers_page.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_sources_page.dart';
 import 'package:soplay/features/profile/presentation/widgets/provider_quick_switch.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
@@ -85,6 +87,16 @@ class SourcesPage extends StatelessWidget {
           MaterialPageRoute(builder: (_) => const MangayomiSourcesPage()),
         ),
       ),
+    // Talks to the server directly, so it works on every platform.
+    SettingsNavTile(
+      leading: const SettingsTileLogo(
+        url: JellyfinBridge.icon,
+        fallback: Icons.dns_outlined,
+      ),
+      title: 'jellyfin.row_title'.tr(),
+      subtitle: 'jellyfin.row_subtitle'.tr(),
+      onTap: () => JellyfinServersPage.open(context),
+    ),
   ];
 
   @override

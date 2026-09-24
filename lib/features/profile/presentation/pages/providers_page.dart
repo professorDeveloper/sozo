@@ -23,6 +23,7 @@ String providerGroup(ProviderEntity p) {
   if (p.category == 'aniyomi') return 'aniyomi';
   if (p.category == 'manga') return 'manga';
   if (p.category == 'mangayomi') return 'mangayomi';
+  if (p.category == 'jellyfin') return 'jellyfin';
   return switch (p.mode) {
     'hybrid' => 'hybrid',
     'client' => 'local',
@@ -570,6 +571,7 @@ class _CategoryFilterButton extends StatelessWidget {
     'aniyomi',
     'manga',
     'mangayomi',
+    'jellyfin',
   ];
 
   static const _meta = <String, (String, IconData)>{
@@ -582,6 +584,7 @@ class _CategoryFilterButton extends StatelessWidget {
     'aniyomi': ('Aniyomi', Icons.play_circle_outline),
     'manga': ('Manga', Icons.menu_book_outlined),
     'mangayomi': ('Mangayomi', Icons.javascript_outlined),
+    'jellyfin': ('Jellyfin', Icons.dns_outlined),
   };
 
   String _label(String key) =>

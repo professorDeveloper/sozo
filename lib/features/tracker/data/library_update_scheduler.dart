@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/features/automation/data/auto_download_service.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
 
 /// Checks followed titles for new episodes on a schedule, not only when the
@@ -22,12 +23,14 @@ import 'package:soplay/features/tracker/data/follow_service.dart';
 class LibraryUpdateScheduler with WidgetsBindingObserver {
   LibraryUpdateScheduler({
     required this.follow,
+    this.autoDownload,
     Box? box,
     DateTime Function()? now,
   }) : _override = box,
        _now = now ?? DateTime.now;
 
   final FollowService follow;
+  final AutoDownloadService? autoDownload;
   final Box? _override;
   final DateTime Function() _now;
 
@@ -85,8 +88,14 @@ class LibraryUpdateScheduler with WidgetsBindingObserver {
       AppConstants.libraryUpdateLastKey,
       _now().millisecondsSinceEpoch,
     );
+    final auto = autoDownload;
     try {
-      return await follow.checkForUpdates(notify: true);
+      final grown = await follow.checkForUpdates(
+        notify: true,
+        onChecked: auto?.collect,
+      );
+      if (auto != null) unawaited(auto.afterCheck());
+      return grown;
     } catch (e) {
       debugPrint('[library-update] check failed: $e');
       return 0;

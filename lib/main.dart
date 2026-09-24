@@ -41,7 +41,10 @@ import 'package:soplay/core/brand/sozo_mark_geometry.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 
 import 'package:soplay/core/network/user_agent.dart';
+import 'package:soplay/core/storage/profile_storage.dart';
 import 'package:soplay/core/storage/secure_boxes.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_server_store.dart';
+import 'package:soplay/features/profiles/data/profile_session.dart';
 import 'package:soplay/features/app_lock/presentation/app_lock_gate.dart';
 import 'app.dart';
 
@@ -417,6 +420,7 @@ Future<void> _initHive() async {
       AppConstants.settingsBox,
       AppConstants.historyBox,
       AppConstants.downloadBox,
+      AppConstants.offlineTitlesBox,
       AppConstants.extractorsBox,
       AppConstants.streakBox,
       AppConstants.favoritesBox,
@@ -424,7 +428,14 @@ Future<void> _initHive() async {
     ])
       BoxRecovery.open(name, directory: dir.path),
     secure(AppConstants.privateFavoritesBox),
+    secure(JellyfinServerStore.boxName),
   ]);
+  ProfileStorage.directory = dir.path;
+  final token = Hive.box(AppConstants.authBox).get(AppConstants.accessTokenKey);
+  await ProfileSession.restore(
+    Hive.box(AppConstants.settingsBox),
+    loggedIn: token is String && token.isNotEmpty,
+  );
 }
 
 /// Restores the tracker links, then lays down the next window of episode

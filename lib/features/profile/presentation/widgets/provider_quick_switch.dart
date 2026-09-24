@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -6,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:soplay/features/home/data/datasources/home_data_source.dart';
 import 'package:soplay/features/sources/domain/source_ecosystem.dart';
 import 'package:soplay/features/sources/domain/source_scope.dart';
+import 'package:soplay/features/search/data/source_health_store.dart';
+import 'package:soplay/features/sources/presentation/widgets/source_health_badge.dart';
 import 'package:soplay/features/sources/presentation/widgets/source_scope_menu.dart';
 import 'package:soplay/core/extensions/source_language.dart';
 import 'package:soplay/core/network/image_headers.dart';
@@ -455,7 +458,34 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _health.changes.addListener(_onHealth);
+    unawaited(_health.refreshRemote());
+  }
+
+  final SourceHealthStore _health = sourceHealth();
+
+  void _onHealth() {
+    if (mounted) setState(() {});
+  }
+
+  /// Down sources go last, or away when the user hid them; the one in use
+  /// always stays.
+  List<ProviderEntity> _arrange(List<ProviderEntity> rows) => _health.sinkDown(
+    rows,
+    (p) => p.id,
+    keyOf: (p) => p.healthKey,
+    hide: _health.hideDown,
+    keep: (p) => p.id == widget.currentProviderId,
+  );
+
+  int get _downCount =>
+      widget.all.where((p) => _health.isDown(p.id, key: p.healthKey)).length;
+
+  @override
   void dispose() {
+    _health.changes.removeListener(_onHealth);
     _filter.dispose();
     _flat.dispose();
     super.dispose();
@@ -597,8 +627,9 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   }
 
   Widget _body(BuildContext context, ScrollController controller) {
-    final favorites = _shownFavorites;
-    final items = [...favorites, ..._rest];
+    final favorites = _arrange(_shownFavorites);
+    final items = [...favorites, ..._arrange(_rest)];
+    final downCount = _downCount;
     final catalogues = Catalogue.forMode(widget.mode);
     final searchExtent = _SearchBarHeader.extentFor(context);
     _alignToCurrent(controller, items);
@@ -716,6 +747,25 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                                 onPick: (l) => setState(() => _lang = l),
                               ),
                             ),
+                          if (downCount > 0 || _health.hideDown)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  0,
+                                  12,
+                                  8,
+                                ),
+                                child: Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: HideDownChip(
+                                    count: downCount,
+                                    hidden: _health.hideDown,
+                                    onChanged: _health.setHideDown,
+                                  ),
+                                ),
+                              ),
+                            ),
                           if (catalogues.isNotEmpty &&
                               _liveScope.isAll &&
                               _query.trim().isEmpty)
@@ -784,6 +834,10 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                                       favorite: index < favorites.length,
                                       available: !widget.unavailableIds
                                           .contains(items[index].id),
+                                      health: _health.badgeOf(
+                                        items[index].id,
+                                        key: items[index].healthKey,
+                                      ),
                                     ),
                                   ),
                                 );
@@ -1344,6 +1398,7 @@ Widget _favoriteProviderTile(
   String currentProviderId, {
   bool favorite = false,
   bool available = true,
+  RemoteVerdict? health,
 }) {
   final selected = p.id == currentProviderId;
   final eco = SourceEcosystem.of(p.id);
@@ -1392,17 +1447,32 @@ Widget _favoriteProviderTile(
                   ],
                 )
               : null,
-          child: ProviderLogo(image: p.image, size: 36),
-        ),
-        title: Text(
-          p.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: selected ? AppColors.textPrimary : AppColors.textSecondary,
-            fontSize: 14,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          child: Opacity(
+            opacity: health?.state == RemoteHealth.dead ? 0.45 : 1,
+            child: ProviderLogo(image: p.image, size: 36),
           ),
+        ),
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(
+                p.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: selected
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ),
+            if (health != null) ...[
+              const SizedBox(width: 6),
+              SourceHealthBadge(verdict: health, sourceName: p.name),
+            ],
+          ],
         ),
         subtitle: Text(
           meta,

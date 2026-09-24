@@ -107,7 +107,10 @@ extension _PlayerMedia on _PlayerPageState {
         url: source?.videoUrl ?? widget.args.movieUrl ?? '',
         headers: widget.args.headers,
         type: _typeOf(source),
-        resumeAt: resume,
+        resumeAt: _jellyfinResume(
+          source?.videoUrl ?? widget.args.movieUrl,
+          resume,
+        ),
       );
     }
   }
@@ -261,6 +264,7 @@ extension _PlayerMedia on _PlayerPageState {
     // The next episode's first frame is a new "watching now" on Trakt; the
     // start replaces the previous one there, so no pause is needed first.
     _traktPlaying = false;
+    _upNextDismissed = false;
     // And a new episode is a new question for the auto-translator: episode 4
     // may carry a subtitle in the viewer's language when episode 3 did not.
     _autoTranslateDone = false;
@@ -294,6 +298,18 @@ extension _PlayerMedia on _PlayerPageState {
     EpisodeEntity ep,
     int generation,
   ) async {
+    final local = _localEpisode(ep);
+    if (local != null) {
+      _plog('playing downloaded episode ${ep.episode} from disk');
+      return (
+        value: MediaResolveEntity(
+          videoUrl: local.url,
+          type: local.type,
+          headers: const {},
+        ),
+        lang: null,
+      );
+    }
     if (ep.mediaRef.isEmpty) {
       setState(() {
         _initializing = false;
@@ -305,12 +321,19 @@ extension _PlayerMedia on _PlayerPageState {
     final lang = _resolveLangForEpisode(ep);
     final resolveSw = Stopwatch()..start();
     _plog('resolving ref=${ep.mediaRef} lang=$lang');
-    final result = await _resolve(
-      ref: ep.mediaRef,
-      provider: widget.args.provider,
-      lang: lang,
+    final prefetched = await _takePrefetched(ep, lang);
+    final result = prefetched != null
+        ? Success(prefetched)
+        : await _resolve(
+            ref: ep.mediaRef,
+            provider: widget.args.provider,
+            lang: lang,
+          );
+    _plog(
+      prefetched != null
+          ? 'resolve served from prefetch'
+          : 'resolve completed in ${resolveSw.elapsedMilliseconds}ms',
     );
-    _plog('resolve completed in ${resolveSw.elapsedMilliseconds}ms');
     if (!mounted || generation != _mediaGeneration) return null;
 
     switch (result) {
@@ -323,6 +346,18 @@ extension _PlayerMedia on _PlayerPageState {
         });
         return null;
     }
+  }
+
+  /// The downloaded copy of [ep], when there is one — it plays with no
+  /// network, and online it saves the resolve and the bandwidth.
+  LocalVideo? _localEpisode(EpisodeEntity ep) {
+    final contentUrl = widget.args.contentUrl;
+    if (contentUrl == null || contentUrl.isEmpty) return null;
+    if (!getIt.isRegistered<GetDownloadsUseCase>()) return null;
+    return getIt<GetDownloadsUseCase>().localVideo(
+      contentUrl: contentUrl,
+      episodeNumber: ep.episode,
+    );
   }
 
   /// Picks a mirror, publishes the new episode's state, and starts the stream.
@@ -391,7 +426,7 @@ extension _PlayerMedia on _PlayerPageState {
       url: url,
       headers: headers,
       type: useSources ? _typeOf(sources[pickedIdx]) : value.type,
-      resumeAt: resumeAt,
+      resumeAt: _jellyfinResume(url, resumeAt),
     );
     if (!mounted || generation != _mediaGeneration) return;
     // Host announces the new episode identity (never a video URL).
@@ -1854,6 +1889,7 @@ extension _PlayerMedia on _PlayerPageState {
       }
 
       _updateActiveSkip(v.position);
+      _maybePrefetchNext(v.position, v.duration);
 
       final remaining = v.duration - v.position;
       final isEnding = remaining <= const Duration(seconds: 2);
@@ -1871,6 +1907,7 @@ extension _PlayerMedia on _PlayerPageState {
         // not what counts as watched.
         if (!guestInParty &&
             !_sleepAtEpisodeEnd &&
+            !_upNextDismissed &&
             _hive.autoPlayNextEpisode &&
             widget.args.isSerial &&
             _hasNextEpisode) {
@@ -2055,6 +2092,7 @@ extension _PlayerMedia on _PlayerPageState {
   }
 
   Future<int> _disposeController() async {
+    _jellyfinStop();
     final generation = ++_mediaGeneration;
     _hideTimer?.cancel();
     final c = _controller;

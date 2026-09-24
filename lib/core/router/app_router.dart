@@ -59,6 +59,10 @@ import 'package:soplay/features/trivia/presentation/trivia_args.dart';
 import 'package:soplay/features/user_lists/domain/entities/user_list_kind.dart';
 import 'package:soplay/features/user_lists/presentation/pages/user_lists_page.dart';
 import 'package:soplay/features/profile/presentation/pages/appearance_page.dart';
+import 'package:soplay/features/profiles/domain/household_profile.dart';
+import 'package:soplay/features/profiles/presentation/pages/manage_profiles_page.dart';
+import 'package:soplay/features/profiles/presentation/pages/household_profile_edit_page.dart';
+import 'package:soplay/features/profiles/presentation/pages/profile_picker_page.dart';
 import 'package:soplay/features/profile/presentation/pages/player_settings_page.dart';
 import 'package:soplay/features/profile/presentation/pages/providers_page.dart';
 import 'package:soplay/features/profile/presentation/pages/about_page.dart';
@@ -75,8 +79,13 @@ import 'package:soplay/features/auth/domain/entities/user_entity.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_edit_page.dart';
 import 'package:soplay/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:soplay/features/private_list/presentation/pages/private_list_page.dart';
+import 'package:soplay/features/social/presentation/pages/friends_page.dart';
+import 'package:soplay/features/social/presentation/pages/social_privacy_page.dart';
+import 'package:soplay/features/social/presentation/pages/user_profile_page.dart';
+import 'package:soplay/features/social/presentation/pages/user_search_page.dart';
 import 'package:soplay/features/splash/presentation/pages/splash_page.dart';
 import 'package:soplay/features/streak/presentation/pages/streak_page.dart';
+import 'package:soplay/features/automation/presentation/pages/automation_settings_page.dart';
 import 'package:soplay/features/watch_party/presentation/party_entry.dart';
 import 'package:soplay/features/watch_party/presentation/pages/watch_party_page.dart';
 
@@ -360,6 +369,10 @@ class AppRouter {
         builder: (context, state) => const PlayerSettingsPage(),
       ),
       GoRoute(
+        path: '/automation',
+        builder: (context, state) => const AutomationSettingsPage(),
+      ),
+      GoRoute(
         path: '/discord',
         builder: (context, state) => const DiscordSettingsPage(),
       ),
@@ -399,6 +412,29 @@ class AppRouter {
       ),
       GoRoute(path: '/streak', builder: (context, state) => const StreakPage()),
       GoRoute(
+        path: '/friends',
+        builder: (context, state) => FriendsPage(
+          initialTab: FriendsPage.tabFrom(state.uri.queryParameters['tab']),
+        ),
+      ),
+      GoRoute(
+        path: '/friends/search',
+        builder: (context, state) => const UserSearchPage(),
+      ),
+      GoRoute(
+        path: '/friends/privacy',
+        builder: (context, state) => const SocialPrivacyPage(),
+      ),
+      GoRoute(
+        path: '/friends/blocked',
+        builder: (context, state) => const BlockedUsersPage(),
+      ),
+      GoRoute(
+        path: '/u/:username',
+        builder: (context, state) =>
+            UserProfilePage(username: state.pathParameters['username']!),
+      ),
+      GoRoute(
         path: '/watch-party',
         builder: (context, state) {
           final extra = state.extra;
@@ -416,6 +452,19 @@ class AppRouter {
       ),
       GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
       GoRoute(path: '/main', builder: (context, state) => const MainPage()),
+      GoRoute(
+        path: '/profiles',
+        builder: (context, state) => const ProfilePickerPage(),
+      ),
+      GoRoute(
+        path: '/profiles/manage',
+        builder: (context, state) => const ManageProfilesPage(),
+      ),
+      GoRoute(
+        path: '/profiles/edit',
+        builder: (context, state) =>
+            HouseholdProfileEditPage(profile: state.extra as HouseholdProfile?),
+      ),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingPage(),

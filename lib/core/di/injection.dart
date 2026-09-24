@@ -43,19 +43,29 @@ import 'package:soplay/features/download/data/datasources/download_native_data_s
 import 'package:soplay/features/download/data/datasources/download_transfer_data_source.dart';
 import 'package:soplay/features/download/data/repositories/download_repository_impl.dart';
 import 'package:soplay/features/download/data/subtitle_sidecar.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:soplay/features/download/data/offline_title_store.dart';
+import 'package:soplay/features/download/data/relink_progress_migrator.dart';
 import 'package:soplay/features/download/data/storage/download_storage.dart';
 import 'package:soplay/features/download/domain/repositories/download_repository.dart';
+import 'package:soplay/features/download/domain/repositories/offline_title_repository.dart';
 import 'package:soplay/features/download/domain/usecases/control_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/download_location_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/download_storage_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/download_request_builder.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/export_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/relink_downloads_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/remove_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/verify_downloads_usecase.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/data/history_sync_remote_data_source.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
+import 'package:soplay/core/network/profile_interceptor.dart';
+import 'package:soplay/core/storage/profile_storage.dart';
+import 'package:soplay/features/profiles/data/profile_session.dart';
+import 'package:soplay/features/profiles/data/profiles_remote_data_source.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/mal/data/mal_link_store.dart';
 import 'package:soplay/features/mal/data/mal_service.dart';
@@ -99,6 +109,11 @@ import 'package:soplay/features/notifications/presentation/bloc/notifications_bl
 import 'package:soplay/features/extensions/data/catalog_repository.dart';
 import 'package:soplay/features/extensions/data/extension_repo_repository.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_api.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_reporter.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_server_store.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
 import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
@@ -132,6 +147,12 @@ import 'package:soplay/features/search/data/title_suggestion_service.dart';
 import 'package:soplay/features/search/data/repositories/search_repository_imp.dart';
 import 'package:soplay/features/search/data/source_health_store.dart';
 import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:soplay/core/extensions/provider_media_kind.dart';
+import 'package:soplay/features/automation/data/auto_download_service.dart';
+import 'package:soplay/features/automation/data/automation_settings.dart';
+import 'package:soplay/features/automation/data/download_watched.dart';
+import 'package:soplay/features/manga/data/chapter_read_store.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
 import 'package:soplay/features/tracker/data/library_update_scheduler.dart';
 import 'package:soplay/features/trakt/data/trakt_link_store.dart';
@@ -148,6 +169,7 @@ import 'package:soplay/features/shorts/domain/usecases/get_shorts_usecase.dart';
 import 'package:soplay/features/shorts/domain/usecases/increase_short_view_usecase.dart';
 import 'package:soplay/features/shorts/domain/usecases/toggle_short_like_usecase.dart';
 import 'package:soplay/features/shorts/presentation/bloc/shorts_bloc.dart';
+import 'package:soplay/features/recap/data/recap_remote_data_source.dart';
 import 'package:soplay/features/trivia/data/datasources/trivia_remote_data_source.dart';
 import 'package:soplay/features/trivia/data/repositories/trivia_repository_impl.dart';
 import 'package:soplay/features/trivia/domain/repositories/trivia_repository.dart';
@@ -183,6 +205,8 @@ import 'package:soplay/features/my_list/domain/usecases/add_favorite_usecase.dar
 import 'package:soplay/features/my_list/domain/usecases/get_favorites_usecase.dart';
 import 'package:soplay/features/my_list/domain/usecases/remove_favorite_usecase.dart';
 import 'package:soplay/features/my_list/domain/usecases/sync_favorites_usecase.dart';
+import 'package:soplay/features/manga/data/tts/flutter_tts_engine.dart';
+import 'package:soplay/features/manga/data/tts/tts_engine.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
 
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
@@ -194,6 +218,8 @@ import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/login_usecase.dart';
 import '../../features/home/domain/usecase/home_usecase.dart';
 import '../navigation/nav_controller.dart';
+import 'package:soplay/features/social/data/social_remote_data_source.dart';
+import 'package:soplay/features/social/data/social_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -263,6 +289,21 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<DownloadLocationUseCase>(
     () => DownloadLocationUseCase(getIt<DownloadRepository>()),
   );
+  getIt.registerSingleton<OfflineTitleRepository>(
+    OfflineTitleStore()..attach(
+      rows: getIt<DownloadRepository>().items,
+      revision: getIt<DownloadRepository>().revision,
+    ),
+  );
+  getIt.registerLazySingleton<RelinkDownloadsUseCase>(
+    () => RelinkDownloadsUseCase(
+      downloads: getIt<DownloadRepository>(),
+      titles: getIt<OfflineTitleRepository>(),
+      migrateProgress: RelinkProgressMigrator(
+        history: getIt<HistoryService>(),
+      ).call,
+    ),
+  );
   // Lazy: a session that never opens a detail page never constructs the
   // YouTube client, and constructing one opens an HTTP client of its own.
   getIt.registerLazySingleton<TrailerService>(() => TrailerService());
@@ -274,6 +315,15 @@ Future<void> configureDependencies() async {
 
   final dio = DioClient.instance;
   dio.interceptors.add(ProviderInterceptor(hiveService: getIt<HiveService>()));
+  dio.interceptors.add(
+    ProfileInterceptor(
+      onStaleProfile: () {
+        if (getIt.isRegistered<ProfileSession>()) {
+          unawaited(getIt<ProfileSession>().refresh());
+        }
+      },
+    ),
+  );
   // Debug builds only. `debugPrint` is not stripped from release builds, and
   // this logs every request with its query string — search terms, content
   // urls — into logcat, where other tooling on the device can read it.
@@ -306,6 +356,17 @@ Future<void> configureDependencies() async {
     HistorySyncService(
       remote: getIt<HistorySyncRemoteDataSource>(),
       local: getIt<HistoryService>(),
+    ),
+  );
+  getIt.registerSingleton<ProfilesRemoteDataSource>(
+    ProfilesRemoteDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<ProfileSession>(
+    ProfileSession(
+      remote: getIt<ProfilesRemoteDataSource>(),
+      isLoggedIn: () => getIt<HiveService>().isLoggedIn,
+      beforeSwitch: () => getIt<HistorySyncService>().settle(),
+      onScopeChanged: _onProfileScopeChanged,
     ),
   );
 
@@ -438,6 +499,15 @@ Future<void> configureDependencies() async {
       hive: getIt<HiveService>(),
     ),
   );
+  getIt.registerSingleton<SocialRemoteDataSource>(
+    SocialRemoteDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<SocialService>(
+    SocialService(
+      remote: getIt<SocialRemoteDataSource>(),
+      hive: getIt<HiveService>(),
+    ),
+  );
   getIt.registerLazySingleton<TokenRefresher>(
     () => TokenRefresher(getIt<HiveService>()),
   );
@@ -489,6 +559,30 @@ Future<void> configureDependencies() async {
       store: getIt<MangayomiRepoStore>(),
     ),
   );
+  getIt.registerLazySingleton<JellyfinServerStore>(JellyfinServerStore.new);
+  getIt.registerLazySingleton<JellyfinApi>(() {
+    final api = JellyfinApi(
+      deviceId: () => getIt<JellyfinServerStore>().deviceId,
+    );
+    PackageInfo.fromPlatform()
+        .then((info) => api.clientVersion = info.version)
+        .catchError((Object _) => api.clientVersion);
+    return api;
+  });
+  getIt.registerLazySingleton<JellyfinBridge>(
+    () => JellyfinBridge(
+      api: getIt<JellyfinApi>(),
+      store: getIt<JellyfinServerStore>(),
+    ),
+  );
+  getIt.registerLazySingleton<JellyfinReporter>(
+    () => JellyfinReporter(
+      bridge: getIt<JellyfinBridge>(),
+      api: getIt<JellyfinApi>(),
+      store: getIt<JellyfinServerStore>(),
+      suppressed: () => getIt<HiveService>().isIncognito,
+    ),
+  );
 
   // Browsing a source without becoming it: both kinds of catalogue answer
   // through one repository, so the hub renders them with one widget.
@@ -496,6 +590,7 @@ Future<void> configureDependencies() async {
     () => SourceBrowseRepository(
       dio: getIt<Dio>(),
       bridge: getIt<MangayomiBridge>(),
+      jellyfin: getIt<JellyfinBridge>(),
     ),
   );
   getIt.registerLazySingleton<ExtractorRunner>(
@@ -514,6 +609,7 @@ Future<void> configureDependencies() async {
     HomeRepositoryImp(
       getIt<HomeDataSource>(),
       mangayomi: getIt<MangayomiBridge>(),
+      jellyfin: getIt<JellyfinBridge>(),
       jsRuntime: getIt<JsRuntimeService>(),
       hive: getIt<HiveService>(),
     ),
@@ -522,6 +618,7 @@ Future<void> configureDependencies() async {
     SearchRepositoryImp(
       dataSource: getIt<SearchDataSource>(),
       mangayomi: getIt<MangayomiBridge>(),
+      jellyfin: getIt<JellyfinBridge>(),
       jsRuntime: getIt<JsRuntimeService>(),
       hive: getIt<HiveService>(),
     ),
@@ -545,14 +642,16 @@ Future<void> configureDependencies() async {
       dataSource: getIt<SearchDataSource>(),
     ),
   );
+  getIt.registerLazySingleton<SourceHealthStore>(
+    () => SourceHealthStore(remote: getIt<SearchDataSource>().providerHealth),
+  );
   getIt.registerLazySingleton<CrossSearchEngine>(
     () => CrossSearchEngine(
       jsRuntime: getIt<JsRuntimeService>(),
       dataSource: getIt<SearchDataSource>(),
       mangayomi: getIt<MangayomiBridge>(),
-      health: SourceHealthStore(
-        remote: getIt<SearchDataSource>().providerHealth,
-      ),
+      jellyfin: getIt<JellyfinBridge>(),
+      health: getIt<SourceHealthStore>(),
     ),
   );
   getIt.registerSingleton<WebViewStreamExtractor>(WebViewStreamExtractor());
@@ -560,6 +659,7 @@ Future<void> configureDependencies() async {
     DetailRepositoryImpl(
       getIt<DetailDataSource>(),
       mangayomi: getIt<MangayomiBridge>(),
+      jellyfin: getIt<JellyfinBridge>(),
       jsRuntime: getIt<JsRuntimeService>(),
       hive: getIt<HiveService>(),
     ),
@@ -667,6 +767,10 @@ Future<void> configureDependencies() async {
     ToggleShortLikeUseCase(getIt<ShortsRepository>()),
   );
 
+  getIt.registerLazySingleton<RecapRemoteDataSource>(
+    () => RecapRemoteDataSource(dio: getIt<Dio>()),
+  );
+
   // ---- Buff (trivia) ----
   getIt.registerSingleton<TriviaRemoteDataSource>(
     TriviaRemoteDataSource(dio: getIt<Dio>()),
@@ -737,14 +841,43 @@ Future<void> configureDependencies() async {
       outbox: getIt<TrackerOutbox>(),
     ),
   );
-  getIt.registerSingleton<LibraryUpdateScheduler>(
-    LibraryUpdateScheduler(follow: getIt<FollowService>())..start(),
-  );
   getIt.registerSingleton<ResolveMediaUseCase>(
     ResolveMediaUseCase(getIt<DetailRepository>()),
   );
   getIt.registerSingleton<GetPagesUseCase>(
     GetPagesUseCase(getIt<DetailRepository>()),
+  );
+  getIt.registerSingleton<DownloadRequestBuilder>(
+    DownloadRequestBuilder(
+      resolve: getIt<ResolveMediaUseCase>(),
+      getPages: getIt<GetPagesUseCase>(),
+    ),
+  );
+  getIt.registerSingleton<AutomationSettings>(AutomationSettings());
+  getIt.registerSingleton<AutoDownloadService>(
+    AutoDownloadService(
+      settings: getIt<AutomationSettings>(),
+      downloads: getIt<DownloadRepository>(),
+      builder: getIt<DownloadRequestBuilder>(),
+      isReader: (provider) => provider.opensReader,
+      isWatched: (item) => isDownloadWatched(
+        item,
+        history: getIt<HistoryService>(),
+        chapters: ChapterReadStore(),
+      ),
+      notify: (queued) => getIt<NotificationService>().showLocalNotification(
+        id: 0x5a0d,
+        title: 'automation.notify_title'.tr(),
+        body: 'automation.notify_body'.tr(args: ['$queued']),
+        data: const {'type': 'auto_download'},
+      ),
+    )..start(),
+  );
+  getIt.registerSingleton<LibraryUpdateScheduler>(
+    LibraryUpdateScheduler(
+      follow: getIt<FollowService>(),
+      autoDownload: getIt<AutoDownloadService>(),
+    )..start(),
   );
   getIt.registerSingleton<ViewAllUseCase>(
     ViewAllUseCase(getIt<HomeRepository>()),
@@ -815,6 +948,8 @@ Future<void> configureDependencies() async {
       anilist: getIt<AnilistService>().api,
       tmdbDetail: (url) =>
           getIt<DetailDataSource>().getCatalogueDetail('tmdb', url),
+      offline: getIt<OfflineTitleRepository>(),
+      isOffline: _hasNoNetwork,
     ),
   );
   getIt.registerFactory(
@@ -825,7 +960,11 @@ Future<void> configureDependencies() async {
     ),
   );
   getIt.registerFactory(
-    () => EpisodesBloc(useCase: getIt<GetEpisodesUseCase>()),
+    () => EpisodesBloc(
+      useCase: getIt<GetEpisodesUseCase>(),
+      offline: getIt<OfflineTitleRepository>(),
+      isOffline: _hasNoNetwork,
+    ),
   );
   getIt.registerFactory(() => ViewAllBloc(useCase: getIt<ViewAllUseCase>()));
   // A singleton, unlike every other bloc here, and deliberately: HomeContent is
@@ -907,10 +1046,48 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<AppLockRepository>(
     AppLockRepositoryImpl(
       getIt<AppLockLocalDataSource>(),
-      wipeProtected: () => getIt<PrivateListService>().clearAll(),
+      wipeProtected: () async {
+        await getIt<PrivateListService>().clearAll();
+        await ProfileStorage.clearPrivateLists();
+      },
     ),
   );
   getIt.registerSingleton<AppLockGate>(AppLockGate(getIt<AppLockRepository>()));
 
   getIt.registerLazySingleton<NavController>(() => NavController());
+
+  // One engine for the app: the platform synthesizer is a single shared
+  // service, and a second plugin instance would talk over the first.
+  getIt.registerLazySingleton<TtsEngine>(() => FlutterTtsEngine());
+}
+
+/// Everything that caches what the active profile's boxes held, told that
+/// they now hold someone else's; then the new profile's server data pulled.
+Future<void> _onProfileScopeChanged({required bool resync}) async {
+  getIt<HistoryService>().revision.value++;
+  getIt<MyListLocalDataSource>().revision.value++;
+  final private = getIt<PrivateListService>()..lock();
+  private.revision.value++;
+  final hive = getIt<HiveService>();
+  hive.adultContentChanged.value = !hive.adultContentChanged.value;
+  hive.incognitoChanged.value = hive.isIncognito;
+  hive.homeRailsChanged.value = !hive.homeRailsChanged.value;
+  if (!resync || !hive.isLoggedIn) return;
+  unawaited(() async {
+    final sync = getIt<HistorySyncService>();
+    final userId = hive.getUser()?.id;
+    if (userId != null && userId.isNotEmpty) await sync.adoptFor(userId);
+    await sync.sync();
+    await getIt<SyncFavoritesUseCase>()();
+  }());
+}
+
+Future<bool> _hasNoNetwork() async {
+  try {
+    final result = await Connectivity().checkConnectivity();
+    return result.isNotEmpty &&
+        result.every((r) => r == ConnectivityResult.none);
+  } catch (_) {
+    return false;
+  }
 }
