@@ -201,11 +201,19 @@ class NotificationService {
     await ensureInitialized();
     if (!Platform.isAndroid) return;
 
-    await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    // The first-run setup asks on a screen that explains why; asking here as
+    // well would put the bare system dialog over its welcome.
+    final hive = getIt<HiveService>();
+    final setupPending =
+        !hive.hasOnboardingSeen &&
+        (!hive.isLoggedIn || hive.getOnboardingFlow() != null);
+    if (!setupPending) {
+      await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
 
     final token = await FirebaseMessaging.instance.getToken();
     if (token != null) {
@@ -227,6 +235,39 @@ class NotificationService {
       _dispatchTap(_normalizeData(initial.data));
     }
   }
+
+  /// Asks for the notification permission on its own, without registering
+  /// anything — for a screen that explains why first.
+  Future<bool> requestPermission() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      if (Firebase.apps.isEmpty) await Firebase.initializeApp();
+      final settings = await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      return _allowed(settings.authorizationStatus);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> get permissionGranted async {
+    if (!Platform.isAndroid) return false;
+    try {
+      if (Firebase.apps.isEmpty) await Firebase.initializeApp();
+      final settings = await FirebaseMessaging.instance
+          .getNotificationSettings();
+      return _allowed(settings.authorizationStatus);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static bool _allowed(AuthorizationStatus status) =>
+      status == AuthorizationStatus.authorized ||
+      status == AuthorizationStatus.provisional;
 
   /// Signing out detaches the device from the account — it does not take the
   /// device off push.
