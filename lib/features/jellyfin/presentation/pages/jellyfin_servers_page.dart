@@ -48,7 +48,9 @@ class JellyfinServersPage extends StatelessWidget {
     return ValueListenableBuilder<int>(
       valueListenable: _store.revision,
       builder: (context, _, _) {
-        final servers = _store.servers()
+        // A copy: with no servers saved the store answers `const []`, and
+        // sorting that in place threw — the page opened on a red screen.
+        final servers = [..._store.servers()]
           ..sort(
             (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
           );
