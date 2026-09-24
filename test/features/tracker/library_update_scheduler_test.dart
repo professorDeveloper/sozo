@@ -4,19 +4,38 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:soplay/features/automation/data/auto_download_service.dart';
+import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
 import 'package:soplay/features/tracker/data/library_update_scheduler.dart';
+import 'package:soplay/features/tracker/domain/entities/followed_title.dart';
+
+class _Auto implements AutoDownloadService {
+  int runs = 0;
+
+  @override
+  void collect(FollowedTitle title, List<EpisodeEntity> episodes) {}
+
+  @override
+  Future<void> afterCheck() async => runs++;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _Follow implements FollowService {
   int calls = 0;
   Object? error;
+  Object? onCheckedSeen;
   @override
   Future<int> checkForUpdates({
     int concurrency = 3,
     Duration timeout = const Duration(seconds: 12),
     bool notify = true,
+    void Function(FollowedTitle title, List<EpisodeEntity> episodes)? onChecked,
   }) async {
     calls++;
+    onCheckedSeen = onChecked;
     if (error != null) throw error!;
     return 2;
   }
@@ -78,5 +97,19 @@ void main() {
   test('an unknown stored value falls back to the default', () async {
     await box.put('library_update_hours', 7);
     expect(make().intervalHours, LibraryUpdateScheduler.defaultHours);
+  });
+
+  test('a check feeds automatic downloads and then runs them', () async {
+    final auto = _Auto();
+    final s = LibraryUpdateScheduler(
+      follow: follow,
+      autoDownload: auto,
+      box: box,
+      now: () => now,
+    );
+    expect(await s.maybeRun(), 2);
+    expect(follow.onCheckedSeen, isNotNull);
+    await Future<void>.delayed(Duration.zero);
+    expect(auto.runs, 1);
   });
 }

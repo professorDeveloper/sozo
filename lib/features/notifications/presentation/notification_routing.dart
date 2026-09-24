@@ -55,6 +55,8 @@ void openNotification(Map<String, dynamic> data, {bool fromList = false}) {
       } else if (!fromList) {
         router.push('/following');
       }
+    case 'auto_download':
+      router.push('/downloads');
     case 'streak_risk':
       // The tab lives on /main; switching it from a pushed page would change
       // a tab nobody can see.

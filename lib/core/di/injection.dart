@@ -141,6 +141,12 @@ import 'package:soplay/features/search/data/title_suggestion_service.dart';
 import 'package:soplay/features/search/data/repositories/search_repository_imp.dart';
 import 'package:soplay/features/search/data/source_health_store.dart';
 import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:soplay/core/extensions/provider_media_kind.dart';
+import 'package:soplay/features/automation/data/auto_download_service.dart';
+import 'package:soplay/features/automation/data/automation_settings.dart';
+import 'package:soplay/features/automation/data/download_watched.dart';
+import 'package:soplay/features/manga/data/chapter_read_store.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
 import 'package:soplay/features/tracker/data/library_update_scheduler.dart';
 import 'package:soplay/features/search/domain/repositories/search_repository.dart';
@@ -782,9 +788,6 @@ Future<void> configureDependencies() async {
       notifications: getIt<NotificationService>(),
     ),
   );
-  getIt.registerSingleton<LibraryUpdateScheduler>(
-    LibraryUpdateScheduler(follow: getIt<FollowService>())..start(),
-  );
   getIt.registerSingleton<ResolveMediaUseCase>(
     ResolveMediaUseCase(getIt<DetailRepository>()),
   );
@@ -796,6 +799,32 @@ Future<void> configureDependencies() async {
       resolve: getIt<ResolveMediaUseCase>(),
       getPages: getIt<GetPagesUseCase>(),
     ),
+  );
+  getIt.registerSingleton<AutomationSettings>(AutomationSettings());
+  getIt.registerSingleton<AutoDownloadService>(
+    AutoDownloadService(
+      settings: getIt<AutomationSettings>(),
+      downloads: getIt<DownloadRepository>(),
+      builder: getIt<DownloadRequestBuilder>(),
+      isReader: (provider) => provider.opensReader,
+      isWatched: (item) => isDownloadWatched(
+        item,
+        history: getIt<HistoryService>(),
+        chapters: ChapterReadStore(),
+      ),
+      notify: (queued) => getIt<NotificationService>().showLocalNotification(
+        id: 0x5a0d,
+        title: 'automation.notify_title'.tr(),
+        body: 'automation.notify_body'.tr(args: ['$queued']),
+        data: const {'type': 'auto_download'},
+      ),
+    )..start(),
+  );
+  getIt.registerSingleton<LibraryUpdateScheduler>(
+    LibraryUpdateScheduler(
+      follow: getIt<FollowService>(),
+      autoDownload: getIt<AutoDownloadService>(),
+    )..start(),
   );
   getIt.registerSingleton<ViewAllUseCase>(
     ViewAllUseCase(getIt<HomeRepository>()),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +13,8 @@ import 'package:soplay/features/anilist/presentation/controllers/anilist_library
 import 'package:soplay/features/anilist/presentation/pages/anilist_library_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/upcoming_page.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
+import 'package:soplay/features/automation/data/auto_download_service.dart';
+import 'package:soplay/features/automation/data/automation_settings.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
 import 'package:soplay/features/tracker/domain/entities/followed_title.dart';
@@ -121,7 +125,9 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
     if (_checking) return;
     setState(() => _checking = true);
     try {
-      final grown = await _service.checkForUpdates();
+      final auto = getIt<AutoDownloadService>();
+      final grown = await _service.checkForUpdates(onChecked: auto.collect);
+      unawaited(auto.afterCheck());
       if (!mounted) return;
       setState(() => _items = _service.list());
       if (!silent || grown > 0) {
@@ -139,6 +145,33 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
     } finally {
       if (mounted) setState(() => _checking = false);
     }
+  }
+
+  Future<void> _toggleAutoDownload(FollowedTitle t) async {
+    final on = !t.autoDownload;
+    await _service.setAutoDownload(t.contentUrl, on);
+    if (!mounted) return;
+    setState(() => _items = _service.list());
+    final globalOff = on && !getIt<AutomationSettings>().autoDownloadEnabled;
+    final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          globalOff
+              ? 'automation.global_off'.tr()
+              : on
+              ? 'automation.follow_auto_on'.tr(args: [t.title])
+              : 'automation.follow_auto_off'.tr(args: [t.title]),
+        ),
+        behavior: SnackBarBehavior.floating,
+        action: globalOff
+            ? SnackBarAction(
+                label: 'automation.open_settings'.tr(),
+                onPressed: () => context.push('/automation'),
+              )
+            : null,
+      ),
+    );
   }
 
   Future<void> _unfollow(FollowedTitle t) async {
@@ -223,6 +256,7 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
               itemBuilder: (_, i) => _FollowTile(
                 title: _items[i],
                 onUnfollow: () => _unfollow(_items[i]),
+                onToggleAutoDownload: () => _toggleAutoDownload(_items[i]),
               ),
             ),
           ),
@@ -233,10 +267,15 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
 }
 
 class _FollowTile extends StatelessWidget {
-  const _FollowTile({required this.title, required this.onUnfollow});
+  const _FollowTile({
+    required this.title,
+    required this.onUnfollow,
+    required this.onToggleAutoDownload,
+  });
 
   final FollowedTitle title;
   final VoidCallback onUnfollow;
+  final VoidCallback onToggleAutoDownload;
 
   @override
   Widget build(BuildContext context) {
@@ -307,9 +346,28 @@ class _FollowTile extends StatelessWidget {
                             label: title.provider,
                             color: AppColors.textHint,
                           ),
+                        if (title.autoDownload)
+                          AnilistChip(
+                            label: 'automation.auto_chip'.tr(),
+                            color: AppColors.primary,
+                          ),
                       ],
                     ),
                   ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'automation.follow_auto_tooltip'.tr(),
+                onPressed: onToggleAutoDownload,
+                isSelected: title.autoDownload,
+                icon: Icon(
+                  title.autoDownload
+                      ? Icons.download_for_offline_rounded
+                      : Icons.download_for_offline_outlined,
+                  color: title.autoDownload
+                      ? AppColors.primary
+                      : AppColors.textHint,
+                  size: 21,
                 ),
               ),
               IconButton(

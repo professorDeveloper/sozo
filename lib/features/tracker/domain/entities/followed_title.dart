@@ -9,6 +9,8 @@ class FollowedTitle {
     this.lastEpisodeCount = 0,
     this.addedAt = 0,
     this.lastCheckedAt,
+    this.autoDownload = false,
+    this.autoDownloadFrom = 0,
   });
 
   final String contentUrl;
@@ -23,6 +25,28 @@ class FollowedTitle {
   final int addedAt;
   final int? lastCheckedAt;
 
+  /// Download new episodes by themselves (see AutoDownloadService).
+  final bool autoDownload;
+
+  /// Only episodes above this number are downloaded automatically: turning
+  /// the switch on for a long-running show must not fetch its back catalogue.
+  /// 0 until the title has been checked once.
+  final int autoDownloadFrom;
+
+  FollowedTitle copyWith({bool? autoDownload, int? autoDownloadFrom}) =>
+      FollowedTitle(
+        contentUrl: contentUrl,
+        provider: provider,
+        title: title,
+        thumbnail: thumbnail,
+        year: year,
+        lastEpisodeCount: lastEpisodeCount,
+        addedAt: addedAt,
+        lastCheckedAt: lastCheckedAt,
+        autoDownload: autoDownload ?? this.autoDownload,
+        autoDownloadFrom: autoDownloadFrom ?? this.autoDownloadFrom,
+      );
+
   Map<String, dynamic> toJson() => {
     'contentUrl': contentUrl,
     'provider': provider,
@@ -32,6 +56,8 @@ class FollowedTitle {
     'lastEpisodeCount': lastEpisodeCount,
     'addedAt': addedAt,
     if (lastCheckedAt != null) 'lastCheckedAt': lastCheckedAt,
+    if (autoDownload) 'autoDownload': true,
+    if (autoDownloadFrom > 0) 'autoDownloadFrom': autoDownloadFrom,
   };
 
   factory FollowedTitle.fromJson(Map<String, dynamic> j) => FollowedTitle(
@@ -43,5 +69,7 @@ class FollowedTitle {
     lastEpisodeCount: (j['lastEpisodeCount'] as num?)?.toInt() ?? 0,
     addedAt: (j['addedAt'] as num?)?.toInt() ?? 0,
     lastCheckedAt: (j['lastCheckedAt'] as num?)?.toInt(),
+    autoDownload: j['autoDownload'] == true,
+    autoDownloadFrom: (j['autoDownloadFrom'] as num?)?.toInt() ?? 0,
   );
 }

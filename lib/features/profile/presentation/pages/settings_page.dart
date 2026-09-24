@@ -173,6 +173,16 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               onTap: _pickLibraryUpdate,
             ),
+            const SettingsDivider(),
+            SettingsNavTile(
+              icon: Icons.auto_mode_rounded,
+              title: 'automation.title'.tr(),
+              subtitle: 'automation.entry_subtitle'.tr(),
+              onTap: () async {
+                await context.push('/automation');
+                if (mounted) setState(() {});
+              },
+            ),
           ],
         ),
         const SizedBox(height: 20),

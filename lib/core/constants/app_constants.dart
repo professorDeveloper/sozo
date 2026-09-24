@@ -231,6 +231,18 @@ class AppConstants {
   static const String libraryUpdateHoursKey = 'library_update_hours';
   static const String libraryUpdateLastKey = 'library_update_last_at';
 
+  static const String autoDownloadEnabledKey = 'auto_download_enabled';
+  static const String autoDownloadWifiOnlyKey = 'auto_download_wifi_only';
+  static const String autoDownloadKeepLastKey = 'auto_download_keep_last';
+  static const String autoDownloadMaxBytesKey = 'auto_download_max_bytes';
+  static const String autoDownloadIdsKey = 'auto_download_ids';
+  static const String autoDownloadSkippedKey = 'auto_download_skipped';
+  static const String autoDownloadStatusKey = 'auto_download_status';
+  static const String autoDeleteWatchedKey = 'auto_delete_watched';
+  static const String prefetchNextEpisodeKey = 'prefetch_next_episode';
+  static const String prefetchNextChapterKey = 'prefetch_next_chapter';
+  static const String upNextSecondsKey = 'up_next_seconds';
+
   static const String appLockEnabledKey = 'app_lock_enabled';
   static const String appLockPinLengthKey = 'app_lock_pin_length';
   static const String appLockBiometricKey = 'app_lock_biometric';

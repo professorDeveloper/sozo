@@ -80,6 +80,7 @@ import 'package:soplay/features/notifications/presentation/pages/notifications_p
 import 'package:soplay/features/private_list/presentation/pages/private_list_page.dart';
 import 'package:soplay/features/splash/presentation/pages/splash_page.dart';
 import 'package:soplay/features/streak/presentation/pages/streak_page.dart';
+import 'package:soplay/features/automation/presentation/pages/automation_settings_page.dart';
 import 'package:soplay/features/watch_party/presentation/party_entry.dart';
 import 'package:soplay/features/watch_party/presentation/pages/watch_party_page.dart';
 
@@ -360,6 +361,10 @@ class AppRouter {
       GoRoute(
         path: '/player-settings',
         builder: (context, state) => const PlayerSettingsPage(),
+      ),
+      GoRoute(
+        path: '/automation',
+        builder: (context, state) => const AutomationSettingsPage(),
       ),
       GoRoute(
         path: '/discord',

@@ -41,8 +41,29 @@ class FollowService {
     await hive.setFollowedRaw(items);
   }
 
+  /// Turns automatic downloads on or off for one title.
+  Future<void> setAutoDownload(String contentUrl, bool on) async {
+    final items = hive.getFollowedRaw();
+    for (final e in items) {
+      if (e['contentUrl'] != contentUrl) continue;
+      if (on) {
+        e['autoDownload'] = true;
+        final from = (e['autoDownloadFrom'] as num?)?.toInt() ?? 0;
+        final last = (e['lastEpisodeCount'] as num?)?.toInt() ?? 0;
+        if (from <= 0 && last > 0) e['autoDownloadFrom'] = last;
+      } else {
+        e.remove('autoDownload');
+        e.remove('autoDownloadFrom');
+      }
+    }
+    await hive.setFollowedRaw(items);
+  }
+
   /// Re-check every followed serial for new episodes. Returns how many grew.
   /// Fires one local notification per grown title (when [notify] is true).
+  ///
+  /// [onChecked] sees every title that answered, with the episodes it
+  /// returned, which is how automatic downloads find what to fetch.
   ///
   /// Freeze-proof: at most [concurrency] checks run at once, each capped at
   /// [timeout]; counts are persisted in a single write at the end (no races).
@@ -50,11 +71,13 @@ class FollowService {
     int concurrency = 3,
     Duration timeout = const Duration(seconds: 12),
     bool notify = true,
+    void Function(FollowedTitle title, List<EpisodeEntity> episodes)? onChecked,
   }) async {
     final items = list();
     if (items.isEmpty) return 0;
 
     final newCounts = <String, int>{};
+    final autoFloors = <String, int>{};
     var index = 0;
     var grown = 0;
 
@@ -88,6 +111,17 @@ class FollowService {
           final count = _highestNumber(pb.episodes);
           if (count <= 0) continue;
           newCounts[t.contentUrl] = count;
+          var checked = t;
+          if (t.autoDownload && t.autoDownloadFrom <= 0) {
+            final floor = t.lastEpisodeCount > 0 ? t.lastEpisodeCount : count;
+            autoFloors[t.contentUrl] = floor;
+            checked = t.copyWith(autoDownloadFrom: floor);
+          }
+          if (onChecked != null) {
+            try {
+              onChecked(checked, pb.episodes);
+            } catch (_) {}
+          }
           if (t.lastEpisodeCount > 0 && count > t.lastEpisodeCount) {
             final delta = pb.episodes
                 .where((e) => e.episode > t.lastEpisodeCount)
@@ -129,6 +163,10 @@ class FollowService {
         if (url is String && newCounts.containsKey(url)) {
           e['lastEpisodeCount'] = newCounts[url];
           e['lastCheckedAt'] = now;
+          final floor = autoFloors[url];
+          if (floor != null && e['autoDownload'] == true) {
+            e['autoDownloadFrom'] = floor;
+          }
         }
       }
       await hive.setFollowedRaw(raw);
