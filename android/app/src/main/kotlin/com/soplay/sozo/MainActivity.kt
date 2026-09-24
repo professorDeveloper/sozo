@@ -22,6 +22,7 @@ import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import com.soplay.sozo.widget.HomeWidgets
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.roundToInt
@@ -128,6 +129,8 @@ class MainActivity : FlutterFragmentActivity() {
     /// keeps a decoder and a DRM session open, which on some devices is a
     /// hardware resource the next playback cannot get.
     private var drmPlayerHost: com.soplay.sozo.drm.DrmPlayerHost? = null
+    private var homeWidgetChannel: MethodChannel? = null
+    private var pendingWidgetAction: Map<String, Any?>? = null
     @Volatile private var pendingRepoFile: String? = null
 
     companion object {
@@ -147,6 +150,28 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // Home screen widgets: the app sends a snapshot to draw, and hears
+        // about taps that opened it.
+        homeWidgetChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "sozo/home_widget"
+        ).apply {
+            setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "update" -> {
+                        (call.arguments as? String)?.let {
+                            HomeWidgets.save(applicationContext, it)
+                        }
+                        result.success(true)
+                    }
+                    "takeLaunchAction" -> {
+                        result.success(pendingWidgetAction)
+                        pendingWidgetAction = null
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        }
         methodChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             channelName
@@ -1322,6 +1347,7 @@ class MainActivity : FlutterFragmentActivity() {
         // Cold start via "Open with Sozo". Parked rather than pushed: the Flutter
         // side isn't listening yet, so it pulls this on first frame.
         pendingRepoFile = RepoFileIntent.extract(applicationContext, intent)
+        pendingWidgetAction = HomeWidgets.actionOf(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -1331,6 +1357,12 @@ class MainActivity : FlutterFragmentActivity() {
         RepoFileIntent.extract(applicationContext, intent)?.let { payload ->
             pendingRepoFile = payload
             repoFileChannel?.invokeMethod("openRepoFile", payload)
+        }
+        // A widget tap while the app is alive goes straight to Dart; parked
+        // only when nothing is listening yet.
+        HomeWidgets.actionOf(intent)?.let { action ->
+            val channel = homeWidgetChannel
+            if (channel != null) channel.invokeMethod("action", action) else pendingWidgetAction = action
         }
     }
 

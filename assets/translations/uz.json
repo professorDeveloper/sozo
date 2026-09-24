@@ -2921,5 +2921,17 @@
     "rule_party_host": "Watch party o‘tkazish",
     "rule_explorer": "10 xil manbada biror narsani tugatish",
     "rule_friendly": "5 ta do‘st orttirish"
+  },
+  "home_widget": {
+    "next": "Keyingi qism",
+    "out_now": "Chiqdi",
+    "locked": "Sozo qulflangan",
+    "locked_hint": "Ochish uchun bosing",
+    "at_risk": "{} kunlik streak bugun tugaydi — bitta qism ko‘ring",
+    "empty": "Tomosha boshlang — shu yerda chiqadi",
+    "days": "{} kun",
+    "episode": "{}-qism",
+    "chapter": "{}-bob",
+    "min_left": "{} daq qoldi"
   }
 }

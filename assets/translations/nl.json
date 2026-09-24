@@ -2921,5 +2921,17 @@
     "rule_party_host": "Een watch party houden",
     "rule_explorer": "Iets afmaken op 10 verschillende bronnen",
     "rule_friendly": "5 vrienden maken"
+  },
+  "home_widget": {
+    "next": "Volgende aflevering",
+    "out_now": "Nu uit",
+    "locked": "Sozo is vergrendeld",
+    "locked_hint": "Tik om te openen",
+    "at_risk": "Je streak van {} dagen eindigt vannacht — kijk één aflevering",
+    "empty": "Begin met kijken en het verschijnt hier",
+    "days": "{} dagen",
+    "episode": "Aflevering {}",
+    "chapter": "Hoofdstuk {}",
+    "min_left": "Nog {} min"
   }
 }

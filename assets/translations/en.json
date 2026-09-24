@@ -2921,5 +2921,17 @@
     "rule_party_host": "Host a watch party",
     "rule_explorer": "Finish something on 10 different sources",
     "rule_friendly": "Make 5 friends"
+  },
+  "home_widget": {
+    "next": "Next episode",
+    "out_now": "Out now",
+    "locked": "Sozo is locked",
+    "locked_hint": "Tap to open",
+    "at_risk": "Your {}-day streak ends tonight — watch one episode",
+    "empty": "Start watching and it shows up here",
+    "days": "{} days",
+    "episode": "Episode {}",
+    "chapter": "Chapter {}",
+    "min_left": "{} min left"
   }
 }

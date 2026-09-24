@@ -236,6 +236,7 @@ import 'package:soplay/features/social/data/social_remote_data_source.dart';
 import 'package:soplay/features/social/data/social_service.dart';
 import 'package:soplay/features/achievements/data/achievements_remote_data_source.dart';
 import 'package:soplay/features/achievements/data/achievements_service.dart';
+import 'package:soplay/features/home_widget/home_widget_sync.dart';
 
 final getIt = GetIt.instance;
 
@@ -962,6 +963,17 @@ Future<void> configureDependencies() async {
     )..start(),
   );
   getIt<ReleaseWatch>().start();
+  // Android home screen widgets. Started after the first frame (see app.dart):
+  // the snapshot is written in the viewer's language, which is only known
+  // once the translations have loaded.
+  getIt.registerSingleton<HomeWidgetSync>(
+    HomeWidgetSync(
+      history: getIt<HistoryService>(),
+      streak: getIt<StreakService>(),
+      hive: getIt<HiveService>(),
+      anilist: getIt<AnilistService>(),
+    ),
+  );
   getIt.registerSingleton<ViewAllUseCase>(
     ViewAllUseCase(getIt<HomeRepository>()),
   );

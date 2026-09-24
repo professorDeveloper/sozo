@@ -2921,5 +2921,17 @@
     "rule_party_host": "Bir izleme partisi düzenle",
     "rule_explorer": "10 farklı kaynakta bir şey bitir",
     "rule_friendly": "5 arkadaş edin"
+  },
+  "home_widget": {
+    "next": "Sıradaki bölüm",
+    "out_now": "Yayında",
+    "locked": "Sozo kilitli",
+    "locked_hint": "Açmak için dokun",
+    "at_risk": "{} günlük serin bu gece bitiyor — bir bölüm izle",
+    "empty": "İzlemeye başla, burada görünsün",
+    "days": "{} gün",
+    "episode": "{}. bölüm",
+    "chapter": "{}. bölüm",
+    "min_left": "{} dk kaldı"
   }
 }

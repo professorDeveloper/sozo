@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_small_label">Davom ettirish</string>
+    <string name="widget_small_description">Ko‘rayotgan narsangiz, to‘xtagan joyingiz va streakingiz.</string>
+    <string name="widget_medium_label">Davom ettirish va keyingi qism</string>
+    <string name="widget_medium_description">To‘xtagan joydan davom eting va keyingi qismgacha vaqtni kuzating.</string>
+</resources>

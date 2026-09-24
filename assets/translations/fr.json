@@ -2921,5 +2921,17 @@
     "rule_party_host": "Organiser une watch party",
     "rule_explorer": "Finir quelque chose sur 10 sources différentes",
     "rule_friendly": "Avoir 5 amis"
+  },
+  "home_widget": {
+    "next": "Prochain épisode",
+    "out_now": "Disponible",
+    "locked": "Sozo est verrouillé",
+    "locked_hint": "Touche pour ouvrir",
+    "at_risk": "Ta série de {} jours s’arrête ce soir — regarde un épisode",
+    "empty": "Commence à regarder et ça s’affichera ici",
+    "days": "{} jours",
+    "episode": "Épisode {}",
+    "chapter": "Chapitre {}",
+    "min_left": "Encore {} min"
   }
 }

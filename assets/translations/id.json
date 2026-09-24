@@ -2921,5 +2921,17 @@
     "rule_party_host": "Adakan watch party",
     "rule_explorer": "Selesaikan sesuatu di 10 sumber berbeda",
     "rule_friendly": "Punya 5 teman"
+  },
+  "home_widget": {
+    "next": "Episode berikutnya",
+    "out_now": "Sudah tayang",
+    "locked": "Sozo terkunci",
+    "locked_hint": "Ketuk untuk membuka",
+    "at_risk": "Rentetan {} harimu berakhir malam ini — tonton satu episode",
+    "empty": "Mulai menonton dan akan muncul di sini",
+    "days": "{} hari",
+    "episode": "Episode {}",
+    "chapter": "Bab {}",
+    "min_left": "Sisa {} mnt"
   }
 }

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_small_label">Продолжить просмотр</string>
+    <string name="widget_small_description">Что вы смотрели, где остановились, и ваша серия.</string>
+    <string name="widget_medium_label">Продолжить и следующая серия</string>
+    <string name="widget_medium_description">Продолжайте с того же места и следите за отсчётом до следующей серии.</string>
+</resources>

@@ -3,4 +3,9 @@
     <!-- Shown as Sozo's entry in the system "Open with" chooser for extension
          repository index files (index.pb / index.min.json / repo.json). -->
     <string name="open_repo_file">Install extension repo in Sozo</string>
+    <!-- Home screen widgets, as the widget picker lists them. -->
+    <string name="widget_small_label">Continue watching</string>
+    <string name="widget_small_description">The title you were watching, where you stopped, and your streak.</string>
+    <string name="widget_medium_label">Continue and next episode</string>
+    <string name="widget_medium_description">Pick up where you left off, and count down to the next episode.</string>
 </resources>

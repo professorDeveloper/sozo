@@ -29,6 +29,7 @@ import 'core/theme/theme_controller.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/achievements/presentation/widgets/achievement_celebration_host.dart';
+import 'package:soplay/features/home_widget/home_widget_sync.dart';
 
 /// Desktop scroll behaviour: adds mouse + trackpad + stylus as drag devices so
 /// touch-oriented scrollables (PageView, horizontal ListViews) can be dragged
@@ -69,6 +70,7 @@ class _MyAppState extends State<MyApp> {
       // check, which has no translations of its own.
       getIt<NotificationService>().refreshChannels();
       getIt<ReleaseWatch>().writeSnapshot();
+      getIt<HomeWidgetSync>().start();
     });
     // Desktop: hide the custom title-bar strip on the immersive full-bleed
     // routes (player / reader) by watching the router itself — reliable

@@ -2921,5 +2921,17 @@
     "rule_party_host": "開一場一齊睇派對",
     "rule_explorer": "喺 10 個唔同來源睇完嘢",
     "rule_friendly": "交 5 個朋友"
+  },
+  "home_widget": {
+    "next": "下一集",
+    "out_now": "已經出咗",
+    "locked": "Sozo 已鎖",
+    "locked_hint": "撳一下打開",
+    "at_risk": "你連續 {} 日嘅紀錄今晚就會斷，睇一集啦",
+    "empty": "開始睇，就會喺度出現",
+    "days": "{} 日",
+    "episode": "第 {} 集",
+    "chapter": "第 {} 話",
+    "min_left": "仲有 {} 分鐘"
   }
 }

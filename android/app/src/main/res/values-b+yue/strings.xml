@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_small_label">繼續睇</string>
+    <string name="widget_small_description">你睇緊嘅嘢、停喺邊，同埋連續紀錄。</string>
+    <string name="widget_medium_label">繼續睇同下一集</string>
+    <string name="widget_medium_description">由停低嘅地方繼續，仲可以倒數到下一集。</string>
+</resources>
