@@ -22,6 +22,7 @@ import 'package:soplay/features/detail/domain/entities/episodes_args.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/core/extensions/provider_media_kind.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:soplay/features/download/presentation/widgets/offline_copy_banner.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
@@ -391,6 +392,15 @@ class _EpisodesPageState extends State<EpisodesPage> {
   Future<void> _toggleSort() async {
     if (_resorting || widget.args.contentUrl.isEmpty) return;
     final next = _sort == 'asc' ? 'desc' : 'asc';
+    if (widget.args.offline) {
+      setState(() {
+        _sort = next;
+        _episodes = _episodes.reversed.toList();
+        _selected.clear();
+        _invalidateDerived();
+      });
+      return;
+    }
     setState(() {
       _resorting = true;
       _error = null;
@@ -727,6 +737,10 @@ class _EpisodesPageState extends State<EpisodesPage> {
   }
 
   Future<void> _playFrom(int index) async {
+    if (widget.args.offline) {
+      await _playOffline(index);
+      return;
+    }
     final isHistoryEntry =
         _isHistoryEpisode(index) && _historyItem!.positionMs > 0;
 
@@ -771,6 +785,60 @@ class _EpisodesPageState extends State<EpisodesPage> {
         totalEpisodes: _total,
         pageSize: _size,
         sort: _sort,
+      ),
+    );
+  }
+
+  bool _isDownloaded(int index) =>
+      _downloads.byId(_downloadIdFor(index))?.status ==
+      DownloadStatus.completed;
+
+  /// With no source to ask, the player and the reader are handed only what is
+  /// on disk, so next and previous step between downloads instead of failing
+  /// on the first episode that was never saved.
+  Future<void> _playOffline(int index) async {
+    final available = [
+      for (var i = 0; i < _episodes.length; i++)
+        if (_isDownloaded(i)) i,
+    ];
+    final at = available.indexOf(index);
+    if (at < 0) {
+      _toast('downloads.offline_not_downloaded'.tr());
+      return;
+    }
+    final list = [for (final i in available) _episodes[i]];
+    final isHistoryEntry =
+        _isHistoryEpisode(index) && _historyItem!.positionMs > 0;
+    final resumeMs = isHistoryEntry ? _historyItem!.positionMs : 0;
+
+    if (_isManga) {
+      context.push(
+        '/reader',
+        extra: ReaderArgs(
+          title: widget.args.title,
+          provider: widget.args.provider,
+          contentUrl: widget.args.contentUrl,
+          thumbnail: widget.args.thumbnail,
+          chapters: list,
+          initialChapterIndex: at,
+          resumePage: resumeMs,
+        ),
+      );
+      return;
+    }
+    if (!await confirmPlayerEngine(context) || !mounted) return;
+    context.push(
+      '/player',
+      extra: PlayerArgs(
+        title: widget.args.title,
+        provider: widget.args.provider,
+        headers: const {},
+        contentUrl: widget.args.contentUrl,
+        thumbnail: widget.args.thumbnail,
+        episodes: list,
+        initialEpisodeIndex: at,
+        resumePosition: Duration(milliseconds: resumeMs),
+        showDownloadAction: false,
       ),
     );
   }
@@ -1079,6 +1147,13 @@ class _EpisodesPageState extends State<EpisodesPage> {
                             ),
                           ),
                         ),
+                        if (widget.args.offline)
+                          SliverToBoxAdapter(
+                            child: OfflineCopyBanner(
+                              message: 'episodes.offline_desc'.tr(),
+                              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            ),
+                          ),
                         // Jump blocks, then the number filter. Both only appear
                         // once the run is long enough to need them — on a
                         // twelve-episode season they would be chrome over a list
@@ -1150,7 +1225,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
                           itemBuilder: (_, position) {
                             final i = visible[position];
                             final isCurrent = _isHistoryEpisode(i);
-                            return _EpisodeRow(
+                            final row = _EpisodeRow(
                               key: i == _flashIndex ? _flashRowKey : null,
                               episode: _episodes[i],
                               showImage: _showImages,
@@ -1181,6 +1256,10 @@ class _EpisodesPageState extends State<EpisodesPage> {
                                   _isManga &&
                                   _read.contains(_episodes[i].episode),
                             );
+                            if (!widget.args.offline || _isDownloaded(i)) {
+                              return row;
+                            }
+                            return Opacity(opacity: 0.45, child: row);
                           },
                         ),
                         if (_loadingMore)

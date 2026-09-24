@@ -20,6 +20,10 @@ class EpisodesArgs {
   /// and made the viewer find their place a second time.
   final bool resumeFromHistory;
 
+  /// The list is the copy saved with the downloads: only what is on disk can
+  /// be played or read.
+  final bool offline;
+
   const EpisodesArgs({
     required this.title,
     required this.episodes,
@@ -32,5 +36,6 @@ class EpisodesArgs {
     this.total = 0,
     this.totalPages = 1,
     this.resumeFromHistory = false,
+    this.offline = false,
   });
 }

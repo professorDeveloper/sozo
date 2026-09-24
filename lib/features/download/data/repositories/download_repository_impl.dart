@@ -16,6 +16,7 @@ import 'package:soplay/features/download/data/datasources/download_local_data_so
 import 'package:soplay/features/download/data/datasources/download_native_data_source.dart';
 import 'package:soplay/features/download/data/datasources/download_transfer_data_source.dart';
 import 'package:soplay/features/download/data/epub_builder.dart';
+import 'package:soplay/features/download/data/models/download_item_model.dart';
 import 'package:soplay/features/download/data/storage/download_storage.dart';
 import 'package:soplay/features/download/domain/download_layout.dart';
 import 'package:soplay/features/download/domain/entities/download_failure.dart';
@@ -25,6 +26,7 @@ import 'package:soplay/features/download/domain/entities/download_location.dart'
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/entities/download_status.dart';
 import 'package:soplay/features/download/domain/entities/storage_usage.dart';
+import 'package:soplay/features/download/domain/offline_relink.dart';
 import 'package:soplay/features/download/domain/repositories/download_repository.dart';
 import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
 import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
@@ -610,16 +612,19 @@ class DownloadRepositoryImpl implements DownloadRepository {
       return;
     }
 
-    await _local.put(
-      _stamp(
-        verified.copyWith(
-          status: DownloadStatus.completed,
-          failure: null,
-          failureDetail: '',
-        ),
+    final done = _stamp(
+      verified.copyWith(
+        status: DownloadStatus.completed,
+        failure: null,
+        failureDetail: '',
       ),
     );
+    await _local.put(done);
+    await _writeSidecar(done);
   }
+
+  Future<void> _writeSidecar(DownloadItem item) =>
+      _storage.writeSidecar(item.id, DownloadItemModel.toSidecar(item));
 
   Future<void> _fail(
     DownloadItem item,
@@ -737,7 +742,14 @@ class DownloadRepositoryImpl implements DownloadRepository {
 
       if (_differs(item, next)) updates.add(_stamp(next));
     }
-    if (updates.isNotEmpty) await _local.putAll(updates);
+    if (updates.isNotEmpty) {
+      await _local.putAll(updates);
+      for (final item in updates) {
+        if (item.status == DownloadStatus.completed) {
+          await _writeSidecar(item);
+        }
+      }
+    }
   }
 
   bool _differs(DownloadItem a, DownloadItem b) =>
@@ -866,6 +878,50 @@ class DownloadRepositoryImpl implements DownloadRepository {
       debugPrint('[downloads] manifest unreadable for ${item.id}: $e');
       return true;
     }
+  }
+
+  // --- relink --------------------------------------------------------------
+
+  @override
+  Future<int> relink(List<RelinkMove> moves) async {
+    if (!_storage.isReady) {
+      await _storage.initialize(preferredBase: _hive.getDownloadLocation());
+    }
+    var moved = 0;
+    for (final move in moves) {
+      final from = _local.get(move.from.id);
+      if (from == null || _local.get(move.to.id) != null) continue;
+      if (_running.contains(from.id) ||
+          _queue.contains(from.id) ||
+          from.status.isActive) {
+        continue;
+      }
+      // Row first, folder second, old row last: a crash in between leaves a
+      // duplicate the verifier marks missing, never a folder no row claims.
+      final to = _stamp(
+        move.to.copyWith(
+          status: from.status,
+          sizeBytes: from.sizeBytes,
+          relativePath: DownloadLayout.rekeyed(
+            from.relativePath,
+            from.id,
+            move.to.id,
+          ),
+        ),
+      );
+      await _local.put(to, notify: false);
+      final hadFolder = await Directory(_storage.dirOf(from.id)).exists();
+      if (hadFolder && !await _storage.rekey(from.id, to.id)) {
+        await _local.delete(to.id);
+        continue;
+      }
+      await _local.delete(from.id);
+      if (_useNative) unawaited(_native.forget(from.id));
+      if (to.status == DownloadStatus.completed) await _writeSidecar(to);
+      moved++;
+    }
+    _local.touch();
+    return moved;
   }
 
   // --- storage -------------------------------------------------------------

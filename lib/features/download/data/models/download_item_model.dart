@@ -47,6 +47,13 @@ abstract final class DownloadItemModel {
     'attempts': item.attempts,
   };
 
+  /// The row as written beside the files, minus the request headers and page
+  /// urls: they carry tokens and expire anyway.
+  static Map<String, dynamic> toSidecar(DownloadItem item) => toJson(item)
+    ..remove('headers')
+    ..remove('imageHeaders')
+    ..remove('pageUrls');
+
   static DownloadItem fromJson(Map<String, dynamic> json) {
     final id = _string(json['id']);
     final legacy = json['v'] == null;

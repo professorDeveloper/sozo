@@ -294,6 +294,18 @@ extension _PlayerMedia on _PlayerPageState {
     EpisodeEntity ep,
     int generation,
   ) async {
+    final local = _localEpisode(ep);
+    if (local != null) {
+      _plog('playing downloaded episode ${ep.episode} from disk');
+      return (
+        value: MediaResolveEntity(
+          videoUrl: local.url,
+          type: local.type,
+          headers: const {},
+        ),
+        lang: null,
+      );
+    }
     if (ep.mediaRef.isEmpty) {
       setState(() {
         _initializing = false;
@@ -330,6 +342,18 @@ extension _PlayerMedia on _PlayerPageState {
         });
         return null;
     }
+  }
+
+  /// The downloaded copy of [ep], when there is one — it plays with no
+  /// network, and online it saves the resolve and the bandwidth.
+  LocalVideo? _localEpisode(EpisodeEntity ep) {
+    final contentUrl = widget.args.contentUrl;
+    if (contentUrl == null || contentUrl.isEmpty) return null;
+    if (!getIt.isRegistered<GetDownloadsUseCase>()) return null;
+    return getIt<GetDownloadsUseCase>().localVideo(
+      contentUrl: contentUrl,
+      episodeNumber: ep.episode,
+    );
   }
 
   /// Picks a mirror, publishes the new episode's state, and starts the stream.

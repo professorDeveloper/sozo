@@ -28,7 +28,16 @@ class DetailLoaded extends DetailState {
   /// catalogue title would show a Find a source button for a second or two and
   /// then replace it with Play.
   final bool resolving;
-  const DetailLoaded(this.detail, {this.via, this.resolving = false});
+
+  /// Built from the copy saved with the downloads, because the source could
+  /// not be reached.
+  final bool offline;
+  const DetailLoaded(
+    this.detail, {
+    this.via,
+    this.resolving = false,
+    this.offline = false,
+  });
 }
 
 class DetailError extends DetailState {

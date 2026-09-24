@@ -6,10 +6,13 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/download/domain/entities/download_status.dart';
+import 'package:soplay/features/download/domain/entities/downloaded_title.dart';
+import 'package:soplay/features/download/domain/repositories/offline_title_repository.dart';
 import 'package:soplay/features/download/domain/usecases/control_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/download_location_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/download_storage_usecase.dart';
@@ -23,8 +26,15 @@ import 'package:soplay/features/download/presentation/widgets/download_group_til
 import 'package:soplay/features/download/presentation/widgets/download_location_tile.dart';
 import 'package:soplay/features/download/presentation/widgets/downloads_empty_state.dart';
 import 'package:soplay/features/download/presentation/widgets/downloads_storage_header.dart';
+import 'package:soplay/features/download/presentation/widgets/downloaded_titles_grid.dart';
 import 'package:soplay/features/download/presentation/widgets/downloads_toolbar.dart';
+import 'package:soplay/features/download/presentation/widgets/downloads_view_switch.dart';
+import 'package:soplay/features/download/presentation/widgets/relink_source_sheet.dart';
+import 'package:soplay/features/history/data/history_service.dart';
+import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 
 /// The offline library.
@@ -56,10 +66,21 @@ class DownloadsPage extends StatelessWidget {
   }
 }
 
-class _DownloadsView extends StatelessWidget {
+class _DownloadsView extends StatefulWidget {
   const _DownloadsView({required this.isTab});
 
   final bool isTab;
+
+  @override
+  State<_DownloadsView> createState() => _DownloadsViewState();
+}
+
+class _DownloadsViewState extends State<_DownloadsView> {
+  // Survives leaving the tab and coming back within a session.
+  static DownloadsView _lastView = DownloadsView.titles;
+  DownloadsView _view = _lastView;
+
+  bool get isTab => widget.isTab;
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +105,13 @@ class _DownloadsView extends StatelessWidget {
         },
         builder: (context, state) {
           final bloc = context.read<DownloadsBloc>();
+          final showTitles = state.total > 0 && _view == DownloadsView.titles;
+          final titles = showTitles
+              ? DownloadedTitle.group(
+                  getIt<GetDownloadsUseCase>()(),
+                  snapshotOf: getIt<OfflineTitleRepository>().get,
+                )
+              : const <DownloadedTitle>[];
           return CustomScrollView(
             slivers: [
               // Pinned: on a long library the back button and the bulk actions
@@ -132,101 +160,132 @@ class _DownloadsView extends StatelessWidget {
 
               if (state.total > 0)
                 SliverToBoxAdapter(
-                  child: DownloadsStorageHeader(
-                    usage: state.usage,
-                    busy: state.busy,
-                    onSweep: () => bloc.add(const DownloadsSweepRequested()),
+                  child: DownloadsViewSwitch(
+                    view: _view,
+                    onChanged: (v) => setState(() => _view = _lastView = v),
                   ),
                 ),
 
-              SliverToBoxAdapter(
-                child: DownloadLocationTile(
-                  locations: state.locations,
-                  current: state.currentLocation,
-                  busy: state.busy,
-                  onPick: (l) => bloc.add(DownloadsLocationChosen(l)),
-                ),
-              ),
-
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                  child: SettingsSwitchTile(
-                    icon: Icons.wifi_rounded,
-                    title: 'downloads.wifi_only'.tr(),
-                    subtitle: state.waitingForWifi
-                        ? 'downloads.waiting_for_wifi'.tr()
-                        : 'downloads.wifi_only_desc'.tr(),
-                    value: state.wifiOnly,
-                    onChanged: (v) => bloc.add(DownloadsWifiOnlyToggled(v)),
+              if (showTitles) ...[
+                if (titles.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _NoTitlesYet(
+                      onShowFiles: () => setState(
+                        () => _view = _lastView = DownloadsView.files,
+                      ),
+                    ),
+                  )
+                else
+                  DownloadedTitlesGrid(
+                    titles: titles,
+                    thumbnailOf: getIt<GetDownloadsUseCase>().thumbnailOf,
+                    providerNameOf: (t) => _providerName(context, t),
+                    onOpen: (t) => _openTitle(context, t),
+                    onActions: (t) => _titleActions(context, t),
                   ),
-                ),
-              ),
-
-              // Next to Wi-Fi only, because they are the same kind of setting:
-              // both make the queue slower on purpose, for a reason outside
-              // the app.
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                  child: SettingsDropdownTile<int>(
-                    icon: Icons.hourglass_empty_rounded,
-                    title: 'downloads.cooldown'.tr(),
-                    subtitle: 'downloads.cooldown_desc'.tr(),
-                    value: state.cooldownSeconds,
-                    options: const [0, 5, 15, 30, 60, 120],
-                    labelOf: (v) => v == 0
-                        ? 'downloads.cooldown_off'.tr()
-                        : 'downloads.cooldown_n'.tr(args: ['$v']),
-                    onChanged: (v) => bloc.add(DownloadsCooldownChanged(v)),
-                  ),
-                ),
-              ),
-
-              if (state.total > 0)
-                SliverToBoxAdapter(
-                  child: DownloadsToolbar(
-                    filter: state.filter,
-                    onFilter: (f) => bloc.add(DownloadsFilterChanged(f)),
-                  ),
-                ),
-
-              if (state.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: DownloadsEmptyState(
-                    // "No downloads yet" is wrong when there are twelve of
-                    // them and the filter is hiding all twelve.
-                    filtered: state.total > 0,
-                    onClearFilter: () => bloc.add(
-                      const DownloadsFilterChanged(DownloadsFilter.all),
+              ] else ...[
+                if (state.total > 0)
+                  SliverToBoxAdapter(
+                    child: DownloadsStorageHeader(
+                      usage: state.usage,
+                      busy: state.busy,
+                      onSweep: () => bloc.add(const DownloadsSweepRequested()),
                     ),
                   ),
-                )
-              else
-                SliverList.separated(
-                  itemCount: state.groups.length,
-                  separatorBuilder: (_, _) =>
-                      Divider(color: AppColors.divider, height: 1, indent: 82),
-                  itemBuilder: (_, i) {
-                    final group = state.groups[i];
-                    return DownloadGroupTile(
-                      group: group,
-                      thumbnailOf: getIt<GetDownloadsUseCase>().thumbnailOf,
-                      onOpen: (item) => _open(context, item),
-                      onPauseResume: (item) => bloc.add(
-                        item.status == DownloadStatus.paused
-                            ? DownloadsResumeRequested(item.id)
-                            : DownloadsPauseRequested(item.id),
-                      ),
-                      onRetry: (item) =>
-                          bloc.add(DownloadsRetryRequested(item.id)),
-                      onRemove: (ids) =>
-                          bloc.add(DownloadsRemoveRequested(ids)),
-                      onExport: (item) => _export(context, item),
-                    );
-                  },
+
+                SliverToBoxAdapter(
+                  child: DownloadLocationTile(
+                    locations: state.locations,
+                    current: state.currentLocation,
+                    busy: state.busy,
+                    onPick: (l) => bloc.add(DownloadsLocationChosen(l)),
+                  ),
                 ),
+
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                    child: SettingsSwitchTile(
+                      icon: Icons.wifi_rounded,
+                      title: 'downloads.wifi_only'.tr(),
+                      subtitle: state.waitingForWifi
+                          ? 'downloads.waiting_for_wifi'.tr()
+                          : 'downloads.wifi_only_desc'.tr(),
+                      value: state.wifiOnly,
+                      onChanged: (v) => bloc.add(DownloadsWifiOnlyToggled(v)),
+                    ),
+                  ),
+                ),
+
+                // Next to Wi-Fi only, because they are the same kind of setting:
+                // both make the queue slower on purpose, for a reason outside
+                // the app.
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                    child: SettingsDropdownTile<int>(
+                      icon: Icons.hourglass_empty_rounded,
+                      title: 'downloads.cooldown'.tr(),
+                      subtitle: 'downloads.cooldown_desc'.tr(),
+                      value: state.cooldownSeconds,
+                      options: const [0, 5, 15, 30, 60, 120],
+                      labelOf: (v) => v == 0
+                          ? 'downloads.cooldown_off'.tr()
+                          : 'downloads.cooldown_n'.tr(args: ['$v']),
+                      onChanged: (v) => bloc.add(DownloadsCooldownChanged(v)),
+                    ),
+                  ),
+                ),
+
+                if (state.total > 0)
+                  SliverToBoxAdapter(
+                    child: DownloadsToolbar(
+                      filter: state.filter,
+                      onFilter: (f) => bloc.add(DownloadsFilterChanged(f)),
+                    ),
+                  ),
+
+                if (state.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: DownloadsEmptyState(
+                      // "No downloads yet" is wrong when there are twelve of
+                      // them and the filter is hiding all twelve.
+                      filtered: state.total > 0,
+                      onClearFilter: () => bloc.add(
+                        const DownloadsFilterChanged(DownloadsFilter.all),
+                      ),
+                    ),
+                  )
+                else
+                  SliverList.separated(
+                    itemCount: state.groups.length,
+                    separatorBuilder: (_, _) => Divider(
+                      color: AppColors.divider,
+                      height: 1,
+                      indent: 82,
+                    ),
+                    itemBuilder: (_, i) {
+                      final group = state.groups[i];
+                      return DownloadGroupTile(
+                        group: group,
+                        thumbnailOf: getIt<GetDownloadsUseCase>().thumbnailOf,
+                        onOpen: (item) => _open(context, item),
+                        onPauseResume: (item) => bloc.add(
+                          item.status == DownloadStatus.paused
+                              ? DownloadsResumeRequested(item.id)
+                              : DownloadsPauseRequested(item.id),
+                        ),
+                        onRetry: (item) =>
+                            bloc.add(DownloadsRetryRequested(item.id)),
+                        onRemove: (ids) =>
+                            bloc.add(DownloadsRemoveRequested(ids)),
+                        onExport: (item) => _export(context, item),
+                      );
+                    },
+                  ),
+              ],
 
               SliverToBoxAdapter(child: SizedBox(height: bottomPad + 24)),
             ],
@@ -257,6 +316,10 @@ class _DownloadsView extends StatelessWidget {
       return;
     }
 
+    if (item.isSerial && item.episodeNumber != null) {
+      if (_playSeries(context, item)) return;
+    }
+
     final path = downloads.pathOf(item);
     if (path == null) {
       // The file went away between the sweep and this tap — an SD card pulled,
@@ -284,6 +347,228 @@ class _DownloadsView extends StatelessWidget {
         // Recorded as the episode it is, not as a film under the series url.
         offlineEpisodeNumber: item.isSerial ? item.episodeNumber : null,
         offlineEpisodeLabel: item.isSerial ? item.episodeLabel : null,
+      ),
+    );
+  }
+
+  /// An episode opens with its downloaded siblings as the run, so next and
+  /// previous step through what is on disk.
+  bool _playSeries(BuildContext context, DownloadItem item) {
+    final downloads = getIt<GetDownloadsUseCase>();
+    final siblings = [
+      for (final d in downloads.completedOf(item.groupKey))
+        if (!d.isManga && d.episodeNumber != null) d,
+    ];
+    final index = siblings.indexWhere((d) => d.id == item.id);
+    if (index < 0 || downloads.pathOf(item) == null) return false;
+    final resume = getIt<HistoryService>().get(
+      item.contentUrl,
+      episodeNumber: item.episodeNumber,
+    );
+    context.push(
+      '/player',
+      extra: PlayerArgs(
+        title: item.title,
+        provider: item.provider,
+        headers: const {},
+        contentUrl: item.contentUrl,
+        thumbnail: downloads.thumbnailOf(item) ?? item.thumbnailUrl,
+        episodes: [
+          for (final d in siblings)
+            EpisodeEntity(
+              episode: d.episodeNumber!,
+              label: d.episodeLabel ?? '',
+              mediaRef: '',
+            ),
+        ],
+        initialEpisodeIndex: index,
+        resumePosition: Duration(milliseconds: resume?.positionMs ?? 0),
+        showDownloadAction: false,
+      ),
+    );
+    return true;
+  }
+
+  String _providerName(BuildContext context, DownloadedTitle title) {
+    final saved = title.snapshot?.providerName;
+    if (saved != null && saved.isNotEmpty) return saved;
+    try {
+      final state = context.read<ProviderBloc>().state;
+      if (state is ProviderLoaded) {
+        for (final p in state.providers) {
+          if (p.id == title.provider) return p.name;
+        }
+      }
+    } catch (_) {}
+    final id = title.provider;
+    final colon = id.indexOf(':');
+    return colon >= 0 ? id.substring(colon + 1) : id;
+  }
+
+  void _openTitle(BuildContext context, DownloadedTitle title) {
+    context.push(
+      '/detail',
+      extra: DetailArgs(
+        contentUrl: title.key,
+        provider: title.provider,
+        preview: MovieEntity(
+          externalId: '',
+          title: title.title,
+          description: '',
+          slug: '',
+          url: title.key,
+          provider: title.provider,
+          thumbnail: title.thumbnailUrl,
+          year: title.snapshot?.year,
+          rating: null,
+          qualities: null,
+          category: '',
+        ),
+      ),
+    );
+  }
+
+  void _titleActions(BuildContext context, DownloadedTitle title) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+              child: Text(
+                title.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.info_outline_rounded,
+                color: AppColors.textSecondary,
+              ),
+              title: Text(
+                'downloads.open_title'.tr(),
+                style: const TextStyle(color: AppColors.textPrimary),
+              ),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _openTitle(context, title);
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.swap_horiz_rounded,
+                color: AppColors.textSecondary,
+              ),
+              title: Text(
+                'downloads.relink'.tr(),
+                style: const TextStyle(color: AppColors.textPrimary),
+              ),
+              subtitle: Text(
+                'downloads.relink_short'.tr(),
+                style: const TextStyle(color: AppColors.textHint, fontSize: 12),
+              ),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _relink(context, title);
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+              ),
+              title: Text(
+                'downloads.delete_downloads'.tr(),
+                style: const TextStyle(color: AppColors.error),
+              ),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _confirmDeleteTitle(context, title);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _relink(BuildContext context, DownloadedTitle title) async {
+    final bloc = context.read<DownloadsBloc>();
+    final messenger = ScaffoldMessenger.of(context);
+    final outcome = await RelinkSourceSheet.show(context, title: title);
+    if (outcome == null) return;
+    bloc.add(const DownloadsRefreshed());
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          [
+            'downloads.relink_done'.tr(args: ['${outcome.moved}']),
+            if (outcome.left > 0)
+              'downloads.relink_done_left'.tr(args: ['${outcome.left}']),
+          ].join(' '),
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteTitle(BuildContext context, DownloadedTitle title) {
+    final bloc = context.read<DownloadsBloc>();
+    final ids = [
+      for (final d in getIt<GetDownloadsUseCase>()())
+        if (d.groupKey == title.key) d.id,
+    ];
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'downloads.delete_downloads_confirm'.tr(
+            namedArgs: {'count': '${ids.length}', 'title': title.title},
+          ),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              'general.cancel'.tr(),
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              bloc.add(DownloadsRemoveRequested(ids));
+            },
+            child: Text(
+              'general.delete'.tr(),
+              style: const TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -401,6 +686,56 @@ class _DownloadsView extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NoTitlesYet extends StatelessWidget {
+  const _NoTitlesYet({required this.onShowFiles});
+
+  final VoidCallback onShowFiles;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.video_library_outlined,
+              size: 46,
+              color: AppColors.textHint,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'downloads.titles_empty_title'.tr(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'downloads.titles_empty_subtitle'.tr(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextButton(
+              onPressed: onShowFiles,
+              child: Text('downloads.view_files'.tr()),
+            ),
+          ],
+        ),
       ),
     );
   }

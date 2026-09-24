@@ -28,6 +28,9 @@ class AppConstants {
   static const String historyBox = 'history_box';
 
   static const String downloadBox = 'download_box';
+
+  /// Title snapshots for downloaded titles, so they open offline.
+  static const String offlineTitlesBox = 'offline_titles_box';
   static const String productsBox = 'products_box';
   static const String cartBox = 'cart_box';
   static const String extractorsBox = 'extractors_box';

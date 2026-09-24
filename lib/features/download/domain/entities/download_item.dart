@@ -232,5 +232,51 @@ class DownloadItem {
     attempts: attempts ?? this.attempts,
   );
 
+  /// The same download under another source's identity, with its folder moved
+  /// to match. Used when a title is re-linked to a different source.
+  DownloadItem rekeyed({
+    required String id,
+    required String contentUrl,
+    required String provider,
+    String? chapterRef,
+    int? episodeNumber,
+    String? episodeLabel,
+  }) {
+    final thumb = thumbnailRelativePath;
+    return DownloadItem(
+      id: id,
+      contentUrl: contentUrl,
+      provider: provider,
+      title: title,
+      sourceUrl: sourceUrl,
+      kind: kind,
+      videoHeight: videoHeight,
+      relativePath: DownloadLayout.rekeyed(relativePath, this.id, id),
+      thumbnailUrl: thumbnailUrl,
+      thumbnailRelativePath: thumb == null || thumb.isEmpty
+          ? thumb
+          : DownloadLayout.rekeyed(thumb, this.id, id),
+      headers: headers,
+      status: status,
+      unit: unit,
+      completedUnits: completedUnits,
+      totalUnits: totalUnits,
+      sizeBytes: sizeBytes,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      isSerial: isSerial,
+      episodeNumber: episodeNumber ?? this.episodeNumber,
+      episodeLabel: episodeLabel ?? this.episodeLabel,
+      pageUrls: pageUrls,
+      chapterHtml: chapterHtml,
+      imageHeaders: imageHeaders,
+      chapterRef: chapterRef ?? this.chapterRef,
+      chapterIndex: chapterIndex,
+      failure: failure,
+      failureDetail: failureDetail,
+      attempts: attempts,
+    );
+  }
+
   static const Object _unset = Object();
 }

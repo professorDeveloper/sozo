@@ -88,6 +88,7 @@ import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/streak/presentation/dialogs/streak_milestone_dialog.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
 import 'package:soplay/features/download/presentation/download_messages.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';

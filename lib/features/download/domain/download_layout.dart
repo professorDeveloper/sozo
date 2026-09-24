@@ -41,13 +41,11 @@ abstract final class DownloadLayout {
     String id, {
     required DownloadKind kind,
     String? extension,
-  }) =>
-      switch (kind) {
-        DownloadKind.manga => dirFor(id),
-        DownloadKind.hls => '${dirFor(id)}/$hlsIndexName',
-        DownloadKind.video =>
-          '${dirFor(id)}/$videoStemName${extension ?? '.mp4'}',
-      };
+  }) => switch (kind) {
+    DownloadKind.manga => dirFor(id),
+    DownloadKind.hls => '${dirFor(id)}/$hlsIndexName',
+    DownloadKind.video => '${dirFor(id)}/$videoStemName${extension ?? '.mp4'}',
+  };
 
   /// The playlist rewritten to point at local segments.
   static const String hlsIndexName = 'index.m3u8';
@@ -79,6 +77,21 @@ abstract final class DownloadLayout {
   /// File name of that record, for code that already has the folder.
   static const String manifestName = 'manifest.json';
 
+  /// The row, written beside a finished download so the folder can describe
+  /// itself without the Hive box.
+  static const String sidecarName = 'item.json';
+
+  /// [relative] moved from download [fromId]'s folder to [toId]'s. Anything not
+  /// under [fromId]'s folder is returned unchanged.
+  static String rekeyed(String relative, String fromId, String toId) {
+    final from = dirFor(fromId);
+    if (relative == from) return dirFor(toId);
+    if (relative.startsWith('$from/')) {
+      return '${dirFor(toId)}${relative.substring(from.length)}';
+    }
+    return relative;
+  }
+
   static String segmentName(int index) => 'seg_$index.ts';
 
   /// A decryption key an HLS playlist points at (`#EXT-X-KEY`).
@@ -105,8 +118,7 @@ abstract final class DownloadLayout {
   /// takes the pictures with the words.
   static const String chapterHtmlName = 'chapter.html';
 
-  static String chapterHtmlFor(String id) =>
-      '${dirFor(id)}/$chapterHtmlName';
+  static String chapterHtmlFor(String id) => '${dirFor(id)}/$chapterHtmlName';
 
   /// Recovers a relative path from whatever an older build stored.
   ///

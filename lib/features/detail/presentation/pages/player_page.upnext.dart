@@ -32,7 +32,7 @@ extension _PlayerUpNext on _PlayerPageState {
     final index = _episodeIndex + 1;
     if (!_window.contains(index)) return;
     final ep = _episodes[index];
-    if (ep.mediaRef.isEmpty) return;
+    if (ep.mediaRef.isEmpty || _localEpisode(ep) != null) return;
     final lang = _resolveLangForEpisode(ep);
     final key = _prefetchKey(ep, lang);
     if (_nextResolve.covers(key)) return;

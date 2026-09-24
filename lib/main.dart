@@ -419,6 +419,7 @@ Future<void> _initHive() async {
       AppConstants.settingsBox,
       AppConstants.historyBox,
       AppConstants.downloadBox,
+      AppConstants.offlineTitlesBox,
       AppConstants.extractorsBox,
       AppConstants.streakBox,
       AppConstants.favoritesBox,

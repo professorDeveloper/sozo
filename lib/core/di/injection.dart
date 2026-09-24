@@ -42,8 +42,12 @@ import 'package:soplay/features/download/data/datasources/download_local_data_so
 import 'package:soplay/features/download/data/datasources/download_native_data_source.dart';
 import 'package:soplay/features/download/data/datasources/download_transfer_data_source.dart';
 import 'package:soplay/features/download/data/repositories/download_repository_impl.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:soplay/features/download/data/offline_title_store.dart';
+import 'package:soplay/features/download/data/relink_progress_migrator.dart';
 import 'package:soplay/features/download/data/storage/download_storage.dart';
 import 'package:soplay/features/download/domain/repositories/download_repository.dart';
+import 'package:soplay/features/download/domain/repositories/offline_title_repository.dart';
 import 'package:soplay/features/download/domain/usecases/control_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/download_location_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/download_storage_usecase.dart';
@@ -51,6 +55,7 @@ import 'package:soplay/features/download/domain/usecases/download_request_builde
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/export_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/relink_downloads_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/remove_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/verify_downloads_usecase.dart';
 import 'package:soplay/features/history/data/history_service.dart';
@@ -274,6 +279,21 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<DownloadLocationUseCase>(
     () => DownloadLocationUseCase(getIt<DownloadRepository>()),
+  );
+  getIt.registerSingleton<OfflineTitleRepository>(
+    OfflineTitleStore()..attach(
+      rows: getIt<DownloadRepository>().items,
+      revision: getIt<DownloadRepository>().revision,
+    ),
+  );
+  getIt.registerLazySingleton<RelinkDownloadsUseCase>(
+    () => RelinkDownloadsUseCase(
+      downloads: getIt<DownloadRepository>(),
+      titles: getIt<OfflineTitleRepository>(),
+      migrateProgress: RelinkProgressMigrator(
+        history: getIt<HistoryService>(),
+      ).call,
+    ),
   );
   // Lazy: a session that never opens a detail page never constructs the
   // YouTube client, and constructing one opens an HTTP client of its own.
@@ -895,6 +915,8 @@ Future<void> configureDependencies() async {
       anilist: getIt<AnilistService>().api,
       tmdbDetail: (url) =>
           getIt<DetailDataSource>().getCatalogueDetail('tmdb', url),
+      offline: getIt<OfflineTitleRepository>(),
+      isOffline: _hasNoNetwork,
     ),
   );
   getIt.registerFactory(
@@ -905,7 +927,11 @@ Future<void> configureDependencies() async {
     ),
   );
   getIt.registerFactory(
-    () => EpisodesBloc(useCase: getIt<GetEpisodesUseCase>()),
+    () => EpisodesBloc(
+      useCase: getIt<GetEpisodesUseCase>(),
+      offline: getIt<OfflineTitleRepository>(),
+      isOffline: _hasNoNetwork,
+    ),
   );
   getIt.registerFactory(() => ViewAllBloc(useCase: getIt<ViewAllUseCase>()));
   // A singleton, unlike every other bloc here, and deliberately: HomeContent is
@@ -1016,4 +1042,14 @@ Future<void> _onProfileScopeChanged({required bool resync}) async {
     await sync.sync();
     await getIt<SyncFavoritesUseCase>()();
   }());
+}
+
+Future<bool> _hasNoNetwork() async {
+  try {
+    final result = await Connectivity().checkConnectivity();
+    return result.isNotEmpty &&
+        result.every((r) => r == ConnectivityResult.none);
+  } catch (_) {
+    return false;
+  }
 }
