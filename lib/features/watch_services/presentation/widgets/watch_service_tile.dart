@@ -49,11 +49,18 @@ class WatchServiceTile extends StatelessWidget {
 
   static double _nameSize() => isTvPlatform || isDesktopPlatform ? 12 : 11;
 
+  /// The name's line, in whole pixels. 12 × 1.3 is 15.6, and the text engine
+  /// lays the line out on the pixel grid — 16 on macOS — so a grid measured at
+  /// 15.6 overflowed every tile by 0.4px. The name sits in a box of exactly
+  /// this height, and the grid is measured from the same number.
+  static double _nameLine(BuildContext context) =>
+      (MediaQuery.textScalerOf(context).scale(_nameSize()) * _nameHeight)
+          .ceilToDouble() +
+      1;
+
   /// The full height of a tile with its name, for whatever lays them out.
   static double extentFor(BuildContext context) =>
-      sizeFor() +
-      _gap +
-      MediaQuery.textScalerOf(context).scale(_nameSize()) * _nameHeight;
+      sizeFor() + _gap + _nameLine(context);
 
   @override
   Widget build(BuildContext context) {
@@ -131,24 +138,27 @@ class WatchServiceTile extends StatelessWidget {
             ),
             if (showName) ...[
               const SizedBox(height: _gap),
-              Text(
-                service.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: nameSize,
-                  fontWeight: FontWeight.w600,
-                  height: _nameHeight,
-                ),
-                // Belt and braces with [_nameHeight]: a fallback font chosen
-                // for a name in another script must not be allowed to make the
-                // line taller than the grid was measured for.
-                strutStyle: StrutStyle(
-                  fontSize: nameSize,
-                  height: _nameHeight,
-                  forceStrutHeight: true,
+              SizedBox(
+                height: _nameLine(context),
+                child: Text(
+                  service.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: nameSize,
+                    fontWeight: FontWeight.w600,
+                    height: _nameHeight,
+                  ),
+                  // Belt and braces with [_nameHeight]: a fallback font chosen
+                  // for a name in another script must not be allowed to make the
+                  // line taller than the grid was measured for.
+                  strutStyle: StrutStyle(
+                    fontSize: nameSize,
+                    height: _nameHeight,
+                    forceStrutHeight: true,
+                  ),
                 ),
               ),
             ],

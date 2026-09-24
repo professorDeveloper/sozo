@@ -464,13 +464,35 @@ Widget _sectionBody(
   );
 }
 
-SliverGridDelegate get _posterGrid =>
-    const SliverGridDelegateWithMaxCrossAxisExtent(
-      maxCrossAxisExtent: 132,
-      mainAxisSpacing: 14,
-      crossAxisSpacing: 12,
-      childAspectRatio: 0.52,
-    );
+/// A poster grid whose rows are measured, not guessed: a 2:3 poster at the
+/// column's real width plus the text block under it. A fixed aspect ratio
+/// cut off every title that ran to two lines.
+Widget _posterGrid({
+  required int itemCount,
+  required IndexedWidgetBuilder itemBuilder,
+}) {
+  const maxTile = 132.0;
+  const gap = 12.0;
+  return SliverLayoutBuilder(
+    builder: (context, constraints) {
+      final width = constraints.crossAxisExtent;
+      final columns = ((width + gap) / (maxTile + gap)).ceil().clamp(2, 12);
+      final tile = (width - gap * (columns - 1)) / columns;
+      return SliverGrid.builder(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: gap,
+          mainAxisExtent:
+              tile * 1.5 +
+              TraktPosterTile.textBlockHeight(MediaQuery.textScalerOf(context)),
+        ),
+        itemCount: itemCount,
+        itemBuilder: itemBuilder,
+      );
+    },
+  );
+}
 
 void _toast(BuildContext context, String? error, String done) {
   ScaffoldMessenger.of(context).showSnackBar(
@@ -693,8 +715,7 @@ class _WatchlistTabState extends State<_WatchlistTab> {
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
-            sliver: SliverGrid.builder(
-              gridDelegate: _posterGrid,
+            sliver: _posterGrid(
               itemCount: items.length,
               itemBuilder: (context, i) {
                 final e = items[i];
@@ -919,8 +940,7 @@ class _PosterPairTabState extends State<_PosterPairTab> {
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
-            sliver: SliverGrid.builder(
-              gridDelegate: _posterGrid,
+            sliver: _posterGrid(
               itemCount: items.length,
               itemBuilder: (context, i) {
                 final e = items[i];
@@ -1008,8 +1028,7 @@ class _RatingsTabState extends State<_RatingsTab> {
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
-            sliver: SliverGrid.builder(
-              gridDelegate: _posterGrid,
+            sliver: _posterGrid(
               itemCount: items.length,
               itemBuilder: (context, i) {
                 final e = items[i];

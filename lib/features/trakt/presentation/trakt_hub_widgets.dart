@@ -101,6 +101,21 @@ class TraktPosterTile extends StatelessWidget {
   final Widget? badge;
   final bool busy;
 
+  static const double _titleSize = 12.5;
+  static const double _titleHeight = 1.25;
+  static const double _subSize = 11;
+  static const double _subHeight = 1.3;
+
+  /// The title (two lines), the line under it and the gaps, in whole pixels
+  /// at the viewer's text size — what a grid of these adds to the poster.
+  static double textBlockHeight(TextScaler scaler) =>
+      (6 +
+              2 * scaler.scale(_titleSize) * _titleHeight +
+              2 +
+              scaler.scale(_subSize) * _subHeight)
+          .ceilToDouble() +
+      2;
+
   @override
   Widget build(BuildContext context) {
     final m = entry.media;
@@ -139,11 +154,16 @@ class TraktPosterTile extends StatelessWidget {
             m.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
+            strutStyle: const StrutStyle(
+              fontSize: _titleSize,
+              height: _titleHeight,
+              forceStrutHeight: true,
+            ),
             style: TextStyle(
               color: AppColors.textPrimary,
-              fontSize: 12.5,
+              fontSize: _titleSize,
               fontWeight: FontWeight.w700,
-              height: 1.25,
+              height: _titleHeight,
             ),
           ),
           const SizedBox(height: 2),
@@ -151,7 +171,16 @@ class TraktPosterTile extends StatelessWidget {
             entrySubtitle(entry),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+            strutStyle: const StrutStyle(
+              fontSize: _subSize,
+              height: _subHeight,
+              forceStrutHeight: true,
+            ),
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: _subSize,
+              height: _subHeight,
+            ),
           ),
         ],
       ),
