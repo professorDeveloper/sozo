@@ -479,3 +479,38 @@ test('what a plugin stores is marked for saving', () => {
   storage.set('token', 'x', Date.now() - 1000);
   assert.equal(storage.get('token'), undefined);
 });
+
+test('a FormData body goes as multipart, the form it is', async () => {
+  // Sent urlencoded, WordPress's admin-ajax and others answered with an empty
+  // body and the plugin's JSON.parse failed on it.
+  const sandbox = host();
+  sandbox.FormData = FormData;
+  let seen = null;
+  sandbox.window = {
+    dartFetch: async (req) => {
+      seen = req;
+      return { status: 200, data: '[]', headers: {} };
+    },
+  };
+  const p = sandbox.__sozoLoadLnReader(
+    `const { fetchApi } = require('@libs/fetch');
+     module.exports.default = { site: 'https://s.test/',
+       parseChapter: async () => {
+         const body = new FormData();
+         body.append('action', 'load_novels');
+         body.append('page', '2');
+         return (await fetchApi('https://s.test/wp-admin/admin-ajax.php', {
+           method: 'POST', body, headers: { 'Content-Type': 'text/plain' } })).text();
+       } };`,
+    { id: 'p' },
+  );
+  assert.equal(await p.getHtmlContent('S', 'x'), '[]');
+  const type = seen.headers['Content-Type'];
+  assert.match(type, /^multipart\/form-data; boundary=/);
+  const boundary = type.split('boundary=')[1];
+  assert.match(seen.body, new RegExp('name="action"\\r\\n\\r\\nload_novels'));
+  assert.match(seen.body, new RegExp('name="page"\\r\\n\\r\\n2'));
+  assert.ok(seen.body.trimEnd().endsWith('--' + boundary + '--'));
+  // The plugin's own Content-Type could not describe this body; it is replaced.
+  assert.equal(Object.keys(seen.headers).filter((k) => k.toLowerCase() === 'content-type').length, 1);
+});
