@@ -21,6 +21,14 @@ import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
 import 'package:soplay/features/mal/presentation/widgets/mal_brand.dart';
 import 'package:soplay/features/mal/presentation/widgets/mal_link_sheet.dart';
+import 'package:soplay/features/trakt/data/trakt_api.dart';
+import 'package:soplay/features/trakt/data/trakt_hub_models.dart';
+import 'package:soplay/features/trakt/data/trakt_service.dart';
+import 'package:soplay/features/trakt/data/trakt_tracker.dart';
+import 'package:soplay/features/trakt/presentation/trakt_brand.dart';
+import 'package:soplay/features/trakt/presentation/trakt_hub_controller.dart';
+import 'package:soplay/features/trakt/presentation/trakt_hub_widgets.dart';
+import 'package:soplay/features/trakt/presentation/trakt_link_sheet.dart';
 
 /// Where you are on this title, on the tracker you use — and the two buttons
 /// that move it.
@@ -76,6 +84,17 @@ class TrackingRow extends StatefulWidget {
   static bool malApplies(DetailEntity detail) =>
       applies(detail) && !isManga(detail);
 
+  /// Trakt is films and series: any video title, a TMDB catalogue page and
+  /// a source's page alike — not manga or novels.
+  static bool traktApplies(DetailEntity detail) {
+    if (isManga(detail)) return false;
+    final id = detail.provider;
+    if (Catalogue.isId(id)) {
+      return Catalogue.fromId(id)?.mode == ContentMode.video;
+    }
+    return id.contentMode == ContentMode.video;
+  }
+
   @override
   State<TrackingRow> createState() => _TrackingRowState();
 }
@@ -85,19 +104,25 @@ class _TrackingRowState extends State<TrackingRow> {
   Widget build(BuildContext context) {
     final anilist = getIt<AnilistService>();
     final mal = getIt<MalService>();
-    if (!TrackingRow.applies(widget.detail) ||
-        (!anilist.isConnected && !mal.isConnected)) {
-      return const SizedBox.shrink();
-    }
+    final applies = TrackingRow.applies(widget.detail);
+    final lines = <Widget>[
+      if (applies && anilist.isConnected) _AnilistLine(detail: widget.detail),
+      if (applies && mal.isConnected && TrackingRow.malApplies(widget.detail))
+        _MalLine(detail: widget.detail),
+      if (getIt.isRegistered<TraktService>() &&
+          getIt<TraktService>().isConnected &&
+          TrackingRow.traktApplies(widget.detail))
+        _TraktLine(detail: widget.detail),
+    ];
+    if (lines.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (anilist.isConnected) _AnilistLine(detail: widget.detail),
-          if (mal.isConnected && TrackingRow.malApplies(widget.detail)) ...[
-            if (anilist.isConnected) const SizedBox(height: 8),
-            _MalLine(detail: widget.detail),
+          for (var i = 0; i < lines.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            lines[i],
           ],
         ],
       ),
@@ -641,6 +666,169 @@ class _MalEditor implements TrackerEditor {
 }
 
 /// One tracker, one line: logo, name, status, progress, − +.
+/// This title on Trakt: watched or how far through, the watchlist and the
+/// viewer's rating — and the sheet that changes them. A title Trakt was not
+/// matched to offers to link it by hand.
+class _TraktLine extends StatefulWidget {
+  const _TraktLine({required this.detail});
+
+  final DetailEntity detail;
+
+  @override
+  State<_TraktLine> createState() => _TraktLineState();
+}
+
+class _TraktLineState extends State<_TraktLine> {
+  final TraktService _service = getIt<TraktService>();
+  TraktMedia? _media;
+  TraktState? _state;
+  bool _resolving = true;
+  bool _failed = false;
+
+  DetailEntity get _d => widget.detail;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final clientId = _service.clientId;
+    final token = _service.token;
+    if (clientId == null || token == null) return;
+    if (mounted) {
+      setState(() {
+        _failed = false;
+        _resolving = _media == null;
+      });
+    }
+    try {
+      final link = await getIt<TraktTracker>().resolve(
+        provider: _d.provider,
+        contentUrl: _d.contentUrl,
+        title: _d.title,
+        isSerial: _d.isSerial,
+        year: _d.year,
+        tmdbId: _d.record?.tmdbId,
+      );
+      if (!mounted) return;
+      if (link == null) {
+        setState(() => _resolving = false);
+        return;
+      }
+      final media = TraktMedia(
+        kind: link.kind,
+        traktId: link.traktId,
+        title: link.title,
+        year: link.year,
+      );
+      final state = await _service.api.state(
+        media,
+        clientId: clientId,
+        token: token,
+      );
+      if (!mounted) return;
+      setState(() {
+        _media = media;
+        _state = state;
+        _resolving = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _failed = true;
+          _resolving = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _link() async {
+    final link = await TraktLinkSheet.show(
+      context,
+      provider: _d.provider,
+      contentUrl: _d.contentUrl,
+      title: _d.title,
+      isSerial: _d.isSerial,
+    );
+    if (link != null && mounted) {
+      setState(() => _media = null);
+      _load();
+    }
+  }
+
+  Future<void> _open() async {
+    final media = _media;
+    final s = _state;
+    if (media == null) return;
+    final hub = TraktHubController(service: _service);
+    await TraktItemSheet.show(
+      context,
+      entry: TraktEntry(media: media, rating: s?.rating),
+      controller: hub,
+      inWatchlist: s?.inWatchlist,
+      extraActions: [
+        TraktSheetAction(
+          icon: Icons.link_rounded,
+          label: 'trakt.link_change'.tr(),
+          run: () async {
+            await _link();
+            return null;
+          },
+        ),
+      ],
+    );
+    hub.dispose();
+    if (mounted) _load();
+  }
+
+  String? get _status {
+    final s = _state;
+    final m = _media;
+    if (s == null || m == null) return null;
+    final parts = <String>[
+      if (m.isMovie)
+        s.movieWatched
+            ? 'trakt.status_watched'.tr()
+            : (s.inWatchlist
+                  ? 'trakt.status_watchlist'.tr()
+                  : 'trakt.status_not_watched'.tr())
+      else if (s.watchedEpisodes > 0)
+        'trakt.status_episodes'.tr(
+          args: ['${s.watchedEpisodes}', '${s.airedEpisodes ?? '?'}'],
+        )
+      else if (s.inWatchlist)
+        'trakt.status_watchlist'.tr()
+      else
+        'trakt.status_not_watched'.tr(),
+      if (s.rating != null) '♥ ${s.rating}',
+    ];
+    return parts.join('  ·  ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final linked = _media != null;
+    return _TrackerLine(
+      logo: const TraktLogo(size: kDetailRowLogoSize),
+      accent: kTraktRed,
+      name: 'Trakt',
+      status: _status,
+      loading: _resolving,
+      progress: null,
+      total: null,
+      busy: false,
+      onLess: null,
+      onMore: null,
+      onTap: _failed ? _load : (linked ? _open : _link),
+      action: _failed
+          ? 'general.retry'.tr()
+          : (!_resolving && !linked ? 'trakt.link_action'.tr() : null),
+    );
+  }
+}
+
 class _TrackerLine extends StatelessWidget {
   const _TrackerLine({
     required this.logo,

@@ -364,6 +364,17 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
             onConnect: () => TraktConnectSheet.show(context),
             onDisconnect: _disconnectTrakt,
           ),
+          if (_trakt.isConnected) ...[
+            const SizedBox(height: 12),
+            _Row(
+              icon: Icons.dashboard_customize_rounded,
+              accent: kTraktRed,
+              title: 'trakt.open_hub'.tr(),
+              subtitle: 'trakt.open_hub_desc'.tr(),
+              onTap: () => context.push('/trakt'),
+            ),
+            ..._pendingRow('trakt', kTraktRed),
+          ],
 
           const SizedBox(height: 18),
           Text(

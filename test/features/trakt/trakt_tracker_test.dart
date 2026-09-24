@@ -21,7 +21,7 @@ class _FakeApi extends TraktApi {
   bool failScrobble = false;
   int searches = 0;
   final List<(String, Map<String, dynamic>)> scrobbles = [];
-  final List<Map<String, dynamic>> history = [];
+  final List<Map<String, dynamic>> written = [];
 
   @override
   Future<TraktMedia?> byTmdb(
@@ -63,7 +63,7 @@ class _FakeApi extends TraktApi {
     Map<String, dynamic> body, {
     required String clientId,
     required String token,
-  }) async => history.add(body);
+  }) async => written.add(body);
 }
 
 TraktMedia _show(int id, String title, {int? year}) =>
@@ -129,36 +129,43 @@ void main() {
   });
 
   group('matching a title', () {
-    test('one exact match is linked, as a guess, with the source season',
-        () async {
-      api.found = [_show(7, 'Vikings'), _show(8, 'Vikings: Valhalla')];
-      final link = await tracker.resolve(
-        provider: 'p',
-        contentUrl: 'u',
-        title: 'Vikings 2-fasl',
-        isSerial: true,
-      );
-      expect(link?.traktId, 7);
-      expect(link?.auto, isTrue);
-      expect(link?.season, 2);
-    });
-
-    test('several exact matches (remakes) are no answer, and not re-asked',
-        () async {
-      api.found = [_show(1, 'Shogun', year: 1980), _show(2, 'Shogun', year: 2024)];
-      for (var i = 0; i < 3; i++) {
-        expect(
-          await tracker.resolve(
-            provider: 'p',
-            contentUrl: 'u',
-            title: 'Shogun',
-            isSerial: true,
-          ),
-          isNull,
+    test(
+      'one exact match is linked, as a guess, with the source season',
+      () async {
+        api.found = [_show(7, 'Vikings'), _show(8, 'Vikings: Valhalla')];
+        final link = await tracker.resolve(
+          provider: 'p',
+          contentUrl: 'u',
+          title: 'Vikings 2-fasl',
+          isSerial: true,
         );
-      }
-      expect(api.searches, 1);
-    });
+        expect(link?.traktId, 7);
+        expect(link?.auto, isTrue);
+        expect(link?.season, 2);
+      },
+    );
+
+    test(
+      'several exact matches (remakes) are no answer, and not re-asked',
+      () async {
+        api.found = [
+          _show(1, 'Shogun', year: 1980),
+          _show(2, 'Shogun', year: 2024),
+        ];
+        for (var i = 0; i < 3; i++) {
+          expect(
+            await tracker.resolve(
+              provider: 'p',
+              contentUrl: 'u',
+              title: 'Shogun',
+              isSerial: true,
+            ),
+            isNull,
+          );
+        }
+        expect(api.searches, 1);
+      },
+    );
 
     test('a TMDB id beats a title search', () async {
       api.tmdb = _show(42, 'Dark');
@@ -243,7 +250,7 @@ void main() {
       expect(outbox.pending(TraktTracker.outboxName), hasLength(1));
 
       await outbox.flush(force: true);
-      final show = (api.history.single['shows'] as List).single as Map;
+      final show = (api.written.single['shows'] as List).single as Map;
       expect(show['ids'], {'trakt': 7});
       final season = (show['seasons'] as List).single as Map;
       expect(season['number'], 1);

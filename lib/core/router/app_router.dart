@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:soplay/features/trakt/presentation/trakt_hub_page.dart';
 import 'package:soplay/features/watch_services/presentation/pages/watch_service_browse_page.dart';
 import 'package:soplay/features/watch_services/presentation/pages/watch_services_page.dart';
 import 'package:soplay/features/profile/presentation/pages/discord_settings_page.dart';
@@ -340,6 +341,7 @@ class AppRouter {
         path: '/anilist/links',
         builder: (context, state) => const AnilistLinksPage(),
       ),
+      GoRoute(path: '/trakt', builder: (context, state) => const TraktHubPage()),
       GoRoute(
         path: '/mal',
         builder: (context, state) => const MalLibraryPage(),

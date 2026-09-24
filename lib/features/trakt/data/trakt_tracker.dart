@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-
 import 'package:soplay/features/tracker/data/tracker_outbox.dart';
 import 'package:soplay/features/trakt/data/trakt_api.dart';
 import 'package:soplay/features/trakt/data/trakt_link_store.dart';
@@ -55,7 +53,6 @@ class TraktTracker {
 
   /// The season a source's title names — "Season 2", "S2", "2-fasl",
   /// "2 сезон" — or null.
-  @visibleForTesting
   static int? seasonIn(String title) {
     final m = _seasonPattern.firstMatch(title);
     if (m == null) return null;
@@ -68,7 +65,6 @@ class TraktTracker {
 
   /// The title without its season part and the noise sources add, for
   /// searching Trakt and for comparing with what it finds.
-  @visibleForTesting
   static String baseTitle(String title) => title
       .replaceAll(_seasonPattern, ' ')
       .replaceAll(RegExp(r'\((?:19|20)\d\d\)|\[.*?\]'), ' ')
