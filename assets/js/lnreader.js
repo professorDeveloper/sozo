@@ -358,13 +358,24 @@
       if (!hasHeader(headers, 'content-type')) headers['Content-Type'] = FORM;
       return body.toString();
     }
-    // Sent as a form: Dart's side takes a string body, and the sites that
-    // post a FormData read it as fields either way.
+    // A FormData goes as the multipart form it is. Sent urlencoded — which
+    // is what this did — servers expecting multipart (WordPress's
+    // admin-ajax among them) answered with an empty body, and the plugin's
+    // JSON.parse failed on it. Text fields only: Dart's side takes a string.
     if (typeof FormData !== 'undefined' && body instanceof FormData) {
-      const form = new URLSearchParams();
-      body.forEach((v, k) => form.append(k, String(v)));
-      if (!hasHeader(headers, 'content-type')) headers['Content-Type'] = FORM;
-      return form.toString();
+      const boundary = '----sozo' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+      let out = '';
+      body.forEach((v, k) => {
+        out += '--' + boundary + '\r\n' +
+          'Content-Disposition: form-data; name="' + String(k).replace(/"/g, '%22') + '"\r\n\r\n' +
+          String(v) + '\r\n';
+      });
+      out += '--' + boundary + '--\r\n';
+      for (const k of Object.keys(headers)) {
+        if (k.toLowerCase() === 'content-type') delete headers[k];
+      }
+      headers['Content-Type'] = 'multipart/form-data; boundary=' + boundary;
+      return out;
     }
     if (body instanceof ArrayBuffer || ArrayBuffer.isView(body)) {
       return new TextDecoder().decode(body);
