@@ -6,6 +6,8 @@ import android.content.Context
 import android.util.Log
 import com.soplay.sozo.extensions.ApkSignature
 import eu.kanade.tachiyomi.animesource.AnimeCatalogueSource
+import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
+import com.soplay.sozo.manga.MangaPreferences
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
@@ -619,6 +621,35 @@ class AniyomiHost(private val context: Context) {
     }
 
     fun getGenresJson(id: String): String = "[]"
+
+    // --- per-source settings (ConfigurableAnimeSource) ---
+
+    /**
+     * The source's settings as a JSON array, or `[]` if it has none. Aniyomi
+     * sources read them from `source_<numeric id>`, which is the store this
+     * builds the screen against.
+     */
+    fun getPrefsJson(id: String): String {
+        val src = sourceFor(id) ?: return "[]"
+        if (src !is ConfigurableAnimeSource) return "[]"
+        return try {
+            MangaPreferences.extractScreen(context, "source_${src.id}") {
+                src.setupPreferenceScreen(it)
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "prefs an:$id: ${t.message}"); "[]"
+        }
+    }
+
+    fun setPrefJson(id: String, key: String, value: Any?, type: String): String {
+        val src = sourceFor(id) ?: return "{\"ok\":false}"
+        return try {
+            MangaPreferences.writeTo(context, "source_${src.id}", key, value, type)
+            "{\"ok\":true}"
+        } catch (t: Throwable) {
+            Log.e(TAG, "setPref an:$id: ${t.message}"); "{\"ok\":false}"
+        }
+    }
 
     /**
      * Returns `{"baseUrl","userAgent"}` for the interactive Cloudflare solver.

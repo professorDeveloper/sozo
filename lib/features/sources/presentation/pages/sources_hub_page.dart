@@ -372,18 +372,14 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         ],
       ),
       actions: [
-        if (source.id.startsWith('mn:'))
+        if (MangaSourceSettingsPage.forProvider(source.id, source.name)
+            case final settings?)
           IconButton(
             tooltip: 'general.settings'.tr(),
             icon: const Icon(Icons.tune),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => MangaSourceSettingsPage(
-                  sourceId: source.id.substring(3),
-                  name: source.name,
-                ),
-              ),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (_) => settings)),
           ),
         IconButton(
           tooltip: 'general.search'.tr(),
