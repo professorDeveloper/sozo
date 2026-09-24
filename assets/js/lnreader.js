@@ -629,7 +629,12 @@
    */
   function adapt(plugin, source) {
     const site = plugin.site || source.baseUrl || '';
-    plugin.site = site;
+    // Some plugins declare `site` as a getter; assigning it threw on load.
+    if (!plugin.site) {
+      try {
+        plugin.site = site;
+      } catch (_) {}
+    }
 
     const list = async (page, options) => {
       const novels = await plugin.popularNovels(page, {

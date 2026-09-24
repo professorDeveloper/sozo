@@ -586,3 +586,16 @@ test('every bundled plugin fix loads as the plugin it replaces', () => {
     assert.equal((exported.default || exported).id, id, file);
   }
 });
+
+test('a plugin whose site is a getter still loads', async () => {
+  const sandbox = host();
+  const plugin = sandbox.__sozoLoadLnReader(
+    `class P {
+       get site() { return 'https://getter.test/'; }
+       async parseChapter() { return '<p>x</p>'; }
+     }
+     module.exports.default = new P();`,
+    { id: 'p', baseUrl: 'https://index.test/' },
+  );
+  assert.equal(plugin.baseUrl, 'https://getter.test/');
+});
