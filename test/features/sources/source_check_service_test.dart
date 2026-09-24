@@ -124,6 +124,90 @@ void main() {
     });
   });
 
+  group('at scale', () {
+    test('Mangayomi sources go one at a time; others share the rest', () async {
+      var myNow = 0, myPeak = 0, allNow = 0, allPeak = 0;
+      final s = SourceCheckService(
+        browse: SourceBrowseRepository(dio: Dio(), bridge: _Bridge()),
+        store: store,
+        now: () => clock,
+        attempt: (id) async {
+          allNow++;
+          if (allNow > allPeak) allPeak = allNow;
+          if (id.startsWith('my:')) {
+            myNow++;
+            if (myNow > myPeak) myPeak = myNow;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+          if (id.startsWith('my:')) myNow--;
+          allNow--;
+          return ok();
+        },
+      );
+      final ids = [
+        for (var i = 0; i < 10; i++) 'my:$i',
+        for (var i = 0; i < 10; i++) 'cs:$i',
+      ];
+      final last = await s.checkAll(ids).last;
+      expect(last.done, 20);
+      expect(myPeak, 1);
+      expect(allPeak, greaterThan(1));
+      expect(allPeak, lessThanOrEqualTo(SourceCheckService.parallel));
+    });
+
+    test('a stopped run keeps the answers it got', () async {
+      late SourceCheckService s;
+      var calls = 0;
+      s = SourceCheckService(
+        browse: SourceBrowseRepository(dio: Dio(), bridge: _Bridge()),
+        store: store,
+        now: () => clock,
+        attempt: (id) async {
+          if (++calls == 3) s.cancel();
+          return ok();
+        },
+      );
+      await s.checkAll(['my:a', 'my:b', 'my:c', 'my:d', 'my:e']).drain<void>();
+      expect(store.verdictOf('my:a'), SourceVerdict.alive);
+      expect(store.of('my:e'), isNull);
+    });
+
+    test('the unchecked go first, the recently working last', () async {
+      await store.put(
+        'fine',
+        SourceCheck(verdict: SourceVerdict.alive, at: clock),
+      );
+      await store.put(
+        'bad',
+        SourceCheck(verdict: SourceVerdict.dead, at: clock, fails: 2),
+      );
+      final s = service({});
+      expect(s.plan(['fine', 'bad', 'new']), ['new', 'bad', 'fine']);
+      expect(s.staleOf(['fine', 'bad', 'new']), ['new']);
+      expect(s.troubledOf(['fine', 'bad', 'new']), ['bad']);
+    });
+
+    test('a sweep asks only a few of the stale ones', () async {
+      final asked = <String>[];
+      final s = SourceCheckService(
+        browse: SourceBrowseRepository(dio: Dio(), bridge: _Bridge()),
+        store: store,
+        now: () => clock,
+        attempt: (id) async {
+          asked.add(id);
+          return ok();
+        },
+      );
+      await store.put(
+        'fresh',
+        SourceCheck(verdict: SourceVerdict.alive, at: clock),
+      );
+      await s.sweep(['fresh', for (var i = 0; i < 30; i++) 'x$i'], limit: 5);
+      expect(asked, hasLength(5));
+      expect(asked, isNot(contains('fresh')));
+    });
+  });
+
   group('ordinary use', () {
     test(
       'a failure that could be the connection is not held against it',
@@ -133,6 +217,13 @@ void main() {
         expect(store.of('a'), isNull);
         await s.observe('a', ok: false, error: 'HTTP error 404');
         expect(store.verdictOf('a'), SourceVerdict.failing);
+        // Retry, retry: the same failure seen again, not a second one.
+        await s.observe('a', ok: false, error: 'HTTP error 404');
+        await s.observe('a', ok: false, error: 'HTTP error 404');
+        expect(store.verdictOf('a'), SourceVerdict.failing);
+        clock += const Duration(minutes: 2).inMilliseconds;
+        await s.observe('a', ok: false, error: 'HTTP error 404');
+        expect(store.verdictOf('a'), SourceVerdict.dead);
         await s.observe('a', ok: true);
         expect(store.verdictOf('a'), SourceVerdict.alive);
       },

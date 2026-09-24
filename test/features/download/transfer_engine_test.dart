@@ -200,6 +200,55 @@ main.mp4
       },
     );
 
+    test(
+      'audio that is a rendition of its own is saved with the video',
+      () async {
+        handle = (r) async {
+          final path = r.uri.path;
+          if (path == '/master.m3u8') {
+            r.response.write('''
+#EXTM3U
+#EXT-X-VERSION:6
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English",LANGUAGE="en",DEFAULT=NO,URI="audio/en.m3u8"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="Japanese",LANGUAGE="ja",DEFAULT=YES,URI="audio/ja.m3u8"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="en",URI="subs/en.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=900000,RESOLUTION=1280x720,AUDIO="aud",SUBTITLES="subs"
+video/720.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=300000,RESOLUTION=640x360,AUDIO="aud",SUBTITLES="subs"
+video/360.m3u8
+''');
+          } else if (path.endsWith('.m3u8')) {
+            final stem = path.split('/').last.replaceAll('.m3u8', '');
+            r.response.write(
+              '#EXTM3U\n#EXTINF:4,\n$stem-0.ts\n#EXTINF:4,\n$stem-1.ts\n',
+            );
+          } else {
+            r.response.headers.contentType = ContentType('video', 'mp2t');
+            r.response.write(path);
+          }
+          await r.response.close();
+        };
+        final result = await run(DownloadKind.hls, '$base/master.m3u8');
+        expect(result.ok, isTrue, reason: result.detail);
+        expect(result.totalUnits, 4);
+        String read(String name) =>
+            File('${dir.path}/$name').readAsStringSync();
+        expect(read('seg_0.ts'), '/video/720-0.ts');
+        // The default track of the variant's group.
+        expect(read('aud_1.ts'), '/audio/ja-1.ts');
+        expect(read('audio.m3u8'), contains('aud_0.ts'));
+        expect(read('video.m3u8'), contains('seg_1.ts'));
+        final index = read('index.m3u8');
+        expect(index, contains('NAME="Japanese"'));
+        expect(index, contains('URI="audio.m3u8"'));
+        expect(index, contains('DEFAULT=YES'));
+        expect(index, contains('AUDIO="aud"'));
+        expect(index, isNot(contains('SUBTITLES')));
+        expect(index.trim().split('\n').last, 'video.m3u8');
+        expect(hits, isNot(contains('/audio/en.m3u8')));
+      },
+    );
+
     test('a file cut off midway resumes from its bytes', () async {
       final body = Uint8List.fromList(List.generate(40000, (i) => i % 256));
       var calls = 0;

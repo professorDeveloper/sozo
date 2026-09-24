@@ -4,6 +4,7 @@ import 'package:soplay/core/widgets/quick_return_header.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
@@ -148,7 +149,6 @@ class _SourcesHubPageState extends State<SourcesHubPage>
     _header.dispose();
     _searchDebounce?.cancel();
     _search.dispose();
-    _checking.dispose();
     super.dispose();
   }
 
@@ -158,32 +158,112 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       : null;
 
   /// A check run in progress, for the strip under the tabs; null otherwise.
-  final ValueNotifier<SourceCheckProgress?> _checking = ValueNotifier(null);
+  /// The service holds it, so leaving this screen does not lose the run.
+  ValueListenable<SourceCheckProgress?> get _checking =>
+      _checker?.progress ?? _idle;
+  static final ValueNotifier<SourceCheckProgress?> _idle = ValueNotifier(null);
 
-  /// Checks every installed source of the tab that is showing, on this
-  /// device. The server sweeps extension sites every night; this runs each
-  /// source's own code, which is what breaks when a site changes, and covers
-  /// sources the server cannot see.
-  Future<void> _checkAll() async {
-    final checker = _checker;
-    if (checker == null || checker.running) return;
+  /// Only sources with something wrong, for finding the few that need
+  /// attention among a thousand.
+  bool _problemsOnly = false;
+
+  /// The checkable sources on screen at the last build: the tab, narrowed by
+  /// search, scope and language — "check what I am looking at".
+  List<String> _shownIds = const [];
+
+  bool _isProblem(ProviderEntity p) {
+    if (sourceHealth().badgeOf(p.id, key: p.healthKey) != null) return true;
+    return SourceCheckStore.shared.verdictOf(p.id) == SourceVerdict.failing;
+  }
+
+  /// Every installed source of the tab that is showing.
+  List<String> _tabIds() {
     final state = context.read<ProviderBloc>().state;
-    if (state is! ProviderLoaded) return;
+    if (state is! ProviderLoaded) return const [];
     final mode = ContentMode.values[_tabs.index];
-    final ids = [
+    return [
       for (final p in state.providers)
         if (state.isUsable(p) &&
             p.id.contentMode == mode &&
             !Catalogue.isId(p.id))
           p.id,
     ];
+  }
+
+  /// The check menu: which sources to ask, and two settings.
+  ///
+  /// A thousand sources take the better part of an hour to go through one by
+  /// one, so "all of them" is rarely the useful answer. The ones never
+  /// checked or gone stale, the ones already in trouble, or just the ones on
+  /// screen after a search or a language filter — each a run of minutes.
+  Future<void> _onCheckMenu(String choice) async {
+    final checker = _checker;
+    if (checker == null) return;
+    switch (choice) {
+      case 'stale':
+        await _checkAll(checker.staleOf(_tabIds()));
+      case 'troubled':
+        await _checkAll(checker.troubledOf(_tabIds()));
+      case 'shown':
+        await _checkAll(_shownIds);
+      case 'problems':
+        setState(() => _problemsOnly = !_problemsOnly);
+      case 'auto':
+        await SourceCheckStore.shared.setAutoSweep(
+          !SourceCheckStore.shared.autoSweep,
+        );
+    }
+  }
+
+  List<PopupMenuEntry<String>> _checkMenu() {
+    final checker = _checker!;
+    final ids = _tabIds();
+    final stale = checker.staleOf(ids).length;
+    final troubled = checker.troubledOf(ids).length;
+    return [
+      PopupMenuItem(
+        value: 'stale',
+        enabled: stale > 0,
+        child: Text('sources.check_stale'.tr(args: ['$stale'])),
+      ),
+      PopupMenuItem(
+        value: 'troubled',
+        enabled: troubled > 0,
+        child: Text('sources.check_troubled'.tr(args: ['$troubled'])),
+      ),
+      PopupMenuItem(
+        value: 'shown',
+        enabled: _shownIds.isNotEmpty,
+        child: Text('sources.check_shown'.tr(args: ['${_shownIds.length}'])),
+      ),
+      const PopupMenuDivider(),
+      CheckedPopupMenuItem(
+        value: 'problems',
+        checked: _problemsOnly,
+        child: Text('sources.problems_only'.tr()),
+      ),
+      CheckedPopupMenuItem(
+        value: 'auto',
+        checked: SourceCheckStore.shared.autoSweep,
+        child: Text('sources.auto_sweep'.tr()),
+      ),
+    ];
+  }
+
+  /// Checks [ids] on this device and sums up what it found. The server
+  /// sweeps extension sites every night; this runs each source's own code,
+  /// which is what breaks when a site changes, and covers sources the server
+  /// cannot see.
+  Future<void> _checkAll(List<String> ids) async {
+    final checker = _checker;
+    if (checker == null || checker.running) return;
+    final state = context.read<ProviderBloc>().state;
+    if (state is! ProviderLoaded) return;
     if (ids.isEmpty) return;
     SourceCheckProgress? last;
     await for (final progress in checker.checkAll(ids)) {
       last = progress;
-      _checking.value = progress;
     }
-    _checking.value = null;
     if (!mounted || last == null) return;
     setState(() => _tabCache.clear());
     final checks = SourceCheckStore.shared;
@@ -347,10 +427,15 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         if (_checker != null)
           ValueListenableBuilder<SourceCheckProgress?>(
             valueListenable: _checking,
-            builder: (_, progress, _) => IconButton(
+            builder: (_, progress, _) => PopupMenuButton<String>(
               tooltip: 'sources.check_all'.tr(),
-              onPressed: progress == null ? _checkAll : null,
-              icon: const Icon(Icons.health_and_safety_outlined),
+              enabled: progress == null,
+              icon: Icon(
+                Icons.health_and_safety_outlined,
+                color: _problemsOnly ? AppColors.primary : null,
+              ),
+              onSelected: _onCheckMenu,
+              itemBuilder: (_) => _checkMenu(),
             ),
           ),
         PopupMenuButton<String>(
@@ -893,11 +978,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   Widget _tabList(ProviderLoaded state, ContentMode mode, String needle) {
     final tab = _tabFor(state, mode, needle);
     final scope = _liveScope(tab.counts);
-    List<ProviderEntity> narrow(List<ProviderEntity> rows) => scope.isAll
+    List<ProviderEntity> narrow(List<ProviderEntity> rows) =>
+        scope.isAll && !_problemsOnly
         ? rows
         : [
             for (final p in rows)
-              if (scope.matches(p)) p,
+              if (scope.matches(p) && (!_problemsOnly || _isProblem(p))) p,
           ];
     // Down sources sink rather than vanish unless the user asked: a sweep
     // from a datacenter is not the last word on what works from a phone.
@@ -906,11 +992,16 @@ class _SourcesHubPageState extends State<SourcesHubPage>
       rows,
       (p) => p.id,
       keyOf: (p) => p.healthKey,
-      hide: health.hideDown,
+      // Asking to see the problems is asking to see the down ones too.
+      hide: health.hideDown && !_problemsOnly,
       keep: (p) => p.id == state.currentProviderId,
     );
     final matched = arrange(narrow(tab.matched));
     final unstated = arrange(narrow(tab.unstated));
+    _shownIds = [
+      for (final p in [...matched, ...unstated])
+        if (state.isUsable(p) && !Catalogue.isId(p.id)) p.id,
+    ];
 
     if (matched.isEmpty && unstated.isEmpty) {
       return Column(
@@ -1007,6 +1098,13 @@ class _SourcesHubPageState extends State<SourcesHubPage>
           current: rows[i].id == state.currentProviderId,
           onTap: () => _use(rows[i]),
           onBrowse: () => setState(() => _open = rows[i]),
+          onLongPress: _checker == null || Catalogue.isId(rows[i].id)
+              ? null
+              : () => showSourceCheckSheet(
+                  context,
+                  id: rows[i].id,
+                  name: rows[i].name,
+                ),
         ),
       ),
     );
@@ -1019,6 +1117,7 @@ class _SourceTile extends StatelessWidget {
     required this.source,
     required this.onTap,
     required this.onBrowse,
+    this.onLongPress,
     this.current = false,
     this.health,
   });
@@ -1030,6 +1129,9 @@ class _SourceTile extends StatelessWidget {
   final bool current;
   final VoidCallback onTap;
   final VoidCallback onBrowse;
+
+  /// What this phone knows about the source, and a check on demand.
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1047,6 +1149,7 @@ class _SourceTile extends StatelessWidget {
 
     return HoverTap(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -1095,6 +1198,7 @@ class _SourceTile extends StatelessWidget {
                         SourceHealthBadge(
                           verdict: health!,
                           sourceName: source.name,
+                          sourceId: source.id,
                         ),
                       ],
                     ],

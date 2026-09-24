@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:soplay/features/sources/presentation/widgets/source_verdict.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/app_dates.dart';
 import 'package:soplay/core/system/responsive.dart';
@@ -24,10 +25,14 @@ class SourceHealthBadge extends StatelessWidget {
     super.key,
     required this.verdict,
     required this.sourceName,
+    this.sourceId,
   });
 
   final RemoteVerdict verdict;
   final String sourceName;
+
+  /// When given, the details offer to check the source again from here.
+  final String? sourceId;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +47,12 @@ class SourceHealthBadge extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: () {
           HapticFeedback.selectionClick();
-          showSourceHealthDetails(context, sourceName, verdict);
+          showSourceHealthDetails(
+            context,
+            sourceName,
+            verdict,
+            sourceId: sourceId,
+          );
         },
         child: Padding(
           // A bigger target than the pill itself, without a bigger pill.
@@ -105,8 +115,9 @@ String healthReasonText(String? reason) {
 Future<void> showSourceHealthDetails(
   BuildContext context,
   String sourceName,
-  RemoteVerdict verdict,
-) {
+  RemoteVerdict verdict, {
+  String? sourceId,
+}) {
   return showAdaptiveModal<void>(
     context: context,
     backgroundColor: AppColors.background,
@@ -114,15 +125,17 @@ Future<void> showSourceHealthDetails(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
     ),
-    builder: (_) => _HealthSheet(name: sourceName, verdict: verdict),
+    builder: (_) =>
+        _HealthSheet(name: sourceName, verdict: verdict, id: sourceId),
   );
 }
 
 class _HealthSheet extends StatelessWidget {
-  const _HealthSheet({required this.name, required this.verdict});
+  const _HealthSheet({required this.name, required this.verdict, this.id});
 
   final String name;
   final RemoteVerdict verdict;
+  final String? id;
 
   @override
   Widget build(BuildContext context) {
@@ -251,6 +264,10 @@ class _HealthSheet extends StatelessWidget {
                 color: AppColors.textSecondary,
               ),
             ),
+            if (id != null) ...[
+              const SizedBox(height: 14),
+              CheckNowButton(id: id!),
+            ],
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,

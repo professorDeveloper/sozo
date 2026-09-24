@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/features/home/domain/entities/home_data_entity.dart';
 import 'package:soplay/features/home/domain/usecase/home_usecase.dart';
 
 import 'home_event.dart';
@@ -45,6 +46,32 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<HomeLoad>(_onHomeLoad);
   }
 
+  /// The catalogue load already asking a source, joined rather than repeated.
+  ///
+  /// A mode switch, a source pick and a rail change can each ask for Home in
+  /// the same moment; they used to become three identical requests — and for
+  /// an extension source, three calls queued one behind another in its
+  /// runtime, so the Home the viewer waited for took three times as long.
+  Future<Result<HomeDataEntity>>? _inflight;
+  String? _inflightFor;
+
+  Future<Result<HomeDataEntity>> _catalogueFor(String provider) {
+    final running = _inflight;
+    if (running != null && provider.isNotEmpty && _inflightFor == provider) {
+      return running;
+    }
+    final call = useCase();
+    _inflight = call;
+    _inflightFor = provider;
+    call.whenComplete(() {
+      if (identical(_inflight, call)) {
+        _inflight = null;
+        _inflightFor = null;
+      }
+    });
+    return call;
+  }
+
   Future<void> _onHomeLoad(HomeLoad event, Emitter<HomeState> emit) async {
     final token = ++_runToken;
     final provider = currentProvider?.call() ?? '';
@@ -67,7 +94,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     // 18 of them for a source that could not produce a single title. Nothing
     // rendered them, because a failed catalog emits [HomeError], but the app was
     // still asking a question whose answer it had already decided to throw away.
-    final result = await useCase();
+    final result = await _catalogueFor(provider);
     if (token != _runToken) return;
     debugPrint(
       '[HomeBloc] home: ${result.isSuccess ? 'ok' : 'fail: ${result.getErrorOrNull()}'}',

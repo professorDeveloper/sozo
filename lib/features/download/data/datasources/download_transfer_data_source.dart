@@ -383,6 +383,8 @@ class DownloadTransferDataSource {
   }) async {
     var playlistUrl = url;
     var playlist = await _text(url, headers, cancel);
+    String? master;
+    ({String url, String mediaTag, String streamTag})? audio;
 
     if (playlist.contains('#EXT-X-STREAM-INF')) {
       final variant = _pickVariant(playlist, _baseOf(url));
@@ -392,17 +394,46 @@ class DownloadTransferDataSource {
           'no variant in the master playlist',
         );
       }
+      master = playlist;
+      audio = audioRendition(playlist, _baseOf(url), variant);
       playlistUrl = variant;
       playlist = await _text(variant, headers, cancel);
     }
 
-    final segments = mediaSegments(playlist, _baseOf(playlistUrl));
-    if (segments.isEmpty) {
+    final video = _HlsPart(
+      playlist: playlist,
+      url: playlistUrl,
+      segments: mediaSegments(playlist, _baseOf(playlistUrl)),
+      segmentName: DownloadLayout.segmentName,
+      keyName: DownloadLayout.hlsKeyName,
+      mapName: DownloadLayout.hlsMapName,
+    );
+    if (video.segments.isEmpty) {
       return const TransferResult.failed(
         DownloadFailureKind.notMedia,
         'no segments in the playlist',
       );
     }
+
+    // Audio that is a rendition of its own. The variant's playlist then
+    // carries pictures only, and saving just that made a silent episode —
+    // which finished, verified, and played without a sound.
+    _HlsPart? sound;
+    if (audio != null) {
+      final text = await _text(audio.url, headers, cancel);
+      final segments = mediaSegments(text, _baseOf(audio.url));
+      if (segments.isNotEmpty) {
+        sound = _HlsPart(
+          playlist: text,
+          url: audio.url,
+          segments: segments,
+          segmentName: DownloadLayout.audioSegmentName,
+          keyName: DownloadLayout.hlsAudioKeyName,
+          mapName: DownloadLayout.hlsAudioMapName,
+        );
+      }
+    }
+    final parts = [video, ?sound];
 
     // Keys and init segments. The playlist used to be saved with their URIs
     // untouched — pointing at the CDN, or relative to a folder that does not
@@ -410,58 +441,68 @@ class DownloadTransferDataSource {
     // then could not decrypt one of them offline, and an fMP4 stream had no
     // header to start decoding from. They are fetched like segments and the
     // playlist is rewritten to the local copies.
-    final auxNames = <String, String>{};
-    final aux = auxiliaryUris(playlist);
-    for (var i = 0; i < aux.length; i++) {
-      if (cancel.isCancelled) {
-        return const TransferResult.failed(
-          DownloadFailureKind.unknown,
-          'cancelled',
-        );
+    for (final part in parts) {
+      final aux = auxiliaryUris(part.playlist);
+      for (var i = 0; i < aux.length; i++) {
+        if (cancel.isCancelled) {
+          return const TransferResult.failed(
+            DownloadFailureKind.unknown,
+            'cancelled',
+          );
+        }
+        final entry = aux[i];
+        final resolved = _resolve(entry.uri, _baseOf(part.url));
+        // A `data:` key is already inline, and an `skd://` one is FairPlay,
+        // which no file on disk could stand in for. Both stay as they are.
+        if (!resolved.startsWith('http://') &&
+            !resolved.startsWith('https://')) {
+          continue;
+        }
+        final name = entry.isMap
+            ? part.mapName(i, _mapExtensionFor(resolved))
+            : part.keyName(i);
+        final file = File('$dirPath/$name');
+        if (!await file.exists() || await file.length() <= 0) {
+          await _fetchToFile(
+            url: resolved,
+            file: file,
+            headers: headers,
+            cancel: cancel,
+            attempts: _segmentAttempts,
+            range: entry.range,
+            // A key is sixteen raw bytes, and servers label it as anything —
+            // text/plain included. The media check would refuse a good key.
+            checkMedia: false,
+          );
+        }
+        part.auxNames[entry.key] = name;
       }
-      final entry = aux[i];
-      final resolved = _resolve(entry.uri, _baseOf(playlistUrl));
-      // A `data:` key is already inline, and an `skd://` one is FairPlay,
-      // which no file on disk could stand in for. Both stay as they are.
-      if (!resolved.startsWith('http://') && !resolved.startsWith('https://')) {
-        continue;
-      }
-      final name = entry.isMap
-          ? DownloadLayout.hlsMapName(i, _mapExtensionFor(resolved))
-          : DownloadLayout.hlsKeyName(i);
-      final file = File('$dirPath/$name');
-      if (!await file.exists() || await file.length() <= 0) {
-        await _fetchToFile(
-          url: resolved,
-          file: file,
-          headers: headers,
-          cancel: cancel,
-          attempts: _segmentAttempts,
-          range: entry.range,
-          // A key is sixteen raw bytes, and servers label it as anything —
-          // text/plain included. The media check would refuse a good key.
-          checkMedia: false,
-        );
-      }
-      auxNames[entry.key] = name;
     }
 
+    // One queue over video and audio together, so the workers stay busy
+    // across the boundary instead of draining at the end of each.
+    final jobs = [
+      for (final part in parts)
+        for (var i = 0; i < part.segments.length; i++) (part: part, index: i),
+    ];
     var bytes = 0;
     var done = 0;
-    await _pool(segments.length, _segmentWorkers, cancel, (i) async {
-      final file = File('$dirPath/${DownloadLayout.segmentName(i)}');
+    await _pool(jobs.length, _segmentWorkers, cancel, (j) async {
+      final job = jobs[j];
+      final segment = job.part.segments[job.index];
+      final file = File('$dirPath/${job.part.segmentName(job.index)}');
       // A segment already on disk is only trusted if it is non-empty. The old
       // code trusted any file that existed, so a segment truncated by a killed
       // process was never re-fetched and the episode played to that point and
       // stopped.
       if (!await file.exists() || await file.length() <= 0) {
         await _fetchToFile(
-          url: segments[i].url,
+          url: segment.url,
           file: file,
           headers: headers,
           cancel: cancel,
           attempts: _segmentAttempts,
-          range: segments[i].range,
+          range: segment.range,
         );
       }
       if (cancel.isCancelled) return;
@@ -470,7 +511,7 @@ class DownloadTransferDataSource {
       onProgress(
         TransferProgress(
           completedUnits: done,
-          totalUnits: segments.length,
+          totalUnits: jobs.length,
           sizeBytes: bytes,
         ),
       );
@@ -482,26 +523,130 @@ class DownloadTransferDataSource {
       );
     }
 
-    // The manifest first, then the playlist. The playlist is what the verifier
-    // treats as "this download exists", so writing it last means a crash
-    // between the two leaves an incomplete download that still reads as
+    // The manifest first, then the playlists, the index last. The index is
+    // what the verifier treats as "this download exists", so writing it last
+    // means a crash in between leaves a download that still reads as
     // incomplete.
     await _writeManifest(
       dirPath: dirPath,
       kind: DownloadKind.hls,
-      parts: segments.length,
+      parts: video.segments.length,
       bytes: bytes,
+      audioParts: sound?.segments.length,
     );
-    await File(
-      '$dirPath/${DownloadLayout.hlsIndexName}',
-    ).writeAsString(localPlaylist(playlist, auxNames));
+    final index = File('$dirPath/${DownloadLayout.hlsIndexName}');
+    if (sound == null || master == null || audio == null) {
+      await index.writeAsString(localPlaylist(playlist, video.auxNames));
+    } else {
+      await File(
+        '$dirPath/${DownloadLayout.hlsVideoPlaylistName}',
+      ).writeAsString(localPlaylist(video.playlist, video.auxNames));
+      await File(
+        '$dirPath/${DownloadLayout.hlsAudioPlaylistName}',
+      ).writeAsString(
+        localPlaylist(
+          sound.playlist,
+          sound.auxNames,
+          DownloadLayout.audioSegmentName,
+        ),
+      );
+      await index.writeAsString(
+        localMaster(
+          master: master,
+          mediaTag: audio.mediaTag,
+          streamTag: audio.streamTag,
+        ),
+      );
+    }
 
     return TransferResult.success(
-      artefactPath: '$dirPath/${DownloadLayout.hlsIndexName}',
-      completedUnits: segments.length,
-      totalUnits: segments.length,
+      artefactPath: index.path,
+      completedUnits: jobs.length,
+      totalUnits: jobs.length,
       sizeBytes: bytes,
     );
+  }
+
+  static final RegExp _audioGroup = RegExp(r'AUDIO="([^"]*)"');
+  static final RegExp _groupId = RegExp(r'GROUP-ID="([^"]*)"');
+
+  /// The audio rendition [variantUrl] plays with, when [master] gives its
+  /// audio a playlist of its own: the group's DEFAULT=YES track, else its
+  /// first. Null when the audio is inside the variant's own segments.
+  @visibleForTesting
+  static ({String url, String mediaTag, String streamTag})? audioRendition(
+    String master,
+    String base,
+    String variantUrl,
+  ) {
+    final lines = master.split(RegExp(r'\r?\n')).map((l) => l.trim()).toList();
+    String? streamTag;
+    for (var i = 0; i < lines.length && streamTag == null; i++) {
+      if (!lines[i].startsWith('#EXT-X-STREAM-INF')) continue;
+      for (var j = i + 1; j < lines.length; j++) {
+        if (lines[j].isEmpty || lines[j].startsWith('#')) continue;
+        if (_resolveStatic(lines[j], base) == variantUrl) streamTag = lines[i];
+        break;
+      }
+    }
+    final group = streamTag == null
+        ? null
+        : _audioGroup.firstMatch(streamTag)?.group(1);
+    if (group == null) return null;
+    String? chosen;
+    for (final line in lines) {
+      if (!line.startsWith('#EXT-X-MEDIA:')) continue;
+      if (!line.contains('TYPE=AUDIO')) continue;
+      if (_groupId.firstMatch(line)?.group(1) != group) continue;
+      if (_uriAttribute.firstMatch(line) == null) continue;
+      chosen ??= line;
+      if (line.contains('DEFAULT=YES')) {
+        chosen = line;
+        break;
+      }
+    }
+    if (chosen == null) return null;
+    return (
+      url: _resolveStatic(_uriAttribute.firstMatch(chosen)!.group(1)!, base),
+      mediaTag: chosen,
+      streamTag: streamTag!,
+    );
+  }
+
+  /// The master written beside a video and an audio playlist: the one audio
+  /// track, switched on, and the one variant. Group references to anything
+  /// not saved (subtitles, captions, other video angles) are dropped, or a
+  /// player looks for a group that is not there.
+  @visibleForTesting
+  static String localMaster({
+    required String master,
+    required String mediaTag,
+    required String streamTag,
+  }) {
+    final out = StringBuffer('#EXTM3U\n');
+    for (final raw in master.split(RegExp(r'\r?\n'))) {
+      final line = raw.trim();
+      if (line.startsWith('#EXT-X-VERSION') ||
+          line.startsWith('#EXT-X-INDEPENDENT-SEGMENTS')) {
+        out.writeln(line);
+      }
+    }
+    var media = mediaTag.replaceFirst(
+      _uriAttribute,
+      'URI="${DownloadLayout.hlsAudioPlaylistName}"',
+    );
+    media = media.contains('DEFAULT=')
+        ? media.replaceFirst(RegExp(r'DEFAULT=(YES|NO)'), 'DEFAULT=YES')
+        : '$media,DEFAULT=YES';
+    out.writeln(media);
+    out.writeln(
+      streamTag.replaceAll(
+        RegExp(r',(SUBTITLES|CLOSED-CAPTIONS|VIDEO)=("[^"]*"|[A-Z]+)'),
+        '',
+      ),
+    );
+    out.writeln(DownloadLayout.hlsVideoPlaylistName);
+    return out.toString();
   }
 
   // --- prose ---------------------------------------------------------------
@@ -843,12 +988,14 @@ class DownloadTransferDataSource {
     required DownloadKind kind,
     required int parts,
     required int bytes,
+    int? audioParts,
   }) async {
     final file = File('$dirPath/${DownloadLayout.manifestName}');
     await file.writeAsString(
       jsonEncode({
         'kind': kind.id,
         'parts': parts,
+        'audioParts': ?audioParts,
         'bytes': bytes,
         'writtenAt': DateTime.now().millisecondsSinceEpoch,
       }),
@@ -1099,6 +1246,7 @@ class DownloadTransferDataSource {
   static String localPlaylist(
     String original, [
     Map<String, String> auxNames = const {},
+    String Function(int index) segmentName = DownloadLayout.segmentName,
   ]) {
     var index = 0;
     final out = StringBuffer();
@@ -1130,7 +1278,7 @@ class DownloadTransferDataSource {
         }
         out.writeln(rewritten);
       } else {
-        out.writeln(DownloadLayout.segmentName(index++));
+        out.writeln(segmentName(index++));
       }
     }
     return out.toString();
@@ -1150,3 +1298,26 @@ class DownloadTransferDataSource {
 /// Kept out of the class so `debugPrint` has somewhere to live without pulling
 /// Flutter into the transfer path's signatures.
 void logTransfer(String message) => debugPrint('[downloads] $message');
+
+/// One media playlist of a download — the video's, or its separate audio's —
+/// and the names its files take on disk.
+class _HlsPart {
+  _HlsPart({
+    required this.playlist,
+    required this.url,
+    required this.segments,
+    required this.segmentName,
+    required this.keyName,
+    required this.mapName,
+  });
+
+  final String playlist;
+  final String url;
+  final List<({String url, HlsByteRange? range})> segments;
+  final String Function(int index) segmentName;
+  final String Function(int index) keyName;
+  final String Function(int index, String extension) mapName;
+
+  /// Remote key/init references to their local names.
+  final Map<String, String> auxNames = {};
+}

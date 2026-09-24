@@ -2195,7 +2195,15 @@
     "v_empty": "Leeg",
     "v_failing": "Reageert niet",
     "v_outdated": "Update nodig",
-    "v_unknown": "Nog niet gecontroleerd"
+    "v_unknown": "Nog niet gecontroleerd",
+    "auto_sweep": "Beetje bij beetje controleren op wifi",
+    "check_now": "Nu controleren",
+    "check_shown": "Alles wat getoond wordt · {}",
+    "check_stale": "Nieuw en verouderd · {}",
+    "check_troubled": "Plat en falend · {}",
+    "checking_one": "Controleren…",
+    "never_checked": "Nog niet gecontroleerd op deze telefoon",
+    "problems_only": "Alleen problemen tonen"
   },
   "settings": {
     "dns_title": "DNS",

@@ -2195,7 +2195,15 @@
     "v_empty": "Bo‘sh",
     "v_failing": "Javob bermayapti",
     "v_outdated": "Yangilash kerak",
-    "v_unknown": "Hali tekshirilmagan"
+    "v_unknown": "Hali tekshirilmagan",
+    "auto_sweep": "Wi-Fi’da oz-ozdan tekshirib borish",
+    "check_now": "Hozir tekshirish",
+    "check_shown": "Ekrandagilarning hammasi · {}",
+    "check_stale": "Yangi va eskirganlar · {}",
+    "check_troubled": "Ishlamayotgan va nosozlar · {}",
+    "checking_one": "Tekshirilmoqda…",
+    "never_checked": "Bu telefonda hali tekshirilmagan",
+    "problems_only": "Faqat muammolilarni ko‘rsatish"
   },
   "settings": {
     "dns_title": "DNS",

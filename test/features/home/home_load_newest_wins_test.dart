@@ -146,6 +146,34 @@ void main() {
     await sub.cancel();
   });
 
+  test('loads of the same source at once share one request', () async {
+    final shared = HomeBloc(
+      useCase: HomeUseCase(repo),
+      currentProvider: () => 'my:source',
+    );
+    addTearDown(shared.close);
+    final seen = <HomeState>[];
+    final sub = shared.stream.listen(seen.add);
+    shared
+      ..add(HomeLoad())
+      ..add(HomeLoad())
+      ..add(HomeLoad(silent: true));
+    await pumpEventQueue();
+    expect(repo.homeCalls, hasLength(1));
+
+    repo.homeCalls.single.complete(Success(dataFor('my:source')));
+    await pumpEventQueue();
+    repo.genreCalls.last.complete(const Success(<GenreEntity>[]));
+    await pumpEventQueue();
+    expect(seen.whereType<HomeLoaded>(), isNotEmpty);
+
+    // Finished, so the next one asks again.
+    shared.add(HomeLoad(silent: true));
+    await pumpEventQueue();
+    expect(repo.homeCalls, hasLength(2));
+    await sub.cancel();
+  });
+
   test('one load on its own still emits', () async {
     // The guard must not be a way of emitting nothing at all.
     final seen = <HomeState>[];

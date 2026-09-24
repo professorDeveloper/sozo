@@ -2195,7 +2195,15 @@
     "v_empty": "Empty",
     "v_failing": "Not responding",
     "v_outdated": "Needs update",
-    "v_unknown": "Not checked yet"
+    "v_unknown": "Not checked yet",
+    "auto_sweep": "Check a few at a time on Wi-Fi",
+    "check_now": "Check now",
+    "check_shown": "Everything shown · {}",
+    "check_stale": "New and stale · {}",
+    "check_troubled": "Down and failing · {}",
+    "checking_one": "Checking…",
+    "never_checked": "Not checked on this phone yet",
+    "problems_only": "Show problems only"
   },
   "settings": {
     "dns_title": "DNS",

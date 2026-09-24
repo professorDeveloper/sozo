@@ -2195,7 +2195,15 @@
     "v_empty": "Kosong",
     "v_failing": "Tidak merespons",
     "v_outdated": "Perlu pembaruan",
-    "v_unknown": "Belum diperiksa"
+    "v_unknown": "Belum diperiksa",
+    "auto_sweep": "Periksa sedikit demi sedikit di Wi-Fi",
+    "check_now": "Periksa sekarang",
+    "check_shown": "Semua yang tampil · {}",
+    "check_stale": "Baru dan lama · {}",
+    "check_troubled": "Mati dan bermasalah · {}",
+    "checking_one": "Memeriksa…",
+    "never_checked": "Belum diperiksa di ponsel ini",
+    "problems_only": "Tampilkan yang bermasalah saja"
   },
   "settings": {
     "dns_title": "DNS",

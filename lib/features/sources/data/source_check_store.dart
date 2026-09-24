@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -109,6 +111,24 @@ class SourceCheckStore {
   }
 
   static const String _checksKey = 'source_checks';
+  static const String _autoKey = 'source_check_auto';
+
+  /// Whether a few stale sources are checked quietly after launch, on Wi-Fi.
+  /// On by default: with hundreds of sources, a verdict nobody refreshes is
+  /// soon a verdict nobody can trust.
+  bool get autoSweep {
+    try {
+      return _box?.get(_autoKey, defaultValue: true) != false;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> setAutoSweep(bool value) async {
+    try {
+      await _box?.put(_autoKey, value);
+    } catch (_) {}
+  }
 
   /// A check older than this is not shown as a verdict: a site that was down
   /// last month says nothing about today.
@@ -144,17 +164,52 @@ class SourceCheckStore {
   SourceVerdict verdictOf(String id) =>
       of(id)?.verdict ?? SourceVerdict.unknown;
 
-  Future<void> put(String id, SourceCheck check) async {
+  /// Records [check]. With [defer], the write to disk waits a moment so a run
+  /// over a thousand sources rewrites the table a few times, not a thousand.
+  Future<void> put(String id, SourceCheck check, {bool defer = false}) async {
     _all[id] = check;
     revision.value++;
-    await _flush();
+    defer ? _flushSoon() : await flush();
   }
 
   Future<void> putAll(Map<String, SourceCheck> checks) async {
     if (checks.isEmpty) return;
     _all.addAll(checks);
     revision.value++;
+    await flush();
+  }
+
+  Timer? _flushTimer;
+
+  void _flushSoon() {
+    _flushTimer ??= Timer(const Duration(seconds: 3), () {
+      _flushTimer = null;
+      unawaited(_flush());
+    });
+  }
+
+  /// Writes what is in memory now, and any deferred write with it.
+  Future<void> flush() async {
+    _flushTimer?.cancel();
+    _flushTimer = null;
     await _flush();
+  }
+
+  /// When [id] should next be looked at: never checked or gone stale first,
+  /// then the ones in trouble (to confirm or clear them), then the working
+  /// ones, oldest first. Lower comes first.
+  (int, int) urgencyOf(String id) {
+    final c = of(id);
+    if (c == null) return (0, 0);
+    final rank = switch (c.verdict) {
+      SourceVerdict.unknown => 0,
+      SourceVerdict.failing => 1,
+      SourceVerdict.dead || SourceVerdict.outdated => 2,
+      SourceVerdict.blocked => 3,
+      SourceVerdict.empty => 4,
+      SourceVerdict.alive => 5,
+    };
+    return (rank, c.at);
   }
 
   Future<void> _flush() async {

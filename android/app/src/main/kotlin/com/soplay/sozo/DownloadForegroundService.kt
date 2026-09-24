@@ -379,65 +379,123 @@ class DownloadForegroundService : Service() {
 
         var playlistUrl = url
         var playlist = readText(url, headers)
+        var master: String? = null
+        var audio: HlsDownloadPlaylist.AudioRendition? = null
         if (playlist.contains("#EXT-X-STREAM-INF")) {
             playlistUrl = HlsDownloadPlaylist.pickVariantUrl(playlist, HlsDownloadPlaylist.baseUrlOf(url))
                 ?: throw IOException("no variant in the master playlist")
+            master = playlist
+            audio = HlsDownloadPlaylist.audioRendition(playlist, HlsDownloadPlaylist.baseUrlOf(url), playlistUrl)
             playlist = readText(playlistUrl, headers)
         }
 
-        val segments = HlsDownloadPlaylist.parseSegments(playlist, HlsDownloadPlaylist.baseUrlOf(playlistUrl))
-        if (segments.isEmpty()) throw IOException("no segments in the playlist")
+        val video = HlsPart(
+            playlist, playlistUrl,
+            HlsDownloadPlaylist.parseSegments(playlist, HlsDownloadPlaylist.baseUrlOf(playlistUrl)),
+            segmentName = { "seg_$it.ts" },
+            keyName = { "key_$it.bin" },
+            mapName = { i, ext -> "init_$i$ext" }
+        )
+        if (video.segments.isEmpty()) throw IOException("no segments in the playlist")
+
+        // Audio that is a rendition of its own. The variant's playlist then
+        // carries pictures only, and saving just that made a silent episode
+        // that finished, verified and played without a sound.
+        var sound: HlsPart? = null
+        if (audio != null) {
+            val text = readText(audio.url, headers)
+            val segments = HlsDownloadPlaylist.parseSegments(text, HlsDownloadPlaylist.baseUrlOf(audio.url))
+            if (segments.isNotEmpty()) {
+                sound = HlsPart(
+                    text, audio.url, segments,
+                    segmentName = { "aud_$it.ts" },
+                    keyName = { "aud_key_$it.bin" },
+                    mapName = { i, ext -> "aud_init_$i$ext" }
+                )
+            }
+        }
+        val parts = listOfNotNull(video, sound)
 
         // Keys and init segments, fetched and pointed at locally. They used to
         // stay as CDN urls (or urls relative to a folder that does not exist on
         // the phone), so an AES-128 episode could not be decrypted offline and
         // an fMP4 one had no header to start from. Names match the Dart
         // downloader's, so either can read the other's folder.
-        val auxNames = HashMap<String, String>()
-        val aux = HlsDownloadPlaylist.auxiliaryEntries(playlist)
-        for (i in aux.indices) {
-            if (token.get()) return Transferred(0, segments.size.toLong(), 0)
-            val entry = aux[i]
-            val resolved = HlsDownloadPlaylist.resolveUrl(entry.uri, HlsDownloadPlaylist.baseUrlOf(playlistUrl))
-            // A data: key is already inline; skd:// is FairPlay. Both stay.
-            if (!resolved.startsWith("http://") && !resolved.startsWith("https://")) continue
-            val name = if (entry.isMap) "init_$i${HlsDownloadPlaylist.mapExtensionOf(resolved)}" else "key_$i.bin"
-            val file = File(folder, name)
-            if (!file.exists() || file.length() == 0L) {
-                // A key is sixteen raw bytes that servers label as anything,
-                // text/plain included; the media check would refuse a good one.
-                fetchPart(resolved, file, headers, token, entry.range, checkMedia = false)
+        for (part in parts) {
+            val aux = HlsDownloadPlaylist.auxiliaryEntries(part.playlist)
+            for (i in aux.indices) {
+                if (token.get()) return Transferred(0, video.segments.size.toLong(), 0)
+                val entry = aux[i]
+                val resolved = HlsDownloadPlaylist.resolveUrl(entry.uri, HlsDownloadPlaylist.baseUrlOf(part.url))
+                // A data: key is already inline; skd:// is FairPlay. Both stay.
+                if (!resolved.startsWith("http://") && !resolved.startsWith("https://")) continue
+                val name = if (entry.isMap) {
+                    part.mapName(i, HlsDownloadPlaylist.mapExtensionOf(resolved))
+                } else {
+                    part.keyName(i)
+                }
+                val file = File(folder, name)
+                if (!file.exists() || file.length() == 0L) {
+                    // A key is sixteen raw bytes that servers label as anything,
+                    // text/plain included; the media check would refuse a good one.
+                    fetchPart(resolved, file, headers, token, entry.range, checkMedia = false)
+                }
+                part.auxNames[entry.key] = name
             }
-            auxNames[entry.key] = name
         }
 
-        // Several at a time. One by one left the connection idle between
-        // round trips, and a 24-minute episode took about as long to save as
-        // to watch.
+        // Several at a time, video and audio in one queue. One by one left the
+        // connection idle between round trips, and a 24-minute episode took
+        // about as long to save as to watch.
+        val jobs = parts.flatMap { part -> part.segments.indices.map { part to it } }
+        val total = jobs.size.toLong()
         val done = AtomicInteger(0)
         val bytes = AtomicLong(0L)
-        inParallel(segments.size, SEGMENT_WORKERS, token) { i ->
-            val segment = File(folder, "seg_$i.ts")
+        inParallel(jobs.size, SEGMENT_WORKERS, token) { j ->
+            val (part, i) = jobs[j]
+            val segment = File(folder, part.segmentName(i))
             // A zero-length or missing segment is re-fetched. The old code
             // trusted any file that existed, so a segment truncated by a killed
             // process was never fetched again and the episode played to that
             // point and stopped.
             if (!segment.exists() || segment.length() == 0L) {
-                fetchPart(segments[i].url, segment, headers, token, segments[i].range)
+                fetchPart(part.segments[i].url, segment, headers, token, part.segments[i].range)
             }
             if (token.get()) return@inParallel
             val size = bytes.addAndGet(segment.length())
             val count = done.incrementAndGet().toLong()
-            reportProgress(id, title, url, artefactPath, count, segments.size.toLong(), size)
+            reportProgress(id, title, url, artefactPath, count, total, size)
         }
-        if (token.get()) return Transferred(done.get().toLong(), segments.size.toLong(), bytes.get())
+        if (token.get()) return Transferred(done.get().toLong(), total, bytes.get())
 
-        // The manifest first, the playlist last. The playlist is what the
-        // verifier treats as "this download exists", so a crash between the two
-        // leaves something that still reads as incomplete.
-        writeManifest(folder, KIND_HLS, segments.size, bytes.get())
-        target.writeText(HlsDownloadPlaylist.buildLocalPlaylist(playlist, auxNames))
-        return Transferred(segments.size.toLong(), segments.size.toLong(), bytes.get())
+        // The manifest first, the playlists next, the index last. The index is
+        // what the verifier treats as "this download exists", so a crash in
+        // between leaves something that still reads as incomplete.
+        writeManifest(folder, KIND_HLS, video.segments.size, bytes.get(), sound?.segments?.size)
+        val soundPart = sound
+        if (soundPart == null || master == null || audio == null) {
+            target.writeText(HlsDownloadPlaylist.buildLocalPlaylist(playlist, video.auxNames))
+        } else {
+            File(folder, HlsDownloadPlaylist.VIDEO_PLAYLIST)
+                .writeText(HlsDownloadPlaylist.buildLocalPlaylist(video.playlist, video.auxNames))
+            File(folder, HlsDownloadPlaylist.AUDIO_PLAYLIST).writeText(
+                HlsDownloadPlaylist.buildLocalPlaylist(soundPart.playlist, soundPart.auxNames, soundPart.segmentName)
+            )
+            target.writeText(HlsDownloadPlaylist.localMaster(master, audio.mediaTag, audio.streamTag))
+        }
+        return Transferred(total, total, bytes.get())
+    }
+
+    /** One media playlist of a download, and the names its files take on disk. */
+    private class HlsPart(
+        val playlist: String,
+        val url: String,
+        val segments: List<HlsDownloadPlaylist.Segment>,
+        val segmentName: (Int) -> String,
+        val keyName: (Int) -> String,
+        val mapName: (Int, String) -> String
+    ) {
+        val auxNames = HashMap<String, String>()
     }
 
     /**
@@ -758,10 +816,12 @@ class DownloadForegroundService : Service() {
      * how a half-downloaded episode came back as `completed` on the next
      * launch.
      */
-    private fun writeManifest(folder: File, kind: String, parts: Int, bytes: Long) {
+    private fun writeManifest(folder: File, kind: String, parts: Int, bytes: Long, audioParts: Int? = null) {
         val json = JSONObject()
             .put("kind", kind)
             .put("parts", parts)
+        if (audioParts != null) json.put("audioParts", audioParts)
+        json
             .put("bytes", bytes)
             .put("writtenAt", System.currentTimeMillis())
         File(folder, MANIFEST_NAME).writeText(json.toString())
