@@ -363,6 +363,11 @@ extension _PlayerMedia on _PlayerPageState {
       for (final t in value.subtitles)
         if (t.file.trim().isNotEmpty) t,
     ];
+    // A downloaded episode brings the subtitles kept with it.
+    if (_playsDownload) {
+      subs.addAll(await getIt<SubtitleSidecar>().load(_downloadId));
+      if (!mounted || generation != _mediaGeneration) return;
+    }
 
     setState(() {
       _stage = _LoadingStage.loading;
@@ -393,6 +398,21 @@ extension _PlayerMedia on _PlayerPageState {
     if (_errorMessage == null) _partyEmitContent(ep, _currentLang);
     _autoPickSubtitle(subs);
   }
+
+  /// Playing a file this app downloaded rather than a stream.
+  bool get _playsDownload {
+    final u = widget.args.movieUrl ?? '';
+    return u.startsWith('/') ||
+        u.startsWith('file:') ||
+        RegExp(r'^[A-Za-z]:[\\/]').hasMatch(u);
+  }
+
+  /// The id the download was stored under — the same the player, the
+  /// episode list and the detail page build when they start one.
+  String get _downloadId => DownloadRequest.videoId(
+    contentUrl: widget.args.contentUrl ?? widget.args.movieUrl ?? '',
+    episodeNumber: widget.args.offlineEpisodeNumber,
+  );
 
   /// The subtitle this episode starts with.
   ///

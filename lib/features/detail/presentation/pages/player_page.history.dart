@@ -499,6 +499,35 @@ extension _PlayerHistory on _PlayerPageState {
         episodeLabel: ep?.label,
       ),
     );
+    // The episode's subtitles go with it: offline there is no search to
+    // fall back on. Fetched now, while the player holds them with the
+    // headers their host wants.
+    if (outcome == EnqueueOutcome.started ||
+        outcome == EnqueueOutcome.alreadyPresent) {
+      final tracks = [
+        for (final s in _subtitles)
+          if (!s.file.startsWith('ai:')) s,
+      ];
+      if (tracks.isNotEmpty) {
+        final active =
+            _activeSubtitleIndex >= 0 &&
+                _activeSubtitleIndex < _subtitles.length
+            ? tracks.indexOf(_subtitles[_activeSubtitleIndex])
+            : -1;
+        unawaited(
+          getIt<SubtitleSidecar>().save(
+            DownloadRequest.videoId(
+              contentUrl: widget.args.contentUrl ?? url,
+              episodeNumber: widget.args.isSerial && ep != null
+                  ? ep.episode
+                  : null,
+            ),
+            tracks,
+            active: active,
+          ),
+        );
+      }
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

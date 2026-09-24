@@ -6,6 +6,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:soplay/features/download/data/subtitle_sidecar.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/network/external_dio.dart';
 import 'package:soplay/core/error/result.dart';
@@ -55,11 +56,16 @@ class DownloadRepositoryImpl implements DownloadRepository {
     required DownloadNativeDataSource native,
     required DownloadTransferDataSource transfer,
     required HiveService hive,
+    SubtitleSidecar? subtitles,
   }) : _local = local,
        _storage = storage,
        _native = native,
        _transfer = transfer,
-       _hive = hive;
+       _hive = hive,
+       _subtitles = subtitles;
+
+  /// The subtitle files kept with a video download, removed with it.
+  final SubtitleSidecar? _subtitles;
 
   final DownloadLocalDataSource _local;
   final DownloadStorage _storage;
@@ -332,6 +338,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
     }
     await _storage.deleteItem(id);
     await _local.delete(id);
+    await _subtitles?.delete(id);
   }
 
   @override
@@ -345,6 +352,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
         await _native.forget(id);
       }
       await _storage.deleteItem(id);
+      await _subtitles?.delete(id);
     }
     await _local.deleteAll(list);
   }

@@ -42,6 +42,7 @@ import 'package:soplay/features/download/data/datasources/download_local_data_so
 import 'package:soplay/features/download/data/datasources/download_native_data_source.dart';
 import 'package:soplay/features/download/data/datasources/download_transfer_data_source.dart';
 import 'package:soplay/features/download/data/repositories/download_repository_impl.dart';
+import 'package:soplay/features/download/data/subtitle_sidecar.dart';
 import 'package:soplay/features/download/data/storage/download_storage.dart';
 import 'package:soplay/features/download/domain/repositories/download_repository.dart';
 import 'package:soplay/features/download/domain/usecases/control_download_usecase.dart';
@@ -227,6 +228,7 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<DownloadTransferDataSource>(
     DownloadTransferDataSource(),
   );
+  getIt.registerSingleton<SubtitleSidecar>(SubtitleSidecar());
   getIt.registerSingleton<DownloadRepository>(
     DownloadRepositoryImpl(
       local: getIt<DownloadLocalDataSource>(),
@@ -234,6 +236,7 @@ Future<void> configureDependencies() async {
       native: getIt<DownloadNativeDataSource>(),
       transfer: getIt<DownloadTransferDataSource>(),
       hive: getIt<HiveService>(),
+      subtitles: getIt<SubtitleSidecar>(),
     ),
   );
   getIt.registerLazySingleton<EnqueueDownloadUseCase>(
