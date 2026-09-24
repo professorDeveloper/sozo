@@ -274,7 +274,7 @@ class AchievementsView {
   final List<AchievementFamily> families;
   final List<AchievementSingle> singles;
 
-  /// Up to three ids, as the profile chose them.
+  /// Up to six ids, as the profile chose them.
   final List<String> showcase;
   final List<AchievementUnlock> recent;
 

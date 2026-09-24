@@ -39,7 +39,10 @@ Future<void> openAchievement(
   required String id,
 }) => showMedalViewer(context, id: id, view: view);
 
-/// Picks up to three earned badges to show beside the profile's name.
+/// How many badges a profile can put on show; the server holds the same.
+const int showcaseMax = 6;
+
+/// Picks up to [showcaseMax] earned badges to show beside the profile's name.
 Future<void> showShowcasePicker(
   BuildContext context, {
   required AchievementsView view,
@@ -63,7 +66,7 @@ class _ShowcasePickerState extends State<_ShowcasePicker> {
   void _toggle(String id) {
     setState(() {
       if (_picked.remove(id)) return;
-      if (_picked.length >= 3) _picked.removeAt(0);
+      if (_picked.length >= showcaseMax) _picked.removeAt(0);
       _picked.add(id);
     });
   }

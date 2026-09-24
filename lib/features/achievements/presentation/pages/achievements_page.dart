@@ -368,14 +368,22 @@ class _Showcase extends StatelessWidget {
             ),
           )
         else
-          Row(
+          // Three to a row, up to two rows.
+          Column(
             children: [
-              for (var i = 0; i < 3; i++) ...[
-                if (i > 0) const SizedBox(width: 10),
-                Expanded(
-                  child: i < ids.length
-                      ? _ShowcaseTile(id: ids[i], view: view)
-                      : const SizedBox.shrink(),
+              for (var row = 0; row * 3 < ids.length; row++) ...[
+                if (row > 0) const SizedBox(height: 10),
+                Row(
+                  children: [
+                    for (var i = row * 3; i < row * 3 + 3; i++) ...[
+                      if (i > row * 3) const SizedBox(width: 10),
+                      Expanded(
+                        child: i < ids.length
+                            ? _ShowcaseTile(id: ids[i], view: view)
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ],
