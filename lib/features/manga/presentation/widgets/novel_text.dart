@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// A novel chapter, rendered from the HTML its source returned.
@@ -35,6 +36,13 @@ class NovelText extends StatelessWidget {
     this.speakingEnd = 0,
     this.speakingKey,
     this.speakingColor = const Color(0x553D8BFF),
+    this.marks = const [],
+    this.slices,
+    this.onHighlight,
+    this.onUnhighlight,
+    this.revealBlock = -1,
+    this.revealKey,
+    this.textScaler,
   });
 
   /// The sentence being read aloud: characters [speakingStart] to
@@ -79,29 +87,66 @@ class NovelText extends StatelessWidget {
   /// Gap after each paragraph.
   final double paragraphSpacing;
 
+  /// The reader's highlights.
+  final List<NovelMark> marks;
+
+  /// Only these pieces of the chapter, for one page of the book layout. Null
+  /// draws all of it.
+  final List<NovelSlice>? slices;
+
+  /// Offered on a selection, in the block's own character offsets.
+  final void Function(int block, int start, int end)? onHighlight;
+  final void Function(int block, int start, int end)? onUnhighlight;
+
+  /// A block to tag with [revealKey], so the reader can scroll to it.
+  final int revealBlock;
+  final GlobalKey? revealKey;
+
+  /// Pinned by the book layout, which measured its pages with it.
+  final TextScaler? textScaler;
+
   @override
   Widget build(BuildContext context) {
     final needle = query.trim().toLowerCase();
-    var seen = 0;
-    final children = <Widget>[];
     final blocks = parseNovelBlocks(html);
-    for (var i = 0; i < blocks.length; i++) {
+    final pieces =
+        slices ??
+        [
+          for (var i = 0; i < blocks.length; i++)
+            NovelSlice(i, 0, blocks[i].text.length),
+        ];
+    final before = <int>[];
+    if (needle.isNotEmpty) {
+      var seen = 0;
+      for (final b in blocks) {
+        before.add(seen);
+        seen += countMatches(b.text.toLowerCase(), needle);
+      }
+    }
+    final children = <Widget>[];
+    for (final slice in pieces) {
+      final i = slice.block;
+      if (i < 0 || i >= blocks.length) continue;
       final block = blocks[i];
       final count = needle.isEmpty
           ? 0
           : countMatches(block.text.toLowerCase(), needle);
-      final first = seen;
-      seen += count;
+      final first = needle.isEmpty ? 0 : before[i];
       final holdsActive = activeMatch >= first && activeMatch < first + count;
       final speaking = i == speakingBlock;
       var w = _block(
+        i,
         block,
+        slice,
         needle,
         holdsActive ? activeMatch - first : -1,
         speaking ? (speakingStart, speakingEnd) : null,
       );
       if (speaking && speakingKey != null) {
         w = KeyedSubtree(key: speakingKey, child: w);
+      }
+      if (i == revealBlock && revealKey != null) {
+        w = KeyedSubtree(key: revealKey, child: w);
       }
       children.add(
         holdsActive && activeKey != null
@@ -140,115 +185,261 @@ class NovelText extends StatelessWidget {
     return n;
   }
 
+  /// Where the [index]-th occurrence of [query] starts, as a block and an
+  /// offset into it.
+  static (int, int)? locateMatch(String html, String query, int index) {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty || index < 0) return null;
+    var n = 0;
+    final blocks = parseNovelBlocks(html);
+    for (var b = 0; b < blocks.length; b++) {
+      final hay = blocks[b].text.toLowerCase();
+      for (
+        var i = hay.indexOf(needle);
+        i >= 0;
+        i = hay.indexOf(needle, i + needle.length)
+      ) {
+        if (n++ == index) return (b, i);
+      }
+    }
+    return null;
+  }
+
+  List<InlineSpan> _decorate(
+    int index,
+    NovelBlock block,
+    List<InlineSpan> spans,
+    String needle,
+    int active,
+    (int, int)? spoken,
+  ) {
+    var out = spans;
+    for (final m in marks) {
+      if (m.block != index) continue;
+      out = _paint(
+        out,
+        m.start,
+        m.end,
+        (s) => s.copyWith(
+          backgroundColor: m.color,
+          decoration: m.noted ? TextDecoration.underline : null,
+          decorationStyle: m.noted ? TextDecorationStyle.dotted : null,
+          decorationColor: m.noted ? color.withValues(alpha: 0.7) : null,
+        ),
+      );
+    }
+    if (spoken != null) {
+      out = _paint(
+        out,
+        spoken.$1,
+        spoken.$2,
+        (s) => s.copyWith(backgroundColor: speakingColor),
+      );
+    }
+    if (needle.isNotEmpty) {
+      const soft = Color(0x66FFD54F);
+      const strong = Color(0xFFFF9800);
+      final hay = block.text.toLowerCase();
+      var n = 0;
+      for (
+        var i = hay.indexOf(needle);
+        i >= 0;
+        i = hay.indexOf(needle, i + needle.length)
+      ) {
+        final current = n++ == active;
+        out = _paint(
+          out,
+          i,
+          i + needle.length,
+          (s) => s.copyWith(
+            backgroundColor: current ? strong : soft,
+            color: current ? Colors.black : null,
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
   Widget _block(
-    NovelBlock block, [
+    int index,
+    NovelBlock block,
+    NovelSlice slice, [
     String needle = '',
     int active = -1,
     (int, int)? spoken,
   ]) {
+    final whole = slice.start <= 0 && slice.end >= block.text.length;
+    final ends = slice.end >= block.text.length;
     switch (block.kind) {
       case NovelBlockKind.rule:
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18),
+          padding: const EdgeInsets.symmetric(vertical: kNovelRulePadding),
           child: Divider(color: color.withValues(alpha: 0.25), height: 1),
         );
       case NovelBlockKind.heading:
+        var spans = _paint(
+          [TextSpan(text: block.text)],
+          spoken?.$1 ?? 0,
+          spoken?.$2 ?? 0,
+          (s) => s.copyWith(backgroundColor: speakingColor),
+        );
+        if (!whole) spans = cutSpans(spans, slice.start, slice.end);
         return Padding(
-          padding: EdgeInsets.only(bottom: paragraphSpacing, top: 6),
+          padding: EdgeInsets.only(
+            bottom: ends ? paragraphSpacing : 0,
+            top: slice.start == 0 ? kNovelHeadingTop : 0,
+          ),
           child: Text.rich(
-            TextSpan(
-              children: _paintRange(
-                [TextSpan(text: block.text)],
-                spoken,
-                speakingColor,
-              ),
-            ),
+            TextSpan(children: spans),
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: color,
-              fontFamily: fontFamily,
-              fontSize: fontSize + 4,
-              height: 1.35,
-              fontWeight: FontWeight.w800,
-            ),
+            textScaler: textScaler,
+            style: headingStyle(color, fontFamily, fontSize),
           ),
         );
       case NovelBlockKind.paragraph:
+        var spans = _decorate(
+          index,
+          block,
+          block.spans(color, fontFamily, fontSize, lineHeight),
+          needle,
+          active,
+          spoken,
+        );
+        if (!whole) spans = cutSpans(spans, slice.start, slice.end);
         return Padding(
-          padding: EdgeInsets.only(bottom: paragraphSpacing),
+          padding: EdgeInsets.only(bottom: ends ? paragraphSpacing : 0),
           // Selectable because somebody reading a translation looks words up.
           child: SelectableText.rich(
-            TextSpan(
-              children: _highlight(
-                _paintRange(
-                  block.spans(color, fontFamily, fontSize, lineHeight),
-                  spoken,
-                  speakingColor,
-                ),
-                needle,
-                active,
-              ),
-            ),
+            TextSpan(children: spans),
             textAlign: justify ? TextAlign.justify : TextAlign.start,
+            textScaler: textScaler,
+            strutStyle: StrutStyle.disabled,
+            contextMenuBuilder: onHighlight == null
+                ? _defaultMenu
+                : (context, state) => _menu(state, index, slice.start),
           ),
         );
     }
   }
-}
 
-/// [spans] with every occurrence of [needle] painted, the [active]-th (in
-/// this block) stronger. Works across the bold and italic runs a paragraph
-/// is split into, since a word can straddle them only as a whole run.
-List<InlineSpan> _highlight(List<InlineSpan> spans, String needle, int active) {
-  if (needle.isEmpty) return spans;
-  const soft = Color(0x66FFD54F);
-  const strong = Color(0xFFFF9800);
-  var index = 0;
-  final out = <InlineSpan>[];
-  for (final span in spans) {
-    if (span is! TextSpan || span.text == null) {
-      out.add(span);
-      continue;
-    }
-    final text = span.text!;
-    final lower = text.toLowerCase();
-    var from = 0;
-    for (
-      var i = lower.indexOf(needle);
-      i >= 0;
-      i = lower.indexOf(needle, i + needle.length)
-    ) {
-      if (i > from) {
-        out.add(TextSpan(text: text.substring(from, i), style: span.style));
-      }
-      out.add(
-        TextSpan(
-          text: text.substring(i, i + needle.length),
-          style: (span.style ?? const TextStyle()).copyWith(
-            backgroundColor: index == active ? strong : soft,
-            color: index == active ? Colors.black : null,
+  static Widget _defaultMenu(BuildContext context, EditableTextState state) =>
+      AdaptiveTextSelectionToolbar.editableText(editableTextState: state);
+
+  Widget _menu(EditableTextState state, int index, int offset) {
+    final items = state.contextMenuButtonItems.toList();
+    final sel = state.textEditingValue.selection;
+    if (sel.isValid && !sel.isCollapsed) {
+      final a = offset + sel.start;
+      final b = offset + sel.end;
+      void collapse() {
+        state.hideToolbar();
+        state.userUpdateTextEditingValue(
+          state.textEditingValue.copyWith(
+            selection: TextSelection.collapsed(offset: sel.end),
           ),
+          SelectionChangedCause.toolbar,
+        );
+      }
+
+      items.insert(
+        0,
+        ContextMenuButtonItem(
+          label: 'manga.highlight'.tr(),
+          onPressed: () {
+            collapse();
+            onHighlight!(index, a, b);
+          },
         ),
       );
-      index++;
-      from = i + needle.length;
+      final marked = marks.any(
+        (m) => m.block == index && m.start < b && a < m.end,
+      );
+      if (marked && onUnhighlight != null) {
+        items.insert(
+          1,
+          ContextMenuButtonItem(
+            label: 'manga.remove_highlight'.tr(),
+            onPressed: () {
+              collapse();
+              onUnhighlight!(index, a, b);
+            },
+          ),
+        );
+      }
     }
-    if (from < text.length) {
-      out.add(TextSpan(text: text.substring(from), style: span.style));
-    }
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: state.contextMenuAnchors,
+      buttonItems: items,
+    );
   }
-  return out;
 }
 
-/// [spans] with characters [range] of their joined text given a [background],
+/// Gap above a heading, and above and below a rule. Shared with the book
+/// layout, which has to measure the page the same way it is drawn.
+const double kNovelHeadingTop = 6;
+const double kNovelRulePadding = 18;
+
+TextStyle headingStyle(Color color, String? family, double size) => TextStyle(
+  color: color,
+  fontFamily: family,
+  fontSize: size + 4,
+  height: 1.35,
+  fontWeight: FontWeight.w800,
+);
+
+/// A highlight to draw: characters [start] to [end] of block [block].
+class NovelMark {
+  const NovelMark(
+    this.block,
+    this.start,
+    this.end,
+    this.color, {
+    this.noted = false,
+  });
+
+  final int block;
+  final int start;
+  final int end;
+  final Color color;
+
+  /// Carries a note, which is drawn as a dotted underline.
+  final bool noted;
+}
+
+/// Characters [start] to [end] of block [block]: the whole block, or the part
+/// of it that fits on a page.
+@immutable
+class NovelSlice {
+  const NovelSlice(this.block, this.start, this.end);
+
+  final int block;
+  final int start;
+  final int end;
+
+  @override
+  bool operator ==(Object other) =>
+      other is NovelSlice &&
+      other.block == block &&
+      other.start == start &&
+      other.end == end;
+
+  @override
+  int get hashCode => Object.hash(block, start, end);
+
+  @override
+  String toString() => 'NovelSlice($block, $start, $end)';
+}
+
+/// [spans] with characters [from] to [to] of their joined text restyled,
 /// split across the emphasis runs the range crosses.
-List<InlineSpan> _paintRange(
+List<InlineSpan> _paint(
   List<InlineSpan> spans,
-  (int, int)? range,
-  Color background,
+  int from,
+  int to,
+  TextStyle Function(TextStyle) restyle,
 ) {
-  if (range == null || range.$2 <= range.$1) return spans;
-  final (from, to) = range;
+  if (to <= from) return spans;
   var offset = 0;
   final out = <InlineSpan>[];
   for (final span in spans) {
@@ -270,14 +461,29 @@ List<InlineSpan> _paintRange(
     out.add(
       TextSpan(
         text: text.substring(a, b),
-        style: (span.style ?? const TextStyle()).copyWith(
-          backgroundColor: background,
-        ),
+        style: restyle(span.style ?? const TextStyle()),
       ),
     );
     if (b < text.length) {
       out.add(TextSpan(text: text.substring(b), style: span.style));
     }
+  }
+  return out;
+}
+
+/// Characters [from] to [to] of the joined text of [spans], keeping styles.
+List<InlineSpan> cutSpans(List<InlineSpan> spans, int from, int to) {
+  var offset = 0;
+  final out = <InlineSpan>[];
+  for (final span in spans) {
+    if (span is! TextSpan || span.text == null) continue;
+    final text = span.text!;
+    final start = offset;
+    offset += text.length;
+    if (offset <= from || start >= to) continue;
+    final a = (from - start).clamp(0, text.length);
+    final b = (to - start).clamp(0, text.length);
+    out.add(TextSpan(text: text.substring(a, b), style: span.style));
   }
   return out;
 }
