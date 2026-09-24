@@ -45,6 +45,9 @@ import 'package:soplay/features/manga/data/tts/tts_engine.dart';
 import 'package:soplay/features/manga/presentation/tts/novel_tts_controller.dart';
 import 'package:soplay/features/manga/presentation/tts/tts_player_bar.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/automation/data/automation_settings.dart';
+import 'package:soplay/features/automation/domain/prefetch_slot.dart';
+import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
 
 class ReaderPage extends StatefulWidget {
   final ReaderArgs args;
@@ -169,6 +172,10 @@ class _ReaderPageState extends State<ReaderPage> {
   /// instead of painting the wrong chapter under the new chapter's title.
   int _loadToken = 0;
 
+  /// The next chapter's page list, fetched while this one is being read.
+  final PrefetchSlot<MangaPagesEntity> _chapterPrefetch =
+      PrefetchSlot<MangaPagesEntity>();
+
   /// How far through a novel chapter the reader is, in thousandths.
   ///
   /// Prose has no page index, so the history row carries this where a comic
@@ -201,6 +208,8 @@ class _ReaderPageState extends State<ReaderPage> {
     _novelFamily = _hive.getNovelFontFamily();
     _novelJustify = _hive.getNovelJustify();
     _itemPositionsListener.itemPositions.addListener(_onItemPositions);
+    _page.addListener(_maybePrefetchNextChapter);
+    _novelProgress.addListener(_maybePrefetchNextChapter);
     _novelScrollController.addListener(_onNovelScroll);
     if (!isDesktopPlatform) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -362,10 +371,13 @@ class _ReaderPageState extends State<ReaderPage> {
     }
     _localChapter = false;
 
-    final result = await getIt<GetPagesUseCase>()(
-      ref: ref,
-      provider: widget.args.provider,
-    );
+    final prefetched = await _chapterPrefetch.take(_prefetchKey(ch));
+    final result = prefetched != null
+        ? Success(prefetched)
+        : await getIt<GetPagesUseCase>()(
+            ref: ref,
+            provider: widget.args.provider,
+          );
     if (!mounted || token != _loadToken) return;
     switch (result) {
       case Success(:final value):
@@ -389,6 +401,77 @@ class _ReaderPageState extends State<ReaderPage> {
           _error = error.toString().replaceFirst('Exception: ', '');
           _loading = false;
         });
+    }
+  }
+
+  String _prefetchKey(EpisodeEntity ch) =>
+      '${widget.args.provider}|${ch.mediaRef}';
+
+  static const double _prefetchAt = 0.7;
+  static const int _prefetchImages = 4;
+
+  /// Lists the next chapter's pages and warms the disk cache with its first
+  /// few images once this chapter is mostly read, so turning the page onto it
+  /// does not start with a spinner. Downloaded chapters are already local.
+  void _maybePrefetchNextChapter() {
+    if (_loading || _error != null || _localChapter) return;
+    final next = _chapterIndex + 1;
+    if (next >= _chapters.length) return;
+    final ch = _chapters[next];
+    if (ch.mediaRef.isEmpty) return;
+    final isNovel = _html != null;
+    final read = isNovel
+        ? _novelPermille / 1000
+        : _pageCount == 0
+        ? 0.0
+        : ((_furthestSeenPage > _currentPage
+                      ? _furthestSeenPage
+                      : _currentPage) +
+                  1) /
+              _pageCount;
+    if (read < _prefetchAt) return;
+    final key = _prefetchKey(ch);
+    if (_chapterPrefetch.covers(key)) return;
+    if (!getIt.isRegistered<AutomationSettings>() ||
+        !getIt<AutomationSettings>().prefetchNextChapter) {
+      return;
+    }
+    final origin = _chapterIndex;
+    unawaited(
+      _chapterPrefetch.fill(key, () async {
+        final result = await getIt<GetPagesUseCase>()(
+          ref: ch.mediaRef,
+          provider: widget.args.provider,
+        );
+        if (result is! Success<MangaPagesEntity>) return null;
+        unawaited(_warmImages(result.value, origin));
+        return result.value;
+      }),
+    );
+  }
+
+  Future<void> _warmImages(MangaPagesEntity pages, int origin) async {
+    if (pages.isText) return;
+    for (final page in pages.pages.take(_prefetchImages)) {
+      if (!mounted ||
+          (_chapterIndex != origin && _chapterIndex != origin + 1)) {
+        return;
+      }
+      if (!page.imageUrl.startsWith('http')) continue;
+      final cookie = page.cookie;
+      try {
+        await DefaultCacheManager().getSingleFile(
+          page.imageUrl,
+          key: page.cacheKey,
+          headers: mergeHttpHeaders([
+            pages.headers,
+            page.headers,
+            if (cookie != null && cookie.isNotEmpty) {'Cookie': cookie},
+          ]),
+        );
+      } catch (_) {
+        // The reader fetches it again when the page is shown.
+      }
     }
   }
 

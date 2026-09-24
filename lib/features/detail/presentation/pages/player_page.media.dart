@@ -260,6 +260,7 @@ extension _PlayerMedia on _PlayerPageState {
     // row would count as one.
     _countedComplete = false;
     _endHandled = false;
+    _upNextDismissed = false;
     // And a new episode is a new question for the auto-translator: episode 4
     // may carry a subtitle in the viewer's language when episode 3 did not.
     _autoTranslateDone = false;
@@ -304,12 +305,19 @@ extension _PlayerMedia on _PlayerPageState {
     final lang = _resolveLangForEpisode(ep);
     final resolveSw = Stopwatch()..start();
     _plog('resolving ref=${ep.mediaRef} lang=$lang');
-    final result = await _resolve(
-      ref: ep.mediaRef,
-      provider: widget.args.provider,
-      lang: lang,
+    final prefetched = await _takePrefetched(ep, lang);
+    final result = prefetched != null
+        ? Success(prefetched)
+        : await _resolve(
+            ref: ep.mediaRef,
+            provider: widget.args.provider,
+            lang: lang,
+          );
+    _plog(
+      prefetched != null
+          ? 'resolve served from prefetch'
+          : 'resolve completed in ${resolveSw.elapsedMilliseconds}ms',
     );
-    _plog('resolve completed in ${resolveSw.elapsedMilliseconds}ms');
     if (!mounted || generation != _mediaGeneration) return null;
 
     switch (result) {
@@ -1558,6 +1566,7 @@ extension _PlayerMedia on _PlayerPageState {
       }
 
       _updateActiveSkip(v.position);
+      _maybePrefetchNext(v.position, v.duration);
 
       final remaining = v.duration - v.position;
       final isEnding = remaining <= const Duration(seconds: 2);
@@ -1575,6 +1584,7 @@ extension _PlayerMedia on _PlayerPageState {
         // not what counts as watched.
         if (!guestInParty &&
             !_sleepAtEpisodeEnd &&
+            !_upNextDismissed &&
             _hive.autoPlayNextEpisode &&
             widget.args.isSerial &&
             _hasNextEpisode) {

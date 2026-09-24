@@ -108,6 +108,9 @@ import 'package:soplay/core/torrent/torrent_stream_url.dart';
 import 'package:soplay/features/torrent/presentation/torrent_playback.dart';
 import 'package:soplay/features/torrent/presentation/widgets/torrent_stats_overlay.dart';
 import 'package:soplay/features/jellyfin/data/jellyfin_reporter.dart';
+import 'package:soplay/features/automation/data/auto_download_service.dart';
+import 'package:soplay/features/automation/data/automation_settings.dart';
+import 'package:soplay/features/automation/domain/prefetch_slot.dart';
 
 part 'player_page.models.dart';
 part 'player_page.widgets.dart';
@@ -124,6 +127,7 @@ part 'player_page.aniskip.dart';
 part 'player_page.party.dart';
 part 'player_page.tv.dart';
 part 'player_page.jellyfin.dart';
+part 'player_page.upnext.dart';
 
 /// Hard ceiling on auto-retries per episode — see [_PlayerPageState._lifetimeRetries].
 const int _kMaxLifetimeRetries = RetryPolicy.maxLifetimeRetries;
@@ -186,6 +190,12 @@ class _PlayerPageState extends State<PlayerPage>
   Timer? _sleepTicker;
   DateTime? _sleepDeadline;
   bool _sleepAtEpisodeEnd = false;
+
+  final PrefetchSlot<MediaResolveEntity> _nextResolve =
+      PrefetchSlot<MediaResolveEntity>();
+
+  /// "Cancel" on the Up next prompt: this episode ends without advancing.
+  bool _upNextDismissed = false;
 
   bool _isPip = false;
   bool _resumeAfterPause = false;
@@ -706,6 +716,7 @@ class _PlayerPageState extends State<PlayerPage>
     }
     _jellyfinStop();
     _saveHistory();
+    _schedulePruneAfterPlayback();
     // Push the position the viewer just stopped at, so another device can pick
     // it up. Without this the progress only leaves the phone the next time the
     // History screen happens to be opened.
@@ -846,6 +857,7 @@ class _PlayerPageState extends State<PlayerPage>
                       // active, so it costs nothing on non-anime playback.
                       if (!_locked) _buildPlayerInfoOverlay(),
                       if (!_locked) _buildSkipButton(),
+                      if (!_locked) _buildUpNextPrompt(),
                       if (!_locked && _panel != _SidePanel.none)
                         _buildSidePanel(),
                       if (!_locked && _inParty) _buildPartyReactionsLayer(),
