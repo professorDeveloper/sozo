@@ -183,6 +183,8 @@ import 'package:soplay/features/my_list/domain/usecases/add_favorite_usecase.dar
 import 'package:soplay/features/my_list/domain/usecases/get_favorites_usecase.dart';
 import 'package:soplay/features/my_list/domain/usecases/remove_favorite_usecase.dart';
 import 'package:soplay/features/my_list/domain/usecases/sync_favorites_usecase.dart';
+import 'package:soplay/features/manga/data/tts/flutter_tts_engine.dart';
+import 'package:soplay/features/manga/data/tts/tts_engine.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
 
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
@@ -919,6 +921,10 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<AppLockGate>(AppLockGate(getIt<AppLockRepository>()));
 
   getIt.registerLazySingleton<NavController>(() => NavController());
+
+  // One engine for the app: the platform synthesizer is a single shared
+  // service, and a second plugin instance would talk over the first.
+  getIt.registerLazySingleton<TtsEngine>(() => FlutterTtsEngine());
 }
 
 /// Everything that caches what the active profile's boxes held, told that

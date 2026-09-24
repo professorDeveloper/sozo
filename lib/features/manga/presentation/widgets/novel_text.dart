@@ -30,7 +30,21 @@ class NovelText extends StatelessWidget {
     this.query = '',
     this.activeMatch = -1,
     this.activeKey,
+    this.speakingBlock = -1,
+    this.speakingStart = 0,
+    this.speakingEnd = 0,
+    this.speakingKey,
+    this.speakingColor = const Color(0x553D8BFF),
   });
+
+  /// The sentence being read aloud: characters [speakingStart] to
+  /// [speakingEnd] of block [speakingBlock], whose widget carries
+  /// [speakingKey] so the reader can keep it in view. -1 for none.
+  final int speakingBlock;
+  final int speakingStart;
+  final int speakingEnd;
+  final GlobalKey? speakingKey;
+  final Color speakingColor;
 
   /// Text to find in the chapter, highlighted wherever it occurs. Empty for
   /// none.
@@ -70,14 +84,25 @@ class NovelText extends StatelessWidget {
     final needle = query.trim().toLowerCase();
     var seen = 0;
     final children = <Widget>[];
-    for (final block in parseNovelBlocks(html)) {
+    final blocks = parseNovelBlocks(html);
+    for (var i = 0; i < blocks.length; i++) {
+      final block = blocks[i];
       final count = needle.isEmpty
           ? 0
           : countMatches(block.text.toLowerCase(), needle);
       final first = seen;
       seen += count;
       final holdsActive = activeMatch >= first && activeMatch < first + count;
-      final w = _block(block, needle, holdsActive ? activeMatch - first : -1);
+      final speaking = i == speakingBlock;
+      var w = _block(
+        block,
+        needle,
+        holdsActive ? activeMatch - first : -1,
+        speaking ? (speakingStart, speakingEnd) : null,
+      );
+      if (speaking && speakingKey != null) {
+        w = KeyedSubtree(key: speakingKey, child: w);
+      }
       children.add(
         holdsActive && activeKey != null
             ? KeyedSubtree(key: activeKey, child: w)
@@ -115,7 +140,12 @@ class NovelText extends StatelessWidget {
     return n;
   }
 
-  Widget _block(NovelBlock block, [String needle = '', int active = -1]) {
+  Widget _block(
+    NovelBlock block, [
+    String needle = '',
+    int active = -1,
+    (int, int)? spoken,
+  ]) {
     switch (block.kind) {
       case NovelBlockKind.rule:
         return Padding(
@@ -125,8 +155,14 @@ class NovelText extends StatelessWidget {
       case NovelBlockKind.heading:
         return Padding(
           padding: EdgeInsets.only(bottom: paragraphSpacing, top: 6),
-          child: Text(
-            block.text,
+          child: Text.rich(
+            TextSpan(
+              children: _paintRange(
+                [TextSpan(text: block.text)],
+                spoken,
+                speakingColor,
+              ),
+            ),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: color,
@@ -144,7 +180,11 @@ class NovelText extends StatelessWidget {
           child: SelectableText.rich(
             TextSpan(
               children: _highlight(
-                block.spans(color, fontFamily, fontSize, lineHeight),
+                _paintRange(
+                  block.spans(color, fontFamily, fontSize, lineHeight),
+                  spoken,
+                  speakingColor,
+                ),
                 needle,
                 active,
               ),
@@ -195,6 +235,48 @@ List<InlineSpan> _highlight(List<InlineSpan> spans, String needle, int active) {
     }
     if (from < text.length) {
       out.add(TextSpan(text: text.substring(from), style: span.style));
+    }
+  }
+  return out;
+}
+
+/// [spans] with characters [range] of their joined text given a [background],
+/// split across the emphasis runs the range crosses.
+List<InlineSpan> _paintRange(
+  List<InlineSpan> spans,
+  (int, int)? range,
+  Color background,
+) {
+  if (range == null || range.$2 <= range.$1) return spans;
+  final (from, to) = range;
+  var offset = 0;
+  final out = <InlineSpan>[];
+  for (final span in spans) {
+    if (span is! TextSpan || span.text == null) {
+      out.add(span);
+      continue;
+    }
+    final text = span.text!;
+    final start = offset;
+    final end = offset + text.length;
+    offset = end;
+    if (to <= start || from >= end) {
+      out.add(span);
+      continue;
+    }
+    final a = (from - start).clamp(0, text.length);
+    final b = (to - start).clamp(0, text.length);
+    if (a > 0) out.add(TextSpan(text: text.substring(0, a), style: span.style));
+    out.add(
+      TextSpan(
+        text: text.substring(a, b),
+        style: (span.style ?? const TextStyle()).copyWith(
+          backgroundColor: background,
+        ),
+      ),
+    );
+    if (b < text.length) {
+      out.add(TextSpan(text: text.substring(b), style: span.style));
     }
   }
   return out;

@@ -171,6 +171,7 @@ dependencies:
   # this now depends on it directly.
   web_socket_channel: ^3.0.1
   dynamic_color: ^2.1.0
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   shared_preferences: 2.5.5

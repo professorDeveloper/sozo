@@ -1223,6 +1223,59 @@ class HiveService {
   Future<void> saveNovelJustify(bool v) async =>
       _settingsBox.put('novel_justify', v);
 
+  // ── Novel read-aloud ──────────────────────────────────────────────────────
+  //
+  // Device-level, like the typography above: which voices exist is a fact
+  // about this device's speech engine.
+
+  double getTtsRate() =>
+      (_settingsBox.get('tts_rate', defaultValue: 1.0) as num).toDouble();
+
+  Future<void> saveTtsRate(double v) async => _settingsBox.put('tts_rate', v);
+
+  double getTtsPitch() =>
+      (_settingsBox.get('tts_pitch', defaultValue: 1.0) as num).toDouble();
+
+  Future<void> saveTtsPitch(double v) async => _settingsBox.put('tts_pitch', v);
+
+  bool getTtsAutoNext() =>
+      _settingsBox.get('tts_auto_next', defaultValue: true) == true;
+
+  Future<void> saveTtsAutoNext(bool v) async =>
+      _settingsBox.put('tts_auto_next', v);
+
+  /// The chosen voice per language, by the engine's voice name. Per language
+  /// because a reader of both Russian and English novels wants a voice for
+  /// each, and one choice would be wrong for the other every time.
+  String? getTtsVoice(String lang) {
+    final raw = _settingsBox.get('tts_voices');
+    if (raw is! String || raw.isEmpty) return null;
+    try {
+      final map = jsonDecode(raw);
+      final name = map is Map ? map[lang] : null;
+      return name is String && name.isNotEmpty ? name : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveTtsVoice(String lang, String? name) async {
+    final raw = _settingsBox.get('tts_voices');
+    var map = <String, dynamic>{};
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) map = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    if (name == null || name.isEmpty) {
+      map.remove(lang);
+    } else {
+      map[lang] = name;
+    }
+    await _settingsBox.put('tts_voices', jsonEncode(map));
+  }
+
   /// Whether to translate a subtitle on play when the source has none in the
   /// chosen language. Off by default — it spends a shared, capped budget.
   bool getSubtitleAutoTranslate() {
