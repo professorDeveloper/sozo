@@ -256,15 +256,11 @@ class AlternateSourceService {
   /// made on the thing the app already knows instead of on a string that means
   /// two things.
   ///
-  /// Manga and novel are one group. A light novel is routinely carried by a
-  /// comic source, and the catalogue resolver already relies on that fallback;
-  /// splitting them here would empty the sheet for novels.
-  static bool _isRead(ContentMode m) =>
-      m == ContentMode.manga || m == ContentMode.novel;
-
+  /// Manga and novel are kept apart: a novel is looked for on novel sources
+  /// only, and a manga on manga sources only.
   static bool _kindAllows(String wantId, String haveId) {
     if (wantId.isEmpty || haveId.isEmpty) return true;
-    return _isRead(wantId.contentMode) == _isRead(haveId.contentMode);
+    return wantId.contentMode == haveId.contentMode;
   }
 
   /// Best match for [title] among [items], or null when none is close enough.
