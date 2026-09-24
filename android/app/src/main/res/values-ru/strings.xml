@@ -4,4 +4,14 @@
     <string name="widget_small_description">Что вы смотрели, где остановились, и ваша серия.</string>
     <string name="widget_medium_label">Продолжить и следующая серия</string>
     <string name="widget_medium_description">Продолжайте с того же места и следите за отсчётом до следующей серии.</string>
+    <!-- Sample content for the widget picker's preview. -->
+    <string name="widget_preview_title">Frieren</string>
+    <string name="widget_preview_sub">Эпизод 7 · осталось 14 мин</string>
+    <string name="widget_preview_title_0">Frieren</string>
+    <string name="widget_preview_sub_0">2 сезон · эпизод 7</string>
+    <string name="widget_preview_title_1">Solo Leveling</string>
+    <string name="widget_preview_sub_1">Эпизод 11</string>
+    <string name="widget_preview_title_2">Berserk</string>
+    <string name="widget_preview_sub_2">Глава 128</string>
+    <string name="widget_preview_next">Следующая серия · Dandadan 8</string>
 </resources>

@@ -86,7 +86,7 @@ class _AchievementUnlockedDialogState extends State<AchievementUnlockedDialog>
     with TickerProviderStateMixin {
   late final AnimationController _strike = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 900),
+    duration: const Duration(milliseconds: 1500),
   )..forward();
   late final AnimationController _confetti = AnimationController(
     vsync: this,
@@ -192,13 +192,11 @@ class _AchievementUnlockedDialogState extends State<AchievementUnlockedDialog>
                       ),
                     ),
                     const SizedBox(height: 18),
-                    _StruckMedal(
+                    _SpinningMedal(
                       animation: _strike,
-                      child: AchievementBadge(
-                        id: hero.id,
-                        tier: medal,
-                        size: 128,
-                      ),
+                      id: hero.id,
+                      tier: medal,
+                      size: 128,
                     ),
                     const SizedBox(height: 18),
                     Text(
@@ -309,46 +307,59 @@ class _AchievementUnlockedDialogState extends State<AchievementUnlockedDialog>
   }
 }
 
-/// The medal arriving: it drops in slightly large and settles, then a band
-/// of light crosses its face once.
-class _StruckMedal extends StatelessWidget {
-  const _StruckMedal({required this.animation, required this.child});
+/// The medal arriving: it spins in like a tossed coin — the plain reverse
+/// flashing past — slows, settles face up, and can then be tilted by hand.
+class _SpinningMedal extends StatelessWidget {
+  const _SpinningMedal({
+    required this.animation,
+    required this.id,
+    required this.tier,
+    required this.size,
+  });
 
   final Animation<double> animation;
-  final Widget child;
+  final String id;
+  final MedalTier tier;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: animation,
-      child: child,
-      builder: (_, child) {
+      builder: (_, _) {
         final v = animation.value;
-        final settle = Curves.easeOutBack.transform((v / 0.55).clamp(0.0, 1.0));
-        final sweep = ((v - 0.45) / 0.55).clamp(0.0, 1.0);
-        return Transform.scale(
-          scale: 0.6 + 0.4 * settle,
-          child: Opacity(
-            opacity: (v / 0.25).clamp(0.0, 1.0),
-            child: ShaderMask(
-              blendMode: BlendMode.srcATop,
-              shaderCallback: (rect) => LinearGradient(
-                begin: const Alignment(-1, -1),
-                end: const Alignment(1, 1),
-                colors: [
-                  Colors.white.withValues(alpha: 0),
-                  Colors.white.withValues(
-                    alpha: sweep > 0 && sweep < 1 ? 0.55 : 0,
-                  ),
-                  Colors.white.withValues(alpha: 0),
-                ],
-                stops: [
-                  (sweep * 1.4 - 0.4).clamp(0.0, 1.0),
-                  (sweep * 1.4 - 0.2).clamp(0.0, 1.0),
-                  (sweep * 1.4).clamp(0.0, 1.0),
-                ],
-              ).createShader(rect),
-              child: child,
+        if (v >= 1) {
+          return SizedBox.square(
+            dimension: size,
+            child: MedalTilt(
+              builder: (light) => AchievementBadge(
+                id: id,
+                tier: tier,
+                size: size,
+                light: light,
+              ),
+            ),
+          );
+        }
+        final t = Curves.easeOutCubic.transform(v);
+        // Two and a half turns, ending face on.
+        final angle = (1 - t) * math.pi * 5;
+        final facing = math.cos(angle) >= 0;
+        final settle = Curves.easeOutBack.transform((v / 0.7).clamp(0.0, 1.0));
+        return Opacity(
+          opacity: (v / 0.2).clamp(0.0, 1.0),
+          child: Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.0014)
+              ..scaleByDouble(0.55 + 0.45 * settle, 0.55 + 0.45 * settle, 1, 1)
+              ..rotateY(angle),
+            child: AchievementMedal(
+              tier: tier,
+              icon: AchievementDef.of(id).icon,
+              size: size,
+              showBack: !facing,
+              light: Offset(math.sin(angle) * 0.9, 0),
             ),
           ),
         );

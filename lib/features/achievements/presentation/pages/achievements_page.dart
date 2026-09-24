@@ -196,6 +196,9 @@ class _StreakHero extends StatelessWidget {
                         tier: i < held
                             ? MedalTier.ofLevel(i + 1)
                             : MedalTier.locked,
+                        progress: i == held
+                            ? (streak.current / tiers[i]).clamp(0.0, 1.0)
+                            : null,
                       ),
                     _StreakStep(
                       days: 100,
@@ -248,6 +251,7 @@ class _StreakStep extends StatelessWidget {
     required this.tier,
     this.id = 'streak',
     this.label,
+    this.progress,
   });
 
   final int days;
@@ -255,13 +259,16 @@ class _StreakStep extends StatelessWidget {
   final String id;
   final String? label;
 
+  /// For the next badge still locked: how far the running streak has got.
+  final double? progress;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 60,
       child: Column(
         children: [
-          AchievementBadge(id: id, tier: tier, size: 46),
+          AchievementBadge(id: id, tier: tier, size: 46, progress: progress),
           const SizedBox(height: 4),
           Text(
             label ?? 'achievements.days_short'.tr(args: ['$days']),
@@ -399,7 +406,17 @@ class _ShowcaseTile extends StatelessWidget {
         ),
         child: Column(
           children: [
-            AchievementBadge(id: id, tier: tier, size: 62),
+            SizedBox.square(
+              dimension: 62,
+              child: MedalTilt(
+                builder: (light) => AchievementBadge(
+                  id: id,
+                  tier: tier,
+                  size: 62,
+                  light: light,
+                ),
+              ),
+            ),
             const SizedBox(height: 8),
             Text(
               AchievementDef.of(id).nameKey.tr(),
@@ -473,6 +490,7 @@ class _FamilyRow extends StatelessWidget {
               tier: family.medal,
               size: 46,
               glow: false,
+              progress: family.tier == 0 ? family.progress : null,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -591,7 +609,14 @@ class _SingleTile extends StatelessWidget {
         ),
         child: Column(
           children: [
-            AchievementBadge(id: single.id, tier: single.medal, size: 52),
+            AchievementBadge(
+              id: single.id,
+              tier: single.medal,
+              size: 52,
+              progress: single.unlocked || single.value == null
+                  ? null
+                  : (single.value! / single.need).clamp(0.0, 1.0),
+            ),
             const SizedBox(height: 8),
             Text(
               def.nameKey.tr(),

@@ -37,65 +37,118 @@ class _AchievementsEntryCardState extends State<AchievementsEntryCard> {
       valueListenable: service.state,
       builder: (context, view, _) {
         final showcase = view?.showcase ?? const <String>[];
+        final share = view == null || view.total == 0
+            ? 0.0
+            : view.unlockedCount / view.total;
+        // The same frame as the streak card above it: the section label, the
+        // 16-point gutter, the surface-to-background fall and the edge.
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Material(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: () => context.push('/achievements'),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-                child: Row(
-                  children: [
-                    if (showcase.isEmpty)
-                      const AchievementMedal(
-                        tier: MedalTier.locked,
-                        icon: Icons.emoji_events_rounded,
-                        size: 44,
-                      )
-                    else
-                      _Stack(ids: showcase, view: view!),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
+                child: Text(
+                  'achievements.title'.tr().toUpperCase(),
+                  style: const TextStyle(
+                    color: AppColors.textHint,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => context.push('/achievements'),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppColors.surface, AppColors.background],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: showcase.isEmpty
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : const Color(0xFFFFA94D).withValues(alpha: 0.16),
+                        width: 0.7,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                      child: Row(
                         children: [
-                          Text(
-                            'achievements.title'.tr(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
+                          if (showcase.isEmpty)
+                            const AchievementMedal(
+                              tier: MedalTier.locked,
+                              icon: Icons.emoji_events_rounded,
+                              size: 48,
+                            )
+                          else
+                            _Stack(ids: showcase, view: view!),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  view == null || view.total == 0
+                                      ? 'achievements.title'.tr()
+                                      : 'achievements.unlocked_n'.tr(
+                                          args: [
+                                            '${view.unlockedCount}',
+                                            '${view.total}',
+                                          ],
+                                        ),
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 15.5,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 7),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(3),
+                                  child: LinearProgressIndicator(
+                                    value: share,
+                                    minHeight: 5,
+                                    backgroundColor: Colors.white.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                    valueColor: const AlwaysStoppedAnimation(
+                                      Color(0xFFFFA94D),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'achievements.entry_hint'.tr(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            view == null || view.total == 0
-                                ? 'achievements.entry_hint'.tr()
-                                : 'achievements.unlocked_n'.tr(
-                                    args: [
-                                      '${view.unlockedCount}',
-                                      '${view.total}',
-                                    ],
-                                  ),
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12.5,
-                            ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppColors.textSecondary,
                           ),
                         ],
                       ),
                     ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppColors.textSecondary,
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         );
       },
@@ -103,7 +156,8 @@ class _AchievementsEntryCardState extends State<AchievementsEntryCard> {
   }
 }
 
-/// The showcase as overlapping medals, the first in front.
+/// The showcase, side by side with room between them — overlapped, three
+/// hexagons read as one blurred shape.
 class _Stack extends StatelessWidget {
   const _Stack({required this.ids, required this.view});
 
@@ -112,26 +166,22 @@ class _Stack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const size = 44.0;
-    const step = 26.0;
+    const size = 38.0;
     final shown = ids.take(3).toList();
-    return SizedBox(
-      width: size + step * (shown.length - 1),
-      height: size,
-      child: Stack(
-        children: [
-          for (var i = shown.length - 1; i >= 0; i--)
-            Positioned(
-              left: step * i,
-              child: AchievementBadge(
-                id: shown[i],
-                tier: view.medalOf(shown[i]),
-                size: size,
-                glow: i == 0,
-              ),
-            ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < shown.length; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          AchievementBadge(
+            id: shown[i],
+            tier: view.medalOf(shown[i]),
+            size: size,
+            // A halo on each would run them together again.
+            glow: false,
+          ),
         ],
-      ),
+      ],
     );
   }
 }

@@ -62,7 +62,18 @@ Future<void> showFamilySheet(
           _grabber(),
           Row(
             children: [
-              AchievementBadge(id: family.id, tier: family.medal, size: 56),
+              SizedBox.square(
+                dimension: 64,
+                child: MedalTilt(
+                  builder: (light) => AchievementBadge(
+                    id: family.id,
+                    tier: family.medal,
+                    size: 64,
+                    light: light,
+                    progress: family.tier == 0 ? family.progress : null,
+                  ),
+                ),
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -229,7 +240,20 @@ Future<void> showSingleSheet(
         mainAxisSize: MainAxisSize.min,
         children: [
           _grabber(),
-          AchievementBadge(id: single.id, tier: single.medal, size: 96),
+          SizedBox.square(
+            dimension: 112,
+            child: MedalTilt(
+              builder: (light) => AchievementBadge(
+                id: single.id,
+                tier: single.medal,
+                size: 112,
+                light: light,
+                progress: single.unlocked || single.value == null
+                    ? null
+                    : (single.value! / single.need).clamp(0.0, 1.0),
+              ),
+            ),
+          ),
           const SizedBox(height: 14),
           Text(
             def.nameKey.tr(),
