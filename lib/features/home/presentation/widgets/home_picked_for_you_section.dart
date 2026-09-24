@@ -10,7 +10,11 @@ import 'package:soplay/features/onboarding/data/picked_for_you.dart';
 /// The "Picked for you" band: titles from one of the genres this profile
 /// picked, a different one each day. Draws nothing until genres are picked.
 class HomePickedForYouSection extends StatefulWidget {
-  const HomePickedForYouSection({super.key});
+  const HomePickedForYouSection({super.key, required this.catalogue});
+
+  /// The catalogue kind Home is showing (`tmdb`, `anilist`, ...); only its
+  /// genres are browsed.
+  final String catalogue;
 
   @override
   State<HomePickedForYouSection> createState() =>
@@ -43,8 +47,11 @@ class _HomePickedForYouSectionState extends State<HomePickedForYouSection> {
     final taste = _hive.getTasteProfile();
     final mode = ContentMode.fromId(_hive.getContentMode());
     final generation = ++_generation;
-    final cached = _source.peek(taste, mode);
-    final hasTargets = taste.browseTargets(mode).isNotEmpty;
+    final catalogue = widget.catalogue;
+    final cached = _source.peek(taste, mode, catalogue: catalogue);
+    final hasTargets = _source
+        .targetsFor(taste, mode, catalogue: catalogue)
+        .isNotEmpty;
     void apply() {
       _data = cached;
       _loading = cached == null && hasTargets;
@@ -52,7 +59,7 @@ class _HomePickedForYouSectionState extends State<HomePickedForYouSection> {
 
     initial ? apply() : setState(apply);
     if (cached != null || !hasTargets) return;
-    final data = await _source.fetch(taste, mode);
+    final data = await _source.fetch(taste, mode, catalogue: catalogue);
     if (!mounted || generation != _generation) return;
     setState(() {
       _data = data;

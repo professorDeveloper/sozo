@@ -72,4 +72,31 @@ void main() {
     );
     expect(await source.fetch(taste, ContentMode.novel), isNull);
   });
+
+  test('on a catalogue home only that catalogue is browsed', () async {
+    final asked = <String>[];
+    final source = PickedForYouSource(
+      clock: () => DateTime(2026, 9, 24),
+      load: (slug) async {
+        asked.add(slug);
+        return Success(
+          ViewAllPagingEntity(
+            page: 1,
+            totalPages: 1,
+            provider: '',
+            items: [_movie(slug)],
+          ),
+        );
+      },
+    );
+    final got = await source.fetch(taste, ContentMode.video, catalogue: 'tmdb');
+    expect(got?.slug, 'tmdb:war');
+    expect(asked, ['tmdb:war']);
+    expect(
+      source
+          .targetsFor(taste, ContentMode.video, catalogue: 'anilist')
+          .map((t) => t.genre.slug),
+      unorderedEquals(['action', 'mecha']),
+    );
+  });
 }
