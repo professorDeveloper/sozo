@@ -13,26 +13,21 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/domain/episode_blocks.dart';
 import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/player/source_ladder.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
-import 'package:soplay/features/detail/domain/download_choices.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/manga/data/chapter_read_store.dart';
 import 'package:soplay/features/detail/domain/entities/episodes_args.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/core/extensions/provider_media_kind.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
-import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
-import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
-import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
-import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/entities/download_status.dart';
 import 'package:soplay/features/download/domain/repositories/download_repository.dart';
+import 'package:soplay/features/download/domain/usecases/download_request_builder.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
 import 'package:soplay/features/download/presentation/download_messages.dart';
@@ -67,6 +62,14 @@ class _EpisodesPageState extends State<EpisodesPage> {
   final HistoryService _historyService = getIt<HistoryService>();
   final GetDownloadsUseCase _downloads = getIt<GetDownloadsUseCase>();
   final EnqueueDownloadUseCase _enqueue = getIt<EnqueueDownloadUseCase>();
+  final DownloadRequestBuilder _requests = getIt<DownloadRequestBuilder>();
+
+  DownloadTitle get _downloadTitle => DownloadTitle(
+    contentUrl: widget.args.contentUrl,
+    provider: widget.args.provider,
+    title: widget.args.title,
+    thumbnail: widget.args.thumbnail,
+  );
   late final GetEpisodesUseCase _getEpisodes;
 
   /// Reading source (manga / manhwa / novel) rather than a video source.
@@ -257,10 +260,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
 
   void _refreshRead() {
     if (!_isManga) return;
-    final read = _readStore.read(
-      widget.args.provider,
-      widget.args.contentUrl,
-    );
+    final read = _readStore.read(widget.args.provider, widget.args.contentUrl);
     if (!mounted || setEquals(read, _read)) return;
     setState(() => _read = read);
   }
@@ -807,34 +807,27 @@ class _EpisodesPageState extends State<EpisodesPage> {
     // download from a row that says "downloaded" for a file that has gone.
     // Checking first meant a stale row blocked the re-download that would have
     // repaired it.
-    final result = await getIt<ResolveMediaUseCase>()(
-      ref: ep.mediaRef,
+    final resolved = await _requests.resolveVideo(
+      ep,
       provider: widget.args.provider,
     );
     if (!mounted) return false;
 
-    if (result is! Success<MediaResolveEntity> ||
-        result.value.videoUrl.isEmpty) {
-      if (!quiet) _toast('detail.download_resolve_failed'.tr());
-      return false;
-    }
-
-    final media = result.value;
-    // A directive means `videoUrl` is the embed PAGE — the stream only exists
-    // after a WebView sniff, which the downloader does not do. Saving it would
-    // produce an HTML file under a video's name that fails on first open.
-    // Playing the episode once runs the sniff, and the player can then
-    // download the resolved stream.
-    if (!DownloadChoices.isDownloadableUrl(
-      url: media.videoUrl,
-      type: media.type,
-      hasDirective: media.extractor != null,
-    )) {
-      if (!quiet) _toast('detail.download_needs_playback'.tr());
+    final media = resolved.media;
+    if (media == null) {
+      // needsPlayback: playing the episode once runs the WebView sniff, and
+      // the player can then download the resolved stream.
+      if (!quiet) {
+        _toast(
+          resolved.failure == DownloadBuildFailure.needsPlayback
+              ? 'detail.download_needs_playback'.tr()
+              : 'detail.download_resolve_failed'.tr(),
+        );
+      }
       return false;
     }
     final selection = quiet
-        ? _quietSelection(media)
+        ? DownloadRequestBuilder.quietPick(media)
         : await chooseDownload(
             context,
             url: media.videoUrl,
@@ -844,18 +837,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
           );
     if (!mounted || selection == null) return false;
     final outcome = await _enqueue(
-      DownloadRequest.video(
-        contentUrl: widget.args.contentUrl,
-        provider: widget.args.provider,
-        title: widget.args.title,
-        sourceUrl: selection.url,
-        videoHeight: selection.height,
-        thumbnailUrl: widget.args.thumbnail,
-        headers: selection.headers,
-        isSerial: true,
-        episodeNumber: ep.episode,
-        episodeLabel: ep.label,
-      ),
+      DownloadRequestBuilder.videoRequest(_downloadTitle, ep, selection),
     );
 
     if (outcome != EnqueueOutcome.started && !quiet && mounted) {
@@ -1006,27 +988,6 @@ class _EpisodesPageState extends State<EpisodesPage> {
     return _sort == 'desc' && _total > 0 ? _total - 1 - absolute : absolute;
   }
 
-  /// The mirror a batch downloads when nobody is asked.
-  ///
-  /// `media.videoUrl` is whatever the provider listed first — on a source that
-  /// marks no default, often its lowest quality — while the sheet a single
-  /// download opens, and the player, both pick through [SourceLadder].
-  DownloadSelection _quietSelection(MediaResolveEntity media) {
-    final sources = media.videoSources;
-    final pick = sources.isEmpty
-        ? null
-        : SourceLadder(sources: sources, hasDirective: false).initialPick();
-    if (pick == null) {
-      return DownloadSelection(url: media.videoUrl, headers: media.headers);
-    }
-    final source = sources[pick];
-    return DownloadSelection(
-      url: source.videoUrl,
-      headers: source.headers.isNotEmpty ? source.headers : media.headers,
-      height: source.height,
-    );
-  }
-
   /// [_downloadChapter] with its own error reporting suppressed, for batches.
   Future<bool> _downloadChapterQuietly(int index) async {
     final before = _downloads.byId(_downloadIdFor(index));
@@ -1043,46 +1004,20 @@ class _EpisodesPageState extends State<EpisodesPage> {
   }
 
   Future<void> _downloadChapter(int index) async {
-    final ch = _episodes[index];
-
-    // Pages are resolved here rather than left to the queue because this is
-    // where a failure can be reported: a chapter whose pages cannot be listed
-    // is not a download that should sit in the list saying "pending".
-    final result = await getIt<GetPagesUseCase>()(
-      ref: ch.mediaRef,
-      provider: widget.args.provider,
+    final built = await _requests.chapter(
+      _downloadTitle,
+      _episodes[index],
+      chapterIndex: _runPositionOf(index),
     );
     if (!mounted) return;
-    if (result is! Success<MangaPagesEntity>) {
+    final request = built.request;
+    if (request == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('detail.failed_resolve_pages'.tr())),
       );
       return;
     }
-
-    final pages = result.value;
-    await _enqueue(
-      DownloadRequest.mangaChapter(
-        contentUrl: widget.args.contentUrl,
-        provider: widget.args.provider,
-        title: widget.args.title,
-        thumbnailUrl: widget.args.thumbnail,
-        headers: pages.headers,
-        pageUrls: pages.pages.map((p) => p.imageUrl).toList(),
-        imageHeaders: pages.pages
-            .map(
-              (p) => <String, String>{
-                ...p.headers,
-                if (p.cookie != null) 'Cookie': p.cookie!,
-              },
-            )
-            .toList(),
-        chapterRef: ch.mediaRef,
-        chapterIndex: _runPositionOf(index),
-        episodeNumber: ch.episode,
-        episodeLabel: ch.label,
-      ),
-    );
+    await _enqueue(request);
   }
 
   @override

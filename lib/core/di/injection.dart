@@ -47,6 +47,7 @@ import 'package:soplay/features/download/domain/repositories/download_repository
 import 'package:soplay/features/download/domain/usecases/control_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/download_location_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/download_storage_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/download_request_builder.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/export_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
@@ -789,6 +790,12 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<GetPagesUseCase>(
     GetPagesUseCase(getIt<DetailRepository>()),
+  );
+  getIt.registerSingleton<DownloadRequestBuilder>(
+    DownloadRequestBuilder(
+      resolve: getIt<ResolveMediaUseCase>(),
+      getPages: getIt<GetPagesUseCase>(),
+    ),
   );
   getIt.registerSingleton<ViewAllUseCase>(
     ViewAllUseCase(getIt<HomeRepository>()),

@@ -6,18 +6,9 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/download_choices.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/video_option_groups.dart';
+import 'package:soplay/features/download/domain/entities/download_selection.dart';
 
-/// A concrete file/rendition, not the quality currently used by the player.
-class DownloadSelection {
-  const DownloadSelection({
-    required this.url,
-    required this.headers,
-    this.height,
-  });
-  final String url;
-  final Map<String, String> headers;
-  final int? height;
-}
+export 'package:soplay/features/download/domain/entities/download_selection.dart';
 
 Future<DownloadSelection?> chooseDownload(
   BuildContext context, {
