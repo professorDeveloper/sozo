@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
@@ -213,6 +214,10 @@ class FollowService {
   }) async {
     final items = list().where(FollowCoverage.deviceCanCheck).toList();
     if (items.isEmpty) return 0;
+    // A profile switch mid-check: what was found belongs to the profile that
+    // left, and the box now holds another's follows and feed.
+    final scope = ProfileScope.namespace;
+    bool switched() => ProfileScope.namespace != scope;
 
     final newCounts = <String, int>{};
     final newLabels = <String, String>{};
@@ -223,14 +228,14 @@ class FollowService {
     Future<void> worker() async {
       while (true) {
         final i = index++;
-        if (i >= items.length) return;
+        if (i >= items.length || switched()) return;
         final t = items[i];
         try {
           final res = await getEpisodes(
             t.contentUrl,
             provider: t.provider,
           ).timeout(timeout);
-          if (!res.isSuccess) continue;
+          if (!res.isSuccess || switched()) continue;
           final pb = res.getOrNull();
           if (pb == null) continue;
           // The highest number seen, not the number of rows.
@@ -307,7 +312,7 @@ class FollowService {
     await Future.wait([for (var w = 0; w < concurrency; w++) worker()]);
 
     // Single merged write — re-read in case the follow list changed mid-check.
-    if (newCounts.isNotEmpty) {
+    if (newCounts.isNotEmpty && !switched()) {
       final raw = hive.getFollowedRaw();
       final now = DateTime.now().millisecondsSinceEpoch;
       final raisedForServer = <FollowedTitle>[];

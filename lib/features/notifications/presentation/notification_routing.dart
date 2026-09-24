@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:soplay/core/di/injection.dart';
@@ -127,6 +129,7 @@ Future<void> openNotification(
   Map<String, dynamic> data, {
   bool fromList = false,
 }) async {
+  await _untilPastLaunch();
   if (!await _enterProfileOf(data)) return;
   final route = resolveNotificationRoute(data, fromList: fromList);
   final router = AppRouter.router;
@@ -145,6 +148,35 @@ Future<void> openNotification(
       getIt<NavController>().goToId(TabId.profile);
     case NotificationAction.none:
       break;
+  }
+}
+
+/// Routes the launch replaces its whole stack from: a title pushed on top of
+/// one is thrown away by the `go` that leaves it.
+bool isLaunchRoute(String path) => path == '/splash' || path == '/profiles';
+
+/// A tap that opened the app arrives while the splash is still up.
+Future<void> _untilPastLaunch() async {
+  final delegate = AppRouter.router.routerDelegate;
+  bool waiting() {
+    try {
+      return isLaunchRoute(delegate.currentConfiguration.uri.path);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  if (!waiting()) return;
+  final done = Completer<void>();
+  void check() {
+    if (!waiting() && !done.isCompleted) done.complete();
+  }
+
+  delegate.addListener(check);
+  try {
+    await done.future;
+  } finally {
+    delegate.removeListener(check);
   }
 }
 

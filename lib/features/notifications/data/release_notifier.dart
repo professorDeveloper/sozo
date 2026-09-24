@@ -147,6 +147,7 @@ class ReleaseAlert {
     this.mode = 'video',
     this.episodeLabel,
     this.count = 1,
+    this.profileId,
   });
 
   final String provider;
@@ -161,6 +162,10 @@ class ReleaseAlert {
 
   /// How many are new, counting [episodeNumber].
   final int count;
+
+  /// The household profile a push was addressed to. Carried into the tap so
+  /// opening it switches to that profile.
+  final String? profileId;
 
   bool get isReading => mode == 'manga' || mode == 'novel';
 
@@ -180,6 +185,7 @@ class ReleaseAlert {
     final episode = int.tryParse('${data['episodeNumber'] ?? ''}') ?? 0;
     if (url.isEmpty || episode <= 0) return null;
     final count = int.tryParse('${data['count'] ?? ''}') ?? 1;
+    final profile = data['profileId']?.toString() ?? '';
     return ReleaseAlert(
       provider: data['provider']?.toString() ?? '',
       contentUrl: url,
@@ -189,6 +195,7 @@ class ReleaseAlert {
       episodeNumber: episode,
       episodeLabel: data['episodeLabel']?.toString(),
       count: count < 1 ? 1 : count,
+      profileId: profile.isEmpty ? null : profile,
     );
   }
 
@@ -199,6 +206,7 @@ class ReleaseAlert {
     'mode': mode,
     'episodeNumber': firstNew,
     'title': title,
+    'profileId': ?profileId,
   };
 }
 
