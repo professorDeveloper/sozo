@@ -1029,6 +1029,10 @@ extension _PlayerMedia on _PlayerPageState {
     int generation,
   ) async {
     final kind = type?.toLowerCase();
+    if (kind == 'dash' || url.toLowerCase().contains('.mpd')) {
+      await _expandDash(parent, idx, url, headers, generation);
+      return;
+    }
     final looksHls =
         kind == 'hls' || kind == 'm3u8' || url.toLowerCase().contains('.m3u8');
     if (!looksHls) return;
@@ -1083,13 +1087,89 @@ extension _PlayerMedia on _PlayerPageState {
             drm: parent.drm,
           ),
     ];
+    await _insertQualityRows(parent, idx, rows, generation, 'master playlist');
+  }
+
+  /// A DASH stream's renditions as quality rows.
+  ///
+  /// Each row is the same manifest, served by the local proxy with only that
+  /// video Representation left in it — the player cannot then pick another.
+  /// Neither engine here exposes DASH track selection, so this is the one
+  /// way a DASH stream gets a manual quality.
+  Future<void> _expandDash(
+    VideoSourceEntity parent,
+    int idx,
+    String url,
+    Map<String, String> headers,
+    int generation,
+  ) async {
+    String body;
+    try {
+      final res = await ExternalDio.instance.get<String>(
+        url,
+        options: Options(
+          headers: headers,
+          responseType: ResponseType.plain,
+          validateStatus: (_) => true,
+          receiveTimeout: const Duration(seconds: 8),
+          extra: const {'skipAuthInterceptor': true},
+        ),
+      );
+      if (res.statusCode != 200) return;
+      body = res.data ?? '';
+    } catch (_) {
+      return;
+    }
+    if (!DashManifest.looksLikeMpd(body)) return;
+    final reps = DashManifest.videoRepresentations(body);
+    if (reps.length < 2) return;
+    final upstream = parent.videoUrl;
+    final upHeaders = parent.headers.isNotEmpty ? parent.headers : headers;
+    final rows = <VideoSourceEntity>[];
+    for (final r in reps) {
+      try {
+        final proxied = await getIt<LocalHlsProxy>().register(
+          upstreamUrl: upstream,
+          headers: upHeaders,
+          localProxy: parent.localProxy,
+          requestTransform: parent.requestTransform,
+          dashRepresentation: r.id,
+        );
+        rows.add(
+          VideoSourceEntity(
+            quality: '${parent.quality} · ${r.height}p',
+            videoUrl: proxied,
+            isDefault: false,
+            accessible: parent.accessible,
+            height: r.height,
+            type: 'dash',
+            // The proxy carries the stream's headers upstream.
+            headers: const {},
+            useLocalProxy: false,
+            drm: parent.drm,
+          ),
+        );
+      } catch (_) {
+        return;
+      }
+    }
+    await _insertQualityRows(parent, idx, rows, generation, 'dash manifest');
+  }
+
+  Future<void> _insertQualityRows(
+    VideoSourceEntity parent,
+    int idx,
+    List<VideoSourceEntity> rows,
+    int generation,
+    String from,
+  ) async {
     // One rendition beside the adaptive entry is not a choice, and a quality
     // control that opens onto a single row reads as broken — the same rule the
     // engine track list follows.
     if (rows.length < 2) return;
 
     _plog(
-      'master playlist -> ${rows.length} qualities for '
+      '$from -> ${rows.length} qualities for '
       '"${parent.quality}" (${rows.map((e) => e.height).join(", ")})',
     );
     if (!mounted || generation != _mediaGeneration) return;

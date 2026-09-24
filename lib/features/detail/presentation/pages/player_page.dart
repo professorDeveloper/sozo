@@ -106,6 +106,7 @@ import 'package:soplay/features/watch_party/presentation/party_entry.dart';
 import 'package:soplay/features/watch_party/presentation/widgets/party_reactions_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/player/media_controller.dart';
+import 'package:soplay/core/player/dash_manifest.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
 import 'package:soplay/features/live_tv/presentation/widgets/live_guide_sheet.dart';
 import 'package:soplay/core/torrent/torrent_engine.dart';

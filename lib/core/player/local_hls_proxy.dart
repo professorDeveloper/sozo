@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+import 'package:soplay/core/player/dash_manifest.dart';
 
 class LocalHlsProxy {
   LocalHlsProxy(this._dio);
@@ -26,6 +27,10 @@ class LocalHlsProxy {
     required Map<String, String> headers,
     Map<String, dynamic> localProxy = const {},
     Map<String, dynamic> requestTransform = const {},
+    // A DASH stream served with only this video Representation left in its
+    // manifest — how a DASH quality is picked, since neither engine exposes
+    // DASH track selection.
+    String? dashRepresentation,
   }) async {
     await _ensureStarted();
     final id = _randomId();
@@ -42,6 +47,7 @@ class LocalHlsProxy {
         requestTransform: requestTransform,
       ),
       lastAccess: DateTime.now(),
+      dashRepresentation: dashRepresentation,
     );
     final query = parsed.hasQuery ? '?${parsed.query}' : '';
     return 'http://127.0.0.1:$_port/hls/$id${parsed.path}$query';
@@ -165,9 +171,40 @@ class LocalHlsProxy {
           contentType.contains('mpegurl') ||
           contentType.contains('m3u8') ||
           resolved.endsWith('.m3u8');
+      final isDash =
+          contentType.contains('dash+xml') || resolved.endsWith('.mpd');
       final body = resp.data;
       if (body == null) {
         await _reject(req, 502);
+        return;
+      }
+
+      if (isDash) {
+        final bytes = <int>[];
+        await for (final chunk in body.stream) {
+          bytes.addAll(chunk);
+        }
+        if (origin == sess.origin) {
+          final lastSlash = resolved.lastIndexOf('/');
+          if (lastSlash >= 0) sess.basePath = resolved.substring(0, lastSlash);
+        }
+        final text = utf8.decode(bytes, allowMalformed: true);
+        final narrowed = DashManifest.narrow(
+          text,
+          keepId: sess.dashRepresentation,
+          rewriteUrl: (abs) => _proxyPath(
+            abs,
+            base: '/hls/$sid',
+            sessionOrigin: sess.origin,
+            upstreamUrl: upstreamUrl,
+          ),
+        );
+        req.response.headers.contentType = ContentType(
+          'application',
+          'dash+xml',
+        );
+        req.response.add(utf8.encode(narrowed));
+        await req.response.close();
         return;
       }
 
@@ -244,6 +281,31 @@ class LocalHlsProxy {
       req.response.statusCode = status;
       await req.response.close();
     } catch (_) {}
+  }
+
+  /// [raw] as a path on this proxy, so the request comes back here and goes
+  /// upstream with the session's headers.
+  String _proxyPath(
+    String raw, {
+    required String base,
+    required String sessionOrigin,
+    required String upstreamUrl,
+  }) {
+    final trimmed = raw.trim();
+    final Uri abs;
+    try {
+      final parsed = Uri.parse(trimmed);
+      abs = parsed.isAbsolute
+          ? parsed
+          : Uri.parse(upstreamUrl).resolveUri(parsed);
+    } catch (_) {
+      return raw;
+    }
+    final query = abs.hasQuery ? '?${abs.query}' : '';
+    if (abs.authority == Uri.parse(sessionOrigin).authority) {
+      return '$base${abs.path}$query';
+    }
+    return '$base/_h/${_b64UrlEncode(abs.authority)}${abs.path}$query';
   }
 
   String _rewriteM3u8(
@@ -501,8 +563,10 @@ class _Session {
     required this.headers,
     required this.transform,
     required this.lastAccess,
+    this.dashRepresentation,
   });
 
+  final String? dashRepresentation;
   final String origin;
   String basePath;
   final String cdnQuery;
