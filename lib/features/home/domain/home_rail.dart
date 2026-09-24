@@ -29,6 +29,14 @@ enum HomeRail {
     Icons.new_releases_outlined,
   ),
 
+  /// Titles from the genres picked in onboarding. Draws nothing until
+  /// something has been picked.
+  pickedForYou(
+    'picked_for_you',
+    'home_rails.picked_for_you',
+    Icons.auto_awesome_outlined,
+  ),
+
   /// The genre chips.
   genres('genres', 'home_rails.genres', Icons.category_outlined),
 
@@ -67,6 +75,7 @@ enum HomeRail {
     hero,
     resume,
     newReleases,
+    pickedForYou,
     genres,
     liveTv,
     watchServices,

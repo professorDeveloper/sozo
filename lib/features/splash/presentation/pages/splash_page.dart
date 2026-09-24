@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/onboarding/domain/onboarding_flow.dart';
+import 'package:soplay/features/onboarding/presentation/controllers/onboarding_controller.dart';
 import 'package:soplay/features/profiles/data/profile_session.dart';
 import 'package:soplay/features/splash/presentation/widgets/sozo_splash.dart';
 
@@ -43,9 +45,15 @@ class _SplashPageState extends State<SplashPage> {
     // been used before, so the question only arises on the branch with no lock
     // to unlock.
     final hive = getIt<HiveService>();
-    if (!hive.hasOnboardingSeen && (hive.getToken() ?? '').isEmpty) {
-      return '/onboarding';
-    }
+    final onboarding = getIt<OnboardingController>();
+    final route = firstRunRoute(
+      seen: hive.hasOnboardingSeen,
+      signedIn: (hive.getToken() ?? '').isNotEmpty,
+      inProgress:
+          onboarding.active && onboarding.flow == OnboardingFlow.firstRun,
+      resumePath: onboarding.resumePath,
+    );
+    if (route != null) return route;
     return await _profilesDue() ? '/profiles' : '/main';
   }
 
@@ -68,4 +76,20 @@ class _SplashPageState extends State<SplashPage> {
   Widget build(BuildContext context) {
     return SozoSplash(onSettled: _onSettled, onDone: _onDone);
   }
+}
+
+/// The setup a launch should open, or null for the app itself.
+///
+/// Once per install, on a device nobody has signed in on. A setup already
+/// under way resumes at its step even after the sign-in inside it; someone
+/// who was signed in before it ever started is never sent through it.
+String? firstRunRoute({
+  required bool seen,
+  required bool signedIn,
+  required bool inProgress,
+  required String Function() resumePath,
+}) {
+  if (seen) return null;
+  if (inProgress) return resumePath();
+  return signedIn ? null : '/onboarding';
 }

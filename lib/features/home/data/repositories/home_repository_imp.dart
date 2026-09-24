@@ -200,6 +200,32 @@ class HomeRepositoryImp implements HomeRepository {
         return Failure(Exception(e.toString()));
       }
     }
+    if (key == 'catalogue-genre') {
+      final i = slug.indexOf(':');
+      final kind = i > 0 ? slug.substring(0, i) : '';
+      final genre = i > 0 ? slug.substring(i + 1) : '';
+      if (genre.isEmpty ||
+          !{
+            'tmdb',
+            'anilist',
+            'anilist-manga',
+            'anilist-novel',
+          }.contains(kind)) {
+        return Failure(Exception('Invalid catalogue genre'));
+      }
+      try {
+        return Success(
+          await dataSource.loadCatalogueViewAll(
+            kind: kind,
+            type: 'genre',
+            slug: genre,
+            page: page,
+          ),
+        );
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (key == 'watch-service') {
       try {
         return Success(

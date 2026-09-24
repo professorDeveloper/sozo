@@ -15,6 +15,7 @@ import 'package:soplay/features/profiles/domain/household_profile.dart';
 import 'package:soplay/features/profiles/presentation/profile_flows.dart';
 import 'package:soplay/features/profiles/presentation/widgets/profile_avatar.dart';
 import 'package:soplay/features/profiles/presentation/widgets/profile_pin_page.dart';
+import 'package:soplay/features/onboarding/presentation/onboarding_navigation.dart';
 
 /// Creates a profile when [profile] is null, edits it otherwise.
 class HouseholdProfileEditPage extends StatefulWidget {
@@ -146,10 +147,11 @@ class _HouseholdProfileEditPageState extends State<HouseholdProfileEditPage> {
     }
     setState(() => _nameError = null);
     final original = _original;
+    HouseholdProfile? created;
     try {
       if (original == null) {
         setState(() => _saving = true);
-        await _session.create(
+        created = await _session.create(
           name: name,
           avatar: _avatar,
           color: _color,
@@ -185,7 +187,12 @@ class _HouseholdProfileEditPageState extends State<HouseholdProfileEditPage> {
       }
       if (!mounted) return;
       showProfileSnack(context, 'profiles.saved'.tr());
+      final router = GoRouter.of(context);
+      final personalize =
+          created != null && await offerProfilePersonalize(context, created);
+      if (!mounted) return;
       context.pop();
+      if (personalize) await startProfilePersonalize(router, created);
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);

@@ -20,6 +20,8 @@ import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 import 'package:soplay/features/mal/data/mal_link_store.dart';
 import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/features/mal/presentation/widgets/mal_brand.dart';
+import 'package:soplay/features/onboarding/data/library_import_service.dart';
+import 'package:soplay/features/onboarding/presentation/widgets/import_showcase.dart';
 
 /// External accounts this app can write to.
 ///
@@ -282,6 +284,15 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
             ),
             const SizedBox(height: 8),
             _Row(
+              icon: Icons.download_rounded,
+              title: 'onboarding.import_row_title'.tr(),
+              subtitle: 'onboarding.import_row_subtitle'.tr(),
+              accent: kAnilistBlue,
+              onTap: () =>
+                  showLibraryImportSheet(context, ImportSource.anilist),
+            ),
+            const SizedBox(height: 8),
+            _Row(
               icon: Icons.link_rounded,
               title: 'anilist.linked_titles'.tr(),
               accent: kAnilistBlue,
@@ -321,6 +332,14 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
               accent: kMalBlue,
               title: 'mal.open_library'.tr(),
               onTap: () => context.push('/mal'),
+            ),
+            const SizedBox(height: 8),
+            _Row(
+              icon: Icons.download_rounded,
+              accent: kMalBlue,
+              title: 'onboarding.import_row_title'.tr(),
+              subtitle: 'onboarding.import_row_subtitle'.tr(),
+              onTap: () => showLibraryImportSheet(context, ImportSource.mal),
             ),
             const SizedBox(height: 8),
             _Row(

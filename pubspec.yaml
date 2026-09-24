@@ -136,6 +136,8 @@ dependencies:
   media_kit_libs_linux: ^1.2.1
   liquid_glass_widgets: ^0.18.4
   mobile_scanner: ^7.4.0
+  # The TV's pairing code, painted rather than pulled in as a widget package.
+  qr: ^3.0.2
   firebase_auth: ^5.7.0
   google_sign_in: ^7.2.0
   image_picker: ^1.2.3

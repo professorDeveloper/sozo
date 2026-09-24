@@ -14,6 +14,7 @@ import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
+import 'package:soplay/features/onboarding/presentation/onboarding_navigation.dart';
 
 /// Everything the user can configure about the app itself.
 class SettingsPage extends StatefulWidget {
@@ -85,6 +86,13 @@ class _SettingsPageState extends State<SettingsPage> {
               subtitle: 'profile.language_desc'.tr(),
               value: AppLanguage.labelOf(context.locale.languageCode),
               onTap: () => openLanguagePage(context),
+            ),
+            const SettingsDivider(),
+            SettingsNavTile(
+              icon: Icons.auto_awesome_rounded,
+              title: 'onboarding.personalize_title'.tr(),
+              subtitle: 'onboarding.personalize_subtitle'.tr(),
+              onTap: () => startPersonalize(context),
             ),
             const SettingsDivider(),
             SettingsNavTile(

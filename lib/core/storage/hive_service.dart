@@ -7,6 +7,7 @@ import 'profile_scope.dart';
 import '../subtitles/subtitle_languages.dart';
 import '../../features/auth/data/models/user_model.dart';
 import '../../features/home/domain/home_rail.dart';
+import '../../features/onboarding/domain/taste_profile.dart';
 import '../../features/detail/domain/entities/subtitle_style.dart';
 
 class HiveService {
@@ -1044,6 +1045,62 @@ class HiveService {
 
   Future<void> markOnboardingSeen() async {
     await _settingsBox.put(AppConstants.onboardingSeenKey, true);
+  }
+
+  /// What the active profile said it likes. Empty until onboarding or
+  /// Settings → Personalize asked.
+  TasteProfile getTasteProfile() =>
+      _readTaste(ProfileScope.key(AppConstants.tasteProfileKey));
+
+  /// Another profile's, by its namespace (null for the default profile).
+  TasteProfile getTasteProfileFor(String? namespace) =>
+      _readTaste(ProfileScope.keyFor(AppConstants.tasteProfileKey, namespace));
+
+  TasteProfile _readTaste(String key) {
+    final raw = _settingsBox.get(key);
+    if (raw is! String || raw.isEmpty) return TasteProfile.empty;
+    try {
+      return TasteProfile.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return TasteProfile.empty;
+    }
+  }
+
+  Future<void> saveTasteProfile(TasteProfile taste) =>
+      _writeTaste(ProfileScope.key(AppConstants.tasteProfileKey), taste);
+
+  Future<void> saveTasteProfileFor(String? namespace, TasteProfile taste) =>
+      _writeTaste(
+        ProfileScope.keyFor(AppConstants.tasteProfileKey, namespace),
+        taste,
+      );
+
+  Future<void> _writeTaste(String key, TasteProfile taste) async {
+    await _settingsBox.put(key, jsonEncode(taste.toJson()));
+    tasteChanged.value++;
+  }
+
+  /// Bumped on every taste write, so Home's band picks the change up at once.
+  final ValueNotifier<int> tasteChanged = ValueNotifier<int>(0);
+
+  /// The setup in progress, or null. Device-level: the flow runs before any
+  /// profile is known.
+  Map<String, dynamic>? getOnboardingFlow() {
+    final raw = _settingsBox.get(AppConstants.onboardingFlowKey);
+    if (raw is! String || raw.isEmpty) return null;
+    try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveOnboardingFlow(Map<String, dynamic>? flow) async {
+    if (flow == null) {
+      await _settingsBox.delete(AppConstants.onboardingFlowKey);
+    } else {
+      await _settingsBox.put(AppConstants.onboardingFlowKey, jsonEncode(flow));
+    }
   }
 
   bool get hasDeeplinkPromptSeen {

@@ -650,6 +650,36 @@ class AnilistApi {
     return (idMal != null && idMal > 0) ? idMal : null;
   }
 
+  /// The AniList records for MyAnimeList ids, keyed by MAL id. Public, no
+  /// token; asked fifty at a time, AniList's page cap.
+  Future<Map<int, AnilistMedia>> mediaByMalIds(List<int> malIds) async {
+    final ids = malIds.where((id) => id > 0).toSet().toList();
+    final out = <int, AnilistMedia>{};
+    const gql =
+        '''
+      query (\$ids: [Int], \$perPage: Int) {
+        Page(page: 1, perPage: \$perPage) {
+          media(idMal_in: \$ids, type: ANIME) {
+            $_mediaFields
+          }
+        }
+      }
+    ''';
+    for (var i = 0; i < ids.length; i += 50) {
+      final chunk = ids.sublist(i, i + 50 > ids.length ? ids.length : i + 50);
+      final data = await _run(gql, variables: {'ids': chunk, 'perPage': 50});
+      final page = data['Page'];
+      final media = page is Map ? page['media'] : null;
+      if (media is! List) continue;
+      for (final raw in media.whereType<Map>()) {
+        final m = AnilistMedia.fromJson(raw.cast<String, dynamic>());
+        final mal = m.idMal;
+        if (mal != null && mal > 0) out[mal] = m;
+      }
+    }
+    return out;
+  }
+
   /// Everything airing between [from] and [to].
   ///
   /// Paged rather than a single large request: a day of global airings runs to

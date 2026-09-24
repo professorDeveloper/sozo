@@ -18,9 +18,13 @@ import 'package:soplay/features/profiles/presentation/widgets/profile_avatar.dar
 /// "Who's watching?" — shown at launch when the account has several profiles,
 /// and from Profile whenever someone wants to switch.
 class ProfilePickerPage extends StatefulWidget {
-  const ProfilePickerPage({super.key, this.session});
+  const ProfilePickerPage({super.key, this.session, this.then});
 
   final ProfileSession? session;
+
+  /// Where to go once a profile is picked, when that is not Home — the setup
+  /// continuing after a sign-in. Only setup routes are honoured.
+  final String? then;
 
   @override
   State<ProfilePickerPage> createState() => _ProfilePickerPageState();
@@ -81,7 +85,8 @@ class _ProfilePickerPageState extends State<ProfilePickerPage> {
         context.read<ProviderBloc>().add(const ProviderLoad());
       } catch (_) {}
     }
-    context.go('/main');
+    final then = widget.then;
+    context.go(then != null && then.startsWith('/onboarding') ? then : '/main');
   }
 
   @override

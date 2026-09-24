@@ -1,30 +1,30 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/localization/language_picker.dart';
-import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/auth/data/services/google_auth_service.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
+import 'package:soplay/core/widgets/app_buttons.dart';
 import 'package:soplay/features/auth/presentation/widgets/auth_widgets.dart';
 import 'package:soplay/features/onboarding/data/onboarding_posters.dart';
+import 'package:soplay/features/onboarding/presentation/controllers/onboarding_controller.dart';
+import 'package:soplay/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:soplay/features/onboarding/presentation/widgets/anime_ribbons.dart';
+import 'package:soplay/features/onboarding/presentation/widgets/onboarding_focus_button.dart';
 import 'package:soplay/features/onboarding/presentation/widgets/tv_showcase.dart';
 import 'package:soplay/features/onboarding/presentation/widgets/poster_wall.dart';
 
-/// The signed-out landing screen.
+/// The first screen of a new install: three slides on what Sozo is, and the
+/// way in.
 ///
 /// Each slide brings its own backdrop rather than re-colouring one: films fall
 /// in columns, anime slides across in shelves, and the third names what the app
 /// does besides play a file. Three slides over one background would just be
 /// three captions.
-///
-/// The sign-in options sit under all of it the whole time, so nobody has to
-/// page through the story to reach them.
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
 
@@ -34,157 +34,173 @@ class OnboardingPage extends StatefulWidget {
 
 class _OnboardingPageState extends State<OnboardingPage> {
   static const _slides = 3;
+  static const _autoAdvance = Duration(seconds: 6);
 
   final _pageController = PageController();
   int _page = 0;
-  bool _googlePending = false;
-  bool _languageConfirmed = false;
   bool _leaving = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    getIt<OnboardingController>().ensureFirstRun();
+    // A remote has nothing to swipe with, so on a television the story
+    // turns its own pages.
+    if (isTvPlatform) {
+      _timer = Timer.periodic(_autoAdvance, (_) => _turn(1, wrap: true));
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    for (final p in kAnimePosters.take(3)) {
+      precacheImage(AssetImage(p), context);
+    }
+  }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
 
-  /// Marked on the way out rather than on entry: a first launch killed halfway
-  /// through should still get the introduction next time.
-  Future<void> _leave(String route) async {
-    if (_leaving) return;
-    _leaving = true;
-    if (!_languageConfirmed) {
-      _languageConfirmed = await confirmIntroLanguage(context);
-      if (!mounted || !_languageConfirmed) {
-        _leaving = false;
-        return;
-      }
-    }
-    await getIt<HiveService>().markOnboardingSeen();
-    if (!mounted) return;
-    context.go(route);
+  void _turn(int by, {bool wrap = false}) {
+    if (!_pageController.hasClients) return;
+    var to = _page + by;
+    if (wrap) to %= _slides;
+    if (to < 0 || to >= _slides) return;
+    _pageController.animateToPage(
+      to,
+      duration: const Duration(milliseconds: 600),
+      curve: const Cubic(0.05, 0.7, 0.1, 1.0),
+    );
   }
 
-  Future<void> _continueWithGoogle() async {
-    if (_leaving || _googlePending) return;
-    _leaving = true;
-    if (!_languageConfirmed) {
-      _languageConfirmed = await confirmIntroLanguage(context);
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final rtl = Directionality.of(context) == ui.TextDirection.rtl;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowRight) {
+      _turn(rtl ? -1 : 1);
+      return KeyEventResult.handled;
     }
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      _turn(rtl ? 1 : -1);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  Future<void> _start() async {
+    if (_leaving) return;
+    _leaving = true;
+    await onboardingNext(context);
     _leaving = false;
-    if (!mounted || !_languageConfirmed) return;
-    setState(() => _googlePending = true);
-    context.read<AuthBloc>().add(const AuthGoogleRequested());
+  }
+
+  Future<void> _skip() async {
+    if (_leaving) return;
+    _leaving = true;
+    await finishOnboarding(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
-        if (state is AuthLoaded) {
-          _leave('/main');
-        } else if (state is AuthError) {
-          setState(() => _googlePending = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        } else if (state is AuthInitial) {
-          setState(() => _googlePending = false);
-        }
-      },
+    return PopScope(
+      canPop: true,
       child: Scaffold(
         backgroundColor: AppColors.background,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            _Backdrops(controller: _pageController, page: _page),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  // The last two stops are the page background arriving — the
-                  // third used to be the literal #181818, which under AMOLED
-                  // left the poster fading into grey and then jumping to black.
-                  colors: [
-                    const Color(0xB3000000),
-                    const Color(0x33000000),
-                    AppColors.background.withValues(alpha: 0.949),
-                    AppColors.background,
-                  ],
-                  stops: const [0, 0.28, 0.62, 0.8],
+        body: Focus(
+          onKeyEvent: _onKey,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _Backdrops(controller: _pageController, page: _page),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    // The last two stops are the page background arriving — a
+                    // literal grey there showed as a band under AMOLED.
+                    colors: [
+                      const Color(0xB3000000),
+                      const Color(0x33000000),
+                      AppColors.background.withValues(alpha: 0.949),
+                      AppColors.background,
+                    ],
+                    stops: const [0, 0.28, 0.62, 0.8],
+                  ),
                 ),
               ),
-            ),
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) => SingleChildScrollView(
-                  child: SizedBox(
-                    height: constraints.maxHeight.clamp(
-                      540 +
-                          (MediaQuery.textScalerOf(context).scale(14) - 14) *
-                              32,
-                      double.infinity,
-                    ),
-                    child: Column(
-                      children: [
-                        OnboardingHeader(onSkip: () => _leave('/main')),
-                        Expanded(
-                          child: PageView.builder(
-                            controller: _pageController,
-                            itemCount: _slides,
-                            onPageChanged: (i) => setState(() => _page = i),
-                            itemBuilder: (context, i) =>
-                                _Slide(index: i, controller: _pageController),
+              SafeArea(
+                child: LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    child: SizedBox(
+                      height: constraints.maxHeight.clamp(
+                        460 +
+                            (MediaQuery.textScalerOf(context).scale(14) - 14) *
+                                28,
+                        double.infinity,
+                      ),
+                      child: Column(
+                        children: [
+                          OnboardingHeader(onSkip: _skip),
+                          Expanded(
+                            child: PageView.builder(
+                              controller: _pageController,
+                              itemCount: _slides,
+                              onPageChanged: (i) => setState(() => _page = i),
+                              itemBuilder: (context, i) =>
+                                  _Slide(index: i, controller: _pageController),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        _Dots(count: _slides, active: _page),
-                        const SizedBox(height: 26),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                          child: BlocBuilder<AuthBloc, AuthState>(
-                            builder: (context, state) {
-                              final loading = state is AuthLoading;
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  if (GoogleAuthService.isSupported) ...[
-                                    GoogleAuthButton(
-                                      loading: loading && _googlePending,
-                                      onPressed: loading
-                                          ? null
-                                          : _continueWithGoogle,
+                          const SizedBox(height: 16),
+                          _Dots(count: _slides, active: _page),
+                          const SizedBox(height: 26),
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 480),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  0,
+                                  20,
+                                  8,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    OnboardingFocusButton(
+                                      autofocus: isTvPlatform,
+                                      child: AppPrimaryButton(
+                                        label: 'onboarding.get_started'.tr(),
+                                        icon: Icons.arrow_forward_rounded,
+                                        onPressed: _start,
+                                      ),
                                     ),
-                                    const SizedBox(height: 10),
+                                    AuthSwitchPrompt(
+                                      text: 'auth.already_have_account'.tr(),
+                                      action: 'auth.sign_in'.tr(),
+                                      onTap: () => context.push('/login'),
+                                    ),
                                   ],
-                                  FilledButton(
-                                    onPressed: loading
-                                        ? null
-                                        : () => _leave('/register'),
-                                    child: Text(
-                                      'onboarding.continue_with_email'.tr(),
-                                    ),
-                                  ),
-                                  AuthSwitchPrompt(
-                                    text: 'auth.already_have_account'.tr(),
-                                    action: 'auth.sign_in'.tr(),
-                                    onTap: () => _leave('/login'),
-                                  ),
-                                ],
-                              );
-                            },
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

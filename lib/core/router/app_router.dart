@@ -20,6 +20,15 @@ import 'package:soplay/features/app_lock/presentation/pages/pin_verify_page.dart
 import 'package:soplay/features/desktop_share/presentation/pages/desktop_share_page.dart';
 import 'package:soplay/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:soplay/features/auth/presentation/pages/login_page.dart';
+import 'package:soplay/features/onboarding/domain/onboarding_flow.dart';
+import 'package:soplay/features/onboarding/presentation/onboarding_navigation.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_account_page.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_done_page.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_genres_page.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_import_page.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_kinds_page.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_language_page.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_notifications_page.dart';
 import 'package:soplay/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:soplay/features/auth/presentation/pages/otp_verify_page.dart';
 import 'package:soplay/features/auth/presentation/pages/register_page.dart';
@@ -465,7 +474,8 @@ class AppRouter {
       GoRoute(path: '/main', builder: (context, state) => const MainPage()),
       GoRoute(
         path: '/profiles',
-        builder: (context, state) => const ProfilePickerPage(),
+        builder: (context, state) =>
+            ProfilePickerPage(then: state.uri.queryParameters['then']),
       ),
       GoRoute(
         path: '/profiles/manage',
@@ -478,8 +488,22 @@ class AppRouter {
       ),
       GoRoute(
         path: '/onboarding',
-        builder: (context, state) => const OnboardingPage(),
+        pageBuilder: (context, state) =>
+            onboardingPage(state, const OnboardingPage()),
       ),
+      for (final (step, page) in const [
+        (OnboardingStep.language, OnboardingLanguagePage()),
+        (OnboardingStep.kinds, OnboardingKindsPage()),
+        (OnboardingStep.genres, OnboardingGenresPage()),
+        (OnboardingStep.account, OnboardingAccountPage()),
+        (OnboardingStep.import, OnboardingImportPage()),
+        (OnboardingStep.notifications, OnboardingNotificationsPage()),
+        (OnboardingStep.done, OnboardingDonePage()),
+      ])
+        GoRoute(
+          path: step.path,
+          pageBuilder: (context, state) => onboardingPage(state, page),
+        ),
       GoRoute(
         path: '/profile/edit',
         builder: (context, state) {

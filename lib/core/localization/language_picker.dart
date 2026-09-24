@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/localization/app_language.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
 /// First-run choice, after the introduction and before entering the app/auth.
@@ -32,10 +33,22 @@ Future<void> openLanguagePage(BuildContext context) =>
 /// a dropdown in Settings. Three ways to make one choice is three places for it
 /// to drift, and the dropdown was the one people actually met.
 class LanguagePage extends StatefulWidget {
-  const LanguagePage({super.key, this.firstRun = true});
+  const LanguagePage({
+    super.key,
+    this.firstRun = true,
+    this.header,
+    this.onContinue,
+  });
 
   /// Show the wordmark and a Continue button, rather than applying on tap.
   final bool firstRun;
+
+  /// Replaces the back button and wordmark, for a host with its own chrome.
+  final Widget? header;
+
+  /// Called with the choice instead of popping it, for a host that moves on
+  /// itself.
+  final ValueChanged<String>? onContinue;
 
   @override
   State<LanguagePage> createState() => _LanguagePageState();
@@ -55,31 +68,34 @@ class _LanguagePageState extends State<LanguagePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(8, 8, 20, 0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      tooltip: MaterialLocalizations.of(
-                        context,
-                      ).backButtonTooltip,
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.arrow_back_rounded),
-                    ),
-                    const Spacer(),
-                    if (widget.firstRun)
-                      Text(
-                        'SOZO',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2.2,
-                        ),
+              if (widget.header case final header?)
+                header
+              else
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(8, 8, 20, 0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        tooltip: MaterialLocalizations.of(
+                          context,
+                        ).backButtonTooltip,
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.arrow_back_rounded),
                       ),
-                  ],
+                      const Spacer(),
+                      if (widget.firstRun)
+                        Text(
+                          'SOZO',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2.2,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -141,7 +157,15 @@ class _LanguagePageState extends State<LanguagePage> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                   child: FilledButton(
-                    onPressed: () => Navigator.pop(context, selected),
+                    autofocus: widget.onContinue != null && isTvPlatform,
+                    onPressed: () {
+                      final onContinue = widget.onContinue;
+                      if (onContinue != null) {
+                        onContinue(selected);
+                      } else {
+                        Navigator.pop(context, selected);
+                      }
+                    },
                     child: Text('ux.continue'.tr()),
                   ),
                 ),
