@@ -53,14 +53,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    for (final p in kAnimePosters.take(3)) {
-      precacheImage(AssetImage(p), context);
-    }
-  }
-
-  @override
   void dispose() {
     _timer?.cancel();
     _pageController.dispose();
@@ -352,8 +344,9 @@ class _Backdrop extends StatelessWidget {
           child: Transform.scale(
             scale: 1 + distance * 0.06,
             child: switch (index) {
-              0 => const PosterWall(posters: kMoviePosters),
-              1 => const AnimeRibbons(),
+              // The page's scrim already fades them into the background.
+              0 => const PosterWall(posters: kMoviePosters, fadeBottom: false),
+              1 => const AnimeRibbons(fadeBottom: false),
               _ => TvShowcase(active: shown),
             },
           ),
