@@ -592,10 +592,21 @@ Future<T?> showAdaptiveModal<T>({
       ),
     );
   }
+  // A plain sheet is sized by its content up to 90% of the screen, not
+  // capped at Flutter's 9/16, which cut long settings sheets in half.
+  final media = MediaQuery.of(context);
+  final fitted = isScrollControlled
+      ? null
+      : BoxConstraints(
+          maxWidth:
+              Theme.of(context).bottomSheetTheme.constraints?.maxWidth ?? 640,
+          maxHeight: (media.size.height - media.padding.top) * 0.9,
+        );
   return showModalBottomSheet<T>(
     context: context,
     backgroundColor: backgroundColor,
-    isScrollControlled: isScrollControlled,
+    isScrollControlled: true,
+    constraints: fitted,
     shape: shape,
     showDragHandle: showDragHandle,
     // Faster in, and with a curve that settles rather than slides.

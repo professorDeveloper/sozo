@@ -301,5 +301,44 @@ void main() {
       expect(find.byType(BottomSheet), findsOneWidget);
       expect(find.byType(Dialog), findsNothing);
     });
+
+    Future<double> sheetHeight(WidgetTester tester, double content) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      late BuildContext hostContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              hostContext = context;
+              return const Scaffold();
+            },
+          ),
+        ),
+      );
+      unawaited(
+        showAdaptiveModal<void>(
+          context: hostContext,
+          showDragHandle: true,
+          builder: (_) => SingleChildScrollView(
+            child: SizedBox(height: content),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return tester.getSize(find.byType(BottomSheet)).height;
+    }
+
+    testWidgets('a long sheet opens past 9/16 of the screen', (tester) async {
+      final height = await sheetHeight(tester, 2000);
+      expect(height, greaterThan(800 * 9 / 16));
+      expect(height, lessThanOrEqualTo(800 * 0.9));
+    });
+
+    testWidgets('a short sheet stays as tall as its content', (tester) async {
+      final height = await sheetHeight(tester, 150);
+      expect(height, lessThan(300));
+    });
   });
 }
