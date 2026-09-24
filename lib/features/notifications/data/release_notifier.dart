@@ -71,6 +71,8 @@ class NotificationLabels {
   }
 
   String bodyFor(ReleaseAlert a) {
+    final server = a.body;
+    if (server != null && server.isNotEmpty) return server;
     final reading = a.isReading;
     if (a.count > 1) {
       return fill(reading ? chaptersMany : episodesMany, [a.count, a.episodeText]);
@@ -148,6 +150,7 @@ class ReleaseAlert {
     this.episodeLabel,
     this.count = 1,
     this.profileId,
+    this.body,
   });
 
   final String provider;
@@ -166,6 +169,10 @@ class ReleaseAlert {
   /// The household profile a push was addressed to. Carried into the tap so
   /// opening it switches to that profile.
   final String? profileId;
+
+  /// The server's own wording, in the account's language; it knows seasons,
+  /// which a running number here does not.
+  final String? body;
 
   bool get isReading => mode == 'manga' || mode == 'novel';
 
@@ -186,6 +193,7 @@ class ReleaseAlert {
     if (url.isEmpty || episode <= 0) return null;
     final count = int.tryParse('${data['count'] ?? ''}') ?? 1;
     final profile = data['profileId']?.toString() ?? '';
+    final body = data['body']?.toString().trim() ?? '';
     return ReleaseAlert(
       provider: data['provider']?.toString() ?? '',
       contentUrl: url,
@@ -196,6 +204,7 @@ class ReleaseAlert {
       episodeLabel: data['episodeLabel']?.toString(),
       count: count < 1 ? 1 : count,
       profileId: profile.isEmpty ? null : profile,
+      body: body.isEmpty ? null : body,
     );
   }
 

@@ -58,4 +58,21 @@ void main() {
     final own = ReleaseAlert.fromData({'contentUrl': 'u', 'episodeNumber': 1})!;
     expect(own.toPayload().containsKey('profileId'), isFalse);
   });
+
+  test("a push's own wording wins over the app's running number", () {
+    const labels = NotificationLabels();
+    final server = ReleaseAlert.fromData({
+      'contentUrl': 'https://www.themoviedb.org/tv/9',
+      'episodeNumber': '17',
+      'episodeLabel': 'S2 E5',
+      'body': 'Season 2, episode 5 is out',
+    })!;
+    expect(labels.bodyFor(server), 'Season 2, episode 5 is out');
+    final local = ReleaseAlert.fromData({
+      'contentUrl': 'https://a/b',
+      'episodeNumber': '3',
+    })!;
+    expect(local.body, isNull);
+    expect(labels.bodyFor(local), isNotEmpty);
+  });
 }
