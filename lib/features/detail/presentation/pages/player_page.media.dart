@@ -488,7 +488,20 @@ extension _PlayerMedia on _PlayerPageState {
     ),
     avoidCodec: _decoderAvoidCodec,
     triedUrls: _triedSourceUrls,
+    preferredHeight: _qualityPreference,
   );
+
+  /// What to start on: this session's pick, then this title's, then the
+  /// standing setting.
+  int get _qualityPreference {
+    final manual = _manualHeight;
+    if (manual != null) return manual;
+    final contentUrl = widget.args.contentUrl ?? '';
+    final remembered = contentUrl.isEmpty
+        ? null
+        : _titlePrefs.heightChoiceFor(widget.args.provider, contentUrl);
+    return remembered ?? _hive.preferredQuality;
+  }
 
   /// Starts a fresh walk. Called wherever what is playing genuinely changes —
   /// a new episode, a new movie, an explicit pick — never on a retry, which is
@@ -570,6 +583,7 @@ extension _PlayerMedia on _PlayerPageState {
   Future<void> _switchQuality(
     VideoSourceEntity source, {
     bool remember = true,
+    bool pickedHeight = true,
   }) async {
     // Which ROW, not which label. Two servers may both call themselves
     // "1080p", and matching on the label made the second one impossible to
@@ -584,7 +598,12 @@ extension _PlayerMedia on _PlayerPageState {
     }
     // Remembered for this title. Plenty of shows only play on their third
     // mirror, and re-picking it every episode is the kind of chore that reads
-    // as the app not working.
+    // as the app not working. The height is left alone on a server switch:
+    // that lands on the server's first row, and recording it would quietly
+    // unpin the quality.
+    final height =
+        source.height ?? VideoOptionGroups.resolutionOf(source.quality) ?? 0;
+    if (remember && pickedHeight) _manualHeight = height;
     if (remember) {
       unawaited(
         _titlePrefs.rememberQuality(
@@ -593,11 +612,13 @@ extension _PlayerMedia on _PlayerPageState {
           source.quality,
         ),
       );
+    }
+    if (remember && pickedHeight) {
       unawaited(
         _titlePrefs.rememberHeight(
           widget.args.provider,
           widget.args.contentUrl ?? '',
-          source.height ?? VideoOptionGroups.resolutionOf(source.quality) ?? 0,
+          height,
         ),
       );
     }
@@ -846,6 +867,7 @@ extension _PlayerMedia on _PlayerPageState {
           ),
     ];
 
+    _variantUrls.addAll(expanded.skip(1).map((e) => e.videoUrl));
     _plog(
       'master playlist -> ${expanded.length - 1} qualities '
       '(${expanded.skip(1).map((e) => e.quality).join(", ")})',
@@ -883,7 +905,7 @@ extension _PlayerMedia on _PlayerPageState {
     // Only when the server sent a directive — no provider check, no url
     // pattern-matching. See `_extractorConfig`.
     final cfg = _extractorConfig;
-    if (cfg != null && url.isNotEmpty) {
+    if (cfg != null && url.isNotEmpty && !_variantUrls.contains(url)) {
       _plog(
         'webview sniff: host=${cfg.hostPattern} patterns=${cfg.urlPatterns}',
       );
@@ -935,8 +957,27 @@ extension _PlayerMedia on _PlayerPageState {
     // Before playback, not after: the sheet is built from `_videoSources`, and
     // a viewer who opens it during the first ten seconds should already find
     // the renditions there.
-    await _maybeExpandQualities(effUrl, effHeaders, effType, generation);
+    final pinned = await _maybeExpandQualities(
+      effUrl,
+      effHeaders,
+      effType,
+      generation,
+    );
     if (!mounted || generation != _mediaGeneration) return;
+    // Straight onto the preferred rendition rather than starting the master
+    // and switching a second later: one load, and the resume point holds.
+    if (pinned != null) {
+      final idx = _videoSources.indexOf(pinned);
+      setState(() {
+        if (idx >= 0) _currentSourceIndex = idx;
+        _currentQuality = pinned.quality;
+      });
+      effUrl = pinned.videoUrl;
+      // A retry replays this; the master would come back as Auto under the
+      // pinned row's label.
+      _playSourceUrl = effUrl;
+      _playSourceHeaders = effHeaders;
+    }
 
     await _initializeResolved(
       generation: generation,
@@ -967,54 +1008,49 @@ extension _PlayerMedia on _PlayerPageState {
   ///
   /// Costs one GET, skipped whenever there is already something to choose
   /// from. Failure is silent: this widens a menu, it does not gate playback.
-  Future<void> _maybeExpandQualities(
+  Future<VideoSourceEntity?> _maybeExpandQualities(
     String url,
     Map<String, String> headers,
     String? type,
     int generation,
   ) async {
     final idx = _currentSourceIndex;
-    if (idx < 0 || idx >= _videoSources.length) return;
+    if (idx < 0 || idx >= _videoSources.length) return null;
     final parent = _videoSources[idx];
-
-    // A label that already states a resolution came from the provider, and the
-    // provider knows its own catalogue better than a parsed manifest does.
-    if (VideoOptionGroups.resolutionOf(parent.quality) != null) return;
-    if (url.isEmpty) return;
-    // Already expanded in the list as it stands. The guard used to be "this
-    // url was expanded once this session", so a re-resolve that brought the
-    // same master back — an audio-language switch, a retry — replaced the
-    // list and never got its quality rows again.
-    final variantPrefix = '${parent.quality} · ';
-    if (_videoSources.any(
-      (s) => s.height != null && s.quality.startsWith(variantPrefix),
+    // The guard used to be "this url was expanded once this session", so a
+    // re-resolve that brought the same master back — an audio-language
+    // switch, a retry — replaced the list and never got its rows again.
+    if (!QualityPreference.shouldExpand(
+      label: parent.quality,
+      url: url,
+      type: type,
+      siblingLabels: [
+        for (final s in _videoSources)
+          if (s.height != null) s.quality,
+      ],
     )) {
-      return;
+      return null;
     }
     // In flight: two expansions of one master at once would insert twice.
-    if (!_expandedMasters.add(url)) return;
+    if (!_expandedMasters.add(url)) return null;
     try {
-      await _expandQualities(parent, idx, url, headers, type, generation);
+      return await _expandQualities(parent, idx, url, headers, generation);
     } finally {
       _expandedMasters.remove(url);
     }
   }
 
-  Future<void> _expandQualities(
+  /// Returns the row the viewer's preference pins, or null to stay on the
+  /// adaptive entry.
+  Future<VideoSourceEntity?> _expandQualities(
     VideoSourceEntity parent,
     int idx,
     String url,
     Map<String, String> headers,
-    String? type,
     int generation,
   ) async {
-    final kind = type?.toLowerCase();
-    final looksHls =
-        kind == 'hls' || kind == 'm3u8' || url.toLowerCase().contains('.m3u8');
-    if (!looksHls) return;
-
     final base = Uri.tryParse(url);
-    if (base == null) return;
+    if (base == null) return null;
 
     String body;
     try {
@@ -1030,14 +1066,14 @@ extension _PlayerMedia on _PlayerPageState {
           extra: const {'skipAuthInterceptor': true},
         ),
       );
-      if (res.statusCode != 200) return;
+      if (res.statusCode != 200) return null;
       body = res.data ?? '';
     } catch (_) {
       // A master that will not load is the player's problem to report, not
       // this one's — it is about to request the same url.
-      return;
+      return null;
     }
-    if (!body.trimLeft().startsWith('#EXTM3U')) return;
+    if (!body.trimLeft().startsWith('#EXTM3U')) return null;
 
     // Shared with the downloader, so the file saved matches the rendition the
     // sheet offered.
@@ -1056,7 +1092,10 @@ extension _PlayerMedia on _PlayerPageState {
             accessible: parent.accessible,
             height: v.height,
             type: parent.type ?? 'hls',
-            headers: parent.headers.isNotEmpty ? parent.headers : headers,
+            // The headers the master was just fetched with: after a sniff
+            // those carry what the CDN gates on, which the parent's own
+            // page headers do not.
+            headers: headers.isNotEmpty ? headers : parent.headers,
             useLocalProxy: parent.useLocalProxy,
             localProxy: parent.localProxy,
             requestTransform: parent.requestTransform,
@@ -1066,16 +1105,17 @@ extension _PlayerMedia on _PlayerPageState {
     // One rendition beside the adaptive entry is not a choice, and a quality
     // control that opens onto a single row reads as broken — the same rule the
     // engine track list follows.
-    if (rows.length < 2) return;
+    if (rows.length < 2) return null;
 
     _plog(
       'master playlist -> ${rows.length} qualities for '
       '"${parent.quality}" (${rows.map((e) => e.height).join(", ")})',
     );
-    if (!mounted || generation != _mediaGeneration) return;
+    if (!mounted || generation != _mediaGeneration) return null;
     if (_currentSourceIndex != idx || !identical(_videoSources[idx], parent)) {
-      return;
+      return null;
     }
+    _variantUrls.addAll(rows.map((r) => r.videoUrl));
     setState(() {
       _videoSources = [
         ..._videoSources.take(idx + 1),
@@ -1083,23 +1123,17 @@ extension _PlayerMedia on _PlayerPageState {
         ..._videoSources.skip(idx + 1),
       ];
     });
-    // The height picked on this title before. The rows did not exist when
-    // the episode chose its source, so a pick of "Server · 720p" fell back
-    // to Auto on every next episode.
-    final want = _rememberedHeight;
-    if (want == null) return;
-    final match = rows.where((r) => r.height == want).firstOrNull;
-    if (match != null) unawaited(_switchQuality(match, remember: false));
+    // The rows did not exist when the episode chose its source, so without
+    // this a pick of "Server · 720p" fell back to Auto on every next episode.
+    final want = QualityPreference.pick(
+      rows.map((r) => r.height ?? 0),
+      _qualityPreference,
+    );
+    if (want == null) return null;
+    return rows.where((r) => r.height == want).firstOrNull;
   }
 
-  int? get _rememberedHeight {
-    final contentUrl = widget.args.contentUrl ?? '';
-    return contentUrl.isEmpty
-        ? null
-        : _titlePrefs.heightFor(widget.args.provider, contentUrl);
-  }
-
-  /// On libmpv the renditions are the engine's own tracks: the remembered
+  /// On libmpv the renditions are the engine's own tracks: the preferred
   /// height is picked from them once they are listed.
   void _applyRememberedVideoTrack() {
     if (_videoTrackApplied) return;
@@ -1108,7 +1142,10 @@ extension _PlayerMedia on _PlayerPageState {
     final tracks = c.videoTracks;
     if (tracks.isEmpty) return;
     _videoTrackApplied = true;
-    final want = _rememberedHeight;
+    final want = QualityPreference.pick(
+      tracks.where((t) => !t.isAuto).map((t) => t.height ?? 0),
+      _qualityPreference,
+    );
     if (want == null) return;
     final match = tracks
         .where((t) => !t.isAuto && t.height == want)

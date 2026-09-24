@@ -3,6 +3,7 @@ import 'package:soplay/features/download/presentation/widgets/download_choice_sh
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:soplay/core/player/hls_variants.dart';
+import 'package:soplay/core/player/quality_preference.dart';
 import 'package:soplay/core/analytics/analytics.dart';
 import 'package:soplay/core/player/color_profile.dart';
 import 'package:soplay/core/player/shader_presets.dart';
@@ -84,6 +85,7 @@ import 'package:soplay/features/detail/domain/video_option_groups.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/detail/data/aniskip_service.dart';
 import 'package:soplay/features/detail/presentation/pages/player_controls_page.dart';
+import 'package:soplay/features/detail/presentation/widgets/subtitle_size_control.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_transport_row.dart';
 import 'package:soplay/features/detail/presentation/widgets/alternate_source_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_info_fields_sheet.dart';
@@ -245,6 +247,10 @@ class _PlayerPageState extends State<PlayerPage>
   /// engine's renditions yet.
   bool _videoTrackApplied = false;
 
+  /// The height picked by hand this session, 0 for Auto. Outranks what is
+  /// stored, so a title with no content url still keeps the pick.
+  int? _manualHeight;
+
   /// True while the current media is a live broadcast.
   ///
   /// Seeded from what the caller SAID it is rather than guessed alone: Live TV
@@ -273,6 +279,10 @@ class _PlayerPageState extends State<PlayerPage>
   /// Master playlists already read for their renditions, so switching back to a
   /// server does not refetch its manifest.
   final Set<String> _expandedMasters = <String>{};
+
+  /// Renditions parsed out of a master. Already streams, so a switch to one
+  /// must not go back through the page sniff its master needed.
+  final Set<String> _variantUrls = <String>{};
 
   /// Mirrors already attempted for what is on screen, by url.
   ///

@@ -529,9 +529,14 @@ class _BottomTextButton extends StatelessWidget {
     required this.enabled,
     required this.onTap,
     this.compact = false,
+    this.compactLabel,
   });
   final IconData icon;
   final String label;
+
+  /// Drawn instead of the icon when [compact], for a button whose value is
+  /// worth more than its glyph.
+  final String? compactLabel;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -573,7 +578,28 @@ class _BottomTextButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, color: color, size: 20, shadows: _kControlShadow),
+                  if (compact && compactLabel != null)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 20),
+                      child: Text(
+                        compactLabel!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12,
+                          height: 1.67,
+                          fontWeight: FontWeight.w800,
+                          shadows: _kControlShadow,
+                        ),
+                      ),
+                    )
+                  else
+                    Icon(
+                      icon,
+                      color: color,
+                      size: 20,
+                      shadows: _kControlShadow,
+                    ),
                   if (!compact) ...[
                     const SizedBox(width: 4),
                     // Cross-faded, because several of these buttons now CYCLE

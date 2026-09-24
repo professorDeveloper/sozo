@@ -9,11 +9,13 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/player/media_controller.dart'
     show warmUpPlayerEngine;
 import 'package:soplay/core/player/player_engine.dart';
+import 'package:soplay/core/player/quality_preference.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/subtitles/subtitle_languages.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
+import 'package:soplay/features/detail/presentation/widgets/subtitle_size_control.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 
 /// Settings → Player. Every control here seeds a knob that already exists
@@ -48,6 +50,7 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
   late bool _askOnPlay;
   late double _speed;
   late String _fit;
+  late int _preferredQuality;
   late bool _autoNext;
   late bool _startPaused;
   late int _seekSeconds;
@@ -88,6 +91,7 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
     _askOnPlay = _hive.askEngineOnPlay;
     _speed = _hive.getDefaultPlaybackSpeed();
     _fit = _hive.getDefaultPlayerFit();
+    _preferredQuality = _hive.preferredQuality;
     _autoNext = _hive.autoPlayNextEpisode;
     _startPaused = _hive.startPaused;
     _incognito = _hive.isIncognito;
@@ -133,6 +137,12 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
     'cover' => 'player.fit_fill'.tr(),
     'fill' => 'player.fit_stretch'.tr(),
     _ => 'player.fit_original'.tr(),
+  };
+
+  String _qualityPreferenceLabel(int v) => switch (v) {
+    QualityPreference.auto => 'player.auto'.tr(),
+    QualityPreference.dataSaver => 'profile.quality_data_saver'.tr(),
+    _ => '${v}p',
   };
 
   String _speedLabel(double v) =>
@@ -222,6 +232,19 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
                 onChanged: (v) {
                   setState(() => _fit = v);
                   _hive.saveDefaultPlayerFit(v);
+                },
+              ),
+              const SettingsDivider(),
+              SettingsDropdownTile<int>(
+                icon: Icons.high_quality_rounded,
+                title: 'profile.preferred_quality'.tr(),
+                subtitle: 'profile.preferred_quality_desc'.tr(),
+                value: _preferredQuality,
+                options: QualityPreference.choices,
+                labelOf: _qualityPreferenceLabel,
+                onChanged: (v) {
+                  setState(() => _preferredQuality = v);
+                  _hive.savePreferredQuality(v);
                 },
               ),
               const SettingsDivider(),
@@ -418,14 +441,35 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
           const SizedBox(height: 10),
           SettingsCard(
             children: [
-              SettingsDropdownTile<double>(
-                icon: Icons.format_size_rounded,
-                title: 'player.font_size'.tr(),
-                value: _subtitle.fontSize,
-                options: const [12, 14, 16, 18, 20, 24, 28, 32],
-                labelOf: (v) => v.toInt().toString(),
-                onChanged: (v) =>
-                    _saveSubtitle(_subtitle.copyWith(fontSize: v)),
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 11, 16, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const SettingsLeadingChip(
+                          icon: Icons.format_size_rounded,
+                        ),
+                        const SizedBox(width: 14),
+                        Text(
+                          'player.font_size'.tr(),
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    SubtitleSizeControl(
+                      fontSize: _subtitle.fontSize,
+                      onChanged: (v) =>
+                          _saveSubtitle(_subtitle.copyWith(fontSize: v)),
+                    ),
+                  ],
+                ),
               ),
               const SettingsDivider(),
               SettingsDropdownTile<SubtitleEdge>(
