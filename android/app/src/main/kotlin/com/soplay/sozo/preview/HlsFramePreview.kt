@@ -27,7 +27,8 @@ import java.util.concurrent.TimeUnit
  */
 object HlsFramePreview {
     private const val TAG = "HlsFramePreview"
-    private const val MAX_W = 240
+    // The card is drawn up to ~210pt wide; 240px was soft on a 3x screen.
+    private const val MAX_W = 360
     private const val LINGER_MS = 60_000L
 
     private val lock = Any()
@@ -107,7 +108,7 @@ object HlsFramePreview {
             )
         } else bmp
         val out = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, 72, out)
+        scaled.compress(Bitmap.CompressFormat.JPEG, 78, out)
         if (scaled !== bmp) scaled.recycle()
         return out.toByteArray()
     }

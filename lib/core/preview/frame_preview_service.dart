@@ -4,7 +4,9 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
 
@@ -69,12 +71,59 @@ class FramePreviewService {
 
   /// Spacing of the background grid for [durationMs], for [nearest]'s reach.
   static int gridSpacingMs(int durationMs, {required bool metered}) {
-    final count = metered ? _gridOnData : _gridOnWifi;
+    final count = gridCount(durationMs, metered: metered);
     return (durationMs ~/ count).clamp(bucketMs, 1 << 30);
   }
 
-  static const int _gridOnWifi = 60;
-  static const int _gridOnData = 16;
+  /// How many frames the grid holds: one every ~20 seconds on Wi-Fi, so an
+  /// episode and a two-hour film are both dense enough that a scrub lands
+  /// near a real frame; fewer on mobile data, where each costs a segment.
+  @visibleForTesting
+  static int gridCount(int durationMs, {required bool metered}) {
+    if (metered) return 16;
+    return (durationMs ~/ 20000).clamp(40, FramePreviewSession.maxGridFrames);
+  }
+
+  /// Frames near [positionMs], in [direction] (+1 ahead, -1 behind), fetched
+  /// while the finger is still down — the next place a drag is going — only
+  /// when the decoder is otherwise idle.
+  static void prefetch(
+    String url,
+    int positionMs,
+    int direction, {
+    bool hls = false,
+  }) {
+    final s = _sessionFor(hls);
+    if (!s.serves(url) || s.busy) return;
+    final step = direction >= 0 ? bucketMs * 2 : -bucketMs * 2;
+    unawaited(s.frame(positionMs + step));
+  }
+
+  /// Coarse to fine: every eighth point first, then the points around
+  /// [near] (the playhead), then the fourths, halves and the rest — so a
+  /// scrub early on finds something near wherever it lands, and nearest of
+  /// all where it most often lands.
+  @visibleForTesting
+  static List<int> gridOrder(int count, {int? near}) {
+    final out = <int>[];
+    final seen = <int>{};
+    for (var i = 0; i < count; i += 8) {
+      if (seen.add(i)) out.add(i);
+    }
+    if (near != null) {
+      for (var d = 0; d <= 4; d++) {
+        for (final i in [near + d, near - d]) {
+          if (i >= 0 && i < count && seen.add(i)) out.add(i);
+        }
+      }
+    }
+    for (final step in const [4, 2, 1]) {
+      for (var i = 0; i < count; i += step) {
+        if (seen.add(i)) out.add(i);
+      }
+    }
+    return out;
+  }
 
   static _Warmer? _warmer;
   static bool _scrubbing = false;
@@ -87,12 +136,20 @@ class FramePreviewService {
   /// to fine, a frame at a time and paced so playback keeps the bandwidth —
   /// so a scrub finds a frame already there instead of waiting for one.
   /// Fewer frames on mobile data: each one costs a segment download.
+  ///
+  /// [cacheKey] names the episode rather than the stream — stream addresses
+  /// are signed and change — so the grid is kept on disk and an episode
+  /// opened again has every frame from the first touch. [positionMs] is where
+  /// playback is: the frames around it come right after the coarse pass,
+  /// since most scrubs are a minute or two either way.
   static void warm({
     required String url,
     required Map<String, String> headers,
     required int durationMs,
     bool hls = false,
     bool metered = false,
+    String? cacheKey,
+    int positionMs = 0,
   }) {
     if (!isSupported || durationMs < 60000) return;
     _warmer?.stop();
@@ -101,8 +158,10 @@ class FramePreviewService {
       url: url,
       headers: headers,
       durationMs: durationMs,
-      count: metered ? _gridOnData : _gridOnWifi,
-      pace: Duration(milliseconds: metered ? 900 : 350),
+      count: gridCount(durationMs, metered: metered),
+      pace: Duration(milliseconds: metered ? 900 : 250),
+      cacheKey: cacheKey,
+      positionMs: positionMs,
     )..start();
   }
 
@@ -249,7 +308,24 @@ class FramePreviewSession {
   /// from [_cache] so a burst of scrubbing cannot evict the grid that makes
   /// the next scrub instant.
   final _grid = <int, Uint8List>{};
-  static const int maxGridFrames = 64;
+  static const int maxGridFrames = 120;
+
+  /// Where this source's grid is kept on disk; null keeps it in memory only.
+  String? _diskKey;
+
+  /// Loads the grid kept for [key] and keeps new grid frames there.
+  Future<void> attachDisk(String key) async {
+    _diskKey = key;
+    final frames = await PreviewDiskCache.load(key);
+    if (_diskKey != key) return;
+    for (final e in frames.entries) {
+      if (_grid.length >= maxGridFrames) break;
+      _grid.putIfAbsent(e.key, () => e.value);
+    }
+  }
+
+  /// Held in the grid already, so the warmer can skip it.
+  bool hasGridFrame(int positionMs) => _grid.containsKey(_bucketOf(positionMs));
   final _misses = <int, DateTime>{};
   DateTime? _retryOpenAfter;
   int _cacheBytes = 0;
@@ -274,6 +350,7 @@ class FramePreviewSession {
     _identity = identity;
     _url = url;
     _headers = Map.of(headers);
+    _diskKey = null;
   }
 
   Future<Uint8List?> previewFrame(
@@ -328,6 +405,8 @@ class FramePreviewSession {
     if (bytes != null && _grid.length < maxGridFrames) {
       _cache.remove(bucket);
       _grid[bucket] = bytes;
+      final key = _diskKey;
+      if (key != null) unawaited(PreviewDiskCache.save(key, bucket, bytes));
     }
     return true;
   }
@@ -469,6 +548,7 @@ class FramePreviewSession {
     _identity = null;
     _url = null;
     _headers = {};
+    _diskKey = null;
     _cache.clear();
     _grid.clear();
     _cacheBytes = 0;
@@ -487,6 +567,8 @@ class _Warmer {
     required this.durationMs,
     required this.count,
     required this.pace,
+    this.cacheKey,
+    this.positionMs = 0,
   });
 
   final FramePreviewSession session;
@@ -495,33 +577,28 @@ class _Warmer {
   final int durationMs;
   final int count;
   final Duration pace;
+  final String? cacheKey;
+  final int positionMs;
   bool _stopped = false;
 
   void stop() => _stopped = true;
 
   void start() => unawaited(_loop());
 
-  /// Coarse to fine: every eighth point first, then the fourths, halves and
-  /// the rest, so a scrub early on already finds something near wherever it
-  /// lands instead of only near the start.
-  static List<int> order(int count) {
-    final out = <int>[];
-    final seen = <int>{};
-    for (final step in const [8, 4, 2, 1]) {
-      for (var i = 0; i < count; i += step) {
-        if (seen.add(i)) out.add(i);
-      }
-    }
-    return out;
-  }
-
   Future<void> _loop() async {
     await session.open(url, headers);
+    final key = cacheKey;
+    if (key != null) await session.attachDisk(key);
     // The first and last few percent are logos and credits.
     final start = durationMs * 0.02;
     final span = durationMs * 0.96;
-    for (final i in order(count)) {
+    final near = ((positionMs - start) / span * (count - 1)).round();
+    for (final i in FramePreviewService.gridOrder(
+      count,
+      near: near.clamp(0, count - 1),
+    )) {
       final at = (start + span * i / (count - 1)).round();
+      if (session.hasGridFrame(at)) continue;
       while (true) {
         if (_stopped || !session.serves(url)) return;
         if (!FramePreviewService._scrubbing && await session.gridFrame(at)) {
@@ -539,4 +616,89 @@ class _FrameRequest {
   final int generation;
   final int bucket;
   final result = Completer<Uint8List?>();
+}
+
+/// The seek-bar grid on disk, one folder per episode.
+///
+/// In memory it went with the player: opening the same episode again — the
+/// usual way back to something — downloaded every frame a second time and
+/// the first scrubs showed nothing. Bounded to the most recent
+/// [maxEpisodes] episodes; the cache directory is the platform's to clear.
+class PreviewDiskCache {
+  PreviewDiskCache._();
+
+  static const int maxEpisodes = 24;
+
+  @visibleForTesting
+  static Directory? debugRoot;
+
+  static Future<Directory> _root() async {
+    final base = debugRoot ?? await getTemporaryDirectory();
+    return Directory('${base.path}/preview_grid');
+  }
+
+  static String _folder(String key) =>
+      sha1.convert(utf8.encode(key)).toString().substring(0, 20);
+
+  static Future<Map<int, Uint8List>> load(String key) async {
+    final out = <int, Uint8List>{};
+    try {
+      final dir = Directory('${(await _root()).path}/${_folder(key)}');
+      if (!await dir.exists()) return out;
+      // Touched, so pruning keeps what is being watched.
+      await _touch(dir);
+      await for (final f in dir.list()) {
+        if (f is! File || !f.path.endsWith('.jpg')) continue;
+        final name = f.uri.pathSegments.last;
+        final bucket = int.tryParse(name.substring(0, name.length - 4));
+        if (bucket == null) continue;
+        out[bucket] = await f.readAsBytes();
+      }
+    } catch (_) {}
+    return out;
+  }
+
+  static final Set<String> _pruned = {};
+
+  static Future<void> save(String key, int bucket, Uint8List bytes) async {
+    try {
+      final root = await _root();
+      final dir = Directory('${root.path}/${_folder(key)}');
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+        await _touch(dir);
+        if (_pruned.add(key)) unawaited(_prune(root));
+      }
+      await File('${dir.path}/$bucket.jpg').writeAsBytes(bytes, flush: false);
+    } catch (_) {}
+  }
+
+  static Future<void> _touch(Directory dir) async {
+    try {
+      await File('${dir.path}/.at').writeAsString('');
+    } catch (_) {}
+  }
+
+  static Future<DateTime> _usedAt(Directory dir) async {
+    final marker = File('${dir.path}/.at');
+    return (await marker.exists())
+        ? (await marker.stat()).modified
+        : (await dir.stat()).modified;
+  }
+
+  static Future<void> _prune(Directory root) async {
+    try {
+      final dirs = <Directory>[
+        await for (final e in root.list())
+          if (e is Directory) e,
+      ];
+      if (dirs.length <= maxEpisodes) return;
+      final dated = <(Directory, DateTime)>[
+        for (final d in dirs) (d, await _usedAt(d)),
+      ]..sort((a, b) => a.$2.compareTo(b.$2));
+      for (final (d, _) in dated.take(dirs.length - maxEpisodes)) {
+        await d.delete(recursive: true);
+      }
+    } catch (_) {}
+  }
 }

@@ -1514,6 +1514,11 @@ class _GeneratedFramePreview extends StatefulWidget {
 class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
   Uint8List? _exact;
   Uint8List? _near;
+
+  /// The last frame shown, kept up while a new position has nothing near it,
+  /// so a fast drag does not flash the skeleton between frames.
+  Uint8List? _previous;
+  int? _lastPosition;
   bool _failed = false;
 
   int get _bucket => widget.positionMs ~/ FramePreviewService.bucketMs;
@@ -1534,6 +1539,10 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
   }
 
   void _refresh() {
+    // The exact frame belongs to the position the finger left; a grid frame
+    // near the new one is closer to the truth than it is.
+    _previous = _exact ?? _near ?? _previous;
+    _exact = null;
     _near = FramePreviewService.nearest(
       widget.url,
       widget.positionMs,
@@ -1559,11 +1568,22 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
         _failed = true;
       }
     });
+    // The next frame in the direction of the drag, while the decoder is free.
+    final last = _lastPosition;
+    _lastPosition = widget.positionMs;
+    if (bytes != null && last != null && last != widget.positionMs) {
+      FramePreviewService.prefetch(
+        widget.url,
+        widget.positionMs,
+        widget.positionMs > last ? 1 : -1,
+        hls: widget.hls,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final shown = _exact ?? _near;
+    final shown = _exact ?? _near ?? (_failed ? null : _previous);
     if (shown == null && _failed) return const SizedBox.shrink();
     final dpr = MediaQuery.devicePixelRatioOf(context);
     return _PreviewFrame(

@@ -2052,7 +2052,9 @@ extension _PlayerMedia on _PlayerPageState {
   void _schedulePreviewWarm(int generation) {
     _previewWarm?.cancel();
     if (_vttThumbnails.isNotEmpty || _storyboard != null) return;
-    _previewWarm = Timer(const Duration(seconds: 8), () async {
+    // Soon after playback settles: most scrubs come in the first minute.
+    // On mobile data it waits longer, so the opening segments come first.
+    _previewWarm = Timer(const Duration(seconds: 3), () async {
       if (!mounted || generation != _mediaGeneration) return;
       if (!_canGeneratePreview || _isLive) return;
       final url = _videoUrl;
@@ -2065,6 +2067,7 @@ extension _PlayerMedia on _PlayerPageState {
             !(c.contains(ConnectivityResult.wifi) ||
                 c.contains(ConnectivityResult.ethernet));
       } catch (_) {}
+      if (metered) await Future<void>.delayed(const Duration(seconds: 5));
       if (!mounted || generation != _mediaGeneration) return;
       FramePreviewService.warm(
         url: url,
@@ -2072,9 +2075,22 @@ extension _PlayerMedia on _PlayerPageState {
         durationMs: ms,
         hls: _isHls,
         metered: metered,
+        cacheKey: _previewCacheKey,
+        positionMs: _controller?.value.position.inMilliseconds ?? 0,
       );
       _plog('preview grid warming (${metered ? 'mobile data' : 'wifi'})');
     });
+  }
+
+  /// The episode, not the stream: stream addresses are signed and change,
+  /// the frames of an episode do not. Null for a local file with no title
+  /// behind it.
+  String? get _previewCacheKey {
+    final content = widget.args.contentUrl;
+    if (content == null || content.isEmpty) return null;
+    final ep =
+        _window.current?.episode ?? widget.args.offlineEpisodeNumber ?? 0;
+    return '${widget.args.provider}|$content|$ep|$_currentLang';
   }
 
   _VttThumbnail? _thumbnailAt(Duration position) {

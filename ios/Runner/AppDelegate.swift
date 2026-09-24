@@ -167,7 +167,7 @@ import UIKit
     let asset = AVURLAsset(url: url, options: options)
     let gen = AVAssetImageGenerator(asset: asset)
     gen.appliesPreferredTrackTransform = true
-    gen.maximumSize = CGSize(width: 320, height: 320)
+    gen.maximumSize = CGSize(width: 360, height: 360)
     // Allow a couple seconds of tolerance so it can snap to the nearest decodable
     // frame quickly instead of decoding an exact (slow) position.
     gen.requestedTimeToleranceBefore = CMTime(seconds: 2, preferredTimescale: 600)
@@ -185,7 +185,7 @@ import UIKit
     let time = CMTime(value: posMs, timescale: 1000)
     do {
       let cg = try gen.copyCGImage(at: time, actualTime: nil)
-      let data = UIImage(cgImage: cg).jpegData(compressionQuality: 0.7)
+      let data = UIImage(cgImage: cg).jpegData(compressionQuality: 0.78)
       if let data = data { previewCache[posMs] = data }
       return data
     } catch {
