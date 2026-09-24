@@ -11,6 +11,8 @@ class FollowedTitle {
     this.lastCheckedAt,
     this.autoDownload = false,
     this.autoDownloadFrom = 0,
+    this.anilistId,
+    this.mode,
   });
 
   final String contentUrl;
@@ -33,6 +35,12 @@ class FollowedTitle {
   /// 0 until the title has been checked once.
   final int autoDownloadFrom;
 
+  /// The AniList id, when the title came from AniList — an import, for one.
+  final int? anilistId;
+
+  /// The content mode id (`video`, `manga`, `novel`), when known.
+  final String? mode;
+
   FollowedTitle copyWith({bool? autoDownload, int? autoDownloadFrom}) =>
       FollowedTitle(
         contentUrl: contentUrl,
@@ -45,6 +53,8 @@ class FollowedTitle {
         lastCheckedAt: lastCheckedAt,
         autoDownload: autoDownload ?? this.autoDownload,
         autoDownloadFrom: autoDownloadFrom ?? this.autoDownloadFrom,
+        anilistId: anilistId,
+        mode: mode,
       );
 
   Map<String, dynamic> toJson() => {
@@ -58,6 +68,8 @@ class FollowedTitle {
     if (lastCheckedAt != null) 'lastCheckedAt': lastCheckedAt,
     if (autoDownload) 'autoDownload': true,
     if (autoDownloadFrom > 0) 'autoDownloadFrom': autoDownloadFrom,
+    'anilistId': ?anilistId,
+    'mode': ?mode,
   };
 
   factory FollowedTitle.fromJson(Map<String, dynamic> j) => FollowedTitle(
@@ -71,5 +83,7 @@ class FollowedTitle {
     lastCheckedAt: (j['lastCheckedAt'] as num?)?.toInt(),
     autoDownload: j['autoDownload'] == true,
     autoDownloadFrom: (j['autoDownloadFrom'] as num?)?.toInt() ?? 0,
+    anilistId: (j['anilistId'] as num?)?.toInt(),
+    mode: j['mode'] as String?,
   );
 }

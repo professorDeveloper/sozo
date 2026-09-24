@@ -11,6 +11,8 @@ import 'package:soplay/features/anilist/presentation/controllers/anilist_library
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_entry_sheet.dart';
+import 'package:soplay/features/onboarding/data/library_import_service.dart';
+import 'package:soplay/features/onboarding/presentation/widgets/import_showcase.dart';
 
 /// The viewer's AniList lists: one tab per status, and a shelf picker above
 /// them once the account holds more than anime.
@@ -158,6 +160,13 @@ class _AnilistLibraryPageState extends State<AnilistLibraryPage>
             onPressed: () => context.push('/anilist/calendar'),
             icon: const Icon(Icons.calendar_month_rounded),
           ),
+          if (connected)
+            IconButton(
+              tooltip: 'onboarding.import_row_title'.tr(),
+              onPressed: () =>
+                  showLibraryImportSheet(context, ImportSource.anilist),
+              icon: const Icon(Icons.download_rounded),
+            ),
           if (connected)
             IconButton(
               tooltip: 'anilist.refresh'.tr(),
