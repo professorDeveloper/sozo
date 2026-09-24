@@ -42,7 +42,7 @@ class ProfileSession extends ChangeNotifier {
 
   List<HouseholdProfile> _profiles = const [];
   HouseholdProfile? _active;
-  int _max = 3;
+  int _max = 4;
   bool _chosenThisRun = false;
   bool _loaded = false;
 
@@ -55,7 +55,7 @@ class ProfileSession extends ChangeNotifier {
   int get max => _max;
 
   /// A household's cap, whatever an older server still reports.
-  static const int maxProfiles = 3;
+  static const int maxProfiles = 4;
 
   /// True once the list has come from the server in this run.
   bool get loaded => _loaded;
@@ -107,7 +107,7 @@ class ProfileSession extends ChangeNotifier {
       final raw = _settings.get(cacheKey);
       if (raw is String && raw.isNotEmpty) {
         final data = jsonDecode(raw) as Map<String, dynamic>;
-        _max = math.min((data['max'] as num?)?.toInt() ?? 3, maxProfiles);
+        _max = math.min((data['max'] as num?)?.toInt() ?? 4, maxProfiles);
         _profiles = [
           for (final p in (data['profiles'] as List? ?? const []))
             if (p is Map) HouseholdProfile.fromJson(p.cast<String, dynamic>()),

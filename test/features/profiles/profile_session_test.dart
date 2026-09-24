@@ -90,6 +90,22 @@ void main() {
     await dir.delete(recursive: true);
   });
 
+  test(
+    'a household holds four profiles, whatever the server reports',
+    () async {
+      remote.profiles = [
+        _main,
+        _kid,
+        _guest,
+        const HouseholdProfile(id: 'p4', name: 'Dilya'),
+      ];
+      final s = session();
+      await s.refresh();
+      expect(s.max, 4);
+      expect(s.canAdd, isFalse);
+    },
+  );
+
   test('existing data becomes the main profile\'s, untouched', () async {
     final history = HistoryService();
     await history.save(_row('old-show'));

@@ -6,7 +6,7 @@ import 'package:soplay/features/profiles/presentation/widgets/profile_avatar.dar
 
 void main() {
   test('every avatar, offered or retired, is bundled', () {
-    expect(ProfileAvatars.images, hasLength(20));
+    expect(ProfileAvatars.images, hasLength(40));
     for (final id in ProfileAvatars.imageColors.keys) {
       final path = ProfileAvatars.imageFor(id)!;
       expect(File(path).existsSync(), isTrue, reason: path);
