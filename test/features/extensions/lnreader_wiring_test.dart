@@ -153,6 +153,18 @@ void main() {
         expect(repo.url, endsWith('/.dist/plugins.min.json'));
         expect(repo.novelUrl, repo.url);
       }
+      for (final name in [
+        'Dakrataz',
+        'The Wandering Inn',
+        'Chinese novels (shiragou)',
+      ]) {
+        final repo = repos.firstWhere((r) => r.name == name);
+        expect(
+          repo.url,
+          anyOf(endsWith('plugins.min.json'), endsWith('novel_index.json')),
+        );
+        expect(repo.novelUrl, repo.url);
+      }
       final orders = repos.map((r) => r.order).toList();
       expect(orders.toSet().length, orders.length);
     });

@@ -206,6 +206,39 @@ class ExtensionRepoDefaults {
           'https://raw.githubusercontent.com/Tausif-Husine/LNreader-Plugins/plugins/v3.0.0/.dist/plugins.min.json',
       order: 7,
     ),
+    // Bilinovel reads end to end; Wenku8 sits behind Cloudflare, which the
+    // app solves and a plain client cannot. Checked 2026-09-24.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'Chinese novels (shiragou)',
+      description: 'Chinese light novels · Bilinovel, Wenku8',
+      url:
+          'https://raw.githubusercontent.com/shiragou/mangayomi-extensions/main/novel_index.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/shiragou/mangayomi-extensions/main/novel_index.json',
+      order: 8,
+    ),
+    // Both read end to end on 2026-09-24.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'Dakrataz',
+      description: 'Translated web novels · NoBadNovel, Boti Translation',
+      url:
+          'https://raw.githubusercontent.com/Dakrataz/my-lnreader-plugins/main/plugins.min.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/Dakrataz/my-lnreader-plugins/main/plugins.min.json',
+      order: 9,
+    ),
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'The Wandering Inn',
+      description: 'Web serial · the whole of The Wandering Inn',
+      url:
+          'https://raw.githubusercontent.com/lovepreet-bugbounty/wanderinginn-plugin/main/plugins.min.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/lovepreet-bugbounty/wanderinginn-plugin/main/plugins.min.json',
+      order: 10,
+    ),
   ];
 
   static List<ExtensionRepoEntity> forKind(ExtensionRepoKind kind) =>
