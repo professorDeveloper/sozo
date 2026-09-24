@@ -81,6 +81,8 @@ bool get isDesktopPlatform =>
 /// and orientation lock there).
 bool get isAndroidPlatform => !kIsWeb && Platform.isAndroid;
 
+bool get isIosPlatform => !kIsWeb && Platform.isIOS;
+
 // Android TV reports Platform.isAndroid, but it is not a phone: the liquid-glass
 // bottom nav and its shader pre-warm are phone affordances that are wrong on a
 // television. Phone and iOS evaluation is unchanged — _isTv is false there, so

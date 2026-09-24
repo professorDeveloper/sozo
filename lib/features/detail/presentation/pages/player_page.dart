@@ -640,6 +640,7 @@ class _PlayerPageState extends State<PlayerPage>
     );
     WidgetsBinding.instance.addObserver(this);
     _pipChannel.setMethodCallHandler(_onPipMethodCall);
+    if (isIosPlatform) _iosPipChannel.setMethodCallHandler(_onIosPipCall);
     unawaited(_loadSystemControlValues());
     PlayerLog.instance
       ..clear()
@@ -744,6 +745,11 @@ class _PlayerPageState extends State<PlayerPage>
     _partyDispose();
     WidgetsBinding.instance.removeObserver(this);
     _pipChannel.setMethodCallHandler(null);
+    if (isIosPlatform) {
+      _iosPipChannel.setMethodCallHandler(null);
+      // Leaving the player while the floating window is up: it goes too.
+      if (_isPip) unawaited(_iosPipChannel.invokeMethod('stop'));
+    }
     _sleepTicker?.cancel();
     _hideTimer?.cancel();
     _historyTimer?.cancel();

@@ -430,7 +430,8 @@
     "subtitle_n": "Altyazı {}",
     "subtitle_in_video": "Videonun içinde",
     "rewind": "Geri sar",
-    "mini_restore": "Tam pencereye dön"
+    "mini_restore": "Tam pencereye dön",
+    "pip_unavailable": "Bu video için resim içinde resim başlatılamadı."
   },
   "profile": {
     "title": "Profil",

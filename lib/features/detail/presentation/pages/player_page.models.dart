@@ -66,6 +66,9 @@ const List<int> _subtitleColorPresets = <int>[
 ];
 
 const MethodChannel _pipChannel = MethodChannel('soplay/pip');
+
+/// iOS picture-in-picture, handed to a native player — see NativePip.swift.
+const MethodChannel _iosPipChannel = MethodChannel('soplay/ios_pip');
 const MethodChannel _systemControlsChannel = MethodChannel(
   'soplay/system_controls',
 );

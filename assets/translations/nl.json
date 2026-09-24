@@ -430,7 +430,8 @@
     "subtitle_n": "Ondertiteling {}",
     "subtitle_in_video": "In de video",
     "rewind": "Terugspoelen",
-    "mini_restore": "Terug naar het volledige venster"
+    "mini_restore": "Terug naar het volledige venster",
+    "pip_unavailable": "Beeld-in-beeld kon voor deze video niet starten."
   },
   "profile": {
     "title": "Profiel",

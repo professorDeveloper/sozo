@@ -68,6 +68,7 @@ import UIKit
     // contract as the Android host, so the Flutter side is platform-agnostic.
     RepoFileImport.register(messenger: registrar.messenger())
     SystemControls.register(with: registrar)
+    NativePip.register(messenger: registrar.messenger())
 
     let previewChannel = FlutterMethodChannel(
       name: "soplay/preview",

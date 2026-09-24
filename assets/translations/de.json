@@ -430,7 +430,8 @@
     "subtitle_n": "Untertitel {}",
     "subtitle_in_video": "Im Video",
     "rewind": "Zurückspulen",
-    "mini_restore": "Zurück zum großen Fenster"
+    "mini_restore": "Zurück zum großen Fenster",
+    "pip_unavailable": "Bild-in-Bild konnte für dieses Video nicht gestartet werden."
   },
   "profile": {
     "title": "Profil",

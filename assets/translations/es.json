@@ -430,7 +430,8 @@
     "subtitle_n": "Subtítulo {}",
     "subtitle_in_video": "En el vídeo",
     "rewind": "Retroceder",
-    "mini_restore": "Volver a la ventana completa"
+    "mini_restore": "Volver a la ventana completa",
+    "pip_unavailable": "No se pudo iniciar imagen en imagen para este vídeo."
   },
   "profile": {
     "title": "Perfil",

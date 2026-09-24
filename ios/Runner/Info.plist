@@ -12,6 +12,11 @@
 	<array>
 		<string>_googlecast._tcp</string>
 	</array>
+	<!-- Picture-in-picture keeps playing with the app in the background. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

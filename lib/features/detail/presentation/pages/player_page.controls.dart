@@ -1785,7 +1785,7 @@ extension _PlayerControls on _PlayerPageState {
             onTap: _toggleDesktopMini,
           );
         }
-        if (!isAndroidPlatform) return null;
+        if (!isAndroidPlatform && !isIosPlatform) return null;
         return _IconButton(
           icon: Icons.picture_in_picture_rounded,
           onTap: _enterPip,

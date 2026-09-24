@@ -430,7 +430,8 @@
     "subtitle_n": "Legenda {}",
     "subtitle_in_video": "No vídeo",
     "rewind": "Voltar",
-    "mini_restore": "Voltar à janela inteira"
+    "mini_restore": "Voltar à janela inteira",
+    "pip_unavailable": "Não foi possível iniciar o picture-in-picture para este vídeo."
   },
   "profile": {
     "title": "Perfil",
