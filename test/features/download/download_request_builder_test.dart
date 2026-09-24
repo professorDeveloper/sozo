@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
+import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
@@ -125,10 +126,15 @@ void main() {
           videoUrl: 'https://cdn/a.mp4',
           headers: {},
           type: 'mp4',
+          subtitles: [
+            SubtitleEntity(label: 'English', file: 'https://s/en.vtt'),
+          ],
         ),
       ),
     ).quietVideo(_title, _ep);
     final r = built.request!;
+    // Offline there is no subtitle search, so the tracks travel with it.
+    expect(r.subtitles.single.label, 'English');
     expect(
       r.id,
       DownloadRequest.videoId(contentUrl: _title.contentUrl, episodeNumber: 7),

@@ -92,7 +92,6 @@ import 'package:soplay/features/detail/presentation/widgets/player_info_fields_s
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/streak/presentation/dialogs/streak_milestone_dialog.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
-import 'package:soplay/features/download/domain/repositories/download_repository.dart';
 import 'package:soplay/features/download/data/subtitle_sidecar.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';

@@ -3,6 +3,7 @@ import 'package:soplay/core/player/source_ladder.dart';
 import 'package:soplay/features/detail/domain/download_choices.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
+import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
@@ -119,8 +120,9 @@ class DownloadRequestBuilder {
   static DownloadRequest videoRequest(
     DownloadTitle title,
     EpisodeEntity ep,
-    DownloadSelection selection,
-  ) => DownloadRequest.video(
+    DownloadSelection selection, {
+    List<SubtitleEntity> subtitles = const [],
+  }) => DownloadRequest.video(
     contentUrl: title.contentUrl,
     provider: title.provider,
     title: title.title,
@@ -131,6 +133,7 @@ class DownloadRequestBuilder {
     isSerial: true,
     episodeNumber: ep.episode,
     episodeLabel: ep.label,
+    subtitles: subtitles,
   );
 
   /// Resolve, check and pick without asking anyone.
@@ -141,7 +144,9 @@ class DownloadRequestBuilder {
     final resolved = await resolveVideo(ep, provider: title.provider);
     final media = resolved.media;
     if (media == null) return DownloadBuild.failed(resolved.failure!);
-    return DownloadBuild.ready(videoRequest(title, ep, quietPick(media)));
+    return DownloadBuild.ready(
+      videoRequest(title, ep, quietPick(media), subtitles: media.subtitles),
+    );
   }
 
   /// Pages are listed here rather than left to the queue, so a chapter whose

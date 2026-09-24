@@ -45,6 +45,20 @@ class HlsDownloadPlaylistTest {
     }
 
     @Test
+    fun `without heights, the highest bitrate that has a picture`() {
+        val master = """
+            #EXTM3U
+            #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=232370,CODECS="mp4a.40.2, avc1.4d4015"
+            gear1/prog_index.m3u8
+            #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=1927833,CODECS="mp4a.40.2, avc1.4d401f"
+            gear4/prog_index.m3u8
+            #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=9000000,CODECS="mp4a.40.2"
+            audio/prog_index.m3u8
+        """.trimIndent()
+        assertEquals("${base}gear4/prog_index.m3u8", HlsDownloadPlaylist.pickVariantUrl(master, base))
+    }
+
+    @Test
     fun `byte ranges become slices that continue from the last one`() {
         val playlist = """
             #EXTM3U

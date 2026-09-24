@@ -582,17 +582,23 @@ class DownloadForegroundService : Service() {
 
         val state = JSONObject(readStates(this)).optJSONObject(id)
         val part = File("$artefactPath.part")
-        // Trust the file over the counter: the counter is written per buffer
-        // and the process can die between the write and the record, but the
-        // bytes on disk are the bytes the next Range request must skip.
-        val onDisk = when {
-            part.exists() -> part.length()
-            File(artefactPath).isFile -> File(artefactPath).length()
-            else -> state?.optLong(KEY_COMPLETED, 0L) ?: 0L
-        }
+        val artefact = File(artefactPath)
         val total = state?.optLong(KEY_TOTAL, 0L) ?: 0L
-        updateState(id, title, url, artefactPath, STATUS_PAUSED, onDisk, total, onDisk, null)
-        notificationManager.notify(notificationId(id), buildPausedNotification(id, title, onDisk, total))
+        // One file: trust the file over the counter — the process can die
+        // between a write and its record, and the bytes on disk are the bytes
+        // the next Range request must skip. A folder (segments, pages): the
+        // counter is in parts, and the size is what the folder holds; it used
+        // to report the part count as bytes.
+        val (completed, size) = when {
+            part.exists() -> part.length().let { it to it }
+            artefact.isFile && !artefactPath.endsWith(".m3u8") -> artefact.length().let { it to it }
+            else -> {
+                val folder = if (artefact.isDirectory) artefact else artefact.parentFile
+                (state?.optLong(KEY_COMPLETED, 0L) ?: 0L) to (folder?.let { sizeOf(it) } ?: 0L)
+            }
+        }
+        updateState(id, title, url, artefactPath, STATUS_PAUSED, completed, total, size, null)
+        notificationManager.notify(notificationId(id), buildPausedNotification(id, title, completed, total))
     }
 
     // --- http ----------------------------------------------------------------

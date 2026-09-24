@@ -956,7 +956,12 @@ class _EpisodesPageState extends State<EpisodesPage> {
           );
     if (!mounted || selection == null) return false;
     final outcome = await _enqueue(
-      DownloadRequestBuilder.videoRequest(_downloadTitle, ep, selection),
+      DownloadRequestBuilder.videoRequest(
+        _downloadTitle,
+        ep,
+        selection,
+        subtitles: media.subtitles,
+      ),
     );
 
     if (outcome != EnqueueOutcome.started && !quiet && mounted) {

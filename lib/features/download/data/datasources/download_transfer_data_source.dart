@@ -945,8 +945,11 @@ class DownloadTransferDataSource {
     final variants = parseHlsVariants(playlist, uri);
     if (variants.isNotEmpty) return variants.first.url;
 
-    // A master whose variants state neither a name nor a RESOLUTION: keep the
-    // old behaviour rather than refusing to download it at all.
+    // A master whose variants state neither a name nor a RESOLUTION: the
+    // highest bitrate that carries a picture. "First" was the smallest here
+    // too — Apple's own sample lists 232 kbps ahead of 1.9 Mbps.
+    final best = bestByBandwidth(playlist, base);
+    if (best != null) return best;
     final lines = playlist.split('\n');
     for (var i = 0; i < lines.length; i++) {
       if (!lines[i].startsWith('#EXT-X-STREAM-INF')) continue;
@@ -1004,6 +1007,48 @@ class DownloadTransferDataSource {
     if (length == null || length <= 0) return null;
     return (length: length, offset: int.tryParse(m?.group(2) ?? ''));
   }
+
+  static final RegExp _bandwidth = RegExp(r'[^-]BANDWIDTH=(\d+)');
+  static final RegExp _codecs = RegExp(r'CODECS="([^"]*)"');
+
+  /// The variant with the highest BANDWIDTH, leaving out audio-only ones.
+  @visibleForTesting
+  static String? bestByBandwidth(String playlist, String base) {
+    final lines = playlist.split(RegExp(r'\r?\n'));
+    String? best;
+    var bestBandwidth = 0;
+    for (var i = 0; i < lines.length; i++) {
+      final tag = lines[i].trim();
+      if (!tag.startsWith('#EXT-X-STREAM-INF')) continue;
+      final codecs = _codecs.firstMatch(tag)?.group(1)?.toLowerCase();
+      if (codecs != null && _audioOnly(codecs)) continue;
+      final bw = int.tryParse(_bandwidth.firstMatch(tag)?.group(1) ?? '') ?? 0;
+      String? uri;
+      for (var j = i + 1; j < lines.length; j++) {
+        final line = lines[j].trim();
+        if (line.isEmpty || line.startsWith('#')) continue;
+        uri = line;
+        break;
+      }
+      if (uri == null || bw <= bestBandwidth) continue;
+      best = _resolveStatic(uri, base);
+      bestBandwidth = bw;
+    }
+    return best;
+  }
+
+  static bool _audioOnly(String codecs) => codecs
+      .split(',')
+      .map((c) => c.trim())
+      .where((c) => c.isNotEmpty)
+      .every(
+        (c) =>
+            c.startsWith('mp4a') ||
+            c.startsWith('ac-3') ||
+            c.startsWith('ec-3') ||
+            c.startsWith('opus') ||
+            c.startsWith('flac'),
+      );
 
   static final RegExp _uriAttribute = RegExp(r'URI="([^"]*)"');
   static final RegExp _byteRangeAttribute = RegExp(r',?BYTERANGE="([^"]*)"');

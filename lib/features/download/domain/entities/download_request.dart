@@ -1,3 +1,4 @@
+import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/download/domain/entities/download_kind.dart';
 
 /// Everything needed to queue one download, and nothing about where it will
@@ -27,6 +28,8 @@ class DownloadRequest {
     this.imageHeaders = const [],
     this.chapterRef,
     this.chapterIndex,
+    this.subtitles = const [],
+    this.activeSubtitle = -1,
   });
 
   /// A movie or one episode of a series.
@@ -46,6 +49,8 @@ class DownloadRequest {
     bool isSerial = false,
     int? episodeNumber,
     String? episodeLabel,
+    List<SubtitleEntity> subtitles = const [],
+    int activeSubtitle = -1,
   }) => DownloadRequest(
     id: videoId(contentUrl: contentUrl, episodeNumber: episodeNumber),
     contentUrl: contentUrl,
@@ -59,6 +64,8 @@ class DownloadRequest {
     isSerial: isSerial,
     episodeNumber: episodeNumber,
     episodeLabel: episodeLabel,
+    subtitles: subtitles,
+    activeSubtitle: activeSubtitle,
   );
 
   /// One manga / manhwa / novel chapter.
@@ -98,6 +105,13 @@ class DownloadRequest {
 
   final String id;
   final String contentUrl;
+
+  /// The episode's subtitle tracks, kept beside the video: offline there is
+  /// no subtitle search to fall back on. Only the player used to save them,
+  /// so an episode queued from the list or by auto-download played offline
+  /// without any. [activeSubtitle] is the one to switch on, or -1.
+  final List<SubtitleEntity> subtitles;
+  final int activeSubtitle;
   final String provider;
   final String title;
   final String sourceUrl;

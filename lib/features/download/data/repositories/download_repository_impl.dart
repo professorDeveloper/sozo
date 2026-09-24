@@ -193,9 +193,11 @@ class DownloadRepositoryImpl implements DownloadRepository {
         (existing.status.isActive ||
             existing.status == DownloadStatus.completed) &&
         !_isStale(existing)) {
+      _keepSubtitles(request);
       return EnqueueOutcome.alreadyPresent;
     }
     if (_running.contains(request.id) || _queue.contains(request.id)) {
+      _keepSubtitles(request);
       return EnqueueOutcome.alreadyPresent;
     }
 
@@ -245,6 +247,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
     await _local.put(item);
     _queue.add(item.id);
     _pump();
+    _keepSubtitles(request);
     return EnqueueOutcome.started;
   }
 
@@ -630,6 +633,24 @@ class DownloadRepositoryImpl implements DownloadRepository {
     );
     await _local.put(done);
     await _writeSidecar(done);
+  }
+
+  /// Fetches the request's subtitle tracks into the download's folder, in the
+  /// background: they are small, and the video does not wait for them.
+  /// Tracks that live only in memory (generated ones) cannot be kept.
+  void _keepSubtitles(DownloadRequest request) {
+    final sidecar = _subtitles;
+    if (sidecar == null || request.subtitles.isEmpty) return;
+    final tracks = [
+      for (final s in request.subtitles)
+        if (!s.file.startsWith('ai:')) s,
+    ];
+    if (tracks.isEmpty) return;
+    final wanted = request.activeSubtitle;
+    final active = wanted >= 0 && wanted < request.subtitles.length
+        ? tracks.indexOf(request.subtitles[wanted])
+        : -1;
+    unawaited(sidecar.save(request.id, tracks, active: active));
   }
 
   Future<void> _writeSidecar(DownloadItem item) =>

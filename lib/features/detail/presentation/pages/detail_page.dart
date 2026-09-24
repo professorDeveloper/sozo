@@ -58,6 +58,7 @@ import 'package:soplay/core/widgets/app_tab_bar.dart';
 import 'package:soplay/core/widgets/poster_hero.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
+import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
@@ -654,6 +655,7 @@ class _DetailViewState extends State<_DetailView>
     var headers = playback.headers;
     var sources = playback.videoSources;
     var type = playback.type;
+    var subtitles = const <SubtitleEntity>[];
 
     // An embed page rather than a stream: the same resolve the player does on
     // open. Downloading the page would produce an unplayable HTML file.
@@ -685,6 +687,9 @@ class _DetailViewState extends State<_DetailView>
         headers = result.value.headers;
         sources = result.value.videoSources;
         type = result.value.type;
+        if (result.value.subtitles.isNotEmpty) {
+          subtitles = result.value.subtitles;
+        }
       }
     }
 
@@ -711,6 +716,7 @@ class _DetailViewState extends State<_DetailView>
         videoHeight: selection.height,
         thumbnailUrl: widget.detail.thumbnail,
         headers: selection.headers,
+        subtitles: subtitles,
       ),
     );
     if (!mounted) return;

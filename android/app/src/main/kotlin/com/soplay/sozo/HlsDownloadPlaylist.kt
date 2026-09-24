@@ -42,7 +42,25 @@ object HlsDownloadPlaylist {
             }
         }
         if (best != null) return best
-        // Variants that state no height at all: the first, as before.
+        // No heights at all: the highest bitrate that carries a picture.
+        // "First" was the smallest here too — Apple's own sample lists
+        // 232 kbps ahead of 1.9 Mbps.
+        var topBandwidth = 0L
+        for (i in lines.indices) {
+            val tag = lines[i].trim()
+            if (!tag.startsWith("#EXT-X-STREAM-INF")) continue
+            val codecs = CODECS.find(tag)?.groupValues?.get(1)?.lowercase()
+            if (codecs != null && isAudioOnly(codecs)) continue
+            val bandwidth = BANDWIDTH.find(tag)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+            val uri = lines.drop(i + 1).map { it.trim() }
+                .firstOrNull { it.isNotEmpty() && !it.startsWith("#") } ?: continue
+            if (bandwidth > topBandwidth) {
+                best = resolveUrl(uri, baseUrl)
+                topBandwidth = bandwidth
+            }
+        }
+        if (best != null) return best
+        // Nothing to rank by: the first, as before.
         for (i in lines.indices) {
             if (!lines[i].startsWith("#EXT-X-STREAM-INF")) continue
             for (j in i + 1 until lines.size) {
@@ -177,6 +195,14 @@ object HlsDownloadPlaylist {
     private val RESOLUTION = Regex("RESOLUTION=\\d+x(\\d+)")
     private val BANDWIDTH = Regex("[^-]BANDWIDTH=(\\d+)")
     private val BYTE_RANGE = Regex("^\\s*\"?(\\d+)(?:@(\\d+))?")
+    private val CODECS = Regex("CODECS=\"([^\"]*)\"")
+
+    private fun isAudioOnly(codecs: String): Boolean =
+        codecs.split(',').map { it.trim() }.filter { it.isNotEmpty() }.all {
+            it.startsWith("mp4a") || it.startsWith("ac-3") || it.startsWith("ec-3") ||
+                it.startsWith("opus") || it.startsWith("flac")
+        }
+
     private val URI_ATTRIBUTE = Regex("URI=\"([^\"]*)\"")
     private val BYTE_RANGE_ATTRIBUTE = Regex(",?BYTERANGE=\"([^\"]*)\"")
 }
