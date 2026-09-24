@@ -7,6 +7,7 @@ import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/data/history_sync_remote_data_source.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
+import 'package:soplay/features/achievements/domain/achievements.dart';
 
 /// Keeps this phone's watch history in step with the signed-in account.
 ///
@@ -31,11 +32,15 @@ class HistorySyncService {
   HistorySyncService({
     required HistorySyncRemoteDataSource remote,
     required HistoryService local,
+    this.onAchievements,
   }) : _remote = remote,
        _local = local;
 
   final HistorySyncRemoteDataSource _remote;
   final HistoryService _local;
+
+  /// Told what each sync earned, for the celebration.
+  final void Function(List<AchievementUnlock>)? onAchievements;
 
   Box get _state => Hive.box(AppConstants.settingsBox);
 
@@ -97,6 +102,9 @@ class HistorySyncService {
 
       final result = await _remote.sync(items: outgoing, since: since);
       await _applyRemote(result.items);
+      if (result.achievements.isNotEmpty) {
+        onAchievements?.call(result.achievements);
+      }
 
       await _state.put(ProfileScope.key(_cursorKey), result.serverTime ?? since);
       // Stamped from the rows just sent, not from "now": a row written while
@@ -286,7 +294,9 @@ class HistorySyncService {
     episodeLabel: item.episodeLabel,
     positionMs: item.positionMs,
     durationMs: item.durationMs,
-    extra: item.mediaType == null ? null : {'mediaType': item.mediaType},
+    extra: item.mediaType == null && !item.isFinale
+        ? null
+        : {'mediaType': ?item.mediaType, if (item.isFinale) 'finale': true},
     watchedAt: DateTime.fromMillisecondsSinceEpoch(
       item.watchedAt,
     ).toUtc().toIso8601String(),

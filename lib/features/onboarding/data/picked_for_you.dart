@@ -48,9 +48,27 @@ class PickedForYouSource {
   static const Duration ttl = Duration(hours: 6);
   final Map<String, ({DateTime at, List<MovieEntity> items})> _cache = {};
 
+  /// What to browse for [taste] in [mode], limited to [catalogue] (a
+  /// catalogue kind such as `tmdb`) when Home is showing one.
+  List<({String catalogue, TasteGenre genre})> targetsFor(
+    TasteProfile taste,
+    ContentMode mode, {
+    String? catalogue,
+  }) => [
+    for (final t in taste.browseTargets(mode))
+      if (catalogue == null || t.catalogue == catalogue) t,
+  ];
+
   /// The cached answer for [taste] in [mode], without asking anything.
-  PickedForYou? peek(TasteProfile taste, ContentMode mode) {
-    for (final t in rotateForDay(taste.browseTargets(mode), _clock())) {
+  PickedForYou? peek(
+    TasteProfile taste,
+    ContentMode mode, {
+    String? catalogue,
+  }) {
+    for (final t in rotateForDay(
+      targetsFor(taste, mode, catalogue: catalogue),
+      _clock(),
+    )) {
       final slug = '${t.catalogue}:${t.genre.slug}';
       final hit = _cache[slug];
       if (hit == null || _clock().difference(hit.at) > ttl) return null;
@@ -67,8 +85,15 @@ class PickedForYouSource {
 
   /// Today's genre, or the next one along when today's comes back empty.
   /// Null when nothing was picked for [mode] or nothing answered.
-  Future<PickedForYou?> fetch(TasteProfile taste, ContentMode mode) async {
-    final targets = rotateForDay(taste.browseTargets(mode), _clock());
+  Future<PickedForYou?> fetch(
+    TasteProfile taste,
+    ContentMode mode, {
+    String? catalogue,
+  }) async {
+    final targets = rotateForDay(
+      targetsFor(taste, mode, catalogue: catalogue),
+      _clock(),
+    );
     for (final t in targets.take(3)) {
       final slug = '${t.catalogue}:${t.genre.slug}';
       final hit = _cache[slug];

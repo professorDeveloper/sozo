@@ -7,6 +7,8 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/social/domain/social_models.dart';
 import 'package:soplay/features/social/presentation/widgets/social_widgets.dart';
+import 'package:soplay/features/achievements/domain/achievements.dart';
+import 'package:soplay/features/achievements/presentation/widgets/achievement_medal.dart';
 
 /// The translation key for what [item] says its actor did.
 String activityVerbKey(ActivityItem item) => switch (item.type) {
@@ -18,6 +20,7 @@ String activityVerbKey(ActivityItem item) => switch (item.type) {
   ActivityType.favorited => 'social.verb_favorited',
   ActivityType.planned => 'social.verb_planned',
   ActivityType.completed => 'social.verb_completed',
+  ActivityType.achieved => 'social.verb_achieved',
   ActivityType.unknown =>
     item.isReading ? 'social.verb_read' : 'social.verb_watched',
 };
@@ -61,6 +64,9 @@ class ActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (item.type == ActivityType.achieved && item.achievementId != null) {
+      return _AchievementCard(item: item, showActor: showActor);
+    }
     final actor = showActor ? item.actor : null;
     final episodes = activityEpisodeText(item);
     final title = item.title ?? 'general.unknown'.tr();
@@ -160,6 +166,87 @@ class ActivityCard extends StatelessWidget {
       ? s
       : s.characters.first.toUpperCase() +
             s.substring(s.characters.first.length);
+}
+
+/// A badge earned: the medal where a poster would be, on an ember-edged card
+/// so it reads as news among the episodes.
+class _AchievementCard extends StatelessWidget {
+  const _AchievementCard({required this.item, required this.showActor});
+
+  final ActivityItem item;
+  final bool showActor;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = item.achievementId!;
+    final def = AchievementDef.of(id);
+    final tier = def.isSingle
+        ? def.rarity
+        : MedalTier.ofLevel(item.achievementTier ?? 1);
+    final actor = showActor ? item.actor : null;
+    final name = def.isSingle
+        ? def.nameKey.tr()
+        : '${def.nameKey.tr()} · ${tier.labelKey.tr()}';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [const Color(0xFF2B2420), AppColors.surface],
+        ),
+        border: Border.all(
+          color: const Color(0xFFFFA94D).withValues(alpha: 0.18),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        children: [
+          AchievementBadge(id: id, tier: tier, size: 54),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (actor != null)
+                  _ActorLine(actor: actor, verb: activityVerbKey(item).tr())
+                else
+                  Text(
+                    'achievements.new_badge'.tr().toUpperCase(),
+                    style: const TextStyle(
+                      color: Color(0xFFFFA94D),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                const SizedBox(height: 6),
+                Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  socialTimeLabel(context, item.at),
+                  style: const TextStyle(
+                    color: AppColors.textHint,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ActorLine extends StatelessWidget {

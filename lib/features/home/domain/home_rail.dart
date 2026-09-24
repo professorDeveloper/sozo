@@ -29,8 +29,8 @@ enum HomeRail {
     Icons.new_releases_outlined,
   ),
 
-  /// Titles from the genres picked in onboarding. Draws nothing until
-  /// something has been picked.
+  /// Titles from the genres picked in onboarding, on catalogue homes, under
+  /// the genre chips. Draws nothing until something has been picked.
   pickedForYou(
     'picked_for_you',
     'home_rails.picked_for_you',
@@ -75,8 +75,8 @@ enum HomeRail {
     hero,
     resume,
     newReleases,
-    pickedForYou,
     genres,
+    pickedForYou,
     liveTv,
     watchServices,
     catalogue,
@@ -96,7 +96,10 @@ enum HomeRail {
   /// Where a band lands in an order stored before it existed, when the end
   /// of the list would bury it. New episodes belong beside Continue
   /// Watching, not under an endless catalogue.
-  static const Map<HomeRail, HomeRail> arrivesAfter = {newReleases: resume};
+  static const Map<HomeRail, HomeRail> arrivesAfter = {
+    newReleases: resume,
+    pickedForYou: genres,
+  };
 }
 
 /// Repairs a stored order into one that can actually be rendered.

@@ -678,6 +678,10 @@ class _ReaderPageState extends State<ReaderPage> {
         durationMs: isNovel ? 1000 : (_pageCount > 1 ? _pageCount - 1 : 0),
         watchedAt: DateTime.now().millisecondsSinceEpoch,
         mediaType: isNovel ? 'novel' : 'manga',
+        // The last chapter on offer: reading it finishes the title.
+        isFinale:
+            widget.args.chapters.length > 1 &&
+            _chapterIndex == widget.args.chapters.length - 1,
       ),
     );
     // On the same tick as the history write, because the two answer questions

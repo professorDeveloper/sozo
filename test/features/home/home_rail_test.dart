@@ -23,8 +23,8 @@ void main() {
         'hero',
         'resume',
         'new_releases',
-        'picked_for_you',
         'genres',
+        'picked_for_you',
         'live_tv',
         'watch_services',
         'catalogue',
@@ -116,11 +116,12 @@ void main() {
         'new_releases',
         'hero',
         'genres',
-        'live_tv',
-        // Appended, because they are newer than this stored order. Being in
-        // the order is not being on Home: each still decides for itself
-        // whether it has anything to show.
+        // Anchored under the genre chips.
         'picked_for_you',
+        'live_tv',
+        // Appended, because it is newer than this stored order. Being in the
+        // order is not being on Home: it still decides for itself whether it
+        // has anything to show.
         'watch_services',
       ]);
     });
