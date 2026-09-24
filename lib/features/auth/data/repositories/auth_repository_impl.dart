@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:soplay/features/trakt/data/trakt_service.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
@@ -287,6 +288,7 @@ class AuthRepositoryImpl implements AuthRepository {
     }
     if (getIt.isRegistered<MalService>()) {
       await getIt<MalService>().forgetLocal();
+      await getIt<TraktService>().forgetLocal();
     }
     if (getIt.isRegistered<MalLinkStore>()) {
       await getIt<MalLinkStore>().clear();

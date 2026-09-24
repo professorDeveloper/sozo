@@ -2122,5 +2122,26 @@
     "empty_region_subtitle": "TMDB n’a pas encore d’offre pour cette région.",
     "region_fell_back": "Aucune offre de streaming n'est encore répertoriée pour votre pays : voici donc les services des États-Unis.",
     "load_failed": "Impossible de charger les services."
+  },
+  "trakt": {
+    "connect_title": "Connecter Trakt",
+    "connect": "Connecter Trakt",
+    "connect_explainer": "Ce que vous regardez rejoint votre historique Trakt ; votre watchlist et vos notes s’affichent ici.",
+    "connected_explainer": "Ce que vous regardez est envoyé à Trakt pendant la lecture.",
+    "step_open": "Sur n’importe quel appareil, ouvrez trakt.tv/activate",
+    "step_enter": "Saisissez ce code",
+    "copy_code": "Touchez pour copier",
+    "copied": "Copié",
+    "open_activate": "Ouvrir trakt.tv/activate",
+    "waiting": "En attente de votre validation…",
+    "reconnecting": "Connexion perdue — nouvelle tentative…",
+    "expires_in": "Expire dans {}",
+    "code_expired": "Ce code a expiré.",
+    "denied": "L’accès a été refusé sur Trakt.",
+    "new_code": "Obtenir un nouveau code",
+    "unavailable": "Trakt est injoignable pour le moment.",
+    "connected_as": "Connecté en tant que {}",
+    "disconnect": "Déconnecter Trakt",
+    "disconnect_confirm": "Sozo n’enverra plus rien à Trakt. Votre historique Trakt est conservé."
   }
 }

@@ -3,6 +3,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:soplay/features/trakt/data/trakt_service.dart';
+import 'package:soplay/features/trakt/presentation/trakt_brand.dart';
+import 'package:soplay/features/trakt/presentation/trakt_connect_sheet.dart';
 import 'package:soplay/features/tracker/data/tracker_outbox.dart';
 import 'package:soplay/features/mal/data/mal_tracker.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
@@ -35,6 +38,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
   final AnilistLinkStore _links = getIt<AnilistLinkStore>();
   final MalService _mal = getIt<MalService>();
   final MalLinkStore _malLinks = getIt<MalLinkStore>();
+  final TraktService _trakt = getIt<TraktService>();
   final TrackerOutbox _outbox = getIt<TrackerOutbox>();
   bool _sending = false;
 
@@ -43,6 +47,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     super.initState();
     _anilist.addListener(_onAnilistChange);
     _mal.addListener(_onMalChange);
+    _trakt.addListener(_onTraktChange);
     _outbox.addListener(_onOutboxChange);
   }
 
@@ -92,6 +97,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
   void dispose() {
     _anilist.removeListener(_onAnilistChange);
     _mal.removeListener(_onMalChange);
+    _trakt.removeListener(_onTraktChange);
     _outbox.removeListener(_onOutboxChange);
     super.dispose();
   }
@@ -99,6 +105,19 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
   void _onAnilistChange() => _onChange(_anilist.consumeError);
 
   void _onMalChange() => _onChange(_mal.consumeError);
+  void _onTraktChange() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _disconnectTrakt() async {
+    final ok = await _confirmDisconnect(
+      'trakt.disconnect'.tr(),
+      'trakt.disconnect_confirm'.tr(),
+    );
+    if (!ok) return;
+    await _trakt.disconnect();
+    await _outbox.discard('trakt');
+  }
 
   void _onChange(String? Function() takeError) {
     if (!mounted) return;
@@ -328,6 +347,23 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
               onTap: null,
             ),
           ],
+
+          const SizedBox(height: 20),
+          _TrackerCard(
+            name: 'Trakt',
+            accent: kTraktRed,
+            connected: _trakt.isConnected,
+            busy: false,
+            accountName: _trakt.viewer?.name,
+            avatarUrl: _trakt.viewer?.avatarUrl,
+            placeholder: const TraktLogo(size: 30),
+            explainer: _trakt.isConnected
+                ? 'trakt.connected_explainer'.tr()
+                : 'trakt.connect_explainer'.tr(),
+            connectLabel: 'trakt.connect'.tr(),
+            onConnect: () => TraktConnectSheet.show(context),
+            onDisconnect: _disconnectTrakt,
+          ),
 
           const SizedBox(height: 18),
           Text(

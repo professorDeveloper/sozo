@@ -2122,5 +2122,26 @@
     "empty_region_subtitle": "O TMDB ainda não tem serviços para esta região.",
     "region_fell_back": "Ainda não há catálogo de streaming para o seu país, então estes são os serviços dos Estados Unidos.",
     "load_failed": "Não foi possível carregar os serviços."
+  },
+  "trakt": {
+    "connect_title": "Conectar Trakt",
+    "connect": "Conectar Trakt",
+    "connect_explainer": "O que você assiste entra no seu histórico do Trakt; sua watchlist e notas aparecem aqui.",
+    "connected_explainer": "O que você assiste é enviado ao Trakt enquanto assiste.",
+    "step_open": "Em qualquer aparelho, abra trakt.tv/activate",
+    "step_enter": "Digite este código",
+    "copy_code": "Toque para copiar",
+    "copied": "Copiado",
+    "open_activate": "Abrir trakt.tv/activate",
+    "waiting": "Aguardando sua aprovação…",
+    "reconnecting": "Conexão perdida — tentando de novo…",
+    "expires_in": "Expira em {}",
+    "code_expired": "Este código expirou.",
+    "denied": "O acesso foi negado no Trakt.",
+    "new_code": "Obter novo código",
+    "unavailable": "O Trakt não está acessível agora.",
+    "connected_as": "Conectado como {}",
+    "disconnect": "Desconectar Trakt",
+    "disconnect_confirm": "O Sozo deixará de enviar o que você assiste ao Trakt. Seu histórico no Trakt continua."
   }
 }

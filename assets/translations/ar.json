@@ -2126,5 +2126,26 @@
     "empty_region_subtitle": "لا توجد لدى TMDB قائمة بث لهذه المنطقة بعد.",
     "region_fell_back": "لا توجد قائمة بث لبلدك بعد، لذا هذه خدمات الولايات المتحدة.",
     "load_failed": "تعذّر تحميل خدمات البث."
+  },
+  "trakt": {
+    "connect_title": "ربط Trakt",
+    "connect": "ربط Trakt",
+    "connect_explainer": "تُضاف الأفلام والمسلسلات التي تشاهدها إلى سجل Trakt، وتظهر قائمتك وتقييماتك هنا.",
+    "connected_explainer": "يُسجَّل ما تشاهده في Trakt أثناء المشاهدة.",
+    "step_open": "افتح trakt.tv/activate على أي جهاز",
+    "step_enter": "أدخل هذا الرمز",
+    "copy_code": "انقر للنسخ",
+    "copied": "تم النسخ",
+    "open_activate": "فتح trakt.tv/activate",
+    "waiting": "بانتظار موافقتك…",
+    "reconnecting": "انقطع الاتصال — نحاول مجددًا…",
+    "expires_in": "ينتهي خلال {}",
+    "code_expired": "انتهت صلاحية الرمز.",
+    "denied": "تم رفض الوصول في Trakt.",
+    "new_code": "احصل على رمز جديد",
+    "unavailable": "تعذّر الوصول إلى Trakt الآن.",
+    "connected_as": "متصل باسم {}",
+    "disconnect": "فصل Trakt",
+    "disconnect_confirm": "سيتوقف Sozo عن إرسال ما تشاهده إلى Trakt. يبقى سجلك في Trakt كما هو."
   }
 }

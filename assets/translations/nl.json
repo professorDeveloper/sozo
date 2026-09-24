@@ -2122,5 +2122,26 @@
     "empty_region_subtitle": "TMDB heeft nog geen aanbod voor deze regio.",
     "region_fell_back": "Voor jouw land is nog geen streamingaanbod bekend, daarom zie je hier de diensten in de Verenigde Staten.",
     "load_failed": "Streamingdiensten konden niet worden geladen."
+  },
+  "trakt": {
+    "connect_title": "Trakt koppelen",
+    "connect": "Trakt koppelen",
+    "connect_explainer": "Wat je kijkt komt in je Trakt-geschiedenis; je watchlist en beoordelingen zie je hier.",
+    "connected_explainer": "Wat je kijkt wordt tijdens het kijken naar Trakt gestuurd.",
+    "step_open": "Open op een willekeurig apparaat trakt.tv/activate",
+    "step_enter": "Voer deze code in",
+    "copy_code": "Tik om te kopiëren",
+    "copied": "Gekopieerd",
+    "open_activate": "trakt.tv/activate openen",
+    "waiting": "Wachten op je goedkeuring…",
+    "reconnecting": "Verbinding verloren — opnieuw proberen…",
+    "expires_in": "Verloopt over {}",
+    "code_expired": "Deze code is verlopen.",
+    "denied": "Toegang geweigerd op Trakt.",
+    "new_code": "Nieuwe code halen",
+    "unavailable": "Trakt is nu niet bereikbaar.",
+    "connected_as": "Gekoppeld als {}",
+    "disconnect": "Trakt ontkoppelen",
+    "disconnect_confirm": "Sozo stuurt niets meer naar Trakt. Je Trakt-geschiedenis blijft staan."
   }
 }

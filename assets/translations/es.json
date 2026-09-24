@@ -2122,5 +2122,26 @@
     "empty_region_subtitle": "TMDB aún no tiene servicios para esta región.",
     "region_fell_back": "Todavía no hay catálogo de streaming para tu país, así que estos son los servicios de Estados Unidos.",
     "load_failed": "No se pudieron cargar los servicios."
+  },
+  "trakt": {
+    "connect_title": "Conectar Trakt",
+    "connect": "Conectar Trakt",
+    "connect_explainer": "Lo que ves se añade a tu historial de Trakt, y tu lista y puntuaciones aparecen aquí.",
+    "connected_explainer": "Lo que ves se registra en Trakt mientras lo ves.",
+    "step_open": "En cualquier dispositivo, abre trakt.tv/activate",
+    "step_enter": "Introduce este código",
+    "copy_code": "Toca para copiar",
+    "copied": "Copiado",
+    "open_activate": "Abrir trakt.tv/activate",
+    "waiting": "Esperando tu aprobación…",
+    "reconnecting": "Conexión perdida: reintentando…",
+    "expires_in": "Caduca en {}",
+    "code_expired": "Este código ha caducado.",
+    "denied": "Se denegó el acceso en Trakt.",
+    "new_code": "Obtener un código nuevo",
+    "unavailable": "Trakt no está disponible ahora.",
+    "connected_as": "Conectado como {}",
+    "disconnect": "Desconectar Trakt",
+    "disconnect_confirm": "Sozo dejará de enviar lo que ves a Trakt. Tu historial en Trakt se conserva."
   }
 }

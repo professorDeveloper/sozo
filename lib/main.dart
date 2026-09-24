@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:soplay/features/trakt/data/trakt_service.dart';
 import 'package:soplay/core/analytics/analytics.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -439,6 +440,7 @@ Future<void> _restoreAnilistAndReminders() async {
   // Restored in the same breath, and its failures are just as swallowed: a
   // tracker that cannot be reached at startup must not hold up the app.
   unawaited(getIt<MalService>().restore().catchError((Object _) {}));
+  unawaited(getIt<TraktService>().restore().catchError((Object _) {}));
   final reminders = getIt<AiringReminders>();
   if (!reminders.enabled || !anilist.isConnected) return;
   await reminders.sync(await anilist.library());

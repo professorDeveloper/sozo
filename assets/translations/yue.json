@@ -2122,5 +2122,26 @@
     "empty_region_subtitle": "TMDB 未有呢個地區嘅串流名單。",
     "region_fell_back": "你嘅國家暫時未有串流平台名單，所以呢度顯示嘅係美國嘅服務。",
     "load_failed": "載入唔到串流服務。"
+  },
+  "trakt": {
+    "connect_title": "連接 Trakt",
+    "connect": "連接 Trakt",
+    "connect_explainer": "你睇過嘅電影同劇集會加入 Trakt 紀錄，想睇清單同評分都會喺度顯示。",
+    "connected_explainer": "你睇緊嘅嘢會即時紀錄到 Trakt。",
+    "step_open": "喺任何裝置打開 trakt.tv/activate",
+    "step_enter": "輸入呢個代碼",
+    "copy_code": "撳一下複製",
+    "copied": "已複製",
+    "open_activate": "打開 trakt.tv/activate",
+    "waiting": "等緊你確認…",
+    "reconnecting": "斷咗線 — 再試緊…",
+    "expires_in": "{} 後過期",
+    "code_expired": "呢個代碼過咗期。",
+    "denied": "Trakt 拒絕咗存取。",
+    "new_code": "攞個新代碼",
+    "unavailable": "而家連唔到 Trakt。",
+    "connected_as": "已連接：{}",
+    "disconnect": "中斷 Trakt",
+    "disconnect_confirm": "Sozo 唔會再將你睇嘅嘢傳去 Trakt。Trakt 入面嘅紀錄唔變。"
   }
 }

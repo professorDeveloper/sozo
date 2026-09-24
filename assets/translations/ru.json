@@ -2123,5 +2123,26 @@
     "empty_region_subtitle": "У TMDB пока нет списка сервисов для этого региона.",
     "region_fell_back": "Для вашей страны список сервисов пока не ведётся, поэтому показаны сервисы США.",
     "load_failed": "Не удалось загрузить сервисы."
+  },
+  "trakt": {
+    "connect_title": "Подключить Trakt",
+    "connect": "Подключить Trakt",
+    "connect_explainer": "Фильмы и сериалы, которые вы смотрите, попадут в историю Trakt, а список и оценки будут здесь.",
+    "connected_explainer": "То, что вы смотрите, отмечается в Trakt по ходу просмотра.",
+    "step_open": "На любом устройстве откройте trakt.tv/activate",
+    "step_enter": "Введите этот код",
+    "copy_code": "Нажмите, чтобы скопировать",
+    "copied": "Скопировано",
+    "open_activate": "Открыть trakt.tv/activate",
+    "waiting": "Ждём подтверждения…",
+    "reconnecting": "Связь потеряна — пробуем снова…",
+    "expires_in": "Истекает через {}",
+    "code_expired": "Срок действия кода истёк.",
+    "denied": "Доступ отклонён в Trakt.",
+    "new_code": "Получить новый код",
+    "unavailable": "Trakt сейчас недоступен.",
+    "connected_as": "Подключено: {}",
+    "disconnect": "Отключить Trakt",
+    "disconnect_confirm": "Sozo перестанет отправлять просмотры в Trakt. История в Trakt останется."
   }
 }

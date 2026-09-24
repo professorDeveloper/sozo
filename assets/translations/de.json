@@ -2122,5 +2122,26 @@
     "empty_region_subtitle": "TMDB hat für diese Region noch kein Streaming-Angebot.",
     "region_fell_back": "Für dein Land ist noch kein Streaming-Angebot gelistet, deshalb siehst du hier die Dienste in den USA.",
     "load_failed": "Streamingdienste konnten nicht geladen werden."
+  },
+  "trakt": {
+    "connect_title": "Trakt verbinden",
+    "connect": "Trakt verbinden",
+    "connect_explainer": "Was du schaust, landet in deinem Trakt-Verlauf; Watchlist und Bewertungen siehst du hier.",
+    "connected_explainer": "Was du schaust, wird beim Schauen an Trakt gemeldet.",
+    "step_open": "Öffne auf einem beliebigen Gerät trakt.tv/activate",
+    "step_enter": "Gib diesen Code ein",
+    "copy_code": "Zum Kopieren tippen",
+    "copied": "Kopiert",
+    "open_activate": "trakt.tv/activate öffnen",
+    "waiting": "Warte auf deine Bestätigung…",
+    "reconnecting": "Verbindung verloren – wird erneut versucht…",
+    "expires_in": "Läuft ab in {}",
+    "code_expired": "Dieser Code ist abgelaufen.",
+    "denied": "Der Zugriff wurde bei Trakt abgelehnt.",
+    "new_code": "Neuen Code holen",
+    "unavailable": "Trakt ist gerade nicht erreichbar.",
+    "connected_as": "Verbunden als {}",
+    "disconnect": "Trakt trennen",
+    "disconnect_confirm": "Sozo sendet nichts mehr an Trakt. Dein Trakt-Verlauf bleibt erhalten."
   }
 }

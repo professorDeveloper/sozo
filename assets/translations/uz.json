@@ -2122,5 +2122,26 @@
     "empty_region_subtitle": "TMDB’da bu mintaqa uchun hali striming ro‘yxati yo‘q.",
     "region_fell_back": "Davlatingiz uchun hali striming ro‘yxati yo‘q, shuning uchun AQShdagi servislar ko‘rsatilmoqda.",
     "load_failed": "Striming servislarni yuklab bo‘lmadi."
+  },
+  "trakt": {
+    "connect_title": "Trakt’ni ulash",
+    "connect": "Trakt’ni ulash",
+    "connect_explainer": "Ko‘rgan kino va seriallaringiz Trakt tarixiga yoziladi, watchlist va baholaringiz shu yerda ko‘rinadi.",
+    "connected_explainer": "Ko‘rayotganingiz Trakt’ga shu zahoti yoziladi.",
+    "step_open": "Istalgan qurilmada trakt.tv/activate’ni oching",
+    "step_enter": "Shu kodni kiriting",
+    "copy_code": "Nusxa olish uchun bosing",
+    "copied": "Nusxa olindi",
+    "open_activate": "trakt.tv/activate’ni ochish",
+    "waiting": "Tasdiqlashingiz kutilmoqda…",
+    "reconnecting": "Aloqa uzildi — qayta urinilmoqda…",
+    "expires_in": "{} dan keyin tugaydi",
+    "code_expired": "Kodning muddati tugadi.",
+    "denied": "Trakt’da ruxsat berilmadi.",
+    "new_code": "Yangi kod olish",
+    "unavailable": "Trakt hozir javob bermayapti.",
+    "connected_as": "Ulandi: {}",
+    "disconnect": "Trakt’ni uzish",
+    "disconnect_confirm": "Sozo ko‘rganlaringizni Trakt’ga yubormaydi. Trakt’dagi tarix o‘zgarmaydi."
   }
 }

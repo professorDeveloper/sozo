@@ -2122,5 +2122,26 @@
     "empty_region_subtitle": "TMDB’de bu bölge için henüz liste yok.",
     "region_fell_back": "Ülkeniz için henüz yayın listesi yok, bu yüzden ABD'deki servisler gösteriliyor.",
     "load_failed": "Yayın servisleri yüklenemedi."
+  },
+  "trakt": {
+    "connect_title": "Trakt’ı bağla",
+    "connect": "Trakt’ı bağla",
+    "connect_explainer": "İzlediğin film ve diziler Trakt geçmişine eklenir; izleme listen ve puanların burada görünür.",
+    "connected_explainer": "İzlediklerin izlerken Trakt’a işlenir.",
+    "step_open": "Herhangi bir cihazda trakt.tv/activate adresini aç",
+    "step_enter": "Bu kodu gir",
+    "copy_code": "Kopyalamak için dokun",
+    "copied": "Kopyalandı",
+    "open_activate": "trakt.tv/activate’i aç",
+    "waiting": "Onayın bekleniyor…",
+    "reconnecting": "Bağlantı koptu — yeniden deneniyor…",
+    "expires_in": "{} sonra sona erer",
+    "code_expired": "Bu kodun süresi doldu.",
+    "denied": "Trakt’ta erişim reddedildi.",
+    "new_code": "Yeni kod al",
+    "unavailable": "Trakt’a şu an ulaşılamıyor.",
+    "connected_as": "{} olarak bağlandı",
+    "disconnect": "Trakt bağlantısını kes",
+    "disconnect_confirm": "Sozo artık Trakt’a gönderim yapmaz. Trakt geçmişin olduğu gibi kalır."
   }
 }

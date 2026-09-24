@@ -229,6 +229,7 @@ class AppConstants {
   /// — AniList, TMDB, CloudStream, Aniyomi, manga, torrents. Absent ⇒ off.
   static const String adultContentKey = 'show_adult_content';
   static const String libraryUpdateHoursKey = 'library_update_hours';
+  static const String traktLinkKey = 'trakt_link';
   static const String libraryUpdateLastKey = 'library_update_last_at';
 
   static const String appLockEnabledKey = 'app_lock_enabled';

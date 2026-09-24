@@ -2122,5 +2122,26 @@
     "empty_region_subtitle": "TMDB has no streaming line-up for this region yet.",
     "region_fell_back": "No streaming line-up is listed for your country yet, so these are the services in the United States.",
     "load_failed": "Streaming services could not be loaded."
+  },
+  "trakt": {
+    "connect_title": "Connect Trakt",
+    "connect": "Connect Trakt",
+    "connect_explainer": "Films and series you watch are added to your Trakt history, and your watchlist and ratings follow you here.",
+    "connected_explainer": "What you watch is scrobbled to Trakt as you watch it.",
+    "step_open": "On any device, open trakt.tv/activate",
+    "step_enter": "Enter this code",
+    "copy_code": "Tap to copy",
+    "copied": "Copied",
+    "open_activate": "Open trakt.tv/activate",
+    "waiting": "Waiting for you to approve…",
+    "reconnecting": "Connection lost — still trying…",
+    "expires_in": "Expires in {}",
+    "code_expired": "This code has expired.",
+    "denied": "Access was denied on Trakt.",
+    "new_code": "Get a new code",
+    "unavailable": "Trakt can't be reached right now.",
+    "connected_as": "Connected as {}",
+    "disconnect": "Disconnect Trakt",
+    "disconnect_confirm": "Sozo will stop sending what you watch to Trakt. Your Trakt history stays as it is."
   }
 }

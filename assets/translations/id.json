@@ -2122,5 +2122,26 @@
     "empty_region_subtitle": "TMDB belum punya daftar untuk wilayah ini.",
     "region_fell_back": "Belum ada daftar layanan untuk negaramu, jadi ini layanan di Amerika Serikat.",
     "load_failed": "Layanan streaming gagal dimuat."
+  },
+  "trakt": {
+    "connect_title": "Hubungkan Trakt",
+    "connect": "Hubungkan Trakt",
+    "connect_explainer": "Film dan serial yang kamu tonton masuk ke riwayat Trakt; watchlist dan ratingmu tampil di sini.",
+    "connected_explainer": "Yang kamu tonton dicatat ke Trakt saat menonton.",
+    "step_open": "Di perangkat apa pun, buka trakt.tv/activate",
+    "step_enter": "Masukkan kode ini",
+    "copy_code": "Ketuk untuk menyalin",
+    "copied": "Disalin",
+    "open_activate": "Buka trakt.tv/activate",
+    "waiting": "Menunggu persetujuanmu…",
+    "reconnecting": "Koneksi terputus — mencoba lagi…",
+    "expires_in": "Kedaluwarsa dalam {}",
+    "code_expired": "Kode ini sudah kedaluwarsa.",
+    "denied": "Akses ditolak di Trakt.",
+    "new_code": "Minta kode baru",
+    "unavailable": "Trakt sedang tidak bisa dijangkau.",
+    "connected_as": "Terhubung sebagai {}",
+    "disconnect": "Putuskan Trakt",
+    "disconnect_confirm": "Sozo berhenti mengirim tontonanmu ke Trakt. Riwayat Trakt tetap ada."
   }
 }
