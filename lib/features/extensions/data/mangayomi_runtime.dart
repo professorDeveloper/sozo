@@ -368,13 +368,19 @@ class MangayomiRuntime {
     // single extension that never answers — a Cloudflare solve that never
     // resolves, most often — used to hold every later call behind it forever,
     // which is a screen left shimmering with nothing to time out.
-    final result = await _locked(() async {
-      try {
-        await ensureReady().timeout(kJsCallTimeout);
-        await _ensureExtension(source).timeout(kJsCallTimeout);
-        final r = await _controller!
-            .callAsyncJavaScript(
-              functionBody: r'''
+    //
+    // The Cloudflare solve happens between attempts, outside the lock and
+    // after the JavaScript handler has answered. Without it a challenged
+    // LNReader site only failed with the plugin's own "open in webview".
+    final start = dartFetch.mark();
+    final result = await dartFetch.retryAfterCloudflare(
+      () => _locked(() async {
+        try {
+          await ensureReady().timeout(kJsCallTimeout);
+          await _ensureExtension(source).timeout(kJsCallTimeout);
+          final r = await _controller!
+              .callAsyncJavaScript(
+                functionBody: r'''
           const p = globalThis.__sozoProvider;
           const fn = fnName === '__sozoImageHeaders' ? globalThis.__sozoImageHeaders : (p ? p[fnName] : null);
           if (typeof fn !== 'function') {
@@ -394,18 +400,19 @@ class MangayomiRuntime {
           // extension returns plain data anyway.
           return out === undefined ? null : JSON.stringify(out);
         ''',
-              arguments: {'fnName': method, 'fnArgs': args},
-            )
-            .timeout(kJsCallTimeout);
-        await _flushPrefs(source);
-        return r;
-      } on TimeoutException {
-        // Future.timeout does not cancel JavaScript. Destroy the shared context
-        // before another provider can run with a timed-out provider's globals.
-        await dispose();
-        rethrow;
-      }
-    });
+                arguments: {'fnName': method, 'fnArgs': args},
+              )
+              .timeout(kJsCallTimeout);
+          await _flushPrefs(source);
+          return r;
+        } on TimeoutException {
+          // Future.timeout does not cancel JavaScript. Destroy the shared context
+          // before another provider can run with a timed-out provider's globals.
+          await dispose();
+          rethrow;
+        }
+      }),
+    );
 
     if (result == null) {
       JsLog.err(tag, '$method returned null');
@@ -414,7 +421,9 @@ class MangayomiRuntime {
     final error = result.error;
     if (error != null && error.isNotEmpty) {
       JsLog.err(tag, '$method threw: $error');
-      throw Exception(error);
+      throw Exception(
+        withCloudflareCause(error, dartFetch.cloudflareBlockSince(start)),
+      );
     }
     JsLog.res(tag, method, ms: sw.elapsedMilliseconds, status: 200);
     final value = result.value;
@@ -428,6 +437,17 @@ class MangayomiRuntime {
       }
     }
     return value;
+  }
+
+  /// [error] naming the Cloudflare challenge behind it, so the error screen
+  /// offers the solver. Plugins throw their own words for a challenged page
+  /// ("Could not reach site (403)"), which never mention it.
+  @visibleForTesting
+  static String withCloudflareCause(String error, String? block) {
+    if (block == null || error.toLowerCase().contains('cloudflare')) {
+      return error;
+    }
+    return '$error ($block)';
   }
 
   /// Drops the loaded extension so the next call re-reads its code. Used after

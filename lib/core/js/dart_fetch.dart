@@ -283,6 +283,29 @@ class DartFetch {
     return solveCfHosts([host]);
   }
 
+  /// Runs [attempt] and, if it met a Cloudflare challenge, solves it and runs
+  /// it once more with the clearance.
+  ///
+  /// [attempt] must not be a call made from inside a JavaScript handler; see
+  /// [_pendingCf] for why the solve has to wait until the call has returned.
+  Future<T> retryAfterCloudflare<T>(Future<T> Function() attempt) async {
+    final start = mark();
+    final first = await attempt();
+    final challenged = cfHostsSince(start);
+    if (challenged.isEmpty || !await solveCfHosts(challenged)) return first;
+    JsLog.info('fetch', 'retrying with a fresh clearance for $challenged');
+    return attempt();
+  }
+
+  /// The Cloudflare refusal recorded after [mark], if any.
+  String? cloudflareBlockSince(int mark) {
+    for (final e in _events.reversed) {
+      if (e.seq <= mark) break;
+      if (e.cf) return e.message;
+    }
+    return null;
+  }
+
   Future<bool> _solveHost(String host) async {
     _pendingCf.remove(host);
     final cf = _cfService;
