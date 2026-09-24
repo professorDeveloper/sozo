@@ -116,8 +116,8 @@ Future<void> showFollowMenu(BuildContext context, DetailEntity d) async {
 
 /// Follow, with the state spelled out: "Follow", "Following", "Muted".
 ///
-/// Tap follows or unfollows; long-press (or right-click, or the chevron)
-/// opens the menu that mutes this one title without unfollowing it.
+/// Tap follows; once following, tap opens the menu (the chevron says so) that
+/// mutes this one title or unfollows it.
 class FollowBellPill extends StatefulWidget {
   const FollowBellPill({super.key, required this.detail});
 
@@ -154,7 +154,7 @@ class _FollowBellPillState extends State<FollowBellPill> {
     if (_busy) return;
     _busy = true;
     try {
-      await toggleFollow(context, widget.detail);
+      await showFollowMenu(context, widget.detail);
     } finally {
       _busy = false;
     }
