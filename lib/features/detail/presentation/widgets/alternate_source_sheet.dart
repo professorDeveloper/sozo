@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/matching/title_match.dart';
 import 'package:soplay/core/network/image_headers.dart';
@@ -109,8 +110,47 @@ class AlternateSourceSheet extends StatefulWidget {
     required String category,
     required int? episodeNumber,
     Duration resumeAt = Duration.zero,
+  }) async {
+    final picked = await _open(
+      context,
+      title: title,
+      provider: provider,
+      category: category,
+      episodeNumber: episodeNumber,
+      resumeAt: resumeAt,
+    );
+    return picked is PlayerArgs ? picked : null;
+  }
+
+  /// For manga and novels: the source picked, to open its own page — its
+  /// chapter list — rather than a player. [show] built playback arguments
+  /// for whatever was picked, so finding a manga on another source opened
+  /// the video player on it.
+  static Future<AlternateSource?> pickToRead(
+    BuildContext context, {
+    required String title,
+    required String provider,
+    required String category,
+  }) async {
+    final picked = await _open(
+      context,
+      title: title,
+      provider: provider,
+      category: category,
+      episodeNumber: null,
+    );
+    return picked is AlternateSource ? picked : null;
+  }
+
+  static Future<Object?> _open(
+    BuildContext context, {
+    required String title,
+    required String provider,
+    required String category,
+    required int? episodeNumber,
+    Duration resumeAt = Duration.zero,
   }) {
-    return showAdaptiveModal<PlayerArgs>(
+    return showAdaptiveModal<Object>(
       context: context,
       backgroundColor: const Color(0xFF111111),
       isScrollControlled: true,
@@ -357,8 +397,15 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     return want == have;
   }
 
+  /// Manga and novels are read, not played: the pick is the source itself.
+  bool get _reads => widget.provider.contentMode != ContentMode.video;
+
   Future<void> _pick(AlternateSource source) async {
     if (_preparing != null) return;
+    if (_reads) {
+      Navigator.of(context).pop(source);
+      return;
+    }
     setState(() {
       _preparing = source.provider.id;
       _failed = null;
@@ -585,8 +632,11 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
                                 color: Colors.white70,
                               ),
                             )
-                          : const Icon(
-                              Icons.play_circle_fill_rounded,
+                          : Icon(
+                              // A manga opens to be read, not played.
+                              _reads
+                                  ? Icons.menu_book_rounded
+                                  : Icons.play_circle_fill_rounded,
                               color: Colors.white70,
                               size: 34,
                             ),

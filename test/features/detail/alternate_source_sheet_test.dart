@@ -192,7 +192,10 @@ void main() {
     ) async {
       // The fixture is only worth anything if the matcher really does put these
       // two in different bands, so that is asserted before the pixels are.
-      final weak = TitleMatch.of(query: _title, candidate: 'Return of the Blade');
+      final weak = TitleMatch.of(
+        query: _title,
+        candidate: 'Return of the Blade',
+      );
       expect(weak.isUsable, isTrue, reason: 'a rejected row is never drawn');
       expect(weak.confidence, TitleConfidence.weak);
       expect(
@@ -208,7 +211,10 @@ void main() {
             _source('an:two', 'AniTwo', 'Return of the Blade'),
           ],
         ),
-        candidates: [_provider('an:one', 'AniOne'), _provider('an:two', 'AniTwo')],
+        candidates: [
+          _provider('an:one', 'AniOne'),
+          _provider('an:two', 'AniTwo'),
+        ],
       );
 
       expect(
@@ -256,11 +262,7 @@ void main() {
         sources: [_source('an:two', 'AniTwo', 'Return of the Blade')],
         results: _handAnswers(),
       );
-      await pump(
-        tester,
-        service,
-        candidates: [_provider('an:two', 'AniTwo')],
-      );
+      await pump(tester, service, candidates: [_provider('an:two', 'AniTwo')]);
 
       await tester.tap(
         find.descendant(
@@ -459,10 +461,7 @@ void main() {
     /// for. They were one message once, and four of these five were things that
     /// message asserted without ever having established them.
     const cases = <String, (AlternateSearchOutcome, String)>{
-      'nobody was asked': (
-        AlternateSearchOutcome(),
-        'player.alt_none_asked',
-      ),
+      'nobody was asked': (AlternateSearchOutcome(), 'player.alt_none_asked'),
       'the source list itself failed': (
         AlternateSearchOutcome(unavailable: true),
         'player.alt_unavailable',
@@ -524,9 +523,7 @@ void main() {
   group('the words themselves', () {
     test('every string the switcher shows has English text', () {
       final en =
-          jsonDecode(
-                File('assets/translations/en.json').readAsStringSync(),
-              )
+          jsonDecode(File('assets/translations/en.json').readAsStringSync())
               as Map<String, dynamic>;
 
       String? lookUp(String key) {
@@ -544,9 +541,9 @@ void main() {
         'lib/features/detail/presentation/widgets/source_search_sheet.dart',
       ]) {
         final source = File(path).readAsStringSync();
-        for (final m in RegExp(r"'([a-z_]+\.[a-z0-9_]+)'\s*\.tr\(").allMatches(
-          source,
-        )) {
+        for (final m in RegExp(
+          r"'([a-z_]+\.[a-z0-9_]+)'\s*\.tr\(",
+        ).allMatches(source)) {
           keys.add(m.group(1)!);
         }
       }
@@ -559,6 +556,47 @@ void main() {
         expect(lookUp(key), isNotNull, reason: '$key has no English text');
       }
     });
+  });
+
+  testWidgets('a manga found elsewhere comes back as the source to open, '
+      'not as something to play', (tester) async {
+    // Finding a manga on another source used to open the video player on it:
+    // the sheet built playback arguments for whatever was picked.
+    getIt.registerSingleton<AlternateSourceService>(
+      _Service(sources: [_source('mn:one', 'MangaOne', _title)]),
+    );
+    Object? popped = 'nothing';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              popped = await Navigator.of(context).push<Object>(
+                MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                    body: AlternateSourceSheet.withDependencies(
+                      title: _title,
+                      provider: 'cat:anilist-manga',
+                      category: '',
+                      episodeNumber: null,
+                      candidates: [_provider('mn:one', 'MangaOne')],
+                      choices: SourceChoiceStore(box: box),
+                    ),
+                  ),
+                ),
+              );
+            },
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('MangaOne, $_title'));
+    await tester.pumpAndSettle();
+    expect(popped, isA<AlternateSource>());
+    expect((popped! as AlternateSource).provider.id, 'mn:one');
   });
 }
 

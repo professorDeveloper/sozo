@@ -1,3 +1,4 @@
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_about_tab.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
@@ -846,6 +847,54 @@ class _DetailViewState extends State<_DetailView>
 
   Future<void> _onFindOtherSources() async {
     final detail = widget.detail;
+    // A manga or a novel opens on the source that has it — its own page, with
+    // its chapters — not in the video player.
+    if (detail.provider.contentMode != ContentMode.video) {
+      final source = await AlternateSourceSheet.pickToRead(
+        context,
+        title: detail.title,
+        provider: detail.provider,
+        category: getIt<HiveService>().providerCategory(detail.provider),
+      );
+      if (!mounted || source == null) return;
+      // On a catalogue page (AniList manga or novels) the pick is remembered
+      // for the catalogue title, so it opens with this source next time.
+      final args = GoRouterState.of(context).extra;
+      if (args is DetailArgs) {
+        final catalogue =
+            Catalogue.fromId(args.provider) ??
+            Catalogue.forUrl(
+              args.contentUrl,
+              current: getIt<HiveService>().getCurrentProvider(),
+            );
+        if (catalogue != null) {
+          unawaited(
+            getIt<CatalogueResolver>().choose(
+              catalogue.id,
+              args.contentUrl,
+              CatalogueLink(
+                providerId: source.provider.id,
+                providerName: source.provider.name,
+                contentUrl: source.item.url,
+                catalogueId: catalogue.id,
+                providerImage: '',
+                approximate: false,
+              ),
+            ),
+          );
+        }
+      }
+      if (!mounted) return;
+      context.push(
+        '/detail',
+        extra: DetailArgs(
+          contentUrl: source.item.url,
+          provider: source.provider.id,
+          preview: source.item,
+        ),
+      );
+      return;
+    }
     final history = getIt<HistoryService>().get(detail.contentUrl);
 
     final args = await AlternateSourceSheet.show(

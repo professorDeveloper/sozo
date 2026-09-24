@@ -252,6 +252,14 @@ class CatalogueResolver {
   Future<void> forget(String catalogueId, String contentUrl) =>
       _hive.setCatalogueLink(_key(catalogueId, contentUrl), null);
 
+  /// A source the viewer picked for this catalogue title by hand: the page
+  /// opens on it from now on, as it does on one the resolver found.
+  Future<void> choose(
+    String catalogueId,
+    String contentUrl,
+    CatalogueLink link,
+  ) => _hive.setCatalogueLink(_key(catalogueId, contentUrl), link.encode());
+
   /// Which kinds of source a catalogue's titles are looked for on.
   ///
   /// Its own, except for light novels, which also look at the manga readers.
