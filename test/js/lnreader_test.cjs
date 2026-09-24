@@ -562,3 +562,27 @@ test('fetchProto makes a gRPC-web call through the bridge, as bytes', async () =
   const request = root.lookupType('GetNovelRequest').decode(Bytes.from(body.subarray(5)));
   assert.equal(request.slug, 'martial-world');
 });
+
+/* ---- the fixed builds the app ships ------------------------------------ */
+
+test('every bundled plugin fix loads as the plugin it replaces', () => {
+  const dir = path.join(__dirname, '../../assets/lnreader/patches');
+  const deps = fs.readFileSync(path.join(__dirname, '../../assets/js/lnreader_deps.js'), 'utf8');
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.js'));
+  assert.ok(files.length > 0);
+  for (const file of files) {
+    const sandbox = { console: { warn: () => {}, error: () => {}, log: () => {} }, URL, URLSearchParams, TextEncoder, TextDecoder };
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(deps, sandbox);
+    vm.runInContext(shim, sandbox);
+    const id = file.replace(/\.js$/, '');
+    const code = fs.readFileSync(path.join(dir, file), 'utf8');
+    const plugin = sandbox.__sozoLoadLnReader(code, { id: 'ln.' + id });
+    assert.equal(typeof plugin.getHtmlContent, 'function', file);
+    assert.ok(plugin.baseUrl.startsWith('https://'), file);
+    const exported = {};
+    new Function('module', 'exports', 'require', code)({ exports: exported }, exported, sandbox.__sozoLnReaderInternals.makeRequire(id));
+    assert.equal((exported.default || exported).id, id, file);
+  }
+});

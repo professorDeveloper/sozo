@@ -1,0 +1,5 @@
+# The upstream commit the patches apply to.
+commit 9e7ff49f3e527a95ba3f382c4a358a7b3a0b7bda
+# id, then the file under .js/plugins/ that upstream's build writes.
+genesistudio english/genesis.js
+kakuyomu japanese/kakuyomu.js

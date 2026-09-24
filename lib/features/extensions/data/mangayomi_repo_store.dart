@@ -2,9 +2,11 @@ import 'package:soplay/core/network/user_agent.dart';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/features/extensions/data/lnreader_patches.dart';
 import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
 
 /// Installs and persists Mangayomi repositories, entirely in Dart.
@@ -19,9 +21,13 @@ import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart
 /// `anime_index.json`, `novel_index.json`); each is stored under its own url so
 /// removing one doesn't take the others with it.
 class MangayomiRepoStore {
-  MangayomiRepoStore({required this.dio});
+  MangayomiRepoStore({
+    required this.dio,
+    Future<String> Function(String key)? loadAsset,
+  }) : _loadAsset = loadAsset ?? rootBundle.loadString;
 
   final Dio dio;
+  final Future<String> Function(String key) _loadAsset;
 
   static const _reposKey = 'mangayomi_repos';
   static const _sourcesKey = 'mangayomi_sources';
@@ -215,8 +221,11 @@ class MangayomiRepoStore {
   ///
   /// Cached per (id, version) so a repo bump invalidates it automatically —
   /// keying on id alone would pin the first version forever, which is exactly
-  /// the bug the APK hosts had.
+  /// the bug the APK hosts had. An official LNReader plugin the app carries a
+  /// fixed build of runs that instead; see [LnReaderPatches].
   Future<String> code(MangayomiSource source) async {
+    final patch = LnReaderPatches.forSource(source);
+    if (patch != null) return _loadAsset(patch.asset);
     final key = '$_codePrefix${source.id}';
     final cached = _box.get(key);
     if (cached is Map && cached['identity'] == source.runtimeIdentity) {

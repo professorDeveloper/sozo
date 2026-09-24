@@ -211,4 +211,5 @@ flutter:
     - assets/onboarding/
     - assets/onboarding/channels/
     - assets/js/
+    - assets/lnreader/patches/
     - .env
