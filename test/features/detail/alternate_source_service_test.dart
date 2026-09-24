@@ -270,10 +270,7 @@ void main() {
       expect(found.map((f) => f.provider.id), ['an:anime']);
     });
 
-    test('a novel is offered the comic sources', () async {
-      // Deliberate: a light novel is routinely carried by a manga source, and
-      // the catalogue resolver already leans on that. Splitting them would
-      // empty the sheet for every novel.
+    test('a novel is not offered the comic sources', () async {
       final engine = _FanOut(rows: [_movie('Overlord')]);
       final found = await _service(engine)
           .find(
@@ -284,7 +281,7 @@ void main() {
           )
           .toList();
 
-      expect(found.map((f) => f.provider.id), ['mn:reader']);
+      expect(found, isEmpty);
     });
 
     test('an empty title provider does not filter at all', () async {

@@ -102,7 +102,11 @@ void main() {
     expect(find.text('Guest'), findsOneWidget);
     expect(find.byType(KidsBadge), findsOneWidget);
     expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.add_rounded), findsOneWidget);
+    expect(
+      find.byIcon(Icons.add_rounded),
+      findsNothing,
+      reason: 'three profiles is the cap, whatever the server reports',
+    );
   });
 
   testWidgets('a PIN-protected profile opens only with its PIN', (
@@ -123,10 +127,11 @@ void main() {
         await tester.tap(find.text(d).last);
         await tester.pump();
       }
-      await tester.runAsync(() async {
-        await tester.tap(find.text('profiles.continue'));
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-      });
+      // Checked on the fourth digit, with no button to press.
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
       await tester.pump();
     }
 

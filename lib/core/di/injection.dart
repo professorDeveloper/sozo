@@ -116,6 +116,8 @@ import 'package:soplay/features/jellyfin/data/jellyfin_reporter.dart';
 import 'package:soplay/features/jellyfin/data/jellyfin_server_store.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
+import 'package:soplay/features/sources/data/source_check_store.dart';
+import 'package:soplay/features/sources/domain/source_check_service.dart';
 import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/reports/data/datasources/reports_data_source.dart';
 import 'package:soplay/features/reports/data/repositories/reports_repository_impl.dart';
@@ -593,6 +595,13 @@ Future<void> configureDependencies() async {
       jellyfin: getIt<JellyfinBridge>(),
     ),
   );
+  getIt.registerSingleton<SourceCheckStore>(SourceCheckStore.shared);
+  getIt.registerLazySingleton<SourceCheckService>(
+    () => SourceCheckService(
+      browse: getIt<SourceBrowseRepository>(),
+      store: getIt<SourceCheckStore>(),
+    ),
+  );
   getIt.registerLazySingleton<ExtractorRunner>(
     () => ExtractorRunner(dio: getIt<Dio>()),
   );
@@ -612,6 +621,8 @@ Future<void> configureDependencies() async {
       jellyfin: getIt<JellyfinBridge>(),
       jsRuntime: getIt<JsRuntimeService>(),
       hive: getIt<HiveService>(),
+      onOutcome: (id, ok, error) =>
+          getIt<SourceCheckService>().observe(id, ok: ok, error: error),
     ),
   );
   getIt.registerSingleton<SearchRepository>(
