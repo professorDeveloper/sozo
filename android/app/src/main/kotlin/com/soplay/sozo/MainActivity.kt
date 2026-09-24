@@ -189,6 +189,16 @@ class MainActivity : FlutterFragmentActivity() {
                 // The package an apk on disk would install as, or null when the
                 // file is not a readable apk. The in-app updater checks it before
                 // handing the file to the installer.
+                // After a refusal Android explains itself; after the second it
+                // stops asking and stops explaining, which is the only way to
+                // tell "denied for good" apart from "never asked".
+                "notificationRationale" -> result.success(
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        shouldShowRequestPermissionRationale(
+                            Manifest.permission.POST_NOTIFICATIONS
+                        )
+                )
+                "openNotificationSettings" -> result.success(openNotificationSettings())
                 "apkPackageName" -> {
                     val path = call.argument<String>("path").orEmpty()
                     val name = try {
@@ -1035,6 +1045,24 @@ class MainActivity : FlutterFragmentActivity() {
                 if (out != null) result.success(out)
                 else result.error("cs_error", "CloudStream call failed", null)
             }
+        }
+    }
+
+    private fun openNotificationSettings(): Boolean {
+        return try {
+            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+            } else {
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:$packageName")
+                )
+            }
+            startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            true
+        } catch (_: Exception) {
+            false
         }
     }
 

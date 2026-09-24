@@ -71,6 +71,9 @@ dependencies:
   flutter_local_notifications: ^17.2.3
   timezone: ^0.9.4
   flutter_timezone: ^3.0.1
+  # Periodic background check for new episodes on sources the server cannot
+  # watch (extensions), and for guests who have no server-side follows.
+  workmanager: ^0.10.10
 
   # Local Storage
   hive_flutter: ^1.1.0
