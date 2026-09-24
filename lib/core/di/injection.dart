@@ -1,7 +1,12 @@
 import 'dart:async';
+import 'dart:io' show Platform;
+
+import 'package:soplay/core/system/platform_utils.dart' show isTvPlatform;
 import 'package:soplay/features/onboarding/data/genre_catalog.dart';
+import 'package:soplay/features/onboarding/data/onboarding_store.dart';
 import 'package:soplay/features/onboarding/data/picked_for_you.dart';
 import 'package:soplay/features/onboarding/data/tv_pairing_service.dart';
+import 'package:soplay/features/onboarding/presentation/controllers/onboarding_controller.dart';
 
 import 'package:soplay/features/watch_services/data/datasources/watch_services_data_source.dart';
 import 'package:soplay/features/watch_services/data/repositories/watch_services_repository_imp.dart';
@@ -640,6 +645,15 @@ Future<void> configureDependencies() async {
     () => GenreCatalog(
       fetch: (catalogue) =>
           getIt<SearchDataSource>().getCatalogueGenres(catalogue),
+    ),
+  );
+  getIt.registerLazySingleton<OnboardingController>(
+    () => OnboardingController(
+      store: HiveOnboardingStore(getIt<HiveService>()),
+      isSignedIn: () => getIt<HiveService>().isLoggedIn,
+      notificationsSupported: () => Platform.isAndroid && !isTvPlatform,
+      notificationsGranted: () =>
+          getIt<NotificationService>().permissionGranted,
     ),
   );
   getIt.registerLazySingleton<TvPairingService>(
