@@ -13,6 +13,7 @@ import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/features/achievements/domain/achievements.dart';
 import 'package:soplay/features/achievements/presentation/dialogs/achievement_unlocked_dialog.dart';
 import 'package:soplay/features/achievements/presentation/widgets/achievement_medal.dart';
+import 'package:soplay/features/achievements/presentation/widgets/medal_viewer.dart';
 import 'package:soplay/features/social/domain/social_models.dart';
 import 'package:soplay/features/social/presentation/widgets/activity_card.dart';
 
@@ -203,6 +204,36 @@ void main() {
       expect(find.text('Gold tier'), findsOneWidget);
       expect(find.text('100 days in a row'), findsOneWidget);
       expect(find.text('Also earned'), findsOneWidget);
+    });
+
+    testWidgets('the viewer holds a medal up and steps through its tiers', (
+      tester,
+    ) async {
+      final view = AchievementsView.fromJson(_json);
+      await pump(
+        tester,
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showMedalViewer(context, id: 'streak', view: view),
+            child: const Text('open'),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(tester.takeException(), isNull);
+      expect(find.text('Flame'), findsOneWidget);
+      // Opens on the best tier earned: gold, a hundred days.
+      expect(find.text('Gold'), findsOneWidget);
+      expect(find.text('100 days in a row'), findsOneWidget);
+      // The ember tier, not yet earned.
+      await tester.tap(find.byType(AchievementBadge).last);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Ember'), findsOneWidget);
+      expect(find.text('365 days in a row'), findsOneWidget);
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('a badge in the feed is a medal card, not an unnamed title', (

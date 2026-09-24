@@ -135,7 +135,7 @@ class _StreakHero extends StatelessWidget {
           borderRadius: BorderRadius.circular(22),
           onTap: family == null
               ? null
-              : () => showFamilySheet(context, family: family),
+              : () => openAchievement(context, view: view, id: 'streak'),
           child: Container(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
             decoration: BoxDecoration(
@@ -461,7 +461,7 @@ class _FamilyList extends StatelessWidget {
         children: [
           for (var i = 0; i < families.length; i++) ...[
             if (i > 0) Divider(height: 1, color: AppColors.divider),
-            _FamilyRow(family: families[i]),
+            _FamilyRow(family: families[i], view: view),
           ],
         ],
       ),
@@ -470,9 +470,10 @@ class _FamilyList extends StatelessWidget {
 }
 
 class _FamilyRow extends StatelessWidget {
-  const _FamilyRow({required this.family});
+  const _FamilyRow({required this.family, required this.view});
 
   final AchievementFamily family;
+  final AchievementsView view;
 
   @override
   Widget build(BuildContext context) {
@@ -480,7 +481,7 @@ class _FamilyRow extends StatelessWidget {
     final next = family.isMaxed ? null : family.tiers[family.tier];
     final value = family.value ?? 0;
     return InkWell(
-      onTap: () => showFamilySheet(context, family: family),
+      onTap: () => openAchievement(context, view: view, id: family.id),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(

@@ -193,6 +193,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
               SliverToBoxAdapter(
                 child: _Header(profile: p, onRelation: _onRelation),
               ),
+              if (p.achievements case final badges?
+                  when badges.unlockedCount > 0)
+                SliverToBoxAdapter(child: _Badges(view: badges)),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
                 sliver: SliverToBoxAdapter(
@@ -286,6 +289,97 @@ class _UserProfilePageState extends State<UserProfilePage> {
         ),
       ),
     ];
+  }
+}
+
+/// Every badge this person has earned, each one open to a closer look.
+class _Badges extends StatelessWidget {
+  const _Badges({required this.view});
+
+  final AchievementsView view;
+
+  @override
+  Widget build(BuildContext context) {
+    final ids = view.earnedIds;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${'achievements.title'.tr().toUpperCase()} · ${view.unlockedCount}/${view.total}',
+            style: const TextStyle(
+              color: AppColors.textHint,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(8, 14, 8, 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.surface, AppColors.background],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: const Color(0xFFFFA94D).withValues(alpha: 0.14),
+                width: 0.7,
+              ),
+            ),
+            child: LayoutBuilder(
+              builder: (context, box) {
+                final columns = (box.maxWidth / 82).floor().clamp(3, 6);
+                final width = box.maxWidth / columns;
+                return Wrap(
+                  runSpacing: 12,
+                  children: [
+                    for (final id in ids)
+                      SizedBox(
+                        width: width,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () =>
+                              openAchievement(context, view: view, id: id),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Column(
+                              children: [
+                                AchievementBadge(
+                                  id: id,
+                                  tier: view.medalOf(id),
+                                  size: 50,
+                                  glow: false,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  AchievementDef.of(id).nameKey.tr(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

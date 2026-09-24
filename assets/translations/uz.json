@@ -2920,7 +2920,8 @@
     "rule_night_owl": "Yarim tundan soat 4 gacha qism tugatish",
     "rule_party_host": "Watch party o‘tkazish",
     "rule_explorer": "10 xil manbada biror narsani tugatish",
-    "rule_friendly": "5 ta do‘st orttirish"
+    "rule_friendly": "5 ta do‘st orttirish",
+    "viewer_hint": "Barmoq bilan aylantiring yoki telefonni qiyshaytiring · ikki marta bosib ag‘daring"
   },
   "home_widget": {
     "next": "Keyingi qism",

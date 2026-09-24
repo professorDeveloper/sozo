@@ -2920,7 +2920,8 @@
     "rule_night_owl": "Gece yarısı ile 04.00 arasında bir bölüm bitir",
     "rule_party_host": "Bir izleme partisi düzenle",
     "rule_explorer": "10 farklı kaynakta bir şey bitir",
-    "rule_friendly": "5 arkadaş edin"
+    "rule_friendly": "5 arkadaş edin",
+    "viewer_hint": "Sürükle ya da telefonu eğ · çevirmek için çift dokun"
   },
   "home_widget": {
     "next": "Sıradaki bölüm",

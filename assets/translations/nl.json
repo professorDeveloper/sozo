@@ -2920,7 +2920,8 @@
     "rule_night_owl": "Een aflevering uitkijken tussen middernacht en 4 uur",
     "rule_party_host": "Een watch party houden",
     "rule_explorer": "Iets afmaken op 10 verschillende bronnen",
-    "rule_friendly": "5 vrienden maken"
+    "rule_friendly": "5 vrienden maken",
+    "viewer_hint": "Sleep of kantel je telefoon · dubbeltik om te draaien"
   },
   "home_widget": {
     "next": "Volgende aflevering",

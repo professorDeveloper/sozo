@@ -2920,7 +2920,8 @@
     "rule_night_owl": "Eine Folge zwischen Mitternacht und 4 Uhr beenden",
     "rule_party_host": "Eine Watch-Party veranstalten",
     "rule_explorer": "Auf 10 verschiedenen Quellen etwas beenden",
-    "rule_friendly": "5 Freunde finden"
+    "rule_friendly": "5 Freunde finden",
+    "viewer_hint": "Zieh daran oder neig dein Handy · Doppeltippen zum Wenden"
   },
   "home_widget": {
     "next": "Nächste Folge",

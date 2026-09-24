@@ -2920,7 +2920,8 @@
     "rule_night_owl": "Finish an episode between midnight and 4 a.m.",
     "rule_party_host": "Host a watch party",
     "rule_explorer": "Finish something on 10 different sources",
-    "rule_friendly": "Make 5 friends"
+    "rule_friendly": "Make 5 friends",
+    "viewer_hint": "Drag it or tilt your phone · double-tap to flip"
   },
   "home_widget": {
     "next": "Next episode",

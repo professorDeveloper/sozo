@@ -2920,7 +2920,8 @@
     "rule_night_owl": "Selesaikan episode antara tengah malam dan pukul 4",
     "rule_party_host": "Adakan watch party",
     "rule_explorer": "Selesaikan sesuatu di 10 sumber berbeda",
-    "rule_friendly": "Punya 5 teman"
+    "rule_friendly": "Punya 5 teman",
+    "viewer_hint": "Geser atau miringkan ponselmu · ketuk dua kali untuk membalik"
   },
   "home_widget": {
     "next": "Episode berikutnya",
