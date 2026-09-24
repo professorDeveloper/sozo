@@ -426,7 +426,9 @@
     "media_kit_emulator": "Not on the emulator — platform player in use",
     "media_kit_fell_back": "media_kit could not start here — platform player in use",
     "segment_opening": "Opening",
-    "segment_ending": "Ending"
+    "segment_ending": "Ending",
+    "subtitle_n": "Subtitle {}",
+    "subtitle_in_video": "In the video"
   },
   "profile": {
     "title": "Profile",

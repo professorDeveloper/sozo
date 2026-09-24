@@ -193,6 +193,35 @@ extension _PlayerPanels on _PlayerPageState {
     setState(() => _panel = _SidePanel.none);
     await _controller?.setVideoTrack(track.id);
     if (mounted) setState(() {});
+    // Kept for the next episode, which picks the same height from its own
+    // renditions. Auto is remembered too, as 0, so an older pin does not
+    // come back.
+    final contentUrl = widget.args.contentUrl ?? '';
+    if (contentUrl.isNotEmpty) {
+      unawaited(
+        _titlePrefs.rememberHeight(
+          widget.args.provider,
+          contentUrl,
+          track.isAuto ? 0 : (track.height ?? 0),
+        ),
+      );
+    }
+  }
+
+  /// The current server's other files, for the quality panel beside the
+  /// stream's renditions: a server offering an adaptive master and separate
+  /// MP4s had its MP4s unreachable from the panel on libmpv.
+  List<int> get _otherServerSources {
+    final current = _currentSourceIndex;
+    if (current < 0 || current >= _videoSources.length) return const [];
+    final prefix = '${_videoSources[current].quality} · ';
+    return [
+      for (final i in _currentServerSources)
+        if (i != current &&
+            !(_videoSources[i].height != null &&
+                _videoSources[i].quality.startsWith(prefix)))
+          i,
+    ];
   }
 
   List<int> get _currentServerSources {
@@ -561,7 +590,8 @@ extension _PlayerPanels on _PlayerPageState {
                     _openLangSheet();
                   },
                 ),
-              if (_subtitles.isNotEmpty)
+              if (_subtitles.isNotEmpty ||
+                  (_controller?.subtitleTracks.isNotEmpty ?? false))
                 _SettingsTile(
                   icon: Icons.text_fields_rounded,
                   label: 'player.subtitle_style'.tr(),
@@ -792,10 +822,25 @@ extension _PlayerPanels on _PlayerPageState {
       if (proceed != true) return;
     }
     await _controller?.pause();
+    // The subtitles go along: the other app had the video and nothing to
+    // read. Only plain web addresses — it cannot send a Referer, and it
+    // cannot read this app's files or an AI track held in memory. The one on
+    // screen goes first, so it is the one switched on.
+    final handed = <({String url, String label})>[
+      for (final i in [
+        if (_activeSubtitleIndex >= 0) _activeSubtitleIndex,
+        for (var j = 0; j < _subtitles.length; j++)
+          if (j != _activeSubtitleIndex) j,
+      ])
+        if (_subtitles[i].file.startsWith('http') &&
+            ExternalPlayer.gatingHeaders(_subtitles[i].headers).isEmpty)
+          (url: _subtitles[i].file, label: _subtitles[i].label),
+    ];
     final ok = await ExternalPlayer.open(
       url: url,
       title: widget.args.title,
       headers: headers,
+      subtitles: handed,
     );
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1183,16 +1228,28 @@ extension _PlayerPanels on _PlayerPageState {
                   controller: _tvPanelScroll,
                   shrinkWrap: asSheet,
                   padding: EdgeInsets.zero,
-                  itemCount: tracks.length,
+                  itemCount: tracks.length + _otherServerSources.length,
                   separatorBuilder: (_, _) => Divider(
                     color: Colors.white.withValues(alpha: 0.06),
                     height: 1,
                   ),
-                  itemBuilder: (_, i) => _VideoTrackRow(
-                    track: tracks[i],
-                    isActive: tracks[i].id == (_controller?.activeVideoTrackId),
-                    onTap: () => _switchVideoTrack(tracks[i]),
-                  ),
+                  itemBuilder: (_, i) {
+                    if (i < tracks.length) {
+                      return _VideoTrackRow(
+                        track: tracks[i],
+                        isActive:
+                            tracks[i].id == (_controller?.activeVideoTrackId),
+                        onTap: () => _switchVideoTrack(tracks[i]),
+                      );
+                    }
+                    final src =
+                        _videoSources[_otherServerSources[i - tracks.length]];
+                    return _QualityRow(
+                      source: _resolutionOnly(src),
+                      isActive: false,
+                      onTap: () => _switchQuality(src),
+                    );
+                  },
                 )
               : ListView.separated(
                   controller: _tvPanelScroll,

@@ -426,7 +426,9 @@
     "media_kit_emulator": "Não no emulador — player do sistema em uso",
     "media_kit_fell_back": "media_kit não iniciou aqui — player do sistema em uso",
     "segment_opening": "Abertura",
-    "segment_ending": "Encerramento"
+    "segment_ending": "Encerramento",
+    "subtitle_n": "Legenda {}",
+    "subtitle_in_video": "No vídeo"
   },
   "profile": {
     "title": "Perfil",

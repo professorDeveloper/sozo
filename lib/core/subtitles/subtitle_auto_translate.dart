@@ -94,6 +94,16 @@ abstract final class SubtitleAutoTranslate {
     return false;
   }
 
+  /// The language a track label names, as a code where one is known, so
+  /// "English", "eng" and "English · Filemoon" all come out as `en`.
+  /// Otherwise the label without the server or tags a source adds.
+  static String languageOf(String label) {
+    for (final code in _nativeNames.keys) {
+      if (labelMatchesLanguage(label, code)) return code;
+    }
+    return label.split(RegExp(r'\s*[·•|(\[]\s*')).first.trim().toLowerCase();
+  }
+
   /// Whether any of [labels] already reads in [code].
   static bool anyMatches(Iterable<String> labels, String code) {
     for (final l in labels) {

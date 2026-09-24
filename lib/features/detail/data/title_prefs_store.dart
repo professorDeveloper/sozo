@@ -72,6 +72,42 @@ class TitlePrefsStore {
     return (value is String && value.isNotEmpty) ? value : null;
   }
 
+  /// The subtitle last chosen for this title: a track label, [subtitleOff],
+  /// or [embeddedSubtitle] followed by the stream track's label. Null when
+  /// nothing was chosen.
+  String? subtitleFor(String provider, String contentUrl) {
+    final value = _entry(provider, contentUrl)?['subtitle'];
+    return (value is String && value.isNotEmpty) ? value : null;
+  }
+
+  /// Turned off on purpose — kept off on the next episode.
+  static const String subtitleOff = '\u0000off';
+
+  /// Prefix of a remembered track that is inside the stream.
+  static const String embeddedSubtitle = '\u0000embedded:';
+
+  Future<void> rememberSubtitle(
+    String provider,
+    String contentUrl,
+    String choice,
+  ) => _write(provider, contentUrl, 'subtitle', choice);
+
+  /// The picture height last picked for this title, or null.
+  ///
+  /// Beside the label because a height outlives it: "Server · 720p" from a
+  /// parsed HLS master and mpv's own 720p rendition are the same choice under
+  /// two names, and neither exists yet when the next episode starts.
+  int? heightFor(String provider, String contentUrl) {
+    final value = _entry(provider, contentUrl)?['height'];
+    final height = value is String ? int.tryParse(value) : null;
+    return height != null && height > 0 ? height : null;
+  }
+
+  /// [height] 0 is Auto: the choice not to pin one, which a stale height
+  /// must not override on the next episode.
+  Future<void> rememberHeight(String provider, String contentUrl, int height) =>
+      _write(provider, contentUrl, 'height', '${height < 0 ? 0 : height}');
+
   Future<void> rememberLang(String provider, String contentUrl, String lang) =>
       _write(provider, contentUrl, 'lang', lang);
 

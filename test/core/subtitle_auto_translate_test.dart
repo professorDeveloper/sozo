@@ -161,6 +161,16 @@ void main() {
     });
   });
 
+  test('a label names its language however a source spells it', () {
+    // What keeps "English" chosen on one server when the next episode lists
+    // it as "English · Filemoon" or "eng".
+    expect(SubtitleAutoTranslate.languageOf('English'), 'en');
+    expect(SubtitleAutoTranslate.languageOf('English · Filemoon'), 'en');
+    expect(SubtitleAutoTranslate.languageOf('eng'), 'en');
+    expect(SubtitleAutoTranslate.languageOf("O'zbekcha [AI]"), 'uz');
+    expect(SubtitleAutoTranslate.languageOf('Klingon · 2'), 'klingon');
+  });
+
   test('the core layer stays free of Flutter', () {
     final source =
         File('lib/core/subtitles/subtitle_auto_translate.dart').readAsStringSync();

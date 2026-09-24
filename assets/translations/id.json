@@ -426,7 +426,9 @@
     "media_kit_emulator": "Tidak di emulator — pemutar sistem digunakan",
     "media_kit_fell_back": "media_kit gagal berjalan di sini — pemutar sistem digunakan",
     "segment_opening": "Opening",
-    "segment_ending": "Ending"
+    "segment_ending": "Ending",
+    "subtitle_n": "Subtitel {}",
+    "subtitle_in_video": "Di dalam video"
   },
   "profile": {
     "title": "Profil",

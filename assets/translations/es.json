@@ -426,7 +426,9 @@
     "media_kit_emulator": "No en el emulador: se usa el reproductor del sistema",
     "media_kit_fell_back": "media_kit no pudo iniciarse aquí: se usa el reproductor del sistema",
     "segment_opening": "Opening",
-    "segment_ending": "Ending"
+    "segment_ending": "Ending",
+    "subtitle_n": "Subtítulo {}",
+    "subtitle_in_video": "En el vídeo"
   },
   "profile": {
     "title": "Perfil",

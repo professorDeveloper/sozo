@@ -426,7 +426,9 @@
     "media_kit_emulator": "Niet in de emulator — systeemspeler actief",
     "media_kit_fell_back": "media_kit kon hier niet starten — systeemspeler actief",
     "segment_opening": "Intro",
-    "segment_ending": "Aftiteling"
+    "segment_ending": "Aftiteling",
+    "subtitle_n": "Ondertiteling {}",
+    "subtitle_in_video": "In de video"
   },
   "profile": {
     "title": "Profiel",

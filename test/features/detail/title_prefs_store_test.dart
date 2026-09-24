@@ -109,4 +109,21 @@ void main() {
     ).put(AppConstants.titlePrefsKey, 'not a map');
     expect(TitlePrefsStore().langFor('p', 'u'), isNull);
   });
+
+  test('the subtitle choice is kept per title, off included', () async {
+    final s = TitlePrefsStore();
+    await s.rememberSubtitle('p', 'a', 'English');
+    await s.rememberSubtitle('p', 'b', TitlePrefsStore.subtitleOff);
+    expect(s.subtitleFor('p', 'a'), 'English');
+    expect(s.subtitleFor('p', 'b'), TitlePrefsStore.subtitleOff);
+    expect(s.subtitleFor('p', 'c'), isNull);
+  });
+
+  test('a pinned height is kept, and Auto clears it', () async {
+    final s = TitlePrefsStore();
+    await s.rememberHeight('p', 'a', 720);
+    expect(s.heightFor('p', 'a'), 720);
+    await s.rememberHeight('p', 'a', 0);
+    expect(s.heightFor('p', 'a'), isNull);
+  });
 }

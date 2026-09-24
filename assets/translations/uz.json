@@ -426,7 +426,9 @@
     "media_kit_emulator": "Emulyatorda ishlamaydi — tizim pleyeri ishlatilmoqda",
     "media_kit_fell_back": "media_kit bu yerda ishga tushmadi — tizim pleyeri ishlatilmoqda",
     "segment_opening": "Opening",
-    "segment_ending": "Ending"
+    "segment_ending": "Ending",
+    "subtitle_n": "Subtitr {}",
+    "subtitle_in_video": "Videoning ichida"
   },
   "profile": {
     "title": "Profil",

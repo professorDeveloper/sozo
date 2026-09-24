@@ -426,7 +426,9 @@
     "media_kit_emulator": "模擬器用唔到 — 而家用緊系統播放器",
     "media_kit_fell_back": "media_kit 喺呢度開唔到 — 而家用緊系統播放器",
     "segment_opening": "片頭",
-    "segment_ending": "片尾"
+    "segment_ending": "片尾",
+    "subtitle_n": "字幕 {}",
+    "subtitle_in_video": "影片內置"
   },
   "profile": {
     "title": "個人檔案",

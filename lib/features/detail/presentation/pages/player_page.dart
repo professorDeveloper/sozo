@@ -236,6 +236,15 @@ class _PlayerPageState extends State<PlayerPage>
   /// Last playing state sent to Trakt, so only changes are scrobbled.
   bool _traktPlaying = false;
 
+  /// A remembered choice about the stream's own subtitle tracks, waiting for
+  /// the tracks to be listed: a label to pick, or
+  /// [TitlePrefsStore.subtitleOff]. Null once applied.
+  String? _pendingEmbeddedChoice;
+
+  /// Whether this episode's remembered height has been matched against the
+  /// engine's renditions yet.
+  bool _videoTrackApplied = false;
+
   /// True while the current media is a live broadcast.
   ///
   /// Seeded from what the caller SAID it is rather than guessed alone: Live TV

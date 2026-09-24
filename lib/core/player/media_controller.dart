@@ -150,6 +150,29 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
   /// No-op on backends where [supportsVideoTracks] is false.
   Future<void> setVideoTrack(String id) async {}
 
+  /// Whether this backend can list and switch the subtitle tracks carried in
+  /// the stream itself — an MKV's text tracks, an HLS master's subtitle
+  /// renditions.
+  ///
+  /// libmpv only. The platform player neither lists nor draws them.
+  bool get supportsSubtitleTracks => false;
+
+  /// The stream's own subtitle tracks, empty when unsupported or when it
+  /// carries none. Only meaningful after [initialize] has completed.
+  List<PlayerSubtitleTrack> get subtitleTracks => const <PlayerSubtitleTrack>[];
+
+  /// [PlayerSubtitleTrack.id] of the track being read, or null when none is.
+  String? get activeSubtitleTrackId => null;
+
+  /// Picks one of [subtitleTracks]; [PlayerSubtitleTrack.off] turns them off.
+  Future<void> setSubtitleTrack(String id) async {}
+
+  /// The chosen stream track's current line, empty between lines.
+  ///
+  /// The backend does not draw it: the player page does, in the viewer's
+  /// subtitle style, the same way it draws a downloaded subtitle file.
+  ValueListenable<String> get embeddedSubtitleText => _noEmbeddedText;
+
   /// Whether this backend can adjust the picture while playing.
   ///
   /// libmpv only. The platform player exposes no runtime video equalizer at
@@ -356,6 +379,24 @@ class PlayerAudioTrack {
   }
 }
 
+final ValueNotifier<String> _noEmbeddedText = ValueNotifier<String>('');
+
+/// One subtitle track inside the stream.
+class PlayerSubtitleTrack extends PlayerAudioTrack {
+  const PlayerSubtitleTrack({
+    required super.id,
+    required super.title,
+    required super.language,
+    super.ordinal,
+  });
+
+  /// The id that turns the stream's subtitles off.
+  static const String off = 'no';
+
+  @override
+  String get label => hasMetadata ? super.label : 'Subtitle $ordinal';
+}
+
 /// Whether a controller built right now should use the libmpv backend.
 bool _useMediaKit() =>
     !isAndroidEmulator && resolvePlayerEngine() == PlayerEngine.mediaKit;
@@ -547,6 +588,9 @@ class _MediaKitController extends PlayerController {
   List<PlayerAudioTrack> _audioTracks = const <PlayerAudioTrack>[];
   String? _activeAudioTrackId;
   List<PlayerVideoTrack> _videoTracks = const <PlayerVideoTrack>[];
+  List<PlayerSubtitleTrack> _subtitleTracks = const <PlayerSubtitleTrack>[];
+  String? _activeSubtitleTrackId;
+  final ValueNotifier<String> _embeddedText = ValueNotifier<String>('');
   String? _activeVideoTrackId;
   final List<StreamSubscription<dynamic>> _subs =
       <StreamSubscription<dynamic>>[];
@@ -689,12 +733,26 @@ class _MediaKitController extends PlayerController {
         _player.stream.tracks.listen((t) {
           _syncAudioTracks(t.audio);
           _syncVideoTracks(t.video);
+          _syncSubtitleTracks(t.subtitle);
         }),
       )
       ..add(
         _player.stream.track.listen((t) {
           _activeAudioTrackId = t.audio.id;
           _activeVideoTrackId = t.video.id;
+          final sid = t.subtitle.id;
+          _activeSubtitleTrackId = sid == 'no' || sid == 'auto' ? null : sid;
+        }),
+      )
+      // mpv's current subtitle line. Drawn by the page in the viewer's style
+      // rather than by media_kit's own view, which has a fixed one — so the
+      // size, colour and position settings reach these tracks too.
+      ..add(
+        _player.stream.subtitle.listen((lines) {
+          _embeddedText.value = lines
+              .map((l) => l.trim())
+              .where((l) => l.isNotEmpty)
+              .join('\n');
         }),
       )
       ..add(
@@ -763,6 +821,24 @@ class _MediaKitController extends PlayerController {
       if (a[i] != b[i]) return false;
     }
     return true;
+  }
+
+  void _syncSubtitleTracks(List<mk.SubtitleTrack> tracks) {
+    final filtered = tracks
+        .where((t) => t.id != 'no' && t.id != 'auto' && !t.uri && !t.data)
+        .toList();
+    final next = <PlayerSubtitleTrack>[
+      for (var i = 0; i < filtered.length; i++)
+        PlayerSubtitleTrack(
+          id: filtered[i].id,
+          title: filtered[i].title,
+          language: filtered[i].language,
+          ordinal: i + 1,
+        ),
+    ];
+    if (_sameTracks(next, _subtitleTracks)) return;
+    _subtitleTracks = next;
+    _emit(value.copyWith());
   }
 
   void _syncAudioTracks(List<mk.AudioTrack> tracks) {
@@ -958,6 +1034,39 @@ class _MediaKitController extends PlayerController {
   }
 
   @override
+  bool get supportsSubtitleTracks => _fallback == null;
+
+  @override
+  List<PlayerSubtitleTrack> get subtitleTracks =>
+      _fallback != null ? const <PlayerSubtitleTrack>[] : _subtitleTracks;
+
+  @override
+  String? get activeSubtitleTrackId =>
+      _fallback != null ? null : _activeSubtitleTrackId;
+
+  @override
+  ValueListenable<String> get embeddedSubtitleText =>
+      _fallback != null ? _noEmbeddedText : _embeddedText;
+
+  @override
+  Future<void> setSubtitleTrack(String id) async {
+    if (_fallback != null) return;
+    if (id == PlayerSubtitleTrack.off) {
+      await _player.setSubtitleTrack(mk.SubtitleTrack.no());
+      _activeSubtitleTrackId = null;
+      _embeddedText.value = '';
+      return;
+    }
+    final match = _player.state.tracks.subtitle
+        .where((t) => t.id == id)
+        .cast<mk.SubtitleTrack?>()
+        .firstWhere((_) => true, orElse: () => null);
+    if (match == null) return;
+    await _player.setSubtitleTrack(match);
+    _activeSubtitleTrackId = id;
+  }
+
+  @override
   Future<void> setAudioTrack(String id) async {
     // The platform player has no track API at all, so there is nothing to
     // forward to. supportsAudioTracks already reports false once swapped, which
@@ -982,6 +1091,12 @@ class _MediaKitController extends PlayerController {
         fit: fit,
         fill: const Color(0xFF000000),
         controls: mkv.NoVideoControls,
+        // The page draws the stream's subtitles itself, in the viewer's
+        // style; media_kit's own view would draw them a second time in its
+        // fixed one.
+        subtitleViewConfiguration: const mkv.SubtitleViewConfiguration(
+          visible: false,
+        ),
       );
 
   @override

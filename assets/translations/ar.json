@@ -426,7 +426,9 @@
     "media_kit_emulator": "غير متاح في المحاكي — يُستخدم مشغّل النظام",
     "media_kit_fell_back": "تعذّر تشغيل media_kit هنا — يُستخدم مشغّل النظام",
     "segment_opening": "المقدمة",
-    "segment_ending": "الخاتمة"
+    "segment_ending": "الخاتمة",
+    "subtitle_n": "ترجمة {}",
+    "subtitle_in_video": "ضمن الفيديو"
   },
   "profile": {
     "title": "حسابي",

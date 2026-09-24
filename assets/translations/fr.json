@@ -426,7 +426,9 @@
     "media_kit_emulator": "Pas sur l’émulateur — lecteur système utilisé",
     "media_kit_fell_back": "media_kit n’a pas pu démarrer ici — lecteur système utilisé",
     "segment_opening": "Générique de début",
-    "segment_ending": "Générique de fin"
+    "segment_ending": "Générique de fin",
+    "subtitle_n": "Sous-titres {}",
+    "subtitle_in_video": "Dans la vidéo"
   },
   "profile": {
     "title": "Profil",

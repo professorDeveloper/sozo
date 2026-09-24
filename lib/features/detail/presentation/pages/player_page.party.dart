@@ -404,7 +404,7 @@ extension _PlayerParty on _PlayerPageState {
         final subs = value.subtitles;
         if (subs.isNotEmpty) {
           final defaultIdx = subs.indexWhere((s) => s.isDefault);
-          if (defaultIdx >= 0) _loadSubtitle(defaultIdx);
+          if (defaultIdx >= 0) _loadSubtitle(defaultIdx, remember: false);
         }
       case Failure(:final error):
         setState(() {

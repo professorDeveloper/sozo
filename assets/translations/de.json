@@ -426,7 +426,9 @@
     "media_kit_emulator": "Nicht im Emulator – Systemplayer aktiv",
     "media_kit_fell_back": "media_kit ließ sich hier nicht starten – Systemplayer aktiv",
     "segment_opening": "Opening",
-    "segment_ending": "Ending"
+    "segment_ending": "Ending",
+    "subtitle_n": "Untertitel {}",
+    "subtitle_in_video": "Im Video"
   },
   "profile": {
     "title": "Profil",

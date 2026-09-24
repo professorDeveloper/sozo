@@ -426,7 +426,9 @@
     "media_kit_emulator": "Emülatörde yok — sistem oynatıcısı kullanılıyor",
     "media_kit_fell_back": "media_kit burada başlatılamadı — sistem oynatıcısı kullanılıyor",
     "segment_opening": "Açılış",
-    "segment_ending": "Kapanış"
+    "segment_ending": "Kapanış",
+    "subtitle_n": "Altyazı {}",
+    "subtitle_in_video": "Videonun içinde"
   },
   "profile": {
     "title": "Profil",

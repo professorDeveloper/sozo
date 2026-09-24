@@ -183,7 +183,8 @@ class MainActivity : FlutterFragmentActivity() {
                     val url = call.argument<String>("url").orEmpty()
                     val title = call.argument<String>("title").orEmpty()
                     val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
-                    result.success(openExternalVideo(url, title, headers))
+                    val subtitles = call.argument<List<Map<String, String>>>("subtitles") ?: emptyList()
+                    result.success(openExternalVideo(url, title, headers, subtitles))
                 }
                 // The package an apk on disk would install as, or null when the
                 // file is not a readable apk. The in-app updater checks it before
@@ -838,7 +839,8 @@ class MainActivity : FlutterFragmentActivity() {
     private fun openExternalVideo(
         url: String,
         title: String,
-        headers: Map<String, String>
+        headers: Map<String, String>,
+        subtitles: List<Map<String, String>> = emptyList(),
     ): Boolean {
         if (url.isBlank()) return false
         return try {
@@ -850,6 +852,18 @@ class MainActivity : FlutterFragmentActivity() {
                     val flat = ArrayList<String>(headers.size * 2)
                     headers.forEach { (k, v) -> flat.add(k); flat.add(v) }
                     putExtra("headers", flat.toTypedArray())
+                }
+                val subs = subtitles.mapNotNull { s ->
+                    val u = s["url"]?.takeIf { it.startsWith("http") } ?: return@mapNotNull null
+                    Uri.parse(u) to (s["label"] ?: "")
+                }
+                if (subs.isNotEmpty()) {
+                    // MX Player: every track, named, the first switched on.
+                    putExtra("subs", subs.map { it.first }.toTypedArray<android.os.Parcelable>())
+                    putExtra("subs.name", subs.map { it.second }.toTypedArray())
+                    putExtra("subs.enable", arrayOf<android.os.Parcelable>(subs.first().first))
+                    // VLC: one track.
+                    putExtra("subtitles_location", subs.first().first.toString())
                 }
             }
             val chooser = Intent.createChooser(intent, title.ifBlank { "Play with" })

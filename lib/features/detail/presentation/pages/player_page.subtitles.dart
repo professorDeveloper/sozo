@@ -10,7 +10,11 @@ extension _PlayerSubtitles on _PlayerPageState {
   /// error, and marked the track active *before* the download started, so the
   /// sheet showed a ticked track and unlocked the sync control for a subtitle
   /// that had never loaded.
-  Future<bool> _loadSubtitle(int index, {String declaredFormat = ''}) async {
+  Future<bool> _loadSubtitle(
+    int index, {
+    String declaredFormat = '',
+    bool remember = true,
+  }) async {
     if (index < 0 || index >= _subtitles.length) {
       setState(() {
         _activeSubtitleIndex = -1;
@@ -30,7 +34,47 @@ extension _PlayerSubtitles on _PlayerPageState {
       _activeSubtitleIndex = index;
       _captionFile = cues;
     });
+    // One subtitle at a time: a track inside the stream would be drawn on
+    // top of this one.
+    _turnOffEmbeddedSubtitles();
+    // Remembered for the next episode — not an AI track, which exists only
+    // for this one.
+    if (remember && !sub.file.startsWith('ai:')) _rememberSubtitle(sub.label);
     return true;
+  }
+
+  void _rememberSubtitle(String choice) {
+    final contentUrl = widget.args.contentUrl ?? '';
+    if (contentUrl.isEmpty || _hive.isIncognito) return;
+    unawaited(
+      _titlePrefs.rememberSubtitle(widget.args.provider, contentUrl, choice),
+    );
+  }
+
+  void _turnOffEmbeddedSubtitles() {
+    final c = _controller;
+    _pendingEmbeddedChoice = null;
+    if (c != null &&
+        c.supportsSubtitleTracks &&
+        c.activeSubtitleTrackId != null) {
+      unawaited(c.setSubtitleTrack(PlayerSubtitleTrack.off));
+    }
+  }
+
+  /// A subtitle track inside the stream, in place of any downloaded one.
+  Future<void> _selectEmbeddedSubtitle(PlayerSubtitleTrack track) async {
+    final c = _controller;
+    if (c == null) return;
+    _pendingEmbeddedChoice = null;
+    setState(() {
+      _activeSubtitleIndex = -1;
+      _captionFile = null;
+      _secondarySubtitleIndex = -1;
+      _secondaryCaptionFile = null;
+    });
+    await c.setSubtitleTrack(track.id);
+    if (mounted) setState(() {});
+    _rememberSubtitle('${TitlePrefsStore.embeddedSubtitle}${track.label}');
   }
 
   /// Downloads and parses one track's cues, or null with a toast already shown.
@@ -135,6 +179,8 @@ extension _PlayerSubtitles on _PlayerPageState {
   }
 
   void _disableSubtitle() {
+    _turnOffEmbeddedSubtitles();
+    _rememberSubtitle(TitlePrefsStore.subtitleOff);
     setState(() {
       _activeSubtitleIndex = -1;
       _captionFile = null;
@@ -182,12 +228,33 @@ extension _PlayerSubtitles on _PlayerPageState {
               const Divider(color: Colors.white12, height: 1),
               _OptionTile(
                 label: 'player.off'.tr(),
-                selected: _activeSubtitleIndex == -1,
+                selected:
+                    _activeSubtitleIndex == -1 &&
+                    _controller?.activeSubtitleTrackId == null,
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   _disableSubtitle();
                 },
               ),
+              // The stream's own tracks — an MKV's, an HLS master's. They
+              // were drawn by the engine in a fixed style, could not be turned
+              // off, and never appeared here.
+              for (final track
+                  in _controller?.subtitleTracks ??
+                      const <PlayerSubtitleTrack>[])
+                _OptionTile(
+                  label: track.hasMetadata
+                      ? track.label
+                      : 'player.subtitle_n'.tr(args: ['${track.ordinal}']),
+                  subtitle: 'player.subtitle_in_video'.tr(),
+                  selected:
+                      _activeSubtitleIndex == -1 &&
+                      _controller?.activeSubtitleTrackId == track.id,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _selectEmbeddedSubtitle(track);
+                  },
+                ),
               for (var i = 0; i < _subtitles.length; i++)
                 _OptionTile(
                   label: _subtitles[i].label,
@@ -288,6 +355,29 @@ extension _PlayerSubtitles on _PlayerPageState {
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   _autoTranslateBestSubtitle();
+                },
+              ),
+              // Size, font, colour and position, from where the subtitles
+              // are chosen — it was only in the settings panel, and only
+              // when a downloaded track was listed.
+              ListTile(
+                focusColor: _kTvFocusFill,
+                leading: const Icon(
+                  Icons.text_fields_rounded,
+                  color: Colors.white70,
+                  size: 20,
+                ),
+                title: Text(
+                  'player.subtitle_style'.tr(),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+                trailing: Text(
+                  '${_subtitleStyle.fontSize.round()}px',
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _openSubtitleAppearanceSheet();
                 },
               ),
               if (_activeSubtitleIndex != -1)
@@ -1887,9 +1977,15 @@ extension _PlayerSubtitles on _PlayerPageState {
   Widget _buildSubtitleOverlay() {
     final c = _controller;
     final captions = _captionFile;
+    // The stream's own track, when one is on and no downloaded one is.
+    final embedded = c != null && c.supportsSubtitleTracks
+        ? c.embeddedSubtitleText
+        : null;
     if (c == null ||
         !c.value.isInitialized ||
-        (captions == null && _secondaryCaptionFile == null)) {
+        (captions == null &&
+            _secondaryCaptionFile == null &&
+            embedded == null)) {
       return const SizedBox.shrink();
     }
     return Positioned(
@@ -1898,7 +1994,12 @@ extension _PlayerSubtitles on _PlayerPageState {
       bottom: _subtitleBottomOffset,
       child: IgnorePointer(
         child: ListenableBuilder(
-          listenable: Listenable.merge([_subtitleOffsetMs, _subtitleRate, c]),
+          listenable: Listenable.merge([
+            _subtitleOffsetMs,
+            _subtitleRate,
+            c,
+            ?embedded,
+          ]),
           builder: (_, _) {
             final rate = _subtitleRate.value;
             var position =
@@ -1912,15 +2013,18 @@ extension _PlayerSubtitles on _PlayerPageState {
                 microseconds: (position.inMicroseconds / rate).round(),
               );
             }
-            final active = captions == null
-                ? null
-                : _captionAt(captions, position);
-            final second = _secondaryCaptionFile == null
-                ? null
-                : _captionAt(_secondaryCaptionFile!, position);
-
-            final primary = active?.text ?? '';
-            final secondary = second?.text ?? '';
+            final fromStream =
+                captions == null &&
+                    _activeSubtitleIndex == -1 &&
+                    c.activeSubtitleTrackId != null
+                ? embedded?.value ?? ''
+                : '';
+            final primary = captions == null
+                ? fromStream
+                : _captionTextAt(captions, position);
+            final secondary = _secondaryCaptionFile == null
+                ? ''
+                : _captionTextAt(_secondaryCaptionFile!, position);
             if (primary.isEmpty && secondary.isEmpty) {
               return const SizedBox.shrink();
             }
@@ -1949,11 +2053,32 @@ extension _PlayerSubtitles on _PlayerPageState {
     );
   }
 
-  /// The cue on screen at [position]. Cues are sorted by start, so this binary
+  /// Every cue on screen at [position], one per line, earliest first.
+  ///
+  /// Only the latest used to be drawn, so overlapping cues — two speakers as
+  /// separate events, a sign over dialogue, lyrics over an opening — lost
+  /// all but one.
+  String _captionTextAt(List<Caption> cues, Duration position) {
+    final latest = _captionIndexAt(cues, position);
+    if (latest < 0) return '';
+    final lines = <String>[];
+    for (var i = latest; i >= 0; i--) {
+      final cue = cues[i];
+      if (position - cue.start > const Duration(seconds: 30)) break;
+      if (cue.start <= position && position <= cue.end) {
+        final text = cue.text.trim();
+        if (text.isNotEmpty && !lines.contains(text)) lines.insert(0, text);
+      }
+    }
+    return lines.join('\n');
+  }
+
+  /// The index of the cue on screen at [position], or -1. Cues are sorted by
+  /// start, so this binary
   /// searches for the LAST one that starts at or before [position] — the old
   /// linear scan took the FIRST containing cue, which let a stale overlapping
   /// cue hold the screen and read as "too slow".
-  Caption? _captionAt(List<Caption> cues, Duration position) {
+  int _captionIndexAt(List<Caption> cues, Duration position) {
     var lo = 0;
     var hi = cues.length - 1;
     var idx = -1;
@@ -1967,12 +2092,12 @@ extension _PlayerSubtitles on _PlayerPageState {
       }
     }
     for (var i = idx; i >= 0; i--) {
-      if (position <= cues[i].end) return cues[i];
+      if (position <= cues[i].end) return i;
       // Sorted by start, so once we are well behind nothing earlier can still
       // be on screen — this only walks back over genuine overlaps.
       if (position - cues[i].start > const Duration(seconds: 30)) break;
     }
-    return null;
+    return -1;
   }
 
   double get _subtitleBottomOffset {

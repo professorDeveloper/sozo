@@ -426,7 +426,9 @@
     "media_kit_emulator": "Не в эмуляторе — работает системный плеер",
     "media_kit_fell_back": "media_kit не запустился — работает системный плеер",
     "segment_opening": "Опенинг",
-    "segment_ending": "Эндинг"
+    "segment_ending": "Эндинг",
+    "subtitle_n": "Субтитры {}",
+    "subtitle_in_video": "В самом видео"
   },
   "profile": {
     "title": "Профиль",

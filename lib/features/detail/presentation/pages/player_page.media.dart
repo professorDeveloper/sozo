@@ -257,6 +257,7 @@ extension _PlayerMedia on _PlayerPageState {
     // row would count as one.
     _countedComplete = false;
     _endHandled = false;
+    _videoTrackApplied = false;
     // The next episode's first frame is a new "watching now" on Trakt; the
     // start replaces the previous one there, so no pause is needed first.
     _traktPlaying = false;
@@ -390,11 +391,79 @@ extension _PlayerMedia on _PlayerPageState {
     if (!mounted || generation != _mediaGeneration) return;
     // Host announces the new episode identity (never a video URL).
     if (_errorMessage == null) _partyEmitContent(ep, _currentLang);
-    if (subs.isNotEmpty) {
-      final defaultIdx = subs.indexWhere((s) => s.isDefault);
-      if (defaultIdx >= 0) {
-        unawaited(_loadSubtitle(defaultIdx));
+    _autoPickSubtitle(subs);
+  }
+
+  /// The subtitle this episode starts with.
+  ///
+  /// What the viewer chose on this title last time — the same label, or the
+  /// same language from another server, or off — then the track the source
+  /// marks as default, then one in the viewer's subtitle language. Extension
+  /// sources mark none as default, so every episode started without
+  /// subtitles and the language had to be picked again each time.
+  void _autoPickSubtitle(List<SubtitleEntity> subs) {
+    final contentUrl = widget.args.contentUrl ?? '';
+    final remembered = contentUrl.isEmpty
+        ? null
+        : _titlePrefs.subtitleFor(widget.args.provider, contentUrl);
+    _pendingEmbeddedChoice = null;
+    if (remembered == TitlePrefsStore.subtitleOff) {
+      // Off stays off, the stream's own tracks included.
+      _pendingEmbeddedChoice = TitlePrefsStore.subtitleOff;
+      return;
+    }
+    if (remembered != null &&
+        remembered.startsWith(TitlePrefsStore.embeddedSubtitle)) {
+      _pendingEmbeddedChoice = remembered.substring(
+        TitlePrefsStore.embeddedSubtitle.length,
+      );
+      return;
+    }
+    if (subs.isEmpty) return;
+    var pick = -1;
+    if (remembered != null) {
+      pick = subs.indexWhere((s) => s.label == remembered);
+      if (pick < 0) {
+        final lang = SubtitleAutoTranslate.languageOf(remembered);
+        pick = subs.indexWhere(
+          (s) => SubtitleAutoTranslate.languageOf(s.label) == lang,
+        );
       }
+    }
+    if (pick < 0) pick = subs.indexWhere((s) => s.isDefault);
+    if (pick < 0) {
+      final wanted = _hive.getSubtitleTranslateLang().toLowerCase();
+      pick = subs.indexWhere(
+        (s) => SubtitleAutoTranslate.labelMatchesLanguage(s.label, wanted),
+      );
+    }
+    if (pick >= 0) unawaited(_loadSubtitle(pick, remember: false));
+  }
+
+  /// Applies [_pendingEmbeddedChoice] once the stream's tracks are listed.
+  void _applyEmbeddedSubtitleChoice() {
+    final choice = _pendingEmbeddedChoice;
+    final c = _controller;
+    if (choice == null || c == null || !c.supportsSubtitleTracks) return;
+    final tracks = c.subtitleTracks;
+    if (tracks.isEmpty) return;
+    _pendingEmbeddedChoice = null;
+    if (choice == TitlePrefsStore.subtitleOff) {
+      if (c.activeSubtitleTrackId != null) {
+        unawaited(c.setSubtitleTrack(PlayerSubtitleTrack.off));
+      }
+      return;
+    }
+    // An external track the viewer picked since wins over the memory.
+    if (_activeSubtitleIndex != -1) return;
+    final lang = SubtitleAutoTranslate.languageOf(choice);
+    final match =
+        tracks.where((t) => t.label == choice).firstOrNull ??
+        tracks
+            .where((t) => SubtitleAutoTranslate.languageOf(t.label) == lang)
+            .firstOrNull;
+    if (match != null && match.id != c.activeSubtitleTrackId) {
+      unawaited(c.setSubtitleTrack(match.id));
     }
   }
 
@@ -498,7 +567,10 @@ extension _PlayerMedia on _PlayerPageState {
     await _loadEpisode(_episodeIndex, resumeAt: keepPosition);
   }
 
-  Future<void> _switchQuality(VideoSourceEntity source) async {
+  Future<void> _switchQuality(
+    VideoSourceEntity source, {
+    bool remember = true,
+  }) async {
     // Which ROW, not which label. Two servers may both call themselves
     // "1080p", and matching on the label made the second one impossible to
     // pick: it read as the one already playing and the tap did nothing.
@@ -513,13 +585,22 @@ extension _PlayerMedia on _PlayerPageState {
     // Remembered for this title. Plenty of shows only play on their third
     // mirror, and re-picking it every episode is the kind of chore that reads
     // as the app not working.
-    unawaited(
-      _titlePrefs.rememberQuality(
-        widget.args.provider,
-        widget.args.contentUrl ?? '',
-        source.quality,
-      ),
-    );
+    if (remember) {
+      unawaited(
+        _titlePrefs.rememberQuality(
+          widget.args.provider,
+          widget.args.contentUrl ?? '',
+          source.quality,
+        ),
+      );
+      unawaited(
+        _titlePrefs.rememberHeight(
+          widget.args.provider,
+          widget.args.contentUrl ?? '',
+          source.height ?? VideoOptionGroups.resolutionOf(source.quality) ?? 0,
+        ),
+      );
+    }
     final keepPosition = _controller?.value.position ?? Duration.zero;
     _retryAttempts = 0;
     _lifetimeRetries = 0;
@@ -899,8 +980,34 @@ extension _PlayerMedia on _PlayerPageState {
     // A label that already states a resolution came from the provider, and the
     // provider knows its own catalogue better than a parsed manifest does.
     if (VideoOptionGroups.resolutionOf(parent.quality) != null) return;
-    if (url.isEmpty || !_expandedMasters.add(url)) return;
+    if (url.isEmpty) return;
+    // Already expanded in the list as it stands. The guard used to be "this
+    // url was expanded once this session", so a re-resolve that brought the
+    // same master back — an audio-language switch, a retry — replaced the
+    // list and never got its quality rows again.
+    final variantPrefix = '${parent.quality} · ';
+    if (_videoSources.any(
+      (s) => s.height != null && s.quality.startsWith(variantPrefix),
+    )) {
+      return;
+    }
+    // In flight: two expansions of one master at once would insert twice.
+    if (!_expandedMasters.add(url)) return;
+    try {
+      await _expandQualities(parent, idx, url, headers, type, generation);
+    } finally {
+      _expandedMasters.remove(url);
+    }
+  }
 
+  Future<void> _expandQualities(
+    VideoSourceEntity parent,
+    int idx,
+    String url,
+    Map<String, String> headers,
+    String? type,
+    int generation,
+  ) async {
     final kind = type?.toLowerCase();
     final looksHls =
         kind == 'hls' || kind == 'm3u8' || url.toLowerCase().contains('.m3u8');
@@ -966,6 +1073,9 @@ extension _PlayerMedia on _PlayerPageState {
       '"${parent.quality}" (${rows.map((e) => e.height).join(", ")})',
     );
     if (!mounted || generation != _mediaGeneration) return;
+    if (_currentSourceIndex != idx || !identical(_videoSources[idx], parent)) {
+      return;
+    }
     setState(() {
       _videoSources = [
         ..._videoSources.take(idx + 1),
@@ -973,6 +1083,39 @@ extension _PlayerMedia on _PlayerPageState {
         ..._videoSources.skip(idx + 1),
       ];
     });
+    // The height picked on this title before. The rows did not exist when
+    // the episode chose its source, so a pick of "Server · 720p" fell back
+    // to Auto on every next episode.
+    final want = _rememberedHeight;
+    if (want == null) return;
+    final match = rows.where((r) => r.height == want).firstOrNull;
+    if (match != null) unawaited(_switchQuality(match, remember: false));
+  }
+
+  int? get _rememberedHeight {
+    final contentUrl = widget.args.contentUrl ?? '';
+    return contentUrl.isEmpty
+        ? null
+        : _titlePrefs.heightFor(widget.args.provider, contentUrl);
+  }
+
+  /// On libmpv the renditions are the engine's own tracks: the remembered
+  /// height is picked from them once they are listed.
+  void _applyRememberedVideoTrack() {
+    if (_videoTrackApplied) return;
+    final c = _controller;
+    if (c == null || !c.supportsVideoTracks) return;
+    final tracks = c.videoTracks;
+    if (tracks.isEmpty) return;
+    _videoTrackApplied = true;
+    final want = _rememberedHeight;
+    if (want == null) return;
+    final match = tracks
+        .where((t) => !t.isAuto && t.height == want)
+        .firstOrNull;
+    if (match != null && match.id != c.activeVideoTrackId) {
+      unawaited(c.setVideoTrack(match.id));
+    }
   }
 
   Future<void> _initializeResolved({
@@ -1464,6 +1607,8 @@ extension _PlayerMedia on _PlayerPageState {
 
     _syncWakelock(v.isPlaying);
     _syncTraktScrobble(v.isPlaying);
+    _applyEmbeddedSubtitleChoice();
+    _applyRememberedVideoTrack();
 
     if (v.hasError) {
       final msg = v.errorDescription;
