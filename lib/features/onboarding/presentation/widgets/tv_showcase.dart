@@ -10,7 +10,11 @@ import 'package:soplay/features/onboarding/data/onboarding_posters.dart';
 /// pairing are the two things people never guess the app can do, and neither
 /// of them looks like a poster.
 class TvShowcase extends StatefulWidget {
-  const TvShowcase({super.key});
+  const TvShowcase({super.key, this.active = true});
+
+  /// The entrance waits for this, so a showcase mounted ahead of time does
+  /// not spend it off screen.
+  final bool active;
 
   @override
   State<TvShowcase> createState() => _TvShowcaseState();
@@ -32,7 +36,21 @@ class _TvShowcaseState extends State<TvShowcase> with TickerProviderStateMixin {
   late final AnimationController _entrance = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1300),
-  )..forward();
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _entrance.forward();
+  }
+
+  @override
+  void didUpdateWidget(TvShowcase old) {
+    super.didUpdateWidget(old);
+    if (widget.active && _entrance.value == 0 && !_entrance.isAnimating) {
+      _entrance.forward();
+    }
+  }
 
   @override
   void didChangeDependencies() {

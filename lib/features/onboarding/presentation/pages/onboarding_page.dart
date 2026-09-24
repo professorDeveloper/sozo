@@ -293,31 +293,72 @@ class _Backdrops extends StatelessWidget {
             ? controller.page ?? page.toDouble()
             : page.toDouble();
 
+        final opacities = backdropOpacities(position);
+
         return Stack(
           fit: StackFit.expand,
           children: [
             for (var i = 0; i < 3; i++)
-              if (1 - (position - i).abs() > 0.01)
-                Opacity(
+              // Neighbours are mounted ahead, paused and unpainted, so their
+              // posters are decoded before the finger reaches them.
+              if ((position - i).abs() < 1.99)
+                _Backdrop(
                   key: ValueKey(i),
-                  opacity: (1 - (position - i).abs()).clamp(0.0, 1.0),
-                  // Eases forward as it takes focus — a straight cross-fade
-                  // between two full-screen walls reads as a glitch.
-                  // Built only while it is on screen: the mosaic plays a
-                  // one-shot entrance, and creating it up front would spend it
-                  // behind two other slides.
-                  child: Transform.scale(
-                    scale: 1 + (position - i).abs() * 0.06,
-                    child: switch (i) {
-                      0 => const PosterWall(posters: kMoviePosters),
-                      1 => const AnimeRibbons(),
-                      _ => const TvShowcase(),
-                    },
-                  ),
+                  index: i,
+                  opacity: opacities[i],
+                  distance: (position - i).abs().clamp(0.0, 1.0),
                 ),
           ],
         );
       },
+    );
+  }
+}
+
+/// How opaque each of the three backdrops is at a pager [position]. The
+/// settled one stays fully opaque underneath and the next fades in over it,
+/// so a swipe never dips through the dark page behind them.
+@visibleForTesting
+List<double> backdropOpacities(double position) {
+  final under = position.floor().clamp(0, 2);
+  final over = (position - under).clamp(0.0, 1.0);
+  return [
+    for (var i = 0; i < 3; i++)
+      i == under ? 1.0 : (i == under + 1 ? over : 0.0),
+  ];
+}
+
+class _Backdrop extends StatelessWidget {
+  const _Backdrop({
+    super.key,
+    required this.index,
+    required this.opacity,
+    required this.distance,
+  });
+
+  final int index;
+  final double opacity;
+  final double distance;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = opacity > 0.001;
+    return TickerMode(
+      enabled: shown,
+      child: Opacity(
+        opacity: opacity,
+        child: RepaintBoundary(
+          // Eases forward as it takes focus.
+          child: Transform.scale(
+            scale: 1 + distance * 0.06,
+            child: switch (index) {
+              0 => const PosterWall(posters: kMoviePosters),
+              1 => const AnimeRibbons(),
+              _ => TvShowcase(active: shown),
+            },
+          ),
+        ),
+      ),
     );
   }
 }
