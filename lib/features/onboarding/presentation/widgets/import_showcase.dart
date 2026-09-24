@@ -16,12 +16,14 @@ class ImportShowcase extends StatefulWidget {
     required this.source,
     required this.service,
     this.onFinished,
+    this.onFailed,
     this.accent,
   });
 
   final ImportSource source;
   final LibraryImportService service;
   final ValueChanged<ImportProgress>? onFinished;
+  final VoidCallback? onFailed;
   final Color? accent;
 
   @override
@@ -70,7 +72,9 @@ class _ImportShowcaseState extends State<ImportShowcase> {
             if (p.finished) widget.onFinished?.call(p);
           },
           onError: (Object e) {
-            if (mounted) setState(() => _error = e);
+            if (!mounted) return;
+            setState(() => _error = e);
+            widget.onFailed?.call();
           },
         );
   }

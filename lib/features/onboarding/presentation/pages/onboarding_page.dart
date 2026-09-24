@@ -401,35 +401,44 @@ class _SlideBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      // Bottom-aligned inside a full-height page: the pager owns the whole
-      // area so a drag anywhere on the artwork turns the slide, and the copy
-      // still sits where it did.
-      padding: const EdgeInsets.fromLTRB(28, 0, 28, 4),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text(
-            'onboarding.slide_${index + 1}_title'.tr(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              height: 1.2,
-            ),
+    // Bottom-aligned inside a full-height page: the pager owns the whole area
+    // so a drag anywhere on the artwork turns the slide, and the copy still
+    // sits where it did. Scrolls rather than overflows under very large text.
+    return LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        primary: false,
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(28, 0, 28, 4),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: (box.maxHeight - 4).clamp(0.0, double.infinity),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'onboarding.slide_${index + 1}_body'.tr(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14.5,
-              height: 1.45,
-            ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                'onboarding.slide_${index + 1}_title'.tr(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'onboarding.slide_${index + 1}_body'.tr(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14.5,
+                  height: 1.45,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

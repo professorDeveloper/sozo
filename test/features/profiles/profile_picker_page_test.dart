@@ -144,4 +144,14 @@ void main() {
     expect(ProfileScope.namespace, _guest.id);
     expect(find.text('HOME'), findsOneWidget);
   });
+
+  test('a pick continues the setup only on an exact setup step', () {
+    expect(afterProfilePick('/onboarding/import'), '/onboarding/import');
+    expect(afterProfilePick('/onboarding'), '/onboarding');
+    expect(afterProfilePick(null), '/main');
+    expect(afterProfilePick('/onboarding/../profile/edit'), '/main');
+    expect(afterProfilePick('/onboardingX'), '/main');
+    expect(afterProfilePick('/onboarding/import?x=1'), '/main');
+    expect(afterProfilePick('/settings'), '/main');
+  });
 }

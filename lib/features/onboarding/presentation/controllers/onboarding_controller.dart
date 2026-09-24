@@ -199,6 +199,13 @@ class OnboardingController extends ChangeNotifier {
             ]
           : [..._kinds, kind],
     );
+    // A genre only the dropped kind offered is no longer on screen to untick,
+    // yet would still count towards the three.
+    final offered = {for (final k in _kinds) k.catalogue.kind};
+    _genres = List.unmodifiable([
+      for (final g in _genres)
+        if (g.catalogues.isEmpty || g.catalogues.any(offered.contains)) g,
+    ]);
     await _changed();
   }
 

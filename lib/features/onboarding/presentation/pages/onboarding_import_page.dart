@@ -32,6 +32,10 @@ class _OnboardingImportPageState extends State<OnboardingImportPage> {
   final MalService _mal = getIt<MalService>();
   late final LibraryImportService _service = LibraryImportService.fromApp();
   ImportSource? _running;
+
+  /// The running import failed: its screen offers a retry, and the step has
+  /// to be leavable without one.
+  bool _failed = false;
   final Map<ImportSource, ImportProgress> _results = {};
 
   @override
@@ -70,7 +74,10 @@ class _OnboardingImportPageState extends State<OnboardingImportPage> {
     }
   }
 
-  void _import(ImportSource source) => setState(() => _running = source);
+  void _import(ImportSource source) => setState(() {
+    _running = source;
+    _failed = false;
+  });
 
   Future<void> _finished(ImportSource source, ImportProgress p) async {
     _results[source] = p;
@@ -82,12 +89,13 @@ class _OnboardingImportPageState extends State<OnboardingImportPage> {
   @override
   Widget build(BuildContext context) {
     final running = _running;
+    final busy = running != null && !_failed;
     final imported = _results.isNotEmpty;
     return OnboardingScaffold(
       step: OnboardingStep.import,
       glow: kAnilistBlue,
       maxBodyWidth: 560,
-      onSkip: running == null ? () => onboardingNext(context) : null,
+      onSkip: busy ? null : () => onboardingNext(context),
       skipLabel: 'onboarding.not_now'.tr(),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -110,6 +118,7 @@ class _OnboardingImportPageState extends State<OnboardingImportPage> {
                           ? kAnilistBlue
                           : kMalBlue,
                       onFinished: (p) => _finished(running, p),
+                      onFailed: () => setState(() => _failed = true),
                     )
                   : Column(
                       key: const ValueKey('cards'),
@@ -146,7 +155,7 @@ class _OnboardingImportPageState extends State<OnboardingImportPage> {
           ],
         ),
       ),
-      footer: running != null
+      footer: busy
           ? null
           : OnboardingFocusButton(
               child: imported

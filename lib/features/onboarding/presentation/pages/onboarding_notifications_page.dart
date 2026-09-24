@@ -50,7 +50,12 @@ class _OnboardingNotificationsPageState
   Future<void> _allow() async {
     if (_asking) return;
     setState(() => _asking = true);
-    final granted = await getIt<NotificationService>().requestPermission();
+    // Setting the plugin up can throw; left unanswered, both buttons stay
+    // disabled and the step cannot be left.
+    var granted = false;
+    try {
+      granted = await getIt<NotificationService>().requestPermission();
+    } catch (_) {}
     await _c.recordNotifications(granted);
     if (!mounted) return;
     setState(() => _asking = false);

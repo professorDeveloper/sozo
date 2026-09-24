@@ -11,7 +11,22 @@ import 'package:soplay/features/onboarding/domain/taste_profile.dart';
 import 'package:soplay/features/onboarding/presentation/controllers/onboarding_controller.dart';
 import 'package:soplay/features/onboarding/presentation/pages/onboarding_genres_page.dart';
 import 'package:soplay/features/onboarding/presentation/pages/onboarding_kinds_page.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_notifications_page.dart';
+import 'package:soplay/features/notifications/data/services/notification_service.dart';
+import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:soplay/features/search/data/model/genre_model.dart';
+
+class _Repo implements NotificationsRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _BrokenNotifications extends NotificationService {
+  _BrokenNotifications() : super(repository: _Repo());
+
+  @override
+  Future<bool> requestPermission() async => throw StateError('no plugin');
+}
 
 GenreModel _g(String slug, String provider) =>
     GenreModel(provider: provider, slug: slug, url: '', image: '');
@@ -126,6 +141,30 @@ void main() {
       expect(controller.step, OnboardingStep.genres);
     });
 
+    testWidgets('a double tap on Continue moves one step, not two', (
+      tester,
+    ) async {
+      await controller.toggleKind(TasteKind.anime);
+      await tester.pumpWidget(app('/onboarding/kinds'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('onboarding.continue'));
+      await tester.tap(find.text('onboarding.continue'));
+      await tester.pumpAndSettle();
+
+      expect(controller.step, OnboardingStep.genres);
+      expect(find.text('ACCOUNT', skipOffstage: false), findsNothing);
+      await tester.tap(find.byType(GenreChip).first);
+      await tester.tap(find.byType(GenreChip).at(1));
+      await tester.tap(find.byType(GenreChip).at(2));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('onboarding.continue'));
+      await tester.tap(find.text('onboarding.continue'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(controller.step, OnboardingStep.account);
+      expect(find.text('ACCOUNT'), findsOneWidget);
+    });
+
     testWidgets('on a TV the remote picks kinds without touch', (tester) async {
       debugSetTvPlatform(true);
       await tester.pumpWidget(app('/onboarding/kinds'));
@@ -209,5 +248,37 @@ void main() {
         findsNWidgets(GenreCatalog.fallbackFor('anilist-manga').length),
       );
     });
+  });
+
+  testWidgets('notifications move on even when asking fails', (tester) async {
+    getIt.registerSingleton<NotificationService>(_BrokenNotifications());
+    await controller.arrive(OnboardingStep.notifications);
+    await tester.pumpWidget(
+      MaterialApp.router(
+        routerConfig: GoRouter(
+          initialLocation: '/onboarding/notifications',
+          routes: [
+            GoRoute(
+              path: '/onboarding/notifications',
+              builder: (_, _) => const OnboardingNotificationsPage(),
+            ),
+            GoRoute(
+              path: '/onboarding/done',
+              builder: (_, _) => const Scaffold(body: Text('DONE')),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('onboarding.notify_allow'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(tester.takeException(), isNull);
+    expect(controller.notificationsOn, isFalse);
+    expect(find.text('DONE'), findsOneWidget);
   });
 }

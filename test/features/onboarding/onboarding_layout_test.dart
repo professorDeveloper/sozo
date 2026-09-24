@@ -20,6 +20,7 @@ import 'package:soplay/features/onboarding/presentation/pages/onboarding_done_pa
 import 'package:soplay/features/onboarding/presentation/pages/onboarding_genres_page.dart';
 import 'package:soplay/features/onboarding/presentation/pages/onboarding_kinds_page.dart';
 import 'package:soplay/features/onboarding/presentation/pages/onboarding_notifications_page.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_page.dart';
 
 class _Strings extends AssetLoader {
   const _Strings();
@@ -89,56 +90,70 @@ void main() {
     'tablet': (Size(1024, 768), 1.0, 'de'),
   };
 
-  for (final page in pages.entries) {
-    for (final screen in screens.entries) {
-      testWidgets('${page.key} on a ${screen.key}', (tester) async {
-        final (size, scale, lang) = screen.value;
-        tester.view.physicalSize = size;
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
+  // The welcome copy under large text scrolls instead of overflowing.
+  const welcomeScreens = <String, (Size, double, String)>{
+    'tiny phone, big text, German': (Size(320, 568), 1.6, 'de'),
+    'small phone, huge text': (Size(360, 640), 2.0, 'en'),
+  };
 
-        await tester.pumpWidget(
-          EasyLocalization(
-            supportedLocales: const [
-              Locale('en'),
-              Locale('ar'),
-              Locale('uz'),
-              Locale('de'),
-            ],
-            startLocale: Locale(lang),
-            path: 'assets/translations',
-            assetLoader: const _Strings(),
-            saveLocale: false,
-            child: Builder(
-              builder: (context) => MaterialApp.router(
-                locale: context.locale,
-                supportedLocales: context.supportedLocales,
-                localizationsDelegates: context.localizationDelegates,
-                theme: ThemeData.dark(useMaterial3: true),
-                builder: (context, child) => MediaQuery(
-                  data: MediaQuery.of(
-                    context,
-                  ).copyWith(textScaler: TextScaler.linear(scale)),
-                  child: child!,
-                ),
-                routerConfig: GoRouter(
-                  routes: [GoRoute(path: '/', builder: (_, _) => page.value())],
-                ),
+  final runs = [
+    for (final page in pages.entries)
+      for (final screen in screens.entries) (page, screen),
+    for (final screen in welcomeScreens.entries)
+      (
+        MapEntry<String, Widget Function()>('welcome', OnboardingPage.new),
+        screen,
+      ),
+  ];
+
+  for (final (page, screen) in runs) {
+    testWidgets('${page.key} on a ${screen.key}', (tester) async {
+      final (size, scale, lang) = screen.value;
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: const [
+            Locale('en'),
+            Locale('ar'),
+            Locale('uz'),
+            Locale('de'),
+          ],
+          startLocale: Locale(lang),
+          path: 'assets/translations',
+          assetLoader: const _Strings(),
+          saveLocale: false,
+          child: Builder(
+            builder: (context) => MaterialApp.router(
+              locale: context.locale,
+              supportedLocales: context.supportedLocales,
+              localizationsDelegates: context.localizationDelegates,
+              theme: ThemeData.dark(useMaterial3: true),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+              routerConfig: GoRouter(
+                routes: [GoRoute(path: '/', builder: (_, _) => page.value())],
               ),
             ),
           ),
+        ),
+      );
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+      expect(tester.takeException(), isNull);
+      if (lang == 'ar') {
+        final dir = Directionality.of(
+          tester.element(find.byType(Scaffold).first),
         );
-        for (var i = 0; i < 12; i++) {
-          await tester.pump(const Duration(milliseconds: 400));
-        }
-        expect(tester.takeException(), isNull);
-        if (lang == 'ar') {
-          final dir = Directionality.of(
-            tester.element(find.byType(Scaffold).first),
-          );
-          expect(dir.name, 'rtl');
-        }
-      });
-    }
+        expect(dir.name, 'rtl');
+      }
+    });
   }
 }

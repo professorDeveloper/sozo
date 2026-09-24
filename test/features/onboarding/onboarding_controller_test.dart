@@ -162,6 +162,32 @@ void main() {
     expect(c.canLeaveGenres, isFalse);
   });
 
+  test('dropping a kind drops the genres only it offered', () async {
+    final c = make();
+    await c.begin(OnboardingFlow.firstRun);
+    await c.toggleKind(TasteKind.anime);
+    await c.toggleKind(TasteKind.movies);
+    const both = TasteGenre(
+      slug: 'action',
+      label: 'Action',
+      catalogues: {'anilist', 'tmdb'},
+    );
+    const crime = TasteGenre(
+      slug: 'crime',
+      label: 'Crime',
+      catalogues: {'tmdb'},
+    );
+    const war = TasteGenre(slug: 'war', label: 'War', catalogues: {'tmdb'});
+    for (final g in [both, crime, war]) {
+      await c.toggleGenre(g);
+    }
+    expect(c.canLeaveGenres, isTrue);
+
+    await c.toggleKind(TasteKind.movies);
+    expect(c.genres, [both]);
+    expect(c.canLeaveGenres, isFalse);
+  });
+
   test('kinds keep the order they were picked in', () async {
     final c = make();
     await c.begin(OnboardingFlow.firstRun);

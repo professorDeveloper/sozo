@@ -100,8 +100,25 @@ class OnboardingSharedAxis extends StatelessWidget {
   }
 }
 
+/// One move at a time, and only from the screen on top. A second tap before
+/// the pushed page has been built, or on the page sliding out, would move on
+/// from the step the first tap reached and skip one.
+Future<void>? _moving;
+
+Future<void> _move(BuildContext context, Future<void> Function() move) {
+  if (_moving != null || !(ModalRoute.of(context)?.isCurrent ?? true)) {
+    return Future.value();
+  }
+  return _moving = move()
+      .then((_) => WidgetsBinding.instance.endOfFrame)
+      .whenComplete(() => _moving = null);
+}
+
 /// On to the next step, or out of the setup when there is none.
-Future<void> onboardingNext(BuildContext context) async {
+Future<void> onboardingNext(BuildContext context) =>
+    _move(context, () => _next(context));
+
+Future<void> _next(BuildContext context) async {
   final router = GoRouter.of(context);
   final next = await _controller.advance();
   if (next == null) {
@@ -113,7 +130,10 @@ Future<void> onboardingNext(BuildContext context) async {
 
 /// Back one step. At the start of a Settings run this leaves the setup; at the
 /// start of a first run there is nothing to go back to.
-Future<void> onboardingBack(BuildContext context) async {
+Future<void> onboardingBack(BuildContext context) =>
+    _move(context, () => _back(context));
+
+Future<void> _back(BuildContext context) async {
   final router = GoRouter.of(context);
   final c = _controller;
   final previous = await c.retreat();

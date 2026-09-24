@@ -1,8 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
 import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 import 'package:soplay/features/onboarding/data/library_import_service.dart';
+import 'package:soplay/features/onboarding/presentation/widgets/import_showcase.dart';
 import 'package:soplay/features/tracker/domain/entities/followed_title.dart';
 
 Map<String, dynamic> _media(
@@ -223,6 +225,32 @@ void main() {
         anilistByMalIds: (_) async => const {},
       );
       expect(svc.run(ImportSource.anilist).toList(), throwsStateError);
+    });
+
+    testWidgets('a failed import tells the page, so the step can be left', (
+      tester,
+    ) async {
+      var failed = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SingleChildScrollView(
+            child: ImportShowcase(
+              source: ImportSource.anilist,
+              service: LibraryImportService(
+                sink: _FakeSink(),
+                anilistLibrary: (_) async => throw StateError('offline'),
+                malLibrary: () async => const [],
+                anilistByMalIds: (_) async => const {},
+              ),
+              onFailed: () => failed++,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(failed, 1);
+      expect(find.text('onboarding.retry'), findsOneWidget);
     });
   });
 }

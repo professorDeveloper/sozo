@@ -8,12 +8,23 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/widgets/app_buttons.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
+import 'package:soplay/features/onboarding/domain/onboarding_flow.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profiles/data/profile_session.dart';
 import 'package:soplay/features/profiles/domain/household_profile.dart';
 import 'package:soplay/features/profiles/presentation/profile_flows.dart';
 import 'package:soplay/features/profiles/presentation/widgets/profile_avatar.dart';
+
+/// Where a pick lands: [then] when it is exactly a setup step, Home otherwise.
+/// A prefix check would let `/onboarding/../anything` through, which the
+/// router resolves to `/anything`.
+String afterProfilePick(String? then) {
+  for (final step in OnboardingStep.values) {
+    if (step.path == then) return then!;
+  }
+  return '/main';
+}
 
 /// "Who's watching?" — shown at launch when the account has several profiles,
 /// and from Profile whenever someone wants to switch.
@@ -85,8 +96,7 @@ class _ProfilePickerPageState extends State<ProfilePickerPage> {
         context.read<ProviderBloc>().add(const ProviderLoad());
       } catch (_) {}
     }
-    final then = widget.then;
-    context.go(then != null && then.startsWith('/onboarding') ? then : '/main');
+    context.go(afterProfilePick(widget.then));
   }
 
   @override
