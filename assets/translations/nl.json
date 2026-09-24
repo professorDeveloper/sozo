@@ -428,7 +428,9 @@
     "segment_opening": "Intro",
     "segment_ending": "Aftiteling",
     "subtitle_n": "Ondertiteling {}",
-    "subtitle_in_video": "In de video"
+    "subtitle_in_video": "In de video",
+    "rewind": "Terugspoelen",
+    "mini_restore": "Terug naar het volledige venster"
   },
   "profile": {
     "title": "Profiel",
@@ -2019,7 +2021,12 @@
     "skipped_dart": "{} Dart-only bron(nen) overgeslagen — die zitten ingebouwd in Mangayomi en werken hier niet.",
     "type_manga": "Manga",
     "type_anime": "Anime",
-    "type_novel": "Novel"
+    "type_novel": "Novel",
+    "settings": "Broninstellingen",
+    "settings_title": "Instellingen van {}",
+    "settings_reset": "Herstellen",
+    "settings_failed": "De instellingen van deze bron konden niet worden gelezen.",
+    "settings_none": "Deze bron heeft geen instellingen."
   },
   "ux": {
     "quick_search": "Snel zoeken ({})",

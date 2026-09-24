@@ -428,7 +428,9 @@
     "segment_opening": "Opening",
     "segment_ending": "Ending",
     "subtitle_n": "Untertitel {}",
-    "subtitle_in_video": "Im Video"
+    "subtitle_in_video": "Im Video",
+    "rewind": "Zurückspulen",
+    "mini_restore": "Zurück zum großen Fenster"
   },
   "profile": {
     "title": "Profil",
@@ -2019,7 +2021,12 @@
     "skipped_dart": "{} reine Dart-Quelle(n) übersprungen — die sind fest in Mangayomi eingebaut und laufen hier nicht.",
     "type_manga": "Manga",
     "type_anime": "Anime",
-    "type_novel": "Novel"
+    "type_novel": "Novel",
+    "settings": "Quelleneinstellungen",
+    "settings_title": "Einstellungen: {}",
+    "settings_reset": "Zurücksetzen",
+    "settings_failed": "Die Einstellungen dieser Quelle konnten nicht gelesen werden.",
+    "settings_none": "Diese Quelle hat keine Einstellungen."
   },
   "ux": {
     "quick_search": "Schnellsuche ({})",

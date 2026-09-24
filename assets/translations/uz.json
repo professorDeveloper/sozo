@@ -428,7 +428,9 @@
     "segment_opening": "Opening",
     "segment_ending": "Ending",
     "subtitle_n": "Subtitr {}",
-    "subtitle_in_video": "Videoning ichida"
+    "subtitle_in_video": "Videoning ichida",
+    "rewind": "Orqaga",
+    "mini_restore": "Katta oynaga qaytish"
   },
   "profile": {
     "title": "Profil",
@@ -2019,7 +2021,12 @@
     "skipped_dart": "{} ta faqat Dart manbasi o‘tkazib yuborildi — ular Mangayomi ichiga o‘rnatilgan va bu yerda ishlamaydi.",
     "type_manga": "Manga",
     "type_anime": "Anime",
-    "type_novel": "Roman"
+    "type_novel": "Roman",
+    "settings": "Manba sozlamalari",
+    "settings_title": "{} sozlamalari",
+    "settings_reset": "Asliga qaytarish",
+    "settings_failed": "Bu manbaning sozlamalarini o‘qib bo‘lmadi.",
+    "settings_none": "Bu manbada sozlamalar yo‘q."
   },
   "ux": {
     "quick_search": "Tezkor qidiruv ({})",

@@ -428,7 +428,9 @@
     "segment_opening": "Açılış",
     "segment_ending": "Kapanış",
     "subtitle_n": "Altyazı {}",
-    "subtitle_in_video": "Videonun içinde"
+    "subtitle_in_video": "Videonun içinde",
+    "rewind": "Geri sar",
+    "mini_restore": "Tam pencereye dön"
   },
   "profile": {
     "title": "Profil",
@@ -2019,7 +2021,12 @@
     "skipped_dart": "Yalnızca Dart olan {} kaynak atlandı — bunlar Mangayomi’ye gömülüdür ve burada çalışmaz.",
     "type_manga": "Manga",
     "type_anime": "Anime",
-    "type_novel": "Roman"
+    "type_novel": "Roman",
+    "settings": "Kaynak ayarları",
+    "settings_title": "{} ayarları",
+    "settings_reset": "Sıfırla",
+    "settings_failed": "Bu kaynağın ayarları okunamadı.",
+    "settings_none": "Bu kaynağın ayarı yok."
   },
   "ux": {
     "quick_search": "Hızlı arama ({})",

@@ -1773,7 +1773,13 @@ extension _PlayerControls on _PlayerPageState {
       case 'pip':
         // `floating: ^6.0.0` ships an Android plugin and nothing else, and
         // _enterPip swallows the MissingPluginException, so on iOS this was a
-        // tap that did nothing.
+        // tap that did nothing. On the desktop it is the mini window.
+        if (isDesktopPlatform) {
+          return _IconButton(
+            icon: Icons.picture_in_picture_alt_rounded,
+            onTap: _toggleDesktopMini,
+          );
+        }
         if (!isAndroidPlatform) return null;
         return _IconButton(
           icon: Icons.picture_in_picture_rounded,

@@ -10,6 +10,7 @@ import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
 import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
 import 'package:soplay/features/extensions/presentation/widgets/recommended_repos_section.dart';
+import 'package:soplay/features/extensions/presentation/widgets/source_settings_sheet.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 
@@ -469,6 +470,15 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                     ),
                   ],
                 ),
+              ),
+              // The source's own settings — its domain, preferred quality,
+              // what it hides.
+              IconButton(
+                tooltip: 'ext.settings'.tr(),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.tune_rounded,
+                    size: 19, color: Colors.white70),
+                onPressed: () => SourceSettingsSheet.show(context, s),
               ),
             ],
           ),

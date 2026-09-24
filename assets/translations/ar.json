@@ -428,7 +428,9 @@
     "segment_opening": "المقدمة",
     "segment_ending": "الخاتمة",
     "subtitle_n": "ترجمة {}",
-    "subtitle_in_video": "ضمن الفيديو"
+    "subtitle_in_video": "ضمن الفيديو",
+    "rewind": "ترجيع",
+    "mini_restore": "العودة إلى النافذة الكاملة"
   },
   "profile": {
     "title": "حسابي",
@@ -2023,7 +2025,12 @@
     "skipped_dart": "تم تخطي {} مصدرًا بلغة Dart فقط — فهي مدمجة في Mangayomi ولا تعمل هنا.",
     "type_manga": "مانغا",
     "type_anime": "أنمي",
-    "type_novel": "رواية"
+    "type_novel": "رواية",
+    "settings": "إعدادات المصدر",
+    "settings_title": "إعدادات {}",
+    "settings_reset": "إعادة التعيين",
+    "settings_failed": "تعذّرت قراءة إعدادات هذا المصدر.",
+    "settings_none": "لا توجد إعدادات لهذا المصدر."
   },
   "ux": {
     "quick_search": "بحث سريع ({})",

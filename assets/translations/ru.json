@@ -428,7 +428,9 @@
     "segment_opening": "Опенинг",
     "segment_ending": "Эндинг",
     "subtitle_n": "Субтитры {}",
-    "subtitle_in_video": "В самом видео"
+    "subtitle_in_video": "В самом видео",
+    "rewind": "Назад",
+    "mini_restore": "Вернуть в большое окно"
   },
   "profile": {
     "title": "Профиль",
@@ -2020,7 +2022,12 @@
     "skipped_dart": "Пропущено источников только для Dart: {} — они встроены в Mangayomi и здесь не работают.",
     "type_manga": "Манга",
     "type_anime": "Аниме",
-    "type_novel": "Новелла"
+    "type_novel": "Новелла",
+    "settings": "Настройки источника",
+    "settings_title": "Настройки: {}",
+    "settings_reset": "Сбросить",
+    "settings_failed": "Не удалось прочитать настройки источника.",
+    "settings_none": "У этого источника нет настроек."
   },
   "ux": {
     "quick_search": "Быстрый поиск ({})",

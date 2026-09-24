@@ -428,7 +428,9 @@
     "segment_opening": "Opening",
     "segment_ending": "Ending",
     "subtitle_n": "Subtítulo {}",
-    "subtitle_in_video": "En el vídeo"
+    "subtitle_in_video": "En el vídeo",
+    "rewind": "Retroceder",
+    "mini_restore": "Volver a la ventana completa"
   },
   "profile": {
     "title": "Perfil",
@@ -2019,7 +2021,12 @@
     "skipped_dart": "Se omitieron {} fuente(s) solo de Dart: están integradas en Mangayomi y aquí no funcionan.",
     "type_manga": "Manga",
     "type_anime": "Anime",
-    "type_novel": "Novela"
+    "type_novel": "Novela",
+    "settings": "Ajustes de la fuente",
+    "settings_title": "Ajustes de {}",
+    "settings_reset": "Restablecer",
+    "settings_failed": "No se pudieron leer los ajustes de esta fuente.",
+    "settings_none": "Esta fuente no tiene ajustes."
   },
   "ux": {
     "quick_search": "Búsqueda rápida ({})",

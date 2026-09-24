@@ -428,7 +428,9 @@
     "segment_opening": "片頭",
     "segment_ending": "片尾",
     "subtitle_n": "字幕 {}",
-    "subtitle_in_video": "影片內置"
+    "subtitle_in_video": "影片內置",
+    "rewind": "倒帶",
+    "mini_restore": "返去大視窗"
   },
   "profile": {
     "title": "個人檔案",
@@ -2019,7 +2021,12 @@
     "skipped_dart": "略過咗 {} 個純 Dart 來源 — 嗰啲已經內建喺 Mangayomi，喺呢度行唔到。",
     "type_manga": "漫畫",
     "type_anime": "動畫",
-    "type_novel": "小說"
+    "type_novel": "小說",
+    "settings": "來源設定",
+    "settings_title": "{} 設定",
+    "settings_reset": "重設",
+    "settings_failed": "讀唔到呢個來源嘅設定。",
+    "settings_none": "呢個來源冇設定。"
   },
   "ux": {
     "quick_search": "快速搜尋（{}）",

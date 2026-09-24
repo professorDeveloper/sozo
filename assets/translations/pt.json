@@ -428,7 +428,9 @@
     "segment_opening": "Abertura",
     "segment_ending": "Encerramento",
     "subtitle_n": "Legenda {}",
-    "subtitle_in_video": "No vídeo"
+    "subtitle_in_video": "No vídeo",
+    "rewind": "Voltar",
+    "mini_restore": "Voltar à janela inteira"
   },
   "profile": {
     "title": "Perfil",
@@ -2019,7 +2021,12 @@
     "skipped_dart": "Foram ignoradas {} fonte(s) só de Dart — estão integradas no Mangayomi e não funcionam aqui.",
     "type_manga": "Mangá",
     "type_anime": "Anime",
-    "type_novel": "Novela"
+    "type_novel": "Novela",
+    "settings": "Configurações da fonte",
+    "settings_title": "Configurações de {}",
+    "settings_reset": "Redefinir",
+    "settings_failed": "Não foi possível ler as configurações desta fonte.",
+    "settings_none": "Esta fonte não tem configurações."
   },
   "ux": {
     "quick_search": "Busca rápida ({})",

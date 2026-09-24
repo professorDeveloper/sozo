@@ -110,6 +110,7 @@ import 'package:soplay/core/torrent/torrent_engine.dart';
 import 'package:soplay/core/torrent/torrent_stream_url.dart';
 import 'package:soplay/features/torrent/presentation/torrent_playback.dart';
 import 'package:soplay/features/torrent/presentation/widgets/torrent_stats_overlay.dart';
+import 'package:window_manager/window_manager.dart' show DragToMoveArea;
 
 part 'player_page.models.dart';
 part 'player_page.widgets.dart';
@@ -189,6 +190,11 @@ class _PlayerPageState extends State<PlayerPage>
   bool _sleepAtEpisodeEnd = false;
 
   bool _isPip = false;
+
+  /// Desktop picture-in-picture: the window is the small always-on-top
+  /// player. [_isPip] is set with it, which hides the full controls.
+  bool _desktopMini = false;
+  final ValueNotifier<bool> _miniHover = ValueNotifier<bool>(false);
   bool _resumeAfterPause = false;
   bool _lastPipPlaying = false;
 
@@ -694,6 +700,10 @@ class _PlayerPageState extends State<PlayerPage>
   @override
   void dispose() {
     _previewWarm?.cancel();
+    // Leaving the player from the mini window must not leave the app a
+    // thumbnail above everything else.
+    if (_desktopMini) unawaited(DesktopWindow.exitMini());
+    _miniHover.dispose();
     // Leaving mid-play is a pause as far as Trakt's "watching now" goes.
     if (_traktPlaying) _syncTraktScrobble(false);
     _mediaGeneration++;
@@ -813,12 +823,18 @@ class _PlayerPageState extends State<PlayerPage>
                   // As an ancestor these recognisers are in the hit-test path for
                   // every touch, whatever is drawn on top.
                   behavior: HitTestBehavior.opaque,
-                  onTap: _locked ? null : _toggleControls,
+                  onTap: _locked
+                      ? null
+                      : _desktopMini
+                      ? _togglePlay
+                      : _toggleControls,
                   onDoubleTapDown: _locked || isDesktopPlatform
                       ? null
                       : (d) => _onDoubleTapDown(d, constraints),
                   onDoubleTap: _locked
                       ? null
+                      : _desktopMini
+                      ? _toggleDesktopMini
                       : isDesktopPlatform
                       ? _toggleFullscreen
                       : () {},
@@ -827,15 +843,20 @@ class _PlayerPageState extends State<PlayerPage>
                   // the old pan handlers — see _onScaleUpdate — so brightness,
                   // volume and swipe-seek behave exactly as before, and two
                   // fingers pinch-zoom the picture.
-                  onScaleStart: _locked
+                  // In the mini window a drag moves the window instead.
+                  onScaleStart: _locked || _desktopMini
                       ? null
                       : (d) => _onScaleStart(d, constraints),
-                  onScaleUpdate: _locked
+                  onScaleUpdate: _locked || _desktopMini
                       ? null
                       : (d) => _onScaleUpdate(d, constraints),
-                  onScaleEnd: _locked ? null : _onScaleEnd,
-                  onLongPressStart: _locked ? null : _onLongPressStart,
-                  onLongPressEnd: _locked ? null : _onLongPressEnd,
+                  onScaleEnd: _locked || _desktopMini ? null : _onScaleEnd,
+                  onLongPressStart: _locked || _desktopMini
+                      ? null
+                      : _onLongPressStart,
+                  onLongPressEnd: _locked || _desktopMini
+                      ? null
+                      : _onLongPressEnd,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -867,6 +888,7 @@ class _PlayerPageState extends State<PlayerPage>
                       if (!_locked && _panel != _SidePanel.none)
                         _buildSidePanel(),
                       if (!_locked && _inParty) _buildPartyReactionsLayer(),
+                      if (_desktopMini) _buildDesktopMiniOverlay(),
                       // Last, so it covers everything: while a television is
                       // playing this episode the phone is a remote, and leaving the
                       // local controls reachable underneath would let someone
@@ -905,7 +927,9 @@ class _PlayerPageState extends State<PlayerPage>
     if (!isDesktopPlatform) return child;
     return MouseRegion(
       onHover: (_) => _revealControlsForHover(),
-      cursor: _controlsVisible ? MouseCursor.defer : SystemMouseCursors.none,
+      cursor: _controlsVisible || _desktopMini
+          ? MouseCursor.defer
+          : SystemMouseCursors.none,
       child: child,
     );
   }
@@ -922,6 +946,10 @@ class _PlayerPageState extends State<PlayerPage>
   KeyEventResult _onPlayerKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
     final k = event.logicalKey;
+    if (_desktopMini && k == LogicalKeyboardKey.escape) {
+      _toggleDesktopMini();
+      return KeyEventResult.handled;
+    }
     for (final shortcut in _playerShortcuts) {
       if (!shortcut.keys.contains(k)) continue;
       // Swallowed rather than ignored when the party forbids it: the press was

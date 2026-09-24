@@ -226,13 +226,48 @@
   };
 
   /**
-   * A plugin's own key/value store.
+   * A plugin's own key/value store, kept with the source's preferences.
    *
-   * In memory for now, and deliberately: the only things plugins keep here are
-   * a login cookie or a chosen domain, and persisting a credential is a
-   * decision with its own conversation attached. A plugin that needs one asks
-   * again next session rather than Sozo storing it quietly.
+   * Plugins read their settings from it (`pluginSettings` keys) and keep a
+   * chosen domain or a cursor there. It lived in memory, so every setting
+   * reset each session and could not be changed from the app at all. It is
+   * the same per-source store Mangayomi sources use — seeded before each call
+   * and saved after one that changed it — so the source settings screen edits
+   * the same values the plugin reads. An `expires` is honoured on read.
    */
+  function makePersistentStorage() {
+    const store = () => globalThis.__sozoPrefs || (globalThis.__sozoPrefs = {});
+    const dirty = () => {
+      globalThis.__sozoPrefsDirty = true;
+    };
+    const read = (k) => {
+      const v = store()[k];
+      if (v && typeof v === 'object' && v.__sozoExpires !== undefined) {
+        if (Date.now() > v.__sozoExpires) return undefined;
+        return v.value;
+      }
+      return v === '' ? undefined : v;
+    };
+    return {
+      get: (k) => read(k),
+      set: (k, v, expires) => {
+        const at = expires instanceof Date ? expires.getTime() : Number(expires);
+        store()[k] = expires && at ? { __sozoExpires: at, value: v } : v;
+        dirty();
+      },
+      delete: (k) => {
+        delete store()[k];
+        dirty();
+      },
+      clearAll: () => {
+        globalThis.__sozoPrefs = {};
+        dirty();
+      },
+      getAllKeys: () => Object.keys(store()),
+    };
+  }
+
+  /** Session-only: what a plugin keeps for this run and no longer. */
   function makeStorage() {
     const data = new Map();
     return {
@@ -414,7 +449,7 @@
   }
 
   function makeRequire(pluginId) {
-    const storage = makeStorage();
+    const storage = makePersistentStorage();
     const modules = {
       '@libs/fetch': { fetchApi, fetchFile, fetchText, fetchProto },
       '@libs/novelStatus': { NovelStatus },
@@ -632,7 +667,63 @@
       getPageList: async () => [],
       getVideoList: async () => [],
       getFilterList: () => [],
+      getSourcePreferences: () => preferencesOf(plugin),
     };
+  }
+
+  /**
+   * A plugin's `pluginSettings`, in the shape Mangayomi sources describe
+   * their preferences in, so one settings screen edits both. The values
+   * live in the same per-source store the plugin's `storage` reads.
+   */
+  function preferencesOf(plugin) {
+    const settings = plugin.pluginSettings;
+    if (!settings || typeof settings !== 'object') return [];
+    const out = [];
+    for (const key of Object.keys(settings)) {
+      const s = settings[key] || {};
+      const title = String(s.label || key);
+      const type = String(s.type || '').toLowerCase();
+      const options = Array.isArray(s.options) ? s.options : [];
+      if (type === 'switch') {
+        out.push({ key, switchPreferenceCompat: { title, summary: '', value: !!s.value } });
+      } else if ((type === 'select' || type === 'picker') && options.length) {
+        const values = options.map((o) => String(o.value));
+        out.push({
+          key,
+          listPreference: {
+            title,
+            summary: '',
+            valueIndex: Math.max(0, values.indexOf(String(s.value))),
+            entries: options.map((o) => String(o.label)),
+            entryValues: values,
+          },
+        });
+      } else if (type.includes('checkbox') && options.length) {
+        out.push({
+          key,
+          multiSelectListPreference: {
+            title,
+            summary: '',
+            entries: options.map((o) => String(o.label)),
+            entryValues: options.map((o) => String(o.value)),
+            values: Array.isArray(s.value) ? s.value.map(String) : [],
+          },
+        });
+      } else {
+        out.push({
+          key,
+          editTextPreference: {
+            title,
+            summary: '',
+            value: s.value == null ? '' : String(s.value),
+            dialogTitle: title,
+            dialogMessage: '',
+          },
+        });
+      }
+    }
+    return out;
   }
 
   const MAX_CHAPTER_PAGES = 60;
@@ -705,6 +796,7 @@
     deps,
     makeRequire,
     pathOf,
+    preferencesOf,
     linkFor,
     decodeEntities,
     absolute,

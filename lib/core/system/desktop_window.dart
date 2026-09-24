@@ -66,6 +66,78 @@ class DesktopWindow {
     } catch (_) {}
   }
 
+  // ─── mini player ────────────────────────────────────────────────────────
+
+  /// True while the window is the small always-on-top player — the desktop's
+  /// picture-in-picture. The player draws its own compact controls for it,
+  /// and the window's geometry is not saved while it lasts, or the next
+  /// launch would open at thumbnail size.
+  static final ValueNotifier<bool> mini = ValueNotifier<bool>(false);
+
+  static Rect? _beforeMini;
+  static bool _miniFromMaximized = false;
+  static bool _miniFromFullscreen = false;
+
+  static const double miniWidth = 426;
+
+  /// Shrinks the window to a [miniWidth]-wide player at [aspect], above
+  /// every other window, in the bottom-right corner of the display it is on.
+  static Future<void> enterMini({double aspect = 16 / 9}) async {
+    if (mini.value) return;
+    final a = aspect.isFinite && aspect > 0 ? aspect.clamp(0.5, 2.6) : 16 / 9;
+    try {
+      _miniFromFullscreen = await windowManager.isFullScreen();
+      if (_miniFromFullscreen) {
+        fullscreen.value = false;
+        await windowManager.setFullScreen(false);
+        // macOS animates out of a full-screen space; resizing mid-animation
+        // is ignored.
+        await Future<void>.delayed(const Duration(milliseconds: 650));
+      }
+      _miniFromMaximized = await windowManager.isMaximized();
+      if (_miniFromMaximized) await windowManager.unmaximize();
+      final before = await windowManager.getBounds();
+      _beforeMini = before;
+      mini.value = true;
+      final size = Size(miniWidth, (miniWidth / a).roundToDouble());
+      await windowManager.setMinimumSize(Size(240, (240 / a).roundToDouble()));
+      await windowManager.setAlwaysOnTop(true);
+      await windowManager.setSize(size);
+      try {
+        await windowManager.setAspectRatio(a.toDouble());
+      } catch (_) {}
+      final displays = await _displayRects();
+      final centre = before.center;
+      final area =
+          displays.where((r) => r.contains(centre)).firstOrNull ??
+          displays.firstOrNull;
+      if (area != null) {
+        await windowManager.setPosition(
+          Offset(area.right - size.width - 24, area.bottom - size.height - 24),
+        );
+      }
+    } catch (_) {}
+  }
+
+  /// Back to the window the mini player came from — its size and place,
+  /// maximised or full screen as it was.
+  static Future<void> exitMini() async {
+    if (!mini.value) return;
+    mini.value = false;
+    try {
+      try {
+        await windowManager.setAspectRatio(0);
+      } catch (_) {}
+      await windowManager.setAlwaysOnTop(false);
+      await windowManager.setMinimumSize(minimumSize);
+      final before = _beforeMini;
+      if (before != null) await windowManager.setBounds(before);
+      if (_miniFromMaximized) await windowManager.maximize();
+      if (_miniFromFullscreen) await setFullscreen(true);
+    } catch (_) {}
+    _beforeMini = null;
+  }
+
   static Future<void> toggleFullscreen() async {
     bool current;
     try {
@@ -212,6 +284,7 @@ class DesktopWindow {
   /// That is what lets the listener call this from cheap, frequent events —
   /// focus loss most of all — without turning every alt-tab into a disk write.
   static Future<void> _saveGeometry() async {
+    if (mini.value) return;
     try {
       final maximized =
           await windowManager.isMaximized() ||
@@ -368,7 +441,10 @@ class DesktopWindow {
       maxHeight = displays.map((d) => d.height).reduce(math.max);
     }
     return Size(
-      size.width.clamp(minimumSize.width, math.max(minimumSize.width, maxWidth)),
+      size.width.clamp(
+        minimumSize.width,
+        math.max(minimumSize.width, maxWidth),
+      ),
       size.height.clamp(
         minimumSize.height,
         math.max(minimumSize.height, maxHeight),

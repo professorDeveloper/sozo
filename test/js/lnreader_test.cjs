@@ -440,3 +440,42 @@ test('a paged chapter list is fetched whole', async () => {
     ['c3b', 'c3a', 'c2b', 'c2a', 'c1b', 'c1a'],
   );
 });
+
+test('plugin settings become source preferences, and storage keeps them', async () => {
+  // They lived in memory and could not be changed from the app; now they are
+  // the source's preferences, read by the plugin from its storage.
+  const sandbox = host();
+  const p = sandbox.__sozoLoadLnReader(
+    `const { storage } = require('@libs/storage');
+     module.exports.default = { site: 'https://s.test/',
+       pluginSettings: {
+         hideLocked: { value: false, label: 'Hide locked', type: 'Switch' },
+         customJs: { value: '', label: 'Custom JS', type: 'Text' },
+         order: { value: 'asc', label: 'Order', type: 'Select',
+           options: [{ label: 'Oldest', value: 'asc' }, { label: 'Newest', value: 'desc' }] },
+       },
+       parseChapter: async () => String(storage.get('hideLocked')) + '|' + String(storage.get('missing')) };`,
+    { id: 'p' },
+  );
+  const prefs = p.getSourcePreferences();
+  assert.equal(prefs[0].key, 'hideLocked');
+  assert.equal(prefs[0].switchPreferenceCompat.value, false);
+  assert.equal(prefs[1].editTextPreference.title, 'Custom JS');
+  assert.deepEqual([...prefs[2].listPreference.entryValues], ['asc', 'desc']);
+
+  // The app seeds the saved values before a call; the plugin reads them.
+  sandbox.__sozoPrefs = { hideLocked: true };
+  assert.equal(await p.getHtmlContent('S', 'x'), 'true|undefined');
+});
+
+test('what a plugin stores is marked for saving', () => {
+  const sandbox = host();
+  const req = sandbox.__sozoLnReaderInternals.makeRequire('p');
+  const { storage } = req('@libs/storage');
+  sandbox.__sozoPrefsDirty = false;
+  storage.set('cursor', 5);
+  assert.equal(sandbox.__sozoPrefs.cursor, 5);
+  assert.equal(sandbox.__sozoPrefsDirty, true);
+  storage.set('token', 'x', Date.now() - 1000);
+  assert.equal(storage.get('token'), undefined);
+});

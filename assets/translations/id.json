@@ -428,7 +428,9 @@
     "segment_opening": "Opening",
     "segment_ending": "Ending",
     "subtitle_n": "Subtitel {}",
-    "subtitle_in_video": "Di dalam video"
+    "subtitle_in_video": "Di dalam video",
+    "rewind": "Mundur",
+    "mini_restore": "Kembali ke jendela penuh"
   },
   "profile": {
     "title": "Profil",
@@ -2019,7 +2021,12 @@
     "skipped_dart": "{} sumber khusus Dart dilewati — semuanya tertanam di Mangayomi dan tidak bisa berjalan di sini.",
     "type_manga": "Manga",
     "type_anime": "Anime",
-    "type_novel": "Novel"
+    "type_novel": "Novel",
+    "settings": "Pengaturan sumber",
+    "settings_title": "Pengaturan {}",
+    "settings_reset": "Atur ulang",
+    "settings_failed": "Pengaturan sumber ini tidak dapat dibaca.",
+    "settings_none": "Sumber ini tidak punya pengaturan."
   },
   "ux": {
     "quick_search": "Pencarian cepat ({})",
