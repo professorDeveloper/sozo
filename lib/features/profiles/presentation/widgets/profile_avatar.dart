@@ -38,10 +38,15 @@ class ProfileAvatars {
     'thumbs-4': '#ffd54f',
   };
 
-  static final List<String> images = imageColors.keys.toList();
+  /// What the picker offers. The `thumbs-` set was dropped from it, but stays
+  /// bundled so profiles that picked one still render.
+  static final List<String> images = [
+    for (final id in imageColors.keys)
+      if (!id.startsWith('thumbs-')) id,
+  ];
 
   static String? imageFor(String? id) =>
-      id != null && images.contains(id) ? 'assets/avatars/$id.png' : null;
+      imageColors.containsKey(id) ? 'assets/avatars/$id.png' : null;
 
   /// Kept so profiles made before the illustrations still render.
   static const Map<String, IconData> presets = {
