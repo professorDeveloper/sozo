@@ -2928,11 +2928,17 @@
     "out_now": "Nu uit",
     "locked": "Sozo is vergrendeld",
     "locked_hint": "Tik om te openen",
-    "at_risk": "Je streak van {} dagen eindigt vannacht — kijk één aflevering",
+    "at_risk": "Streak van {} dagen eindigt vannacht",
     "empty": "Begin met kijken en het verschijnt hier",
     "days": "{} dagen",
-    "episode": "Aflevering {}",
-    "chapter": "Hoofdstuk {}",
-    "min_left": "Nog {} min"
+    "episode": "Afl. {}",
+    "chapter": "Hfst. {}",
+    "d": "{}d",
+    "h": "{}u",
+    "m": "{}m",
+    "streak_days": "dagen streak",
+    "streak_start": "Begin een streak",
+    "streak_done": "Klaar voor vandaag",
+    "streak_tonight": "Eindigt vannacht"
   }
 }

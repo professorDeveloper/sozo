@@ -2928,11 +2928,17 @@
     "out_now": "Já saiu",
     "locked": "Sozo está bloqueado",
     "locked_hint": "Toque para abrir",
-    "at_risk": "Sua sequência de {} dias acaba hoje à noite — assista a um episódio",
+    "at_risk": "Sequência de {} dias acaba hoje",
     "empty": "Comece a assistir e aparece aqui",
     "days": "{} dias",
-    "episode": "Episódio {}",
-    "chapter": "Capítulo {}",
-    "min_left": "Faltam {} min"
+    "episode": "Ep. {}",
+    "chapter": "Cap. {}",
+    "d": "{}d",
+    "h": "{}h",
+    "m": "{}min",
+    "streak_days": "dias seguidos",
+    "streak_start": "Comece uma sequência",
+    "streak_done": "Feito por hoje",
+    "streak_tonight": "Acaba hoje"
   }
 }

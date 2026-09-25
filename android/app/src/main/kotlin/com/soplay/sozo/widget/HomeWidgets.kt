@@ -43,6 +43,9 @@ object HomeWidgets {
     /** The streak turns urgent from this hour when today has no watching yet. */
     private const val RISK_HOUR = 21
 
+    /** How close an episode must be for its countdown to tick by the second. */
+    private const val LIVE_COUNTDOWN_MS = 90 * 60 * 1000L
+
     fun save(context: Context, json: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY_SNAPSHOT, json).apply()
@@ -64,6 +67,82 @@ object HomeWidgets {
             val ids = manager.getAppWidgetIds(ComponentName(context, provider))
             if (ids.isNotEmpty()) render(context, manager, ids, medium)
         }
+        val streakIds = manager.getAppWidgetIds(ComponentName(context, StreakWidget::class.java))
+        if (streakIds.isNotEmpty()) renderStreak(context, manager, streakIds)
+    }
+
+    fun renderStreak(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        val snap = snapshot(context)
+        for (id in ids) {
+            runCatching { manager.updateAppWidget(id, streakViews(context, snap)) }
+        }
+    }
+
+    /**
+     * The streak on its own: the flame and the days, this week as dots with
+     * today ringed, the profile it belongs to — and, on the evening it would
+     * end, the whole widget turning ember with "ends tonight".
+     */
+    private fun streakViews(context: Context, snap: JSONObject?): RemoteViews {
+        val views = RemoteViews(context.packageName, R.layout.widget_streak)
+        views.setOnClickPendingIntent(R.id.widget_root, open(context, "streak", null, 40))
+        val labels = snap?.optJSONObject("labels") ?: JSONObject()
+        if (snap == null || snap.optBoolean("locked")) {
+            showOnly(views, R.id.locked, listOf(R.id.content, R.id.profile_avatar))
+            views.setTextViewText(R.id.locked_text, labels.optString("locked", "Sozo"))
+            return views
+        }
+        showOnly(views, R.id.content, listOf(R.id.locked))
+        avatar(views, snap)
+        val s = snap.optJSONObject("streak")
+        val current = s?.optInt("current") ?: 0
+        val atRisk = current > 0 && isAtRisk(s?.optString("lastActiveDate"))
+        val alive = current > 0
+
+        views.setInt(
+            R.id.widget_root,
+            "setBackgroundResource",
+            if (atRisk) R.drawable.widget_bg_streak_risk else R.drawable.widget_bg_streak,
+        )
+        views.setImageViewResource(
+            R.id.flame,
+            if (atRisk) R.drawable.ic_widget_flame_dark else R.drawable.ic_widget_flame,
+        )
+        views.setInt(R.id.flame, "setImageAlpha", if (alive) 255 else 90)
+        views.setTextViewText(R.id.days, current.toString())
+        views.setTextColor(R.id.days, if (atRisk) 0xFF1A0A00.toInt() else 0xFFFFFFFF.toInt())
+        views.setTextViewText(
+            R.id.label,
+            when {
+                !alive -> labels.optString("streakStart")
+                atRisk -> labels.optString("streakTonight")
+                else -> labels.optString("streakDays")
+            },
+        )
+        views.setTextColor(R.id.label, if (atRisk) 0xFF3A1600.toInt() else 0xFFFFC078.toInt())
+
+        // The week, Monday first, today ringed until it is lit.
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Calendar.getInstance().time)
+        val week = s?.optJSONArray("week")
+        val dots = intArrayOf(R.id.dot_0, R.id.dot_1, R.id.dot_2, R.id.dot_3, R.id.dot_4, R.id.dot_5, R.id.dot_6)
+        for ((i, dot) in dots.withIndex()) {
+            val day = week?.optJSONObject(i)
+            if (day == null) {
+                views.setViewVisibility(dot, View.GONE)
+                continue
+            }
+            views.setViewVisibility(dot, View.VISIBLE)
+            views.setImageViewResource(
+                dot,
+                when {
+                    day.optBoolean("active") -> R.drawable.widget_dot_on
+                    day.optString("date") == today ->
+                        if (atRisk) R.drawable.widget_dot_today_dark else R.drawable.widget_dot_today
+                    else -> R.drawable.widget_dot_off
+                },
+            )
+        }
+        return views
     }
 
     fun render(context: Context, manager: AppWidgetManager, ids: IntArray, medium: Boolean) {
@@ -86,7 +165,8 @@ object HomeWidgets {
             views.setTextViewText(R.id.locked_hint, labels.optString("lockedHint"))
             return views
         }
-        streak(views, snap, labels, chipOnPoster = true)
+        streak(views, snap)
+        avatar(views, snap)
         val item = snap.optJSONArray("items")?.optJSONObject(0)
         if (item == null) {
             showOnly(views, R.id.empty, listOf(R.id.poster, R.id.scrim, R.id.info, R.id.locked))
@@ -115,8 +195,8 @@ object HomeWidgets {
             views.setTextViewText(R.id.locked_hint, labels.optString("lockedHint"))
             return views
         }
-        views.setTextViewText(R.id.header, labels.optString("continue", "Sozo"))
-        val atRisk = streak(views, snap, labels, chipOnPoster = false)
+        val atRisk = streak(views, snap)
+        avatar(views, snap)
 
         val items = snap.optJSONArray("items")
         if (items == null || items.length() == 0) {
@@ -172,8 +252,11 @@ object HomeWidgets {
 
     // --- pieces ----------------------------------------------------------------
 
-    /** The streak chip; returns whether the streak is at risk right now. */
-    private fun streak(views: RemoteViews, snap: JSONObject, labels: JSONObject, chipOnPoster: Boolean): Boolean {
+    /**
+     * The streak, as a flame and a number on the first poster; returns whether
+     * it is at risk right now, when the chip turns ember.
+     */
+    private fun streak(views: RemoteViews, snap: JSONObject): Boolean {
         val s = snap.optJSONObject("streak")
         val current = s?.optInt("current") ?: 0
         if (current <= 0) {
@@ -182,18 +265,11 @@ object HomeWidgets {
         }
         views.setViewVisibility(R.id.streak_chip, View.VISIBLE)
         val atRisk = isAtRisk(s?.optString("lastActiveDate"))
-        views.setTextViewText(
-            R.id.streak_text,
-            if (chipOnPoster) current.toString() else labels.optString("days", "{}").replace("{}", current.toString()),
-        )
+        views.setTextViewText(R.id.streak_text, current.toString())
         views.setInt(
             R.id.streak_chip,
             "setBackgroundResource",
-            when {
-                atRisk -> R.drawable.widget_chip_ember
-                chipOnPoster -> R.drawable.widget_chip
-                else -> 0
-            },
+            if (atRisk) R.drawable.widget_chip_ember else R.drawable.widget_chip,
         )
         views.setTextColor(R.id.streak_text, if (atRisk) 0xFF1A0A00.toInt() else 0xFFFFA94D.toInt())
         views.setImageViewResource(
@@ -201,6 +277,18 @@ object HomeWidgets {
             if (atRisk) R.drawable.ic_widget_flame_dark else R.drawable.ic_widget_flame,
         )
         return atRisk
+    }
+
+    /** Whose it is: the profile's avatar, when the household has several. */
+    private fun avatar(views: RemoteViews, snap: JSONObject) {
+        val path = snap.optString("avatar")
+        val bitmap = if (path.isNotBlank()) decode(path, 96) else null
+        if (bitmap == null) {
+            views.setViewVisibility(R.id.profile_avatar, View.GONE)
+            return
+        }
+        views.setViewVisibility(R.id.profile_avatar, View.VISIBLE)
+        views.setImageViewBitmap(R.id.profile_avatar, bitmap)
     }
 
     /**
@@ -225,26 +313,48 @@ object HomeWidgets {
         // An episode that went out more than a day ago is old news.
         if (now - airsAt > 24 * 60 * 60 * 1000L) return
         views.setViewVisibility(R.id.next_row, View.VISIBLE)
-        views.setTextViewText(
-            R.id.next_text,
-            "${labels.optString("next")} · ${next.optString("title")} ${next.optString("episode")}".trim(),
-        )
-        if (airsAt > now) {
-            views.setViewVisibility(R.id.countdown, View.VISIBLE)
-            views.setViewVisibility(R.id.next_now, View.GONE)
-            // The chronometer counts toward a moment on the elapsed-time clock,
-            // which keeps ticking while the phone sleeps.
-            val base = SystemClock.elapsedRealtime() + (airsAt - now)
-            views.setChronometer(R.id.countdown, base, null, true)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                views.setChronometerCountDown(R.id.countdown, true)
+        // The title and the time, nothing more: the clock icon says "next
+        // episode" already.
+        views.setTextViewText(R.id.next_text, next.optString("title"))
+        val left = airsAt - now
+        views.setViewVisibility(R.id.countdown, View.GONE)
+        views.setViewVisibility(R.id.next_in, View.GONE)
+        views.setViewVisibility(R.id.next_now, View.GONE)
+        when {
+            left <= 0 -> {
+                views.setViewVisibility(R.id.next_now, View.VISIBLE)
+                views.setTextViewText(R.id.next_now, labels.optString("outNow"))
             }
-        } else {
-            views.setViewVisibility(R.id.countdown, View.GONE)
-            views.setViewVisibility(R.id.next_now, View.VISIBLE)
-            views.setTextViewText(R.id.next_now, labels.optString("outNow"))
+            // The last stretch ticks, where watching the seconds is the fun of
+            // it; before that a quiet "2d 5h", which the half-hourly redraw
+            // keeps true, instead of seconds racing for two days.
+            left <= LIVE_COUNTDOWN_MS -> {
+                views.setViewVisibility(R.id.countdown, View.VISIBLE)
+                val base = SystemClock.elapsedRealtime() + left
+                views.setChronometer(R.id.countdown, base, null, true)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    views.setChronometerCountDown(R.id.countdown, true)
+                }
+            }
+            else -> {
+                views.setViewVisibility(R.id.next_in, View.VISIBLE)
+                views.setTextViewText(R.id.next_in, relative(left, labels))
+            }
         }
         views.setOnClickPendingIntent(R.id.next_row, open(context, "next", null, 30))
+    }
+
+    /** "2d 5h", "5h 12m" — two units at most, in the viewer's language. */
+    private fun relative(ms: Long, labels: JSONObject): String {
+        val minutes = ms / 60_000
+        val days = minutes / (24 * 60)
+        val hours = (minutes % (24 * 60)) / 60
+        val mins = minutes % 60
+        fun unit(key: String, n: Long) = labels.optString(key, "{}").replace("{}", n.toString())
+        return when {
+            days > 0 -> "${unit("d", days)} ${unit("h", hours)}"
+            else -> "${unit("h", hours)} ${unit("m", mins)}"
+        }
     }
 
     private fun poster(views: RemoteViews, id: Int, item: JSONObject, maxSide: Int) {
@@ -323,6 +433,12 @@ object HomeWidgets {
 class ContinueWidgetSmall : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         HomeWidgets.render(context, manager, ids, medium = false)
+    }
+}
+
+class StreakWidget : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        HomeWidgets.renderStreak(context, manager, ids)
     }
 }
 

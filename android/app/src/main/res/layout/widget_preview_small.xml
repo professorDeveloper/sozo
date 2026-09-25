@@ -22,6 +22,15 @@
         android:scaleType="fitXY"
         android:src="@drawable/widget_scrim" />
 
+    <ImageView
+        android:id="@+id/profile_avatar"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="10dp"
+        android:contentDescription="@null"
+        android:visibility="gone" />
+
     <LinearLayout
         android:id="@+id/streak_chip"
         android:layout_width="wrap_content"

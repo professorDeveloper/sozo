@@ -972,6 +972,12 @@ Future<void> configureDependencies() async {
       streak: getIt<StreakService>(),
       hive: getIt<HiveService>(),
       anilist: getIt<AnilistService>(),
+      profiles: getIt<ProfileSession>(),
+      // A Mangayomi or LNReader source that was removed: its rows would open
+      // onto "details not found". The native hosts answer for themselves.
+      isAvailable: (provider) =>
+          !provider.startsWith('my:') ||
+          getIt<MangayomiBridge>().store.sourceById(provider) != null,
     ),
   );
   getIt.registerSingleton<ViewAllUseCase>(

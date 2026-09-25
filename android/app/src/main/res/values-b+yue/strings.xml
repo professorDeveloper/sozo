@@ -6,12 +6,15 @@
     <string name="widget_medium_description">由停低嘅地方繼續，仲可以倒數到下一集。</string>
     <!-- Sample content for the widget picker's preview. -->
     <string name="widget_preview_title">Frieren</string>
-    <string name="widget_preview_sub">第 7 集 · 仲有 14 分鐘</string>
+    <string name="widget_preview_sub">第 7 集</string>
     <string name="widget_preview_title_0">Frieren</string>
-    <string name="widget_preview_sub_0">第 2 季 · 第 7 集</string>
+    <string name="widget_preview_sub_0">第 7 集</string>
     <string name="widget_preview_title_1">Solo Leveling</string>
     <string name="widget_preview_sub_1">第 11 集</string>
     <string name="widget_preview_title_2">Berserk</string>
     <string name="widget_preview_sub_2">第 128 話</string>
-    <string name="widget_preview_next">下一集 · Dandadan 8</string>
+    <string name="widget_preview_next">Dandadan</string>
+    <string name="widget_streak_title">連續紀錄</string>
+    <string name="widget_streak_description">你嘅連續紀錄、今個星期一眼睇晒，快斷嗰晚仲會提你。</string>
+    <string name="widget_streak_label">日連續</string>
 </resources>

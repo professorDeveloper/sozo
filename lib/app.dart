@@ -30,6 +30,7 @@ import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/achievements/presentation/widgets/achievement_celebration_host.dart';
 import 'package:soplay/features/home_widget/home_widget_sync.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 
 /// Desktop scroll behaviour: adds mouse + trackpad + stylus as drag devices so
 /// touch-oriented scrollables (PageView, horizontal ListViews) can be dragged
@@ -241,8 +242,18 @@ class _MyAppState extends State<MyApp> {
   /// Keeps what this phone knows about its sources fresh, a few at a time —
   /// with hundreds installed, nobody runs a full check often enough.
   void _scheduleSourceSweep(BuildContext context) {
-    if (!getIt.isRegistered<SourceCheckService>()) return;
     final bloc = context.read<ProviderBloc>();
+    // A widget tap opens a title on its own source, as Home would; this is
+    // the first place below the provider bloc to hand the widget that.
+    getIt<HomeWidgetSync>()
+      ..selectSource = ((id) => bloc.add(ProviderSelect(id)))
+      ..currentSource = () {
+        final state = bloc.state;
+        return state is ProviderLoaded
+            ? state.currentProviderId
+            : getIt<HiveService>().getCurrentProvider();
+      };
+    if (!getIt.isRegistered<SourceCheckService>()) return;
     getIt<SourceCheckService>().scheduleSweep(() {
       final state = bloc.state;
       if (state is! ProviderLoaded) return const [];

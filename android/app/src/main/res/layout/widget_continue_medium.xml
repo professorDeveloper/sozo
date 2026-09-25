@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Three titles to continue, and the next episode. No header: the posters say what it is; the streak and whose profile it is sit on the first poster. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -11,71 +12,12 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="14dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:background="@drawable/widget_mark"
-                android:gravity="center"
-                android:text="S"
-                android:textColor="#FFFFFFFF"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/header"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="7dp"
-                android:layout_weight="1"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="#FFFFFFFF"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:text="Sozo" />
-
-            <LinearLayout
-                android:id="@+id/streak_chip"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="6dp"
-                android:paddingTop="2dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="2dp">
-
-                <ImageView
-                    android:id="@+id/streak_icon"
-                    android:layout_width="13dp"
-                    android:layout_height="13dp"
-                    android:contentDescription="@null"
-                    android:src="@drawable/ic_widget_flame" />
-
-                <TextView
-                    android:id="@+id/streak_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="3dp"
-                    android:textColor="#FFFFA94D"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-        </LinearLayout>
+        android:padding="12dp">
 
         <LinearLayout
             android:id="@+id/items"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_marginTop="10dp"
             android:layout_weight="1"
             android:orientation="horizontal">
 
@@ -112,13 +54,53 @@
                         android:layout_marginBottom="5dp"
                         android:max="1000"
                         android:progressDrawable="@drawable/widget_progress" />
+                    <ImageView
+                        android:id="@+id/profile_avatar"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="top|start"
+                        android:layout_margin="6dp"
+                        android:contentDescription="@null"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:id="@+id/streak_chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="top|end"
+                        android:layout_margin="6dp"
+                        android:background="@drawable/widget_chip"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="5dp"
+                        android:paddingTop="2dp"
+                        android:paddingEnd="7dp"
+                        android:paddingBottom="2dp"
+                        android:visibility="gone">
+
+                        <ImageView
+                            android:id="@+id/streak_icon"
+                            android:layout_width="12dp"
+                            android:layout_height="12dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_widget_flame" />
+
+                        <TextView
+                            android:id="@+id/streak_text"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="2dp"
+                            android:textColor="#FFFFA94D"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
                 </FrameLayout>
 
                 <TextView
                     android:id="@+id/title_0"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="5dp"
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:textColor="#FFFFFFFF"
@@ -131,8 +113,8 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
-                    android:textColor="#FFAAAAAA"
-                    android:textSize="10sp" />
+                    android:textColor="#FF8A8A8A"
+                    android:textSize="10.5sp" />
             </LinearLayout>
 
             <LinearLayout
@@ -174,7 +156,7 @@
                     android:id="@+id/title_1"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="5dp"
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:textColor="#FFFFFFFF"
@@ -187,8 +169,8 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
-                    android:textColor="#FFAAAAAA"
-                    android:textSize="10sp" />
+                    android:textColor="#FF8A8A8A"
+                    android:textSize="10.5sp" />
             </LinearLayout>
 
             <LinearLayout
@@ -230,7 +212,7 @@
                     android:id="@+id/title_2"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="5dp"
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:textColor="#FFFFFFFF"
@@ -243,8 +225,8 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
-                    android:textColor="#FFAAAAAA"
-                    android:textSize="10sp" />
+                    android:textColor="#FF8A8A8A"
+                    android:textSize="10.5sp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -263,7 +245,6 @@
             android:visibility="gone">
 
             <ImageView
-                android:id="@+id/next_icon"
                 android:layout_width="14dp"
                 android:layout_height="14dp"
                 android:contentDescription="@null"
@@ -278,7 +259,16 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="#FFCCCCCC"
-                android:textSize="11sp" />
+                android:textSize="11.5sp" />
+
+            <TextView
+                android:id="@+id/next_in"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:textColor="#FF8FD4FF"
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
             <Chronometer
                 android:id="@+id/countdown"
@@ -288,7 +278,8 @@
                 android:countDown="true"
                 android:textColor="#FF8FD4FF"
                 android:textSize="12sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/next_now"
@@ -296,7 +287,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
                 android:textColor="#FF46D369"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:visibility="gone" />
         </LinearLayout>

@@ -10,12 +10,15 @@
     <string name="widget_medium_description">Pick up where you left off, and count down to the next episode.</string>
     <!-- Sample content for the widget picker's preview. -->
     <string name="widget_preview_title">Frieren</string>
-    <string name="widget_preview_sub">Episode 7 · 14 min left</string>
+    <string name="widget_preview_sub">Ep 7</string>
     <string name="widget_preview_title_0">Frieren</string>
-    <string name="widget_preview_sub_0">S2 · Episode 7</string>
+    <string name="widget_preview_sub_0">Ep 7</string>
     <string name="widget_preview_title_1">Solo Leveling</string>
-    <string name="widget_preview_sub_1">Episode 11</string>
+    <string name="widget_preview_sub_1">Ep 11</string>
     <string name="widget_preview_title_2">Berserk</string>
-    <string name="widget_preview_sub_2">Chapter 128</string>
-    <string name="widget_preview_next">Next episode · Dandadan 8</string>
+    <string name="widget_preview_sub_2">Ch 128</string>
+    <string name="widget_preview_next">Dandadan</string>
+    <string name="widget_streak_title">Streak</string>
+    <string name="widget_streak_description">Your streak, this week at a glance, and a warning on the evening it would end.</string>
+    <string name="widget_streak_label">day streak</string>
 </resources>

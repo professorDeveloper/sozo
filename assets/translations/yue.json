@@ -2928,11 +2928,17 @@
     "out_now": "已經出咗",
     "locked": "Sozo 已鎖",
     "locked_hint": "撳一下打開",
-    "at_risk": "你連續 {} 日嘅紀錄今晚就會斷，睇一集啦",
+    "at_risk": "{} 日連續紀錄今晚會斷",
     "empty": "開始睇，就會喺度出現",
     "days": "{} 日",
     "episode": "第 {} 集",
     "chapter": "第 {} 話",
-    "min_left": "仲有 {} 分鐘"
+    "d": "{}日",
+    "h": "{}時",
+    "m": "{}分",
+    "streak_days": "日連續",
+    "streak_start": "開始連續紀錄",
+    "streak_done": "今日搞掂",
+    "streak_tonight": "今晚會斷"
   }
 }

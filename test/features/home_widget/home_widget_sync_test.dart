@@ -86,16 +86,33 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(ctx, isNotNull);
+    // The number and nothing else: no chapter titles, no minutes left.
     expect(
       HomeWidgetSync.subtitleOf(item('a', ep: 7, pos: 10 * 60000)),
-      'Episode 7 · 14 min left',
+      'Ep 7',
     );
     expect(
       HomeWidgetSync.subtitleOf(
         item('m', ep: 128, pos: 3, dur: 20, media: 'manga'),
       ),
-      'Chapter 128',
+      'Ch 128',
     );
-    expect(HomeWidgetSync.subtitleOf(item('f', serial: false)), '14 min left');
+    expect(HomeWidgetSync.subtitleOf(item('f', serial: false)), '');
+    // An old row with no media type: a manga source's mode says chapter.
+    expect(
+      HomeWidgetSync.subtitleOf(
+        HistoryItem(
+          contentUrl: 'x',
+          provider: 'mn:1',
+          title: 'x',
+          isSerial: true,
+          episodeNumber: 3,
+          positionMs: 0,
+          durationMs: 0,
+          watchedAt: 0,
+        ),
+      ),
+      'Ch 3',
+    );
   });
 }

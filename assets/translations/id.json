@@ -2928,11 +2928,17 @@
     "out_now": "Sudah tayang",
     "locked": "Sozo terkunci",
     "locked_hint": "Ketuk untuk membuka",
-    "at_risk": "Rentetan {} harimu berakhir malam ini — tonton satu episode",
+    "at_risk": "Rentetan {} hari berakhir malam ini",
     "empty": "Mulai menonton dan akan muncul di sini",
     "days": "{} hari",
-    "episode": "Episode {}",
+    "episode": "Ep {}",
     "chapter": "Bab {}",
-    "min_left": "Sisa {} mnt"
+    "d": "{}h",
+    "h": "{}j",
+    "m": "{}m",
+    "streak_days": "hari rentetan",
+    "streak_start": "Mulai rentetan",
+    "streak_done": "Selesai hari ini",
+    "streak_tonight": "Berakhir malam ini"
   }
 }

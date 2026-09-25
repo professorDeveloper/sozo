@@ -2928,11 +2928,17 @@
     "out_now": "Yayında",
     "locked": "Sozo kilitli",
     "locked_hint": "Açmak için dokun",
-    "at_risk": "{} günlük serin bu gece bitiyor — bir bölüm izle",
+    "at_risk": "{} günlük serin bu gece bitiyor",
     "empty": "İzlemeye başla, burada görünsün",
     "days": "{} gün",
     "episode": "{}. bölüm",
     "chapter": "{}. bölüm",
-    "min_left": "{} dk kaldı"
+    "d": "{}g",
+    "h": "{}sa",
+    "m": "{}dk",
+    "streak_days": "günlük seri",
+    "streak_start": "Bir seri başlat",
+    "streak_done": "Bugünlük tamam",
+    "streak_tonight": "Bu gece bitiyor"
   }
 }

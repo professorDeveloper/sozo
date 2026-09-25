@@ -2928,11 +2928,17 @@
     "out_now": "Jetzt da",
     "locked": "Sozo ist gesperrt",
     "locked_hint": "Zum Öffnen tippen",
-    "at_risk": "Dein {}-Tage-Streak endet heute Nacht — schau eine Folge",
+    "at_risk": "{}-Tage-Streak endet heute",
     "empty": "Fang an zu schauen, dann erscheint es hier",
     "days": "{} Tage",
     "episode": "Folge {}",
-    "chapter": "Kapitel {}",
-    "min_left": "Noch {} Min"
+    "chapter": "Kap. {}",
+    "d": "{}T",
+    "h": "{}Std",
+    "m": "{}Min",
+    "streak_days": "Tage Streak",
+    "streak_start": "Starte einen Streak",
+    "streak_done": "Heute erledigt",
+    "streak_tonight": "Endet heute"
   }
 }

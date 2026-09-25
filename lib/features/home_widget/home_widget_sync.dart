@@ -8,7 +8,7 @@ import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:soplay/core/router/app_router.dart';
@@ -19,6 +19,10 @@ import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
+import 'package:soplay/features/profiles/data/profile_session.dart';
+import 'package:soplay/features/profiles/domain/household_profile.dart';
+import 'package:soplay/features/profiles/presentation/widgets/profile_avatar.dart';
+import 'package:soplay/core/content/content_mode.dart';
 
 /// Keeps the Android home screen widgets in step with the app.
 ///
@@ -35,11 +39,15 @@ class HomeWidgetSync with WidgetsBindingObserver {
     required StreakService streak,
     required HiveService hive,
     AnilistService? anilist,
+    ProfileSession? profiles,
+    bool Function(String provider)? isAvailable,
     Dio? dio,
   }) : _history = history,
        _streak = streak,
        _hive = hive,
        _anilist = anilist,
+       _profiles = profiles,
+       _isAvailable = isAvailable,
        _dio =
            dio ??
            Dio(
@@ -54,6 +62,11 @@ class HomeWidgetSync with WidgetsBindingObserver {
   final StreakService _streak;
   final HiveService _hive;
   final AnilistService? _anilist;
+  final ProfileSession? _profiles;
+
+  /// Whether a title's source is still installed. A widget row whose source
+  /// was removed opens onto "details not found", so it is left off.
+  final bool Function(String provider)? _isAvailable;
   final Dio _dio;
 
   static const MethodChannel _channel = MethodChannel('sozo/home_widget');
@@ -66,11 +79,20 @@ class HomeWidgetSync with WidgetsBindingObserver {
   Timer? _debounce;
   bool _started = false;
 
+  /// Moves the app onto a title's source (and so its mode) before it opens:
+  /// Home only ever continues a title from its own mode, and a manga opened
+  /// while the app sat in Watch came up as an empty video page.
+  void Function(String provider)? selectSource;
+
+  /// The source the app is on now, to tell whether a move is needed.
+  String Function()? currentSource;
+
   void start() {
     if (!supported || _started) return;
     _started = true;
     _history.revision.addListener(_soon);
     _streak.state.addListener(_soon);
+    _profiles?.addListener(_soon);
     WidgetsBinding.instance.addObserver(this);
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'action' && call.arguments is Map) {
@@ -122,15 +144,36 @@ class HomeWidgetSync with WidgetsBindingObserver {
       'atRisk': 'home_widget.at_risk'.tr(),
       'empty': 'home_widget.empty'.tr(),
       'days': 'home_widget.days'.tr(),
+      'd': 'home_widget.d'.tr(),
+      'h': 'home_widget.h'.tr(),
+      'm': 'home_widget.m'.tr(),
+      'streakDays': 'home_widget.streak_days'.tr(),
+      'streakStart': 'home_widget.streak_start'.tr(),
+      'streakDone': 'home_widget.streak_done'.tr(),
+      'streakTonight': 'home_widget.streak_tonight'.tr(),
     };
     // A locked app shows nothing of what was watched — not on the lock
-    // screen's doorstep, the home screen.
-    if (_hive.isAppLockEnabled) {
+    // screen's doorstep, the home screen. Nor does a profile behind its own
+    // PIN: the phone is shared, and the home screen is the most shared part.
+    final active = _profiles?.active;
+    if (_hive.isAppLockEnabled || (active?.hasPin ?? false)) {
       await _prunePosters(const {});
       return {'locked': true, 'labels': labels};
     }
-    final items = continueItems(_history.getAll());
+    final available = _isAvailable;
+    final items = continueItems([
+      for (final item in _history.getAll())
+        if (available == null || available(item.provider)) item,
+    ]);
     final posters = <String>{};
+    // Whose it is, when there is more than one to be: the profile's avatar
+    // in the corner, never its name — a face reads at a glance.
+    String? avatar;
+    final profiles = _profiles;
+    if (active != null && profiles != null && profiles.profiles.length > 1) {
+      avatar = await _avatar(active);
+      if (avatar != null) posters.add(avatar);
+    }
     final rows = <Map<String, dynamic>>[];
     for (final item in items) {
       final path = await _poster(item.thumbnail);
@@ -151,10 +194,18 @@ class HomeWidgetSync with WidgetsBindingObserver {
       'locked': false,
       'labels': labels,
       'items': rows,
-      if (_hive.isLoggedIn && streak.current > 0)
+      'avatar': ?avatar,
+      if (_hive.isLoggedIn)
         'streak': {
           'current': streak.current,
+          'longest': streak.longest,
           'lastActiveDate': ?streak.lastActiveDate,
+          // The week the streak widget draws as dots, Monday first; a date
+          // per dot so the widget can tell which one is today.
+          'week': [
+            for (final d in streak.weeklyActivity)
+              {'date': d.date, 'active': d.active},
+          ],
         },
       'next': ?await _nextAiring(),
     };
@@ -178,29 +229,25 @@ class HomeWidgetSync with WidgetsBindingObserver {
     return out.take(_slots).toList();
   }
 
-  /// "Episode 7 · 14 min left", "Chapter 128".
+  /// "Ep 7", "Ch 128" — the number and nothing else. A chapter's own title
+  /// ("Chapter 1: My Worst Nightmare") and the minutes left made three lines
+  /// of small print per poster; the progress bar already says how far.
   @visibleForTesting
   static String subtitleOf(HistoryItem item) {
-    final reading = item.mediaType == 'manga' || item.mediaType == 'novel';
-    final label = item.episodeLabel?.trim();
+    if (!item.isSerial) return '';
+    // Rows written before the media type was recorded have none; the
+    // source's own mode says whether it is read or watched.
+    final reading = item.mediaType != null
+        ? item.mediaType == 'manga' || item.mediaType == 'novel'
+        : item.provider.contentMode != ContentMode.video;
     final number = item.episodeNumber ?? item.episodeIndex;
-    final unit = !item.isSerial
-        ? null
-        : (label != null && label.isNotEmpty && int.tryParse(label) == null)
-        ? label
-        : number == null
-        ? null
-        : (reading ? 'home_widget.chapter' : 'home_widget.episode').tr(
-            args: ['$number'],
-          );
-    final left = !reading && item.durationMs > 0
-        ? ((item.durationMs - item.positionMs) / 60000).ceil()
-        : 0;
-    return [
-      ?unit,
-      if (left > 0 && item.progress < 0.95)
-        'home_widget.min_left'.tr(args: ['$left']),
-    ].join(' · ');
+    if (number != null) {
+      return (reading ? 'home_widget.chapter' : 'home_widget.episode').tr(
+        args: ['$number'],
+      );
+    }
+    final label = item.episodeLabel?.trim() ?? '';
+    return label;
   }
 
   // --- posters ---------------------------------------------------------------
@@ -251,6 +298,92 @@ class HomeWidgetSync with WidgetsBindingObserver {
         if (f is File && !keep.contains(f.path)) await f.delete();
       }
     } catch (_) {}
+  }
+
+  /// The profile's avatar as a small round picture the widget can draw: its
+  /// illustration on its colour, else its preset icon or initial.
+  Future<String?> _avatar(HouseholdProfile profile) async {
+    try {
+      final dir = await _posterDir();
+      final key =
+          '${profile.id}|${profile.avatar}|${profile.color}|${profile.name}';
+      final file = File(
+        '${dir.path}/avatar_${md5.convert(utf8.encode(key))}.png',
+      );
+      if (await file.exists()) return file.path;
+      const px = 96.0;
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      final center = const Offset(px / 2, px / 2);
+      final asset = ProfileAvatars.imageFor(profile.avatar);
+      final bg = ProfileAvatars.parse(
+        asset != null
+            ? ProfileAvatars.imageColors[profile.avatar]
+            : profile.color,
+        profile.name,
+      );
+      canvas.drawCircle(center, px / 2, Paint()..color = bg);
+      if (asset != null) {
+        final data = await rootBundle.load(asset);
+        final codec = await ui.instantiateImageCodec(
+          data.buffer.asUint8List(),
+          targetWidth: px.toInt(),
+        );
+        final image = (await codec.getNextFrame()).image;
+        canvas.save();
+        canvas.clipPath(Path()..addOval(Offset.zero & const Size(px, px)));
+        canvas.drawImageRect(
+          image,
+          Offset.zero & Size(image.width.toDouble(), image.height.toDouble()),
+          Offset.zero & const Size(px, px),
+          Paint()..filterQuality = FilterQuality.medium,
+        );
+        canvas.restore();
+        image.dispose();
+      } else {
+        final icon = ProfileAvatars.presets[profile.avatar];
+        final painter = TextPainter(
+          textDirection: ui.TextDirection.ltr,
+          text: TextSpan(
+            text: icon != null
+                ? String.fromCharCode(icon.codePoint)
+                : (profile.name.trim().isEmpty
+                      ? '?'
+                      : profile.name.trim().characters.first.toUpperCase()),
+            style: TextStyle(
+              color: const Color(0xFFFFFFFF),
+              fontSize: icon != null ? 54 : 48,
+              fontWeight: FontWeight.w800,
+              fontFamily: icon?.fontFamily,
+              package: icon?.fontPackage,
+            ),
+          ),
+        )..layout();
+        painter.paint(
+          canvas,
+          center - Offset(painter.width / 2, painter.height / 2),
+        );
+      }
+      // A thin light ring, so a dark avatar still reads on a dark poster.
+      canvas.drawCircle(
+        center,
+        px / 2 - 2,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4
+          ..color = const Color(0xCCFFFFFF),
+      );
+      final picture = recorder.endRecording();
+      final out = await picture.toImage(px.toInt(), px.toInt());
+      final png = await out.toByteData(format: ui.ImageByteFormat.png);
+      out.dispose();
+      if (png == null) return null;
+      await file.writeAsBytes(png.buffer.asUint8List(), flush: true);
+      return file.path;
+    } catch (e) {
+      debugPrint('[home_widget] avatar failed: $e');
+      return null;
+    }
   }
 
   // --- the next episode ------------------------------------------------------
@@ -318,6 +451,12 @@ class HomeWidgetSync with WidgetsBindingObserver {
         case 'continue':
           final url = action['contentUrl'] as String?;
           if (url == null || url.isEmpty) return;
+          final provider = action['provider'] as String?;
+          if (provider != null &&
+              provider.isNotEmpty &&
+              currentSource?.call() != provider) {
+            selectSource?.call(provider);
+          }
           AppRouter.router.push(
             '/detail',
             extra: DetailArgs(
@@ -329,6 +468,8 @@ class HomeWidgetSync with WidgetsBindingObserver {
           );
         case 'next':
           AppRouter.router.push('/anilist/calendar');
+        case 'streak':
+          AppRouter.router.push('/streak');
       }
     }
 
@@ -338,16 +479,17 @@ class HomeWidgetSync with WidgetsBindingObserver {
       return path.isNotEmpty && path != '/splash' && path != '/onboarding';
     }
 
-    if (atHome()) {
-      go();
-      return;
+    // Home up, and the sources known — on a cold start the tap arrives before
+    // either, and a title opened then lands on the wrong source.
+    var tries = 0;
+    void whenReady() {
+      if ((atHome() && selectSource != null) || tries++ > 20) {
+        go();
+        return;
+      }
+      Timer(const Duration(milliseconds: 250), whenReady);
     }
-    late VoidCallback listener;
-    listener = () {
-      if (!atHome()) return;
-      delegate.removeListener(listener);
-      WidgetsBinding.instance.addPostFrameCallback((_) => go());
-    };
-    delegate.addListener(listener);
+
+    whenReady();
   }
 }
