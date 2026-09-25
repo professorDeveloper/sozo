@@ -58,6 +58,29 @@ void main() {
       expect(received['user-agent'], contains('Android'));
     });
 
+    test('keeps Origin and Referer when the caller asks — the preview '
+        'must send what the player sends', () async {
+      upstream.respond(
+        path: '/cdn/v.m3u8',
+        contentType: 'application/vnd.apple.mpegurl',
+        body: '#EXTM3U\n',
+      );
+
+      final loopback = await proxy.register(
+        upstreamUrl: '${upstream.origin}/cdn/v.m3u8',
+        headers: const {
+          'User-Agent': 'test',
+          'Referer': 'https://megaplay.buzz/',
+          'Origin': 'https://megaplay.buzz',
+        },
+        keepOriginHeaders: true,
+      );
+
+      expect(await _httpGetString(loopback), contains('#EXTM3U'));
+      expect(upstream.lastHeaders!['referer'], 'https://megaplay.buzz/');
+      expect(upstream.lastHeaders!['origin'], 'https://megaplay.buzz');
+    });
+
     test('rewrites same-host playlist URIs to loopback paths', () async {
       upstream.respond(
         path: '/cdn/manifest/video/x.m3u8',

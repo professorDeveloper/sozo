@@ -1357,6 +1357,7 @@ extension _PlayerMedia on _PlayerPageState {
         type?.trim().toLowerCase() == 'dash' ||
         url.toLowerCase().contains('.mpd');
     _isHls = isHls;
+    _isDash = isDash && !isHls;
 
     final proxied = !isLocal && isHls
         ? await _maybeRouteThroughLocalProxy(url: url, headers: headers)
@@ -2185,6 +2186,8 @@ extension _PlayerMedia on _PlayerPageState {
   }
 
   Future<void> _loadThumbnails(ThumbnailsEntity? thumbnails) async {
+    _thumbnailHeaders = thumbnails?.headers ?? const {};
+    _thumbnailsFailed = false;
     if (thumbnails == null) {
       _thumbnailsKey = null;
       _vttThumbnails = const [];
@@ -2230,6 +2233,21 @@ extension _PlayerMedia on _PlayerPageState {
     }
   }
 
+  /// A sprite sheet failed to load: stop trusting the source's thumbnails
+  /// for this stream and let the decoder make the preview instead.
+  void _onThumbnailFailed() {
+    if (_thumbnailsFailed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _thumbnailsFailed) return;
+      _plog(
+        'thumbnail sprite failed; using decoded frames',
+        level: LogLevel.warn,
+      );
+      setState(() => _thumbnailsFailed = true);
+      _schedulePreviewWarm(_mediaGeneration);
+    });
+  }
+
   /// Starts filling the seek-preview grid once playback has settled.
   ///
   /// Eight seconds in, not at once: the first seconds are when playback is
@@ -2238,7 +2256,8 @@ extension _PlayerMedia on _PlayerPageState {
   /// the grid), for live streams, and for anything shorter than a minute.
   void _schedulePreviewWarm(int generation) {
     _previewWarm?.cancel();
-    if (_vttThumbnails.isNotEmpty || _storyboard != null) return;
+    final hasThumbnails = _vttThumbnails.isNotEmpty || _storyboard != null;
+    if (hasThumbnails && !_thumbnailsFailed) return;
     // Soon after playback settles: most scrubs come in the first minute.
     // On mobile data it waits longer, so the opening segments come first.
     _previewWarm = Timer(const Duration(seconds: 3), () async {

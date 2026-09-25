@@ -17,7 +17,9 @@ extension _PlayerGestures on _PlayerPageState {
     }
   }
 
-  void _onHDragStart(DragStartDetails _) {
+  /// [initialDeltaPx]: how far the finger has already travelled from where
+  /// it touched down, by the time the swipe was recognised as horizontal.
+  void _onHDragStart(DragStartDetails _, {double initialDeltaPx = 0}) {
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
     _hideTimer?.cancel();
@@ -37,18 +39,17 @@ extension _PlayerGestures on _PlayerPageState {
     _scrub.value = _ScrubState(
       baseline: c.value.position,
       duration: c.value.duration,
-      deltaPx: 0,
-      span: 1,
+      deltaPx: initialDeltaPx,
     );
   }
 
   void _onHDragUpdate(DragUpdateDetails details, BoxConstraints constraints) {
     final state = _scrub.value;
     if (state == null) return;
-    _scrub.value = state.copyWith(
-      deltaPx: state.deltaPx + details.delta.dx,
-      span: constraints.maxWidth,
-    );
+    final next = state.copyWith(deltaPx: state.deltaPx + details.delta.dx);
+    // A tick when the finger crosses back into "never mind", and out of it.
+    if (next.cancels != state.cancels) HapticFeedback.selectionClick();
+    _scrub.value = next;
   }
 
   void _onHDragEnd(DragEndDetails _) {
@@ -61,7 +62,13 @@ extension _PlayerGestures on _PlayerPageState {
       _scheduleHide();
       return;
     }
-    final target = state.previewPosition(_scrubSecondsPerFullSwipe);
+    // Brought back to where it began: nothing to do. It used to seek to the
+    // position the swipe started from, a jump backwards and a rebuffer.
+    if (state.cancels) {
+      _scheduleHide();
+      return;
+    }
+    final target = state.previewPosition();
     // Route through _seekTo so the swipe-scrub honours the party control gate
     // and broadcasts the seek, like every other seek surface.
     _seekTo(target);
@@ -143,6 +150,7 @@ extension _PlayerGestures on _PlayerPageState {
   }
 
   void _onScaleUpdate(ScaleUpdateDetails d, BoxConstraints constraints) {
+    if (d.pointerCount < 2 && _pinchLatched) return;
     if (d.pointerCount >= 2) {
       // A pinch cancels whatever the single-finger path had begun, so a
       // brightness slide does not keep running under the zoom.
@@ -167,14 +175,27 @@ extension _PlayerGestures on _PlayerPageState {
   }
 
   void _onScaleEnd(ScaleEndDetails d) {
+    // Taken away by the system rather than lifted: undo, never commit.
+    if (_pointerCancelled) {
+      _pointerCancelled = false;
+      _pinchLatched = false;
+      _onPanCancel();
+      return;
+    }
     if (d.pointerCount >= 1 || _dragStart == null) {
       // Fingers lifting out of a pinch, or a pinch that never became a drag.
+      // A scrub or a brightness slide under way when the second finger came
+      // down is cancelled: left alone, its card stayed on screen for good.
+      if (_dragIsHorizontal == true) _onHDragCancel();
+      if (_dragSwipeType != null) _swipeIndicator.value = null;
       _hideZoomBadgeSoon();
+      _pinchLatched = d.pointerCount >= 1;
       _dragStart = null;
       _dragIsHorizontal = null;
       _dragSwipeType = null;
       return;
     }
+    _pinchLatched = false;
     _onPanEnd(DragEndDetails(velocity: d.velocity));
   }
 
@@ -214,12 +235,21 @@ extension _PlayerGestures on _PlayerPageState {
       _dragIsHorizontal = dx > dy;
 
       if (_dragIsHorizontal!) {
+        // Nothing to scrub on a broadcast, a guest without control may not
+        // seek, and a swipe over an open panel belongs to the panel. Refused
+        // here, at the start, not after a whole drag with a preview drawn.
+        if (_isLive || _panel != _SidePanel.none || _partyBlockLocal()) {
+          return;
+        }
+        final from = _pointerDownAt ?? start;
         _onHDragStart(
           DragStartDetails(
             globalPosition: d.globalPosition,
             localPosition: d.localPosition,
           ),
+          initialDeltaPx: d.localPosition.dx - from.dx,
         );
+        return;
       } else {
         final isLeft = start.dx < constraints.maxWidth * 0.5;
         _dragSwipeType = isLeft ? _SwipeType.brightness : _SwipeType.volume;

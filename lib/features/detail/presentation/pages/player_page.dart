@@ -79,6 +79,7 @@ import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
 import 'package:soplay/core/preview/frame_preview_service.dart';
+import 'package:soplay/features/detail/domain/scrub_curve.dart';
 import 'package:soplay/features/trakt/data/trakt_tracker.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/video_option_groups.dart';
@@ -252,6 +253,9 @@ class _PlayerPageState extends State<PlayerPage>
   String? _torrentHash;
   Map<String, String> _headers = const {};
   bool _isHls = false;
+
+  /// A DASH manifest: neither frame decoder here reads one.
+  bool _isDash = false;
 
   /// Fires [_schedulePreviewWarm]'s delayed start; cancelled on every change of media.
   Timer? _previewWarm;
@@ -450,6 +454,14 @@ class _PlayerPageState extends State<PlayerPage>
   String? _thumbnailsKey;
   List<_VttThumbnail> _vttThumbnails = const [];
   ThumbnailsEntity? _storyboard;
+
+  /// What the source's thumbnails are fetched with: the sprite sheets sit on
+  /// the same header-gated hosts as the VTT that lists them.
+  Map<String, String> _thumbnailHeaders = const {};
+
+  /// A sprite sheet would not load. The seek preview then decodes frames
+  /// itself, as it does for a source with no thumbnails at all.
+  bool _thumbnailsFailed = false;
   final ValueNotifier<double?> _sliderDragValue = ValueNotifier<double?>(null);
 
   /// Seeded from Settings → Player in [initState]; still freely changed
@@ -515,6 +527,25 @@ class _PlayerPageState extends State<PlayerPage>
   _SwipeType? _dragSwipeType;
 
   final ValueNotifier<_ScrubState?> _scrub = ValueNotifier<_ScrubState?>(null);
+
+  /// A finger is on the seek bar. Apart from the drag value, which is held
+  /// until the seek lands to keep the thumb still: the preview card went
+  /// with that value and hung on for up to a second after the finger lifted.
+  final ValueNotifier<bool> _seekBarDragging = ValueNotifier<bool>(false);
+
+  /// Where the finger first touched the video, before any recogniser had
+  /// decided what the touch was: the swipe measures from here, not from where
+  /// it was recognised, so the first centimetre of travel is not lost.
+  Offset? _pointerDownAt;
+
+  /// The system took the touch away (a gesture from the edge, a call). The
+  /// scale recogniser reports that as an ordinary end, which committed the
+  /// swipe's seek; this turns it back into a cancel.
+  bool _pointerCancelled = false;
+
+  /// A pinch has ended with a finger still down. That finger is ignored until
+  /// it lifts, so the tail of a pinch cannot start a scrub.
+  bool _pinchLatched = false;
   final ValueNotifier<bool> _speedBoost = ValueNotifier<bool>(false);
   double? _speedBeforeBoost;
 
@@ -787,6 +818,7 @@ class _PlayerPageState extends State<PlayerPage>
     _controlsAnimation.dispose();
     _seekRippleController.dispose();
     _scrub.dispose();
+    _seekBarDragging.dispose();
     _speedBoost.dispose();
     _swipeIndicator.dispose();
     _sliderDragValue.dispose();
@@ -890,45 +922,56 @@ class _PlayerPageState extends State<PlayerPage>
                   onLongPressEnd: _locked || _desktopMini
                       ? null
                       : _onLongPressEnd,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _buildVideoLayer(),
-                      _buildSubtitleOverlay(),
-                      if (!_locked) _buildSeekRipple(),
-                      if (_locked)
-                        _buildLockOverlay()
-                      else
-                        _buildControlsOverlay(),
-                      if (!_locked) _buildScrubOverlay(),
-                      if (!_locked) _buildSpeedBoostBadge(),
-                      if (!_locked) _buildSwipeIndicator(),
-                      // Renders nothing unless the URL is a local torrent stream,
-                      // so it is safe to hand it every playback unconditionally.
-                      // It keeps showing while the controls are hidden if the
-                      // pre-buffer is still filling — that is precisely when the
-                      // picture is frozen and the user needs to know why.
-                      TorrentStatsOverlay(
-                        videoUrl: _videoUrl,
-                        visible: _controlsVisible && !_locked,
-                      ),
-                      // Above the controls layer so it is reachable while they are
-                      // hidden — the offer is at its most useful to a viewer who has
-                      // not touched the screen. Renders nothing when no interval is
-                      // active, so it costs nothing on non-anime playback.
-                      if (!_locked) _buildPlayerInfoOverlay(),
-                      if (!_locked) _buildSkipButton(),
-                      if (!_locked) _buildUpNextPrompt(),
-                      if (!_locked && _panel != _SidePanel.none)
-                        _buildSidePanel(),
-                      if (!_locked && _inParty) _buildPartyReactionsLayer(),
-                      if (_desktopMini) _buildDesktopMiniOverlay(),
-                      // Last, so it covers everything: while a television is
-                      // playing this episode the phone is a remote, and leaving the
-                      // local controls reachable underneath would let someone
-                      // scrub a surface nobody is watching.
-                      _buildCastOverlay(),
-                    ],
+                  child: Listener(
+                    // Seen before any recogniser claims the touch, and in the
+                    // order they happen: where the finger went down (the
+                    // swipe measures from there) and a cancel from the system,
+                    // which the scale recogniser would report as an end.
+                    onPointerDown: (e) {
+                      _pointerDownAt = e.localPosition;
+                      _pointerCancelled = false;
+                    },
+                    onPointerCancel: (_) => _pointerCancelled = true,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _buildVideoLayer(),
+                        _buildSubtitleOverlay(),
+                        if (!_locked) _buildSeekRipple(),
+                        if (_locked)
+                          _buildLockOverlay()
+                        else
+                          _buildControlsOverlay(),
+                        if (!_locked) _buildScrubOverlay(),
+                        if (!_locked) _buildSpeedBoostBadge(),
+                        if (!_locked) _buildSwipeIndicator(),
+                        // Renders nothing unless the URL is a local torrent stream,
+                        // so it is safe to hand it every playback unconditionally.
+                        // It keeps showing while the controls are hidden if the
+                        // pre-buffer is still filling — that is precisely when the
+                        // picture is frozen and the user needs to know why.
+                        TorrentStatsOverlay(
+                          videoUrl: _videoUrl,
+                          visible: _controlsVisible && !_locked,
+                        ),
+                        // Above the controls layer so it is reachable while they are
+                        // hidden — the offer is at its most useful to a viewer who has
+                        // not touched the screen. Renders nothing when no interval is
+                        // active, so it costs nothing on non-anime playback.
+                        if (!_locked) _buildPlayerInfoOverlay(),
+                        if (!_locked) _buildSkipButton(),
+                        if (!_locked) _buildUpNextPrompt(),
+                        if (!_locked && _panel != _SidePanel.none)
+                          _buildSidePanel(),
+                        if (!_locked && _inParty) _buildPartyReactionsLayer(),
+                        if (_desktopMini) _buildDesktopMiniOverlay(),
+                        // Last, so it covers everything: while a television is
+                        // playing this episode the phone is a remote, and leaving the
+                        // local controls reachable underneath would let someone
+                        // scrub a surface nobody is watching.
+                        _buildCastOverlay(),
+                      ],
+                    ),
                   ),
                 ),
               ),

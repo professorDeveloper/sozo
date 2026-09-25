@@ -555,7 +555,8 @@
     "subtitle_in_video": "ضمن الفيديو",
     "rewind": "ترجيع",
     "mini_restore": "العودة إلى النافذة الكاملة",
-    "pip_unavailable": "تعذّر تشغيل صورة داخل صورة لهذا الفيديو."
+    "pip_unavailable": "تعذّر تشغيل صورة داخل صورة لهذا الفيديو.",
+    "scrub_release_cancel": "اترك للإلغاء"
   },
   "profile": {
     "title": "حسابي",

@@ -555,7 +555,8 @@
     "subtitle_in_video": "Dans la vidéo",
     "rewind": "Reculer",
     "mini_restore": "Revenir à la fenêtre complète",
-    "pip_unavailable": "Impossible de lancer l’image dans l’image pour cette vidéo."
+    "pip_unavailable": "Impossible de lancer l’image dans l’image pour cette vidéo.",
+    "scrub_release_cancel": "Relâchez pour annuler"
   },
   "profile": {
     "title": "Profil",

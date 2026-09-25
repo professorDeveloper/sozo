@@ -555,7 +555,8 @@
     "subtitle_in_video": "Videonun içinde",
     "rewind": "Geri sar",
     "mini_restore": "Tam pencereye dön",
-    "pip_unavailable": "Bu video için resim içinde resim başlatılamadı."
+    "pip_unavailable": "Bu video için resim içinde resim başlatılamadı.",
+    "scrub_release_cancel": "İptal için bırak"
   },
   "profile": {
     "title": "Profil",

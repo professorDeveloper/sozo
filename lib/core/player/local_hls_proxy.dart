@@ -31,6 +31,12 @@ class LocalHlsProxy {
     // manifest — how a DASH quality is picked, since neither engine exposes
     // DASH track selection.
     String? dashRepresentation,
+    // Send the Origin and Referer given here upstream. Off by default: the
+    // sources routed through the proxy for playback are the ones whose CDN
+    // refuses them. The seek-bar preview wants the opposite — the exact
+    // headers the player's own requests carry — and most stream CDNs gate on
+    // the Referer; without it every preview frame was a 403.
+    bool keepOriginHeaders = false,
   }) async {
     await _ensureStarted();
     final id = _randomId();
@@ -48,6 +54,7 @@ class LocalHlsProxy {
       ),
       lastAccess: DateTime.now(),
       dashRepresentation: dashRepresentation,
+      keepOriginHeaders: keepOriginHeaders,
     );
     final query = parsed.hasQuery ? '?${parsed.query}' : '';
     return 'http://127.0.0.1:$_port/hls/$id${parsed.path}$query';
@@ -120,7 +127,8 @@ class LocalHlsProxy {
     final upstreamUrl = '$origin$resolved$queryString';
 
     final upstreamHeaders = <String, String>{};
-    final keepOriginHeaders = sess.transform?.keepsOriginHeaders == true;
+    final keepOriginHeaders =
+        sess.keepOriginHeaders || sess.transform?.keepsOriginHeaders == true;
     sess.headers.forEach((k, v) {
       final lower = k.toLowerCase();
       if (lower == 'host' ||
@@ -564,9 +572,11 @@ class _Session {
     required this.transform,
     required this.lastAccess,
     this.dashRepresentation,
+    this.keepOriginHeaders = false,
   });
 
   final String? dashRepresentation;
+  final bool keepOriginHeaders;
   final String origin;
   String basePath;
   final String cdnQuery;

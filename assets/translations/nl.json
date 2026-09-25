@@ -555,7 +555,8 @@
     "subtitle_in_video": "In de video",
     "rewind": "Terugspoelen",
     "mini_restore": "Terug naar het volledige venster",
-    "pip_unavailable": "Beeld-in-beeld kon voor deze video niet starten."
+    "pip_unavailable": "Beeld-in-beeld kon voor deze video niet starten.",
+    "scrub_release_cancel": "Loslaten om te annuleren"
   },
   "profile": {
     "title": "Profiel",

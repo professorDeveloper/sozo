@@ -6,7 +6,9 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.SeekParameters
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.inspector.FrameExtractor
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
@@ -46,8 +48,24 @@ object HlsFramePreview {
             if (this.url == url && extractor != null) return true
         }
         return try {
-            val built = FrameExtractor.Builder(context.applicationContext, MediaItem.fromUri(url))
+            // The format said outright. Left to guess, Media3 reads the last
+            // path segment, and an HLS address that does not end in .m3u8 —
+            // `/playlist`, `/master.txt`, a query-string file — was opened as
+            // a progressive file and failed on every frame.
+            val item = MediaItem.Builder()
+                .setUri(url)
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .build()
+            val built = FrameExtractor.Builder(context.applicationContext, item)
                 .setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                // Software decoders first. Playback already holds a hardware
+                // one, some chips allow only one or two at a time, and a
+                // 240p thumbnail rendition is nothing for the CPU.
+                .setMediaCodecSelector { mime, secure, tunneling ->
+                    MediaCodecSelector.DEFAULT
+                        .getDecoderInfos(mime, secure, tunneling)
+                        .sortedBy { it.hardwareAccelerated }
+                }
                 .build()
             synchronized(lock) {
                 if (generation != sessionId) {
@@ -68,11 +86,26 @@ object HlsFramePreview {
         val ex = synchronized(lock) {
             if (sessionId != generation) null else extractor
         } ?: return null
-        return try {
-            val frame = ex.getFrame(positionMs.coerceAtLeast(0L)).get(8, TimeUnit.SECONDS)
-            if (synchronized(lock) { sessionId != generation }) null else encode(frame.bitmap)
+        val pending = try {
+            ex.getFrame(positionMs.coerceAtLeast(0L))
         } catch (t: Throwable) {
-            Log.w(TAG, "hls frame unavailable: ${t.javaClass.simpleName}")
+            Log.w(TAG, "hls frame request refused: ${t.javaClass.name}: ${t.message}")
+            return null
+        }
+        return try {
+            val frame = pending.get(5, TimeUnit.SECONDS)
+            if (synchronized(lock) { sessionId != generation }) null else encode(frame.bitmap)
+        } catch (t: java.util.concurrent.TimeoutException) {
+            // The extractor runs its requests one after another; one left
+            // running would hold every later frame behind it.
+            pending.cancel(true)
+            Log.w(TAG, "hls frame timed out at ${positionMs}ms")
+            null
+        } catch (t: Throwable) {
+            // The future wraps the real failure; its class name alone said
+            // nothing about why every frame was missing.
+            val cause = (t as? java.util.concurrent.ExecutionException)?.cause ?: t
+            Log.w(TAG, "hls frame unavailable: ${cause.javaClass.name}: ${cause.message}", cause)
             null
         }
     }

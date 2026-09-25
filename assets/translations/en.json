@@ -555,7 +555,8 @@
     "subtitle_in_video": "In the video",
     "rewind": "Rewind",
     "mini_restore": "Back to the full window",
-    "pip_unavailable": "Picture-in-picture could not start for this video."
+    "pip_unavailable": "Picture-in-picture could not start for this video.",
+    "scrub_release_cancel": "Release to cancel"
   },
   "profile": {
     "title": "Profile",

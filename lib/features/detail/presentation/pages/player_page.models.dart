@@ -72,7 +72,6 @@ const MethodChannel _iosPipChannel = MethodChannel('soplay/ios_pip');
 const MethodChannel _systemControlsChannel = MethodChannel(
   'soplay/system_controls',
 );
-const double _scrubSecondsPerFullSwipe = 90;
 
 /// Seek-button icons for the step chosen in Settings → Player.
 ///
@@ -107,30 +106,30 @@ class _ScrubState {
   final Duration baseline;
   final Duration duration;
   final double deltaPx;
-  final double span;
 
   const _ScrubState({
     required this.baseline,
     required this.duration,
     required this.deltaPx,
-    required this.span,
   });
 
-  _ScrubState copyWith({double? deltaPx, double? span}) => _ScrubState(
+  _ScrubState copyWith({double? deltaPx}) => _ScrubState(
     baseline: baseline,
     duration: duration,
     deltaPx: deltaPx ?? this.deltaPx,
-    span: span ?? this.span,
   );
 
-  Duration previewPosition(double secondsPerFullSwipe) {
-    if (span <= 0 || duration.inMilliseconds <= 0) return baseline;
-    final fraction = (deltaPx / span).clamp(-1.0, 1.0);
-    final deltaMs = (fraction * secondsPerFullSwipe * 1000).round();
-    final target = baseline.inMilliseconds + deltaMs;
-    final clamped = target.clamp(0, duration.inMilliseconds);
-    return Duration(milliseconds: clamped);
-  }
+  /// Where releasing now would land; see [ScrubCurve].
+  Duration previewPosition() => Duration(
+    milliseconds: ScrubCurve.targetMs(
+      baselineMs: baseline.inMilliseconds,
+      durationMs: duration.inMilliseconds,
+      deltaPx: deltaPx,
+    ),
+  );
+
+  /// Back where it started: releasing now changes nothing.
+  bool get cancels => ScrubCurve.cancels(deltaPx);
 }
 
 class _VttThumbnail {

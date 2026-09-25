@@ -555,7 +555,8 @@
     "subtitle_in_video": "Di dalam video",
     "rewind": "Mundur",
     "mini_restore": "Kembali ke jendela penuh",
-    "pip_unavailable": "Gambar-dalam-gambar tidak bisa dimulai untuk video ini."
+    "pip_unavailable": "Gambar-dalam-gambar tidak bisa dimulai untuk video ini.",
+    "scrub_release_cancel": "Lepas untuk membatalkan"
   },
   "profile": {
     "title": "Profil",

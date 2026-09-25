@@ -555,7 +555,8 @@
     "subtitle_in_video": "影片內置",
     "rewind": "倒帶",
     "mini_restore": "返去大視窗",
-    "pip_unavailable": "呢條片開唔到子母畫面。"
+    "pip_unavailable": "呢條片開唔到子母畫面。",
+    "scrub_release_cancel": "鬆手就取消"
   },
   "profile": {
     "title": "個人檔案",
