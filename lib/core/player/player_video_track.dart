@@ -1,3 +1,5 @@
+import 'package:soplay/core/player/quality_preference.dart';
+
 /// One selectable video rendition the ENGINE reports, as opposed to a mirror
 /// the provider listed.
 ///
@@ -48,9 +50,19 @@ class PlayerVideoTrack {
   /// True when the manifest said something usable about this rendition.
   bool get hasMetadata => (height != null && height! > 0) || bitrate != null;
 
+  /// The height a viewer would call this rendition: 1080 for a scope film at
+  /// 1920×800, which by its pixel height alone read as 720p on one screen
+  /// and 800p on another.
+  int? get displayHeight {
+    final h = height;
+    if (h == null || h <= 0) return null;
+    final w = width;
+    return (w != null ? QualityPreference.displayHeight(w, h) : null) ?? h;
+  }
+
   /// `1080p`, or null when the height is unknown.
   String? get resolutionLabel {
-    final h = height;
+    final h = displayHeight;
     if (h == null || h <= 0) return null;
     return switch (h) {
       >= 2000 => '4K',
@@ -119,9 +131,20 @@ List<PlayerVideoTrack> sortVideoTracks(List<PlayerVideoTrack> tracks) {
   final out = [...tracks];
   out.sort((a, b) {
     if (a.isAuto != b.isAuto) return a.isAuto ? -1 : 1;
-    final byHeight = (b.height ?? 0).compareTo(a.height ?? 0);
+    final byHeight = (b.displayHeight ?? 0).compareTo(a.displayHeight ?? 0);
     if (byHeight != 0) return byHeight;
     return (b.bitrate ?? 0).compareTo(a.bitrate ?? 0);
   });
   return out;
+}
+
+/// One rendition per height, the richest of each: a master carrying 1080p at
+/// two bitrates listed two rows both reading "1080p". Auto and renditions of
+/// unknown height are kept as they are. Expects [sortVideoTracks]' order.
+List<PlayerVideoTrack> onePerHeight(List<PlayerVideoTrack> sorted) {
+  final seen = <int>{};
+  return [
+    for (final t in sorted)
+      if (t.isAuto || t.displayHeight == null || seen.add(t.displayHeight!)) t,
+  ];
 }

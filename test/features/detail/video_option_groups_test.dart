@@ -106,5 +106,23 @@ void main() {
       expect(VideoOptionGroups.resolutionOf('Vidsrc · 4K'), 2160);
       expect(VideoOptionGroups.resolutionOf('Server · FHD'), 1080);
     });
+
+    test('quality words are not servers', () {
+      // A provider's own ladder: one server, not "Auto" plus "Default".
+      expect(VideoOptionGroups.servers(['Auto', '1080p', '720p', '360p']), [
+        'Default',
+      ]);
+      expect(VideoOptionGroups.qualityOf('Auto'), '');
+      // uzmovi-style labels.
+      expect(
+        VideoOptionGroups.servers(['HD 1080p', 'HD 720p', 'Mobile HD', '4K']),
+        ['Default'],
+      );
+      expect(VideoOptionGroups.qualityOf('Mobile HD'), 'Mobile HD');
+      // A tag alone is no host either; beside a name it stays.
+      expect(VideoOptionGroups.serverOf('4K HDR'), 'Default');
+      expect(VideoOptionGroups.serverOf('x265 1080p'), 'Default');
+      expect(VideoOptionGroups.serverOf('Auto · Mp4Upload'), 'Mp4Upload');
+    });
   });
 }

@@ -8,15 +8,14 @@ PlayerVideoTrack t({
   int? bitrate,
   String? codec,
   int ordinal = 1,
-}) =>
-    PlayerVideoTrack(
-      id: id,
-      width: width,
-      height: height,
-      bitrate: bitrate,
-      codec: codec,
-      ordinal: ordinal,
-    );
+}) => PlayerVideoTrack(
+  id: id,
+  width: width,
+  height: height,
+  bitrate: bitrate,
+  codec: codec,
+  ordinal: ordinal,
+);
 
 void main() {
   group('what a row says', () {
@@ -43,8 +42,12 @@ void main() {
     });
 
     test('the detail line carries what the label could not', () {
-      final track =
-          t(width: 1920, height: 1080, bitrate: 4200000, codec: 'h264');
+      final track = t(
+        width: 1920,
+        height: 1080,
+        bitrate: 4200000,
+        codec: 'h264',
+      );
       expect(track.label, '1080p');
       expect(track.detail, '1920×1080 · 4.2 Mbps · h264');
     });
@@ -118,12 +121,35 @@ void main() {
     });
   });
 
-  test('equality is by value, so a re-probe with the same data is not a change',
-      () {
-    // mpv probes a stream in stages and reports the same renditions twice —
-    // first bare, then described. Identity comparison would rebuild the sheet
-    // on every one of those.
-    expect(t(id: '1', height: 1080), equals(t(id: '1', height: 1080)));
-    expect(t(id: '1', height: 1080), isNot(equals(t(id: '1', height: 720))));
+  test(
+    'equality is by value, so a re-probe with the same data is not a change',
+    () {
+      // mpv probes a stream in stages and reports the same renditions twice —
+      // first bare, then described. Identity comparison would rebuild the sheet
+      // on every one of those.
+      expect(t(id: '1', height: 1080), equals(t(id: '1', height: 1080)));
+      expect(t(id: '1', height: 1080), isNot(equals(t(id: '1', height: 720))));
+    },
+  );
+
+  test('a scope film reads as the height a viewer would call it', () {
+    const scope = PlayerVideoTrack(id: '1', width: 1920, height: 800);
+    expect(scope.displayHeight, 1080);
+    expect(scope.resolutionLabel, '1080p');
+    const uhd = PlayerVideoTrack(id: '2', width: 3840, height: 1600);
+    expect(uhd.resolutionLabel, '4K');
+  });
+
+  test('one rendition per height, the richest, auto kept', () {
+    final rows = onePerHeight(
+      sortVideoTracks(const [
+        PlayerVideoTrack(id: 'auto'),
+        PlayerVideoTrack(id: 'a', width: 1920, height: 1080, bitrate: 4000000),
+        PlayerVideoTrack(id: 'b', width: 1920, height: 1080, bitrate: 6000000),
+        PlayerVideoTrack(id: 'c', width: 1280, height: 720, bitrate: 2000000),
+        PlayerVideoTrack(id: 'd', bitrate: 900000),
+      ]),
+    );
+    expect(rows.map((t) => t.id), ['auto', 'b', 'c', 'd']);
   });
 }

@@ -556,7 +556,8 @@
     "rewind": "Zurückspulen",
     "mini_restore": "Zurück zum großen Fenster",
     "pip_unavailable": "Bild-in-Bild konnte für dieses Video nicht gestartet werden.",
-    "scrub_release_cancel": "Loslassen zum Abbrechen"
+    "scrub_release_cancel": "Loslassen zum Abbrechen",
+    "auto_quality_desc_mpv": "Startet mit der besten Qualität des Streams"
   },
   "profile": {
     "title": "Profil",

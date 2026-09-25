@@ -11,6 +11,7 @@ class LocalHlsProxy {
   LocalHlsProxy(this._dio);
 
   static const _sessionTtl = Duration(minutes: 30);
+  static const _longLivedTtl = Duration(hours: 6);
   static const _cleanupInterval = Duration(minutes: 5);
 
   final Dio _dio;
@@ -37,6 +38,10 @@ class LocalHlsProxy {
     // headers the player's own requests carry — and most stream CDNs gate on
     // the Referer; without it every preview frame was a 403.
     bool keepOriginHeaders = false,
+    // Kept for hours, not the usual half hour: a quality row registered when
+    // the menu was built may be picked long after, and an evicted session
+    // answers 410 — the row looked fine and did nothing.
+    bool longLived = false,
   }) async {
     await _ensureStarted();
     final id = _randomId();
@@ -55,6 +60,7 @@ class LocalHlsProxy {
       lastAccess: DateTime.now(),
       dashRepresentation: dashRepresentation,
       keepOriginHeaders: keepOriginHeaders,
+      longLived: longLived,
     );
     final query = parsed.hasQuery ? '?${parsed.query}' : '';
     return 'http://127.0.0.1:$_port/hls/$id${parsed.path}$query';
@@ -85,7 +91,11 @@ class LocalHlsProxy {
 
   void _evictStale() {
     final now = DateTime.now();
-    _sessions.removeWhere((_, s) => now.difference(s.lastAccess) > _sessionTtl);
+    _sessions.removeWhere(
+      (_, s) =>
+          now.difference(s.lastAccess) >
+          (s.longLived ? _longLivedTtl : _sessionTtl),
+    );
   }
 
   Future<void> _handle(HttpRequest req) async {
@@ -573,10 +583,12 @@ class _Session {
     required this.lastAccess,
     this.dashRepresentation,
     this.keepOriginHeaders = false,
+    this.longLived = false,
   });
 
   final String? dashRepresentation;
   final bool keepOriginHeaders;
+  final bool longLived;
   final String origin;
   String basePath;
   final String cdnQuery;

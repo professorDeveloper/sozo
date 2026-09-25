@@ -556,7 +556,8 @@
     "rewind": "Назад",
     "mini_restore": "Вернуть в большое окно",
     "pip_unavailable": "Не удалось включить «картинку в картинке» для этого видео.",
-    "scrub_release_cancel": "Отпустите для отмены"
+    "scrub_release_cancel": "Отпустите для отмены",
+    "auto_quality_desc_mpv": "Начинает с лучшего качества потока"
   },
   "profile": {
     "title": "Профиль",

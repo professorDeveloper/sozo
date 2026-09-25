@@ -164,4 +164,25 @@ void main() {
       expect(SubtitleSizePreset.of(19), isNull);
     });
   });
+
+  test('no expansion when the server already lists resolutions', () {
+    expect(
+      QualityPreference.shouldExpand(
+        label: 'Auto',
+        url: 'https://cdn.example/master.m3u8',
+        type: 'hls',
+        siblingLabels: ['Auto', '1080p', '720p'],
+      ),
+      isFalse,
+    );
+    expect(
+      QualityPreference.shouldExpand(
+        label: 'Server 1',
+        url: 'https://cdn.example/master.m3u8',
+        type: 'hls',
+        siblingLabels: ['Server 1', 'Server 2 · 1080p'],
+      ),
+      isTrue,
+    );
+  });
 }

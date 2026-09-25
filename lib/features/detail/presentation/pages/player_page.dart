@@ -252,6 +252,12 @@ class _PlayerPageState extends State<PlayerPage>
   /// strangers after the viewer thinks they are done watching.
   String? _torrentHash;
   Map<String, String> _headers = const {};
+
+  /// The headers the resolve itself came with, before any per-stream merge.
+  /// What a mirror without headers of its own falls back to: [_headers] is
+  /// the previous stream's merged set, and its Referer and Cloudflare cookie
+  /// belong to that stream's host.
+  Map<String, String> _resolveHeaders = const {};
   bool _isHls = false;
 
   /// A DASH manifest: neither frame decoder here reads one.
@@ -270,7 +276,22 @@ class _PlayerPageState extends State<PlayerPage>
 
   /// Whether this episode's remembered height has been matched against the
   /// engine's renditions yet.
-  bool _videoTrackApplied = false;
+  /// The controller the remembered rendition was last applied to.
+  PlayerController? _videoTrackAppliedFor;
+
+  /// Where the stream about to open will seek to, until that seek lands. A
+  /// quality or server picked during the first load read the controller's
+  /// position — still zero — and restarted a resumed film from the top.
+  Duration _pendingResume = Duration.zero;
+
+  /// Whether the reload under way should play when it opens: what the viewer
+  /// had before a quality or server switch. Null for an ordinary start, which
+  /// follows the "start paused" setting.
+  bool? _autoplayOverride;
+
+  /// The audio track to pick again once a reloaded stream lists its tracks:
+  /// (language, title) of the one playing before the switch.
+  (String?, String?)? _pendingAudioChoice;
 
   /// The height picked by hand this session, 0 for Auto. Outranks what is
   /// stored, so a title with no content url still keeps the pick.

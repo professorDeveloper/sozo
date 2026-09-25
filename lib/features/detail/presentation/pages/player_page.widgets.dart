@@ -816,7 +816,11 @@ class _VideoTrackRow extends StatelessWidget {
                   if (track.isAuto || detail != null) ...[
                     const SizedBox(height: 2),
                     Text(
-                      track.isAuto ? 'player.auto_quality_desc'.tr() : detail!,
+                      // Engine tracks are libmpv's, which picks a rendition
+                      // when the stream opens and does not adapt after.
+                      track.isAuto
+                          ? 'player.auto_quality_desc_mpv'.tr()
+                          : detail!,
                       style: const TextStyle(
                         color: Colors.white38,
                         fontSize: 11,

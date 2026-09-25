@@ -27,6 +27,29 @@ export 'package:video_player/video_player.dart'
 abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
   PlayerController() : super(vp.VideoPlayerValue.uninitialized());
 
+  /// mpv's `hls-bitrate` for the next stream opened on libmpv: 'max',
+  /// 'min', or a ceiling in bits per second. Set by the player page from the
+  /// quality preference; [hlsBitrateFor] maps one to the other.
+  static String mpvHlsBitrate = 'max';
+
+  /// The `hls-bitrate` for a preferred height (see QualityPreference): the
+  /// top rendition for Auto, the bottom for Data saver, and otherwise a
+  /// ceiling a little above what that height usually streams at, so mpv opens
+  /// on it or the nearest below rather than on the top one.
+  static String hlsBitrateFor(int preferredHeight) {
+    if (preferredHeight == 0) return 'max';
+    if (preferredHeight < 0) return 'min';
+    final ceiling = switch (preferredHeight) {
+      <= 360 => 1000000,
+      <= 480 => 1800000,
+      <= 720 => 3500000,
+      <= 1080 => 7000000,
+      <= 1440 => 12000000,
+      _ => 25000000,
+    };
+    return '$ceiling';
+  }
+
   factory PlayerController.networkUrl(
     Uri url, {
     Map<String, String> httpHeaders = const <String, String>{},
@@ -603,6 +626,20 @@ class _MediaKitController extends PlayerController {
   @override
   Future<void> initialize() async {
     _wire();
+    // Which rendition of an HLS master mpv opens on. It has no adaptive
+    // switching afterwards, and left alone it always took the top one —
+    // Data saver and a pinned 480p both started at 1080p first.
+    final platform = _player.platform;
+    if (platform is mk.NativePlayer) {
+      try {
+        await platform.setProperty(
+          'hls-bitrate',
+          PlayerController.mpvHlsBitrate,
+        );
+      } catch (e) {
+        debugPrint('[player] hls-bitrate not applied: $e');
+      }
+    }
     await _player.open(
       mk.Media(
         _src.source,
@@ -802,14 +839,17 @@ class _MediaKitController extends PlayerController {
     ];
     final selectable = real.where((t) => !t.isAuto).length;
     final next = selectable > 1
-        ? sortVideoTracks(real)
+        ? onePerHeight(sortVideoTracks(real))
         : const <PlayerVideoTrack>[];
     // Same lesson as the audio list: mpv probes in stages and reports the same
     // renditions twice, bare then described. Comparing by value rather than
     // length is what stops the sheet keeping the un-probed copy.
     if (_sameVideoTracks(next, _videoTracks)) return;
     _videoTracks = next;
-    _emit(value.copyWith());
+    // Not `_emit(value.copyWith())`: VideoPlayerValue compares by value,
+    // so an identical copy notified nobody and a paused player's sheet
+    // never saw its new tracks.
+    if (!_disposed) notifyListeners();
   }
 
   static bool _sameVideoTracks(
@@ -838,7 +878,10 @@ class _MediaKitController extends PlayerController {
     ];
     if (_sameTracks(next, _subtitleTracks)) return;
     _subtitleTracks = next;
-    _emit(value.copyWith());
+    // Not `_emit(value.copyWith())`: VideoPlayerValue compares by value,
+    // so an identical copy notified nobody and a paused player's sheet
+    // never saw its new tracks.
+    if (!_disposed) notifyListeners();
   }
 
   void _syncAudioTracks(List<mk.AudioTrack> tracks) {
@@ -861,7 +904,10 @@ class _MediaKitController extends PlayerController {
     if (_sameTracks(real, _audioTracks)) return;
     _audioTracks = real;
     // Nudge listeners so a sheet already on screen picks the new list up.
-    _emit(value.copyWith());
+    // Not `_emit(value.copyWith())`: VideoPlayerValue compares by value,
+    // so an identical copy notified nobody and a paused player's sheet
+    // never saw its new tracks.
+    if (!_disposed) notifyListeners();
   }
 
   void _emitSize() {

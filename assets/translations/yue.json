@@ -556,7 +556,8 @@
     "rewind": "倒帶",
     "mini_restore": "返去大視窗",
     "pip_unavailable": "呢條片開唔到子母畫面。",
-    "scrub_release_cancel": "鬆手就取消"
+    "scrub_release_cancel": "鬆手就取消",
+    "auto_quality_desc_mpv": "由串流最好嘅畫質開始"
   },
   "profile": {
     "title": "個人檔案",

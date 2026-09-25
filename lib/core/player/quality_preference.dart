@@ -50,9 +50,16 @@ abstract final class QualityPreference {
     final looksHls = kind == 'hls' || kind == 'm3u8' || lower.contains('.m3u8');
     final looksDash = kind == 'dash' || lower.contains('.mpd');
     if (!looksHls && !looksDash) return false;
-    final prefix = '$label · ';
+    // Nothing to add when this server already offers resolutions: the
+    // provider's own ladder ("Auto", "1080p", "720p"), or rows parsed from
+    // this master before. Checking only for "<label> · …" rows missed the
+    // first, and the same resolutions were listed twice.
+    final server = VideoOptionGroups.serverOf(label);
     return !siblingLabels.any(
-      (l) => l.startsWith(prefix) && VideoOptionGroups.resolutionOf(l) != null,
+      (l) =>
+          l != label &&
+          VideoOptionGroups.serverOf(l) == server &&
+          VideoOptionGroups.resolutionOf(l) != null,
     );
   }
 

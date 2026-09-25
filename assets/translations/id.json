@@ -556,7 +556,8 @@
     "rewind": "Mundur",
     "mini_restore": "Kembali ke jendela penuh",
     "pip_unavailable": "Gambar-dalam-gambar tidak bisa dimulai untuk video ini.",
-    "scrub_release_cancel": "Lepas untuk membatalkan"
+    "scrub_release_cancel": "Lepas untuk membatalkan",
+    "auto_quality_desc_mpv": "Mulai dari kualitas terbaik yang tersedia"
   },
   "profile": {
     "title": "Profil",

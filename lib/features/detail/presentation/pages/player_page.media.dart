@@ -11,7 +11,10 @@ extension _PlayerMedia on _PlayerPageState {
     }
   }
 
-  bool _isHlsType(String? type) => type?.trim().toLowerCase() == 'hls';
+  bool _isHlsType(String? type) {
+    final t = type?.trim().toLowerCase();
+    return t == 'hls' || t == 'm3u8';
+  }
 
   /// The format hint for playing [source]: its own when the provider stated
   /// one, else what the resolve said about the media as a whole.
@@ -103,9 +106,14 @@ extension _PlayerMedia on _PlayerPageState {
       _resolvedType = widget.args.type;
       if (mounted) setState(() => _stage = _LoadingStage.loading);
       unawaited(_loadThumbnails(widget.args.thumbnails));
+      _resolveHeaders = widget.args.headers;
       await _initializeWith(
         url: source?.videoUrl ?? widget.args.movieUrl ?? '',
-        headers: widget.args.headers,
+        // The picked source's own headers, as a serial's first play already
+        // does: the top level is source 0's, and the ladder may pick another.
+        headers: source != null && source.headers.isNotEmpty
+            ? source.headers
+            : widget.args.headers,
         type: _typeOf(source),
         resumeAt: _jellyfinResume(
           source?.videoUrl ?? widget.args.movieUrl,
@@ -260,7 +268,7 @@ extension _PlayerMedia on _PlayerPageState {
     // row would count as one.
     _countedComplete = false;
     _endHandled = false;
-    _videoTrackApplied = false;
+    _videoTrackAppliedFor = null;
     // The next episode's first frame is a new "watching now" on Trakt; the
     // start replaces the previous one there, so no pause is needed first.
     _traktPlaying = false;
@@ -391,6 +399,7 @@ extension _PlayerMedia on _PlayerPageState {
     final headers = useSources && sources[pickedIdx].headers.isNotEmpty
         ? sources[pickedIdx].headers
         : value.headers;
+    _resolveHeaders = value.headers;
     // Only tracks that point at something. A source listing a track with no
     // file used to bring up the subtitle controls — style, picker — for a
     // video that has no subtitles at all.
@@ -522,6 +531,59 @@ extension _PlayerMedia on _PlayerPageState {
     }
   }
 
+  /// Where playback is, or where it is about to be when the stream has not
+  /// reached its resume point yet.
+  Duration get _keepPosition {
+    final c = _controller;
+    final pos = c?.value.position ?? Duration.zero;
+    return (c?.value.isInitialized ?? false) && pos > Duration.zero
+        ? pos
+        : _pendingResume;
+  }
+
+  /// Before a reload for a quality or server switch: the audio and embedded
+  /// subtitle choices, which live only in the controller about to go, and
+  /// whether it was playing.
+  void _carryChoicesAcrossReload() {
+    final c = _controller;
+    if (c == null) return;
+    _autoplayOverride = c.value.isInitialized ? c.value.isPlaying : null;
+    if (c.supportsAudioTracks && c.audioTracks.length > 1) {
+      final active = c.audioTracks
+          .where((t) => t.id == c.activeAudioTrackId)
+          .firstOrNull;
+      if (active != null) _pendingAudioChoice = (active.language, active.title);
+    }
+    if (c.supportsSubtitleTracks &&
+        c.subtitleTracks.isNotEmpty &&
+        _activeSubtitleIndex == -1) {
+      final active = c.subtitleTracks
+          .where((t) => t.id == c.activeSubtitleTrackId)
+          .firstOrNull;
+      _pendingEmbeddedChoice = active?.label ?? TitlePrefsStore.subtitleOff;
+    }
+  }
+
+  /// Applies [_pendingAudioChoice] once the stream's tracks are listed:
+  /// the same language and title, else the same language.
+  void _applyPendingAudioChoice() {
+    final choice = _pendingAudioChoice;
+    final c = _controller;
+    if (choice == null || c == null || !c.supportsAudioTracks) return;
+    final tracks = c.audioTracks;
+    if (tracks.isEmpty) return;
+    _pendingAudioChoice = null;
+    final (lang, title) = choice;
+    final match =
+        tracks
+            .where((t) => t.language == lang && t.title == title)
+            .firstOrNull ??
+        tracks.where((t) => lang != null && t.language == lang).firstOrNull;
+    if (match != null && match.id != c.activeAudioTrackId) {
+      unawaited(c.setAudioTrack(match.id));
+    }
+  }
+
   /// The index of the source this title was last watched on, if it is still
   /// offered.
   ///
@@ -621,7 +683,7 @@ extension _PlayerMedia on _PlayerPageState {
   Future<void> _switchLang(String lang) async {
     if (!widget.args.isSerial) return;
     if (lang == _currentLang) return;
-    final keepPosition = _controller?.value.position ?? Duration.zero;
+    final keepPosition = _keepPosition;
     setState(() => _currentLang = lang);
     // Both: for this title, because that is the choice being made, and as the
     // global default, because changing it here almost always means "this is
@@ -677,7 +739,8 @@ extension _PlayerMedia on _PlayerPageState {
         ),
       );
     }
-    final keepPosition = _controller?.value.position ?? Duration.zero;
+    final keepPosition = _keepPosition;
+    _carryChoicesAcrossReload();
     _retryAttempts = 0;
     _lifetimeRetries = 0;
     // A deliberate pick is a fresh walk — the same reset the retry counters get
@@ -704,9 +767,7 @@ extension _PlayerMedia on _PlayerPageState {
       url: source.videoUrl,
       // The new mirror's own headers when it has any: the previous one's
       // Referer and cookies belong to a different host.
-      headers: source.headers.isNotEmpty
-          ? source.headers
-          : (_headers.isNotEmpty ? _headers : widget.args.headers),
+      headers: source.headers.isNotEmpty ? source.headers : _resolveHeaders,
       type: _typeOf(source),
       resumeAt: keepPosition,
     );
@@ -833,20 +894,27 @@ extension _PlayerMedia on _PlayerPageState {
       // The plain client: this is a CDN, and the app's own Dio pins the
       // backend's certificate chain — against any other host the handshake
       // fails and every rewrite looked "rejected".
-      final res = await ExternalDio.instance.get<String>(
-        candidate,
-        options: Options(
-          headers: headers,
-          responseType: ResponseType.plain,
-          validateStatus: (_) => true,
-          receiveTimeout: const Duration(seconds: 10),
-          extra: const {'skipAuthInterceptor': true},
-        ),
-      );
+      // Six seconds all in: this check stands between the viewer and the
+      // first frame, and a slow CDN held it for up to 25.
+      final res = await ExternalDio.instance
+          .get<String>(
+            candidate,
+            options: Options(
+              headers: headers,
+              responseType: ResponseType.plain,
+              validateStatus: (_) => true,
+              receiveTimeout: const Duration(seconds: 6),
+              extra: const {'skipAuthInterceptor': true},
+            ),
+          )
+          .timeout(const Duration(seconds: 6));
       final body = res.data ?? '';
       if (res.statusCode == 200 && body.trimLeft().startsWith('#EXTM3U')) {
+        // Verified only. The renditions are listed by
+        // [_maybeExpandQualities], which keeps the adaptive entry, sets
+        // heights and checks the episode; a second expansion here listed
+        // every resolution twice under two servers.
         _plog('rewrite ok -> $candidate');
-        _expandMasterPlaylist(candidate, body, headers);
         return candidate;
       }
       _plog(
@@ -860,78 +928,6 @@ extension _PlayerMedia on _PlayerPageState {
       );
     }
     return url;
-  }
-
-  /// Turn a verified master playlist into one [VideoSourceEntity] per rendition.
-  ///
-  /// A hybrid provider cannot enumerate qualities when it resolves: the manifest
-  /// URL only exists after the device has sniffed the embed, so the server can
-  /// only hand back a single `auto` source. ExoPlayer still adapts across every
-  /// rendition inside the master, but the quality sheet reads [_videoSources] —
-  /// so with one entry there is nothing to open and the picker never appears,
-  /// even though four renditions are playing.
-  ///
-  /// [_applyRewrite] already holds the master's body: it fetched it to prove the
-  /// rewrite was real. Parsing it here costs no extra request and turns those
-  /// renditions into entries the sheet can list.
-  ///
-  /// `auto` stays first and stays selected — adaptive is the better default on a
-  /// phone, and the explicit heights are there for when the viewer wants to pin
-  /// one.
-  void _expandMasterPlaylist(
-    String masterUrl,
-    String body,
-    Map<String, String> headers,
-  ) {
-    // Only ever widens a source list the provider could not fill in. A list
-    // that already has real qualities came from the provider and is better
-    // than anything parsed here.
-    if (_videoSources.length > 1) return;
-
-    final base = Uri.tryParse(masterUrl);
-    if (base == null) return;
-
-    // Shared with the downloader, which needs the same ranking to stop saving
-    // the lowest rendition of a stream the player is showing at 1080p.
-    final variants = parseHlsVariants(body, base);
-    if (variants.isEmpty) return;
-
-    // One entry per height: a master often carries the same resolution twice at
-    // different bitrates, which would show the sheet two rows both `1080p`.
-    final seen = <int>{};
-
-    final auto = _videoSources.isNotEmpty ? _videoSources.first : null;
-    final expanded = <VideoSourceEntity>[
-      VideoSourceEntity(
-        quality: 'auto',
-        videoUrl: masterUrl,
-        isDefault: true,
-        accessible: true,
-        type: auto?.type ?? 'hls',
-        headers: auto?.headers ?? headers,
-      ),
-      for (final v in variants)
-        if (seen.add(v.height))
-          VideoSourceEntity(
-            quality: '${v.height}p',
-            videoUrl: v.url,
-            isDefault: false,
-            accessible: true,
-            type: auto?.type ?? 'hls',
-            headers: auto?.headers ?? headers,
-          ),
-    ];
-
-    _variantUrls.addAll(expanded.skip(1).map((e) => e.videoUrl));
-    _plog(
-      'master playlist -> ${expanded.length - 1} qualities '
-      '(${expanded.skip(1).map((e) => e.quality).join(", ")})',
-    );
-    if (!mounted) return;
-    setState(() {
-      _videoSources = expanded;
-      _currentSourceIndex = 0;
-    });
   }
 
   /// Entry point for every playback start. Resolves a page-url source to its
@@ -953,6 +949,7 @@ extension _PlayerMedia on _PlayerPageState {
     // Remembered before anything rewrites it — see [_playSourceUrl].
     _playSourceUrl = url;
     _playSourceHeaders = headers;
+    _pendingResume = resumeAt;
     var effUrl = url;
     var effHeaders = headers;
     var effType = type;
@@ -1009,25 +1006,44 @@ extension _PlayerMedia on _PlayerPageState {
       }
     }
 
-    // Before playback, not after: the sheet is built from `_videoSources`, and
-    // a viewer who opens it during the first ten seconds should already find
-    // the renditions there.
-    final pinned = await _maybeExpandQualities(
+    // The renditions for the sheet. Awaited only when one will be pinned by
+    // its URL, and then for at most two and a half seconds: this widens a
+    // menu, and it used to hold the first frame back for up to 23 s on a slow
+    // CDN. Left running otherwise, it still fills the sheet when it lands.
+    //
+    // On libmpv nothing is pinned by URL. The master plays, and the
+    // remembered height is picked from mpv's own renditions once they are
+    // known: swapping the master for one variant's playlist dropped audio
+    // that lives in a separate rendition, and turned every later quality
+    // change from an instant track switch into a full reload.
+    final expansion = _maybeExpandQualities(
       effUrl,
       effHeaders,
       effType,
       generation,
     );
+    final wantsUrlPin =
+        _qualityPreference != QualityPreference.auto &&
+        !(_playsOnMpv && !_isDashType(effType, effUrl));
+    VideoSourceEntity? pinned;
+    if (wantsUrlPin) {
+      pinned = await expansion.timeout(
+        const Duration(milliseconds: 2500),
+        onTimeout: () => null,
+      );
+    } else {
+      unawaited(expansion);
+    }
     if (!mounted || generation != _mediaGeneration) return;
     // Straight onto the preferred rendition rather than starting the master
     // and switching a second later: one load, and the resume point holds.
-    if (pinned != null) {
-      final idx = _videoSources.indexOf(pinned);
+    if (pinned case final row?) {
+      final idx = _videoSources.indexOf(row);
       setState(() {
         if (idx >= 0) _currentSourceIndex = idx;
-        _currentQuality = pinned.quality;
+        _currentQuality = row.quality;
       });
-      effUrl = pinned.videoUrl;
+      effUrl = row.videoUrl;
       // A retry replays this; the master would come back as Auto under the
       // pinned row's label.
       _playSourceUrl = effUrl;
@@ -1047,10 +1063,9 @@ extension _PlayerMedia on _PlayerPageState {
   /// Gives the current server real quality rows, parsed out of its own master
   /// playlist.
   ///
-  /// [_expandMasterPlaylist] already did this, but from one place only: inside
-  /// [_applyRewrite], for a provider carrying a rewrite rule that verifies, and
-  /// only when the whole source list was a single entry. Most providers have no
-  /// such rule. vidapi returns three HLS masters and labels them `Server 1..3`,
+  /// This used to happen from one place only: inside [_applyRewrite], for a
+  /// provider carrying a rewrite rule that verifies, and only when the whole
+  /// source list was a single entry. Most providers have no such rule. vidapi returns three HLS masters and labels them `Server 1..3`,
   /// so the sheet listed three servers, the renditions inside each were never
   /// surfaced, and nothing but the connection speed decided between 480p and
   /// 1080p. That is the "no manual quality control" report.
@@ -1079,10 +1094,7 @@ extension _PlayerMedia on _PlayerPageState {
       label: parent.quality,
       url: url,
       type: type,
-      siblingLabels: [
-        for (final s in _videoSources)
-          if (s.height != null) s.quality,
-      ],
+      siblingLabels: [for (final s in _videoSources) s.quality],
     )) {
       return null;
     }
@@ -1114,8 +1126,7 @@ extension _PlayerMedia on _PlayerPageState {
   ) async {
     final kind = type?.toLowerCase();
     if (kind == 'dash' || url.toLowerCase().contains('.mpd')) {
-      await _expandDash(parent, idx, url, headers, generation);
-      return null;
+      return _expandDash(parent, idx, url, headers, generation);
     }
 
     final base = Uri.tryParse(url);
@@ -1144,6 +1155,17 @@ extension _PlayerMedia on _PlayerPageState {
     }
     if (!body.trimLeft().startsWith('#EXTM3U')) return null;
 
+    // Audio (or subtitles) in renditions of their own: a variant's playlist
+    // then holds only the picture, and a row playing it had no sound. The
+    // master stays the only entry — ExoPlayer adapts across it, and on mpv
+    // the sheet lists the engine's own renditions instead.
+    if (RegExp(
+      r'#EXT-X-MEDIA:[^\n]*TYPE=AUDIO[^\n]*URI=',
+    ).hasMatch(body)) {
+      _plog('master has separate audio renditions — no per-variant rows');
+      return null;
+    }
+
     // Shared with the downloader, so the file saved matches the rendition the
     // sheet offered.
     final variants = parseHlsVariants(body, base);
@@ -1160,7 +1182,9 @@ extension _PlayerMedia on _PlayerPageState {
             isDefault: false,
             accessible: parent.accessible,
             height: v.height,
-            type: parent.type ?? 'hls',
+            // Parsed out of an #EXTM3U master, whatever the parent was (an
+            // iframe entry, say): the format hint must say HLS.
+            type: 'hls',
             // The headers the master was just fetched with: after a sniff
             // those carry what the CDN gates on, which the parent's own
             // page headers do not.
@@ -1180,7 +1204,7 @@ extension _PlayerMedia on _PlayerPageState {
   /// video Representation left in it — the player cannot then pick another.
   /// Neither engine here exposes DASH track selection, so this is the one
   /// way a DASH stream gets a manual quality.
-  Future<void> _expandDash(
+  Future<VideoSourceEntity?> _expandDash(
     VideoSourceEntity parent,
     int idx,
     String url,
@@ -1199,16 +1223,18 @@ extension _PlayerMedia on _PlayerPageState {
           extra: const {'skipAuthInterceptor': true},
         ),
       );
-      if (res.statusCode != 200) return;
+      if (res.statusCode != 200) return null;
       body = res.data ?? '';
     } catch (_) {
-      return;
+      return null;
     }
-    if (!DashManifest.looksLikeMpd(body)) return;
+    if (!DashManifest.looksLikeMpd(body)) return null;
     final reps = DashManifest.videoRepresentations(body);
-    if (reps.length < 2) return;
-    final upstream = parent.videoUrl;
-    final upHeaders = parent.headers.isNotEmpty ? parent.headers : headers;
+    if (reps.length < 2) return null;
+    // The manifest that was actually fetched, with its headers: for a
+    // sniffed source the parent's url is the embed page, not the MPD.
+    final upstream = url;
+    final upHeaders = headers.isNotEmpty ? headers : parent.headers;
     final rows = <VideoSourceEntity>[];
     for (final r in reps) {
       try {
@@ -1218,6 +1244,7 @@ extension _PlayerMedia on _PlayerPageState {
           localProxy: parent.localProxy,
           requestTransform: parent.requestTransform,
           dashRepresentation: r.id,
+          longLived: true,
         );
         rows.add(
           VideoSourceEntity(
@@ -1234,10 +1261,10 @@ extension _PlayerMedia on _PlayerPageState {
           ),
         );
       } catch (_) {
-        return;
+        return null;
       }
     }
-    await _insertQualityRows(parent, idx, rows, generation, 'dash manifest');
+    return _insertQualityRows(parent, idx, rows, generation, 'dash manifest');
   }
 
   /// Inserts the rows after the adaptive entry and returns the one the
@@ -1282,20 +1309,32 @@ extension _PlayerMedia on _PlayerPageState {
 
   /// On libmpv the renditions are the engine's own tracks: the preferred
   /// height is picked from them once they are listed.
+  /// This stream plays on libmpv, where a rendition is a track of the master
+  /// rather than a URL of its own.
+  bool get _playsOnMpv =>
+      resolvePlayerEngine() == PlayerEngine.mediaKit && !_preferPlatformPlayer;
+
+  bool _isDashType(String? type, String url) =>
+      type?.trim().toLowerCase() == 'dash' ||
+      url.toLowerCase().contains('.mpd');
+
   void _applyRememberedVideoTrack() {
-    if (_videoTrackApplied) return;
     final c = _controller;
-    if (c == null || !c.supportsVideoTracks) return;
+    // Once per controller, not once per episode: a quality or server switch,
+    // a retry on another mirror or a movie's reload all build a new one, and
+    // each came back up on mpv's top rendition with the pick forgotten.
+    if (c == null || identical(_videoTrackAppliedFor, c)) return;
+    if (!c.supportsVideoTracks) return;
     final tracks = c.videoTracks;
     if (tracks.isEmpty) return;
-    _videoTrackApplied = true;
+    _videoTrackAppliedFor = c;
     final want = QualityPreference.pick(
-      tracks.where((t) => !t.isAuto).map((t) => t.height ?? 0),
+      tracks.where((t) => !t.isAuto).map((t) => t.displayHeight ?? 0),
       _qualityPreference,
     );
     if (want == null) return;
     final match = tracks
-        .where((t) => !t.isAuto && t.height == want)
+        .where((t) => !t.isAuto && t.displayHeight == want)
         .firstOrNull;
     if (match != null && match.id != c.activeVideoTrackId) {
       unawaited(c.setVideoTrack(match.id));
@@ -1449,6 +1488,9 @@ extension _PlayerMedia on _PlayerPageState {
           : null;
       if (drm != null) _plog('drm: $drm');
 
+      PlayerController.mpvHlsBitrate = PlayerController.hlsBitrateFor(
+        _qualityPreference,
+      );
       controller = PlayerController.networkUrl(
         uri,
         httpHeaders: mergedHeaders,
@@ -1566,13 +1608,21 @@ extension _PlayerMedia on _PlayerPageState {
         if (resumeAt > Duration.zero && !_isLive) {
           await controller.seekTo(resumeAt);
         }
+        _pendingResume = Duration.zero;
         if (!mounted || generation != _mediaGeneration) return;
         // Paused, if that is what was asked for — but only for the episode
         // somebody opened. An auto-advance is already playing by definition:
         // the preference is about the app starting a stream on its own when a
         // page is opened, and refusing to continue a run somebody is already
         // watching would be a different setting entirely.
-        if (!_hive.startPaused || _autoAdvanced) {
+        //
+        // After a quality or server switch, what the viewer had: a paused
+        // viewer stays paused, a playing one keeps playing whatever the
+        // setting says.
+        final autoplay =
+            _autoplayOverride ?? (!_hive.startPaused || _autoAdvanced);
+        _autoplayOverride = null;
+        if (autoplay) {
           await controller.play();
         }
       }
@@ -1793,6 +1843,7 @@ extension _PlayerMedia on _PlayerPageState {
     _syncWakelock(v.isPlaying);
     _syncTraktScrobble(v.isPlaying);
     _applyEmbeddedSubtitleChoice();
+    _applyPendingAudioChoice();
     _applyRememberedVideoTrack();
 
     if (v.hasError) {
@@ -2043,9 +2094,7 @@ extension _PlayerMedia on _PlayerPageState {
       await _initializeWith(
         intentGeneration: generation,
         url: next.videoUrl,
-        headers: next.headers.isNotEmpty
-            ? next.headers
-            : (_headers.isNotEmpty ? _headers : widget.args.headers),
+        headers: next.headers.isNotEmpty ? next.headers : _resolveHeaders,
         type: _typeOf(next),
         resumeAt: keepPosition,
       );

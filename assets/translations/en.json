@@ -556,7 +556,8 @@
     "rewind": "Rewind",
     "mini_restore": "Back to the full window",
     "pip_unavailable": "Picture-in-picture could not start for this video.",
-    "scrub_release_cancel": "Release to cancel"
+    "scrub_release_cancel": "Release to cancel",
+    "auto_quality_desc_mpv": "Starts at the best quality the stream offers"
   },
   "profile": {
     "title": "Profile",
