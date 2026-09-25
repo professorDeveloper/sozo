@@ -127,14 +127,30 @@ extension _PlayerSubtitles on _PlayerPageState {
       // ResponseType.bytes: Dio's string transformer always runs
       // utf8.decode(..., allowMalformed: true) and ignores the declared
       // charset, which destroys every cp1251/latin1 subtitle.
-      final response = await ExternalDio.instance.get<List<int>>(
-        sub.file,
-        options: Options(
-          responseType: ResponseType.bytes,
-          headers: sub.headers.isEmpty ? null : sub.headers,
-          validateStatus: (s) => s != null && s < 500,
-        ),
+      Future<Response<List<int>>> fetch(Map<String, String>? headers) =>
+          ExternalDio.instance.get<List<int>>(
+            sub.file,
+            options: Options(
+              responseType: ResponseType.bytes,
+              headers: headers,
+              validateStatus: (s) => s != null && s < 500,
+            ),
+          );
+      final fallback = _subtitleFallbackHeaders(sub.file);
+      var response = await fetch(
+        sub.headers.isNotEmpty ? sub.headers : fallback,
       );
+      // A track that came with its own headers and was still refused: the
+      // host may want what the stream is fetched with. One more try.
+      if (sub.headers.isNotEmpty &&
+          (response.statusCode == 401 || response.statusCode == 403) &&
+          fallback.isNotEmpty) {
+        response = await fetch({
+          ...fallback,
+          ...sub.headers,
+          ..._refererOf(fallback),
+        });
+      }
       if (!mounted) return null;
       final status = response.statusCode ?? 0;
       if (status < 200 || status >= 300) {
@@ -162,6 +178,37 @@ extension _PlayerSubtitles on _PlayerPageState {
     }
     return result.captions;
   }
+
+  /// What a subtitle is fetched with when its source gave nothing: the
+  /// stream's own headers.
+  ///
+  /// Sources hand their tracks over bare, and the CDNs they sit on check the
+  /// same Referer the stream's host does — the player sent it, the subtitle
+  /// request did not, and the answer was a 403 read out as "Couldn't
+  /// download this subtitle". The source's cookies go only to the stream's
+  /// own host.
+  Map<String, String> _subtitleFallbackHeaders(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme) return const {};
+    final source =
+        _currentSourceIndex >= 0 && _currentSourceIndex < _videoSources.length
+        ? _videoSources[_currentSourceIndex]
+        : null;
+    final sourceHeaders = <String, String>{...?source?.headers};
+    final streamHost = Uri.tryParse(source?.videoUrl ?? _videoUrl ?? '')?.host;
+    if (streamHost != uri.host) {
+      sourceHeaders.removeWhere((k, _) => k.toLowerCase() == 'cookie');
+    }
+    return _mergedStreamHeaders(uri, sourceHeaders);
+  }
+
+  /// The Referer and Origin of [headers], so a retry sends them even over a
+  /// source's own set that left them out.
+  static Map<String, String> _refererOf(Map<String, String> headers) => {
+    for (final e in headers.entries)
+      if (e.key.toLowerCase() == 'referer' || e.key.toLowerCase() == 'origin')
+        e.key: e.value,
+  };
 
   String _subtitleFailureMessage(SubtitleParseFailure? failure) {
     switch (failure) {
