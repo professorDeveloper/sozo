@@ -59,11 +59,17 @@ class AchievementDef {
   /// only have the id (a feed card, a celebration before the numbers land).
   final MedalTier rarity;
 
-  String get nameKey => 'achievements.name_$id';
+  /// A badge this build has no words for is still "a new badge", never its
+  /// raw translation key.
+  String get nameKey =>
+      _all.containsKey(id) ? 'achievements.name_$id' : 'achievements.new_badge';
 
   /// A family: "{} episodes" and the like. A single: what earns it.
-  String get unitKey =>
-      isSingle ? 'achievements.rule_$id' : 'achievements.unit_$id';
+  String get unitKey => !_all.containsKey(id)
+      ? 'achievements.not_yet'
+      : isSingle
+      ? 'achievements.rule_$id'
+      : 'achievements.unit_$id';
 
   static const Map<String, AchievementDef> _all = {
     'streak': AchievementDef(

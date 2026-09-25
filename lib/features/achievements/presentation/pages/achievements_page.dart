@@ -13,6 +13,7 @@ import 'package:soplay/features/achievements/presentation/widgets/achievement_me
 import 'package:soplay/features/achievements/presentation/widgets/achievement_sheets.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/streak/domain/entities/streak_state.dart';
+import 'package:soplay/features/achievements/presentation/widgets/medal_viewer.dart';
 
 const Color _ember = Color(0xFFFFA94D);
 const Color _emberDeep = Color(0xFFEF7A35);
@@ -141,9 +142,14 @@ class _StreakHero extends StatelessWidget {
         final toGo = next == null ? 0 : next - streak.current;
         return InkWell(
           borderRadius: BorderRadius.circular(22),
-          onTap: family == null
-              ? null
-              : () => openAchievement(context, view: view, id: 'streak'),
+          // The card opens the flame badges at the mark being aimed for; each
+          // medal on it opens its own tier.
+          onTap: () => showMedalViewer(
+            context,
+            id: 'streak',
+            view: view,
+            tier: nextAt < 0 ? tiers.length : nextAt + 1,
+          ),
           child: Container(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
             decoration: BoxDecoration(
@@ -208,12 +214,20 @@ class _StreakHero extends StatelessWidget {
                             ? (streak.current / tiers[i]).clamp(0.0, 1.0)
                             : null,
                         current: i == nextAt,
+                        onTap: () => showMedalViewer(
+                          context,
+                          id: 'streak',
+                          view: view,
+                          tier: i + 1,
+                        ),
                       ),
                     _StreakStep(
                       days: 100,
                       id: 'iron_will',
                       tier: iron?.medal ?? MedalTier.locked,
                       label: 'achievements.name_iron_will'.tr(),
+                      onTap: () =>
+                          showMedalViewer(context, id: 'iron_will', view: view),
                     ),
                   ],
                 ),
@@ -262,7 +276,10 @@ class _StreakStep extends StatelessWidget {
     this.label,
     this.progress,
     this.current = false,
+    this.onTap,
   });
+
+  final VoidCallback? onTap;
 
   final int days;
   final MedalTier tier;
@@ -277,28 +294,33 @@ class _StreakStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 60,
-      child: Column(
-        children: [
-          AchievementBadge(id: id, tier: tier, size: 46, progress: progress),
-          const SizedBox(height: 4),
-          Text(
-            label ?? 'achievements.days_short'.tr(args: ['$days']),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: current
-                  ? _emberSoft
-                  : tier == MedalTier.locked
-                  ? AppColors.textHint
-                  : tier.labelColor,
-              fontSize: 11,
-              fontWeight: current ? FontWeight.w900 : FontWeight.w700,
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: SizedBox(
+        width: 60,
+        child: Column(
+          children: [
+            const SizedBox(height: 2),
+            AchievementBadge(id: id, tier: tier, size: 46, progress: progress),
+            const SizedBox(height: 4),
+            Text(
+              label ?? 'achievements.days_short'.tr(args: ['$days']),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: current
+                    ? _emberSoft
+                    : tier == MedalTier.locked
+                    ? AppColors.textHint
+                    : tier.labelColor,
+                fontSize: 11,
+                fontWeight: current ? FontWeight.w900 : FontWeight.w700,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -141,7 +141,11 @@ class _MedalViewerState extends State<_MedalViewer>
     }
     final single = _single;
     if (single != null) return single.medal;
-    return MedalTier.gold;
+    // Nothing known about this badge here (a feed card, a view still
+    // loading): what the caller says, else unearned — never a guess of gold.
+    if (_def.isSingle) return _def.rarity;
+    final tier = widget.tier;
+    return tier == null ? MedalTier.locked : MedalTier.ofLevel(tier);
   }
 
   bool get _earned => _medal != MedalTier.locked;
@@ -210,15 +214,6 @@ class _MedalViewerState extends State<_MedalViewer>
                     sparks: medal == MedalTier.ember || medal == MedalTier.gold,
                   ),
                 ),
-              ),
-            ),
-            Positioned(
-              top: 4,
-              right: 4,
-              child: IconButton(
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.close_rounded, color: Colors.white70),
               ),
             ),
             Center(
@@ -386,6 +381,13 @@ class _MedalViewerState extends State<_MedalViewer>
                         shown: _shown,
                         onPick: (t) => setState(() => _shown = t),
                       ),
+                      const SizedBox(height: 18),
+                      _TierList(
+                        id: widget.id,
+                        family: _family,
+                        shown: _shown,
+                        onPick: (t) => setState(() => _shown = t),
+                      ),
                     ],
                     if (_earned) ...[
                       const SizedBox(height: 20),
@@ -419,6 +421,16 @@ class _MedalViewerState extends State<_MedalViewer>
                 ),
               ),
             ),
+            // Last, so it sits above the scrolling content and takes the tap.
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.close_rounded, color: Colors.white70),
+              ),
+            ),
           ],
         ),
       ),
@@ -438,6 +450,163 @@ class _MedalViewerState extends State<_MedalViewer>
       return (single.value! / single.need).clamp(0.0, 1.0);
     }
     return null;
+  }
+}
+
+/// Every tier as a line: the metal, what it takes, and when it came — or,
+/// for the one being worked on, how far along.
+class _TierList extends StatelessWidget {
+  const _TierList({
+    required this.id,
+    required this.family,
+    required this.shown,
+    required this.onPick,
+  });
+
+  final String id;
+  final AchievementFamily family;
+  final int shown;
+  final ValueChanged<int> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final def = AchievementDef.of(id);
+    final value = family.value;
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 420),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        children: [
+          for (var i = 1; i <= family.tiers.length; i++) ...[
+            if (i > 1)
+              Divider(height: 1, color: Colors.white.withValues(alpha: 0.06)),
+            _TierLine(
+              id: id,
+              tier: MedalTier.ofLevel(i),
+              earned: i <= family.tier,
+              selected: i == shown,
+              requirement: def.unitKey.tr(
+                args: [
+                  NumberFormat.decimalPattern().format(family.tiers[i - 1]),
+                ],
+              ),
+              at: i - 1 < family.unlockedAt.length
+                  ? family.unlockedAt[i - 1]
+                  : null,
+              progress: i == family.tier + 1 && value != null
+                  ? (value / family.tiers[i - 1]).clamp(0.0, 1.0)
+                  : null,
+              onTap: () => onPick(i),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TierLine extends StatelessWidget {
+  const _TierLine({
+    required this.id,
+    required this.tier,
+    required this.earned,
+    required this.selected,
+    required this.requirement,
+    required this.onTap,
+    this.at,
+    this.progress,
+  });
+
+  final String id;
+  final MedalTier tier;
+  final bool earned;
+  final bool selected;
+  final String requirement;
+  final DateTime? at;
+  final double? progress;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: selected ? tier.labelColor.withValues(alpha: 0.08) : null,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            AchievementBadge(
+              id: id,
+              tier: earned ? tier : MedalTier.locked,
+              size: 36,
+              glow: false,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${tier.labelKey.tr()} · $requirement',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: earned ? Colors.white : AppColors.textSecondary,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  if (earned)
+                    Text(
+                      at == null
+                          ? tier.labelKey.tr()
+                          : 'achievements.earned_on'.tr(
+                              args: [
+                                DateFormat.yMMMd(
+                                  context.locale.toString(),
+                                ).format(at!),
+                              ],
+                            ),
+                      style: TextStyle(color: tier.labelColor, fontSize: 11.5),
+                    )
+                  else if (progress != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 4,
+                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        valueColor: AlwaysStoppedAnimation(tier.labelColor),
+                      ),
+                    )
+                  else
+                    Text(
+                      'achievements.not_yet'.tr(),
+                      style: TextStyle(
+                        color: AppColors.textHint,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (earned)
+              Icon(Icons.check_circle_rounded, color: tier.labelColor, size: 18)
+            else
+              const Icon(
+                Icons.lock_outline_rounded,
+                color: Colors.white24,
+                size: 16,
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
