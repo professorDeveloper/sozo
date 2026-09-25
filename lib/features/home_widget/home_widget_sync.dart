@@ -410,8 +410,9 @@ class HomeWidgetSync with WidgetsBindingObserver {
   }
 
   /// The streak as its badge: the medal of the tier the streak has reached —
-  /// a locked blank before the first — with the day count struck in it and
-  /// the way to the next tier traced round the rim.
+  /// a pewter blank before the first — with the flame struck in it, as on the
+  /// achievements page, and the way to the next tier traced round the rim.
+  /// The count itself is text beside the label, where it reads at a glance.
   Future<String?> _streakMedal(
     int current,
     ({int tier, int? next, double progress}) badge,
@@ -419,7 +420,8 @@ class HomeWidgetSync with WidgetsBindingObserver {
     try {
       final dir = await _posterDir();
       final progress = badge.next == null ? null : badge.progress;
-      final key = 'v3|$current|${badge.tier}|${progress?.toStringAsFixed(3)}';
+      final key =
+          'v4|${current > 0}|${badge.tier}|${progress?.toStringAsFixed(3)}';
       final file = File(
         '${dir.path}/medal_${md5.convert(utf8.encode(key))}.png',
       );
@@ -449,10 +451,6 @@ class HomeWidgetSync with WidgetsBindingObserver {
         tier: MedalTier.ofLevel(badge.tier),
         icon: AchievementDef.of('streak').icon,
         progress: progress,
-        caption: '$current',
-        // Before the first badge the blank is plain pewter; a streak that is
-        // alive burns in it rather than sitting grey.
-        ink: badge.tier == 0 && current > 0 ? const Color(0xFFFFA64D) : null,
       );
       canvas.restore();
       final picture = recorder.endRecording();

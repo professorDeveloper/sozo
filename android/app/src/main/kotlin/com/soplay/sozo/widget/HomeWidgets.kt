@@ -111,7 +111,12 @@ object HomeWidgets {
             views.setViewVisibility(R.id.medal, View.VISIBLE)
             views.setViewVisibility(R.id.plain, View.GONE)
             views.setImageViewBitmap(R.id.medal, medal)
+            // The count beside the label; "start a streak" needs none.
+            views.setViewVisibility(R.id.count, if (alive) View.VISIBLE else View.GONE)
+            views.setTextViewText(R.id.count, current.toString())
+            views.setTextColor(R.id.count, if (atRisk) 0xFF1A0A00.toInt() else 0xFFFFFFFF.toInt())
         } else {
+            views.setViewVisibility(R.id.count, View.GONE)
             views.setViewVisibility(R.id.medal, View.GONE)
             views.setViewVisibility(R.id.plain, View.VISIBLE)
             views.setImageViewResource(

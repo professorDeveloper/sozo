@@ -94,24 +94,19 @@ class AchievementMedal extends StatelessWidget {
 
 /// Paints a medal straight onto [canvas], for pictures made outside a widget
 /// tree — the home-screen widget's. The same metal, bevel and emboss as
-/// [AchievementMedal]; [caption], when given, is struck large in the field
-/// with the icon small above it, as a count on a badge.
+/// [AchievementMedal].
 ///
 /// [progress] is traced round the rim at any tier here, not only a locked
-/// one: on the home screen it is the way to the next tier. [ink] recolours
-/// what is struck, as a live streak's flame glowing in a blank still to win.
+/// one: on the home screen it is the way to the next tier.
 void paintMedal(
   Canvas canvas,
   Size size, {
   required MedalTier tier,
   required IconData icon,
   double? progress,
-  String? caption,
-  Color? ink,
   bool glow = true,
 }) {
   final metal = _Metal.of(tier);
-  final inkColor = ink ?? metal.ink;
   _MedalPainter(
     metal,
     glow: glow,
@@ -120,51 +115,35 @@ void paintMedal(
   ).paint(canvas, size);
   final s = size.shortestSide;
   final locked = tier == MedalTier.locked;
-  final center = size.center(Offset.zero);
   // Raised: a shadow below-right, a highlight above-left. A locked blank is
   // the other way round — pressed in.
   final down = Offset(s * 0.012, s * 0.018) * (locked ? -1 : 1);
   final up = Offset(-s * 0.010, -s * 0.012) * (locked ? -1 : 1);
-
-  void strike(String text, TextStyle style, Offset at) {
-    for (final (color, shift) in [
-      (metal.emboss, down),
-      (metal.highlight, up),
-      (inkColor, Offset.zero),
-    ]) {
-      final painter = TextPainter(
-        textDirection: TextDirection.ltr,
-        text: TextSpan(text: text, style: style.copyWith(color: color)),
-      )..layout();
-      painter.paint(
-        canvas,
-        at + shift - Offset(painter.width / 2, painter.height / 2),
-      );
-    }
+  for (final (color, shift) in [
+    (metal.emboss, down),
+    (metal.highlight, up),
+    (metal.ink, Offset.zero),
+  ]) {
+    final painter = TextPainter(
+      textDirection: TextDirection.ltr,
+      text: TextSpan(
+        text: String.fromCharCode(icon.codePoint),
+        style: TextStyle(
+          fontSize: s * 0.40,
+          fontFamily: icon.fontFamily,
+          package: icon.fontPackage,
+          color: color,
+          height: 1,
+        ),
+      ),
+    )..layout();
+    painter.paint(
+      canvas,
+      size.center(Offset.zero) +
+          shift -
+          Offset(painter.width / 2, painter.height / 2),
+    );
   }
-
-  final glyph = String.fromCharCode(icon.codePoint);
-  TextStyle iconStyle(double px) => TextStyle(
-    fontSize: px,
-    fontFamily: icon.fontFamily,
-    package: icon.fontPackage,
-    height: 1,
-  );
-  if (caption == null) {
-    strike(glyph, iconStyle(s * 0.40), center);
-    return;
-  }
-  strike(glyph, iconStyle(s * 0.19), center + Offset(0, -s * 0.17));
-  strike(
-    caption,
-    TextStyle(
-      fontSize: s * (caption.length > 2 ? 0.22 : 0.29),
-      fontWeight: FontWeight.w900,
-      height: 1,
-      letterSpacing: -s * 0.006,
-    ),
-    center + Offset(0, s * 0.06),
-  );
 }
 
 /// A medal for an achievement id at a tier — the common case.
