@@ -2939,6 +2939,7 @@
     "streak_days": "Tage Streak",
     "streak_start": "Starte einen Streak",
     "streak_done": "Heute erledigt",
-    "streak_tonight": "Endet heute"
+    "streak_tonight": "Endet heute",
+    "streak_next": "Noch {left} bis zum {target}-Tage-Abzeichen"
   }
 }

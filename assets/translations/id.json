@@ -2939,6 +2939,7 @@
     "streak_days": "hari rentetan",
     "streak_start": "Mulai rentetan",
     "streak_done": "Selesai hari ini",
-    "streak_tonight": "Berakhir malam ini"
+    "streak_tonight": "Berakhir malam ini",
+    "streak_next": "{left} lagi menuju lencana {target} hari"
   }
 }

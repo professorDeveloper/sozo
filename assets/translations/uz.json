@@ -2939,6 +2939,7 @@
     "streak_days": "kunlik streak",
     "streak_start": "Streakni boshlang",
     "streak_done": "Bugun bajarildi",
-    "streak_tonight": "Bugun tugaydi"
+    "streak_tonight": "Bugun tugaydi",
+    "streak_next": "{target} kunlik yutuqqa {left} kun"
   }
 }

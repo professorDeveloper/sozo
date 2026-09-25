@@ -239,6 +239,7 @@ import 'package:soplay/features/social/data/social_remote_data_source.dart';
 import 'package:soplay/features/social/data/social_service.dart';
 import 'package:soplay/features/achievements/data/achievements_remote_data_source.dart';
 import 'package:soplay/features/achievements/data/achievements_service.dart';
+import 'package:soplay/features/achievements/domain/achievements.dart';
 import 'package:soplay/features/home_widget/home_widget_sync.dart';
 
 final getIt = GetIt.instance;
@@ -989,6 +990,16 @@ Future<void> configureDependencies() async {
       anilist: getIt<AnilistService>(),
       profiles: getIt<ProfileSession>(),
       openable: _installedSources,
+      // The server's, once known; the catalogue's until then.
+      streakTiers: () {
+        if (getIt.isRegistered<AchievementsService>()) {
+          final view = getIt<AchievementsService>().state.value;
+          for (final f in view?.families ?? const <AchievementFamily>[]) {
+            if (f.id == 'streak' && f.tiers.isNotEmpty) return f.tiers;
+          }
+        }
+        return const [7, 30, 100, 365];
+      },
     ),
   );
   getIt.registerSingleton<ViewAllUseCase>(

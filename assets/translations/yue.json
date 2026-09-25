@@ -2939,6 +2939,7 @@
     "streak_days": "日連續",
     "streak_start": "開始連續紀錄",
     "streak_done": "今日搞掂",
-    "streak_tonight": "今晚會斷"
+    "streak_tonight": "今晚會斷",
+    "streak_next": "再{left}日攞{target}日徽章"
   }
 }

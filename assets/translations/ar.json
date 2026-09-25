@@ -2943,6 +2943,7 @@
     "streak_days": "يوم متتالٍ",
     "streak_start": "ابدأ تتابعًا",
     "streak_done": "تم لليوم",
-    "streak_tonight": "ينتهي الليلة"
+    "streak_tonight": "ينتهي الليلة",
+    "streak_next": "{left} للوصول إلى شارة {target} يوم"
   }
 }

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The streak: the flame, the days, this week as dots, and whose it is. -->
+<!-- The streak as its badge: the medal of the tier reached with the days
+     struck in it, the last seven days under it, and the way to the next. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -22,30 +23,53 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:orientation="vertical"
-        android:paddingTop="10dp"
-        android:paddingBottom="12dp">
+        android:paddingTop="4dp"
+        android:paddingBottom="10dp">
 
-        <ImageView
-            android:id="@+id/flame"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:contentDescription="@null"
-            android:src="@drawable/ic_widget_flame" />
-
-        <TextView
-            android:id="@+id/days"
+        <FrameLayout
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="-2dp"
-            android:fontFamily="sans-serif-black"
-            android:textColor="#FFFFFFFF"
-            android:textSize="34sp" />
+            android:layout_height="wrap_content">
+
+            <!-- Drawn by the app with room for its halo, so it sits larger
+                 than it looks and the label below tucks under it. -->
+            <ImageView
+                android:id="@+id/medal"
+                android:layout_width="86dp"
+                android:layout_height="86dp"
+                android:contentDescription="@null"
+                android:visibility="gone" />
+
+            <!-- Until the app has drawn one. -->
+            <LinearLayout
+                android:id="@+id/plain"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/flame"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_widget_flame" />
+
+                <TextView
+                    android:id="@+id/days"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="-2dp"
+                    android:fontFamily="sans-serif-black"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="34sp" />
+            </LinearLayout>
+        </FrameLayout>
 
         <TextView
             android:id="@+id/label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="-4dp"
+            android:layout_marginTop="-8dp"
             android:textColor="#FFFFC078"
             android:textSize="11.5sp"
             android:textStyle="bold" />
@@ -54,58 +78,176 @@
             android:id="@+id/week"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="7dp"
             android:orientation="horizontal">
-        <ImageView
-            android:id="@+id/dot_0"
-            android:layout_width="9dp"
-            android:layout_height="9dp"
-            android:layout_marginStart="0dp"
-            android:contentDescription="@null"
-            android:src="@drawable/widget_dot_off" />
-        <ImageView
-            android:id="@+id/dot_1"
-            android:layout_width="9dp"
-            android:layout_height="9dp"
-            android:layout_marginStart="6dp"
-            android:contentDescription="@null"
-            android:src="@drawable/widget_dot_off" />
-        <ImageView
-            android:id="@+id/dot_2"
-            android:layout_width="9dp"
-            android:layout_height="9dp"
-            android:layout_marginStart="6dp"
-            android:contentDescription="@null"
-            android:src="@drawable/widget_dot_off" />
-        <ImageView
-            android:id="@+id/dot_3"
-            android:layout_width="9dp"
-            android:layout_height="9dp"
-            android:layout_marginStart="6dp"
-            android:contentDescription="@null"
-            android:src="@drawable/widget_dot_off" />
-        <ImageView
-            android:id="@+id/dot_4"
-            android:layout_width="9dp"
-            android:layout_height="9dp"
-            android:layout_marginStart="6dp"
-            android:contentDescription="@null"
-            android:src="@drawable/widget_dot_off" />
-        <ImageView
-            android:id="@+id/dot_5"
-            android:layout_width="9dp"
-            android:layout_height="9dp"
-            android:layout_marginStart="6dp"
-            android:contentDescription="@null"
-            android:src="@drawable/widget_dot_off" />
-        <ImageView
-            android:id="@+id/dot_6"
-            android:layout_width="9dp"
-            android:layout_height="9dp"
-            android:layout_marginStart="6dp"
-            android:contentDescription="@null"
-            android:src="@drawable/widget_dot_off" />
+            <LinearLayout
+                android:id="@+id/col_0"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_0"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_0"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/col_1"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_1"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/col_2"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_2"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/col_3"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_3"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_3"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/col_4"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_4"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_4"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/col_5"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_5"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_5"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/col_6"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_6"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_6"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
+
+        <TextView
+            android:id="@+id/next_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:textColor="#B3FFFFFF"
+            android:textSize="9.5sp"
+            android:visibility="gone" />
     </LinearLayout>
 
     <LinearLayout

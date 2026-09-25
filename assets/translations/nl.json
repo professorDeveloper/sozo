@@ -2939,6 +2939,7 @@
     "streak_days": "dagen streak",
     "streak_start": "Begin een streak",
     "streak_done": "Klaar voor vandaag",
-    "streak_tonight": "Eindigt vannacht"
+    "streak_tonight": "Eindigt vannacht",
+    "streak_next": "Nog {left} tot de {target}-dagenbadge"
   }
 }

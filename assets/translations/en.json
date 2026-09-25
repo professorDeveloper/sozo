@@ -2939,6 +2939,7 @@
     "streak_days": "day streak",
     "streak_start": "Start a streak",
     "streak_done": "Done for today",
-    "streak_tonight": "Ends tonight"
+    "streak_tonight": "Ends tonight",
+    "streak_next": "{left} more to the {target}-day badge"
   }
 }

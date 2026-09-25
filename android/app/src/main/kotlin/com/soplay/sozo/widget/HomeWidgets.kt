@@ -104,13 +104,24 @@ object HomeWidgets {
             "setBackgroundResource",
             if (atRisk) R.drawable.widget_bg_streak_risk else R.drawable.widget_bg_streak,
         )
-        views.setImageViewResource(
-            R.id.flame,
-            if (atRisk) R.drawable.ic_widget_flame_dark else R.drawable.ic_widget_flame,
-        )
-        views.setInt(R.id.flame, "setImageAlpha", if (alive) 255 else 90)
-        views.setTextViewText(R.id.days, current.toString())
-        views.setTextColor(R.id.days, if (atRisk) 0xFF1A0A00.toInt() else 0xFFFFFFFF.toInt())
+        // The medal the app drew; the plain flame and count until it has.
+        val medal = s?.optString("medal").orEmpty()
+            .takeIf { it.isNotBlank() }?.let { decode(it, 256) }
+        if (medal != null) {
+            views.setViewVisibility(R.id.medal, View.VISIBLE)
+            views.setViewVisibility(R.id.plain, View.GONE)
+            views.setImageViewBitmap(R.id.medal, medal)
+        } else {
+            views.setViewVisibility(R.id.medal, View.GONE)
+            views.setViewVisibility(R.id.plain, View.VISIBLE)
+            views.setImageViewResource(
+                R.id.flame,
+                if (atRisk) R.drawable.ic_widget_flame_dark else R.drawable.ic_widget_flame,
+            )
+            views.setInt(R.id.flame, "setImageAlpha", if (alive) 255 else 90)
+            views.setTextViewText(R.id.days, current.toString())
+            views.setTextColor(R.id.days, if (atRisk) 0xFF1A0A00.toInt() else 0xFFFFFFFF.toInt())
+        }
         views.setTextViewText(
             R.id.label,
             when {
@@ -121,24 +132,48 @@ object HomeWidgets {
         )
         views.setTextColor(R.id.label, if (atRisk) 0xFF3A1600.toInt() else 0xFFFFC078.toInt())
 
-        // The week, Monday first, today ringed until it is lit.
+        val nextLine = s?.optString("nextLine").orEmpty()
+        if (nextLine.isBlank()) {
+            views.setViewVisibility(R.id.next_badge, View.GONE)
+        } else {
+            views.setViewVisibility(R.id.next_badge, View.VISIBLE)
+            views.setTextViewText(R.id.next_badge, nextLine)
+            views.setTextColor(R.id.next_badge, if (atRisk) 0xB33A1600.toInt() else 0xB3FFFFFF.toInt())
+        }
+
+        // The last seven days, today last and ringed until it is lit, each
+        // over its weekday's initial.
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Calendar.getInstance().time)
         val week = s?.optJSONArray("week")
+        val cols = intArrayOf(R.id.col_0, R.id.col_1, R.id.col_2, R.id.col_3, R.id.col_4, R.id.col_5, R.id.col_6)
         val dots = intArrayOf(R.id.dot_0, R.id.dot_1, R.id.dot_2, R.id.dot_3, R.id.dot_4, R.id.dot_5, R.id.dot_6)
-        for ((i, dot) in dots.withIndex()) {
+        val letters = intArrayOf(
+            R.id.letter_0, R.id.letter_1, R.id.letter_2, R.id.letter_3,
+            R.id.letter_4, R.id.letter_5, R.id.letter_6,
+        )
+        for (i in dots.indices) {
             val day = week?.optJSONObject(i)
             if (day == null) {
-                views.setViewVisibility(dot, View.GONE)
+                views.setViewVisibility(cols[i], View.GONE)
                 continue
             }
-            views.setViewVisibility(dot, View.VISIBLE)
+            views.setViewVisibility(cols[i], View.VISIBLE)
+            val isToday = day.optString("date") == today
             views.setImageViewResource(
-                dot,
+                dots[i],
                 when {
                     day.optBoolean("active") -> R.drawable.widget_dot_on
-                    day.optString("date") == today ->
-                        if (atRisk) R.drawable.widget_dot_today_dark else R.drawable.widget_dot_today
+                    isToday -> if (atRisk) R.drawable.widget_dot_today_dark else R.drawable.widget_dot_today
                     else -> R.drawable.widget_dot_off
+                },
+            )
+            views.setTextViewText(letters[i], day.optString("letter"))
+            views.setTextColor(
+                letters[i],
+                when {
+                    atRisk -> if (isToday) 0xFF1A0A00.toInt() else 0x993A1600.toInt()
+                    isToday -> 0xFFFFFFFF.toInt()
+                    else -> 0x80FFFFFF.toInt()
                 },
             )
         }

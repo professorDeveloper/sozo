@@ -2939,6 +2939,7 @@
     "streak_days": "días de racha",
     "streak_start": "Empieza una racha",
     "streak_done": "Hecho por hoy",
-    "streak_tonight": "Acaba hoy"
+    "streak_tonight": "Acaba hoy",
+    "streak_next": "{left} más para la insignia de {target} días"
   }
 }

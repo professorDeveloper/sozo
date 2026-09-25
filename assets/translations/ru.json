@@ -2940,6 +2940,7 @@
     "streak_days": "дней подряд",
     "streak_start": "Начните серию",
     "streak_done": "На сегодня всё",
-    "streak_tonight": "Прервётся сегодня"
+    "streak_tonight": "Прервётся сегодня",
+    "streak_next": "До значка «{target} дней»: ещё {left}"
   }
 }

@@ -22,31 +22,21 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:orientation="vertical"
-        android:paddingTop="10dp"
-        android:paddingBottom="12dp">
+        android:paddingTop="4dp"
+        android:paddingBottom="10dp">
 
         <ImageView
-            android:id="@+id/flame"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:id="@+id/medal"
+            android:layout_width="86dp"
+            android:layout_height="86dp"
             android:contentDescription="@null"
-            android:src="@drawable/ic_widget_flame" />
-
-        <TextView
-            android:id="@+id/days"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="-2dp"
-            android:fontFamily="sans-serif-black"
-            android:textColor="#FFFFFFFF"
-            android:textSize="34sp"
-            android:text="23" />
+            android:src="@drawable/widget_preview_medal" />
 
         <TextView
             android:id="@+id/label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="-4dp"
+            android:layout_marginTop="-8dp"
             android:textColor="#FFFFC078"
             android:textSize="11.5sp"
             android:textStyle="bold"

@@ -92,6 +92,81 @@ class AchievementMedal extends StatelessWidget {
   }
 }
 
+/// Paints a medal straight onto [canvas], for pictures made outside a widget
+/// tree — the home-screen widget's. The same metal, bevel and emboss as
+/// [AchievementMedal]; [caption], when given, is struck large in the field
+/// with the icon small above it, as a count on a badge.
+///
+/// [progress] is traced round the rim at any tier here, not only a locked
+/// one: on the home screen it is the way to the next tier. [ink] recolours
+/// what is struck, as a live streak's flame glowing in a blank still to win.
+void paintMedal(
+  Canvas canvas,
+  Size size, {
+  required MedalTier tier,
+  required IconData icon,
+  double? progress,
+  String? caption,
+  Color? ink,
+  bool glow = true,
+}) {
+  final metal = _Metal.of(tier);
+  final inkColor = ink ?? metal.ink;
+  _MedalPainter(
+    metal,
+    glow: glow,
+    progress: progress,
+    light: Offset.zero,
+  ).paint(canvas, size);
+  final s = size.shortestSide;
+  final locked = tier == MedalTier.locked;
+  final center = size.center(Offset.zero);
+  // Raised: a shadow below-right, a highlight above-left. A locked blank is
+  // the other way round — pressed in.
+  final down = Offset(s * 0.012, s * 0.018) * (locked ? -1 : 1);
+  final up = Offset(-s * 0.010, -s * 0.012) * (locked ? -1 : 1);
+
+  void strike(String text, TextStyle style, Offset at) {
+    for (final (color, shift) in [
+      (metal.emboss, down),
+      (metal.highlight, up),
+      (inkColor, Offset.zero),
+    ]) {
+      final painter = TextPainter(
+        textDirection: TextDirection.ltr,
+        text: TextSpan(text: text, style: style.copyWith(color: color)),
+      )..layout();
+      painter.paint(
+        canvas,
+        at + shift - Offset(painter.width / 2, painter.height / 2),
+      );
+    }
+  }
+
+  final glyph = String.fromCharCode(icon.codePoint);
+  TextStyle iconStyle(double px) => TextStyle(
+    fontSize: px,
+    fontFamily: icon.fontFamily,
+    package: icon.fontPackage,
+    height: 1,
+  );
+  if (caption == null) {
+    strike(glyph, iconStyle(s * 0.40), center);
+    return;
+  }
+  strike(glyph, iconStyle(s * 0.19), center + Offset(0, -s * 0.17));
+  strike(
+    caption,
+    TextStyle(
+      fontSize: s * (caption.length > 2 ? 0.22 : 0.29),
+      fontWeight: FontWeight.w900,
+      height: 1,
+      letterSpacing: -s * 0.006,
+    ),
+    center + Offset(0, s * 0.06),
+  );
+}
+
 /// A medal for an achievement id at a tier — the common case.
 class AchievementBadge extends StatelessWidget {
   const AchievementBadge({
@@ -210,8 +285,8 @@ class _LockPip extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFF1B1B1B),
-        border: Border.all(color: const Color(0xFF4A4A4A), width: 1),
+        color: const Color(0xFF3B4046),
+        border: Border.all(color: const Color(0xFF9AA0A8), width: 1),
         boxShadow: const [
           BoxShadow(
             color: Color(0x66000000),
@@ -223,7 +298,7 @@ class _LockPip extends StatelessWidget {
       child: Icon(
         Icons.lock_rounded,
         size: size * 0.62,
-        color: const Color(0xFFB0B0B0),
+        color: const Color(0xFFE3E6EA),
       ),
     );
   }
@@ -256,15 +331,17 @@ class _Metal {
   final bool sparkle;
 
   static _Metal of(MedalTier tier) => switch (tier) {
+    // Unpolished pewter rather than black: still plainly not won, but metal
+    // waiting to be struck — a black blank read as a hole in the page.
     MedalTier.locked => const _Metal(
-      rim: Color(0xFF141414),
-      bevelLight: Color(0xFF4A4A4A),
-      bevelDark: Color(0xFF1C1C1C),
-      face: [Color(0xFF343434), Color(0xFF262626)],
-      field: [Color(0xFF222222), Color(0xFF2A2A2A)],
-      ink: Color(0xFF3E3E3E),
-      emboss: Color(0xFF141414),
-      highlight: Color(0x33FFFFFF),
+      rim: Color(0xFF2B2F34),
+      bevelLight: Color(0xFFA3A9B1),
+      bevelDark: Color(0xFF41464D),
+      face: [Color(0xFF7E858E), Color(0xFF626870), Color(0xFF4D5259)],
+      field: [Color(0xFF52575E), Color(0xFF686E76)],
+      ink: Color(0xFF3B4046),
+      emboss: Color(0x33000000),
+      highlight: Color(0x40FFFFFF),
     ),
     MedalTier.bronze => const _Metal(
       rim: Color(0xFF4A2A10),

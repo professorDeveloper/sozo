@@ -2939,6 +2939,7 @@
     "streak_days": "günlük seri",
     "streak_start": "Bir seri başlat",
     "streak_done": "Bugünlük tamam",
-    "streak_tonight": "Bu gece bitiyor"
+    "streak_tonight": "Bu gece bitiyor",
+    "streak_next": "{target} günlük rozete {left} gün"
   }
 }

@@ -2939,6 +2939,7 @@
     "streak_days": "jours de série",
     "streak_start": "Lance une série",
     "streak_done": "Fait pour aujourd’hui",
-    "streak_tonight": "S’arrête ce soir"
+    "streak_tonight": "S’arrête ce soir",
+    "streak_next": "Encore {left} pour le badge {target} jours"
   }
 }

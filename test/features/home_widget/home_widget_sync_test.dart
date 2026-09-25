@@ -133,4 +133,24 @@ void main() {
     expect(kept, {'mn:1', 'an:9', 'my:x', 'hdrezka'});
     expect(asked['mn:'], unorderedEquals(['1', '2']));
   });
+
+  test('the streak badge: tier won, the next, and the way to it', () {
+    const tiers = [7, 30, 100, 365];
+    expect(HomeWidgetSync.streakBadge(0, tiers), (
+      tier: 0,
+      next: 7,
+      progress: 0.0,
+    ));
+    final two = HomeWidgetSync.streakBadge(2, tiers);
+    expect((two.tier, two.next), (0, 7));
+    expect(two.progress, closeTo(2 / 7, 1e-9));
+    final nine = HomeWidgetSync.streakBadge(9, tiers);
+    expect((nine.tier, nine.next), (1, 30));
+    expect(nine.progress, closeTo(2 / 23, 1e-9));
+    expect(HomeWidgetSync.streakBadge(400, tiers), (
+      tier: 4,
+      next: null,
+      progress: 1.0,
+    ));
+  });
 }

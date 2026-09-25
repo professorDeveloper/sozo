@@ -14,6 +14,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:soplay/core/router/app_router.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/features/achievements/domain/achievements.dart';
+import 'package:soplay/features/achievements/presentation/widgets/achievement_medal.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/history/data/history_service.dart';
@@ -42,8 +44,10 @@ class HomeWidgetSync with WidgetsBindingObserver {
     AnilistService? anilist,
     ProfileSession? profiles,
     Future<Set<String>> Function(Set<String> providers)? openable,
+    List<int> Function()? streakTiers,
     Dio? dio,
   }) : _history = history,
+       _streakTiers = streakTiers,
        _streak = streak,
        _hive = hive,
        _anilist = anilist,
@@ -70,6 +74,9 @@ class HomeWidgetSync with WidgetsBindingObserver {
   /// Of the given sources, the ones installed here. A row on a removed source
   /// would open onto "source unavailable", so the widget leaves it out.
   final Future<Set<String>> Function(Set<String> providers)? _openableOf;
+
+  /// The streak badge's tiers, in days, as the server has them.
+  final List<int> Function()? _streakTiers;
 
   /// Of [providers], the ones whose source is installed here. Mangayomi
   /// sources are known on this side ([mangayomi]); the native hosts' are asked
@@ -235,8 +242,17 @@ class HomeWidgetSync with WidgetsBindingObserver {
         'episodeIndex': ?item.episodeIndex,
       });
     }
-    await _prunePosters(posters);
     final streak = _streak.state.value;
+    final badge = streakBadge(
+      streak.current,
+      _streakTiers?.call() ?? const [7, 30, 100, 365],
+    );
+    String? medal;
+    if (_hive.isLoggedIn) {
+      medal = await _streakMedal(streak.current, badge);
+      if (medal != null) posters.add(medal);
+    }
+    await _prunePosters(posters);
     return {
       'locked': false,
       'labels': labels,
@@ -247,11 +263,25 @@ class HomeWidgetSync with WidgetsBindingObserver {
           'current': streak.current,
           'longest': streak.longest,
           'lastActiveDate': ?streak.lastActiveDate,
-          // The week the streak widget draws as dots, Monday first; a date
-          // per dot so the widget can tell which one is today.
+          'medal': ?medal,
+          // The way to the next badge, under the week; none once all are won.
+          if (badge.next != null)
+            'nextLine': 'home_widget.streak_next'.tr(
+              namedArgs: {
+                'left': '${badge.next! - streak.current}',
+                'target': '${badge.next}',
+              },
+            ),
+          // The last seven days, today last, as dots; a date per dot so the
+          // widget can tell which one is today, and its weekday's initial
+          // under it — without one a row of dots said nothing about when.
           'week': [
             for (final d in streak.weeklyActivity)
-              {'date': d.date, 'active': d.active},
+              {
+                'date': d.date,
+                'active': d.active,
+                'letter': ?_weekdayInitial(d.date),
+              },
           ],
         },
       'next': ?await _nextAiring(),
@@ -345,6 +375,97 @@ class HomeWidgetSync with WidgetsBindingObserver {
         if (f is File && !keep.contains(f.path)) await f.delete();
       }
     } catch (_) {}
+  }
+
+  /// Where [current] days stand among the streak badge's [tiers]: how many
+  /// are won, the next one's days, and the way to it, 0..1.
+  @visibleForTesting
+  static ({int tier, int? next, double progress}) streakBadge(
+    int current,
+    List<int> tiers,
+  ) {
+    final tier = tiers.where((t) => current >= t).length;
+    if (tier >= tiers.length) return (tier: tier, next: null, progress: 1);
+    final from = tier == 0 ? 0 : tiers[tier - 1];
+    final to = tiers[tier];
+    final progress = to <= from
+        ? 1.0
+        : ((current - from) / (to - from)).clamp(0.0, 1.0);
+    return (tier: tier, next: to, progress: progress.toDouble());
+  }
+
+  static String? _weekdayInitial(String date) {
+    final day = DateTime.tryParse(date);
+    if (day == null) return null;
+    final name = switch (day.weekday) {
+      DateTime.monday => 'streak.weekday_mon'.tr(),
+      DateTime.tuesday => 'streak.weekday_tue'.tr(),
+      DateTime.wednesday => 'streak.weekday_wed'.tr(),
+      DateTime.thursday => 'streak.weekday_thu'.tr(),
+      DateTime.friday => 'streak.weekday_fri'.tr(),
+      DateTime.saturday => 'streak.weekday_sat'.tr(),
+      _ => 'streak.weekday_sun'.tr(),
+    };
+    return name.isEmpty ? null : name.characters.first;
+  }
+
+  /// The streak as its badge: the medal of the tier the streak has reached —
+  /// a locked blank before the first — with the day count struck in it and
+  /// the way to the next tier traced round the rim.
+  Future<String?> _streakMedal(
+    int current,
+    ({int tier, int? next, double progress}) badge,
+  ) async {
+    try {
+      final dir = await _posterDir();
+      final progress = badge.next == null ? null : badge.progress;
+      final key = 'v3|$current|${badge.tier}|${progress?.toStringAsFixed(3)}';
+      final file = File(
+        '${dir.path}/medal_${md5.convert(utf8.encode(key))}.png',
+      );
+      if (await file.exists()) return file.path;
+      // Room round the medal for its halo and shadow.
+      const px = 240.0;
+      const medalPx = 176.0;
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      const center = Offset(px / 2, px / 2);
+      // The warmth of the flame behind it, stronger the longer the streak.
+      final warmth = current <= 0 ? 0.10 : (0.22 + badge.tier * 0.06);
+      canvas.drawCircle(
+        center,
+        px / 2,
+        Paint()
+          ..shader = ui.Gradient.radial(center, px / 2, [
+            const Color(0xFFFF8A3D).withValues(alpha: warmth),
+            const Color(0x00FF8A3D),
+          ]),
+      );
+      canvas.save();
+      canvas.translate((px - medalPx) / 2, (px - medalPx) / 2);
+      paintMedal(
+        canvas,
+        const Size.square(medalPx),
+        tier: MedalTier.ofLevel(badge.tier),
+        icon: AchievementDef.of('streak').icon,
+        progress: progress,
+        caption: '$current',
+        // Before the first badge the blank is plain pewter; a streak that is
+        // alive burns in it rather than sitting grey.
+        ink: badge.tier == 0 && current > 0 ? const Color(0xFFFFA64D) : null,
+      );
+      canvas.restore();
+      final picture = recorder.endRecording();
+      final out = await picture.toImage(px.toInt(), px.toInt());
+      final png = await out.toByteData(format: ui.ImageByteFormat.png);
+      out.dispose();
+      if (png == null) return null;
+      await file.writeAsBytes(png.buffer.asUint8List(), flush: true);
+      return file.path;
+    } catch (e) {
+      debugPrint('[home_widget] streak medal failed: $e');
+      return null;
+    }
   }
 
   /// The profile's avatar as a small round picture the widget can draw: its
