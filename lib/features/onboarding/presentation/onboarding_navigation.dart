@@ -32,12 +32,8 @@ Page<void> onboardingPage(GoRouterState state, Widget child) {
     child: child,
     transitionDuration: const Duration(milliseconds: 520),
     reverseTransitionDuration: const Duration(milliseconds: 420),
-    transitionsBuilder: (context, animation, secondary, child) =>
-        OnboardingSharedAxis(
-          animation: animation,
-          secondaryAnimation: secondary,
-          child: child,
-        ),
+    transitionsBuilder: (context, animation, _, child) =>
+        OnboardingSharedAxis(animation: animation, child: child),
   );
 }
 
@@ -45,12 +41,10 @@ class OnboardingSharedAxis extends StatelessWidget {
   const OnboardingSharedAxis({
     super.key,
     required this.animation,
-    required this.secondaryAnimation,
     required this.child,
   });
 
   final Animation<double> animation;
-  final Animation<double> secondaryAnimation;
   final Widget child;
 
   static const Curve _emphasized = Cubic(0.05, 0.7, 0.1, 1.0);
@@ -66,35 +60,23 @@ class OnboardingSharedAxis extends StatelessWidget {
       curve: _emphasized,
       reverseCurve: _emphasized.flipped,
     );
-    final exit = CurvedAnimation(
-      parent: secondaryAnimation,
-      curve: _emphasized,
-    );
+    // The incoming page fades in OVER the outgoing one, which holds still.
+    // Both used to fade — the old one out over the first 60%, the new one in
+    // from 20% — so mid-move neither was opaque and the black behind the
+    // navigator showed through: a dark flash between every step, worst
+    // leaving the bright poster wall for the language list. The old page no
+    // longer slides away either: that opened a black strip at its far edge.
     return FadeTransition(
       opacity: CurvedAnimation(
         parent: animation,
-        curve: const Interval(0.2, 1, curve: Curves.easeOut),
+        curve: const Interval(0, 0.55, curve: Curves.easeOut),
       ),
       child: SlideTransition(
         position: Tween(
           begin: Offset(0.14 * dir, 0),
           end: Offset.zero,
         ).animate(enter),
-        child: FadeTransition(
-          opacity: Tween(begin: 1.0, end: 0.0).animate(
-            CurvedAnimation(
-              parent: secondaryAnimation,
-              curve: const Interval(0, 0.6, curve: Curves.easeIn),
-            ),
-          ),
-          child: SlideTransition(
-            position: Tween(
-              begin: Offset.zero,
-              end: Offset(-0.1 * dir, 0),
-            ).animate(exit),
-            child: child,
-          ),
-        ),
+        child: child,
       ),
     );
   }
