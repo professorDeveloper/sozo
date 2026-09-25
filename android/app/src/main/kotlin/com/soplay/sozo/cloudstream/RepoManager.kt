@@ -57,6 +57,10 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
      * lazily on first use. Falls back to a full load for repos saved before
      * metadata existed.
      */
+    // Synchronized: a source call that arrives first (a widget or notification
+    // tap, before the source list has loaded) now loads it too, and a second
+    // caller must wait for the registry rather than see `ensured` early.
+    @Synchronized
     fun ensureLoaded() {
         if (ensured) return
         ensured = true

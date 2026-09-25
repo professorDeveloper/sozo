@@ -18,6 +18,7 @@ import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
+import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/profiles/data/profile_session.dart';
 import 'package:soplay/features/profiles/domain/household_profile.dart';
@@ -40,14 +41,14 @@ class HomeWidgetSync with WidgetsBindingObserver {
     required HiveService hive,
     AnilistService? anilist,
     ProfileSession? profiles,
-    bool Function(String provider)? isAvailable,
+    Future<Set<String>> Function(Set<String> providers)? openable,
     Dio? dio,
   }) : _history = history,
        _streak = streak,
        _hive = hive,
        _anilist = anilist,
        _profiles = profiles,
-       _isAvailable = isAvailable,
+       _openableOf = openable,
        _dio =
            dio ??
            Dio(
@@ -66,7 +67,52 @@ class HomeWidgetSync with WidgetsBindingObserver {
 
   /// Whether a title's source is still installed. A widget row whose source
   /// was removed opens onto "details not found", so it is left off.
-  final bool Function(String provider)? _isAvailable;
+  /// Of the given sources, the ones installed here. A row on a removed source
+  /// would open onto "source unavailable", so the widget leaves it out.
+  final Future<Set<String>> Function(Set<String> providers)? _openableOf;
+
+  /// Of [providers], the ones whose source is installed here. Mangayomi
+  /// sources are known on this side ([mangayomi]); the native hosts' are asked
+  /// of [host], once per host, with the ids bare. A host that cannot say
+  /// (null) keeps its rows, and anything that is not an extension source —
+  /// the server's, a catalogue — is always kept.
+  static Future<Set<String>> installedOf(
+    Set<String> providers, {
+    required bool Function(String provider) mangayomi,
+    required Future<Set<String>?> Function(String prefix, List<String> ids)
+    host,
+  }) async {
+    final keep = <String>{};
+    final byHost = <String, List<String>>{};
+    for (final p in providers) {
+      final prefix = p.length > 3 ? p.substring(0, 3) : '';
+      if (prefix == 'my:') {
+        if (mangayomi(p)) keep.add(p);
+      } else if (prefix == 'mn:' || prefix == 'an:' || prefix == 'cs:') {
+        (byHost[prefix] ??= []).add(p.substring(3));
+      } else {
+        keep.add(p);
+      }
+    }
+    for (final MapEntry(key: prefix, value: ids) in byHost.entries) {
+      final found = await host(prefix, ids);
+      for (final id in ids) {
+        if (found == null || found.contains(id)) keep.add('$prefix$id');
+      }
+    }
+    return keep;
+  }
+
+  Future<Set<String>> _openable(Set<String> providers) async {
+    final check = _openableOf;
+    if (check == null) return providers;
+    try {
+      return await check(providers);
+    } catch (_) {
+      return providers;
+    }
+  }
+
   final Dio _dio;
 
   static const MethodChannel _channel = MethodChannel('sozo/home_widget');
@@ -160,10 +206,11 @@ class HomeWidgetSync with WidgetsBindingObserver {
       await _prunePosters(const {});
       return {'locked': true, 'labels': labels};
     }
-    final available = _isAvailable;
+    final all = _history.getAll();
+    final openable = await _openable({for (final i in all) i.provider});
     final items = continueItems([
-      for (final item in _history.getAll())
-        if (available == null || available(item.provider)) item,
+      for (final item in all)
+        if (openable.contains(item.provider)) item,
     ]);
     final posters = <String>{};
     // Whose it is, when there is more than one to be: the profile's avatar
@@ -436,6 +483,35 @@ class HomeWidgetSync with WidgetsBindingObserver {
 
   // --- taps ------------------------------------------------------------------
 
+  int _tapSeq = 0;
+
+  /// The poster and name the widget showed, so the page opens on them while
+  /// the source answers instead of on an empty frame.
+  MovieEntity? _previewOf(String url, String? provider) {
+    for (final item in _history.getAll()) {
+      if (item.contentUrl != url) continue;
+      if (provider != null &&
+          provider.isNotEmpty &&
+          item.provider != provider) {
+        continue;
+      }
+      return MovieEntity(
+        externalId: '',
+        title: item.title,
+        description: '',
+        slug: '',
+        url: item.contentUrl,
+        provider: item.provider,
+        thumbnail: item.thumbnail,
+        year: null,
+        rating: null,
+        qualities: null,
+        category: '',
+      );
+    }
+    return null;
+  }
+
   Future<void> _takeLaunchAction() async {
     try {
       final raw = await _channel.invokeMethod<Map>('takeLaunchAction');
@@ -446,6 +522,8 @@ class HomeWidgetSync with WidgetsBindingObserver {
   /// Opens what a widget tap asked for — once Home is up, since a page pushed
   /// over the splash is swept away when the splash hands over to Home.
   void _handle(Map<String, dynamic> action) {
+    // A later tap replaces one still waiting for Home.
+    final seq = ++_tapSeq;
     void go() {
       switch (action['action']) {
         case 'continue':
@@ -461,9 +539,10 @@ class HomeWidgetSync with WidgetsBindingObserver {
             '/detail',
             extra: DetailArgs(
               contentUrl: url,
+              preview: _previewOf(url, provider),
               autoPlay: true,
               resumeEpisodeIndex: action['episodeIndex'] as int?,
-              provider: action['provider'] as String?,
+              provider: provider,
             ),
           );
         case 'next':
@@ -474,16 +553,25 @@ class HomeWidgetSync with WidgetsBindingObserver {
     }
 
     final delegate = AppRouter.router.routerDelegate;
+    // Past the splash, the first-run pages and "Who's watching?". A title
+    // opened over the profile picker loaded before any profile — and so any
+    // of its sources — was chosen, came up blank, and Back led to the picker.
     bool atHome() {
       final path = delegate.currentConfiguration.uri.path;
-      return path.isNotEmpty && path != '/splash' && path != '/onboarding';
+      return path.isNotEmpty &&
+          path != '/splash' &&
+          path != '/onboarding' &&
+          !path.startsWith('/profiles');
     }
 
     // Home up, and the sources known — on a cold start the tap arrives before
-    // either, and a title opened then lands on the wrong source.
+    // either, and a title opened then lands on the wrong source. Picking a
+    // profile takes as long as it takes, so that wait has no limit; the one
+    // for the source list, once home, gives up after five seconds.
     var tries = 0;
     void whenReady() {
-      if ((atHome() && selectSource != null) || tries++ > 20) {
+      if (seq != _tapSeq) return;
+      if (atHome() && (selectSource != null || tries++ > 20)) {
         go();
         return;
       }

@@ -288,6 +288,13 @@ class PluginHost(private val appContext: Context) {
         Log.i(TAG, "removed providers=$names")
     }
 
+    /** Installed here — known from its repo or already loaded — without loading it. */
+    fun has(name: String): Boolean {
+        val n = name.removePrefix("cs:")
+        return metas.containsKey(n) ||
+            APIHolder.allProviders.any { it.name == n }
+    }
+
     private fun apiByName(name: String): MainAPI? {
         val n = name.removePrefix("cs:")
         ensurePluginLoaded(n)

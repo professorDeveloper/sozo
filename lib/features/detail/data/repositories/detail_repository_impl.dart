@@ -47,6 +47,21 @@ class DetailRepositoryImpl implements DetailRepository {
     return text.isEmpty ? null : text;
   }
 
+  /// A host's detail payload as a result.
+  ///
+  /// A host that could not reach the source still answers with a map, holding
+  /// only its `error`. That map is not empty, so it used to open as a title
+  /// with no name, no poster and no chapters, which looks like a broken page
+  /// rather than a source that failed. With no title, the reason is the answer.
+  static Result<DetailEntity> _detailOf(Map<String, dynamic> map, String host) {
+    final title = map['title'];
+    final untitled = title is! String || title.trim().isEmpty;
+    if (map.isEmpty || (untitled && _hostError(map) != null)) {
+      return Failure(Exception(_hostError(map) ?? '$host: details not found'));
+    }
+    return Success(DetailModel.fromJson(map));
+  }
+
   String? _resolveProvider(String? provider) {
     if (provider != null && provider.isNotEmpty) return provider;
     final fromHive = hive?.getCurrentProvider();
@@ -67,8 +82,7 @@ class DetailRepositoryImpl implements DetailRepository {
           effective.substring(3),
           contentUrl,
         );
-        if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
-        return Failure(Exception('CloudStream: details not found'));
+        return _detailOf(map, 'CloudStream');
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -79,8 +93,7 @@ class DetailRepositoryImpl implements DetailRepository {
           effective.substring(3),
           contentUrl,
         );
-        if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
-        return Failure(Exception('Aniyomi: details not found'));
+        return _detailOf(map, 'Aniyomi');
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -88,8 +101,7 @@ class DetailRepositoryImpl implements DetailRepository {
     if (effective != null && effective.startsWith('mn:')) {
       try {
         final map = await MangaChannel.load(effective.substring(3), contentUrl);
-        if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
-        return Failure(Exception('Manga: details not found'));
+        return _detailOf(map, 'Manga');
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -97,8 +109,7 @@ class DetailRepositoryImpl implements DetailRepository {
     if (effective != null && effective.startsWith('my:')) {
       try {
         final map = await mangayomi.load(effective.substring(3), contentUrl);
-        if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
-        return Failure(Exception('Mangayomi: details not found'));
+        return _detailOf(map, 'Mangayomi');
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }

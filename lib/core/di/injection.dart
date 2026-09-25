@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
+import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
+import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/system/platform_utils.dart' show isTvPlatform;
 import 'package:soplay/features/onboarding/data/genre_catalog.dart';
 import 'package:soplay/features/onboarding/data/onboarding_store.dart';
@@ -239,6 +242,18 @@ import 'package:soplay/features/achievements/data/achievements_service.dart';
 import 'package:soplay/features/home_widget/home_widget_sync.dart';
 
 final getIt = GetIt.instance;
+
+/// Of [providers], the ones whose source is installed here.
+Future<Set<String>> _installedSources(Set<String> providers) =>
+    HomeWidgetSync.installedOf(
+      providers,
+      mangayomi: (p) => getIt<MangayomiBridge>().store.sourceById(p) != null,
+      host: (prefix, ids) => switch (prefix) {
+        'mn:' => MangaChannel.installed(ids),
+        'an:' => AniyomiChannel.installed(ids),
+        _ => CloudStreamChannel.installed(ids),
+      },
+    );
 
 Future<void> configureDependencies() async {
   getIt.registerSingleton<DeeplinkService>(DeeplinkService());
@@ -973,11 +988,7 @@ Future<void> configureDependencies() async {
       hive: getIt<HiveService>(),
       anilist: getIt<AnilistService>(),
       profiles: getIt<ProfileSession>(),
-      // A Mangayomi or LNReader source that was removed: its rows would open
-      // onto "details not found". The native hosts answer for themselves.
-      isAvailable: (provider) =>
-          !provider.startsWith('my:') ||
-          getIt<MangayomiBridge>().store.sourceById(provider) != null,
+      openable: _installedSources,
     ),
   );
   getIt.registerSingleton<ViewAllUseCase>(

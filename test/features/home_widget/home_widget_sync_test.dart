@@ -115,4 +115,22 @@ void main() {
       'Ch 3',
     );
   });
+
+  test('rows on a removed source are left out', () async {
+    final asked = <String, List<String>>{};
+    final kept = await HomeWidgetSync.installedOf(
+      {'mn:1', 'mn:2', 'an:9', 'cs:Gone', 'my:x', 'my:y', 'hdrezka'},
+      mangayomi: (p) => p == 'my:x',
+      host: (prefix, ids) async {
+        asked[prefix] = ids;
+        return switch (prefix) {
+          'mn:' => {'1'},
+          'cs:' => <String>{},
+          _ => null, // a host that cannot say keeps its rows
+        };
+      },
+    );
+    expect(kept, {'mn:1', 'an:9', 'my:x', 'hdrezka'});
+    expect(asked['mn:'], unorderedEquals(['1', '2']));
+  });
 }

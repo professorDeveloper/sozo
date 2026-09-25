@@ -83,6 +83,14 @@ class AniyomiChannel {
     return {'languages': langs};
   }
 
+  /// Which of [ids] (without their prefix) are installed here; null when the
+  /// host cannot say, as on a desktop bridge that predates the call.
+  static Future<Set<String>?> installed(List<String> ids) async {
+    final raw = await _call<String>('hasSources', {'ids': ids});
+    if (raw == null) return null;
+    return _arr(raw).whereType<String>().toSet();
+  }
+
   static Future<List<dynamic>> listProviders() async =>
       _arr(await _call<String>('listProviders', _langArgs()));
 

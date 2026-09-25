@@ -74,6 +74,9 @@ class AniyomiHost(private val context: Context) {
     private val missingApkUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val refreshAttempts = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
+    /** Installed here, without loading it. */
+    fun has(id: String): Boolean = sources.containsKey(id)
+
     fun registerMeta(entry: JSONObject, repoName: String) {
         val id = entry.optString("id")
         if (id.isEmpty()) return

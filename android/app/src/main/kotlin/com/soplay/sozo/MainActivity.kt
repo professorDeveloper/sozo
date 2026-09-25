@@ -431,6 +431,14 @@ class MainActivity : FlutterFragmentActivity() {
         cloudstreamChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "listProviders" -> csAsync(result) { pluginHost.providersJson() }
+                // Which of these ids are installed, for the home-screen widget.
+                "hasSources" -> {
+                    val ids = call.argument<List<String>>("ids").orEmpty()
+                    csAsync(result) {
+                        repoManager.ensureLoaded()
+                        JSONArray(ids.filter { pluginHost.has(it) }).toString()
+                    }
+                }
                 "ensureLoaded" -> csAsync(result) {
                     repoManager.ensureLoaded(); pluginHost.providersJson()
                 }
@@ -492,33 +500,33 @@ class MainActivity : FlutterFragmentActivity() {
                 "getMainPage" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val page = call.argument<Int>("page") ?: 1
-                    csAsync(result) { pluginHost.getMainPageJson(provider, page) }
+                    csAsync(result) { repoManager.ensureLoaded(); pluginHost.getMainPageJson(provider, page) }
                 }
                 "getGenres" -> {
                     val provider = call.argument<String>("provider").orEmpty()
-                    csAsync(result) { pluginHost.getGenresJson(provider) }
+                    csAsync(result) { repoManager.ensureLoaded(); pluginHost.getGenresJson(provider) }
                 }
                 "getSection" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val data = call.argument<String>("data").orEmpty()
                     val page = call.argument<Int>("page") ?: 1
-                    csAsync(result) { pluginHost.getSectionJson(provider, data, page) }
+                    csAsync(result) { repoManager.ensureLoaded(); pluginHost.getSectionJson(provider, data, page) }
                 }
                 "search" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val query = call.argument<String>("query").orEmpty()
                     val page = call.argument<Int>("page") ?: 1
-                    csAsync(result) { pluginHost.searchJson(provider, query, page) }
+                    csAsync(result) { repoManager.ensureLoaded(); pluginHost.searchJson(provider, query, page) }
                 }
                 "load" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val url = call.argument<String>("url").orEmpty()
-                    csAsync(result) { pluginHost.loadJson(provider, url) }
+                    csAsync(result) { repoManager.ensureLoaded(); pluginHost.loadJson(provider, url) }
                 }
                 "loadLinks" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val data = call.argument<String>("data").orEmpty()
-                    csAsync(result) { pluginHost.loadLinksJson(provider, data) }
+                    csAsync(result) { repoManager.ensureLoaded(); pluginHost.loadLinksJson(provider, data) }
                 }
                 "cloudflareInfo" -> {
                     val id = call.argument<String>("id").orEmpty()
@@ -535,6 +543,14 @@ class MainActivity : FlutterFragmentActivity() {
         aniyomiChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "listProviders" -> csAsync(result) { aniyomiHost.providersJson(call.langs()) }
+                // Which of these ids are installed, for the home-screen widget.
+                "hasSources" -> {
+                    val ids = call.argument<List<String>>("ids").orEmpty()
+                    csAsync(result) {
+                        aniyomiRepoManager.ensureLoaded()
+                        JSONArray(ids.filter { aniyomiHost.has(it) }).toString()
+                    }
+                }
                 "ensureLoaded" -> csAsync(result) {
                     aniyomiRepoManager.ensureLoaded(); aniyomiHost.providersJson(call.langs())
                 }
@@ -585,44 +601,44 @@ class MainActivity : FlutterFragmentActivity() {
                 "getMainPage" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val page = call.argument<Int>("page") ?: 1
-                    csAsync(result) { aniyomiHost.getMainPageJson(provider, page) }
+                    csAsync(result) { aniyomiRepoManager.ensureLoaded(); aniyomiHost.getMainPageJson(provider, page) }
                 }
                 "getSection" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val data = call.argument<String>("data").orEmpty()
                     val page = call.argument<Int>("page") ?: 1
-                    csAsync(result) { aniyomiHost.getSectionJson(provider, data, page) }
+                    csAsync(result) { aniyomiRepoManager.ensureLoaded(); aniyomiHost.getSectionJson(provider, data, page) }
                 }
                 "getGenres" -> {
                     val provider = call.argument<String>("provider").orEmpty()
-                    csAsync(result) { aniyomiHost.getGenresJson(provider) }
+                    csAsync(result) { aniyomiRepoManager.ensureLoaded(); aniyomiHost.getGenresJson(provider) }
                 }
                 "search" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val query = call.argument<String>("query").orEmpty()
                     val page = call.argument<Int>("page") ?: 1
-                    csAsync(result) { aniyomiHost.searchJson(provider, query, page) }
+                    csAsync(result) { aniyomiRepoManager.ensureLoaded(); aniyomiHost.searchJson(provider, query, page) }
                 }
                 "load" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val url = call.argument<String>("url").orEmpty()
-                    csAsync(result) { aniyomiHost.loadJson(provider, url) }
+                    csAsync(result) { aniyomiRepoManager.ensureLoaded(); aniyomiHost.loadJson(provider, url) }
                 }
                 "loadLinks" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val data = call.argument<String>("data").orEmpty()
-                    csAsync(result) { aniyomiHost.loadLinksJson(provider, data) }
+                    csAsync(result) { aniyomiRepoManager.ensureLoaded(); aniyomiHost.loadLinksJson(provider, data) }
                 }
                 "getPreferences" -> {
                     val provider = call.argument<String>("provider").orEmpty()
-                    csAsync(result) { aniyomiHost.getPrefsJson(provider) }
+                    csAsync(result) { aniyomiRepoManager.ensureLoaded(); aniyomiHost.getPrefsJson(provider) }
                 }
                 "setPreference" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val key = call.argument<String>("key").orEmpty()
                     val type = call.argument<String>("type").orEmpty()
                     val value = call.argument<Any>("value")
-                    csAsync(result) { aniyomiHost.setPrefJson(provider, key, value, type) }
+                    csAsync(result) { aniyomiRepoManager.ensureLoaded(); aniyomiHost.setPrefJson(provider, key, value, type) }
                 }
                 "cloudflareInfo" -> {
                     val id = call.argument<String>("id").orEmpty()
@@ -639,6 +655,14 @@ class MainActivity : FlutterFragmentActivity() {
         mangaChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "listProviders" -> csAsync(result) { mangaHost.providersJson(call.langs()) }
+                // Which of these ids are installed, for the home-screen widget.
+                "hasSources" -> {
+                    val ids = call.argument<List<String>>("ids").orEmpty()
+                    csAsync(result) {
+                        mangaRepoManager.ensureLoaded()
+                        JSONArray(ids.filter { mangaHost.has(it) }).toString()
+                    }
+                }
                 "ensureLoaded" -> csAsync(result) {
                     mangaRepoManager.ensureLoaded(); mangaHost.providersJson(call.langs())
                 }
@@ -689,44 +713,44 @@ class MainActivity : FlutterFragmentActivity() {
                 "getMainPage" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val page = call.argument<Int>("page") ?: 1
-                    csAsync(result) { mangaHost.getMainPageJson(provider, page) }
+                    csAsync(result) { mangaRepoManager.ensureLoaded(); mangaHost.getMainPageJson(provider, page) }
                 }
                 "getSection" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val data = call.argument<String>("data").orEmpty()
                     val page = call.argument<Int>("page") ?: 1
-                    csAsync(result) { mangaHost.getSectionJson(provider, data, page) }
+                    csAsync(result) { mangaRepoManager.ensureLoaded(); mangaHost.getSectionJson(provider, data, page) }
                 }
                 "getGenres" -> {
                     val provider = call.argument<String>("provider").orEmpty()
-                    csAsync(result) { mangaHost.getGenresJson(provider) }
+                    csAsync(result) { mangaRepoManager.ensureLoaded(); mangaHost.getGenresJson(provider) }
                 }
                 "search" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val query = call.argument<String>("query").orEmpty()
                     val page = call.argument<Int>("page") ?: 1
-                    csAsync(result) { mangaHost.searchJson(provider, query, page) }
+                    csAsync(result) { mangaRepoManager.ensureLoaded(); mangaHost.searchJson(provider, query, page) }
                 }
                 "load" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val url = call.argument<String>("url").orEmpty()
-                    csAsync(result) { mangaHost.loadJson(provider, url) }
+                    csAsync(result) { mangaRepoManager.ensureLoaded(); mangaHost.loadJson(provider, url) }
                 }
                 "pageList" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val data = call.argument<String>("data").orEmpty()
-                    csAsync(result) { mangaHost.pageListJson(provider, data) }
+                    csAsync(result) { mangaRepoManager.ensureLoaded(); mangaHost.pageListJson(provider, data) }
                 }
                 "getPreferences" -> {
                     val provider = call.argument<String>("provider").orEmpty()
-                    csAsync(result) { mangaHost.getPrefsJson(provider) }
+                    csAsync(result) { mangaRepoManager.ensureLoaded(); mangaHost.getPrefsJson(provider) }
                 }
                 "setPreference" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val key = call.argument<String>("key").orEmpty()
                     val type = call.argument<String>("type").orEmpty()
                     val value = call.argument<Any>("value")
-                    csAsync(result) { mangaHost.setPrefJson(provider, key, value, type) }
+                    csAsync(result) { mangaRepoManager.ensureLoaded(); mangaHost.setPrefJson(provider, key, value, type) }
                 }
                 "cloudflareInfo" -> {
                     val id = call.argument<String>("id").orEmpty()
@@ -1062,7 +1086,14 @@ class MainActivity : FlutterFragmentActivity() {
         return null
     }
 
-    /** Run a suspend CloudStream call off the main thread, return JSON to Flutter. */
+    /**
+     * Run a suspend CloudStream call off the main thread, return JSON to Flutter.
+     *
+     * The calls that name a source load the saved source list first
+     * (`ensureLoaded`, once): a widget or notification tap can open a title
+     * before the app has asked for that list, and the source then read as
+     * "unavailable" although it was installed.
+     */
     private fun csAsync(result: MethodChannel.Result, block: suspend () -> String) {
         cloudstreamScope.launch {
             val out = try { block() } catch (t: Throwable) { null }
