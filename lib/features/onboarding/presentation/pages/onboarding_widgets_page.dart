@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -314,108 +313,76 @@ class _HomeScreenState extends State<_HomeScreen>
           const pad = 14.0;
           const gap = 12.0;
           final cell = (width - pad * 2 - gap) / 2;
-          // A phone's wallpaper rather than a made-up gradient: one of the
-          // posters, blurred and dimmed, the way a real home screen sits
-          // behind its widgets.
-          final wallpaper = poster(3);
+          // The same card as the rest of the setup — its surface, its
+          // hairline border, no shadow — so the widgets are what stands out,
+          // not a slab of their own.
           return Container(
             width: width,
-            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: const Color(0xFF101010),
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x66000000),
-                  blurRadius: 30,
-                  offset: Offset(0, 14),
-                ),
-              ],
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0x1AFFFFFF)),
             ),
-            child: Stack(
-              children: [
-                if (wallpaper.isNotEmpty)
-                  Positioned.fill(
-                    child: RepaintBoundary(
-                      child: ImageFiltered(
-                        imageFilter: ui.ImageFilter.blur(
-                          sigmaX: 22,
-                          sigmaY: 22,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(pad, 16, pad, 16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      _drop(
+                        0,
+                        _ring(
+                          on: !widget.streakPlaced,
+                          child: _StreakMock(size: cell),
                         ),
-                        child: Image.asset(
-                          wallpaper,
-                          fit: BoxFit.cover,
-                          cacheWidth: 200,
-                        ),
+                      ),
+                      const SizedBox(width: gap),
+                      _drop(1, _PosterMock(size: cell, asset: poster(0))),
+                    ],
+                  ),
+                  const SizedBox(height: gap),
+                  _drop(
+                    2,
+                    _ring(
+                      on: widget.streakPlaced && !widget.continuePlaced,
+                      child: _ContinueMock(
+                        width: width - pad * 2,
+                        posters: [poster(1), poster(2), poster(3)],
                       ),
                     ),
                   ),
-                const Positioned.fill(
-                  child: ColoredBox(color: Color(0x8C000000)),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(pad, 16, pad, 16),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          _drop(
-                            0,
-                            _ring(
-                              on: !widget.streakPlaced,
-                              child: _StreakMock(size: cell),
+                  const SizedBox(height: 16),
+                  _drop(
+                    3,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // Themed, monochrome icons: the dock without a
+                        // rainbow in it pulling the eye off the widgets.
+                        for (final icon in const [
+                          Icons.call_rounded,
+                          Icons.chat_bubble_rounded,
+                          Icons.photo_camera_rounded,
+                          Icons.language_rounded,
+                        ])
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(13),
+                            ),
+                            child: Icon(
+                              icon,
+                              size: 19,
+                              color: Colors.white.withValues(alpha: 0.75),
                             ),
                           ),
-                          const SizedBox(width: gap),
-                          _drop(1, _PosterMock(size: cell, asset: poster(0))),
-                        ],
-                      ),
-                      const SizedBox(height: gap),
-                      _drop(
-                        2,
-                        _ring(
-                          on: widget.streakPlaced && !widget.continuePlaced,
-                          child: _ContinueMock(
-                            width: width - pad * 2,
-                            posters: [poster(1), poster(2), poster(3)],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _drop(
-                        3,
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            // Themed, monochrome icons: the dock without a
-                            // rainbow in it pulling the eye off the widgets.
-                            for (final icon in const [
-                              Icons.call_rounded,
-                              Icons.chat_bubble_rounded,
-                              Icons.photo_camera_rounded,
-                              Icons.language_rounded,
-                            ])
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(13),
-                                ),
-                                child: Icon(
-                                  icon,
-                                  size: 19,
-                                  color: Colors.white.withValues(alpha: 0.75),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
