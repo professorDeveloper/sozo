@@ -250,6 +250,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
             child: Image.network(_logo,
                 width: 44,
                 height: 44,
+                cacheWidth: 132,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => Container(
                       width: 44,
@@ -421,6 +422,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                   s.iconUrl.isEmpty ? _logo : s.iconUrl,
                   width: 26,
                   height: 26,
+                  cacheWidth: 78,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Container(
                     width: 26,

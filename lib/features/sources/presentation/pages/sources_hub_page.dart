@@ -1371,6 +1371,7 @@ class _SourceMark extends StatelessWidget {
               imageUrl: url,
               width: size,
               height: size,
+              memCacheWidth: (size * 3).round(),
               fit: BoxFit.cover,
               placeholder: (_, _) => box,
               errorWidget: (_, _, _) =>

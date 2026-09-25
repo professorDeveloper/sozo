@@ -232,6 +232,7 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Image.network(_icon, width: 44, height: 44, fit: BoxFit.cover,
+                cacheWidth: 132,
                 errorBuilder: (_, _, _) =>
                     Icon(Icons.extension_outlined, color: AppColors.primary, size: 40)),
           ),
@@ -356,6 +357,7 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image.network(_icon, width: 34, height: 34, fit: BoxFit.cover,
+              cacheWidth: 102,
               errorBuilder: (_, _, _) =>
                   Icon(Icons.extension_outlined, color: AppColors.primary)),
         ),

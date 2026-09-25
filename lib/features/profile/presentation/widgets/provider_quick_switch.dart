@@ -1534,6 +1534,7 @@ class ProviderLogo extends StatelessWidget {
               image,
               width: size,
               height: size,
+              cacheWidth: (size * 3).round(),
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => fallback,
               loadingBuilder: (_, child, chunk) =>
