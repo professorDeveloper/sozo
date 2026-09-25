@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -128,9 +130,15 @@ class _StreakHero extends StatelessWidget {
       valueListenable: getIt<StreakService>().state,
       builder: (context, streak, _) {
         final tiers = family?.tiers ?? const [7, 30, 100, 365];
-        final held = family?.tier ?? 0;
-        final next = held < tiers.length ? tiers[held] : null;
-        final toGo = next == null ? 0 : (next - streak.current).clamp(0, next);
+        // Two different numbers, kept apart. A flame badge is earned by the
+        // best streak ever and never taken back, so the medals light from
+        // the longest. What to aim for next is the streak running now: a
+        // broken 30-day streak keeps its badge, but the next target for a
+        // 2-day run is the 7-day mark, not "all yours".
+        final best = math.max(streak.longest, streak.current);
+        final nextAt = tiers.indexWhere((t) => t > streak.current);
+        final next = nextAt < 0 ? null : tiers[nextAt];
+        final toGo = next == null ? 0 : next - streak.current;
         return InkWell(
           borderRadius: BorderRadius.circular(22),
           onTap: family == null
@@ -193,12 +201,13 @@ class _StreakHero extends StatelessWidget {
                     for (var i = 0; i < tiers.length; i++)
                       _StreakStep(
                         days: tiers[i],
-                        tier: i < held
+                        tier: best >= tiers[i]
                             ? MedalTier.ofLevel(i + 1)
                             : MedalTier.locked,
-                        progress: i == held
+                        progress: i == nextAt
                             ? (streak.current / tiers[i]).clamp(0.0, 1.0)
                             : null,
+                        current: i == nextAt,
                       ),
                     _StreakStep(
                       days: 100,
@@ -226,7 +235,7 @@ class _StreakHero extends StatelessWidget {
                     'achievements.streak_to_go'.tr(
                       args: [
                         '$toGo',
-                        MedalTier.ofLevel(held + 1).labelKey.tr(),
+                        MedalTier.ofLevel(nextAt + 1).labelKey.tr(),
                       ],
                     ),
                     style: const TextStyle(color: _emberSoft, fontSize: 12.5),
@@ -252,12 +261,16 @@ class _StreakStep extends StatelessWidget {
     this.id = 'streak',
     this.label,
     this.progress,
+    this.current = false,
   });
 
   final int days;
   final MedalTier tier;
   final String id;
   final String? label;
+
+  /// The mark the running streak is heading for.
+  final bool current;
 
   /// For the next badge still locked: how far the running streak has got.
   final double? progress;
@@ -276,11 +289,13 @@ class _StreakStep extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: tier == MedalTier.locked
+              color: current
+                  ? _emberSoft
+                  : tier == MedalTier.locked
                   ? AppColors.textHint
                   : tier.labelColor,
               fontSize: 11,
-              fontWeight: FontWeight.w700,
+              fontWeight: current ? FontWeight.w900 : FontWeight.w700,
             ),
           ),
         ],
