@@ -27,6 +27,7 @@ class AchievementMedal extends StatelessWidget {
     this.progress,
     this.light = Offset.zero,
     this.showBack = false,
+    this.showLock = true,
   });
 
   final MedalTier tier;
@@ -45,6 +46,10 @@ class AchievementMedal extends StatelessWidget {
 
   /// The reverse: plain struck metal, for a medal caught mid-turn.
   final bool showBack;
+
+  /// The padlock on a locked medal. Off where the medal copies one drawn
+  /// without it — the home-screen widget's.
+  final bool showLock;
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +85,7 @@ class AchievementMedal extends StatelessWidget {
                     child: Icon(icon, size: iconSize, color: metal.highlight),
                   ),
                   Icon(icon, size: iconSize, color: metal.ink),
-                  if (locked && size >= 34)
+                  if (locked && showLock && size >= 34)
                     Positioned(
                       bottom: size * 0.06,
                       child: _LockPip(size: size * 0.26),
@@ -156,6 +161,7 @@ class AchievementBadge extends StatelessWidget {
     this.glow = true,
     this.progress,
     this.light = Offset.zero,
+    this.showLock = true,
   });
 
   final String id;
@@ -164,6 +170,7 @@ class AchievementBadge extends StatelessWidget {
   final bool glow;
   final double? progress;
   final Offset light;
+  final bool showLock;
 
   @override
   Widget build(BuildContext context) => AchievementMedal(
@@ -173,6 +180,7 @@ class AchievementBadge extends StatelessWidget {
     glow: glow,
     progress: progress,
     light: light,
+    showLock: showLock,
   );
 }
 
