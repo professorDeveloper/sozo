@@ -140,6 +140,43 @@ class HomeWidgetSync with WidgetsBindingObserver {
   /// The source the app is on now, to tell whether a move is needed.
   String Function()? currentSource;
 
+  /// Whether the launcher can take a widget straight from the app.
+  Future<bool> canPin() async {
+    if (!supported) return false;
+    try {
+      return await _channel.invokeMethod<bool>('canPin') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// How many of each widget — `streak`, `continue` — are on the home screen.
+  Future<Map<String, int>> placed() async {
+    if (!supported) return const {};
+    try {
+      final raw = await _channel.invokeMethod<Map>('placed');
+      return {
+        for (final e in (raw ?? const {}).entries)
+          '${e.key}': (e.value as num?)?.toInt() ?? 0,
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Asks the launcher to add a widget — `streak`, `continue` or `small` —
+  /// with its own "add to home screen" sheet. False when it could not ask.
+  Future<bool> pin(String kind) async {
+    if (!supported) return false;
+    // The new widget draws from the snapshot; make sure there is a fresh one.
+    unawaited(push());
+    try {
+      return await _channel.invokeMethod<bool>('pin', kind) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void start() {
     if (!supported || _started) return;
     _started = true;

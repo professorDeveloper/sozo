@@ -206,7 +206,17 @@
       "thriller": "Thriller",
       "war": "Krieg",
       "western": "Western"
-    }
+    },
+    "badges_title": "Jeder Tag zählt",
+    "badges_body": "Schau oder lies jeden Tag ein bisschen, damit deine Serie hält. Serien und Meilensteine bringen Abzeichen, die du in deinem Profil zeigen kannst.",
+    "badges_week": "7 Tage am Stück bringen dein erstes Abzeichen",
+    "widgets_title": "Sozo auf deinem Startbildschirm",
+    "widgets_body": "Mach mit einem Tippen dort weiter, wo du aufgehört hast, und behalte deine Serie im Blick, ohne die App zu öffnen.",
+    "widgets_add_streak": "Serien-Widget hinzufügen",
+    "widgets_add_continue": "„Weiter“-Widget hinzufügen",
+    "widgets_added": "Hinzugefügt – schau auf deinen Startbildschirm",
+    "widgets_manual": "Halte eine freie Stelle auf dem Startbildschirm gedrückt, tippe auf „Widgets“ und suche Sozo.",
+    "widgets_later": "Nicht jetzt"
   },
   "home": {
     "title": "Start",

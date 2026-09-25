@@ -206,7 +206,17 @@
       "thriller": "Suspense",
       "war": "Bélico",
       "western": "Western"
-    }
+    },
+    "badges_title": "Cada día cuenta",
+    "badges_body": "Mira o lee un poco cada día para mantener tu racha. Las rachas y los hitos te dan insignias que puedes mostrar en tu perfil.",
+    "badges_week": "7 días seguidos te dan tu primera insignia",
+    "widgets_title": "Sozo en tu pantalla de inicio",
+    "widgets_body": "Retoma donde lo dejaste con un toque y sigue tu racha sin abrir la app.",
+    "widgets_add_streak": "Añadir el widget de racha",
+    "widgets_add_continue": "Añadir el widget «Continuar»",
+    "widgets_added": "Añadido: mira tu pantalla de inicio",
+    "widgets_manual": "Mantén pulsado un espacio vacío de la pantalla de inicio, toca Widgets y busca Sozo.",
+    "widgets_later": "Ahora no"
   },
   "home": {
     "title": "Inicio",

@@ -685,6 +685,7 @@ Future<void> configureDependencies() async {
       notificationsSupported: () => Platform.isAndroid && !isTvPlatform,
       notificationsGranted: () =>
           getIt<NotificationService>().permissionGranted,
+      widgetsSupported: () => HomeWidgetSync.supported,
     ),
   );
   getIt.registerLazySingleton<TvPairingService>(

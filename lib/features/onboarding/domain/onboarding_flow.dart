@@ -7,6 +7,8 @@ enum OnboardingStep {
   account,
   import,
   notifications,
+  badges,
+  widgets,
   done;
 
   String get path => this == welcome ? '/onboarding' : '/onboarding/$name';
@@ -37,6 +39,7 @@ enum OnboardingFlow {
       OnboardingStep.genres,
       OnboardingStep.import,
       OnboardingStep.notifications,
+      OnboardingStep.widgets,
       OnboardingStep.done,
     ],
     profile => const [
@@ -61,12 +64,16 @@ class OnboardingConditions {
     required this.hasKinds,
     this.notificationsSupported = false,
     this.notificationsGranted = false,
+    this.widgetsSupported = false,
   });
 
   final bool signedIn;
   final bool hasKinds;
   final bool notificationsSupported;
   final bool notificationsGranted;
+
+  /// Home-screen widgets exist here: an Android phone.
+  final bool widgetsSupported;
 }
 
 bool isStepAvailable(OnboardingStep step, OnboardingConditions c) =>
@@ -76,6 +83,7 @@ bool isStepAvailable(OnboardingStep step, OnboardingConditions c) =>
       OnboardingStep.import => c.signedIn,
       OnboardingStep.notifications =>
         c.notificationsSupported && !c.notificationsGranted,
+      OnboardingStep.widgets => c.widgetsSupported,
       _ => true,
     };
 

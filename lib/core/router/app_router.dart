@@ -29,6 +29,8 @@ import 'package:soplay/features/onboarding/presentation/pages/onboarding_import_
 import 'package:soplay/features/onboarding/presentation/pages/onboarding_kinds_page.dart';
 import 'package:soplay/features/onboarding/presentation/pages/onboarding_language_page.dart';
 import 'package:soplay/features/onboarding/presentation/pages/onboarding_notifications_page.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_badges_page.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_widgets_page.dart';
 import 'package:soplay/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:soplay/features/auth/presentation/pages/otp_verify_page.dart';
 import 'package:soplay/features/auth/presentation/pages/register_page.dart';
@@ -371,7 +373,10 @@ class AppRouter {
         path: '/anilist/links',
         builder: (context, state) => const AnilistLinksPage(),
       ),
-      GoRoute(path: '/trakt', builder: (context, state) => const TraktHubPage()),
+      GoRoute(
+        path: '/trakt',
+        builder: (context, state) => const TraktHubPage(),
+      ),
       GoRoute(
         path: '/mal',
         builder: (context, state) => const MalLibraryPage(),
@@ -503,6 +508,8 @@ class AppRouter {
         (OnboardingStep.account, OnboardingAccountPage()),
         (OnboardingStep.import, OnboardingImportPage()),
         (OnboardingStep.notifications, OnboardingNotificationsPage()),
+        (OnboardingStep.badges, OnboardingBadgesPage()),
+        (OnboardingStep.widgets, OnboardingWidgetsPage()),
         (OnboardingStep.done, OnboardingDonePage()),
       ])
         GoRoute(

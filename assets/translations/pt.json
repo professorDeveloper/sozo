@@ -206,7 +206,17 @@
       "thriller": "Suspense",
       "war": "Guerra",
       "western": "Faroeste"
-    }
+    },
+    "badges_title": "Cada dia conta",
+    "badges_body": "Assista ou leia um pouco todo dia para manter sua sequência. Sequências e marcos rendem insígnias que você pode mostrar no seu perfil.",
+    "badges_week": "7 dias seguidos rendem sua primeira insígnia",
+    "widgets_title": "Sozo na sua tela inicial",
+    "widgets_body": "Continue de onde parou com um toque e acompanhe sua sequência sem abrir o app.",
+    "widgets_add_streak": "Adicionar o widget de sequência",
+    "widgets_add_continue": "Adicionar o widget “Continuar”",
+    "widgets_added": "Adicionado — confira sua tela inicial",
+    "widgets_manual": "Toque e segure um espaço vazio da tela inicial, toque em Widgets e procure o Sozo.",
+    "widgets_later": "Agora não"
   },
   "home": {
     "title": "Início",

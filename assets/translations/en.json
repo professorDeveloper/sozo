@@ -206,7 +206,17 @@
       "thriller": "Thriller",
       "war": "War",
       "western": "Western"
-    }
+    },
+    "badges_title": "Every day counts",
+    "badges_body": "Watch or read a little each day to keep your streak alive. Streaks and milestones earn badges you can show on your profile.",
+    "badges_week": "7 days in a row earns your first badge",
+    "widgets_title": "Sozo on your home screen",
+    "widgets_body": "Pick up where you left off in one tap, and keep an eye on your streak without opening the app.",
+    "widgets_add_streak": "Add the streak widget",
+    "widgets_add_continue": "Add the Continue widget",
+    "widgets_added": "Added — check your home screen",
+    "widgets_manual": "Long-press an empty spot on your home screen, tap Widgets, then find Sozo.",
+    "widgets_later": "Not now"
   },
   "home": {
     "explore_anime": "Explore anime",

@@ -168,6 +168,43 @@ class MainActivity : FlutterFragmentActivity() {
                         result.success(pendingWidgetAction)
                         pendingWidgetAction = null
                     }
+                    // Whether this launcher can take a widget straight from the
+                    // app, and the ask itself: the launcher shows its own "add
+                    // to home screen" sheet. False where it cannot, so the app
+                    // explains the long-press route instead.
+                    "canPin" -> result.success(canPinWidgets())
+                    // How many of each are on the home screen now — how the app
+                    // learns a pin request was accepted.
+                    "placed" -> {
+                        val manager = android.appwidget.AppWidgetManager.getInstance(applicationContext)
+                        fun count(c: Class<*>) = runCatching {
+                            manager.getAppWidgetIds(android.content.ComponentName(applicationContext, c)).size
+                        }.getOrDefault(0)
+                        result.success(
+                            mapOf(
+                                "streak" to count(com.soplay.sozo.widget.StreakWidget::class.java),
+                                "continue" to count(com.soplay.sozo.widget.ContinueWidgetMedium::class.java) +
+                                    count(com.soplay.sozo.widget.ContinueWidgetSmall::class.java),
+                            ),
+                        )
+                    }
+                    "pin" -> {
+                        val provider = when (call.arguments as? String) {
+                            "streak" -> com.soplay.sozo.widget.StreakWidget::class.java
+                            "small" -> com.soplay.sozo.widget.ContinueWidgetSmall::class.java
+                            else -> com.soplay.sozo.widget.ContinueWidgetMedium::class.java
+                        }
+                        result.success(
+                            canPinWidgets() && runCatching {
+                                android.appwidget.AppWidgetManager.getInstance(applicationContext)
+                                    .requestPinAppWidget(
+                                        android.content.ComponentName(applicationContext, provider),
+                                        null,
+                                        null,
+                                    )
+                            }.getOrDefault(false),
+                        )
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -1085,6 +1122,11 @@ class MainActivity : FlutterFragmentActivity() {
         }
         return null
     }
+
+    private fun canPinWidgets(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            android.appwidget.AppWidgetManager.getInstance(applicationContext)
+                .isRequestPinAppWidgetSupported
 
     /**
      * Run a suspend CloudStream call off the main thread, return JSON to Flutter.

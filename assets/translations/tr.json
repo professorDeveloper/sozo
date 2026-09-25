@@ -206,7 +206,17 @@
       "thriller": "Gerilim",
       "war": "Savaş",
       "western": "Western"
-    }
+    },
+    "badges_title": "Her gün önemli",
+    "badges_body": "Serin bozulmasın diye her gün biraz izle ya da oku. Seriler ve kilometre taşları profilinde gösterebileceğin rozetler kazandırır.",
+    "badges_week": "Art arda 7 gün ilk rozetini kazandırır",
+    "widgets_title": "Sozo ana ekranında",
+    "widgets_body": "Kaldığın yerden tek dokunuşla devam et, serini uygulamayı açmadan takip et.",
+    "widgets_add_streak": "Seri widget’ını ekle",
+    "widgets_add_continue": "“Devam et” widget’ını ekle",
+    "widgets_added": "Eklendi — ana ekranına bak",
+    "widgets_manual": "Ana ekranda boş bir yere uzun bas, Widget’lar’a dokun ve Sozo’yu bul.",
+    "widgets_later": "Şimdi değil"
   },
   "home": {
     "title": "Ana sayfa",

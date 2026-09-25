@@ -9,12 +9,14 @@ void main() {
   var signedIn = false;
   var supported = true;
   var granted = false;
+  var widgets = false;
 
   OnboardingController make() => OnboardingController(
     store: store,
     isSignedIn: () => signedIn,
     notificationsSupported: () => supported,
     notificationsGranted: () async => granted,
+    widgetsSupported: () => widgets,
   );
 
   const action = TasteGenre(
@@ -38,6 +40,7 @@ void main() {
     signedIn = false;
     supported = true;
     granted = false;
+    widgets = false;
   });
 
   test('a fresh install has no setup running and starts at welcome', () {
@@ -61,8 +64,30 @@ void main() {
       OnboardingStep.genres,
       OnboardingStep.account,
       OnboardingStep.notifications,
+      OnboardingStep.badges,
       OnboardingStep.done,
     ]);
+  });
+
+  test('the widgets step is shown only where widgets exist', () async {
+    Future<List<OnboardingStep>> walk() async {
+      final c = make();
+      await c.begin(OnboardingFlow.firstRun);
+      final seen = <OnboardingStep>[];
+      for (var n = await c.advance(); n != null; n = await c.advance()) {
+        if (n == OnboardingStep.kinds) await c.toggleKind(TasteKind.anime);
+        seen.add(n);
+      }
+      return seen;
+    }
+
+    expect(await walk(), isNot(contains(OnboardingStep.widgets)));
+    widgets = true;
+    final seen = await walk();
+    expect(
+      seen.sublist(seen.indexOf(OnboardingStep.badges)),
+      [OnboardingStep.badges, OnboardingStep.widgets, OnboardingStep.done],
+    );
   });
 
   test('signing in swaps the account step for import', () async {

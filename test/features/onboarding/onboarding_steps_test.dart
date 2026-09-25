@@ -263,7 +263,7 @@ void main() {
               builder: (_, _) => const OnboardingNotificationsPage(),
             ),
             GoRoute(
-              path: '/onboarding/done',
+              path: '/onboarding/badges',
               builder: (_, _) => const Scaffold(body: Text('DONE')),
             ),
           ],

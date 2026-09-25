@@ -15,7 +15,9 @@ class OnboardingController extends ChangeNotifier {
     required bool Function() isSignedIn,
     bool Function()? notificationsSupported,
     Future<bool> Function()? notificationsGranted,
+    bool Function()? widgetsSupported,
   }) : _store = store,
+       _widgetsSupported = widgetsSupported ?? (() => false),
        _isSignedIn = isSignedIn,
        _notificationsSupported = notificationsSupported ?? (() => false),
        _notificationsGranted = notificationsGranted {
@@ -28,6 +30,7 @@ class OnboardingController extends ChangeNotifier {
   final bool Function() _isSignedIn;
   final bool Function() _notificationsSupported;
   final Future<bool> Function()? _notificationsGranted;
+  final bool Function() _widgetsSupported;
 
   bool _active = false;
   OnboardingFlow _flow = OnboardingFlow.firstRun;
@@ -66,6 +69,7 @@ class OnboardingController extends ChangeNotifier {
     hasKinds: _kinds.isNotEmpty,
     notificationsSupported: _notificationsSupported(),
     notificationsGranted: _granted,
+    widgetsSupported: _widgetsSupported(),
   );
 
   double get progress => flowProgress(_flow, _step, conditions);

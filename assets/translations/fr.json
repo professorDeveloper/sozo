@@ -206,7 +206,17 @@
       "thriller": "Thriller",
       "war": "Guerre",
       "western": "Western"
-    }
+    },
+    "badges_title": "Chaque jour compte",
+    "badges_body": "Regardez ou lisez un peu chaque jour pour garder votre série. Séries et étapes vous valent des badges à montrer sur votre profil.",
+    "badges_week": "7 jours d’affilée pour votre premier badge",
+    "widgets_title": "Sozo sur votre écran d’accueil",
+    "widgets_body": "Reprenez là où vous en étiez en un geste et suivez votre série sans ouvrir l’app.",
+    "widgets_add_streak": "Ajouter le widget de série",
+    "widgets_add_continue": "Ajouter le widget « Reprendre »",
+    "widgets_added": "Ajouté — regardez votre écran d’accueil",
+    "widgets_manual": "Appuyez longuement sur un espace libre de l’écran d’accueil, touchez Widgets, puis cherchez Sozo.",
+    "widgets_later": "Plus tard"
   },
   "home": {
     "title": "Accueil",

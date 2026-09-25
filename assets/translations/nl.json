@@ -206,7 +206,17 @@
       "thriller": "Thriller",
       "war": "Oorlog",
       "western": "Western"
-    }
+    },
+    "badges_title": "Elke dag telt",
+    "badges_body": "Kijk of lees elke dag een beetje om je reeks vast te houden. Reeksen en mijlpalen leveren badges op die je op je profiel kunt tonen.",
+    "badges_week": "7 dagen op rij levert je eerste badge op",
+    "widgets_title": "Sozo op je startscherm",
+    "widgets_body": "Ga met één tik verder waar je was en houd je reeks bij zonder de app te openen.",
+    "widgets_add_streak": "Reekswidget toevoegen",
+    "widgets_add_continue": "Widget ‘Verder’ toevoegen",
+    "widgets_added": "Toegevoegd — kijk op je startscherm",
+    "widgets_manual": "Houd een lege plek op je startscherm ingedrukt, tik op Widgets en zoek Sozo.",
+    "widgets_later": "Niet nu"
   },
   "home": {
     "title": "Start",

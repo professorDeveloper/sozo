@@ -206,7 +206,17 @@
       "thriller": "Triller",
       "war": "Urush",
       "western": "Vestern"
-    }
+    },
+    "badges_title": "Har kun muhim",
+    "badges_body": "Streak uzilmasligi uchun har kuni ozgina ko‘ring yoki o‘qing. Streak va marralar uchun profilingizda ko‘rsatsa bo‘ladigan yutuqlar beriladi.",
+    "badges_week": "Ketma-ket 7 kun — birinchi yutuq",
+    "widgets_title": "Sozo uy ekraningizda",
+    "widgets_body": "To‘xtagan joyingizdan bir bosishda davom eting, streakni esa ilovani ochmasdan kuzating.",
+    "widgets_add_streak": "Streak widgetini qo‘shish",
+    "widgets_add_continue": "«Davom ettirish» widgetini qo‘shish",
+    "widgets_added": "Qo‘shildi — uy ekranini ko‘ring",
+    "widgets_manual": "Uy ekranining bo‘sh joyini bosib turing, «Vidjetlar»ni tanlang va Sozo’ni toping.",
+    "widgets_later": "Hozir emas"
   },
   "home": {
     "explore_anime": "Anime kashf etish",

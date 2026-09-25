@@ -206,7 +206,17 @@
       "thriller": "驚悚",
       "war": "戰爭",
       "western": "西部"
-    }
+    },
+    "badges_title": "日日都算數",
+    "badges_body": "每日睇少少或者讀少少，連續紀錄就唔會斷。連續同里程碑會解鎖徽章，可以喺個人檔案度展示。",
+    "badges_week": "連續 7 日，解鎖第一個徽章",
+    "widgets_title": "將 Sozo 放上主畫面",
+    "widgets_body": "撳一下就可以由上次停低嗰度繼續，唔使開 App 都睇到連續紀錄。",
+    "widgets_add_streak": "加入連續紀錄小工具",
+    "widgets_add_continue": "加入「繼續」小工具",
+    "widgets_added": "已加入，去主畫面睇下",
+    "widgets_manual": "喺主畫面空位長按，揀「小工具」，再搵 Sozo。",
+    "widgets_later": "遲啲先"
   },
   "home": {
     "title": "主頁",

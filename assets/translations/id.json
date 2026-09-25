@@ -206,7 +206,17 @@
       "thriller": "Thriller",
       "war": "Perang",
       "western": "Western"
-    }
+    },
+    "badges_title": "Setiap hari berarti",
+    "badges_body": "Tonton atau baca sedikit setiap hari agar runtutanmu tetap menyala. Runtutan dan pencapaian memberimu lencana yang bisa dipajang di profil.",
+    "badges_week": "7 hari berturut-turut untuk lencana pertamamu",
+    "widgets_title": "Sozo di layar utamamu",
+    "widgets_body": "Lanjutkan dari tempat terakhir dengan sekali ketuk, dan pantau runtutanmu tanpa membuka aplikasi.",
+    "widgets_add_streak": "Tambahkan widget runtutan",
+    "widgets_add_continue": "Tambahkan widget “Lanjutkan”",
+    "widgets_added": "Ditambahkan — cek layar utamamu",
+    "widgets_manual": "Tekan lama area kosong di layar utama, ketuk Widget, lalu cari Sozo.",
+    "widgets_later": "Nanti saja"
   },
   "home": {
     "title": "Beranda",
