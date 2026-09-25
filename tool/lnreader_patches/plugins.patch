@@ -1,0 +1,3685 @@
+diff --git a/plugins/arabic/galaxynovels.ts b/plugins/arabic/galaxynovels.ts
+index 155c1da..5d72deb 100644
+--- a/plugins/arabic/galaxynovels.ts
++++ b/plugins/arabic/galaxynovels.ts
+@@ -21,15 +21,6 @@ type ChaptersIndex = {
+   chapters: ChapterJSON[];
+ };
+ 
+-type ChapterContentResponse = {
+-  schema: number;
+-  data: {
+-    content_html: string;
+-    display_title: string;
+-    navigation: { next_url: string; previous_url: string };
+-  };
+-};
+-
+ class GalaxyNovels implements Plugin.PluginBase {
+   id = 'galaxynovels';
+   name = 'Galaxy Novels';
+@@ -62,6 +53,11 @@ class GalaxyNovels implements Plugin.PluginBase {
+ 
+   private baseUrl = 'https://galaxynovels.com';
+ 
++  private toChapterPath(url: string | undefined): string {
++    if (!url) return '';
++    return url.startsWith('http') ? new URL(url).pathname : url;
++  }
++
+   private async fetchHtml(url: string): Promise<string> {
+     const res = await fetchApi(url);
+     if (!res.ok) {
+@@ -106,8 +102,7 @@ class GalaxyNovels implements Plugin.PluginBase {
+       const coverLink = $el.find('a.wor-novel-card__cover');
+       const href = coverLink.attr('href');
+       const img = $el.find('img.wor-cover-img');
+-      const cover =
+-        img.attr('data-src') || img.attr('src') || undefined;
++      const cover = img.attr('data-src') || img.attr('src') || undefined;
+       const title = $el.find('h3 a').text().trim();
+ 
+       if (!href || !title) return;
+@@ -162,7 +157,7 @@ class GalaxyNovels implements Plugin.PluginBase {
+ 
+         chapters = index.chapters.map(ch => ({
+           name: ch.label + (ch.title ? `: ${ch.title}` : ''),
+-          path: `${novelPath}chapter-${ch.id}/`,
++          path: this.toChapterPath(ch.url) || `${novelPath}chapter-${ch.id}/`,
+           chapterNumber: ch.position,
+           releaseTime: ch.date_iso?.split('T')[0] || '',
+         }));
+@@ -174,17 +169,21 @@ class GalaxyNovels implements Plugin.PluginBase {
+     if (chapters.length === 0) {
+       $('article.wor-novel-chapter-item').each((_, el) => {
+         const $el = $(el);
+-        const chapterLink = $el.find('h3 a').attr('href') || $el.find('a.wor-novel-chapter-item__num').attr('href');
+-        const chapterName = $el.find('h3 a').text().trim() || $el.find('a.wor-novel-chapter-item__num').text().trim();
+-        const chapterId = $el.attr('data-chapter-id');
++        const chapterLink =
++          $el.find('h3 a').attr('href') ||
++          $el.find('a.wor-novel-chapter-item__num').attr('href');
++        const chapterName =
++          $el.find('h3 a').text().trim() ||
++          $el.find('a.wor-novel-chapter-item__num').text().trim();
+         const timeEl = $el.find('time');
+         const releaseTime = timeEl.attr('datetime')?.split('T')[0] || '';
+ 
+         if (!chapterLink) return;
+ 
+-        const path = chapterId
+-          ? `${novelPath}chapter-${chapterId}/`
+-          : new URL(chapterLink, this.site).pathname;
++        // Only the full permalink resolves on the site; the data-chapter-id
++        // attribute holds the WordPress post id, and …/chapter-<post-id>/
++        // answers 404.
++        const path = this.toChapterPath(chapterLink);
+         const numMatch = path.match(/chapter-(\d+)/);
+         const chapterNumber = numMatch ? parseInt(numMatch[1]) : 0;
+ 
+@@ -210,27 +209,27 @@ class GalaxyNovels implements Plugin.PluginBase {
+   }
+ 
+   async parseChapter(chapterPath: string): Promise<string> {
+-    const idMatch = chapterPath.match(/chapter-(\d+)/);
+-    const chapterId = idMatch?.[1];
++    const url = `${this.baseUrl}${chapterPath}`;
++    const html = await this.fetchHtml(url);
++    const $ = loadCheerio(html);
+ 
+-    if (chapterId) {
+-      const apiUrl = `${this.baseUrl}/wp-json/wor-reader-app/v1/chapters/${chapterId}`;
+-      try {
+-        const response = await this.fetchJson<ChapterContentResponse>(apiUrl);
+-        if (response.data?.content_html) {
+-          return response.data.content_html;
+-        }
+-      } catch {
+-        // fallback to HTML
++    // The body is server-rendered inside the article marked up as
++    // https://schema.org/Chapter, as the element with itemprop="text". Pick
++    // the first candidate that actually carries text: a themed wrapper can be
++    // present but empty, and cheerio selections are always truthy.
++    for (const selector of [
++      'article[itemtype*="Chapter"] [itemprop="text"]',
++      '[itemprop="text"]',
++      '[data-wor-reader-text]',
++      '.wor-reader-text-surface',
++    ]) {
++      const candidate = $(selector);
++      if (candidate.length && candidate.text().trim()) {
++        return candidate.html() || '';
+       }
+     }
+ 
+-    const url = `${this.baseUrl}${chapterPath}`;
+-    const html = await this.fetchHtml(url);
+-    const $ = loadCheerio(html);
+-    const content =
+-      $('article.wor-chapter-content, .wor-chapter-text, .entry-content').html();
+-    return content || '<p>Content not available.</p>';
++    return '<p>Content not available.</p>';
+   }
+ 
+   async searchNovels(
+@@ -254,9 +253,7 @@ class GalaxyNovels implements Plugin.PluginBase {
+ 
+     const term = searchTerm.toLowerCase();
+     const filtered = searchIndex.items.filter(
+-      n =>
+-        n.t.toLowerCase().includes(term) ||
+-        n.s.toLowerCase().includes(term),
++      n => n.t.toLowerCase().includes(term) || n.s.toLowerCase().includes(term),
+     );
+ 
+     const limit = 20;
+@@ -265,9 +262,7 @@ class GalaxyNovels implements Plugin.PluginBase {
+     return filtered.slice(offset, offset + limit).map(novel => ({
+       name: novel.t,
+       path: novel.u,
+-      cover: novel.c.startsWith('http')
+-        ? novel.c
+-        : `${this.baseUrl}${novel.c}`,
++      cover: novel.c.startsWith('http') ? novel.c : `${this.baseUrl}${novel.c}`,
+     }));
+   }
+ }
+diff --git a/plugins/chinese/69shu.ts b/plugins/chinese/69shu.ts
+index 82382cd..073677a 100644
+--- a/plugins/chinese/69shu.ts
++++ b/plugins/chinese/69shu.ts
+@@ -1,5 +1,5 @@
+ import { load as parseHTML } from 'cheerio';
+-import { fetchText } from '@libs/fetch';
++import { fetchApi } from '@libs/fetch';
+ import { FilterTypes, Filters } from '@libs/filterInputs';
+ import { Plugin } from '@/types/plugin';
+ import { NovelStatus } from '@libs/novelStatus';
+@@ -24,6 +24,23 @@ class Shu69 implements Plugin.PluginBase {
+   site = 'https://www.69shu.xyz';
+   version = '0.2.2';
+ 
++  // The CDN answers the first visit with 403 and a set of cookies.
++  async fetchText(url: string, init: typeof this.fetchOptions & object) {
++    let res = await fetchApi(url, init);
++    const cookies = res.headers.get('set-cookie');
++    if (res.status === 403 && cookies) {
++      const cookie = cookies
++        .split(/,(?=\s*[^;=\s]+=)/)
++        .map(c => c.split(';')[0].trim())
++        .join('; ');
++      res = await fetchApi(url, {
++        ...init,
++        headers: { ...init.headers, Cookie: cookie },
++      });
++    }
++    return res.ok ? res.text() : '';
++  }
++
+   async popularNovels(
+     pageNo: number,
+     {
+@@ -40,7 +57,7 @@ class Shu69 implements Plugin.PluginBase {
+       url = `${this.site}/sort/${filters.sort.value}/${pageNo}.html`;
+     }
+ 
+-    const body = await fetchText(url, this.fetchOptions);
++    const body = await this.fetchText(url, this.fetchOptions);
+     if (body === '') throw Error('无法获取小说列表，请检查网络');
+ 
+     const loadedCheerio = parseHTML(body);
+@@ -69,7 +86,7 @@ class Shu69 implements Plugin.PluginBase {
+   async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
+     const url = this.site + novelPath;
+ 
+-    const body = await fetchText(url, this.fetchOptions);
++    const body = await this.fetchText(url, this.fetchOptions);
+     if (body === '') throw Error('无法获取小说内容，请检查网络');
+ 
+     const loadedCheerio = parseHTML(body);
+@@ -106,7 +123,7 @@ class Shu69 implements Plugin.PluginBase {
+       let hasMorePages = true;
+ 
+       while (hasMorePages) {
+-        const chaptersBody = await fetchText(
++        const chaptersBody = await this.fetchText(
+           currentChaptersUrl,
+           this.fetchOptions,
+         );
+@@ -194,7 +211,7 @@ class Shu69 implements Plugin.PluginBase {
+ 
+   async parseChapter(chapterPath: string): Promise<string> {
+     const chapterUrl = new URL(chapterPath, this.site).toString();
+-    const body = await fetchText(chapterUrl, this.fetchOptions); // Header hinzugefügt
++    const body = await this.fetchText(chapterUrl, this.fetchOptions); // Header hinzugefügt
+ 
+     const loadedCheerio = parseHTML(body);
+ 
+@@ -229,7 +246,7 @@ class Shu69 implements Plugin.PluginBase {
+       },
+     };
+ 
+-    const body = await fetchText(searchUrl, searchOptions);
++    const body = await this.fetchText(searchUrl, searchOptions);
+     if (body === '') throw Error('无法获取搜索结果，请检查网络');
+ 
+     const loadedCheerio = parseHTML(body);
+diff --git a/plugins/chinese/ixdzs8.ts b/plugins/chinese/ixdzs8.ts
+index b9539f6..190b92c 100644
+--- a/plugins/chinese/ixdzs8.ts
++++ b/plugins/chinese/ixdzs8.ts
+@@ -38,6 +38,12 @@ class ixdzs8Plugin implements Plugin.PluginBase {
+     },
+   };
+ 
++  // The challenge marks the PHP session as verified, but its cookie is set on
++  // a redirect, so send our own session id with every chapter request.
++  sessionId = Array.from({ length: 26 }, () =>
++    Math.floor(Math.random() * 36).toString(36),
++  ).join('');
++
+   async popularNovels(pageNo: number): Promise<Plugin.NovelItem[]> {
+     const url = `${this.site}hot/?page=${pageNo}`;
+     const result = await fetchApi(url);
+@@ -185,8 +191,10 @@ class ixdzs8Plugin implements Plugin.PluginBase {
+     const chapterUrl = makeAbsolute(chapterPath, this.site);
+     if (!chapterUrl) throw new Error('Invalid chapter URL');
+ 
++    const init = { headers: { Cookie: `PHPSESSID=${this.sessionId}` } };
++
+     // --- 1st request ---
+-    let result = await fetchApi(chapterUrl);
++    let result = await fetchApi(chapterUrl, init);
+     if (!result.ok) throw new Error(`Failed to fetch chapter at ${chapterUrl}`);
+ 
+     let html = await result.text();
+@@ -198,7 +206,7 @@ class ixdzs8Plugin implements Plugin.PluginBase {
+         const challengeUrl =
+           chapterUrl + '?challenge=' + encodeURIComponent(tokenMatch[1]);
+ 
+-        result = await fetchApi(challengeUrl);
++        result = await fetchApi(challengeUrl, init);
+         if (!result.ok)
+           throw new Error(`Failed after challenge redirect: ${challengeUrl}`);
+         html = await result.text();
+diff --git a/plugins/english/cherrymistcafe.ts b/plugins/english/cherrymistcafe.ts
+new file mode 100644
+index 0000000..f107211
+--- /dev/null
++++ b/plugins/english/cherrymistcafe.ts
+@@ -0,0 +1,260 @@
++import { fetchApi } from '@libs/fetch';
++import { Plugin } from '@/types/plugin';
++import { defaultCover } from '@libs/defaultCover';
++import { NovelStatus } from '@libs/novelStatus';
++
++// Per-seed PUA substitution tables, solved offline by matching the site's
++// cipher webfont glyph outlines against stock Open Sans artwork and verified
++// by decoding full chapters to fluent English across all 16 seeds.
++// tables[seed].charAt(code - 0xe000) maps U+E000..U+E0FF to plain letters.
++const CIPHER_TABLES: Record<number, string> = {
++  0: 'lrtjttdQRofisoelnohosassbwehJihzaBhoutilafaiobetneZmwGttPoIUaoarenOLrkeertrCeilaaMhlfvetuothXtqneieesswgcKTbsnctepisuicngdaaVrnsltesnmtxwhrigErdoiprhlerfeodeciAcdaenmahgotuNnateeddaklgymottcfrpnehessryalDnrsmpohteamiyounuvnhiSaFiohWahteiaosYnweddnrdeHiyyst',
++  1: 'etcasvneCaocwebotclilJheitVsrodtKFMgyfselnmeowkaohtzWeOhruestsmlaiBrtoiZulrhnqnforfoomLiayheesnusinQiipfijhdTaEtgtetntRmoPoGnwieundIiirhydpetdmatstUdroetdtaadYlleerewhrhAedNHacetehnynotsrahhhavDiernihaSubeXercfamrgaxsasoosneksygdeuaipcpbritnastgowlalentons',
++  2: 'CtJccIudjfkasgpqaungdttaxgodfiltsndrtQpglseBcotdeEsnncthhenetittFVweYeloinnpDateGlnsnaoanedldhcAnfaweenahyhekiuarpdeoZthtallrKbtfssetevenaubaiehewdwXliossmriumsnywtofiaosLyynrhoNsiiOtnishrrmzHrtmiMoeebuhotleerTayahrsmdhoeaUrWhaPvocgseoitroooeiSitRhiaarreem',
++  3: 'AtlKohadlflaeavaeavRyunonnhnussnJroQiinTtetLgarisdsoaoDabrOcoVwqecdiftnoepSseeNtmailaooeisPusmcWsoinFtgMryeXrtaidywemetbdnahhhgUpErhinneeophztitorYsofeoylekwoHkeaaedhomhruwbcfeuntGpreeitliwlrIcetatyeemgnfatinirsdmxdhaajtssnthZdedertsgeitsrBCuhnlthtchoarlsi',
++  4: 'ntPtatngHshhatbrmtkpiaroQvylaoeissnfblhmsefraFVstdIiaterwotmetedarnooOheneysahGwplkjmwnetcJsenlsartcnhtUolaigiYsolnoaebatthpdheotnsomAitadaSfiryodidrgneuesLafdXeEnheirxMZropoednenlcdWerfwiemhorhBcretiiauaeoqcngwzRtsCieteTlNuoauuthicsDsuryKsyoeeidvehnhliagt',
++  5: 'acarMsatsnraeuprHtyttohluesrsavayhrensidttewehhfoGlFBNnWmuCosLkItiitkeernoeYeoniidrystsmrpgctmbtsannuSaedopeeejVTuchcniealhesimOZeanrigllrctdgnrhbhalimdaPahqthigncrynReodlohossedoettoiyQUnfetxnaiwttJiDlnootfebrevmwlofaarpsdXiteKdiAsgewefEhhedontaoawzaihosu',
++  6: 'gneriilienCacloynmnhshafhsnhiatclcabsBmhooLDstghoeneyarpafnlOrnsJtathtemoioericeeSmrthepHdshcomlbieoqhnuywoefigIhicteiavdotmUisirdenpeaaQGefdettaFootnsnoretnvAkKeYrjufilneipsdtryauTdtaubolguozEeRxtekldortaunhehestswaswrZaoadnhtaVgtresielNwerMrXsWydwdstitaP',
++  7: 'ofrirridaotDsgsenpldrfdlrthitrelcnsiohugshtkneHsdonwoenSoogBuaiahesenKspyaeorgaRutdhohbeeanFotdiwsOhigicsnpsnhnVheyttlketersrdpesndZoaWtsrhcniaoeweerjtfXvdyUeccfaCzLmnnmuttMaomrittemotuixawheGabvQAattoinysymetaoroYfieIhhrmatiNTulbelqaasthielaweJaldcPinEeel',
++  8: 'wletotniraytoaqrnvliolgrkaueLyVthashtthgCtlflnrtdZregtthclscthterusrtdfefibresiacenJhuSepednomotwttyatiHeespanQxuOrmhainehhheGuworkebdovshaodaecmoewfiraeDhndieseThtXUgdrainoIecjoiWpoaefiAnydeybsPessnismeapcnumaeKrEtaYstoiatrinlnooBddoRswsnmasozFigeaNihllnM',
++  9: 'ekalraolooyuemnCvtljsnsrybVslnLcYrfMXlatremiaaDdJnpeEhiewdaeGOcgtwmantoaledstslaQhIbngidetrhtusethnrelidoqiaydisatoipnfaehteweohssurthxdesdkiemoeheweaauigFstmiheelcRormffursnaTieoaectoetsnStobortBhhcrfWscieoawhytodZnsttvnoonheainagzHrreinhpitnKNpPtigAryduU',
++  10: 'tsEunattoopphingisfavlKsijxcdthitloaedfoZhntBonthemcsuoayilwhRhfwhtnnsdDVtarthrugneOslenymtbteanlrssefaoimeQFnirpbfeshHbrpcarrdirirPiAoaScrsmsandthiaiowGaMvalLoauehaehcetleydgoaeiagaTrogezenqrcemXdedtiYldoeiehishsweWeeokotntynewttJdraNenoutneeCtousmslkrlyU',
++  11: 'intheZredADelneGreocfaeptateeeohIeftmrngrewyuekhXdctCgpgnheingsonaicnslhhdweoosztelioablataaSsotHUPsatOsiytlYnMnreiRwcrsmntstrierJeuhdsaxahhfetbLerlrmnauiyqdlyiwobasttowNEiedshhofodserlkrejruyhfKiieaiiimttWdalsovsdpnFvtBmramnaonsdQottogoccnhtpaVinuaaueoheT',
++  12: 'hotedemlooWeahJiayvhyolpfVhihfhNnahrymgletnesonhqlrioanmgGdnmAieetteeasuaYalersevededutdwzrHmtpIeutacothrlbtRawnacednelosUgthriesoeiguPcanparnydhwKdjsunCifsoaBXfabaoiowlhcQeLtstnineehsttdcstterahasrrerMknattnioowislOoZbeFEysniosrfdirgtneTitcmSisioterDkaxpu',
++  13: 'odMsGtmtKdwdNTagnawctdraohhlabtmnrjoJsnlaezDeidneeiuotkawnotHedhlehoyebsefisncraXpanrnoetiteerlrenlegmerdesxiepebdorwhnBotusZchnsgrfoenduidstichaaqteAmaoWPhleVtnoiaattoQoeuemtrahutsrthifvsssavkengrsnnpleiargspoftFihaOhhlEtSsheltuyCiaitcYaUolyiowRiymLrefyic',
++  14: 'etpictwedrniuoJhureoiRPtIsosrTinsuoEbchorleZeexAndadoauisctsnoHnMolmKenwvrehUtetiBgelgphdahataotfnasYiayvamLoiahsWfjeeltggituOltpuenhrreobeicnaafetwktnohefnshhtyipedgnQesneitkmcsdGyqhsesaoroaaoNsacaSeyzsdmaitFhdttfnmnmdhsryrhCliarirrwteeditelDwlonoeaVbXlrt',
++  15: 'ooayeicoeaeocThwcoselxmhtitshdeeFsknudiieaLOlEteopiaaYtnhidjneyiebRsftocucmnseoanantaaQwdfhGsnPbogpVeiiesWndrelihrptZduKtSuwagCegarDsemliorihyatraieeodtclIqtogytMsvsrnedshbrtlryJhaieeHfeoAuogtsNedtsiUnwhpltudinawmfoohfleXhrtlvamskaanntrrnnhtrsmnotBrthazeer',
++};
++
++// Seeds whose cipher font carries no 'I' artwork (I and l share the
++// l-shaped glyphs there) need a sentence-start l -> I restoration pass.
++function decodeCipheredText(content: string, seed: number): string {
++  const table = CIPHER_TABLES[seed];
++  if (!table) return content;
++  let out = '';
++  for (let i = 0; i < content.length; i++) {
++    const code = content.charCodeAt(i);
++    if (code >= 0xe000 && code <= 0xe0ff) {
++      const plain = table.charAt(code - 0xe000);
++      out += plain === '?' ? content.charAt(i) : plain;
++    } else {
++      out += content.charAt(i);
++    }
++  }
++  // A standalone lowercase l is always the pronoun I.
++  out = out.replace(/\bl\b/g, 'I');
++  if (table.indexOf('I') === -1) {
++    out = out.replace(
++      /(^|[.!?…]+["”’\s]*["“‘([]?\s*)(l)(?=[a-z])/g,
++      function (match, pre, _l, offset, full) {
++        const before = full.slice(0, offset).replace(/[\s"”’‘([]+$/, '');
++        if (
++          /(e\.g\.?|i\.e\.?|mr\.?|mrs\.?|ms\.?|dr\.?|st\.?|vs\.?|etc\.?|\d\.?)$/i.test(
++            before,
++          )
++        ) {
++          return match;
++        }
++        return pre + 'I';
++      },
++    );
++  }
++  return out;
++}
++
++function toChapterHtml(decoded: string): string {
++  const blocks = decoded.split(/\r?\n\s*\r?\n/);
++  const html: string[] = [];
++  for (const rawBlock of blocks) {
++    const block = rawBlock.replace(/^\s+|\s+$/g, '');
++    if (!block || block === '&nbsp;') continue;
++    if (block.charAt(0) === '<') {
++      html.push(block);
++    } else {
++      html.push('<p>' + block.replace(/\r?\n/g, '<br>') + '</p>');
++    }
++  }
++  return html.join('');
++}
++
++type SeriesRow = {
++  id: number;
++  title: string;
++  slug: string;
++  cover_thumb_url?: string;
++  cover_image_url?: string;
++};
++
++type SeriesDetail = SeriesRow & {
++  synopsis?: string;
++  short_synopsis?: string;
++  author_name?: string;
++  original_author?: string;
++  translator?: { name?: string };
++  story_status?: string;
++  genres?: string[];
++  tags?: string[];
++  total_chapters?: number;
++};
++
++type ChapterRow = {
++  id: number;
++  slug: string;
++  title: string;
++  chapter_number: number;
++  published_at?: string;
++};
++
++type ChapterDetail = {
++  id: number;
++  slug: string;
++  title: string;
++  content?: string;
++  foreword?: string;
++  afterword?: string;
++  chapter_number: number;
++  published_at?: string;
++  cipher?: { seed?: number };
++};
++
++class CherryMistCafePlugin implements Plugin.PluginBase {
++  id = 'cherrymistcafe';
++  name = 'Cherry Mist Cafe';
++  icon = 'src/en/cherrymistcafe/icon.png';
++  site = 'https://cherrymist.cafe';
++  version = '1.0.0';
++
++  private async getJson<T>(url: string): Promise<T> {
++    const res = await fetchApi(url);
++    return (await res.json()) as T;
++  }
++
++  private toNovelItem(row: SeriesRow): Plugin.NovelItem {
++    return {
++      name: row.title,
++      cover: row.cover_thumb_url || row.cover_image_url || defaultCover,
++      path: 'series/' + row.slug,
++    };
++  }
++
++  private seriesList(url: string): Promise<Plugin.NovelItem[]> {
++    return this.getJson<{ rows?: SeriesRow[] } | SeriesRow[]>(url).then(
++      data => {
++        const rows: SeriesRow[] = Array.isArray(data) ? data : data.rows || [];
++        return rows.map(row => this.toNovelItem(row));
++      },
++    );
++  }
++
++  async popularNovels(
++    pageNo: number,
++    options?: Plugin.PopularNovelsOptions<undefined>,
++  ): Promise<Plugin.NovelItem[]> {
++    const sort = options?.showLatestNovels ? 'latest' : 'popular';
++    return this.seriesList(
++      this.site + '/api/series?page=' + pageNo + '&limit=20&sort=' + sort,
++    );
++  }
++
++  async searchNovels(
++    searchTerm: string,
++    pageNo: number,
++  ): Promise<Plugin.NovelItem[]> {
++    const term = (searchTerm || '').trim();
++    if (!term) return [];
++    return this.seriesList(
++      this.site +
++        '/api/series?page=' +
++        pageNo +
++        '&limit=20&q=' +
++        encodeURIComponent(term),
++    );
++  }
++
++  async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
++    const slug = novelPath.replace(/^series\//, '').replace(/\/$/, '');
++    const detail: SeriesDetail = await this.getJson(
++      this.site + '/api/series/' + slug,
++    );
++
++    const novel: Plugin.SourceNovel = {
++      path: novelPath,
++      name: detail.title,
++      cover: detail.cover_image_url || detail.cover_thumb_url || defaultCover,
++    };
++    novel.author =
++      (detail.translator && detail.translator.name) ||
++      detail.author_name ||
++      detail.original_author ||
++      '';
++    const genres: string[] = (detail.genres || []).concat(detail.tags || []);
++    if (genres.length) novel.genres = genres.join(',');
++    novel.summary = detail.synopsis || detail.short_synopsis || '';
++
++    const status = (detail.story_status || '').toLowerCase();
++    if (status === 'completed') novel.status = NovelStatus.Completed;
++    else if (status === 'hiatus') novel.status = NovelStatus.OnHiatus;
++    else novel.status = NovelStatus.Ongoing;
++
++    const chapters: Plugin.ChapterItem[] = [];
++    const perPage = 500;
++    let page = 1;
++    for (;;) {
++      const rows: ChapterRow[] = await this.getJson(
++        this.site +
++          '/api/chapters?series_id=' +
++          detail.id +
++          '&limit=' +
++          perPage +
++          '&page=' +
++          page,
++      );
++      if (!rows || !rows.length) break;
++      for (const row of rows) {
++        chapters.push({
++          name: row.title,
++          path: 'chapter/' + row.id + '/' + row.slug,
++          chapterNumber: row.chapter_number,
++          releaseTime: row.published_at,
++        });
++      }
++      if (rows.length < perPage) break;
++      page++;
++      if (page > 10) break;
++    }
++    chapters.sort((a, b) => (a.chapterNumber || 0) - (b.chapterNumber || 0));
++    novel.chapters = chapters;
++    return novel;
++  }
++
++  async parseChapter(chapterPath: string): Promise<string> {
++    const segment = (chapterPath.replace(/^chapter\//, '') || '').split('/')[0];
++    const id = parseInt(segment, 10);
++    if (!id) return '';
++    const detail: ChapterDetail = await this.getJson(
++      this.site + '/api/chapters/' + id,
++    );
++    if (!detail) return '';
++    const seed =
++      detail.cipher && typeof detail.cipher.seed === 'number'
++        ? detail.cipher.seed
++        : -1;
++    const parts: string[] = [];
++    if (detail.foreword) parts.push(decodeCipheredText(detail.foreword, seed));
++    parts.push(decodeCipheredText(detail.content || '', seed));
++    if (detail.afterword)
++      parts.push(decodeCipheredText(detail.afterword, seed));
++    return toChapterHtml(parts.join('\r\n\r\n'));
++  }
++
++  resolveUrl = (path: string, isNovel?: boolean) => {
++    if (isNovel || path.indexOf('series/') === 0) {
++      return this.site + '/story/' + path.replace(/^series\//, '');
++    }
++    const parts = path.replace(/^chapter\//, '').split('/');
++    const slug = parts.length > 1 ? parts.slice(1).join('/') : parts[0];
++    return this.site + '/chapter/' + slug;
++  };
++}
++
++export default new CherryMistCafePlugin();
+diff --git a/plugins/english/chrysanthemumgarden.ts b/plugins/english/chrysanthemumgarden.ts
+index 2f6ec9f..9a89bf7 100644
+--- a/plugins/english/chrysanthemumgarden.ts
++++ b/plugins/english/chrysanthemumgarden.ts
+@@ -63,7 +63,9 @@ class Chrysanthemumgarden implements Plugin.PluginBase {
+     const novel: Plugin.SourceNovel = {
+       path: novelPath,
+       name: loadedCheerio('h1.novel-title').text(),
+-      cover: loadedCheerio('div.novel-cover > img').attr('data-breeze'),
++      cover:
++        loadedCheerio('div.novel-cover > img').attr('data-breeze') ||
++        loadedCheerio('div.novel-cover > img').attr('src'),
+       summary: loadedCheerio('div.entry-content > p')
+         .map((i, el) => loadedCheerio(el).text())
+         .toArray()
+@@ -83,12 +85,16 @@ class Chrysanthemumgarden implements Plugin.PluginBase {
+         .toArray(),
+     ].join(', ');
+ 
+-    novel.chapters = loadedCheerio('div.chapter-item > a')
++    novel.chapters = loadedCheerio('a.chapter-item')
+       .map((i, el) => {
+         const href = loadedCheerio(el).attr('href');
+         if (!href) return;
+         return {
+-          name: loadedCheerio(el).text().trim(),
++          name: (
++            loadedCheerio(el).find('.chapter-item-number').text() +
++            ' ' +
++            loadedCheerio(el).find('.chapter-item-name').text()
++          ).trim(),
+           path: href
+             .replace(this.site, '')
+             .replace(/^\//, '')
+@@ -103,6 +109,7 @@ class Chrysanthemumgarden implements Plugin.PluginBase {
+     const req = await fetchApi(this.site + '/' + chapterPath + '/');
+     const body = await req.text();
+     const loadedCheerio = loadCheerio(body);
++    loadedCheerio('#novel-content [style*="width:0"]').remove();
+ 
+     return loadedCheerio('div#novel-content').html() || '';
+   }
+diff --git a/plugins/english/crimsonscrolls.ts b/plugins/english/crimsonscrolls.ts
+index 41bb9b8..f71f181 100644
+--- a/plugins/english/crimsonscrolls.ts
++++ b/plugins/english/crimsonscrolls.ts
+@@ -5,30 +5,31 @@ import { storage } from '@libs/storage';
+ import { defaultCover } from '@libs/defaultCover';
+ import { NovelStatus } from '@libs/novelStatus';
+ 
+-enum APIAction {
+-  novels = 'load_novels',
+-  search = 'live_novel_search',
+-}
+-
+-type APIParams = {
+-  action: APIAction;
+-  params: Record<string, string | number>;
+-};
+-
+ type ChapterJSON = {
+   items: ChapterItem[];
+   total: number;
+-  total_pages?: number;
+-  page?: number;
+-  per_page?: number;
+-  order?: string;
++  page: number;
++  pages: number;
++  tier: string;
+ };
+ 
+ type ChapterItem = {
+   id: number;
++  number: string;
+   title: string;
+   url: string;
+-  locked: boolean;
++  date: string;
++  tier: string;
++};
++
++type SearchJSON = {
++  items: {
++    id: number;
++    title: string;
++    url: string;
++    cover: string;
++    status: string;
++  }[];
+ };
+ 
+ class CrimsonScrollsPlugin implements Plugin.PluginBase {
+@@ -47,38 +48,17 @@ class CrimsonScrollsPlugin implements Plugin.PluginBase {
+     },
+   };
+ 
+-  async queryAPI(query: APIParams): Promise<CheerioAPI> {
+-    const formData = new FormData();
+-    formData.append('action', query.action);
+-    for (const [key, value] of Object.entries(query.params))
+-      formData.append(key, value.toString());
+-
+-    const result = await fetchApi(`${this.site}/wp-admin/admin-ajax.php`, {
+-      method: 'POST',
+-      body: formData,
+-    }).then(result => result.json());
+-
+-    return parseHTML(result.html);
+-  }
+-
+   async fetchChapters(
+-    id: number,
+-    page?: number | undefined,
++    id: string,
++    tier: string,
++    page = 1,
+   ): Promise<ChapterItem[]> {
+-    const url = `${this.site}/wp-json/cs/v1/novels/${id}/chapters?per_page=75&order=asc`;
+-    const data: ChapterJSON = await fetchApi(`${url}&page=${page ?? 1}`).then(
+-      r => r.json(),
+-    );
++    const url = `${this.site}/wp-json/crimsonscrolls/v2/novel-chapters?novel_id=${id}&tier=${tier}&page=${page}&per_page=100&order=ASC`;
++    const data: ChapterJSON = await fetchApi(url).then(r => r.json());
+ 
+     const items = data.items || [];
+-    const locked = items.some(e => e.locked);
+-
+-    if (
+-      data.total_pages &&
+-      (data.page ?? 1) < data.total_pages &&
+-      !(locked && this.hideLocked)
+-    ) {
+-      const nextItems = await this.fetchChapters(id, (data.page ?? 0) + 1);
++    if (data.pages && page < data.pages) {
++      const nextItems = await this.fetchChapters(id, tier, page + 1);
+       return items.concat(nextItems);
+     }
+ 
+@@ -88,44 +68,26 @@ class CrimsonScrollsPlugin implements Plugin.PluginBase {
+   parseNovels(loadedCheerio: CheerioAPI) {
+     const novels: Plugin.NovelItem[] = [];
+ 
+-    loadedCheerio(':is(a.live-search-item, div.novel-list-card)').each(
+-      (i, el) => {
+-        const novelName = loadedCheerio(el)
+-          .find(':is(div.live-search-title, h3.novel-title)')
+-          .text()
+-          .trim();
+-        const novelCover = loadedCheerio(el)
+-          .find(':is(img.live-search-cover, div.novel-cover img)')
+-          .attr('src');
+-        const novelUrl =
+-          loadedCheerio(el).find('a').attr('href') ||
+-          loadedCheerio(el).attr('href');
+-
+-        if (!novelUrl) return;
+-
+-        const novel = {
+-          name: novelName
+-            .trim()
+-            .split(' ')
+-            .filter(e => e.length > 0)
+-            .join(' '),
+-          cover: novelCover,
+-          path: novelUrl
+-            ? new URL(novelUrl, this.site).pathname.substring(1)
+-            : defaultCover,
+-        };
+-        novels.push(novel);
+-      },
+-    );
++    loadedCheerio('article.cs-browse-card').each((i, el) => {
++      const link = loadedCheerio(el).find('h2 a');
++      const novelUrl = link.attr('href');
++      if (!novelUrl) return;
++
++      const img = loadedCheerio(el).find('.cs-browse-card__cover img');
++      novels.push({
++        name: link.text().trim(),
++        cover: img.attr('data-src') || img.attr('src') || defaultCover,
++        path: new URL(novelUrl, this.site).pathname.substring(1),
++      });
++    });
+     return novels;
+   }
+ 
+   async popularNovels(page: number): Promise<Plugin.NovelItem[]> {
+-    const loadedCheerio = await this.queryAPI({
+-      action: APIAction.novels,
+-      params: { page: page.toString() },
+-    });
+-    return this.parseNovels(loadedCheerio);
++    const body = await fetchApi(`${this.site}/novels/?cs_page=${page}`).then(
++      r => r.text(),
++    );
++    return this.parseNovels(parseHTML(body));
+   }
+ 
+   async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
+@@ -134,82 +96,90 @@ class CrimsonScrollsPlugin implements Plugin.PluginBase {
+     );
+ 
+     const loadedCheerio = parseHTML(result);
+-    const novelInfo = loadedCheerio('#single-novel-content-wrapper');
+ 
+     const novel: Plugin.SourceNovel = {
+       path: novelPath,
+-      name: novelInfo.find('h1').text().trim() ?? 'Untitled',
+-      cover:
+-        novelInfo.find('img:first').data('src')?.toString() ?? defaultCover,
+-      summary: novelInfo.find('#synopsis-full').text().trim(),
+-      author: novelInfo.find('strong:first').next().text().trim(),
++      name: loadedCheerio('.cs-novel-info h1').text().trim() || 'Untitled',
++      cover: loadedCheerio('.cs-cover img').attr('src') || defaultCover,
++      summary: loadedCheerio('.cs-synopsis-content').text().trim(),
++      author: loadedCheerio('.cs-novel-creator-card--author strong')
++        .text()
++        .trim(),
+       chapters: [],
+     };
+ 
+-    novel.genres = novelInfo
+-      .find('.cs-genre-chip')
++    novel.genres = loadedCheerio('.cs-detail-genres a')
+       .map((_, el) => loadedCheerio(el).text().trim())
+       .toArray()
+       .join(',');
+ 
+-    const rawStatus = novelInfo.find('.cs-nsb-badge').text().trim();
++    const rawStatus = loadedCheerio('.cs-cover-status').text().trim();
+     const map: Record<string, string> = {
+-      ongoing: NovelStatus.Ongoing,
+-      hiatus: NovelStatus.OnHiatus,
+-      dropped: NovelStatus.Cancelled,
+-      cancelled: NovelStatus.Cancelled,
+-      completed: NovelStatus.Completed,
++      'ongoing': NovelStatus.Ongoing,
++      'on hiatus': NovelStatus.OnHiatus,
++      'dropped': NovelStatus.Cancelled,
++      'completed': NovelStatus.Completed,
+     };
+     novel.status = map[rawStatus.toLowerCase()] ?? NovelStatus.Unknown;
+ 
+-    const id = loadedCheerio('#chapter-list').data('novel');
+-    const chapters = await this.fetchChapters(Number(id));
+-
+-    const novelChapters: Plugin.ChapterItem[] = [];
+-    chapters.forEach((chapter, index) => {
+-      if (!(chapter.locked && this.hideLocked)) {
+-        novelChapters.push({
+-          name: chapter.locked ? `🔒 ${chapter.title}` : chapter.title,
+-          path: chapter.url
+-            ? new URL(chapter.url, this.site).pathname.split('/')[2]
+-            : '',
+-          chapterNumber: index + 1,
+-        });
+-      }
++    const id = String(
++      loadedCheerio('[data-novel-chapters]').data('novelChapters'),
++    );
++    const tiers = loadedCheerio('[data-chapter-access-tier]')
++      .map((_, el) => loadedCheerio(el).attr('data-chapter-access-tier'))
++      .toArray()
++      .filter(tier => !(this.hideLocked && tier !== 'free'));
++    if (!tiers.length) tiers.push('free');
++
++    const chapters: ChapterItem[] = [];
++    for (const tier of tiers) {
++      chapters.push(...(await this.fetchChapters(id, tier)));
++    }
++
++    novel.chapters = chapters.map((chapter, index) => {
++      const title =
++        `Chapter ${chapter.number}` +
++        (chapter.title ? `: ${chapter.title}` : '');
++      return {
++        name: chapter.tier !== 'free' ? `🔒 ${title}` : title,
++        path: new URL(chapter.url, this.site).pathname.substring(1),
++        chapterNumber: Number(chapter.number) || index + 1,
++      };
+     });
+-    novel.chapters = novelChapters;
+ 
+     return novel;
+   }
+ 
+   async parseChapter(chapterPath: string): Promise<string> {
+-    const body = await fetchApi(`${this.site}/chapter/${chapterPath}`).then(r =>
++    const body = await fetchApi(`${this.site}/${chapterPath}`).then(r =>
+       r.text(),
+     );
+     const loadedCheerio = parseHTML(body);
+-    for (const i of [
+-      'hr.cs-attrib-divider',
+-      'div.cs-attrib',
+-      'p.cs-chapter-attrib',
+-    ])
+-      loadedCheerio(`#chapter-display ${i}:last`).remove();
+-
+-    const chapterText = loadedCheerio('#chapter-display').html() || '';
+-    return chapterText;
++    const content = loadedCheerio('article.cs-reader');
++    content
++      .find(
++        '.cs-reader-title, .cs-chapter-ad, .cs-copy-watermark, .cs-reader-end-watermark',
++      )
++      .remove();
++
++    return content.html() || '';
+   }
+ 
+-  async searchNovels(searchTerm: string): Promise<Plugin.NovelItem[]> {
+-    const loadedCheerio = await this.queryAPI({
+-      action: APIAction.search,
+-      params: { query: searchTerm },
+-    });
+-
+-    return this.parseNovels(loadedCheerio);
++  async searchNovels(
++    searchTerm: string,
++    page: number,
++  ): Promise<Plugin.NovelItem[]> {
++    if (page > 1) return [];
++    const data: SearchJSON = await fetchApi(
++      `${this.site}/wp-json/crimsonscrolls/v2/novel-search?q=${encodeURIComponent(searchTerm)}`,
++    ).then(r => r.json());
++
++    return (data.items || []).map(item => ({
++      name: item.title,
++      cover: item.cover || defaultCover,
++      path: new URL(item.url, this.site).pathname.substring(1),
++    }));
+   }
+-
+-  // not sure purpose of this, commented out
+-  // resolveUrl = (path: string, isNovel?: boolean) =>
+-  //   this.site + '/novel/' + path;
+ }
+ 
+ export default new CrimsonScrollsPlugin();
+diff --git a/plugins/english/divinedaolibrary.ts b/plugins/english/divinedaolibrary.ts
+index 9c3e544..3a90b5a 100644
+--- a/plugins/english/divinedaolibrary.ts
++++ b/plugins/english/divinedaolibrary.ts
+@@ -1,10 +1,8 @@
+ import { defaultCover } from '@libs/defaultCover';
+ import { fetchApi } from '@libs/fetch';
+-import { Filters, FilterTypes, FilterValueWithType } from '@libs/filterInputs';
++import { NovelStatus } from '@libs/novelStatus';
+ import { Plugin } from '@/types/plugin';
+-import { load as parseHTML } from 'cheerio';
+-
+-// TODO: change layoput, layout has updated
++import { CheerioAPI, load as parseHTML } from 'cheerio';
+ 
+ class DDLPlugin implements Plugin.PluginBase {
+   id = 'DDL.com';
+@@ -13,285 +11,114 @@ class DDLPlugin implements Plugin.PluginBase {
+   version = '1.1.1';
+   icon = 'src/en/divinedaolibrary/icon.png';
+ 
+-  filters = {
+-    category: {
+-      type: FilterTypes.CheckboxGroup,
+-      label: 'State',
+-      value: ['Completed', 'Translating', 'Lost in Voting Poll', 'Dropped'],
+-      options: [
+-        { label: 'Completed', value: 'Completed' },
+-        { label: 'Translating', value: 'Translating' },
+-        { label: 'Lost in Voting Poll', value: 'Lost in Voting Poll' },
+-        { label: 'Dropped', value: 'Dropped' },
+-        { label: 'Personally Written', value: 'Personally Written' },
+-      ],
+-    },
+-  } satisfies Filters;
+-
+-  allNovelsCache: readonly (readonly [string, string, string])[] | undefined;
+-  novelItemCache = new Map<string, Required<Plugin.NovelItem>>();
+-
+-  /**
+-   * Safely extract the pathname from any URL on {@link site}. Check the root
+-   * site as there are novels linking off-site (to Patreon).
+-   *
+-   * @private
+-   */
+-  getPath(url: string): string | undefined {
+-    if (!url.startsWith(this.site)) {
+-      return undefined;
+-    }
+-    const trimmed = url.substring(this.site.length).replace(/(^\/+|\/+$)/g, '');
+-    if (trimmed.length === 0) {
+-      return undefined;
+-    }
+-    return trimmed;
++  getPath(url: string): string {
++    return new URL(url, this.site).pathname.replace(/(^\/+|\/+$)/g, '');
+   }
+ 
+-  /**
+-   * Map an array with an asynchronous function and only return the array items
+-   * that successfully were fulfilled with values other than undefined.
+-   *
+-   * @private
+-   */
+-  async asyncMap<T, U>(
+-    collection: readonly T[],
+-    callbackfn: (value: T, index: number, array: readonly T[]) => Promise<U>,
+-  ): Promise<Exclude<U, undefined>[]> {
+-    return (await Promise.allSettled(collection.map(callbackfn)))
+-      .filter(
+-        <U>(
+-          p: PromiseSettledResult<U>,
+-        ): p is PromiseFulfilledResult<Exclude<U, undefined>> =>
+-          p.status === 'fulfilled' && p.value !== undefined,
+-      )
+-      .map(({ value }) => value);
+-  }
+-
+-  /**
+-   * DDL links to future (unpublished) chapters from its novel pages. To be
+-   * able to report updates correctly, try to figure out which chapter was the
+-   * actual latest one to be published.
+-   *
+-   * @private
+-   * @returns the path value of the latest published chapter (or undefined)
+-   */
+-  async findLatestChapter(novelPath: string): Promise<string | undefined> {
+-    const link = `${this.site}wp-json/wp/v2/categories?slug=${novelPath}`;
+-    const guessCategory = await fetchApi(link).then(res => res.json());
+-    if (guessCategory.length !== 1) {
+-      return undefined;
+-    }
+-    const categoryId = guessCategory[0].id;
+-    const chapterLink = `${this.site}wp-json/wp/v2/posts?categories=${categoryId}&per_page=1`;
+-    const lastChapter = await fetchApi(chapterLink).then(res => res.json());
+-    if (lastChapter.length !== 1) {
+-      return undefined;
+-    }
+-    return lastChapter[0].slug;
+-  }
+-
+-  /**
+-   * Based on the path, grab all the available information about a novel. Used
+-   * to seed the {@link novelItemCache} as well as to fetch the actual single
+-   * novel views with chapter list.
+-   *
+-   * @private
+-   */
+-  async grabNovel(
+-    path: string,
+-    getChapters = false,
+-  ): Promise<(Plugin.SourceNovel & Required<Plugin.NovelItem>) | undefined> {
+-    const link = `${this.site}wp-json/wp/v2/pages?slug=${path}`;
+-    const data = await fetchApi(link).then(res => res.json());
+-    if (data.length !== 1) {
+-      return undefined;
+-    }
+-    const content = parseHTML(data[0].content.rendered);
+-    const excerpt = parseHTML(data[0].excerpt.rendered);
+-    const image = content('img').first();
+-    let chapters: Plugin.ChapterItem[] = [];
+-    if (getChapters) {
+-      const linkedChapters = content('li > span > a')
+-        .map((_, anchorEl) => {
+-          const chapterPath = this.getPath(anchorEl.attribs['href']);
+-          if (!chapterPath) return;
+-          return {
+-            name: content(anchorEl).text(),
+-            path: chapterPath,
+-          } satisfies Plugin.ChapterItem;
+-        })
+-        .toArray();
+-      const lastChapterPath = await this.findLatestChapter(path);
+-      if (lastChapterPath) {
+-        chapters = linkedChapters.slice(
+-          0,
+-          1 +
+-            linkedChapters.findIndex(
+-              chapter => chapter.path === lastChapterPath,
+-            ),
+-        );
+-      } else {
+-        chapters = linkedChapters;
+-      }
+-    }
+-    return {
+-      name: data[0].title.rendered,
+-      path,
+-      cover: image.attr('data-lazy-src') ?? image.attr('src') ?? defaultCover,
+-      author: content('h3')
+-        .first()
+-        .text()
+-        .replace(/^Author:\s*/g, ''),
+-      summary: excerpt('p')
+-        .first()
+-        .text()
+-        .replace(/^.+Description\s*/g, ''),
+-      chapters,
+-    };
+-  }
+-
+-  /**
+-   * Based on the path, grab the {@link Plugin.NovelItem} information from the
+-   * cache. If not available in the cache, it will fetch the information.
+-   *
+-   * @private
+-   */
+-  async grabCachedNovel(path: string): Promise<Plugin.NovelItem | undefined> {
+-    const fromCache = this.novelItemCache.get(path);
+-    if (fromCache) {
+-      return fromCache;
+-    }
+-    const sourceNovel = await this.grabNovel(path, false);
+-    if (sourceNovel === undefined) {
+-      return undefined;
+-    }
+-    const novel = {
+-      name: sourceNovel.name,
+-      path: sourceNovel.path,
+-      cover: sourceNovel.cover,
+-    };
+-    this.novelItemCache.set(path, novel);
+-    return novel;
+-  }
+-
+-  /**
+-   * Get the list of all novels listed on the novels page. Cache it so filters
+-   * do not have to refetch the same HTML again.
+-   *
+-   * @private
+-   */
+-  async grabCachedNovels(): Promise<
+-    readonly (readonly [string, string, string])[] | undefined
+-  > {
+-    if (this.allNovelsCache) {
+-      return this.allNovelsCache;
+-    }
+-    const body = await fetchApi(this.site + 'novels').then(res => res.text());
+-    const loadedCheerio = parseHTML(body);
+-    const novels = loadedCheerio('.entry-content ul')
+-      .map((_, listEl) => {
+-        const list = loadedCheerio(listEl);
+-        const category = list.prev().text();
+-        return list
+-          .find('a')
+-          .map((_, anchorEl) => {
+-            const path = this.getPath(anchorEl.attribs['href']);
+-            if (!path) return;
+-            const name = loadedCheerio(anchorEl).text();
+-            return [[category, name, path]] as const;
+-          })
+-          .toArray();
++  parseNovels(loadedCheerio: CheerioAPI): Plugin.NovelItem[] {
++    return loadedCheerio('#list-of-stories > li, #search-result-list > li')
++      .map((_, el) => {
++        const title = loadedCheerio(el).find('h3.card__title > a');
++        const url = title.attr('href');
++        if (!url) return;
++        const image = loadedCheerio(el).find('a.cell-img img');
++        return {
++          name: title.text().trim(),
++          path: this.getPath(url),
++          cover: image.attr('data-src') || image.attr('src') || defaultCover,
++        };
+       })
+       .toArray();
+-    this.allNovelsCache = novels;
+-    return novels;
+-  }
+-
+-  /**
+-   * Parse list of paths of recently updated novels from the homepage.
+-   *
+-   * @private
+-   */
+-  async latestNovels(): Promise<readonly string[]> {
+-    const body = await fetchApi(this.site).then(res => res.text());
+-    const loadedCheerio = parseHTML(body);
+-    const novelPaths = loadedCheerio('#main')
+-      .find('a[rel="category tag"]')
+-      .map((_, anchorEl) => {
+-        const path = this.getPath(anchorEl.attribs['href']);
+-        return path;
+-      })
+-      .toArray();
+-    const uniqueNovelPaths = new Set(novelPaths);
+-    return Array.from(uniqueNovelPaths);
+-  }
+-
+-  /**
+-   * Parse list of paths from novels list, optionally filtered.
+-   *
+-   * @private
+-   */
+-  async allNovels(
+-    categoryFilter: FilterValueWithType<FilterTypes.CheckboxGroup>,
+-  ) {
+-    const allNovels = await this.grabCachedNovels();
+-    if (!allNovels) return [];
+-    return allNovels
+-      .filter(([category]) => categoryFilter.value.includes(category))
+-      .map(([, , path]) => path);
+   }
+ 
+   async popularNovels(
+     pageNo: number,
+-    options: Plugin.PopularNovelsOptions<typeof this.filters>,
++    { showLatestNovels }: Plugin.PopularNovelsOptions,
+   ): Promise<Plugin.NovelItem[]> {
+-    if (pageNo !== 1) {
+-      return [];
+-    }
+-    const novelsList = options.showLatestNovels
+-      ? this.latestNovels()
+-      : this.allNovels(options.filters.category);
+-    return await this.asyncMap(
+-      await novelsList,
+-      this.grabCachedNovel.bind(this),
+-    );
++    const page = pageNo === 1 ? '' : `page/${pageNo}/`;
++    const url = showLatestNovels
++      ? `${this.site}${page}?s=&post_type=fcn_story&orderby=modified&order=desc`
++      : `${this.site}stories/${page}`;
++    const body = await fetchApi(url).then(res => res.text());
++    return this.parseNovels(parseHTML(body));
+   }
+ 
+   async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
+-    const sourceNovel = await this.grabNovel(novelPath, true);
+-    if (sourceNovel === undefined) {
+-      throw new Error(`The path "${novelPath}" could not be resolved.`);
+-    }
+-    return sourceNovel;
++    const body = await fetchApi(`${this.site}${novelPath}/`).then(res =>
++      res.text(),
++    );
++    const loadedCheerio = parseHTML(body);
++
++    const summary = loadedCheerio('section.story__summary');
++    const author =
++      summary
++        .find('h3')
++        .filter((_, el) => /^Author:/.test(loadedCheerio(el).text()))
++        .first()
++        .text()
++        .replace(/^Author:\s*/, '') ||
++      loadedCheerio('.story__identity-meta a.author').first().text();
++
++    const statusElement = loadedCheerio('span.story__status');
++    let status = NovelStatus.Unknown;
++    if (statusElement.hasClass('_ongoing')) status = NovelStatus.Ongoing;
++    else if (statusElement.hasClass('_completed'))
++      status = NovelStatus.Completed;
++    else if (statusElement.hasClass('_canceled'))
++      status = NovelStatus.Cancelled;
++    else if (statusElement.hasClass('_hiatus')) status = NovelStatus.OnHiatus;
++
++    const chapters: Plugin.ChapterItem[] = loadedCheerio(
++      'li.chapter-group__list-item._publish',
++    )
++      .filter((_, el) => !el.attribs['class'].includes('_password'))
++      .map((_, el) => {
++        const anchor = loadedCheerio(el).find('a').first();
++        const url = anchor.attr('href');
++        if (!url) return;
++        return {
++          name: anchor.text().trim(),
++          path: this.getPath(url),
++        };
++      })
++      .toArray();
++
++    const cover = loadedCheerio('figure.story__thumbnail > a');
++    return {
++      name: loadedCheerio('h1.story__identity-title').text().trim(),
++      path: novelPath,
++      cover: cover.attr('href') || defaultCover,
++      author: author.trim(),
++      genres: loadedCheerio('div.tag-group > a')
++        .map((_, el) => loadedCheerio(el).text().trim())
++        .toArray()
++        .join(','),
++      summary: summary.find('p').first().text().trim(),
++      status,
++      chapters,
++    };
+   }
+ 
+   async parseChapter(chapterPath: string): Promise<string> {
+-    const chapterLink = `${this.site}wp-json/wp/v2/posts?slug=${chapterPath}`;
+-    const chapter = await fetchApi(chapterLink).then(res => res.json());
+-    if (chapter.length !== 1) {
+-      return '';
+-    }
+-    const title = `<h1>${chapter[0].title.rendered}</h1>`;
+-    const content = chapter[0].content.rendered;
+-    return `${title}${content}`;
++    const body = await fetchApi(`${this.site}${chapterPath}/`).then(res =>
++      res.text(),
++    );
++    const loadedCheerio = parseHTML(body);
++    const content = loadedCheerio('section#chapter-content > div');
++    content.find('script, style, iframe').remove();
++    const title = loadedCheerio('h1.chapter__title').text().trim();
++    return (title ? `<h1>${title}</h1>` : '') + (content.html() || '');
+   }
+ 
+   async searchNovels(
+     searchTerm: string,
+     pageNo: number,
+   ): Promise<Plugin.NovelItem[]> {
+-    if (pageNo !== 1) {
+-      return [];
+-    }
+-    const allNovels = await this.grabCachedNovels();
+-    if (!allNovels) return [];
+-    const foundNovels = allNovels
+-      .filter(([, name]) =>
+-        name.toLocaleLowerCase().includes(searchTerm.toLocaleLowerCase()),
+-      )
+-      .map(([, , path]) => path);
+-    return await this.asyncMap(foundNovels, this.grabCachedNovel.bind(this));
++    const page = pageNo === 1 ? '' : `page/${pageNo}/`;
++    const body = await fetchApi(
++      `${this.site}${page}?s=${encodeURIComponent(searchTerm)}&post_type=fcn_story`,
++    ).then(res => res.text());
++    return this.parseNovels(parseHTML(body));
+   }
+ }
+ 
+diff --git a/plugins/english/dragonholic.ts b/plugins/english/dragonholic.ts
+new file mode 100644
+index 0000000..b802eb8
+--- /dev/null
++++ b/plugins/english/dragonholic.ts
+@@ -0,0 +1,113 @@
++import { Plugin } from '@/types/plugin';
++import { fetchApi } from '@libs/fetch';
++import { NovelStatus } from '@libs/novelStatus';
++import { load as parseHTML } from 'cheerio';
++
++class Dragonholic implements Plugin.PluginBase {
++  id = 'dragonholic';
++  name = 'Dragonholic';
++  site = 'https://dragonholictranslations.com/';
++  version = '2.2.0';
++  icon = 'multisrc/madara/dragonholic/icon.png';
++
++  parseSeries(series: Series[]): Plugin.NovelItem[] {
++    return series.map(item => ({
++      name: parseHTML(item.title.rendered).text(),
++      path: item.link.replace(this.site, ''),
++      cover: item._embedded?.['wp:featuredmedia']?.[0]?.source_url,
++    }));
++  }
++
++  async fetchSeries(params: string): Promise<Plugin.NovelItem[]> {
++    const series = await fetchApi(
++      `${this.site}wp-json/wp/v2/series?per_page=20&_embed=wp:featuredmedia&_fields=title,link,_links,_embedded&${params}`,
++    ).then(res => res.json());
++    return Array.isArray(series) ? this.parseSeries(series) : [];
++  }
++
++  async popularNovels(pageNo: number): Promise<Plugin.NovelItem[]> {
++    return this.fetchSeries(`page=${pageNo}`);
++  }
++
++  async searchNovels(
++    searchTerm: string,
++    pageNo: number,
++  ): Promise<Plugin.NovelItem[]> {
++    return this.fetchSeries(
++      `page=${pageNo}&search=${encodeURIComponent(searchTerm)}`,
++    );
++  }
++
++  async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
++    const slug = novelPath.replace(/\/$/, '').split('/').pop();
++    const [series]: Series[] = await fetchApi(
++      `${this.site}wp-json/wp/v2/series?slug=${slug}&_embed=wp:featuredmedia,wp:term&_fields=id,title,link,content,_links,_embedded`,
++    ).then(res => res.json());
++
++    const novel: Plugin.SourceNovel = {
++      path: novelPath,
++      name: parseHTML(series.title.rendered).text(),
++      cover: series._embedded?.['wp:featuredmedia']?.[0]?.source_url,
++      summary: parseHTML(series.content.rendered).text().trim(),
++    };
++
++    const terms = (series._embedded?.['wp:term'] || []).flat();
++    const termNames = (taxonomy: string) =>
++      terms.filter(term => term.taxonomy === taxonomy).map(term => term.name);
++    novel.author = termNames('series-author').join(', ');
++    novel.genres = termNames('genre').join(', ');
++    const status = termNames('story-status').join().toLowerCase();
++    if (status.includes('ongoing')) novel.status = NovelStatus.Ongoing;
++    else if (status.includes('complete')) novel.status = NovelStatus.Completed;
++    else if (status.includes('hiatus')) novel.status = NovelStatus.OnHiatus;
++
++    const chapters: Plugin.ChapterItem[] = [];
++    let totalPages = 1;
++    for (let page = 1; page <= totalPages; page++) {
++      const res = await fetchApi(
++        `${this.site}wp-json/wp/v2/chapter?parent=${series.id}&per_page=100&page=${page}&orderby=date&order=asc&_fields=title,link,date`,
++      );
++      totalPages = Number(res.headers.get('X-WP-TotalPages')) || 1;
++      const items: Chapter[] = await res.json();
++      for (const item of items) {
++        chapters.push({
++          name: parseHTML(item.title.rendered).text(),
++          path: item.link.replace(this.site, ''),
++          releaseTime: item.date,
++          chapterNumber: chapters.length + 1,
++        });
++      }
++    }
++    novel.chapters = chapters;
++
++    return novel;
++  }
++
++  async parseChapter(chapterPath: string): Promise<string> {
++    const body = await fetchApi(this.site + chapterPath).then(res =>
++      res.text(),
++    );
++    return parseHTML(body)('.chapter-content').html() || '';
++  }
++
++  resolveUrl = (path: string) => this.site + path;
++}
++
++export default new Dragonholic();
++
++type Series = {
++  id: number;
++  link: string;
++  title: { rendered: string };
++  content: { rendered: string };
++  _embedded?: {
++    'wp:featuredmedia'?: { source_url: string }[];
++    'wp:term'?: { name: string; taxonomy: string }[][];
++  };
++};
++
++type Chapter = {
++  link: string;
++  date: string;
++  title: { rendered: string };
++};
+diff --git a/plugins/english/genesis.ts b/plugins/english/genesis.ts
+index e6644b3..5d58e34 100644
+--- a/plugins/english/genesis.ts
++++ b/plugins/english/genesis.ts
+@@ -144,6 +144,10 @@ class Genesis implements Plugin.PluginBase {
+     // Fetch the novel's data in JSON format
+     const raw = await fetchApi(url);
+     const $ = load(await raw.text());
++    // The reader page is rendered on the server; the chapter table no longer
++    // lets the public key read `chapter_content`.
++    const rendered = $('.chapter-content-html').first();
++    if (rendered.text().trim()) return rendered.html() || '';
+     let external_api;
+     let apikey;
+ 
+diff --git a/plugins/english/indraTranslations.ts b/plugins/english/indraTranslations.ts
+index e8aed10..f97a23d 100644
+--- a/plugins/english/indraTranslations.ts
++++ b/plugins/english/indraTranslations.ts
+@@ -45,121 +45,26 @@ class IndraTranslations implements Plugin.PluginBase {
+       .trim();
+   }
+ 
+-  private chapterNum(name: string): number {
+-    const m = String(name).match(/(\d+(\.\d+)?)/);
+-    return m ? Number(m[1]) : 0;
+-  }
+-
+-  /**
+-   * Indra can render results in different templates.
+-   * This tries multiple layouts and returns a single unified list.
+-   */
+   private parseNovelCards($: ReturnType<typeof load>) {
+     const out: { name: string; path: string; cover?: string }[] = [];
+     const seen = new Set<string>();
+ 
+-    const push = (name?: string, path?: string, cover?: string) => {
+-      const cleanName = this.clean(name);
+-      const cleanPath = String(path || '')
+-        .replace(this.site, '')
+-        .trim();
+-      if (!cleanName || !cleanPath) return;
+-      if (!cleanPath.includes('/series/')) return;
+-
+-      // Normalize trailing slash for consistency
+-      const normalized = cleanPath.endsWith('/') ? cleanPath : cleanPath + '/';
+-      if (seen.has(normalized)) return;
+-
+-      seen.add(normalized);
++    $('.series-card').each((_, el) => {
++      const href = $(el)
++        .attr('onclick')
++        ?.match(/location\.href='([^']+)'/)?.[1];
++      const name = this.clean($(el).find('.series-card-title').text());
++      if (!href || !name) return;
++      const path = href.replace(this.site, '');
++      if (seen.has(path)) return;
++      seen.add(path);
+       out.push({
+-        name: cleanName,
+-        path: normalized,
+-        cover: cover ? this.absolute(cover) : undefined,
++        name,
++        path,
++        cover: this.absolute($(el).find('.series-card-cover img').attr('src')),
+       });
+-    };
+-
+-    // -------- Layout A (Madara-style): .page-item-detail ----------
+-    $('.page-item-detail').each((_, el) => {
+-      const a = $(el).find('a[href*="/series/"]').first();
+-      const href = a.attr('href') || '';
+-      const title =
+-        this.clean(a.attr('title')) ||
+-        this.clean($(el).find('h3 a').text()) ||
+-        this.clean($(el).find('.post-title a').text());
+-
+-      const img =
+-        $(el).find('img').attr('data-src') ||
+-        $(el).find('img').attr('data-lazy-src') ||
+-        $(el).find('img').attr('src');
+-
+-      if (href) push(title, href, img || undefined);
+-    });
+-
+-    // -------- Layout B (common search tabs): .c-tabs-item__content ----------
+-    $('.c-tabs-item__content').each((_, el) => {
+-      const a =
+-        $(el).find('a[href*="/series/"]').first() ||
+-        $(el).find('.tab-thumb a[href*="/series/"]').first();
+-
+-      const href = a.attr?.('href') || '';
+-      const title =
+-        this.clean($(el).find('.post-title a').text()) ||
+-        this.clean($(el).find('.tab-summary .post-title a').text()) ||
+-        this.clean(a.attr?.('title')) ||
+-        this.clean(a.text?.());
+-
+-      const img =
+-        $(el).find('img').attr('data-src') ||
+-        $(el).find('img').attr('data-lazy-src') ||
+-        $(el).find('img').attr('src');
+-
+-      if (href) push(title, href, img || undefined);
+-    });
+-
+-    // -------- Layout C (sometimes search results are in .row or .col wrappers) ----------
+-    $('.row').each((_, el) => {
+-      const a = $(el).find('a[href*="/series/"]').first();
+-      const href = a.attr('href') || '';
+-      if (!href) return;
+-
+-      const title =
+-        this.clean($(el).find('h3 a').text()) ||
+-        this.clean($(el).find('.post-title a').text()) ||
+-        this.clean(a.attr('title')) ||
+-        this.clean(a.text());
+-
+-      const img =
+-        $(el).find('img').attr('data-src') ||
+-        $(el).find('img').attr('data-lazy-src') ||
+-        $(el).find('img').attr('src');
+-
+-      push(title, href, img || undefined);
+     });
+ 
+-    // -------- Layout D (fallback: any anchor to /series/) ----------
+-    // If everything else fails but links exist, still return something.
+-    if (out.length === 0) {
+-      $('a[href*="/series/"]').each((_, el) => {
+-        const a = $(el);
+-        const href = a.attr('href') || '';
+-        if (!href) return;
+-
+-        const title =
+-          this.clean(a.attr('title')) || this.clean(a.text()) || 'Unknown';
+-
+-        // Try to find an image near the link
+-        const img =
+-          a.find('img').attr('data-src') ||
+-          a.find('img').attr('data-lazy-src') ||
+-          a.find('img').attr('src') ||
+-          a.closest('*').find('img').first().attr('data-src') ||
+-          a.closest('*').find('img').first().attr('data-lazy-src') ||
+-          a.closest('*').find('img').first().attr('src');
+-
+-        push(title, href, img || undefined);
+-      });
+-    }
+-
+     return out;
+   }
+ 
+@@ -178,7 +83,7 @@ class IndraTranslations implements Plugin.PluginBase {
+ 
+   async searchNovels(searchTerm: string, pageNo: number) {
+     if (pageNo !== 1) return [];
+-    const url = `${this.site}/?s=${encodeURIComponent(searchTerm)}&post_type=wp-manga`;
++    const url = `${this.site}/series/?keyword=${encodeURIComponent(searchTerm)}`;
+     const html = await this.fetchHtml(url);
+     const $ = load(html);
+     return this.parseNovelCards($);
+@@ -191,60 +96,38 @@ class IndraTranslations implements Plugin.PluginBase {
+     const html = await this.fetchHtml(url);
+     const $ = load(html);
+ 
+-    const title =
+-      this.clean($('h1.entry-title').text()) ||
+-      this.clean($('h1').first().text()) ||
+-      'Unknown';
++    const title = this.clean($('h1.story-main-title').text()) || 'Unknown';
+ 
+-    const cover = this.absolute(
+-      $('.summary_image img').attr('data-src') ||
+-        $('.summary_image img').attr('data-lazy-src') ||
+-        $('.summary_image img').attr('src'),
+-    );
++    const cover = this.absolute($('.story-cover-card img').attr('src'));
+ 
+-    const summary =
+-      this.clean($('.summary__content').text()) ||
+-      this.clean($('.description-summary').text()) ||
+-      undefined;
++    const summary = this.clean($('#story-synopsis').text()) || undefined;
+ 
+     let statusText = '';
+-    $('.post-content_item').each((_, el) => {
+-      const label = this.clean(
+-        $(el).find('.summary-heading').text(),
+-      ).toLowerCase();
+-      if (label.includes('status')) {
+-        statusText = this.clean($(el).find('.summary-content').text());
++    const genres: string[] = [];
++    $('.story-meta-list > div').each((_, el) => {
++      const label = this.clean($(el).find('.td-hero-subtext').text());
++      if (label.startsWith('Status')) {
++        statusText = this.clean($(el).find('a').text());
++      } else if (label.startsWith('Genres')) {
++        $(el)
++          .find('a')
++          .each((_, a) => {
++            genres.push(this.clean($(a).text()));
++          });
+       }
+     });
+ 
+-    const chapters: { name: string; path: string; chapterNumber?: number }[] =
+-      [];
+-
+-    $('li.wp-manga-chapter a').each((_, el) => {
+-      const href = $(el).attr('href');
+-      if (!href) return;
+-      const name = this.clean($(el).text());
+-      chapters.push({
+-        name,
+-        path: href.replace(this.site, ''),
+-        chapterNumber: this.chapterNum(name),
+-      });
+-    });
+-
+-    if (chapters.length === 0) {
+-      $('.wp-manga-chapter a').each((_, el) => {
+-        const href = $(el).attr('href');
+-        if (!href) return;
+-        const name = this.clean($(el).text());
+-        chapters.push({
+-          name,
+-          path: href.replace(this.site, ''),
+-          chapterNumber: this.chapterNum(name),
+-        });
+-      });
+-    }
+-
+-    chapters.sort((a, b) => (a.chapterNumber ?? 0) - (b.chapterNumber ?? 0));
++    const chaptersJson = html.match(
++      /var TD_Story_Chapters = (\[.*?\]);\r?\n/,
++    )?.[1];
++    const chapters: Plugin.ChapterItem[] = chaptersJson
++      ? (JSON.parse(chaptersJson) as IndraChapter[]).map(chap => ({
++          name: (chap.price > 0 && !chap.purchased ? '🔒 ' : '') + chap.title,
++          path: chap.link.replace(this.site, ''),
++          releaseTime: chap.date,
++          chapterNumber: chap.num,
++        }))
++      : [];
+ 
+     const statusLower = String(statusText).toLowerCase();
+     const status =
+@@ -257,6 +140,7 @@ class IndraTranslations implements Plugin.PluginBase {
+       path: novelPath.endsWith('/') ? novelPath : novelPath + '/',
+       cover,
+       summary,
++      genres: genres.join(', '),
+       status,
+       chapters,
+     };
+@@ -269,19 +153,22 @@ class IndraTranslations implements Plugin.PluginBase {
+     const html = await this.fetchHtml(url);
+     const $ = load(html);
+ 
+-    const content = $('.reading-content').first().length
+-      ? $('.reading-content').first()
+-      : $('.text-left').first().length
+-        ? $('.text-left').first()
+-        : $('.entry-content').first();
+-
++    const content = $('.td-reading-flow');
+     if (!content.length) {
+       return `\nUnable to load chapter content.\n\n`;
+     }
+ 
+-    content.find('script, style, ins, iframe, noscript').remove();
+-
+-    return content.html() ?? '';
++    content.find('.td-s-noise, .td-hidden-watermark, .td-canary-trap').remove();
++
++    return content
++      .find('p.td-text-para')
++      .toArray()
++      .sort(
++        (a, b) =>
++          Number($(a).attr('data-order')) - Number($(b).attr('data-order')),
++      )
++      .map(el => `<p>${$(el).html()}</p>`)
++      .join('\n');
+   }
+ 
+   filters: Filters = {
+@@ -295,3 +182,12 @@ class IndraTranslations implements Plugin.PluginBase {
+ }
+ 
+ export default new IndraTranslations();
++
++type IndraChapter = {
++  num: number;
++  price: number;
++  title: string;
++  date: string;
++  link: string;
++  purchased: boolean;
++};
+diff --git a/plugins/english/kdtnovels.ts b/plugins/english/kdtnovels.ts
+new file mode 100644
+index 0000000..231f757
+--- /dev/null
++++ b/plugins/english/kdtnovels.ts
+@@ -0,0 +1,112 @@
++import { CheerioAPI, load as parseHTML } from 'cheerio';
++import { fetchApi } from '@libs/fetch';
++import { Plugin } from '@/types/plugin';
++import { storage } from '@libs/storage';
++import { defaultCover } from '@libs/defaultCover';
++
++type ChapterJSON = {
++  id: number;
++  slug: string;
++  volume: string;
++  chapter_no: string;
++  subtitle: string | null;
++  locked: boolean;
++};
++
++class KDTNovelsPlugin implements Plugin.PluginBase {
++  id = 'kdtnovels';
++  name = 'KDT Novels';
++  icon = 'src/en/kdtnovels/icon.png';
++  site = 'https://kdtnovels.net/';
++  version = '1.1.10';
++
++  hideLocked = storage.get('hideLocked');
++  pluginSettings = {
++    hideLocked: {
++      value: '',
++      label: 'Hide locked chapters',
++      type: 'Switch',
++    },
++  };
++
++  parseNovels(loadedCheerio: CheerioAPI): Plugin.NovelItem[] {
++    return loadedCheerio('a[href^="/series/"]:has(h3)')
++      .map((_, el) => {
++        const cover = loadedCheerio(el).find('img').attr('src');
++        return {
++          name: loadedCheerio(el).find('h3').text().trim(),
++          cover: cover ? new URL(cover, this.site).href : defaultCover,
++          path: loadedCheerio(el).attr('href')!.replace(/^\//, ''),
++        };
++      })
++      .toArray();
++  }
++
++  async popularNovels(page: number): Promise<Plugin.NovelItem[]> {
++    const body = await fetchApi(`${this.site}search/?page=${page}`).then(r =>
++      r.text(),
++    );
++    return this.parseNovels(parseHTML(body));
++  }
++
++  async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
++    const body = await fetchApi(this.site + novelPath).then(r => r.text());
++    const loadedCheerio = parseHTML(body);
++
++    const title = loadedCheerio('main h1').first();
++    const cover = loadedCheerio('main button img').first().attr('src');
++    const novel: Plugin.SourceNovel = {
++      path: novelPath,
++      name: title.text().trim(),
++      cover: cover ? new URL(cover, this.site).href : defaultCover,
++      author: title.parent().next('p').find('span').first().text().trim(),
++      summary: loadedCheerio('main div[style*="line-clamp"]').text().trim(),
++      genres: loadedCheerio('main a[href^="/search/?genre="]')
++        .map((_, el) => loadedCheerio(el).text().trim())
++        .toArray()
++        .join(','),
++    };
++
++    // The chapter list is only present in the RSC payload
++    const payload = Array.from(
++      body.matchAll(/self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g),
++    )
++      .map(m => JSON.parse(`"${m[1]}"`))
++      .join('');
++    const chapters: ChapterJSON[] = Array.from(
++      payload.matchAll(/\{"id":\d+,"slug":[^{}]*"chapter_no":[^{}]*\}/g),
++    ).map(m => JSON.parse(m[0]));
++
++    novel.chapters = chapters
++      .filter(chapter => !(this.hideLocked && chapter.locked))
++      .map((chapter, index) => {
++        const name =
++          `Vol. ${chapter.volume} Ch. ${chapter.chapter_no}` +
++          (chapter.subtitle ? `: ${chapter.subtitle}` : '');
++        return {
++          name: chapter.locked ? `🔒 ${name}` : name,
++          path: chapter.slug + '/',
++          chapterNumber: index + 1,
++        };
++      });
++
++    return novel;
++  }
++
++  async parseChapter(chapterPath: string): Promise<string> {
++    const body = await fetchApi(this.site + chapterPath).then(r => r.text());
++    return parseHTML(body)('article.reader-content').html() || '';
++  }
++
++  async searchNovels(
++    searchTerm: string,
++    page: number,
++  ): Promise<Plugin.NovelItem[]> {
++    const body = await fetchApi(
++      `${this.site}search/?q=${encodeURIComponent(searchTerm)}&page=${page}`,
++    ).then(r => r.text());
++    return this.parseNovels(parseHTML(body));
++  }
++}
++
++export default new KDTNovelsPlugin();
+diff --git a/plugins/english/mtl-novel.ts b/plugins/english/mtl-novel.ts
+new file mode 100644
+index 0000000..1ed5719
+--- /dev/null
++++ b/plugins/english/mtl-novel.ts
+@@ -0,0 +1,109 @@
++import { CheerioAPI, load as parseHTML } from 'cheerio';
++import { fetchApi } from '@libs/fetch';
++import { Plugin } from '@/types/plugin';
++import { defaultCover } from '@libs/defaultCover';
++import { NovelStatus } from '@libs/novelStatus';
++
++class MTLNovelPlugin implements Plugin.PluginBase {
++  id = 'mtl-novel';
++  name = 'MTL-Novel';
++  icon = 'src/en/mtl-novel/icon.png';
++  site = 'https://mtl-novel.com/';
++  version = '2.2.0';
++
++  parseNovels(loadedCheerio: CheerioAPI): Plugin.NovelItem[] {
++    return loadedCheerio('.box.wide')
++      .map((_, el) => {
++        const title = loadedCheerio(el).find('a.list-title');
++        const url = title.attr('href');
++        if (!url) return;
++        return {
++          name: title.text().trim(),
++          cover:
++            loadedCheerio(el).find('.tmb-left img').attr('src') || defaultCover,
++          path: new URL(url, this.site).pathname.substring(1),
++        };
++      })
++      .toArray();
++  }
++
++  async popularNovels(
++    page: number,
++    { showLatestNovels }: Plugin.PopularNovelsOptions,
++  ): Promise<Plugin.NovelItem[]> {
++    const body = await fetchApi(
++      `${this.site}novel/page/${page}/?orderby=${showLatestNovels ? 'date' : 'view'}&order=desc`,
++    ).then(r => r.text());
++    return this.parseNovels(parseHTML(body));
++  }
++
++  async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
++    const body = await fetchApi(this.site + novelPath).then(r => r.text());
++    const loadedCheerio = parseHTML(body);
++
++    const info = (label: string) =>
++      loadedCheerio('table.info tr')
++        .filter((_, el) => loadedCheerio(el).find('.tbl-lbl').text() === label)
++        .find('td')
++        .last();
++
++    const novel: Plugin.SourceNovel = {
++      path: novelPath,
++      name: loadedCheerio('h1.entry-title').text().trim(),
++      cover:
++        loadedCheerio('.nov-head img.main-tmb').attr('src') || defaultCover,
++      summary: loadedCheerio('.desc p')
++        .map((_, el) => loadedCheerio(el).text().trim())
++        .toArray()
++        .join('\n\n'),
++      author: info('Author').text().trim(),
++      genres: info('Genre')
++        .find('a')
++        .map((_, el) => loadedCheerio(el).text().trim())
++        .toArray()
++        .join(','),
++    };
++
++    const map: Record<string, string> = {
++      ongoing: NovelStatus.Ongoing,
++      completed: NovelStatus.Completed,
++      hiatus: NovelStatus.OnHiatus,
++      dropped: NovelStatus.Cancelled,
++    };
++    novel.status =
++      map[info('Status').text().trim().toLowerCase()] ?? NovelStatus.Unknown;
++
++    novel.chapters = loadedCheerio('.ch-list a.ch-link')
++      .map((index, el) => {
++        const url = loadedCheerio(el).attr('href');
++        if (!url) return;
++        const number = loadedCheerio(el).find('strong').text().trim();
++        loadedCheerio(el).find('strong').remove();
++        return {
++          name: `Chapter ${number.replace('#', '')} ${loadedCheerio(el).text().trim()}`,
++          path: new URL(url, this.site).pathname.substring(1),
++          chapterNumber: index + 1,
++        };
++      })
++      .toArray();
++
++    return novel;
++  }
++
++  async parseChapter(chapterPath: string): Promise<string> {
++    const body = await fetchApi(this.site + chapterPath).then(r => r.text());
++    return parseHTML(body)('#chapter-par').html() || '';
++  }
++
++  async searchNovels(
++    searchTerm: string,
++    page: number,
++  ): Promise<Plugin.NovelItem[]> {
++    const body = await fetchApi(
++      `${this.site}page/${page}/?s=${encodeURIComponent(searchTerm)}&post_type=novel`,
++    ).then(r => r.text());
++    return this.parseNovels(parseHTML(body));
++  }
++}
++
++export default new MTLNovelPlugin();
+diff --git a/plugins/english/penguinsquad.ts b/plugins/english/penguinsquad.ts
+new file mode 100644
+index 0000000..369e9d9
+--- /dev/null
++++ b/plugins/english/penguinsquad.ts
+@@ -0,0 +1,130 @@
++import { load as parseHTML } from 'cheerio';
++import { fetchApi } from '@libs/fetch';
++import { Plugin } from '@/types/plugin';
++import { defaultCover } from '@libs/defaultCover';
++import { NovelStatus } from '@libs/novelStatus';
++
++type NovelJSON = {
++  id: string;
++  title: string;
++  slug: string;
++  description: string | null;
++  cover_url: string | null;
++  author: string | null;
++  translator: string | null;
++  status: string | null;
++  genres: string[] | null;
++  free_chapter_floor: number | null;
++};
++
++type ChapterJSON = {
++  title: string;
++  slug: string;
++  chapter_number: number;
++  published_at: string | null;
++};
++
++class PenguinSquadPlugin implements Plugin.PluginBase {
++  id = 'penguinsquad';
++  name = 'Penguin Squad';
++  icon = 'src/en/penguinsquad/icon.png';
++  site = 'https://penguin-squad.com';
++  version = '1.2.0';
++
++  api = 'https://qdqgxwrdzpxpkvamufqp.supabase.co/rest/v1';
++  apiKey = 'sb_publishable_S6npBecKfXVXzyOmhgnWYQ_mccEEiF2';
++
++  async queryAPI<T>(query: string): Promise<T> {
++    return fetchApi(`${this.api}/${query}`, {
++      headers: { apikey: this.apiKey },
++    }).then(r => r.json());
++  }
++
++  async fetchNovels(query: string, page: number) {
++    const novels = await this.queryAPI<NovelJSON[]>(
++      `novels?select=title,slug,cover_url&${query}&limit=20&offset=${(page - 1) * 20}`,
++    );
++    return novels.map(novel => ({
++      name: novel.title,
++      cover: novel.cover_url || defaultCover,
++      path: `novels/${novel.slug}`,
++    }));
++  }
++
++  async popularNovels(
++    page: number,
++    { showLatestNovels }: Plugin.PopularNovelsOptions,
++  ): Promise<Plugin.NovelItem[]> {
++    return this.fetchNovels(
++      showLatestNovels
++        ? 'order=updated_at.desc'
++        : 'order=featured.desc,total_chapters.desc',
++      page,
++    );
++  }
++
++  async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
++    const slug = novelPath.split('/').pop();
++    const [data] = await this.queryAPI<NovelJSON[]>(
++      `novels?select=*&slug=eq.${slug}`,
++    );
++
++    const novel: Plugin.SourceNovel = {
++      path: novelPath,
++      name: data.title,
++      cover: data.cover_url || defaultCover,
++      summary: data.description || undefined,
++      author: data.author || undefined,
++      artist: data.translator || undefined,
++      genres: (data.genres || []).join(','),
++    };
++
++    const map: Record<string, string> = {
++      ongoing: NovelStatus.Ongoing,
++      completed: NovelStatus.Completed,
++      hiatus: NovelStatus.OnHiatus,
++      dropped: NovelStatus.Cancelled,
++    };
++    novel.status = map[data.status || ''] ?? NovelStatus.Unknown;
++
++    const chapters = await this.queryAPI<ChapterJSON[]>(
++      `chapters?select=title,slug,chapter_number,published_at&novel_id=eq.${data.id}&order=chapter_number.asc`,
++    );
++    novel.chapters = chapters
++      .filter(
++        chapter =>
++          data.free_chapter_floor == null ||
++          chapter.chapter_number <= data.free_chapter_floor,
++      )
++      .map(chapter => ({
++        name: chapter.title,
++        path: `${novelPath}/${chapter.slug}`,
++        chapterNumber: chapter.chapter_number,
++        releaseTime: chapter.published_at || undefined,
++      }));
++
++    return novel;
++  }
++
++  async parseChapter(chapterPath: string): Promise<string> {
++    const body = await fetchApi(`${this.site}/${chapterPath}`).then(r =>
++      r.text(),
++    );
++    return parseHTML(body)('.reader-content').first().html() || '';
++  }
++
++  async searchNovels(
++    searchTerm: string,
++    page: number,
++  ): Promise<Plugin.NovelItem[]> {
++    const term = encodeURIComponent(
++      searchTerm.replace(/[,()*%_"]/g, ' ').trim(),
++    );
++    return this.fetchNovels(
++      `or=(title.ilike.*${term}*,original_title.ilike.*${term}*,author.ilike.*${term}*)&order=updated_at.desc`,
++      page,
++    );
++  }
++}
++
++export default new PenguinSquadPlugin();
+diff --git a/plugins/english/wordexcerpt.ts b/plugins/english/wordexcerpt.ts
+new file mode 100644
+index 0000000..ca53eb3
+--- /dev/null
++++ b/plugins/english/wordexcerpt.ts
+@@ -0,0 +1,136 @@
++import { fetchApi } from '@libs/fetch';
++import { Plugin } from '@/types/plugin';
++import { defaultCover } from '@libs/defaultCover';
++import { NovelStatus } from '@libs/novelStatus';
++
++type NovelJSON = {
++  id: string;
++  slug: string | null;
++  title: string;
++  synopsis: string | null;
++  cover_url: string | null;
++  genres: string[] | null;
++  tags: string[] | null;
++  status: string | null;
++  author_name: string | null;
++  translator: string | null;
++};
++
++type ChapterJSON = {
++  number: number;
++  title: string | null;
++  content?: string | null;
++  is_free: boolean;
++  free_date: string | null;
++  published_at: string | null;
++};
++
++class WordExcerptPlugin implements Plugin.PluginBase {
++  id = 'wordexcerpt';
++  name = 'WordExcerpt';
++  icon = 'src/en/wordexcerpt/icon.png';
++  site = 'https://wordexcerpt.com/';
++  version = '2.2.0';
++
++  api = 'https://debebcxopcfhukeqweco.supabase.co/rest/v1';
++  apiKey =
++    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYmViY3hvcGNmaHVrZXF3ZWNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTY4NjQsImV4cCI6MjA4NjI3Mjg2NH0._DMgqDOhgT2Z9l4gd0aeCV4dXBARZWRabYDd8__BgEM';
++
++  async queryAPI<T>(query: string): Promise<T> {
++    return fetchApi(`${this.api}/${query}`, {
++      headers: { apikey: this.apiKey },
++    }).then(r => r.json());
++  }
++
++  isFree(chapter: ChapterJSON) {
++    return (
++      chapter.is_free ||
++      (!!chapter.free_date && new Date(chapter.free_date) <= new Date())
++    );
++  }
++
++  async fetchNovels(query: string, page: number) {
++    const novels = await this.queryAPI<NovelJSON[]>(
++      `novels?select=id,slug,title,cover_url&status=neq.draft&${query}&limit=20&offset=${(page - 1) * 20}`,
++    );
++    return novels.map(novel => ({
++      name: novel.title,
++      cover: novel.cover_url || defaultCover,
++      path: `novel/${novel.slug || novel.id}`,
++    }));
++  }
++
++  async popularNovels(
++    page: number,
++    { showLatestNovels }: Plugin.PopularNovelsOptions,
++  ): Promise<Plugin.NovelItem[]> {
++    return this.fetchNovels(
++      `order=${showLatestNovels ? 'updated_at' : 'view_count'}.desc`,
++      page,
++    );
++  }
++
++  async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
++    const key = novelPath.split('/')[1];
++    const field = /^[0-9a-f-]{36}$/i.test(key) ? 'id' : 'slug';
++    const [data] = await this.queryAPI<NovelJSON[]>(
++      `novels?select=*&${field}=eq.${encodeURIComponent(key)}`,
++    );
++
++    const map: Record<string, string> = {
++      ongoing: NovelStatus.Ongoing,
++      completed: NovelStatus.Completed,
++      hiatus: NovelStatus.OnHiatus,
++    };
++    const novel: Plugin.SourceNovel = {
++      path: novelPath,
++      name: data.title,
++      cover: data.cover_url || defaultCover,
++      summary: data.synopsis || undefined,
++      author: data.author_name || undefined,
++      artist: data.translator || undefined,
++      genres: [...(data.genres || []), ...(data.tags || [])].join(','),
++      status: map[data.status || ''] ?? NovelStatus.Unknown,
++    };
++
++    const chapters = await this.queryAPI<ChapterJSON[]>(
++      `chapters?select=number,title,is_free,free_date,published_at&novel_id=eq.${data.id}&status=eq.published&order=number.asc`,
++    );
++    novel.chapters = chapters
++      .filter(chapter => this.isFree(chapter))
++      .map(chapter => ({
++        name:
++          `Chapter ${chapter.number}` +
++          (chapter.title ? `: ${chapter.title}` : ''),
++        path: `novel/${data.id}/chapter/${chapter.number}`,
++        chapterNumber: chapter.number,
++        releaseTime: chapter.published_at || undefined,
++      }));
++
++    return novel;
++  }
++
++  async parseChapter(chapterPath: string): Promise<string> {
++    const [, novelId, , number] = chapterPath.split('/');
++    const [chapter] = await this.queryAPI<ChapterJSON[]>(
++      `chapters?select=number,title,content,is_free,free_date,published_at&novel_id=eq.${novelId}&number=eq.${number}`,
++    );
++    if (!chapter || !this.isFree(chapter)) return '';
++    return chapter.content || '';
++  }
++
++  async searchNovels(
++    searchTerm: string,
++    page: number,
++  ): Promise<Plugin.NovelItem[]> {
++    const term = encodeURIComponent(
++      searchTerm.replace(/[,()*%_"]/g, ' ').trim(),
++    );
++    return this.fetchNovels(
++      `or=(title.ilike.*${term}*,author_name.ilike.*${term}*)&order=view_count.desc`,
++      page,
++    );
++  }
++}
++
++export default new WordExcerptPlugin();
+diff --git a/plugins/french/jgarden.ts b/plugins/french/jgarden.ts
+index 27e5d8c..101801c 100644
+--- a/plugins/french/jgarden.ts
++++ b/plugins/french/jgarden.ts
+@@ -42,9 +42,12 @@ class JGardenPlugin implements Plugin.PluginBase {
+   private async getJson<T>(path: string): Promise<T> {
+     const response = await fetchApi(this.resolveUrl(path));
+     if (!response.ok) throw new Error(`Failed to load ${path}`);
+-    if (!/[/+]json\b/i.test(response.headers.get('content-type') || ''))
++    // The REST API currently answers with a text/html content type and a few
++    // leading blank lines, so parse the body instead of trusting the header.
++    const body = (await response.text()).trim();
++    if (!/^[[{]/.test(body))
+       throw new Error(`Expected a JSON response for ${path}`);
+-    return response.json() as Promise<T>;
++    return JSON.parse(body) as T;
+   }
+ 
+   private parseCatalogue(html: string): Plugin.NovelItem[] {
+@@ -293,7 +296,7 @@ class JGardenPlugin implements Plugin.PluginBase {
+ 
+     const $ = load(post.content.rendered);
+     const content = $('.elementor-widget-theme-post-content').first();
+-    const chapter = content.length ? content : $('body');
++    const chapter = content.length ? content : $.root();
+     chapter
+       .find(
+         'script, style, nav, .sharedaddy, .share, [class*="share"], [id*="share"]',
+diff --git a/plugins/japanese/kakuyomu.ts b/plugins/japanese/kakuyomu.ts
+index 8f55a0e..9578136 100644
+--- a/plugins/japanese/kakuyomu.ts
++++ b/plugins/japanese/kakuyomu.ts
+@@ -65,6 +65,27 @@ class KakuyomuPlugin implements Plugin.PluginBase {
+     const $ = loadCheerio(html);
+     const novels: Plugin.NovelItem[] = [];
+ 
++    // The rankings are a Next.js page now: the list is in its Apollo state.
++    const data = JSON.parse(
++      $('script#__NEXT_DATA__[type="application/json"]').html() || '{}',
++    );
++    const state = data?.props?.pageProps?.__APOLLO_STATE__ ?? {};
++    const rootQuery = state.ROOT_QUERY ?? {};
++    const rankedKey = Object.keys(rootQuery).find(k =>
++      k.startsWith('rankedWorks'),
++    );
++    for (const ref of rankedKey ? rootQuery[rankedKey]?.nodes || [] : []) {
++      const work = state[ref?.__ref];
++      if (!work?.id || !work.title) continue;
++      novels.push({
++        name: work.title,
++        path: `/works/${work.id}`,
++        cover: defaultCover,
++      });
++    }
++    // One page holds the whole ranking.
++    if (novels.length) return pageNo > 1 ? [] : novels;
++
+     $('.widget-media-genresWorkList-right > .widget-work').each((_, elem) => {
+       const anchor = $(elem).find('a.widget-workCard-titleLabel');
+       const path = anchor.attr('href');
+diff --git a/plugins/multisrc/fictioneer/custom/cherrymistcafe/chapterTransform.js b/plugins/multisrc/fictioneer/custom/cherrymistcafe/chapterTransform.js
+deleted file mode 100644
+index 0f30982..0000000
+--- a/plugins/multisrc/fictioneer/custom/cherrymistcafe/chapterTransform.js
++++ /dev/null
+@@ -1,46 +0,0 @@
+-    const ghostScript = loadedCheerio('script[id*=ghost]');
+-    const contentHost = loadedCheerio('#cherry-content-host');
+-
+-    if (ghostScript.length && contentHost.length) {
+-      const poly = ghostScript.attr('data-poly');
+-      // data-poly attr provide id
+-      // encoded text is stored in attr data-{id}-{number}
+-      // create full string of all the data-poly-nums
+-      const encoded = Array.from(
+-        { length: +ghostScript.attr('data-total') || 0 },
+-        (_, i) => ghostScript.attr(`data-${poly}-${i}`) || '',
+-      ).join('');
+-
+-      // technically copypasta from source
+-      // var c = s.charCodeAt(i);
+-      // if(c>=65 && c<=90)
+-      //    o+=String.fromCharCode((c-65+13)%26+65);
+-      // else if(c>=97&&c<=122)
+-      //    o+=String.fromCharCode((c-97+13)%26+97);
+-      // else
+-      //    o+=s.charAt(i);
+-      if (encoded) {
+-        const rot13 = (str) => {
+-          return str.replace(/[a-zA-Z]/g, (char) => {
+-            const base = char <= 'Z' ? 65 : 97;
+-            const shift = ((char.charCodeAt(0) - base + 13) % 26) + base;
+-            return String.fromCharCode(shift);
+-          });
+-        };
+-        contentHost.replaceWith(decodeURIComponent(atob(rot13(encoded))));
+-      }
+-    }
+-
+-    loadedCheerio('script, ruby').remove();
+-
+-    loadedCheerio('section#chapter-content p [data-fcnc-rev="1"]').each((_, el) => {
+-      const text = loadedCheerio(el).text().trim();
+-      if (text) loadedCheerio(el).replaceWith([...text].reverse().join(''));
+-    });
+-
+-    return (
+-      loadedCheerio('section#chapter-content > div')
+-        .html()
+-        ?.replace(/\u00A0/g, ' ')
+-        ?.replace(/[\u2060\u00AD\u202F\u2007\u200B]/g, '') || ''
+-    );
+diff --git a/plugins/multisrc/fictioneer/sources.json b/plugins/multisrc/fictioneer/sources.json
+index 5b4eceb..58647b1 100644
+--- a/plugins/multisrc/fictioneer/sources.json
++++ b/plugins/multisrc/fictioneer/sources.json
+@@ -28,14 +28,6 @@
+       "browsePage": "stories"
+     }
+   },
+-  {
+-    "id": "penguinsquad",
+-    "sourceSite": "https://penguin-squad.com",
+-    "sourceName": "Penguin Squad",
+-    "options": {
+-      "browsePage": "novels"
+-    }
+-  },
+   {
+     "id": "prizmatranslation",
+     "sourceSite": "https://prizmatranslation.com",
+@@ -54,18 +46,6 @@
+       "downSince": 1768289212907
+     }
+   },
+-  {
+-    "id": "cherrymistcafe",
+-    "sourceSite": "https://cherrymist.cafe/",
+-    "sourceName": "Cherry Mist Cafe",
+-    "options": {
+-      "customJs": {
+-        "chapterTransform": "custom/cherrymistcafe/chapterTransform.js"
+-      },
+-      "versionIncrements": 1,
+-      "browsePage": "stories"
+-    }
+-  },
+   {
+     "id": "illusia",
+     "sourceSite": "https://illusia.com.br",
+diff --git a/plugins/multisrc/lightnovelwp/sources.json b/plugins/multisrc/lightnovelwp/sources.json
+index 85e8b20..f548730 100644
+--- a/plugins/multisrc/lightnovelwp/sources.json
++++ b/plugins/multisrc/lightnovelwp/sources.json
+@@ -293,7 +293,7 @@
+   },
+   {
+     "id": "TCSega",
+-    "sourceSite": "https://teamchmantranslations.com",
++    "sourceSite": "https://teamchmantranslations.com/",
+     "sourceName": "TC & Sega",
+     "options": {
+       "lang": "Spanish",
+@@ -309,15 +309,6 @@
+       "reverseChapters": true
+     }
+   },
+-  {
+-    "id": "kdtnovels",
+-    "sourceSite": "https://kdtnovels.net/",
+-    "sourceName": "KDT Novels",
+-    "options": {
+-      "lang": "English",
+-      "reverseChapters": true
+-    }
+-  },
+   {
+     "id": "hyacinthbloom",
+     "sourceSite": "https://hyacinthbloom.com/",
+diff --git a/plugins/multisrc/lightnovelwp/template.ts b/plugins/multisrc/lightnovelwp/template.ts
+index 8234b5c..50ce5ed 100644
+--- a/plugins/multisrc/lightnovelwp/template.ts
++++ b/plugins/multisrc/lightnovelwp/template.ts
+@@ -214,20 +214,30 @@ export class LightNovelWPPlugin implements Plugin.PluginBase {
+           isReadingStatus = true;
+         }
+         // chapters
+-        else if (attribs['class'] && attribs['class'].includes('eplister')) {
++        else if (
++          attribs['class'] &&
++          (attribs['class'].includes('eplister') ||
++            attribs['class'].includes('nvtlister'))
++        ) {
+           isParsingChapterList = true;
+         } else if (isParsingChapterList && name === 'li') {
+           isReadingChapter = true;
+         } else if (isReadingChapter) {
+           if (name === 'a' && tempChapter.path === undefined) {
+-            tempChapter.path = attribs['href'].replace(baseURL, '').trim();
+-          } else if (attribs['class'] === 'epl-num') {
++            // Some installs link chapters with the absolute URL of the main
++            // site (free.kolnovel.com links kolnovel.com), and parseChapter
++            // re-prefixes this.site, so keep the path only.
++            tempChapter.path = attribs['href']
++              .replace(baseURL, '')
++              .replace(/^https?:\/\/[^/]+/, '')
++              .trim();
++          } else if (attribs['class']?.split(' ')[0] === 'epl-num') {
+             isReadingChapterInfo = 1;
+-          } else if (attribs['class'] === 'epl-title') {
++          } else if (attribs['class']?.split(' ')[0] === 'epl-title') {
+             isReadingChapterInfo = 2;
+-          } else if (attribs['class'] === 'epl-date') {
++          } else if (attribs['class']?.split(' ')[0] === 'epl-date') {
+             isReadingChapterInfo = 3;
+-          } else if (attribs['class'] === 'epl-price') {
++          } else if (attribs['class']?.split(' ')[0] === 'epl-price') {
+             isReadingChapterInfo = 4;
+           }
+         } else if (isReadingSummary && (name === 'div' || name === 'script')) {
+@@ -438,11 +448,20 @@ export class LightNovelWPPlugin implements Plugin.PluginBase {
+         throw error;
+       }
+     }
++
++    // The body is the theme's `.epcontent` block, which newer installs render
++    // as an <article> instead of a <div> and no longer close with
++    // `<div class="bottomnav">`. The old regex sliced the raw document between
++    // those two wrappers, so both of those changes emptied every chapter;
++    // select the body itself and read its paragraphs instead.
++    const $ = load(data);
+     return (
+-      data
+-        .match(/<div.*?class="epcontent ([^]*?)<div.*?class="?bottomnav/g)?.[0]
+-        .match(/<p[^>]*>([^]*?)<\/p>/g)
+-        ?.join('\n') || ''
++      $('.epcontent')
++        .first()
++        .find('p')
++        .map((_, el) => $.html(el) || '')
++        .get()
++        .join('\n') || ''
+     );
+   }
+ 
+diff --git a/plugins/multisrc/madara/filters/ekitaplar.json b/plugins/multisrc/madara/filters/ekitaplar.json
+deleted file mode 100644
+index e5d67fa..0000000
+--- a/plugins/multisrc/madara/filters/ekitaplar.json
++++ /dev/null
+@@ -1,340 +0,0 @@
+-{
+-  "filters": {
+-    "genre[]": {
+-      "type": "Checkbox",
+-      "label": "Genre",
+-      "value": [],
+-      "options": [
+-        {
+-          "label": "Aksiyon",
+-          "value": "aksiyon"
+-        },
+-        {
+-          "label": "Aşırı Güçlü",
+-          "value": "asiri-guclu"
+-        },
+-        {
+-          "label": "Avcı",
+-          "value": "avci"
+-        },
+-        {
+-          "label": "Bilim Kurgu",
+-          "value": "bilim-kurgu"
+-        },
+-        {
+-          "label": "Büyü",
+-          "value": "buyu"
+-        },
+-        {
+-          "label": "Canavarlar",
+-          "value": "canavarlar"
+-        },
+-        {
+-          "label": "Doğaüstü",
+-          "value": "dogaustu"
+-        },
+-        {
+-          "label": "Dövüş Sanatları",
+-          "value": "dovus-sanatlari"
+-        },
+-        {
+-          "label": "Dram",
+-          "value": "dram"
+-        },
+-        {
+-          "label": "Ecchi",
+-          "value": "ecchi"
+-        },
+-        {
+-          "label": "Fantastik",
+-          "value": "fantastik"
+-        },
+-        {
+-          "label": "Geri Dönen",
+-          "value": "geri-donen"
+-        },
+-        {
+-          "label": "Gerileme",
+-          "value": "gerileme"
+-        },
+-        {
+-          "label": "Gizem",
+-          "value": "gizem"
+-        },
+-        {
+-          "label": "Haremi",
+-          "value": "haremi"
+-        },
+-        {
+-          "label": "Hayaletler",
+-          "value": "hayaletler"
+-        },
+-        {
+-          "label": "Hayatın Dilimleri",
+-          "value": "hayatin-dilimleri"
+-        },
+-        {
+-          "label": "Hile Sistemleri",
+-          "value": "hile-sistemleri"
+-        },
+-        {
+-          "label": "İntikam",
+-          "value": "intikam"
+-        },
+-        {
+-          "label": "Isekai",
+-          "value": "isekai"
+-        },
+-        {
+-          "label": "Kıyamet",
+-          "value": "kiyamet"
+-        },
+-        {
+-          "label": "Komedi",
+-          "value": "komedi"
+-        },
+-        {
+-          "label": "Korku",
+-          "value": "korku"
+-        },
+-        {
+-          "label": "Macera",
+-          "value": "macera"
+-        },
+-        {
+-          "label": "Manga",
+-          "value": "manga"
+-        },
+-        {
+-          "label": "Manhua",
+-          "value": "manhua"
+-        },
+-        {
+-          "label": "Manhwa",
+-          "value": "manhwa"
+-        },
+-        {
+-          "label": "Mecha",
+-          "value": "mecha"
+-        },
+-        {
+-          "label": "Murim",
+-          "value": "murim"
+-        },
+-        {
+-          "label": "Okul Hayatı",
+-          "value": "okul-hayati"
+-        },
+-        {
+-          "label": "Oyun",
+-          "value": "oyun"
+-        },
+-        {
+-          "label": "Psikolojik",
+-          "value": "psikolojik"
+-        },
+-        {
+-          "label": "Reenkarnasyon",
+-          "value": "reenkarnasyon"
+-        },
+-        {
+-          "label": "Roman",
+-          "value": "roman"
+-        },
+-        {
+-          "label": "Romantizm",
+-          "value": "romantizm"
+-        },
+-        {
+-          "label": "Seinen",
+-          "value": "seinen"
+-        },
+-        {
+-          "label": "Şeytanlar",
+-          "value": "seytanlar"
+-        },
+-        {
+-          "label": "Shounen",
+-          "value": "shounen"
+-        },
+-        {
+-          "label": "Sistem",
+-          "value": "sistem"
+-        },
+-        {
+-          "label": "Spor",
+-          "value": "spor"
+-        },
+-        {
+-          "label": "Suç",
+-          "value": "suc"
+-        },
+-        {
+-          "label": "Süper Güç",
+-          "value": "super-guc"
+-        },
+-        {
+-          "label": "Tamamlanmış",
+-          "value": "tamamlanmis"
+-        },
+-        {
+-          "label": "Tarihi",
+-          "value": "tarihi"
+-        },
+-        {
+-          "label": "Tıp",
+-          "value": "tip"
+-        },
+-        {
+-          "label": "Trajedi",
+-          "value": "trajedi"
+-        },
+-        {
+-          "label": "Video Oyunları",
+-          "value": "video-oyunlari"
+-        },
+-        {
+-          "label": "Webtoon",
+-          "value": "webtoon"
+-        },
+-        {
+-          "label": "Wuxia",
+-          "value": "wuxia"
+-        },
+-        {
+-          "label": "Yeniden Doğuş",
+-          "value": "yeniden-dogus"
+-        },
+-        {
+-          "label": "Yetişim",
+-          "value": "yetisim"
+-        },
+-        {
+-          "label": "Yetişkin",
+-          "value": "yetiskin"
+-        },
+-        {
+-          "label": "Yetişme",
+-          "value": "yetisme"
+-        },
+-        {
+-          "label": "Zaman Yolculuğu",
+-          "value": "zaman-yolculugu"
+-        },
+-        {
+-          "label": "Zeki Ana Karakter",
+-          "value": "zeki-ana-karakter"
+-        },
+-        {
+-          "label": "Zindanlar",
+-          "value": "zindanlar"
+-        },
+-        {
+-          "label": "Zombi",
+-          "value": "zombi"
+-        }
+-      ]
+-    },
+-    "op": {
+-      "type": "Switch",
+-      "label": "VE seçilen tüm türlere sahip olmak",
+-      "value": false
+-    },
+-    "author": {
+-      "type": "Text",
+-      "label": "Yazar",
+-      "value": ""
+-    },
+-    "artist": {
+-      "type": "Text",
+-      "label": "Sanatçı",
+-      "value": ""
+-    },
+-    "release": {
+-      "type": "Text",
+-      "label": "Çıkış Yılı",
+-      "value": ""
+-    },
+-    "adult": {
+-      "type": "Picker",
+-      "label": "Yetişkinlere yönelik içerik",
+-      "value": "",
+-      "options": [
+-        {
+-          "label": "Tüm",
+-          "value": ""
+-        },
+-        {
+-          "label": "Yetişkinlere uygun içerik yok",
+-          "value": "0"
+-        },
+-        {
+-          "label": "Yalnızca yetişkinlere yönelik içerik",
+-          "value": "1"
+-        }
+-      ]
+-    },
+-    "status[]": {
+-      "type": "Checkbox",
+-      "label": "Durum",
+-      "value": [],
+-      "options": [
+-        {
+-          "label": "Devam Ediyor",
+-          "value": "on-going"
+-        },
+-        {
+-          "label": "Tamamlandı",
+-          "value": "end"
+-        },
+-        {
+-          "label": "İptal edildi",
+-          "value": "canceled"
+-        },
+-        {
+-          "label": "Beklemede",
+-          "value": "on-hold"
+-        },
+-        {
+-          "label": "Yakında",
+-          "value": "upcoming"
+-        }
+-      ]
+-    },
+-    "m_orderby": {
+-      "type": "Picker",
+-      "label": "Sırala",
+-      "value": "",
+-      "options": [
+-        {
+-          "label": "Alaka",
+-          "value": ""
+-        },
+-        {
+-          "label": "En son",
+-          "value": "latest"
+-        },
+-        {
+-          "label": "A'dan Z'ye",
+-          "value": "alphabet"
+-        },
+-        {
+-          "label": "Puan",
+-          "value": "rating"
+-        },
+-        {
+-          "label": "Trendler",
+-          "value": "trending"
+-        },
+-        {
+-          "label": "Okunma Sayısı",
+-          "value": "views"
+-        },
+-        {
+-          "label": "Yeni",
+-          "value": "new-manga"
+-        }
+-      ]
+-    }
+-  }
+-}
+\ No newline at end of file
+diff --git a/plugins/multisrc/madara/filters/ragnarscans.json b/plugins/multisrc/madara/filters/ragnarscans.json
+deleted file mode 100644
+index 56b9054..0000000
+--- a/plugins/multisrc/madara/filters/ragnarscans.json
++++ /dev/null
+@@ -1,196 +0,0 @@
+-{
+-  "filters": {
+-    "genre[]": {
+-      "type": "Checkbox",
+-      "label": "Genre",
+-      "value": [],
+-      "options": [
+-        {
+-          "label": "+18",
+-          "value": "18"
+-        },
+-        {
+-          "label": "Akademi",
+-          "value": "akademi"
+-        },
+-        {
+-          "label": "Aksiyon",
+-          "value": "aksiyon"
+-        },
+-        {
+-          "label": "Büyü",
+-          "value": "buyu"
+-        },
+-        {
+-          "label": "Doğaüstü",
+-          "value": "dogaustu"
+-        },
+-        {
+-          "label": "Dövüş Sanatları",
+-          "value": "dovus-sanatlari"
+-        },
+-        {
+-          "label": "Dram",
+-          "value": "dram"
+-        },
+-        {
+-          "label": "Fantastik",
+-          "value": "fantastik"
+-        },
+-        {
+-          "label": "Fantezi",
+-          "value": "fantezi"
+-        },
+-        {
+-          "label": "Harem",
+-          "value": "harem"
+-        },
+-        {
+-          "label": "Komedi",
+-          "value": "komedi"
+-        },
+-        {
+-          "label": "Kule",
+-          "value": "kule"
+-        },
+-        {
+-          "label": "Macera",
+-          "value": "macera"
+-        },
+-        {
+-          "label": "Murim",
+-          "value": "murim"
+-        },
+-        {
+-          "label": "Novel",
+-          "value": "novel"
+-        },
+-        {
+-          "label": "Reenkarnasyon",
+-          "value": "reenkarnasyon"
+-        },
+-        {
+-          "label": "Shounen",
+-          "value": "shounen"
+-        },
+-        {
+-          "label": "Shuojo",
+-          "value": "shuojo"
+-        },
+-        {
+-          "label": "Sistem",
+-          "value": "sistem"
+-        },
+-        {
+-          "label": "Villan",
+-          "value": "villan"
+-        },
+-        {
+-          "label": "Zindan",
+-          "value": "zindan"
+-        }
+-      ]
+-    },
+-    "op": {
+-      "type": "Switch",
+-      "label": "having all selected genres",
+-      "value": false
+-    },
+-    "author": {
+-      "type": "Text",
+-      "label": "Yazar",
+-      "value": ""
+-    },
+-    "artist": {
+-      "type": "Text",
+-      "label": "Çizer",
+-      "value": ""
+-    },
+-    "release": {
+-      "type": "Text",
+-      "label": "Yayınlanma Yılı",
+-      "value": ""
+-    },
+-    "adult": {
+-      "type": "Picker",
+-      "label": "Adult content",
+-      "value": "",
+-      "options": [
+-        {
+-          "label": "Hepsi",
+-          "value": ""
+-        },
+-        {
+-          "label": "None adult content",
+-          "value": "0"
+-        },
+-        {
+-          "label": "Only adult content",
+-          "value": "1"
+-        }
+-      ]
+-    },
+-    "status[]": {
+-      "type": "Checkbox",
+-      "label": "Durum",
+-      "value": [],
+-      "options": [
+-        {
+-          "label": "Devam Ediyor",
+-          "value": "on-going"
+-        },
+-        {
+-          "label": "Final",
+-          "value": "end"
+-        },
+-        {
+-          "label": "Canceled",
+-          "value": "canceled"
+-        },
+-        {
+-          "label": "On Hold",
+-          "value": "on-hold"
+-        },
+-        {
+-          "label": "Yakında",
+-          "value": "upcoming"
+-        }
+-      ]
+-    },
+-    "m_orderby": {
+-      "type": "Picker",
+-      "label": "Sırala;",
+-      "value": "",
+-      "options": [
+-        {
+-          "label": "İlişkin",
+-          "value": ""
+-        },
+-        {
+-          "label": "En Sondan",
+-          "value": "latest"
+-        },
+-        {
+-          "label": "A-Z",
+-          "value": "alphabet"
+-        },
+-        {
+-          "label": "Oylama",
+-          "value": "rating"
+-        },
+-        {
+-          "label": "Popüler",
+-          "value": "trending"
+-        },
+-        {
+-          "label": "En Çok Okunan",
+-          "value": "views"
+-        },
+-        {
+-          "label": "Yeni",
+-          "value": "new-manga"
+-        }
+-      ]
+-    }
+-  }
+-}
+\ No newline at end of file
+diff --git a/plugins/multisrc/madara/sources.json b/plugins/multisrc/madara/sources.json
+index 12ad730..1a267c5 100644
+--- a/plugins/multisrc/madara/sources.json
++++ b/plugins/multisrc/madara/sources.json
+@@ -126,7 +126,6 @@
+     "sourceSite": "https://hizomanga.net/",
+     "sourceName": "HizoManga",
+     "options": {
+-      "useNewChapterEndpoint": true,
+       "lang": "Arabic"
+     }
+   },
+@@ -137,7 +136,7 @@
+     "options": {
+       "useNewChapterEndpoint": true,
+       "lang": "Arabic",
+-      "customJs": "chapterText.find('span[style*=\"opacity: 0; position: fixed;\"],[role=\"presentation\"]').remove();"
++      "customJs": "chapterText.find('style,script,[inert],[data-nosnippet],[data-nhv-reader-promo]').remove();chapterText.find('span[style*=\"opacity: 0; position: fixed;\"],[role=\"presentation\"]').remove();"
+     }
+   },
+   {
+@@ -181,16 +180,6 @@
+     "sourceSite": "https://www.neosekaitranslations.com/",
+     "sourceName": "NeoSekai Translations"
+   },
+-  {
+-    "id": "mtl-novel",
+-    "sourceSite": "https://mtl-novel.com/",
+-    "sourceName": "MTL-Novel",
+-    "options": {
+-      "useNewChapterEndpoint": false,
+-      "down": true,
+-      "downSince": 1768289212922
+-    }
+-  },
+   {
+     "id": "zetroTL",
+     "sourceSite": "https://zetrotranslation.com/",
+@@ -204,6 +193,7 @@
+     "sourceSite": "https://www.webnoveloku.com/",
+     "sourceName": "WebNovelOku",
+     "options": {
++      "useNewChapterEndpoint": true,
+       "lang": "Turkish"
+     }
+   },
+@@ -379,14 +369,6 @@
+       "downSince": 1768289212938
+     }
+   },
+-  {
+-    "id": "wordexcerpt",
+-    "sourceSite": "https://wordexcerpt.com/",
+-    "sourceName": "WordExcerpt",
+-    "options": {
+-      "lang": "English"
+-    }
+-  },
+   {
+     "id": "citrusaurora",
+     "sourceSite": "https://citrusaurora.com/",
+@@ -476,15 +458,6 @@
+       "downSince": 1768289212965
+     }
+   },
+-  {
+-    "id": "ekitaplar",
+-    "sourceSite": "https://e-kitaplar.com/",
+-    "sourceName": "E-KİTAPLAR",
+-    "options": {
+-      "useNewChapterEndpoint": true,
+-      "lang": "Turkish"
+-    }
+-  },
+   {
+     "id": "wooksteahouse",
+     "sourceSite": "https://wooksteahouse.com/",
+@@ -512,15 +485,6 @@
+       "useNewChapterEndpoint": true
+     }
+   },
+-  {
+-    "id": "ragnarscans",
+-    "sourceSite": "https://ragnarscans.com/",
+-    "sourceName": "Ragnar Scans",
+-    "options": {
+-      "lang": "Turkish",
+-      "useNewChapterEndpoint": true
+-    }
+-  },
+   {
+     "id": "readfanfic",
+     "sourceSite": "https://readfanfic.com/",
+@@ -580,15 +544,6 @@
+       "customJs": "loadedCheerio('img[alt=\"Buy Me a Coffee at ko-fi.com\"]').parent().remove(); loadedCheerio('*').contents().each(function() {if (this.type === 'comment' && this.data.trim() === 'Text Ranovel') {let currentNode = this.next;for (let i = 0; i < 2 && currentNode; i++) {const nextNode = currentNode.next;loadedCheerio(currentNode).remove();currentNode = nextNode;}}});"
+     }
+   },
+-  {
+-    "id": "dragonholic",
+-    "sourceSite": "https://dragonholic.com/",
+-    "sourceName": "Dragonholic",
+-    "options": {
+-      "lang": "English",
+-      "useNewChapterEndpoint": true
+-    }
+-  },
+   {
+     "id": "etudetranslations",
+     "sourceSite": "https://etudetranslations.com/",
+diff --git a/plugins/multisrc/madara/template.ts b/plugins/multisrc/madara/template.ts
+index 1ab683b..74e8aa4 100644
+--- a/plugins/multisrc/madara/template.ts
++++ b/plugins/multisrc/madara/template.ts
+@@ -189,6 +189,7 @@ export class MadaraPlugin implements Plugin.PluginBase {
+         loadedCheerio('.post-title h1').text().trim() ||
+         loadedCheerio('#manga-title h1').text().trim() ||
+         loadedCheerio('.manga-title').text().trim() ||
++        loadedCheerio('h1.nhv-novel-title').text().trim() ||
+         '',
+     };
+ 
+@@ -196,6 +197,9 @@ export class MadaraPlugin implements Plugin.PluginBase {
+       loadedCheerio('.summary_image > a > img').attr('data-lazy-src') ||
+       loadedCheerio('.summary_image > a > img').attr('data-src') ||
+       loadedCheerio('.summary_image > a > img').attr('src') ||
++      loadedCheerio('.nhv-novel-cover img').attr('data-lazy-src') ||
++      loadedCheerio('.nhv-novel-cover img').attr('data-src') ||
++      loadedCheerio('.nhv-novel-cover img').attr('src') ||
+       defaultCover;
+ 
+     loadedCheerio('.post-content_item, .post-content').each(function () {
+@@ -256,6 +260,36 @@ export class MadaraPlugin implements Plugin.PluginBase {
+       }
+     });
+ 
++    // Fallback for the custom "NHV" theme (e.g. cenele.com), which renders
++    // novel pages without the classic Madara detail blocks. Every field is
++    // only filled when the selectors above left it empty, so sources on the
++    // classic theme keep their existing behaviour.
++    {
++      if (!novel.author)
++        novel.author =
++          loadedCheerio('.nhv-novel-meta a[href*="cont-author"]')
++            .first()
++            .text()
++            .trim() ||
++          loadedCheerio('a[href*="cont-author"]').first().text().trim();
++      if (!novel.genres)
++        novel.genres = loadedCheerio('.nhv-novel-genres a')
++          .map((i, el) => loadedCheerio(el).text())
++          .get()
++          .join(', ');
++      const nhvStatus = loadedCheerio('.nhv-novel-status').text().trim();
++      if (!novel.status && nhvStatus)
++        novel.status = nhvStatus.includes('مستمرة')
++          ? NovelStatus.Ongoing
++          : NovelStatus.Completed;
++      if (!novel.rating) {
++        const nhvRating = parseFloat(
++          loadedCheerio('.nhv-simple-rating__avg').text().trim(),
++        );
++
++        if (!isNaN(nhvRating)) novel.rating = nhvRating;
++      }
++    }
+     // Checks for "Madara NovelHub" version
+     {
+       if (!novel.genres)
+@@ -304,6 +338,11 @@ export class MadaraPlugin implements Plugin.PluginBase {
+         .join('\n\n')
+         .trim() ||
+       loadedCheerio('.manga-excerpt p')
++        .map((i, el) => loadedCheerio(el).text())
++        .get()
++        .join('\n\n')
++        .trim() ||
++      loadedCheerio('.nhv-novel-synopsis p')
+         .map((i, el) => loadedCheerio(el).text())
+         .get()
+         .join('\n\n')
+@@ -397,11 +436,29 @@ export class MadaraPlugin implements Plugin.PluginBase {
+ 
+   async parseChapter(chapterPath: string): Promise<string> {
+     const loadedCheerio = await this.getCheerio(this.site + chapterPath, false);
+-    const chapterText =
+-      loadedCheerio('.text-left') ||
+-      loadedCheerio('.text-right') ||
+-      loadedCheerio('.entry-content') ||
+-      loadedCheerio('.c-blog-post > div > div:nth-child(2)');
++
++    // A cheerio selection is always truthy, so the previous
++    // `$('.text-left') || $('.text-right') || …` chain never looked past the
++    // first selector: on a site that no longer renders `.text-left` it
++    // returned an empty body no matter what else the page offered. Walk the
++    // candidates and keep the first one that actually holds text.
++    let chapterText = loadedCheerio('.__no-chapter-content__');
++    for (const selector of [
++      '.text-left',
++      '.text-right',
++      '.text-content',
++      '.text-chapter-content',
++      'novel-chapter',
++      '.reading-content',
++      '.entry-content',
++      '.c-blog-post > div > div:nth-child(2)',
++    ]) {
++      const candidate = loadedCheerio(selector);
++      if (candidate.text().trim()) {
++        chapterText = candidate;
++        break;
++      }
++    }
+ 
+     if (this.options?.customJs) {
+       try {
+diff --git a/plugins/multisrc/ranobes/sources.json b/plugins/multisrc/ranobes/sources.json
+index 29f2d9a..d3d167e 100644
+--- a/plugins/multisrc/ranobes/sources.json
++++ b/plugins/multisrc/ranobes/sources.json
+@@ -1,7 +1,7 @@
+ [
+     {
+       "id": "ranobes",
+-      "sourceSite": "https://ranobes.top",
++      "sourceSite": "https://ranobes.net",
+       "sourceName": "Ranobes",
+       "options": {
+         "lang": "English",
+diff --git a/plugins/portuguese/blogdoamonnovels.ts b/plugins/portuguese/blogdoamonnovels.ts
+index ec058e7..8cf9a29 100644
+--- a/plugins/portuguese/blogdoamonnovels.ts
++++ b/plugins/portuguese/blogdoamonnovels.ts
+@@ -120,7 +120,9 @@ class BlogDoAnonNovelsPlugin implements Plugin.PluginBase {
+       .toArray()
+       .join(',');
+ 
+-    const cat = loadedCheerio('#clwd').text().split("'")[1];
++    const cat =
++      loadedCheerio('#clwd').text().split("'")[1] ||
++      body.match(/const categoria\s*=\s*["']([^"']+)["']/)?.[1];
+ 
+     if (!cat) {
+       const chapters: Plugin.ChapterItem[] = [];
+diff --git a/plugins/russian/zelluloza.ts b/plugins/russian/zelluloza.ts
+index ac74d05..82f777b 100644
+--- a/plugins/russian/zelluloza.ts
++++ b/plugins/russian/zelluloza.ts
+@@ -12,6 +12,35 @@ class Zelluloza implements Plugin.PluginBase {
+   version = '1.0.3';
+   icon = 'src/ru/zelluloza/icon.png';
+ 
++  // ajaxcall/ wants a CSRF nonce bound to the PHP session.
++  sessionId = Array.from({ length: 26 }, () =>
++    Math.floor(Math.random() * 36).toString(36),
++  ).join('');
++  nonce = '';
++
++  async ajaxCall(params: Record<string, string>, referer: string) {
++    const headers = { Cookie: `PHPSESSID=${this.sessionId}` };
++    if (!this.nonce) {
++      const html = await fetchApi(this.site + '/', { headers }).then(res =>
++        res.text(),
++      );
++      this.nonce = html.match(/csrfNonce = '([^']+)'/)?.[1] || '';
++    }
++    return fetchApi(this.site + '/ajaxcall/', {
++      headers: {
++        ...headers,
++        'Content-Type': 'application/x-www-form-urlencoded',
++        Referer: referer,
++        Origin: this.site,
++      },
++      method: 'POST',
++      body: new URLSearchParams({ ...params, nonce: this.nonce }).toString(),
++    }).then(res => res.text());
++  }
++
++  bookId = (href: string | undefined) =>
++    href?.match(/\/books\/(\d+)/)?.[1] || '';
++
+   async popularNovels(
+     pageNo: number,
+     {
+@@ -23,32 +52,27 @@ class Zelluloza implements Plugin.PluginBase {
+ 
+     const genres = filters?.genres?.value || '0';
+ 
+-    const body = await fetchApi(this.site + '/ajaxcall/', {
+-      headers: {
+-        'Content-Type': 'application/x-www-form-urlencoded',
+-        Referer: this.site + '/search/done/#result',
+-        Origin: this.site,
+-      },
+-      method: 'POST',
+-      body: new URLSearchParams({
++    const body = await this.ajaxCall(
++      {
+         op: 'morebooks',
+         par1: '',
+         par2: `206:0:${genres}:0.${sort}.0.0.0.0.0.0.0.0.0.0.0..0..:${pageNo}`,
+         par4: '',
+-      }).toString(),
+-    }).then(res => res.text());
++      },
++      this.site + '/search/done/#result',
++    );
+     const loadedCheerio = parseHTML(body);
+     const novels: Plugin.NovelItem[] = [];
+ 
+-    loadedCheerio('div[style="display: flex;"]').each((index, element) => {
++    loadedCheerio('.book-card-layout-wrapper').each((index, element) => {
+       novels.push({
+         name: loadedCheerio(element).find('a[class="txt"]').attr('title') || '',
+         cover:
+           this.site +
+           loadedCheerio(element).find('img[class="shadow"]').attr('src'),
+-        path: (
+-          loadedCheerio(element).find('a[class="txt"]').attr('href') || ''
+-        ).replace(/\D/g, ''),
++        path: this.bookId(
++          loadedCheerio(element).find('a[class="txt"]').attr('href'),
++        ),
+       });
+     });
+ 
+@@ -87,11 +111,15 @@ class Zelluloza implements Plugin.PluginBase {
+         if (isFree) {
+           const chapter = loadedCheerio(element).find('a[class="chptitle"]');
+           const releaseDate = loadedCheerio(element)
+-            .find('div[class="stat"]')
+-            .text();
++            .find('.chapter-date')
++            .attr('title');
+           chapters.push({
+             name: chapter.text().trim(),
+-            path: (chapter.attr('href') || '').split('/').slice(2, 4).join('/'),
++            path: (chapter.attr('href') || '')
++              .split('#')[0]
++              .split('/')
++              .slice(2, 4)
++              .join('/'),
+             releaseTime: this.parseDate(releaseDate),
+             chapterNumber: chapterIndex + 1,
+           });
+@@ -105,19 +133,14 @@ class Zelluloza implements Plugin.PluginBase {
+ 
+   async parseChapter(chapterPath: string): Promise<string> {
+     const [bookID, chapterID] = chapterPath.split('/');
+-    const body = await fetchApi(this.site + '/ajaxcall/', {
+-      headers: {
+-        'Content-Type': 'application/x-www-form-urlencoded',
+-        Referer: this.resolveUrl(chapterPath),
+-        Origin: this.site,
+-      },
+-      method: 'POST',
+-      body: new URLSearchParams({
++    const body = await this.ajaxCall(
++      {
+         op: 'getbook',
+         par1: bookID,
+-        par2: chapterID,
+-      }).toString(),
+-    }).then(res => res.text());
++        par2: chapterID.split('#')[0],
++      },
++      this.resolveUrl(chapterPath),
++    );
+ 
+     const encrypted = body.split('<END>')[0].split('\n');
+     const decrypted = encrypted
+@@ -148,32 +171,27 @@ class Zelluloza implements Plugin.PluginBase {
+     searchTerm: string,
+     pageNo: number,
+   ): Promise<Plugin.NovelItem[]> {
+-    const body = await fetchApi(this.site + '/ajaxcall/', {
+-      headers: {
+-        'Content-Type': 'application/x-www-form-urlencoded',
+-        Referer: this.site + '/search/done/#result',
+-        Origin: this.site,
+-      },
+-      method: 'POST',
+-      body: new URLSearchParams({
++    const body = await this.ajaxCall(
++      {
+         op: 'morebooks',
+         par1: searchTerm || '',
+         par2: '206:0:0:0.0.0.0.0.0.0.10.0.0.0.0.0..0..:' + pageNo,
+         par4: '',
+-      }).toString(),
+-    }).then(res => res.text());
++      },
++      this.site + '/search/done/#result',
++    );
+     const loadedCheerio = parseHTML(body);
+     const novels: Plugin.NovelItem[] = [];
+ 
+-    loadedCheerio('div[style="display: flex;"]').each((index, element) => {
++    loadedCheerio('.book-card-layout-wrapper').each((index, element) => {
+       novels.push({
+         name: loadedCheerio(element).find('a[class="txt"]').attr('title') || '',
+         cover:
+           this.site +
+           loadedCheerio(element).find('img[class="shadow"]').attr('src'),
+-        path: (
+-          loadedCheerio(element).find('a[class="txt"]').attr('href') || ''
+-        ).replace(/\D/g, ''),
++        path: this.bookId(
++          loadedCheerio(element).find('a[class="txt"]').attr('href'),
++        ),
+       });
+     });
+ 
+@@ -182,7 +200,7 @@ class Zelluloza implements Plugin.PluginBase {
+ 
+   parseDate = (dateString: string | undefined = '') => {
+     const [, day, month, year, hour, minute] =
+-      dateString.match(/(\d{2})\.(\d{2})\.(\d{4})г (\d{2}):(\d{2})/) || [];
++      dateString.match(/(\d{2})\.(\d{2})\.(\d{4})г? (\d{2}):(\d{2})/) || [];
+ 
+     if (day && month && year && hour && minute) {
+       return dayjs(
+diff --git a/plugins/spanish/novelawuxia.ts b/plugins/spanish/novelawuxia.ts
+index c4150f9..1cf7147 100644
+--- a/plugins/spanish/novelawuxia.ts
++++ b/plugins/spanish/novelawuxia.ts
+@@ -10,7 +10,7 @@ class ReinoWuxia implements Plugin.PluginBase {
+   icon = 'src/es/reinowuxia/icon.png';
+   filters?: Filters | undefined;
+   version = '1.0.0';
+-  site = 'http://www.reinowuxia.com/';
++  site = 'https://reinowuxia.blogspot.com/';
+   getNovelName(y: string | undefined) {
+     return y?.replace(/-/g, ' ').replace(/(?:^|\s)\S/g, a => a.toUpperCase());
+   }
+@@ -44,7 +44,7 @@ class ReinoWuxia implements Plugin.PluginBase {
+         const novel = {
+           name: novelName,
+           cover: novelCover,
+-          path: novelUrl.replace(this.site, ''),
++          path: novelUrl.replace(/^https?:\/\/[^/]+\//, ''),
+         };
+ 
+         novels.push(novel);
+@@ -116,7 +116,7 @@ class ReinoWuxia implements Plugin.PluginBase {
+             const chapterName = loadedCheerio(ele).text();
+             const chapterPath = loadedCheerio(ele)
+               .attr('href')
+-              ?.replace(this.site, '');
++              ?.replace(/^https?:\/\/[^/]+\//, '');
+             const releaseDate = null;
+ 
+             if (
+diff --git a/plugins/turkish/ekitaplar.ts b/plugins/turkish/ekitaplar.ts
+new file mode 100644
+index 0000000..ec8e9f9
+--- /dev/null
++++ b/plugins/turkish/ekitaplar.ts
+@@ -0,0 +1,115 @@
++import { CheerioAPI, load as parseHTML } from 'cheerio';
++import { fetchApi } from '@libs/fetch';
++import { NovelStatus } from '@libs/novelStatus';
++import { Plugin } from '@/types/plugin';
++
++class EKitaplar implements Plugin.PluginBase {
++  id = 'ekitaplar';
++  name = 'E-KİTAPLAR';
++  icon = 'multisrc/madara/ekitaplar/icon.png';
++  site = 'https://e-kitaplar.com/';
++  version = '2.2.0';
++
++  private async getCheerio(url: string): Promise<CheerioAPI> {
++    const res = await fetchApi(url);
++    if (!res.ok) throw new Error('Could not reach site (' + res.status + ')');
++    return parseHTML(await res.text());
++  }
++
++  private parseNovels($: CheerioAPI): Plugin.NovelItem[] {
++    const novels = new Map<string, Plugin.NovelItem>();
++    $('main a[href*="/novel/"]').each((_, el) => {
++      const href = $(el).attr('href') || '';
++      const match = href.match(/\/(novel\/[^/?#]+\/)/);
++      const name = $(el).text().trim();
++      if (!match || !name || novels.has(match[1])) return;
++      const card = $(el).closest('.rounded-lg');
++      novels.set(match[1], {
++        name,
++        path: match[1],
++        cover: card.find('img').first().attr('src'),
++      });
++    });
++    return Array.from(novels.values());
++  }
++
++  async popularNovels(pageNo: number): Promise<Plugin.NovelItem[]> {
++    const $ = await this.getCheerio(this.site + 'novels/?paged=' + pageNo);
++    return this.parseNovels($);
++  }
++
++  async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
++    const $ = await this.getCheerio(this.site + novelPath);
++
++    const status = $('main h1')
++      .first()
++      .parent()
++      .parent()
++      .find('span.rounded-full')
++      .first()
++      .text()
++      .trim();
++
++    const novel: Plugin.SourceNovel = {
++      path: novelPath,
++      name: $('main h1').first().text().trim(),
++      cover: $('.ek-book-cover img').attr('src'),
++      author: $('main a[href*="/novel-author/"]').first().text().trim(),
++      genres: $('main a[href*="/genre/"]')
++        .map((_, el) => $(el).text().trim())
++        .get()
++        .join(', '),
++      summary: $('main .prose').first().text().trim(),
++      status:
++        status === 'Devam Ediyor'
++          ? NovelStatus.Ongoing
++          : status === 'Tamamlandı'
++            ? NovelStatus.Completed
++            : status === 'Ara Verildi'
++              ? NovelStatus.OnHiatus
++              : NovelStatus.Unknown,
++    };
++
++    const chapters: Plugin.ChapterItem[] = [];
++    $('.chapter-row').each((_, el) => {
++      const link = $(el).find('a').first();
++      const href = link.attr('href');
++      if (!href) return;
++      // Chapters sold for "Parşömen" carry a price badge next to the title.
++      const locked = $(el).find('span.bg-yellow-100').length > 0;
++      chapters.push({
++        name: (locked ? '🔒 ' : '') + link.text().trim(),
++        path: href.replace(this.site, ''),
++        releaseTime: $(el).find('p.text-xs').first().text().trim(),
++        chapterNumber: Number($(el).attr('data-chapter-num')) || undefined,
++      });
++    });
++    novel.chapters = chapters.sort(
++      (a, b) => (a.chapterNumber || 0) - (b.chapterNumber || 0),
++    );
++
++    return novel;
++  }
++
++  async parseChapter(chapterPath: string): Promise<string> {
++    const $ = await this.getCheerio(this.site + chapterPath);
++    return $('#chapter-content').html() || '';
++  }
++
++  async searchNovels(
++    searchTerm: string,
++    pageNo: number,
++  ): Promise<Plugin.NovelItem[]> {
++    const $ = await this.getCheerio(
++      this.site +
++        'page/' +
++        pageNo +
++        '/?s=' +
++        encodeURIComponent(searchTerm) +
++        '&post_type=wp-manga',
++    );
++    return this.parseNovels($);
++  }
++}
++
++export default new EKitaplar();
+diff --git a/plugins/turkish/ragnarscans.ts b/plugins/turkish/ragnarscans.ts
+new file mode 100644
+index 0000000..ee21cc4
+--- /dev/null
++++ b/plugins/turkish/ragnarscans.ts
+@@ -0,0 +1,119 @@
++import { CheerioAPI, load as parseHTML } from 'cheerio';
++import { fetchApi } from '@libs/fetch';
++import { Plugin } from '@/types/plugin';
++
++class RagnarScans implements Plugin.PluginBase {
++  id = 'ragnarscans';
++  name = 'Ragnar Scans';
++  icon = 'multisrc/madara/ragnarscans/icon.png';
++  site = 'https://ragnarscans.net/';
++  version = '2.2.0';
++
++  private async getCheerio(url: string): Promise<CheerioAPI> {
++    const res = await fetchApi(url);
++    if (!res.ok) throw new Error('Could not reach site (' + res.status + ')');
++    return parseHTML(await res.text());
++  }
++
++  private novelPath(href: string | undefined): string | undefined {
++    return href?.match(/\/(novel\/[^/?#]+\/)$/)?.[1];
++  }
++
++  async popularNovels(pageNo: number): Promise<Plugin.NovelItem[]> {
++    // The whole novel catalogue fits on the first page of /novel/.
++    if (pageNo > 1) return [];
++    const $ = await this.getCheerio(this.site + 'novel/');
++    const novels: Plugin.NovelItem[] = [];
++    $('.manga-card').each((_, el) => {
++      const path = this.novelPath($(el).find('a').first().attr('href'));
++      if (!path) return;
++      novels.push({
++        name: $(el).find('.manga-card-title').first().text().trim(),
++        path,
++        cover: $(el).find('img').first().attr('src'),
++      });
++    });
++    return novels;
++  }
++
++  async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
++    const $ = await this.getCheerio(this.site + novelPath);
++
++    const novel: Plugin.SourceNovel = {
++      path: novelPath,
++      name: $('h1').first().text().trim(),
++      cover: $('meta[property="og:image"]').attr('content'),
++      summary: $('.manga-description p').text().trim(),
++      genres: Array.from(
++        new Set(
++          $('a[href*="/genre/"]')
++            .map((_, el) => $(el).text().trim())
++            .get(),
++        ),
++      ).join(', '),
++    };
++
++    const parseChapters = (page: CheerioAPI) =>
++      page('.chapter-list .chapter-item')
++        .map((_, el) => ({
++          name: page(el).find('h3').text().trim(),
++          path: (page(el).find('a').attr('href') || '').replace(this.site, ''),
++          releaseTime: page(el).find('time').attr('datetime'),
++        }))
++        .get()
++        .filter(chapter => chapter.path);
++
++    const chapters: Plugin.ChapterItem[] = parseChapters($);
++    const lastPage = Math.max(
++      1,
++      ...$('a[href*="/bolum/page/"]')
++        .map((_, el) =>
++          parseInt(
++            $(el)
++              .attr('href')
++              ?.match(/\/page\/(\d+)/)?.[1] || '1',
++          ),
++        )
++        .get(),
++    );
++    for (let page = 2; page <= lastPage; page++) {
++      chapters.push(
++        ...parseChapters(
++          await this.getCheerio(
++            this.site + novelPath + 'bolum/page/' + page + '/',
++          ),
++        ),
++      );
++    }
++    novel.chapters = chapters.reverse();
++
++    return novel;
++  }
++
++  async parseChapter(chapterPath: string): Promise<string> {
++    const $ = await this.getCheerio(this.site + chapterPath);
++    return $('#chapter-content').html() || '';
++  }
++
++  async searchNovels(
++    searchTerm: string,
++    pageNo: number,
++  ): Promise<Plugin.NovelItem[]> {
++    const $ = await this.getCheerio(
++      this.site + 'page/' + pageNo + '/?s=' + encodeURIComponent(searchTerm),
++    );
++    const novels: Plugin.NovelItem[] = [];
++    $('.uk-h3 a').each((_, el) => {
++      const path = this.novelPath($(el).attr('href'));
++      if (!path) return;
++      novels.push({
++        name: $(el).text().trim(),
++        path,
++        cover: $(el).closest('.uk-grid-small').find('img').first().attr('src'),
++      });
++    });
++    return novels;
++  }
++}
++
++export default new RagnarScans();

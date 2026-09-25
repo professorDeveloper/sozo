@@ -82,7 +82,8 @@ class ExtensionRepoDefaults {
       kind: ExtensionRepoKind.manga,
       name: 'Keiyoushi',
       description: 'Manga / manhwa / webtoon · 1300+ extensions',
-      url: 'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb',
+      url:
+          'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb',
       badge: '1300+',
       order: 0,
     ),
@@ -91,11 +92,12 @@ class ExtensionRepoDefaults {
     ExtensionRepoEntity(
       kind: ExtensionRepoKind.mangayomi,
       name: 'Kodjodevf (official)',
-      description: 'Manga & novels · official Mangayomi repo',
+      // No novel index: its novel sources reuse m2k3a's ids with older code
+      // from an unmaintained fork, so installing both had one replace the
+      // other's.
+      description: 'Manga · official Mangayomi repo',
       url:
           'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json',
-      novelUrl:
-          'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/novel_index.json',
       order: 0,
     ),
     ExtensionRepoEntity(
@@ -128,12 +130,115 @@ class ExtensionRepoDefaults {
     ExtensionRepoEntity(
       kind: ExtensionRepoKind.mangayomi,
       name: 'Mallyd11',
-      description: 'Anime · all-JavaScript, runs on iOS',
+      description: 'Anime & novels · all-JavaScript, runs on iOS',
       url:
           'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/index.json',
       animeUrl:
           'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
+      // NovelFire, bookReadFree, Novelbuddy and J-Garden, written for the
+      // app's call time limit — checked live 2026-09-24.
+      novelUrl:
+          'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/novel_index.json',
       order: 3,
+    ),
+    // The light-novel answer.
+    //
+    // Sozo could read novels and had almost nowhere to read them from: a novel
+    // source here is a Mangayomi source whose index declares `itemType: novel`,
+    // and those are a handful next to the manga ones. Most installs had none,
+    // which is the whole reason CatalogueResolver widens the light-novel shelf
+    // to the comic readers and has to caveat every answer it gets back. This
+    // index is 279 novel sources.
+    //
+    // A different ecosystem, reached through the same runtime: an LNReader
+    // plugin is a CommonJS bundle rather than a Mangayomi class, and the shim
+    // in `assets/js/lnreader.js` turns it into the same object shape. Nothing
+    // downstream — search, home, detail, chapters, the reader, downloads, EPUB
+    // export — can tell the two apart.
+    //
+    // 284 plugins. 140 read end to end (list, search, detail, chapter)
+    // through the adapter from a plain client, 24 of them only with the fixed
+    // builds the app carries (LnReaderPatches); about 30 more sit behind a
+    // Cloudflare challenge the app solves. Checked 2026-09-24.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'LNReader',
+      description: 'Light novels · 200+ live sources',
+      badge: '200+',
+      url:
+          'https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json',
+      order: 4,
+    ),
+    // Arabic light novels: kolnovel, mknov, markazriwayat, cenele.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'Arabic novels (9vsv6)',
+      description: 'Arabic light novels · kolnovel, mknov and more',
+      url:
+          'https://raw.githubusercontent.com/9vsv6/mangayomi-ar-extensions/main/novel_index.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/9vsv6/mangayomi-ar-extensions/main/novel_index.json',
+      order: 5,
+    ),
+    // LNReader plugins outside the official index. Every source named below
+    // read end to end (search, detail, chapter text) on 2026-09-24.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'SpaceBattles & SV',
+      description: 'Fan fiction & quests · SpaceBattles, SufficientVelocity',
+      url:
+          'https://raw.githubusercontent.com/greatnameincoming/lnreader-custom-plugins/plugins/v1.0.0/.dist/plugins.min.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/greatnameincoming/lnreader-custom-plugins/plugins/v1.0.0/.dist/plugins.min.json',
+      order: 6,
+    ),
+    // Four of its seven read: KariStudio, MZNovels, DarkStar (brightnovels)
+    // and LeafStudio. Its MyNovels shares the official plugin's id, so one
+    // replaces the other; both sit behind Cloudflare.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'Tausif-Husine',
+      description: 'Translated web novels · KariStudio, MZNovels and more',
+      url:
+          'https://raw.githubusercontent.com/Tausif-Husine/LNreader-Plugins/plugins/v3.0.0/.dist/plugins.min.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/Tausif-Husine/LNreader-Plugins/plugins/v3.0.0/.dist/plugins.min.json',
+      order: 7,
+    ),
+    // Bilinovel reads end to end; Wenku8 sits behind Cloudflare, which the
+    // app solves and a plain client cannot. Checked 2026-09-24.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'Chinese novels (shiragou)',
+      description: 'Chinese light novels · Bilinovel, Wenku8',
+      url:
+          'https://raw.githubusercontent.com/shiragou/mangayomi-extensions/main/novel_index.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/shiragou/mangayomi-extensions/main/novel_index.json',
+      order: 8,
+    ),
+    // Both read end to end on 2026-09-24.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'Dakrataz',
+      description: 'Translated web novels · NoBadNovel, Boti Translation',
+      url:
+          'https://raw.githubusercontent.com/Dakrataz/my-lnreader-plugins/main/plugins.min.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/Dakrataz/my-lnreader-plugins/main/plugins.min.json',
+      order: 9,
+    ),
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'The Wandering Inn',
+      description: 'Web serial · the whole of The Wandering Inn',
+      url:
+          'https://raw.githubusercontent.com/lovepreet-bugbounty/wanderinginn-plugin/main/plugins.min.json',
+      novelUrl:
+          'https://raw.githubusercontent.com/lovepreet-bugbounty/wanderinginn-plugin/main/plugins.min.json',
+      order: 10,
     ),
   ];
 

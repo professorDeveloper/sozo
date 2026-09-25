@@ -45,10 +45,14 @@ class MalEntryState {
     this.status,
     this.totalEpisodes,
     this.isRewatching = false,
+    this.score,
   });
 
   /// `my_list_status.num_episodes_watched`.
   final int watchedEpisodes;
+
+  /// `my_list_status.score`, out of 10. Null or 0 when unscored.
+  final int? score;
 
   /// One of [MalStatus]. Null when the anime is not on the list at all.
   final String? status;
@@ -73,6 +77,7 @@ class MalEntryState {
       status: listStatus?['status'] as String?,
       totalEpisodes: (total != null && total > 0) ? total : null,
       isRewatching: listStatus?['is_rewatching'] == true,
+      score: (listStatus?['score'] as num?)?.toInt(),
     );
   }
 }

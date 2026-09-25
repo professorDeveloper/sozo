@@ -50,3 +50,7 @@ app.*.map.json
 # Kotlin compiler build session/cache (transient, Kotlin 2.x)
 .kotlin/
 **/.kotlin/
+
+# The LNReader bundle's build folder
+tool/lnreader_deps/node_modules/
+tool/lnreader_deps/package-lock.json

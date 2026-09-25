@@ -59,6 +59,27 @@ enum SubtitleFont {
 
 enum SubtitlePosition { lower, normal, higher }
 
+/// One-tap sizes. Medium is the default size, so an untouched install shows
+/// it selected.
+enum SubtitleSizePreset {
+  small(13, 'player.size_small'),
+  medium(16, 'player.size_medium'),
+  large(22, 'player.size_large'),
+  extraLarge(30, 'player.size_extra_large');
+
+  const SubtitleSizePreset(this.fontSize, this.labelKey);
+
+  final double fontSize;
+  final String labelKey;
+
+  static SubtitleSizePreset? of(double fontSize) {
+    for (final p in values) {
+      if ((p.fontSize - fontSize).abs() < 0.5) return p;
+    }
+    return null;
+  }
+}
+
 class SubtitleStyle {
   const SubtitleStyle({
     required this.fontSize,
@@ -71,13 +92,13 @@ class SubtitleStyle {
   });
 
   factory SubtitleStyle.defaults() => const SubtitleStyle(
-        fontSize: 16,
-        textColor: 0xFFFFFFFF,
-        bgOpacity: 0.75,
-        bold: true,
-        edge: SubtitleEdge.shadow,
-        position: SubtitlePosition.normal,
-      );
+    fontSize: 16,
+    textColor: 0xFFFFFFFF,
+    bgOpacity: 0.75,
+    bold: true,
+    edge: SubtitleEdge.shadow,
+    position: SubtitlePosition.normal,
+  );
 
   factory SubtitleStyle.fromJsonString(String raw) {
     try {
@@ -98,6 +119,14 @@ class SubtitleStyle {
       return SubtitleStyle.defaults();
     }
   }
+
+  static const double minFontSize = 12;
+  static const double maxFontSize = 40;
+
+  /// [fontSize] moved by [steps] whole points, kept in range. Rounded first,
+  /// so a slider's 17.4 steps to 18 rather than 18.4.
+  static double stepFontSize(double fontSize, int steps) =>
+      (fontSize.roundToDouble() + steps).clamp(minFontSize, maxFontSize);
 
   final double fontSize;
   final int textColor;
@@ -128,12 +157,12 @@ class SubtitleStyle {
   }
 
   String toJsonString() => jsonEncode({
-        'fontSize': fontSize,
-        'font': font.id,
-        'textColor': textColor,
-        'bgOpacity': bgOpacity,
-        'bold': bold,
-        'edge': edge.index,
-        'position': position.index,
-      });
+    'fontSize': fontSize,
+    'font': font.id,
+    'textColor': textColor,
+    'bgOpacity': bgOpacity,
+    'bold': bold,
+    'edge': edge.index,
+    'position': position.index,
+  });
 }

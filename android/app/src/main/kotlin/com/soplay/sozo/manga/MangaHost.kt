@@ -8,6 +8,7 @@ import com.soplay.sozo.extensions.ApkSignature
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SChapterImpl
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaImpl
@@ -68,6 +69,9 @@ class MangaHost(private val context: Context) {
     var refreshMissingApk: ((String) -> Unit)? = null
     private val missingApkUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val refreshAttempts = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    /** Installed here, without loading it. */
+    fun has(id: String): Boolean = sources.containsKey(id)
 
     fun registerMeta(entry: JSONObject, repoName: String) {
         val id = entry.optString("id")
@@ -300,14 +304,93 @@ class MangaHost(private val context: Context) {
         return apk?.let { MangaRuntime.source(context, it.absolutePath, current.pkg, current.id) }
     }
 
+    /**
+     * A browse or search row.
+     *
+     * [SMangaImpl.title] is `lateinit`, so reading it on an entry whose source
+     * never set one does not give back an empty string — it throws
+     * `UninitializedPropertyAccessException`, out of a getter that looks like a
+     * plain field read. One such entry anywhere in a page took the whole page
+     * with it, and the reader saw a source that simply does not work. The
+     * details path already reads its title this way; every list did not.
+     *
+     * A row with no name falls back to the slug the site itself uses, which is
+     * legible and, more to the point, still opens. Dropping the row instead
+     * would silently shorten a page with no way to tell it had happened.
+     */
+    private fun titleOf(m: SManga): String {
+        val given = try { m.title } catch (_: Throwable) { "" }
+        if (given.isNotBlank()) return given
+        return m.url.trimEnd('/')
+            .substringAfterLast('/')
+            .substringBefore('?')
+            .replace('-', ' ')
+            .replace('_', ' ')
+            .trim()
+            .ifEmpty { "Untitled" }
+    }
+
     private fun cardJson(m: SManga, id: String) = JSONObject().apply {
         put("provider", "mn:$id")
         put("externalId", m.url)
-        put("title", m.title)
+        put("title", titleOf(m))
         put("slug", m.url)
         put("contentUrl", m.url)
-        put("thumbnail", m.thumbnail_url)
+        put("thumbnail", try { m.thumbnail_url } catch (_: Throwable) { null })
         put("type", "Manga")
+    }
+
+    /**
+     * A url a browser can open, out of the path an extension stores.
+     *
+     * A Tachiyomi source keeps `SManga.url` and `SChapter.url` as paths
+     * relative to its own `baseUrl` — `/manga/x/chapter-1`, not a link. So the
+     * app held nothing it could hand to a browser, and "open this on the
+     * source's site" could not exist for the whole Mihon ecosystem. The source
+     * object knows the base; this is the only place that has both.
+     *
+     * Empty when there is nothing openable — a source that is not an
+     * [HttpSource], or a path that is already absolute and is kept as it is.
+     * The reader shows the action only when this arrives non-empty, so a source
+     * that cannot answer simply does not offer it.
+     */
+    private fun webUrl(src: Any?, path: String?): String {
+        val p = path?.trim().orEmpty()
+        if (p.isEmpty()) return ""
+        if (p.startsWith("http://") || p.startsWith("https://")) return p
+        val base = (src as? HttpSource)?.baseUrl?.trimEnd('/').orEmpty()
+        if (base.isEmpty()) return ""
+        return if (p.startsWith("/")) base + p else "$base/$p"
+    }
+
+    /**
+     * A chapter's page, asked of the source rather than assembled here.
+     *
+     * `SChapter.url` is not always a path. For some sources it is a KEY: Asura
+     * stores `/series/<slug>` and overrides `getChapterUrl` to build the real
+     * `/comics/<slug>-<rotating-hash>`, because the slug on the site changes.
+     * Joining baseUrl to the stored string gives a 404 on every one of those —
+     * which is exactly what "open on the source's site" was doing.
+     *
+     * Mihon never joins; it asks. [HttpSource.getChapterUrl] has been in the
+     * vendored source all along with nothing calling it, and its default IS the
+     * join, so a source that does not override it loses nothing.
+     *
+     * Falls back three ways — not an HttpSource, the source threw, or it
+     * answered with something that is not http(s). A third-party extension's
+     * return value gets the same scheme guard the join gets.
+     */
+    private fun chapterWebUrl(src: Any?, chapter: SChapter): String {
+        val http = src as? HttpSource ?: return webUrl(src, chapter.url)
+        val asked = try {
+            http.getChapterUrl(chapter).trim()
+        } catch (_: Throwable) {
+            ""
+        }
+        if (asked.startsWith("http://") || asked.startsWith("https://")) return asked
+        // A relative answer is still an answer — resolve it the ordinary way.
+        if (asked.isNotEmpty() && asked != chapter.url) return webUrl(src, asked)
+        return webUrl(src, chapter.url)
     }
 
     /**
@@ -552,10 +635,13 @@ class MangaHost(private val context: Context) {
                 put("episode", i + 1)
                 put("label", c.name.ifEmpty { "Chapter ${i + 1}" })
                 put("mediaRef", chapterRef(c))
+                chapterWebUrl(src, c).takeIf { it.isNotEmpty() }?.let { put("webUrl", it) }
+                // The translating group, for the chapter list's filter.
+                c.scanlator?.trim()?.takeIf { it.isNotEmpty() }?.let { put("scanlator", it) }
             })
         }
 
-        val title = try { details.title } catch (_: Throwable) { "" }
+        val title = titleOf(details)
         val author = try { details.author } catch (_: Throwable) { null }
         val status = statusLabel(try { details.status } catch (_: Throwable) { 0 })
         val desc = buildString {

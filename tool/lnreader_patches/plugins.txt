@@ -1,0 +1,31 @@
+# The upstream commit plugins.patch applies to.
+commit 9e7ff49f3e527a95ba3f382c4a358a7b3a0b7bda
+# id, then the file under .js/plugins/ that upstream's build writes.
+69shu chinese/69shu.js
+blogdoamonnovels portuguese/blogdoamonnovels.js
+cherrymistcafe english/cherrymistcafe.js
+chrysanthemumgarden english/chrysanthemumgarden.js
+crimsonscrolls english/crimsonscrolls.js
+DDL.com english/divinedaolibrary.js
+dragonholic english/dragonholic.js
+ekitaplar turkish/ekitaplar.js
+galaxynovels arabic/galaxynovels.js
+genesistudio english/genesis.js
+hizomanga arabic/HizoManga[madara].js
+indratranslations english/indraTranslations.js
+ixdzs8 chinese/ixdzs8.js
+jgarden french/jgarden.js
+kakuyomu japanese/kakuyomu.js
+kdtnovels english/kdtnovels.js
+kolnovel arabic/KolNovel[lightnovelwp].js
+mtl-novel english/mtl-novel.js
+namevt turkish/Namevt[lightnovelwp].js
+penguinsquad english/penguinsquad.js
+ragnarscans turkish/ragnarscans.js
+ranobes english/Ranobes[ranobes].js
+reinowuxia spanish/novelawuxia.js
+riwyat arabic/Riwyat[madara].js
+TCSega spanish/TC&Sega[lightnovelwp].js
+webnoveloku turkish/WebNovelOku[madara].js
+wordexcerpt english/wordexcerpt.js
+zelluloza russian/zelluloza.js

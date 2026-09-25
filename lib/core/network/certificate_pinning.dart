@@ -151,7 +151,12 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
     final context = SecurityContext(withTrustedRoots: false);
     context.setTrustedCertificatesBytes(utf8.encode(_gtsWe1));
     context.setTrustedCertificatesBytes(utf8.encode(_gtsRootR4));
-    for (final root in const [_gtsRootR1, _gtsRootR2, _gtsRootR3, _gtsRootR4Self]) {
+    for (final root in const [
+      _gtsRootR1,
+      _gtsRootR2,
+      _gtsRootR3,
+      _gtsRootR4Self,
+    ]) {
       context.setTrustedCertificatesBytes(utf8.encode(root));
     }
     return context;

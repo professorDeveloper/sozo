@@ -3,304 +3,205 @@ import 'package:flutter/material.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/app_palette.dart';
-import 'package:soplay/core/theme/app_theme.dart';
+import 'package:soplay/core/widgets/app_buttons.dart';
+import 'package:soplay/core/widgets/app_chip.dart';
 
-/// What the chosen colours actually do, shown on the app's own controls.
-///
-/// ## Why this is not a picture of a screen
-///
-/// The obvious thing to build here is a little phone with the Home page inside
-/// it. It was built, twice, and thrown away both times — because it cannot be
-/// true. The real Home is a network of blocs, cached artwork and live rows;
-/// nothing that paints instantly inside a settings list can be that page. What
-/// gets drawn instead is a *guess* at it: invented titles, invented posters, a
-/// layout that drifts from the real one the moment anybody touches Home. A
-/// preview that misrepresents the app is worse than no preview, and it is what
-/// made the earlier versions read as fake.
-///
-/// So this shows no screen at all. It shows the **real controls** — a real
-/// [ElevatedButton], a real switch, a real card on a real background, the real
-/// section tick, a real progress bar — at their real size, in the palette being
-/// chosen. Every pixel here is something the user will meet again unchanged.
-class ThemePreview extends StatelessWidget {
+/// A compact media surface using the app's shared controls and current palette.
+/// Artwork is bundled: changing colours never starts a request or a decoder.
+/// Interactions stay local to this sample and never change viewing history.
+class ThemePreview extends StatefulWidget {
   const ThemePreview({super.key});
 
   @override
+  State<ThemePreview> createState() => _ThemePreviewState();
+}
+
+class _ThemePreviewState extends State<ThemePreview> {
+  bool _playing = false;
+  bool _saved = false;
+  String _quality = '1080p';
+
+  @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.background,
-        borderRadius: BorderRadius.circular(kFieldRadius),
-        border: Border.all(color: AppColors.border, width: 0.8),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _SampleSectionHead(),
-          const SizedBox(height: 10),
-          const _SampleCard(),
-          const SizedBox(height: 14),
-          const _SampleProgress(),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: SizedBox(
-                  height: kButtonHeight,
-                  child: ElevatedButton(
-                    // Inert on purpose: this is a swatch of the button, not a
-                    // button. Disabling it would show the disabled colours.
-                    onPressed: () {},
-                    child: Text('detail.play'.tr()),
-                  ),
+          SizedBox(
+            height: 156,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  'assets/onboarding/anime_01.webp',
+                  fit: BoxFit.cover,
+                  alignment: const Alignment(0, -0.65),
+                  cacheWidth: 720,
+                  excludeFromSemantics: true,
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: SizedBox(
-                  height: kButtonHeight,
-                  child: OutlinedButton(
-                    onPressed: () {},
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, kButtonHeight),
-                      padding: EdgeInsets.zero,
-                      side: BorderSide(
-                        color: AppColors.textPrimary.withValues(alpha: 0.22),
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Text(
-                      'general.cancel'.tr(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.black26, AppColors.background],
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The accent tick every section header on Home and Profile carries.
-class _SampleSectionHead extends StatelessWidget {
-  const _SampleSectionHead();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 3,
-          height: 15,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                AppColors.primary,
-                AppColors.primary.withValues(alpha: 0.55),
+                PositionedDirectional(
+                  start: 16,
+                  top: 12,
+                  child: Text(
+                    'SOZO',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 3,
+                    ),
+                  ),
+                ),
+                PositionedDirectional(
+                  start: 16,
+                  end: 16,
+                  bottom: 12,
+                  child: Text(
+                    'Attack on Titan',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      height: 1.15,
+                    ),
+                  ),
+                ),
               ],
             ),
-            borderRadius: BorderRadius.circular(2),
           ),
-        ),
-        const SizedBox(width: 9),
-        // Expanded, not a bare Text followed by a Spacer: a Row hands its
-        // non-flex children unbounded width, so `maxLines`/`ellipsis` above
-        // never engage and a long translation overflows the header instead of
-        // truncating. Filling the gap here is also what the Spacer was doing.
-        Expanded(
-          child: Text(
-            'home.continue_watching'.tr(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              height: 1.1,
-            ),
-          ),
-        ),
-        const Icon(
-          Icons.chevron_right_rounded,
-          color: AppColors.textHint,
-          size: 20,
-        ),
-      ],
-    );
-  }
-}
-
-/// A card on the page background, with the app's own 5%-white hairline — the
-/// pair that tells you what AMOLED does. On true black the fill nearly
-/// disappears and the hairline becomes the edge.
-class _SampleCard extends StatelessWidget {
-  const _SampleCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.textPrimary.withValues(alpha: 0.05),
-          width: 0.5,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          _SampleRow(
-            icon: Icons.palette_outlined,
-            title: 'appearance.title'.tr(),
-            trailing: _SampleSwitch(),
-          ),
-          Divider(color: AppColors.divider, height: 1, indent: 60),
-          _SampleRow(
-            icon: Icons.play_circle_outline_rounded,
-            title: 'profile.section_player'.tr(),
-            // Capped: the row's title is the flexible child, so an unbounded
-            // trailing is the one thing here that can push the row past its
-            // width. A long translation of this value label would otherwise
-            // overflow rather than truncate.
-            trailing: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 120),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      'general.done'.tr(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'home.continue_watching'.tr(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
-                  ),
-                  Icon(
-                    Icons.arrow_drop_down_rounded,
+                    const SizedBox(width: 8),
+                    const Text(
+                      '14:52 / 24:00',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: 0.62,
+                    minHeight: 4,
                     color: AppColors.primary,
-                    size: 22,
+                    backgroundColor: AppColors.surfaceVariant,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppPrimaryButton(
+                        label: (_playing ? 'player.pause' : 'player.resume')
+                            .tr(),
+                        icon: _playing
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        onPressed: () => setState(() => _playing = !_playing),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Material(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      child: IconButton(
+                        isSelected: _saved,
+                        tooltip: 'profile.favorites'.tr(),
+                        color: AppColors.textSecondary,
+                        selectedIcon: Icon(
+                          Icons.bookmark_rounded,
+                          color: AppColors.primary,
+                        ),
+                        icon: const Icon(Icons.bookmark_border_rounded),
+                        onPressed: () => setState(() => _saved = !_saved),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final quality in ['720p', '1080p'])
+                      AppChip(
+                        label: quality,
+                        selected: _quality == quality,
+                        onTap: () => setState(() => _quality = quality),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SampleRow extends StatelessWidget {
-  const _SampleRow({
-    required this.icon,
-    required this.title,
-    required this.trailing,
-  });
-
-  final IconData icon;
-  final String title;
-  final Widget trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      // The metrics from settings_tiles.dart, so the sample row and the real
-      // rows under it sit on one grid.
-      padding: const EdgeInsetsDirectional.fromSTEB(14, 11, 12, 11),
-      child: Row(
-        children: [
+          // Uses the same nav palette contract as the app, including tint off.
           Container(
-            width: 32,
-            height: 32,
+            padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.textSecondary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+              color: AppColors.navBackground,
+              border: Border(top: BorderSide(color: AppColors.divider)),
             ),
-            child: Icon(icon, color: AppColors.textSecondary, size: 17),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 14.5,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Icon(
+                  Icons.home_rounded,
+                  color: AppPalette.current.tintNav
+                      ? AppColors.primary
+                      : AppColors.textPrimary,
+                ),
+                const Icon(Icons.search_rounded, color: AppColors.textHint),
+                const Icon(
+                  Icons.video_library_outlined,
+                  color: AppColors.textHint,
+                ),
+                const Icon(
+                  Icons.person_outline_rounded,
+                  color: AppColors.textHint,
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          trailing,
         ],
       ),
-    );
-  }
-}
-
-/// The app's switch in its on state — accent track, white thumb.
-class _SampleSwitch extends StatelessWidget {
-  const _SampleSwitch();
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Switch.adaptive(
-        value: true,
-        onChanged: (_) {},
-        activeThumbColor: Colors.white,
-        activeTrackColor: AppColors.primary,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-    );
-  }
-}
-
-/// A watched-progress bar, the accent's most common appearance in the app.
-class _SampleProgress extends StatelessWidget {
-  const _SampleProgress();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: 0.62,
-              minHeight: 4,
-              backgroundColor: AppColors.surfaceVariant,
-              color: AppColors.primary,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Text(
-          '62%',
-          style: TextStyle(
-            color: AppColors.primary,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ],
     );
   }
 }

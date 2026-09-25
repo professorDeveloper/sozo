@@ -23,10 +23,22 @@ import org.json.JSONObject
 object MangaPreferences {
 
     /** Serialises the source's preferences to a JSON array for Flutter. */
-    fun extract(context: Context, sourceId: String, src: ConfigurableSource): String {
-        val pm = newManager(context, prefsName(sourceId))
+    fun extract(context: Context, sourceId: String, src: ConfigurableSource): String =
+        extractScreen(context, prefsName(sourceId)) { src.setupPreferenceScreen(it) }
+
+    /**
+     * The same serialisation for any source that fills a preference screen —
+     * Aniyomi's anime sources use the identical androidx screen and the same
+     * `source_<id>` store, so one reader serves both.
+     */
+    fun extractScreen(
+        context: Context,
+        prefsName: String,
+        setup: (androidx.preference.PreferenceScreen) -> Unit,
+    ): String {
+        val pm = newManager(context, prefsName)
         val screen = pm.createPreferenceScreen(context)
-        src.setupPreferenceScreen(screen)
+        setup(screen)
 
         val arr = JSONArray()
         for (i in 0 until screen.preferenceCount) {
@@ -66,9 +78,12 @@ object MangaPreferences {
     }
 
     /** Writes a single preference value back to the source's SharedPreferences. */
-    fun write(context: Context, sourceId: String, key: String, value: Any?, type: String) {
+    fun write(context: Context, sourceId: String, key: String, value: Any?, type: String) =
+        writeTo(context, prefsName(sourceId), key, value, type)
+
+    fun writeTo(context: Context, prefsName: String, key: String, value: Any?, type: String) {
         val editor = context
-            .getSharedPreferences(prefsName(sourceId), Context.MODE_PRIVATE)
+            .getSharedPreferences(prefsName, Context.MODE_PRIVATE)
             .edit()
         when (type) {
             "switch" -> editor.putBoolean(key, value as? Boolean ?: false)

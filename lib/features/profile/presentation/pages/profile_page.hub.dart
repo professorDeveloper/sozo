@@ -140,7 +140,9 @@ class _StatTile extends StatelessWidget {
 }
 
 class _HubOverview extends StatelessWidget {
-  const _HubOverview();
+  const _HubOverview({required this.signedIn});
+
+  final bool signedIn;
 
   @override
   Widget build(BuildContext context) {
@@ -177,6 +179,11 @@ class _HubOverview extends StatelessWidget {
                 featureId: 'stats',
                 onTap: () => context.push('/activity'),
               ),
+              // Kids profiles get no social surface at all.
+              if (signedIn && !ProfileScope.isKids) ...[
+                const SettingsDivider(),
+                const _FriendsHubTile(),
+              ],
             ],
           ),
           // Matches the gap between sections rather than exceeding it: a
@@ -196,6 +203,46 @@ class _HubOverview extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Friends, with the number of requests waiting for an answer.
+class _FriendsHubTile extends StatefulWidget {
+  const _FriendsHubTile();
+
+  @override
+  State<_FriendsHubTile> createState() => _FriendsHubTileState();
+}
+
+class _FriendsHubTileState extends State<_FriendsHubTile> {
+  final SocialService _social = getIt<SocialService>();
+
+  @override
+  void initState() {
+    super.initState();
+    _social.refreshOverview();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<SocialOverview>(
+      valueListenable: _social.overview,
+      builder: (context, overview, _) => SettingsNavTile(
+        icon: Icons.people_alt_outlined,
+        title: 'social.title'.tr(),
+        subtitle: 'social.hub_subtitle'.tr(),
+        value: overview.incoming > 0
+            ? 'social.hub_requests'.tr(args: ['${overview.incoming}'])
+            : countLabel(overview.friends),
+        valueColor: overview.incoming > 0 ? AppColors.primary : null,
+        onTap: () async {
+          await context.push(
+            overview.incoming > 0 ? '/friends?tab=requests' : '/friends',
+          );
+          _social.refreshOverview();
+        },
       ),
     );
   }

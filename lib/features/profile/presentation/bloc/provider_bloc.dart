@@ -1,3 +1,5 @@
+import 'package:soplay/core/content/content_mode.dart';
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
@@ -5,6 +7,7 @@ import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/core/extractor/provider_manager.dart';
 import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -68,6 +71,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     final localAniyomi = <ProviderEntity>[];
     final localManga = <ProviderEntity>[];
     final localMangayomi = <ProviderEntity>[];
+    final localJellyfin = <ProviderEntity>[];
 
     // Kept as its own STRONGLY TYPED future rather than one element of a
     // Future.wait<Object?>. Collapsing it into an untyped list erases
@@ -103,6 +107,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
       _appendAniyomiProviders(localAniyomi),
       _appendMangaProviders(localManga),
       _appendMangayomiProviders(localMangayomi),
+      _appendJellyfinProviders(localJellyfin),
     ]);
 
     final result = await backend;
@@ -127,7 +132,8 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
       ..addAll(localCloudStream)
       ..addAll(localAniyomi)
       ..addAll(localManga)
-      ..addAll(localMangayomi);
+      ..addAll(localMangayomi)
+      ..addAll(localJellyfin);
 
     if (providers.isEmpty) {
       if (previous is! ProviderLoaded) {
@@ -140,6 +146,14 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
       providers,
       offline: offline,
     );
+    // Seeds the memory for installs from before it existed: the source in use
+    // is the one its mode should come back to, unless it is a stand-in.
+    if (hiveService.getPreOutageProvider().isEmpty) {
+      final modeId = resolvedId.contentMode.id;
+      if (hiveService.providerForMode(modeId) == null) {
+        await hiveService.rememberProviderForMode(modeId, resolvedId);
+      }
+    }
 
     providerManager.updateProviders(providers);
     providerRegistry.invalidate();
@@ -159,9 +173,22 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     Emitter<ProviderState> emit,
   ) async {
     await hiveService.saveCurrentProvider(event.providerId);
+    final mode = event.providerId.contentMode;
+    // Remembered for its mode, so switching to Manga and back returns here —
+    // unless it is only a stand-in for a remembered source that has not
+    // enumerated yet.
+    if (event.remember) {
+      await hiveService.rememberProviderForMode(mode.id, event.providerId);
+    }
     // An explicit pick supersedes any provider parked by the outage handler,
     // so it is not undone when the backend comes back.
     await hiveService.clearPreOutageProvider();
+    // The mode follows the source. Five places select a source and only two
+    // moved the mode with it, so picking a manga source from the providers
+    // page left Home labelled Watch with manga rows under it.
+    if (hiveService.getContentMode() != mode.id) {
+      await hiveService.setContentMode(mode.id);
+    }
     if (state is ProviderLoaded) {
       final loaded = state as ProviderLoaded;
       emit(
@@ -177,6 +204,10 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
 
   Future<void> _appendCloudStreamProviders(List<ProviderEntity> into) async {
     if (!CloudStreamChannel.isSupported) return;
+    // The one 18+ setting covers video sources too, and for the manga
+    // sources' reason: dropped here, a hidden source is also one the resolver
+    // will not keep selected.
+    final allowAdult = hiveService.showAdultContent;
     try {
       final list = await CloudStreamChannel.ensureLoaded();
       for (final e in list) {
@@ -184,6 +215,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         final m = Map<String, dynamic>.from(e);
         final id = (m['id'] as String?)?.trim() ?? '';
         if (id.isEmpty) continue;
+        if (m['nsfw'] == true && !allowAdult) continue;
         into.add(
           ProviderModel(
             id: id,
@@ -195,11 +227,13 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             description: (m['repo'] as String?)?.isNotEmpty == true
                 ? m['repo'] as String
                 : 'CloudStream',
+            repo: (m['repo'] as String?)?.trim() ?? '',
             domains: const [],
             mode: 'client',
             category: 'cloudstream',
             lang: (m['lang'] as String?)?.trim() ?? '',
             nsfw: m['nsfw'] == true,
+            internalName: (m['internalName'] as String?)?.trim() ?? '',
           ),
         );
       }
@@ -208,6 +242,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
 
   Future<void> _appendAniyomiProviders(List<ProviderEntity> into) async {
     if (!AniyomiChannel.isSupported) return;
+    final allowAdult = hiveService.showAdultContent;
     try {
       final list = await AniyomiChannel.ensureLoaded();
       for (final e in list) {
@@ -215,6 +250,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         final m = Map<String, dynamic>.from(e);
         final id = (m['id'] as String?)?.trim() ?? '';
         if (id.isEmpty) continue;
+        if (m['nsfw'] == true && !allowAdult) continue;
         into.add(
           ProviderModel(
             id: id,
@@ -226,6 +262,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             description: (m['repo'] as String?)?.isNotEmpty == true
                 ? m['repo'] as String
                 : 'Aniyomi',
+            repo: (m['repo'] as String?)?.trim() ?? '',
             domains: const [],
             mode: 'client',
             category: 'aniyomi',
@@ -245,7 +282,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     // a hidden source is also one the resolver will not keep selected. Turning
     // the setting off therefore retires a dangling 18+ selection on the next
     // load instead of leaving it live but invisible.
-    final allowNsfw = hiveService.showNsfwMangaSources;
+    final allowNsfw = hiveService.showAdultContent;
     try {
       final list = await MangaChannel.ensureLoaded();
       for (final e in list) {
@@ -265,6 +302,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             description: (m['repo'] as String?)?.isNotEmpty == true
                 ? m['repo'] as String
                 : 'Manga',
+            repo: (m['repo'] as String?)?.trim() ?? '',
             domains: const [],
             mode: 'client',
             category: 'manga',
@@ -284,7 +322,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
   /// "show 18+ sources", not one per ecosystem.
   Future<void> _appendMangayomiProviders(List<ProviderEntity> into) async {
     if (!MangayomiBridge.isSupported) return;
-    final allowNsfw = hiveService.showNsfwMangaSources;
+    final allowNsfw = hiveService.showAdultContent;
     try {
       final list = getIt<MangayomiBridge>().listProviders(
         includeNsfw: allowNsfw,
@@ -303,11 +341,38 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             description: (m['repo'] as String?)?.isNotEmpty == true
                 ? m['repo'] as String
                 : 'Mangayomi',
+            repo: (m['repo'] as String?)?.trim() ?? '',
             domains: const [],
             mode: 'client',
             category: 'mangayomi',
             lang: (m['lang'] as String?)?.trim() ?? '',
             nsfw: m['nsfw'] == true,
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
+  /// Signed-in Jellyfin servers, one source each. Read from the local store,
+  /// so they list with the backend down and on every platform.
+  Future<void> _appendJellyfinProviders(List<ProviderEntity> into) async {
+    try {
+      for (final m in getIt<JellyfinBridge>().listProviders()) {
+        final id = (m['id'] as String?)?.trim() ?? '';
+        if (id.isEmpty) continue;
+        final host = (m['repo'] as String?) ?? '';
+        into.add(
+          ProviderModel(
+            id: id,
+            name: (m['name'] as String?) ?? id,
+            image: (m['icon'] as String?) ?? JellyfinBridge.icon,
+            url: (m['baseUrl'] as String?) ?? '',
+            description: host.isEmpty ? 'Jellyfin' : 'Jellyfin · $host',
+            repo: host,
+            domains: const [],
+            mode: 'client',
+            category: 'jellyfin',
+            lang: 'all',
           ),
         );
       }
@@ -328,6 +393,11 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     required bool offline,
   }) async {
     final savedId = hiveService.getCurrentProvider();
+    // A catalogue is not in the provider list and never will be — it is the
+    // backend's view of what exists, not a source. Left alone here, or every
+    // reload would fall through to "first provider" and quietly undo the
+    // choice.
+    if (Catalogue.isId(savedId)) return savedId;
     final saved = providers.where((p) => p.id == savedId).firstOrNull;
 
     if (!offline) {
@@ -340,6 +410,28 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         }
       }
       if (saved != null) return saved.id;
+
+      // The saved source is not in the list. That is NOT proof the user's
+      // choice is gone: `providers` is the backend's list plus whatever the
+      // four on-device hosts managed to enumerate on this launch, and each of
+      // those helpers ends in `catch (_) {}` and contributes nothing when the
+      // platform channel is not ready yet, the host process restarted, or the
+      // extension store had not finished loading. This branch used to write
+      // `providers.first.id` — vidapi — straight over the saved id, so one
+      // unlucky cold start silently and PERMANENTLY moved somebody off their
+      // CloudStream or Aniyomi source onto VidAPI, with nothing to say it had
+      // happened and no way back but finding the source again by hand.
+      //
+      // So it parks the id first, exactly as the outage branch below does. The
+      // fallback still takes effect for this session — the interceptor and
+      // everything else read the current provider straight out of Hive, so
+      // leaving those disagreeing with this bloc would be its own bug — but
+      // the restore block at the top of this branch puts the user back on
+      // their own source the moment the host enumerates again. A deliberate
+      // pick meanwhile clears the parked id (see [_onSelect]) and sticks.
+      if (savedId.isNotEmpty && hiveService.getPreOutageProvider().isEmpty) {
+        await hiveService.savePreOutageProvider(savedId);
+      }
       final fallback = providers.first.id;
       await hiveService.saveCurrentProvider(fallback);
       return fallback;

@@ -27,9 +27,13 @@ class ProviderRef {
     required this.name,
     required this.kind,
     this.image,
-  });
+    String? healthKey,
+  }) : healthKey = healthKey ?? id;
 
   final String id;
+
+  /// See [ProviderEntity.healthKey].
+  final String healthKey;
   final String name;
   final String? image;
   final ProviderKind kind;
@@ -38,18 +42,20 @@ class ProviderRef {
     if (id.startsWith('cs:') ||
         id.startsWith('an:') ||
         id.startsWith('mn:') ||
-        id.startsWith('my:')) {
+        id.startsWith('my:') ||
+        id.startsWith('jf:')) {
       return ProviderKind.channel;
     }
     return scopesAll ? ProviderKind.js : ProviderKind.server;
   }
 
   factory ProviderRef.fromEntity(ProviderEntity p) => ProviderRef(
-        id: p.id,
-        name: p.name,
-        image: p.image.isEmpty ? null : p.image,
-        kind: kindOf(p.id, scopesAll: p.scopesAll),
-      );
+    id: p.id,
+    name: p.name,
+    image: p.image.isEmpty ? null : p.image,
+    kind: kindOf(p.id, scopesAll: p.scopesAll),
+    healthKey: p.healthKey,
+  );
 }
 
 /// One provider's search result (may be empty / timed-out / errored).
@@ -82,15 +88,14 @@ class ProviderSearchResult {
     int? page,
     int? totalPages,
     String? message,
-  }) =>
-      ProviderSearchResult(
-        provider: provider,
-        items: items ?? this.items,
-        status: status ?? this.status,
-        page: page ?? this.page,
-        totalPages: totalPages ?? this.totalPages,
-        message: message ?? this.message,
-      );
+  }) => ProviderSearchResult(
+    provider: provider,
+    items: items ?? this.items,
+    status: status ?? this.status,
+    page: page ?? this.page,
+    totalPages: totalPages ?? this.totalPages,
+    message: message ?? this.message,
+  );
 }
 
 /// One source's copy of a title.
@@ -122,7 +127,13 @@ class MergedSearchTitle {
 String normalizedTitleKey(String title) {
   var t = title.toLowerCase().trim();
   t = t.replaceAll(RegExp(r'[\(\[]\s*(19|20)\d{2}\s*[\)\]]'), ' ');
-  t = t.replaceAll(RegExp(r"[^a-z0-9\u0400-\u04ff\u0600-\u06ff ]+"), ' ');
+  // Unicode-aware, not an alphabet whitelist. The whitelist kept Latin,
+  // Cyrillic and Arabic, so a Japanese, Korean, Chinese, Thai, Greek or Hebrew
+  // title produced an EMPTY key — and the merge below skips an empty key
+  // outright, which dropped those rows from an all-source result while the
+  // count still included them. The page then reported N results and rendered
+  // none of them.
+  t = t.replaceAll(RegExp(r'[^\p{L}\p{N} ]+', unicode: true), ' ');
   t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
   for (final article in const ['the ', 'a ', 'an ']) {
     if (t.startsWith(article)) {
@@ -154,11 +165,20 @@ List<MergedSearchTitle> mergeSearchResults(
 
   for (final leg in legs) {
     for (final item in leg.items) {
-      final key = normalizedTitleKey(item.title);
+      // A title that still normalises to nothing — punctuation and emoji only —
+      // falls back to its raw text rather than being dropped. Merging on the
+      // raw string is a weaker key, but a row the viewer cannot see is worse
+      // than one that failed to merge with its twin.
+      final normalised = normalizedTitleKey(item.title);
+      final key = normalised.isEmpty
+          ? item.title.toLowerCase().trim()
+          : normalised;
       if (key.isEmpty) continue;
       final bucket = groups.putIfAbsent(key, () => <MergedSearchTitle>[]);
       final match = bucket
-          .where((g) => g.year == null || item.year == null || g.year == item.year)
+          .where(
+            (g) => g.year == null || item.year == null || g.year == item.year,
+          )
           .firstOrNull;
       if (match == null) {
         final group = MergedSearchTitle(
@@ -181,26 +201,24 @@ List<MergedSearchTitle> mergeSearchResults(
   // show differently — "Naruto Shippuden" on one, "Naruto: Shippuuden" on
   // another — and the merged card should be ranked by whichever of those the
   // query actually matched.
-  final indexed = [
-    for (var i = 0; i < ordered.length; i++)
-      (
-        index: i,
-        group: ordered[i],
-        score: query.isEmpty
-            ? 0.0
-            : ordered[i].hits.fold<double>(
-                  0,
-                  (best, h) {
+  final indexed =
+      [
+        for (var i = 0; i < ordered.length; i++)
+          (
+            index: i,
+            group: ordered[i],
+            score: query.isEmpty
+                ? 0.0
+                : ordered[i].hits.fold<double>(0, (best, h) {
                     final s = SearchRelevance.score(h.item.title, query);
                     return s > best ? s : best;
-                  },
-                ),
-      ),
-  ]..sort((a, b) {
-      final byScore = b.score.compareTo(a.score);
-      if (byScore != 0) return byScore;
-      final byCount = b.group.sourceCount.compareTo(a.group.sourceCount);
-      return byCount != 0 ? byCount : a.index.compareTo(b.index);
-    });
+                  }),
+          ),
+      ]..sort((a, b) {
+        final byScore = b.score.compareTo(a.score);
+        if (byScore != 0) return byScore;
+        final byCount = b.group.sourceCount.compareTo(a.group.sourceCount);
+        return byCount != 0 ? byCount : a.index.compareTo(b.index);
+      });
   return [for (final e in indexed) e.group];
 }

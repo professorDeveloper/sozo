@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_small_label">Davom ettirish</string>
+    <string name="widget_small_description">Ko‘rayotgan narsangiz, to‘xtagan joyingiz va streakingiz.</string>
+    <string name="widget_medium_label">Davom ettirish va keyingi qism</string>
+    <string name="widget_medium_description">To‘xtagan joydan davom eting va keyingi qismgacha vaqtni kuzating.</string>
+    <!-- Sample content for the widget picker's preview. -->
+    <string name="widget_preview_title">Frieren</string>
+    <string name="widget_preview_sub">7-qism</string>
+    <string name="widget_preview_title_0">Frieren</string>
+    <string name="widget_preview_sub_0">7-qism</string>
+    <string name="widget_preview_title_1">Solo Leveling</string>
+    <string name="widget_preview_sub_1">11-qism</string>
+    <string name="widget_preview_title_2">Berserk</string>
+    <string name="widget_preview_sub_2">128-bob</string>
+    <string name="widget_preview_next">Dandadan</string>
+    <string name="widget_streak_title">Streak</string>
+    <string name="widget_streak_description">Streakingiz, shu hafta bir qarashda va tugash arafasidagi ogohlantirish.</string>
+    <string name="widget_streak_label">kunlik streak</string>
+</resources>

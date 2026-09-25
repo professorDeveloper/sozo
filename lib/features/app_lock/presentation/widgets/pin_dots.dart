@@ -17,8 +17,7 @@ class PinDots extends StatefulWidget {
   State<PinDots> createState() => _PinDotsState();
 }
 
-class _PinDotsState extends State<PinDots>
-    with SingleTickerProviderStateMixin {
+class _PinDotsState extends State<PinDots> with SingleTickerProviderStateMixin {
   late final AnimationController _shake;
   late Animation<double> _offset;
 
@@ -67,8 +66,8 @@ class _PinDotsState extends State<PinDots>
               final color = showError
                   ? AppColors.error
                   : isFilled
-                      ? AppColors.primary
-                      : AppColors.border;
+                  ? AppColors.primary
+                  : AppColors.border;
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
                 margin: const EdgeInsets.symmetric(horizontal: 8),

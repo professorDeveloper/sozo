@@ -20,6 +20,14 @@ class EpisodesArgs {
   /// and made the viewer find their place a second time.
   final bool resumeFromHistory;
 
+  /// The list is the copy saved with the downloads: only what is on disk can
+  /// be played or read.
+  final bool offline;
+
+  /// The episode a new-release tap is about: the list scrolls to it and
+  /// marks it.
+  final int? focusEpisode;
+
   const EpisodesArgs({
     required this.title,
     required this.episodes,
@@ -32,5 +40,7 @@ class EpisodesArgs {
     this.total = 0,
     this.totalPages = 1,
     this.resumeFromHistory = false,
+    this.offline = false,
+    this.focusEpisode,
   });
 }

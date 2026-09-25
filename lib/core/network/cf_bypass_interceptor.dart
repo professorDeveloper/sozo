@@ -20,7 +20,8 @@ class CfBypassInterceptor extends Interceptor {
       return;
     }
 
-    final isChallenge = err.response?.statusCode == 428 &&
+    final isChallenge =
+        err.response?.statusCode == 428 &&
         err.response?.data is Map &&
         (err.response!.data as Map)['cfChallenge'] == true;
     if (!isChallenge) {
@@ -30,15 +31,18 @@ class CfBypassInterceptor extends Interceptor {
 
     final data = err.response!.data as Map;
     final host = (data['host'] as String?)?.trim();
-    final url  = (data['url']  as String?)?.trim();
-    final ua   = (data['userAgent'] as String?)?.trim() ??
-        kSozoUserAgent;
+    final url = (data['url'] as String?)?.trim();
+    final ua = (data['userAgent'] as String?)?.trim() ?? kSozoUserAgent;
     if (host == null || host.isEmpty || url == null || url.isEmpty) {
       handler.next(err);
       return;
     }
 
-    final cookieHeader = await service.solve(host: host, url: url, userAgent: ua);
+    final cookieHeader = await service.solve(
+      host: host,
+      url: url,
+      userAgent: ua,
+    );
     if (cookieHeader == null) {
       handler.next(err);
       return;
@@ -47,11 +51,7 @@ class CfBypassInterceptor extends Interceptor {
     try {
       await dio.post(
         '/cf-cookies',
-        data: {
-          'host': host,
-          'cookies': cookieHeader,
-          'userAgent': ua,
-        },
+        data: {'host': host, 'cookies': cookieHeader, 'userAgent': ua},
         options: Options(extra: const {_skipKey: true}),
       );
     } catch (_) {

@@ -303,9 +303,14 @@ class ProviderProbe {
 
   Future<ProviderSearchResult?> _searchOnce(ProviderRef ref, String term) async {
     try {
-      await for (final r in _engine.search(set: [ref], query: term)) {
-        return r;
-      }
+      // `searchProvider(deliberate: true)` rather than `search()`, so the probe
+      // is exempt from the broken-source penalty budget. This is the one tool
+      // the user has for finding out whether a source is genuinely dead, and
+      // it went through the batch path: a source already marked broken was
+      // given four seconds to do up to forty-five seconds of work, reported as
+      // failing, and re-marked broken by the probe itself. It told the user
+      // what it had been told, and made it truer on the way out.
+      return await _engine.searchProvider(ref, term, deliberate: true);
     } catch (e) {
       debugPrint('$_tag ${ref.id} search threw: $e');
     }

@@ -3,13 +3,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/features/my_list/data/models/favorite_model.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 
 class MyListLocalDataSource {
   final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
-  Box get _box => Hive.box(AppConstants.favoritesBox);
+  Box get _box => Hive.box(ProfileScope.box(AppConstants.favoritesBox));
 
   String _key(String provider, String contentUrl) => '$provider::$contentUrl';
 

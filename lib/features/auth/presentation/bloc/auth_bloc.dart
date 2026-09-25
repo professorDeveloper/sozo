@@ -19,6 +19,8 @@ import 'package:soplay/features/notifications/data/services/notification_service
 import 'auth_event.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
+import 'package:soplay/features/tracker/data/follow_sync_service.dart';
+import 'package:soplay/features/tracker/data/release_watch.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
@@ -78,6 +80,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     // streak of the account that had been signed in on screen for whoever
     // picked the phone up next — the exact leak logout already guards against.
     await authRepository.clearLocalSession();
+    await _forgetFollowQueue();
     emit(AuthInitial());
   }
 
@@ -100,7 +103,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
 
     unawaited(syncFavorites());
-    unawaited(_syncHistory());
+    unawaited(_syncHistory(startup: true));
     unawaited(notificationService.setup());
     add(const AuthProfileRefreshRequested());
   }
@@ -328,6 +331,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await notificationService.unregister();
     await googleAuthService.signOut();
     await authRepository.logout();
+    await _forgetFollowQueue();
     emit(AuthInitial());
   }
 
@@ -388,7 +392,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   /// list the user owns, history is written by the player, and the two fail
   /// independently. Registration is checked because the bloc is constructed in
   /// tests where the sync service is not wired.
-  Future<void> _syncHistory() async {
+  Future<void> _syncHistory({bool startup = false}) async {
+    // Follows go first and on their own: the server announces new episodes
+    // from them, and every hour they sit only on this phone is an hour of
+    // episodes nobody is told about. Throttled at startup, forced on sign-in.
+    if (getIt.isRegistered<FollowSyncService>()) {
+      unawaited(
+        getIt<FollowSyncService>()
+            .fullSync(force: !startup)
+            .then((_) => _refreshReleaseWatch()),
+      );
+    }
     if (!getIt.isRegistered<HistorySyncService>()) return;
     // Before anything is uploaded: the rows sitting on this phone may belong to
     // whoever signed in last. Signing out resets the push watermark, so the
@@ -404,6 +418,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     // phone would leave every other device looking unconnected.
     if (getIt.isRegistered<AnilistService>()) {
       await getIt<AnilistService>().refreshFromAccount();
+    }
+  }
+
+  /// Signed out: the upload queue was addressed to the account that left,
+  /// and the device now checks every follow itself.
+  Future<void> _forgetFollowQueue() async {
+    if (getIt.isRegistered<FollowSyncService>()) {
+      await getIt<FollowSyncService>().forgetQueue();
+    }
+    _refreshReleaseWatch();
+  }
+
+  void _refreshReleaseWatch() {
+    if (getIt.isRegistered<ReleaseWatch>()) {
+      unawaited(getIt<ReleaseWatch>().writeSnapshot());
     }
   }
 

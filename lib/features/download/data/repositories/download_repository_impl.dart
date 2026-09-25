@@ -1,3 +1,4 @@
+import 'dart:isolate';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -6,6 +7,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:soplay/features/download/data/subtitle_sidecar.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/network/external_dio.dart';
 import 'package:soplay/core/error/result.dart';
@@ -15,6 +17,8 @@ import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
 import 'package:soplay/features/download/data/datasources/download_local_data_source.dart';
 import 'package:soplay/features/download/data/datasources/download_native_data_source.dart';
 import 'package:soplay/features/download/data/datasources/download_transfer_data_source.dart';
+import 'package:soplay/features/download/data/epub_builder.dart';
+import 'package:soplay/features/download/data/models/download_item_model.dart';
 import 'package:soplay/features/download/data/storage/download_storage.dart';
 import 'package:soplay/features/download/domain/download_layout.dart';
 import 'package:soplay/features/download/domain/entities/download_failure.dart';
@@ -24,6 +28,7 @@ import 'package:soplay/features/download/domain/entities/download_location.dart'
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/entities/download_status.dart';
 import 'package:soplay/features/download/domain/entities/storage_usage.dart';
+import 'package:soplay/features/download/domain/offline_relink.dart';
 import 'package:soplay/features/download/domain/repositories/download_repository.dart';
 import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
 import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
@@ -54,11 +59,16 @@ class DownloadRepositoryImpl implements DownloadRepository {
     required DownloadNativeDataSource native,
     required DownloadTransferDataSource transfer,
     required HiveService hive,
+    SubtitleSidecar? subtitles,
   }) : _local = local,
        _storage = storage,
        _native = native,
        _transfer = transfer,
-       _hive = hive;
+       _hive = hive,
+       _subtitles = subtitles;
+
+  /// The subtitle files kept with a video download, removed with it.
+  final SubtitleSidecar? _subtitles;
 
   final DownloadLocalDataSource _local;
   final DownloadStorage _storage;
@@ -139,6 +149,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
     _connectivity?.cancel();
     _hive.downloadWifiOnlyChanged.removeListener(_pump);
     _nativePoll?.cancel();
+    _cooldownTimer?.cancel();
     _transfer.dispose();
   }
 
@@ -182,9 +193,11 @@ class DownloadRepositoryImpl implements DownloadRepository {
         (existing.status.isActive ||
             existing.status == DownloadStatus.completed) &&
         !_isStale(existing)) {
+      _keepSubtitles(request);
       return EnqueueOutcome.alreadyPresent;
     }
     if (_running.contains(request.id) || _queue.contains(request.id)) {
+      _keepSubtitles(request);
       return EnqueueOutcome.alreadyPresent;
     }
 
@@ -234,6 +247,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
     await _local.put(item);
     _queue.add(item.id);
     _pump();
+    _keepSubtitles(request);
     return EnqueueOutcome.started;
   }
 
@@ -330,6 +344,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
     }
     await _storage.deleteItem(id);
     await _local.delete(id);
+    await _subtitles?.delete(id);
   }
 
   @override
@@ -343,6 +358,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
         await _native.forget(id);
       }
       await _storage.deleteItem(id);
+      await _subtitles?.delete(id);
     }
     await _local.deleteAll(list);
   }
@@ -406,6 +422,25 @@ class DownloadRepositoryImpl implements DownloadRepository {
   }
 
   void _pumpNow() {
+    // A gap between one file and the next, when one has been asked for.
+    //
+    // Some hosts count requests rather than bytes and hand a temporary block
+    // to a client that opens six connections back to back — which looks, from
+    // inside the app, like the source suddenly breaking. Zero is the default
+    // and skips this entirely: the queue starts the next item the instant a
+    // slot frees, which is what everybody who is not being rate-limited wants.
+    final cooldown = _hive.downloadCooldownSeconds;
+    if (cooldown > 0 && _cooldownUntil != null) {
+      final left = _cooldownUntil!.difference(DateTime.now());
+      if (!left.isNegative) {
+        // Rescheduled rather than dropped: this is the only thing that will
+        // restart the queue, since nothing else is going to fire.
+        _cooldownTimer?.cancel();
+        _cooldownTimer = Timer(left, _pump);
+        return;
+      }
+      _cooldownUntil = null;
+    }
     while (_running.length < maxConcurrent && _queue.isNotEmpty) {
       final id = _queue.removeAt(0);
       final item = _local.get(id);
@@ -414,6 +449,12 @@ class DownloadRepositoryImpl implements DownloadRepository {
       unawaited(
         _start(item).whenComplete(() {
           _running.remove(id);
+          // Measured from the finish, not the start: the point is the gap
+          // between requests, and a long file has already provided one.
+          final wait = _hive.downloadCooldownSeconds;
+          if (wait > 0 && _queue.isNotEmpty) {
+            _cooldownUntil = DateTime.now().add(Duration(seconds: wait));
+          }
           // Draining from here rather than from a timer means the next item
           // starts the instant a slot frees.
           _pump();
@@ -421,6 +462,10 @@ class DownloadRepositoryImpl implements DownloadRepository {
       );
     }
   }
+
+  /// When the queue may start another file. Null when nothing is waiting.
+  DateTime? _cooldownUntil;
+  Timer? _cooldownTimer;
 
   Future<bool> _networkAllows() async {
     if (!_hive.downloadWifiOnly) return true;
@@ -447,7 +492,15 @@ class DownloadRepositoryImpl implements DownloadRepository {
     current = await _cacheThumbnail(current);
     await _local.put(current, notify: true);
 
-    if (_useNative) {
+    // A novel chapter stays in-process even on Android.
+    //
+    // The native downloader takes a url or a list of page urls and knows
+    // nothing about prose — a chapter would reach it with an empty page list
+    // and fail. Teaching it the shape would be a foreground service, a progress
+    // notification and a second HTML rewriter, for a document and a handful of
+    // pictures that finish in about as long as the notification takes to
+    // appear. The in-process transfer already does exactly this.
+    if (_useNative && !current.isProse) {
       await _startNative(current);
       return;
     }
@@ -502,6 +555,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
         sourceUrl: item.sourceUrl,
         headers: item.headers,
         pageUrls: item.pageUrls,
+        chapterHtml: item.chapterHtml,
         imageHeaders: item.imageHeaders,
         cancel: cancel,
         onProgress: (p) {
@@ -570,16 +624,37 @@ class DownloadRepositoryImpl implements DownloadRepository {
       return;
     }
 
-    await _local.put(
-      _stamp(
-        verified.copyWith(
-          status: DownloadStatus.completed,
-          failure: null,
-          failureDetail: '',
-        ),
+    final done = _stamp(
+      verified.copyWith(
+        status: DownloadStatus.completed,
+        failure: null,
+        failureDetail: '',
       ),
     );
+    await _local.put(done);
+    await _writeSidecar(done);
   }
+
+  /// Fetches the request's subtitle tracks into the download's folder, in the
+  /// background: they are small, and the video does not wait for them.
+  /// Tracks that live only in memory (generated ones) cannot be kept.
+  void _keepSubtitles(DownloadRequest request) {
+    final sidecar = _subtitles;
+    if (sidecar == null || request.subtitles.isEmpty) return;
+    final tracks = [
+      for (final s in request.subtitles)
+        if (!s.file.startsWith('ai:')) s,
+    ];
+    if (tracks.isEmpty) return;
+    final wanted = request.activeSubtitle;
+    final active = wanted >= 0 && wanted < request.subtitles.length
+        ? tracks.indexOf(request.subtitles[wanted])
+        : -1;
+    unawaited(sidecar.save(request.id, tracks, active: active));
+  }
+
+  Future<void> _writeSidecar(DownloadItem item) =>
+      _storage.writeSidecar(item.id, DownloadItemModel.toSidecar(item));
 
   Future<void> _fail(
     DownloadItem item,
@@ -697,7 +772,14 @@ class DownloadRepositoryImpl implements DownloadRepository {
 
       if (_differs(item, next)) updates.add(_stamp(next));
     }
-    if (updates.isNotEmpty) await _local.putAll(updates);
+    if (updates.isNotEmpty) {
+      await _local.putAll(updates);
+      for (final item in updates) {
+        if (item.status == DownloadStatus.completed) {
+          await _writeSidecar(item);
+        }
+      }
+    }
   }
 
   bool _differs(DownloadItem a, DownloadItem b) =>
@@ -826,6 +908,50 @@ class DownloadRepositoryImpl implements DownloadRepository {
       debugPrint('[downloads] manifest unreadable for ${item.id}: $e');
       return true;
     }
+  }
+
+  // --- relink --------------------------------------------------------------
+
+  @override
+  Future<int> relink(List<RelinkMove> moves) async {
+    if (!_storage.isReady) {
+      await _storage.initialize(preferredBase: _hive.getDownloadLocation());
+    }
+    var moved = 0;
+    for (final move in moves) {
+      final from = _local.get(move.from.id);
+      if (from == null || _local.get(move.to.id) != null) continue;
+      if (_running.contains(from.id) ||
+          _queue.contains(from.id) ||
+          from.status.isActive) {
+        continue;
+      }
+      // Row first, folder second, old row last: a crash in between leaves a
+      // duplicate the verifier marks missing, never a folder no row claims.
+      final to = _stamp(
+        move.to.copyWith(
+          status: from.status,
+          sizeBytes: from.sizeBytes,
+          relativePath: DownloadLayout.rekeyed(
+            from.relativePath,
+            from.id,
+            move.to.id,
+          ),
+        ),
+      );
+      await _local.put(to, notify: false);
+      final hadFolder = await Directory(_storage.dirOf(from.id)).exists();
+      if (hadFolder && !await _storage.rekey(from.id, to.id)) {
+        await _local.delete(to.id);
+        continue;
+      }
+      await _local.delete(from.id);
+      if (_useNative) unawaited(_native.forget(from.id));
+      if (to.status == DownloadStatus.completed) await _writeSidecar(to);
+      moved++;
+    }
+    _local.touch();
+    return moved;
   }
 
   // --- storage -------------------------------------------------------------
@@ -963,15 +1089,111 @@ class DownloadRepositoryImpl implements DownloadRepository {
   }
 
   @override
-  Future<String?> exportToPublicDownloads(String id) async {
+  Future<String?> exportToPublicDownloads(
+    String id, {
+    void Function(int done, int total)? onProgress,
+  }) async {
     final item = _local.get(id);
     if (item == null || item.status != DownloadStatus.completed) return null;
-    // A chapter is a folder of pages; copying it out would need a zip, which
-    // is a different feature with a different question behind it.
+    // A downloaded novel lived in the app and nowhere else — no way to put it
+    // on an e-reader, send it to anyone, or keep it once the app is gone. A
+    // chapter of prose, unlike an episode of video, is exactly the sort of
+    // thing people expect to be able to take with them.
+    if (item.isProse) return _exportEpub(item, onProgress: onProgress);
+    // A comic chapter is still a folder of pictures, and what to do with that
+    // is a different question with a different answer.
     if (item.artefactIsDirectory) return null;
     final path = absolutePathOf(item);
     if (path == null) return null;
     return _native.exportToDownloads(path: path, name: _exportName(item, path));
+  }
+
+  /// Every downloaded chapter of [item]'s title, as one book.
+  ///
+  /// The whole title rather than the one row that was tapped: an EPUB of a
+  /// single chapter is a strange object, and somebody who downloaded thirty
+  /// chapters and asked to export wants the thirty. They are ordered by chapter
+  /// number, which is the only ordering that survives a source re-keying its
+  /// list — see [ChapterReadStore] for the same reasoning.
+  Future<String?> _exportEpub(
+    DownloadItem item, {
+    void Function(int done, int total)? onProgress,
+  }) async {
+    final siblings =
+        _local
+            .all()
+            .where(
+              (d) =>
+                  d.isProse &&
+                  d.status == DownloadStatus.completed &&
+                  d.contentUrl == item.contentUrl &&
+                  d.provider == item.provider,
+            )
+            .toList()
+          ..sort(
+            (a, b) => (a.episodeNumber ?? 0).compareTo(b.episodeNumber ?? 0),
+          );
+    if (siblings.isEmpty) return null;
+
+    final chapters = <EpubChapter>[];
+    onProgress?.call(0, siblings.length);
+    for (final (i, chapter) in siblings.indexed) {
+      onProgress?.call(i, siblings.length);
+      final dir = Directory(_storage.dirOf(chapter.id));
+      final file = File('${dir.path}/${DownloadLayout.chapterHtmlName}');
+      if (!await file.exists()) continue;
+      final images = <String, Uint8List>{};
+      if (await dir.exists()) {
+        await for (final entity in dir.list(followLinks: false)) {
+          if (entity is! File) continue;
+          final name = entity.uri.pathSegments.last;
+          if (!name.startsWith('p_')) continue;
+          images[name] = await entity.readAsBytes();
+        }
+      }
+      chapters.add(
+        EpubChapter(
+          title:
+              chapter.episodeLabel ??
+              'Chapter ${chapter.episodeNumber ?? chapters.length + 1}',
+          // Straight off disk: the `src` attributes already name the files
+          // beside it, which is exactly what they have to be inside the book.
+          html: await file.readAsString(),
+          images: images,
+        ),
+      );
+    }
+    if (chapters.isEmpty) return null;
+    onProgress?.call(siblings.length, siblings.length);
+
+    // Off the UI isolate: zipping a few hundred chapters with their images
+    // froze the app for the seconds it took.
+    final title = item.title;
+    final identifier = 'sozo:${item.provider}:${item.contentUrl}';
+    final bytes = await Isolate.run(
+      () => EpubBuilder.build(
+        title: title,
+        chapters: chapters,
+        identifier: identifier,
+      ),
+    );
+    // Written into the app's own space first. The exporter copies a path out;
+    // it has no way to be handed bytes, and inventing one for this would mean a
+    // second platform channel doing what this one already does.
+    final staged = File(
+      '${(await _storage.ensureDir(item.id)).path}/export.epub',
+    );
+    await staged.writeAsBytes(bytes, flush: true);
+    try {
+      return await _native.exportToDownloads(
+        path: staged.path,
+        name: '${item.title}.epub',
+      );
+    } finally {
+      try {
+        await staged.delete();
+      } catch (_) {}
+    }
   }
 
   /// `<title>.<ext>`, with the extension taken from what was actually written
@@ -984,6 +1206,33 @@ class DownloadRepositoryImpl implements DownloadRepository {
     final episode = item.episodeNumber;
     final base = episode == null ? item.title : '${item.title} - E$episode';
     return '$base.$ext';
+  }
+
+  @override
+  Future<String?> localChapterHtml(String id) async {
+    final item = _local.get(id);
+    if (item == null ||
+        !item.isManga ||
+        item.status != DownloadStatus.completed) {
+      return null;
+    }
+    final file = File(
+      '${_storage.dirOf(id)}/${DownloadLayout.chapterHtmlName}',
+    );
+    if (!await file.exists()) return null;
+    try {
+      final html = await file.readAsString();
+      // The `src` attributes were rewritten to bare file names beside the
+      // document; the reader is handed a string, not a directory, so they are
+      // made absolute here — the one place that knows where the folder is.
+      return DownloadTransferDataSource.rewriteImageSources(html, {
+        for (final entity in Directory(_storage.dirOf(id)).listSync())
+          if (entity is File) entity.uri.pathSegments.last: entity.path,
+      });
+    } catch (e) {
+      debugPrint('[downloads] could not read chapter html for $id: $e');
+      return null;
+    }
   }
 
   @override
@@ -1018,7 +1267,9 @@ class DownloadRepositoryImpl implements DownloadRepository {
   /// urls come from the provider and expire, so they are fetched at the last
   /// possible moment rather than at queue time.
   Future<DownloadItem> _resolveMangaPages(DownloadItem item) async {
-    if (!item.isManga || item.pageUrls.isNotEmpty) return item;
+    if (!item.isManga) return item;
+    if (item.pageUrls.isNotEmpty) return item;
+    if ((item.chapterHtml ?? '').isNotEmpty) return item;
     final ref = item.chapterRef;
     if (ref == null || ref.isEmpty) return item;
     try {
@@ -1027,6 +1278,18 @@ class DownloadRepositoryImpl implements DownloadRepository {
         provider: item.provider,
       );
       if (result is Success<MangaPagesEntity>) {
+        // A novel chapter is one document rather than a list of images. It used
+        // to arrive here as zero pages, and the transfer failed the whole
+        // download with "the chapter has no pages" — so a novel could not be
+        // saved for offline at all, on a shelf the app has a reader for.
+        if (result.value.isText) {
+          return item.copyWith(
+            chapterHtml: result.value.html,
+            headers: result.value.headers.isEmpty
+                ? item.headers
+                : result.value.headers,
+          );
+        }
         return item.copyWith(
           pageUrls: result.value.pages.map((p) => p.imageUrl).toList(),
           imageHeaders: result.value.pages

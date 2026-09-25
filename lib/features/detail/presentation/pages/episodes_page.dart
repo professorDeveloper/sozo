@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -12,25 +13,23 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/domain/episode_blocks.dart';
 import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/player/source_ladder.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/detail/data/title_prefs_store.dart';
 import 'package:soplay/core/tv/tv.dart';
-import 'package:soplay/features/detail/domain/download_choices.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
+import 'package:soplay/features/manga/data/chapter_read_store.dart';
 import 'package:soplay/features/detail/domain/entities/episodes_args.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/core/extensions/provider_media_kind.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
-import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
+import 'package:soplay/features/download/presentation/widgets/offline_copy_banner.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
-import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
-import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
-import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/entities/download_status.dart';
 import 'package:soplay/features/download/domain/repositories/download_repository.dart';
+import 'package:soplay/features/download/domain/usecases/download_request_builder.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
 import 'package:soplay/features/download/presentation/download_messages.dart';
@@ -65,6 +64,14 @@ class _EpisodesPageState extends State<EpisodesPage> {
   final HistoryService _historyService = getIt<HistoryService>();
   final GetDownloadsUseCase _downloads = getIt<GetDownloadsUseCase>();
   final EnqueueDownloadUseCase _enqueue = getIt<EnqueueDownloadUseCase>();
+  final DownloadRequestBuilder _requests = getIt<DownloadRequestBuilder>();
+
+  DownloadTitle get _downloadTitle => DownloadTitle(
+    contentUrl: widget.args.contentUrl,
+    provider: widget.args.provider,
+    title: widget.args.title,
+    thumbnail: widget.args.thumbnail,
+  );
   late final GetEpisodesUseCase _getEpisodes;
 
   /// Reading source (manga / manhwa / novel) rather than a video source.
@@ -102,6 +109,15 @@ class _EpisodesPageState extends State<EpisodesPage> {
   /// run of episodes and queueing them in one go is the whole point of having a
   /// download queue at all.
   final Set<int> _selected = <int>{};
+
+  /// Which chapter numbers this title already has marked read.
+  ///
+  /// Held in the page rather than read per row: the store answers from Hive,
+  /// and a list that pages to a thousand rows would hit the box once per row
+  /// per frame. Refreshed when the page regains focus, because the reader is
+  /// where most of these get set.
+  final ChapterReadStore _readStore = ChapterReadStore();
+  Set<int> _read = <int>{};
 
   /// True while a batch is being resolved and queued. Each episode needs its
   /// own resolve call, which is a network round trip per item, so the UI has to
@@ -153,6 +169,40 @@ class _EpisodesPageState extends State<EpisodesPage> {
   /// fill it. Both change only when the window or the query changes, and while
   /// something is downloading the rows rebuild twice a second.
   List<int>? _visibleCache;
+
+  /// The translation group the list is narrowed to, or null for all of them.
+  /// Remembered per title: a source listing each chapter once per group is
+  /// read through one group, chapter after chapter.
+  String? _group;
+  final TitlePrefsStore _titlePrefs = TitlePrefsStore();
+
+  /// The groups among the loaded chapters, most chapters first.
+  List<(String, int)> get _groups {
+    final counts = <String, int>{};
+    for (final e in _episodes) {
+      final g = e.scanlator;
+      if (g != null && g.isNotEmpty) counts[g] = (counts[g] ?? 0) + 1;
+    }
+    return counts.entries.map((e) => (e.key, e.value)).toList()
+      ..sort((a, b) => b.$2.compareTo(a.$2));
+  }
+
+  void _setGroup(String? group) {
+    setState(() {
+      _group = group;
+      _invalidateDerived();
+    });
+    if (widget.args.contentUrl.isNotEmpty) {
+      unawaited(
+        _titlePrefs.rememberScanlator(
+          widget.args.provider,
+          widget.args.contentUrl,
+          group,
+        ),
+      );
+    }
+  }
+
   List<EpisodeBlock>? _blocksCache;
 
   /// Which block the reader is looking at, as opposed to where the window
@@ -176,15 +226,44 @@ class _EpisodesPageState extends State<EpisodesPage> {
     _total = widget.args.total > 0 ? widget.args.total : _episodes.length;
     _size = widget.args.size;
     _showImages = _hasAnyImage(_episodes);
+    if (_isManga && widget.args.contentUrl.isNotEmpty) {
+      _group = _titlePrefs.scanlatorFor(
+        widget.args.provider,
+        widget.args.contentUrl,
+      );
+    }
     _scroll.addListener(_onScroll);
     _historyService.revision.addListener(_refreshHistory);
     _refreshHistory();
+    _refreshRead();
     _maybeAutoFill();
     if (widget.args.resumeFromHistory) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_resumeFromHistory());
       });
+    } else if (widget.args.focusEpisode != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_focusOn(widget.args.focusEpisode!));
+      });
     }
+  }
+
+  /// Opened for a new release: puts that episode in view and marks it, from
+  /// whichever block holds it.
+  Future<void> _focusOn(int number) async {
+    final index = _episodes.indexWhere((e) => e.episode == number);
+    if (index >= 0) {
+      _flashRow(index, hold: const Duration(milliseconds: 3200));
+      return;
+    }
+    final block = blockContaining(
+      number,
+      total: _total,
+      size: _size,
+      descending: _sort == 'desc',
+      firstNumber: _firstNumber,
+    );
+    if (block != null) await _jumpToEpisode(number, block);
   }
 
   /// Plays the episode history points at — what Continue Watching asked for.
@@ -237,6 +316,61 @@ class _EpisodesPageState extends State<EpisodesPage> {
     final item = _historyService.get(widget.args.contentUrl);
     if (!mounted) return;
     setState(() => _historyItem = item);
+    // The reader is where most marks get set, and it saves a history position
+    // on the way out — so the one signal already being listened to is also the
+    // moment this list is stale.
+    _refreshRead();
+  }
+
+  void _refreshRead() {
+    if (!_isManga) return;
+    final read = _readStore.read(widget.args.provider, widget.args.contentUrl);
+    if (!mounted || setEquals(read, _read)) return;
+    setState(() => _read = read);
+  }
+
+  /// Whether every selected row is already read, which is what turns the one
+  /// action into "mark unread".
+  ///
+  /// One button rather than two. Two would both be live on a mixed selection
+  /// and neither would say which one the selection needed; one that flips reads
+  /// the selection and names the only useful move.
+  bool get _selectionAllRead =>
+      _selected.isNotEmpty &&
+      _selected.every((i) => _read.contains(_episodes[i].episode));
+
+  Future<void> _toggleReadSelected() async {
+    if (_selected.isEmpty) return;
+    final numbers = [for (final i in _selected) _episodes[i].episode];
+    final unread = !_selectionAllRead;
+    if (unread) {
+      await _readStore.mark(
+        widget.args.provider,
+        widget.args.contentUrl,
+        numbers,
+      );
+    } else {
+      await _readStore.unmark(
+        widget.args.provider,
+        widget.args.contentUrl,
+        numbers,
+      );
+    }
+    if (!mounted) return;
+    setState(() {
+      _read = _readStore.read(widget.args.provider, widget.args.contentUrl);
+      _selected.clear();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          (unread ? 'manga.marked_read_n' : 'manga.marked_unread_n').tr(
+            args: ['${numbers.length}'],
+          ),
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   static bool _hasAnyImage(List<EpisodeEntity> list) {
@@ -321,6 +455,15 @@ class _EpisodesPageState extends State<EpisodesPage> {
   Future<void> _toggleSort() async {
     if (_resorting || widget.args.contentUrl.isEmpty) return;
     final next = _sort == 'asc' ? 'desc' : 'asc';
+    if (widget.args.offline) {
+      setState(() {
+        _sort = next;
+        _episodes = _episodes.reversed.toList();
+        _selected.clear();
+        _invalidateDerived();
+      });
+      return;
+    }
     setState(() {
       _resorting = true;
       _error = null;
@@ -397,14 +540,24 @@ class _EpisodesPageState extends State<EpisodesPage> {
   List<int> get _visibleIndices => _visibleCache ??= _computeVisible();
 
   List<int> _computeVisible() {
+    // A remembered group that is not among these chapters narrows nothing:
+    // the list must never come up empty because of a filter nobody can see.
+    final group = _group != null && _groups.any((g) => g.$1 == _group)
+        ? _group
+        : null;
+    bool inGroup(int i) => group == null || _episodes[i].scanlator == group;
     if (_query.isEmpty) {
-      return [for (var i = 0; i < _episodes.length; i++) i];
+      return [
+        for (var i = 0; i < _episodes.length; i++)
+          if (inGroup(i)) i,
+      ];
     }
     final q = _query.toLowerCase();
     return [
       for (var i = 0; i < _episodes.length; i++)
-        if ('${_episodes[i].episode}'.contains(q) ||
-            _episodes[i].label.toLowerCase().contains(q))
+        if (inGroup(i) &&
+            ('${_episodes[i].episode}'.contains(q) ||
+                _episodes[i].label.toLowerCase().contains(q)))
           i,
     ];
   }
@@ -564,10 +717,13 @@ class _EpisodesPageState extends State<EpisodesPage> {
   }
 
   /// Tints the row a jump landed on, long enough to find it and no longer.
-  void _flashRow(int index) {
+  void _flashRow(
+    int index, {
+    Duration hold = const Duration(milliseconds: 1600),
+  }) {
     _flashTimer?.cancel();
     setState(() => _flashIndex = index);
-    _flashTimer = Timer(const Duration(milliseconds: 1600), () {
+    _flashTimer = Timer(hold, () {
       if (mounted) setState(() => _flashIndex = null);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _revealRow(index));
@@ -657,6 +813,10 @@ class _EpisodesPageState extends State<EpisodesPage> {
   }
 
   Future<void> _playFrom(int index) async {
+    if (widget.args.offline) {
+      await _playOffline(index);
+      return;
+    }
     final isHistoryEntry =
         _isHistoryEpisode(index) && _historyItem!.positionMs > 0;
 
@@ -705,6 +865,60 @@ class _EpisodesPageState extends State<EpisodesPage> {
     );
   }
 
+  bool _isDownloaded(int index) =>
+      _downloads.byId(_downloadIdFor(index))?.status ==
+      DownloadStatus.completed;
+
+  /// With no source to ask, the player and the reader are handed only what is
+  /// on disk, so next and previous step between downloads instead of failing
+  /// on the first episode that was never saved.
+  Future<void> _playOffline(int index) async {
+    final available = [
+      for (var i = 0; i < _episodes.length; i++)
+        if (_isDownloaded(i)) i,
+    ];
+    final at = available.indexOf(index);
+    if (at < 0) {
+      _toast('downloads.offline_not_downloaded'.tr());
+      return;
+    }
+    final list = [for (final i in available) _episodes[i]];
+    final isHistoryEntry =
+        _isHistoryEpisode(index) && _historyItem!.positionMs > 0;
+    final resumeMs = isHistoryEntry ? _historyItem!.positionMs : 0;
+
+    if (_isManga) {
+      context.push(
+        '/reader',
+        extra: ReaderArgs(
+          title: widget.args.title,
+          provider: widget.args.provider,
+          contentUrl: widget.args.contentUrl,
+          thumbnail: widget.args.thumbnail,
+          chapters: list,
+          initialChapterIndex: at,
+          resumePage: resumeMs,
+        ),
+      );
+      return;
+    }
+    if (!await confirmPlayerEngine(context) || !mounted) return;
+    context.push(
+      '/player',
+      extra: PlayerArgs(
+        title: widget.args.title,
+        provider: widget.args.provider,
+        headers: const {},
+        contentUrl: widget.args.contentUrl,
+        thumbnail: widget.args.thumbnail,
+        episodes: list,
+        initialEpisodeIndex: at,
+        resumePosition: Duration(milliseconds: resumeMs),
+        showDownloadAction: false,
+      ),
+    );
+  }
+
   /// The download id for [index], whichever kind of source this is.
   String _downloadIdFor(int index) {
     final item = _episodes[index];
@@ -737,34 +951,27 @@ class _EpisodesPageState extends State<EpisodesPage> {
     // download from a row that says "downloaded" for a file that has gone.
     // Checking first meant a stale row blocked the re-download that would have
     // repaired it.
-    final result = await getIt<ResolveMediaUseCase>()(
-      ref: ep.mediaRef,
+    final resolved = await _requests.resolveVideo(
+      ep,
       provider: widget.args.provider,
     );
     if (!mounted) return false;
 
-    if (result is! Success<MediaResolveEntity> ||
-        result.value.videoUrl.isEmpty) {
-      if (!quiet) _toast('detail.download_resolve_failed'.tr());
-      return false;
-    }
-
-    final media = result.value;
-    // A directive means `videoUrl` is the embed PAGE — the stream only exists
-    // after a WebView sniff, which the downloader does not do. Saving it would
-    // produce an HTML file under a video's name that fails on first open.
-    // Playing the episode once runs the sniff, and the player can then
-    // download the resolved stream.
-    if (!DownloadChoices.isDownloadableUrl(
-      url: media.videoUrl,
-      type: media.type,
-      hasDirective: media.extractor != null,
-    )) {
-      if (!quiet) _toast('detail.download_needs_playback'.tr());
+    final media = resolved.media;
+    if (media == null) {
+      // needsPlayback: playing the episode once runs the WebView sniff, and
+      // the player can then download the resolved stream.
+      if (!quiet) {
+        _toast(
+          resolved.failure == DownloadBuildFailure.needsPlayback
+              ? 'detail.download_needs_playback'.tr()
+              : 'detail.download_resolve_failed'.tr(),
+        );
+      }
       return false;
     }
     final selection = quiet
-        ? _quietSelection(media)
+        ? DownloadRequestBuilder.quietPick(media)
         : await chooseDownload(
             context,
             url: media.videoUrl,
@@ -774,17 +981,11 @@ class _EpisodesPageState extends State<EpisodesPage> {
           );
     if (!mounted || selection == null) return false;
     final outcome = await _enqueue(
-      DownloadRequest.video(
-        contentUrl: widget.args.contentUrl,
-        provider: widget.args.provider,
-        title: widget.args.title,
-        sourceUrl: selection.url,
-        videoHeight: selection.height,
-        thumbnailUrl: widget.args.thumbnail,
-        headers: selection.headers,
-        isSerial: true,
-        episodeNumber: ep.episode,
-        episodeLabel: ep.label,
+      DownloadRequestBuilder.videoRequest(
+        _downloadTitle,
+        ep,
+        selection,
+        subtitles: media.subtitles,
       ),
     );
 
@@ -936,27 +1137,6 @@ class _EpisodesPageState extends State<EpisodesPage> {
     return _sort == 'desc' && _total > 0 ? _total - 1 - absolute : absolute;
   }
 
-  /// The mirror a batch downloads when nobody is asked.
-  ///
-  /// `media.videoUrl` is whatever the provider listed first — on a source that
-  /// marks no default, often its lowest quality — while the sheet a single
-  /// download opens, and the player, both pick through [SourceLadder].
-  DownloadSelection _quietSelection(MediaResolveEntity media) {
-    final sources = media.videoSources;
-    final pick = sources.isEmpty
-        ? null
-        : SourceLadder(sources: sources, hasDirective: false).initialPick();
-    if (pick == null) {
-      return DownloadSelection(url: media.videoUrl, headers: media.headers);
-    }
-    final source = sources[pick];
-    return DownloadSelection(
-      url: source.videoUrl,
-      headers: source.headers.isNotEmpty ? source.headers : media.headers,
-      height: source.height,
-    );
-  }
-
   /// [_downloadChapter] with its own error reporting suppressed, for batches.
   Future<bool> _downloadChapterQuietly(int index) async {
     final before = _downloads.byId(_downloadIdFor(index));
@@ -973,39 +1153,20 @@ class _EpisodesPageState extends State<EpisodesPage> {
   }
 
   Future<void> _downloadChapter(int index) async {
-    final ch = _episodes[index];
-
-    // Pages are resolved here rather than left to the queue because this is
-    // where a failure can be reported: a chapter whose pages cannot be listed
-    // is not a download that should sit in the list saying "pending".
-    final result = await getIt<GetPagesUseCase>()(
-      ref: ch.mediaRef,
-      provider: widget.args.provider,
+    final built = await _requests.chapter(
+      _downloadTitle,
+      _episodes[index],
+      chapterIndex: _runPositionOf(index),
     );
     if (!mounted) return;
-    if (result is! Success<MangaPagesEntity>) {
+    final request = built.request;
+    if (request == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('detail.failed_resolve_pages'.tr())),
       );
       return;
     }
-
-    final pages = result.value;
-    await _enqueue(
-      DownloadRequest.mangaChapter(
-        contentUrl: widget.args.contentUrl,
-        provider: widget.args.provider,
-        title: widget.args.title,
-        thumbnailUrl: widget.args.thumbnail,
-        headers: pages.headers,
-        pageUrls: pages.pages.map((p) => p.imageUrl).toList(),
-        imageHeaders: pages.pages.map((p) => <String, String>{...p.headers, if (p.cookie != null) 'Cookie': p.cookie!}).toList(),
-        chapterRef: ch.mediaRef,
-        chapterIndex: _runPositionOf(index),
-        episodeNumber: ch.episode,
-        episodeLabel: ch.label,
-      ),
-    );
+    await _enqueue(request);
   }
 
   @override
@@ -1067,6 +1228,13 @@ class _EpisodesPageState extends State<EpisodesPage> {
                             ),
                           ),
                         ),
+                        if (widget.args.offline)
+                          SliverToBoxAdapter(
+                            child: OfflineCopyBanner(
+                              message: 'episodes.offline_desc'.tr(),
+                              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            ),
+                          ),
                         // Jump blocks, then the number filter. Both only appear
                         // once the run is long enough to need them — on a
                         // twelve-episode season they would be chrome over a list
@@ -1078,6 +1246,16 @@ class _EpisodesPageState extends State<EpisodesPage> {
                               activePage: _activePage,
                               busy: _jumping,
                               onPick: _jumpToBlock,
+                            ),
+                          ),
+                        // Translation groups, when the source lists more than
+                        // one — the same chapter three times over otherwise.
+                        if (_isManga && _groups.length > 1)
+                          SliverToBoxAdapter(
+                            child: _GroupStrip(
+                              groups: _groups,
+                              selected: _group,
+                              onPick: _setGroup,
                             ),
                           ),
                         if (_episodes.length > 12)
@@ -1138,7 +1316,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
                           itemBuilder: (_, position) {
                             final i = visible[position];
                             final isCurrent = _isHistoryEpisode(i);
-                            return _EpisodeRow(
+                            final row = _EpisodeRow(
                               key: i == _flashIndex ? _flashRowKey : null,
                               episode: _episodes[i],
                               showImage: _showImages,
@@ -1165,7 +1343,14 @@ class _EpisodesPageState extends State<EpisodesPage> {
                                   : () => _downloadEpisode(i),
                               downloadId: _downloadIdFor(i),
                               downloads: _downloads,
+                              read:
+                                  _isManga &&
+                                  _read.contains(_episodes[i].episode),
                             );
+                            if (!widget.args.offline || _isDownloaded(i)) {
+                              return row;
+                            }
+                            return Opacity(opacity: 0.45, child: row);
                           },
                         ),
                         if (_loadingMore)
@@ -1231,6 +1416,11 @@ class _EpisodesPageState extends State<EpisodesPage> {
                     count: _selected.length,
                     busy: _queueing,
                     onDownload: _downloadSelected,
+                    // Reading only. An episode has watch history with a
+                    // position in it; a chapter has neither, which is exactly
+                    // why it needs somewhere to be told.
+                    onToggleRead: _isManga ? _toggleReadSelected : null,
+                    selectionRead: _selectionAllRead,
                   ),
                 ),
             ],
@@ -1884,6 +2074,7 @@ class _EpisodeRow extends StatelessWidget {
     this.flash = false,
     this.progress,
     this.onDownload,
+    this.read = false,
   });
 
   final EpisodeEntity episode;
@@ -1918,6 +2109,15 @@ class _EpisodeRow extends StatelessWidget {
   final double? progress;
   final VoidCallback? onDownload;
 
+  /// Already read, so the row steps back.
+  ///
+  /// Dimmed rather than struck through or hidden: a list of four hundred
+  /// chapters is scanned, not read, and the thing being looked for is the
+  /// boundary between what is done and what is not. Dimming makes that boundary
+  /// a single visible edge; a tick on every finished row makes four hundred
+  /// ticks. The row stays fully tappable — re-reading is normal.
+  final bool read;
+
   @override
   Widget build(BuildContext context) {
     final hasSub = episode.hasSub == true;
@@ -1939,151 +2139,157 @@ class _EpisodeRow extends StatelessWidget {
           horizontal: 16,
           vertical: showImage ? 8 : 14,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                if (showImage) ...[
-                  _EpisodeThumb(
-                    image: episode.image,
-                    episode: episode.episode,
-                    headers: headers,
+        child: Opacity(
+          // The current chapter keeps its full weight even once it is read:
+          // "where I am" outranks "what I have done" on a list somebody has
+          // just opened to carry on.
+          opacity: read && progress == null ? 0.45 : 1,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  if (showImage) ...[
+                    _EpisodeThumb(
+                      image: episode.image,
+                      episode: episode.episode,
+                      headers: headers,
+                    ),
+                    const SizedBox(width: 12),
+                  ] else
+                    // A minimum, not a fixed width, and a size that steps down
+                    // past three digits.
+                    //
+                    // A hard 44pt box at 22pt w900 fits three characters. On the
+                    // shows this screen exists for — a thousand-episode run — the
+                    // fourth digit ran straight into the title beside it.
+                    // Tabular figures so the column of numbers stays a column
+                    // rather than jittering with the glyph widths.
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 44),
+                      child: Text(
+                        _episodeNumberLabel(episode.episode),
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: progress != null
+                              ? AppColors.primary
+                              : AppColors.textHint,
+                          fontSize: episode.episode >= 1000 ? 16 : 22,
+                          fontWeight: FontWeight.w900,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  if (!showImage) const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Absent, not empty, when the label said nothing the
+                        // number column has not: an empty Text still claims a
+                        // line box, so the row would keep the height of a title
+                        // it is not showing.
+                        if (label.isNotEmpty)
+                          Text(
+                            label,
+                            maxLines: showImage ? 2 : 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: showImage
+                                  ? AppColors.textPrimary
+                                  : AppColors.textSecondary,
+                              fontSize: showImage ? 13 : 14,
+                              fontWeight: showImage
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              height: 1.25,
+                            ),
+                          ),
+                        if (showImage && _meta(episode).isNotEmpty) ...[
+                          if (label.isNotEmpty) const SizedBox(height: 2),
+                          Text(
+                            _meta(episode),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textHint,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                ] else
-                  // A minimum, not a fixed width, and a size that steps down
-                  // past three digits.
-                  //
-                  // A hard 44pt box at 22pt w900 fits three characters. On the
-                  // shows this screen exists for — a thousand-episode run — the
-                  // fourth digit ran straight into the title beside it.
-                  // Tabular figures so the column of numbers stays a column
-                  // rather than jittering with the glyph widths.
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 44),
-                    child: Text(
-                      _episodeNumberLabel(episode.episode),
-                      maxLines: 1,
-                      style: TextStyle(
+                  if (hasSub) const _LangChip(label: 'SUB', primary: true),
+                  if (hasSub && hasDub) const SizedBox(width: 4),
+                  if (hasDub) const _LangChip(label: 'DUB', primary: false),
+                  if (hasSub || hasDub) const SizedBox(width: 10),
+                  if (selecting) ...[
+                    // What is already on disk is exactly the information needed
+                    // to choose, and selection used to hide it behind the
+                    // checkbox — so a batch happily re-queued ten episodes the
+                    // reader already had.
+                    _DownloadedTick(id: downloadId, downloads: downloads),
+                    Icon(
+                      selected
+                          ? Icons.check_circle_rounded
+                          : Icons.circle_outlined,
+                      size: 24,
+                      color: selected ? AppColors.primary : AppColors.textHint,
+                    ),
+                  ] else ...[
+                    if (onDownload != null) ...[
+                      _DownloadControl(
+                        id: downloadId,
+                        downloads: downloads,
+                        onDownload: onDownload!,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: progress != null
+                            ? AppColors.primary.withValues(alpha: 0.15)
+                            : AppColors.surfaceVariant,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isManga
+                            ? Icons.menu_book_outlined
+                            : Icons.play_arrow_rounded,
                         color: progress != null
                             ? AppColors.primary
-                            : AppColors.textHint,
-                        fontSize: episode.episode >= 1000 ? 16 : 22,
-                        fontWeight: FontWeight.w900,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                            : AppColors.textPrimary,
+                        size: 18,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (progress != null)
+                Padding(
+                  padding: EdgeInsetsDirectional.only(
+                    start: showImage ? 0 : 56,
+                    top: 6,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(1.5),
+                    child: LinearProgressIndicator(
+                      value: progress!,
+                      minHeight: 3,
+                      backgroundColor: AppColors.divider,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primary,
                       ),
                     ),
                   ),
-                if (!showImage) const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Absent, not empty, when the label said nothing the
-                      // number column has not: an empty Text still claims a
-                      // line box, so the row would keep the height of a title
-                      // it is not showing.
-                      if (label.isNotEmpty)
-                        Text(
-                          label,
-                          maxLines: showImage ? 2 : 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: showImage
-                                ? AppColors.textPrimary
-                                : AppColors.textSecondary,
-                            fontSize: showImage ? 13 : 14,
-                            fontWeight: showImage
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                            height: 1.25,
-                          ),
-                        ),
-                      if (showImage && _meta(episode).isNotEmpty) ...[
-                        if (label.isNotEmpty) const SizedBox(height: 2),
-                        Text(
-                          _meta(episode),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textHint,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
                 ),
-                if (hasSub) const _LangChip(label: 'SUB', primary: true),
-                if (hasSub && hasDub) const SizedBox(width: 4),
-                if (hasDub) const _LangChip(label: 'DUB', primary: false),
-                if (hasSub || hasDub) const SizedBox(width: 10),
-                if (selecting) ...[
-                  // What is already on disk is exactly the information needed
-                  // to choose, and selection used to hide it behind the
-                  // checkbox — so a batch happily re-queued ten episodes the
-                  // reader already had.
-                  _DownloadedTick(id: downloadId, downloads: downloads),
-                  Icon(
-                    selected
-                        ? Icons.check_circle_rounded
-                        : Icons.circle_outlined,
-                    size: 24,
-                    color: selected ? AppColors.primary : AppColors.textHint,
-                  ),
-                ] else ...[
-                  if (onDownload != null) ...[
-                    _DownloadControl(
-                      id: downloadId,
-                      downloads: downloads,
-                      onDownload: onDownload!,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: progress != null
-                          ? AppColors.primary.withValues(alpha: 0.15)
-                          : AppColors.surfaceVariant,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isManga
-                          ? Icons.menu_book_outlined
-                          : Icons.play_arrow_rounded,
-                      color: progress != null
-                          ? AppColors.primary
-                          : AppColors.textPrimary,
-                      size: 18,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            if (progress != null)
-              Padding(
-                padding: EdgeInsetsDirectional.only(
-                  start: showImage ? 0 : 56,
-                  top: 6,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(1.5),
-                  child: LinearProgressIndicator(
-                    value: progress!,
-                    minHeight: 3,
-                    backgroundColor: AppColors.divider,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -2109,11 +2315,21 @@ class _BatchDownloadBar extends StatelessWidget {
     required this.count,
     required this.busy,
     required this.onDownload,
+    this.onToggleRead,
+    this.selectionRead = false,
   });
 
   final int count;
   final bool busy;
   final VoidCallback onDownload;
+
+  /// Marks the selection read, or unread. Null for a video list, which has
+  /// watch history to say the same thing on its own.
+  final VoidCallback? onToggleRead;
+
+  /// Whether everything selected is already read, which is what names the
+  /// action. See [_EpisodesPageState._selectionAllRead].
+  final bool selectionRead;
 
   @override
   Widget build(BuildContext context) {
@@ -2128,26 +2344,63 @@ class _BatchDownloadBar extends StatelessWidget {
       child: SizedBox(
         height: 46,
         width: double.infinity,
-        child: FilledButton.icon(
-          // Disabled while queueing so a second tap cannot double-queue a set
-          // that is halfway through resolving.
-          onPressed: busy ? null : onDownload,
-          icon: busy
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+        child: Row(
+          children: [
+            // Second, and outlined. Downloading is what this bar was built for
+            // and what a long selection is usually for; marking read is the
+            // cheaper, more reversible act and takes the quieter half.
+            Expanded(
+              child: FilledButton.icon(
+                // Disabled while queueing so a second tap cannot double-queue a
+                // set that is halfway through resolving.
+                onPressed: busy ? null : onDownload,
+                icon: busy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.download_rounded, size: 19),
+                label: Text(
+                  busy
+                      ? 'detail.download_queueing'.tr()
+                      : 'detail.download_n'.tr(args: ['$count']),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            if (onToggleRead != null) ...[
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : onToggleRead,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textPrimary,
+                    side: BorderSide(color: AppColors.divider),
                   ),
-                )
-              : const Icon(Icons.download_rounded, size: 19),
-          label: Text(
-            busy
-                ? 'detail.download_queueing'.tr()
-                : 'detail.download_n'.tr(args: ['$count']),
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
+                  icon: Icon(
+                    selectionRead
+                        ? Icons.remove_done_rounded
+                        : Icons.done_all_rounded,
+                    size: 19,
+                  ),
+                  label: Text(
+                    selectionRead
+                        ? 'manga.mark_unread'.tr()
+                        : 'manga.mark_read'.tr(),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -2463,6 +2716,56 @@ class _EmptyState extends StatelessWidget {
               fontSize: 14,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One chip per translation group, with how many chapters it has here.
+class _GroupStrip extends StatelessWidget {
+  const _GroupStrip({
+    required this.groups,
+    required this.selected,
+    required this.onPick,
+  });
+
+  final List<(String, int)> groups;
+  final String? selected;
+  final ValueChanged<String?> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = groups.any((g) => g.$1 == selected) ? selected : null;
+    Widget chip(String label, bool on, VoidCallback tap) => Padding(
+      padding: const EdgeInsetsDirectional.only(end: 8),
+      child: ChoiceChip(
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        selected: on,
+        showCheckmark: false,
+        onSelected: (_) => tap(),
+        selectedColor: AppColors.primary.withValues(alpha: 0.22),
+        backgroundColor: AppColors.surface,
+        side: BorderSide(
+          color: on ? AppColors.primary : AppColors.border,
+          width: 0.8,
+        ),
+        labelStyle: TextStyle(
+          color: on ? AppColors.textPrimary : AppColors.textSecondary,
+          fontWeight: FontWeight.w700,
+          fontSize: 12.5,
+        ),
+      ),
+    );
+    return SizedBox(
+      height: 46,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+        children: [
+          chip('episodes.all_groups'.tr(), active == null, () => onPick(null)),
+          for (final (name, count) in groups)
+            chip('$name · $count', active == name, () => onPick(name)),
         ],
       ),
     );

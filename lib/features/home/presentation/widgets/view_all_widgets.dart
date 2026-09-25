@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/sources/domain/source_failure.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_state.dart';
@@ -87,11 +88,21 @@ class ViewAllGrid extends StatelessWidget {
     required this.state,
     required this.scroll,
     required this.appBarH,
+    this.provider,
   });
 
   final ViewAllLoaded state;
   final ScrollController scroll;
   final double appBarH;
+
+  /// The source these cards came from, when it is not the app's current one.
+  ///
+  /// `ViewAllMovieCard` has taken this since it was written, for exactly the
+  /// case that now exists: a grid showing somebody ELSE'S catalogue has to say
+  /// so, or `/detail` resolves the title against whichever source happens to be
+  /// selected — which has never heard of a TMDB url. Nothing passed it through
+  /// until there was a screen that needed to.
+  final String? provider;
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +136,7 @@ class ViewAllGrid extends StatelessWidget {
                 child: ViewAllMovieCard(
                   movie: state.items[index],
                   showYear: showYear,
+                  provider: provider,
                   // Position, not title: the same title can legitimately appear
                   // twice in a paged grid, and two heroes sharing one tag on
                   // screen is a hard assertion rather than a cosmetic bug.
@@ -165,7 +177,6 @@ class ViewAllGrid extends StatelessWidget {
   }
 }
 
-
 class ViewAllMovieCard extends StatelessWidget {
   const ViewAllMovieCard({
     super.key,
@@ -201,7 +212,8 @@ class ViewAllMovieCard extends StatelessWidget {
     // miss the cache this tile just filled and fly a blank frame.
     final decodeWidth = isDesktopPlatform
         ? null
-        : (MediaQuery.sizeOf(context).width / 3 *
+        : (MediaQuery.sizeOf(context).width /
+                  3 *
                   MediaQuery.devicePixelRatioOf(context))
               .round();
 
@@ -322,7 +334,6 @@ class ViewAllMovieCard extends StatelessWidget {
   }
 }
 
-
 class ViewAllSkeleton extends StatelessWidget {
   const ViewAllSkeleton({super.key, required this.appBarH});
 
@@ -386,10 +397,10 @@ class _SkeletonGridCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SkeletonLine(width: double.infinity),
+              SkeletonLine(width: double.infinity),
               SizedBox(height: 4),
               // Short, because a title that wraps rarely fills its second line.
-              _SkeletonLine(width: 46),
+              SkeletonLine(width: 46),
             ],
           ),
         ),
@@ -398,7 +409,7 @@ class _SkeletonGridCard extends StatelessWidget {
           lineHeight: 1.3,
           child: Align(
             alignment: AlignmentDirectional.centerStart,
-            child: _SkeletonLine(width: 24),
+            child: SkeletonLine(width: 24),
           ),
         ),
       ],
@@ -406,29 +417,24 @@ class _SkeletonGridCard extends StatelessWidget {
   }
 }
 
-
-/// One line of caption, at the weight a line of small text actually reads as.
-/// A 10px bar against an 11px line looked like a heading; 8 sits where the
-/// x-height of the real text does.
-class _SkeletonLine extends StatelessWidget {
-  const _SkeletonLine({required this.width});
-
-  final double width;
-
-  @override
-  Widget build(BuildContext context) =>
-      HomeSkeletonBox(width: width, height: 8, radius: 2);
-}
-
 class ViewAllErrorView extends StatelessWidget {
-  const ViewAllErrorView({super.key, required this.message, required this.onRetry});
+  const ViewAllErrorView({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
 
   final String message;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final reason = message.trim();
+    // Classified rather than printed. The raw line here is whatever threw —
+    // for a 404 that is three sentences of Dio explaining what
+    // `validateStatus` is, which went to the screen under a headline that said
+    // "check your connection". Neither was true and neither was readable.
+    final failure = SourceFailure.of(message);
+    final reason = failure.detail?.trim() ?? '';
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
@@ -441,19 +447,27 @@ class ViewAllErrorView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.surfaceVariant,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.06),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
               ),
-              child: const Icon(
-                Icons.wifi_off_rounded,
+              child: Icon(
+                switch (failure.kind) {
+                  SourceFailureKind.unreachable => Icons.wifi_off_rounded,
+                  SourceFailureKind.blocked => Icons.shield_outlined,
+                  SourceFailureKind.rateLimited =>
+                    Icons.hourglass_empty_rounded,
+                  SourceFailureKind.outdated => Icons.update_rounded,
+                  SourceFailureKind.incompatible ||
+                  SourceFailureKind.broken => Icons.extension_off_rounded,
+                  SourceFailureKind.gone ||
+                  SourceFailureKind.unknown => Icons.cloud_off_rounded,
+                },
                 color: AppColors.textSecondary,
                 size: 32,
               ),
             ),
             const SizedBox(height: 18),
             Text(
-              'errors.network'.tr(),
+              failure.headline,
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 16,
@@ -472,13 +486,14 @@ class ViewAllErrorView extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            // The reason was passed in and then dropped on the floor, so every
-            // failure looked like "you are offline". Matches HomeErrorView.
+            // The raw line is kept, because it is what makes a bug report
+            // worth reading — but two lines of it, under the sentence, rather
+            // than a paragraph of framework prose where the explanation goes.
             if (reason.isNotEmpty) ...[
               const SizedBox(height: 10),
               SelectableText(
                 reason,
-                maxLines: 4,
+                maxLines: 2,
                 style: const TextStyle(
                   color: AppColors.textHint,
                   fontSize: 11,

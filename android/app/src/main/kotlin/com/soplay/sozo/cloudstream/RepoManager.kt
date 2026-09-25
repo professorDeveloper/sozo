@@ -57,6 +57,10 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
      * lazily on first use. Falls back to a full load for repos saved before
      * metadata existed.
      */
+    // Synchronized: a source call that arrives first (a widget or notification
+    // tap, before the source list has loaded) now loads it too, and a second
+    // caller must wait for the registry rather than see `ensured` early.
+    @Synchronized
     fun ensureLoaded() {
         if (ensured) return
         ensured = true
@@ -83,9 +87,32 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     // force-reinstalled: a missing language filters nothing out
                     // (see langMatches), so the cost of waiting is zero.
                     e.optString("lang"),
+                    e.optBoolean("nsfw", false),
                 )
+                host.markAnime(e.optString("provider"), e.optBoolean("anime", false))
             }
         }
+    }
+
+    /**
+     * Which plugins are installed from which repo: `{repoUrl: [internalName]}`.
+     * Read from saved metadata, no network — a backup takes it so a restore can
+     * reinstall exactly these rather than every plugin each repo offers.
+     */
+    fun installedPluginsJson(): String {
+        val meta = loadMeta()
+        val out = JSONObject()
+        for (repo in savedRepos()) {
+            val names = LinkedHashSet<String>()
+            meta.optJSONArray(repo)?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val n = arr.optJSONObject(i)?.optString("internalName").orEmpty()
+                    if (n.isNotEmpty()) names.add(n)
+                }
+            }
+            out.put(repo, JSONArray(names.toList()))
+        }
+        return out.toString()
     }
 
     fun listReposJson(): String {
@@ -236,7 +263,33 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
         val url: String, val internalName: String, val version: Int, val iconUrl: String?,
         /** The repo's own `language` tag for this plugin; "" when it omits one. */
         val lang: String = "",
+        /** Whether the repo lists the plugin under CloudStream's NSFW type. */
+        val nsfw: Boolean = false,
+        /** Whether it is an anime source: Anime, AnimeMovie or OVA among its types. */
+        val anime: Boolean = false,
     )
+
+    private fun isAnime(p: JSONObject): Boolean {
+        val types = p.optJSONArray("tvTypes") ?: return false
+        for (i in 0 until types.length()) {
+            when (types.optString(i)) { "Anime", "AnimeMovie", "OVA" -> return true }
+        }
+        return false
+    }
+
+    /**
+     * Whether a plugins.json entry is adult: CloudStream has no flag of its
+     * own for it, only an `NSFW` among the plugin's `tvTypes`. Read from the
+     * list rather than the loaded plugin for the language's reason — the
+     * provider list is built without loading one.
+     */
+    private fun isNsfw(p: JSONObject): Boolean {
+        val types = p.optJSONArray("tvTypes") ?: return false
+        for (i in 0 until types.length()) {
+            if (types.optString(i).equals("NSFW", ignoreCase = true)) return true
+        }
+        return false
+    }
 
     private fun addRepoInternal(input: String, progress: ((Int, Int) -> Unit)? = null): JSONObject {
         val repoUrl = input.trim()
@@ -257,7 +310,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                 val internalName = p.optString("internalName").ifEmpty { p.optString("name", "plugin$i") }
                 val version = if (p.has("version")) p.optInt("version") else 0
                 val iconUrl = p.optString("iconUrl").ifEmpty { null }
-                all.add(PluginRef(url, internalName, version, iconUrl, p.optString("language")))
+                all.add(PluginRef(url, internalName, version, iconUrl, p.optString("language"), isNsfw(p), isAnime(p)))
             }
         }
 
@@ -270,14 +323,17 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                 pluginCount++
                 // Load now to discover provider names (one-time on add); persist
                 // metadata so future launches can lazy-load without this cost.
-                host.loadCs3(file, ref.internalName, ref.iconUrl, repoName, ref.lang).forEach { name ->
+                host.loadCs3(file, ref.internalName, ref.iconUrl, repoName, ref.lang, ref.nsfw).forEach { name ->
                     providers.put(name)
+                    host.markAnime(name, ref.anime)
                     metaEntries.put(JSONObject().apply {
                         put("provider", name)
                         if (ref.iconUrl != null) put("icon", ref.iconUrl)
                         put("internalName", ref.internalName)
                         put("cs3Path", file.absolutePath)
                         if (ref.lang.isNotEmpty()) put("lang", ref.lang)
+                        if (ref.nsfw) put("nsfw", true)
+                        if (ref.anime) put("anime", true)
                     })
                 }
             }
@@ -363,7 +419,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     val version = if (p.has("version")) p.optInt("version") else 0
                     ref = PluginRef(
                         url, nm, version, p.optString("iconUrl").ifEmpty { null },
-                        p.optString("language"),
+                        p.optString("language"), isNsfw(p), isAnime(p),
                     )
                     break
                 }
@@ -377,7 +433,10 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
         val file = downloadCs3(r.internalName, r.version, r.url)
         val providers = JSONArray()
         if (file != null) {
-            host.loadCs3(file, r.internalName, r.iconUrl, repoName, r.lang).forEach { providers.put(it) }
+            host.loadCs3(file, r.internalName, r.iconUrl, repoName, r.lang, r.nsfw).forEach {
+                providers.put(it)
+                host.markAnime(it, r.anime)
+            }
             val meta = loadMeta()
             val existing = meta.optJSONArray(repoUrl) ?: JSONArray()
             val merged = JSONArray()
@@ -392,6 +451,8 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     put("internalName", r.internalName)
                     put("cs3Path", file.absolutePath)
                     if (r.lang.isNotEmpty()) put("lang", r.lang)
+                    if (r.nsfw) put("nsfw", true)
+                    if (r.anime) put("anime", true)
                 })
             }
             meta.put(repoUrl, merged); saveMeta(meta)
@@ -470,7 +531,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     val version = if (p.has("version")) p.optInt("version") else 0
                     val iconUrl = p.optString("iconUrl").ifEmpty { null }
                     latest[internalName] = PluginRef(
-                        url, internalName, version, iconUrl, p.optString("language"),
+                        url, internalName, version, iconUrl, p.optString("language"), isNsfw(p), isAnime(p),
                     )
                 }
             }
@@ -482,6 +543,12 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     val e = entries.optJSONObject(i) ?: continue
                     val internalName = e.optString("internalName")
                     val ref = latest[internalName] ?: continue
+                    // Every check, not only an update: the flag is new, and a
+                    // plugin installed before it would otherwise wait for its
+                    // next release to be recognised as adult.
+                    e.put("nsfw", ref.nsfw)
+                    e.put("anime", ref.anime)
+                    host.markAnime(e.optString("provider"), ref.anime)
                     val installedVer = e.optString("cs3Path")
                         .substringAfterLast('@', "").substringBefore(".cs3").toIntOrNull() ?: 0
                     if (ref.version <= installedVer) continue
@@ -497,7 +564,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                         // update" an honest answer in ensureLoaded rather than
                         // "reinstall everything".
                         if (ref.lang.isNotEmpty()) e.put("lang", ref.lang)
-                        host.loadCs3(file, ref.internalName, ref.iconUrl, repoName, ref.lang)
+                        host.loadCs3(file, ref.internalName, ref.iconUrl, repoName, ref.lang, ref.nsfw)
                         updated.put(e.optString("provider"))
                     }
                 }

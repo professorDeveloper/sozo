@@ -14,7 +14,11 @@ class EpisodesLoading extends EpisodesState {
 
 class EpisodesLoaded extends EpisodesState {
   final PlaybackEntity playback;
-  const EpisodesLoaded(this.playback);
+
+  /// The list saved with the downloads, because the source could not be
+  /// reached.
+  final bool offline;
+  const EpisodesLoaded(this.playback, {this.offline = false});
 }
 
 class EpisodesError extends EpisodesState {

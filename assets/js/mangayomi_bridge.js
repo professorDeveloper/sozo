@@ -146,13 +146,11 @@
   class MElement {
     constructor(node) { this._node = node; }
 
-    get text() {
-      const n = this._node;
-      if (!n) return '';
-      return (n.textContent || '').trim();
-    }
-    /** Untrimmed text — a few extensions depend on the leading/trailing space. */
-    get rawText() { return this._node ? (this._node.textContent || '') : ''; }
+    // Untrimmed, as upstream's is. Sources trim it themselves where they
+    // want it trimmed, and some compare it exactly: kolnovel's next page is
+    // `.text == "Next "`, so a trimmed "Next" ended every list at page one.
+    get text() { return this._node ? (this._node.textContent || '') : ''; }
+    get rawText() { return this.text; }
     get html() { return this._node ? (this._node.innerHTML || '') : ''; }
     /**
      * Upstream's name for the same thing, and the one extensions actually use.
@@ -234,10 +232,181 @@
     }
   }
 
+  // --- jsoup selectors ------------------------------------------------------
+  //
+  // Mangayomi parses with a jsoup-style engine, and sources use its pseudo
+  // selectors: `.serl:contains('الكاتب') a`, `div.d p:contains(by) a`,
+  // `li:eq(2)`. The browser's querySelectorAll rejects them, so every such
+  // lookup came back empty — author, genre and status on kolnovel and
+  // bookReadFree. The native engine still does all the CSS; only the jsoup
+  // parts are filtered here.
+
+  const JSOUP = /:(containsOwn|containsData|containsWholeText|contains|matchesOwn|matches|eq|lt|gt)\(/i;
+
+  /** The index just past the `)` closing the `(` at [open], quotes respected. */
+  function closeParen(sel, open) {
+    let depth = 0;
+    let quote = null;
+    for (let i = open; i < sel.length; i++) {
+      const c = sel[i];
+      if (quote) {
+        if (c === '\\') i++;
+        else if (c === quote) quote = null;
+      } else if (c === '"' || c === "'") quote = c;
+      else if (c === '(') depth++;
+      else if (c === ')' && --depth === 0) return i + 1;
+    }
+    return sel.length;
+  }
+
+  function splitTopLevel(sel, sepTest) {
+    const parts = [];
+    let depth = 0;
+    let quote = null;
+    let start = 0;
+    for (let i = 0; i < sel.length; i++) {
+      const c = sel[i];
+      if (quote) {
+        if (c === '\\') i++;
+        else if (c === quote) quote = null;
+      } else if (c === '"' || c === "'") quote = c;
+      else if (c === '(' || c === '[') depth++;
+      else if (c === ')' || c === ']') depth--;
+      else if (depth === 0 && sepTest(c)) {
+        parts.push(sel.slice(start, i));
+        start = i + 1;
+      }
+    }
+    parts.push(sel.slice(start));
+    return parts;
+  }
+
+  function unquote(arg) {
+    const a = arg.trim();
+    return /^(['"]).*\1$/.test(a) ? a.slice(1, -1) : a;
+  }
+
+  function ownText(node) {
+    let out = '';
+    for (const c of node.childNodes || []) if (c.nodeType === 3) out += c.nodeValue;
+    return out;
+  }
+
+  function siblingIndex(node) {
+    let i = 0;
+    for (let n = node.previousElementSibling; n; n = n.previousElementSibling) i++;
+    return i;
+  }
+
+  function norm(text) { return String(text || '').replace(/\s+/g, ' ').toLowerCase(); }
+
+  function regexOf(arg) {
+    try { return new RegExp(unquote(arg)); } catch (_) { return /$^/; }
+  }
+
+  function pseudoTest(name, arg, node) {
+    switch (name.toLowerCase()) {
+      case 'contains': return norm(node.textContent).includes(norm(unquote(arg)));
+      case 'containsown': return norm(ownText(node)).includes(norm(unquote(arg)));
+      case 'containswholetext': return (node.textContent || '').includes(unquote(arg));
+      case 'containsdata': return (node.textContent || '').includes(unquote(arg));
+      case 'matches': return regexOf(arg).test(node.textContent || '');
+      case 'matchesown': return regexOf(arg).test(ownText(node));
+      case 'eq': return siblingIndex(node) === Number(arg);
+      case 'lt': return siblingIndex(node) < Number(arg);
+      case 'gt': return siblingIndex(node) > Number(arg);
+      default: return false;
+    }
+  }
+
+  /** Whether [node] matches one compound selector ("p.x:contains(y)"). */
+  function matchesCompound(node, compound) {
+    let native = '';
+    let rest = compound;
+    const tests = [];
+    for (let m = JSOUP.exec(rest); m; m = JSOUP.exec(rest)) {
+      const open = m.index + m[0].length - 1;
+      const end = closeParen(rest, open);
+      native += rest.slice(0, m.index);
+      tests.push([m[1], rest.slice(open + 1, end - 1)]);
+      rest = rest.slice(end);
+    }
+    native += rest;
+    if (native.trim() && !node.matches(native.trim())) return false;
+    return tests.every(([name, arg]) => pseudoTest(name, arg, node));
+  }
+
+  /** The compound at the start of [sel] and what follows its combinator. */
+  function firstCompound(sel) {
+    let depth = 0;
+    let quote = null;
+    for (let i = 0; i < sel.length; i++) {
+      const c = sel[i];
+      if (quote) {
+        if (c === '\\') i++;
+        else if (c === quote) quote = null;
+      } else if (c === '"' || c === "'") quote = c;
+      else if (c === '(' || c === '[') depth++;
+      else if (c === ')' || c === ']') depth--;
+      else if (depth === 0 && /[\s>+~]/.test(c)) return [sel.slice(0, i), sel.slice(i)];
+    }
+    return [sel, ''];
+  }
+
+  function inDocumentOrder(nodes) {
+    const unique = Array.from(new Set(nodes));
+    return unique.sort((a, b) =>
+      a === b ? 0 : (a.compareDocumentPosition(b) & 4 ? -1 : 1));
+  }
+
+  /** One selector without top-level commas, jsoup pseudos allowed. */
+  function selectComplex(root, sel) {
+    const m = JSOUP.exec(sel);
+    if (!m) return Array.from(root.querySelectorAll(sel));
+    // Everything before the compound holding the first jsoup pseudo is plain
+    // CSS; that compound is matched here; the rest is searched from each hit.
+    const before = sel.slice(0, m.index);
+    const cut = Math.max(
+      before.lastIndexOf(' '), before.lastIndexOf('>'),
+      before.lastIndexOf('+'), before.lastIndexOf('~'));
+    const lead = before.slice(0, cut + 1);
+    const [compound, tail] = firstCompound(sel.slice(cut + 1));
+    const native = compound.replace(new RegExp(JSOUP.source + '[^)]*\\)', 'gi'), '').trim() || '*';
+    const candidates = Array.from(root.querySelectorAll(lead + native))
+      .filter((n) => matchesCompound(n, compound));
+    const t = tail.trim();
+    if (!t) return candidates;
+    const out = [];
+    for (const n of candidates) {
+      if (t[0] === '+' || t[0] === '~') {
+        const next = t.slice(1).trim();
+        const [sib, deeper] = firstCompound(next);
+        for (let s2 = n.nextElementSibling; s2; s2 = s2.nextElementSibling) {
+          if (matchesCompound(s2, sib)) {
+            if (deeper.trim()) out.push(...selectComplex(s2, ':scope' + deeper));
+            else out.push(s2);
+          }
+          if (t[0] === '+') break;
+        }
+      } else {
+        out.push(...selectComplex(n, ':scope' + (t[0] === '>' ? ' ' : ' ') + t));
+      }
+    }
+    return inDocumentOrder(out);
+  }
+
+  function jsoupSelect(root, query) {
+    if (!JSOUP.test(query)) return Array.from(root.querySelectorAll(query));
+    const parts = splitTopLevel(query, (c) => c === ',').map((p) => p.trim()).filter(Boolean);
+    const found = [];
+    for (const part of parts) found.push(...selectComplex(root, part));
+    return parts.length > 1 ? inDocumentOrder(found) : found;
+  }
+
   function selectAll(root, query) {
     if (!root || !query) return [];
     try {
-      return Array.from(root.querySelectorAll(query)).map((n) => new MElement(n));
+      return jsoupSelect(root, String(query)).map((n) => new MElement(n));
     } catch (_) {
       // An invalid selector must not take the whole extension down — upstream
       // sources ship typos, and Mangayomi's parser tolerates some of them.
@@ -245,13 +414,22 @@
     }
   }
 
+  // Never null, as upstream's is never null. Mangayomi's selectFirst hands
+  // back an element whatever it finds, and a miss reads as empty — so its
+  // sources are written as `el.selectFirst("img").getSrc` with no guard. Ours
+  // returned null, and that one line on Anna's Archive ran against every
+  // <a> on the page, so the first anchor without an image threw and the
+  // whole list was lost. An empty element answers '' to everything, which is
+  // what the source was written to expect.
   function selectOne(root, query) {
-    if (!root || !query) return null;
+    if (!root || !query) return new MElement(null);
     try {
-      const n = root.querySelector(query);
-      return n ? new MElement(n) : null;
+      if (JSOUP.test(String(query))) {
+        return new MElement(jsoupSelect(root, String(query))[0] || null);
+      }
+      return new MElement(root.querySelector(query));
     } catch (_) {
-      return null;
+      return new MElement(null);
     }
   }
 
@@ -284,7 +462,7 @@
     xpathFirst(expr) { return evaluateXPath(this._doc, expr)[0] || null; }
     get body() { return new MElement(this._doc.body); }
     get html() { return this._doc.documentElement ? this._doc.documentElement.outerHTML : ''; }
-    get text() { return this._doc.body ? (this._doc.body.textContent || '').trim() : ''; }
+    get text() { return this._doc.body ? (this._doc.body.textContent || '') : ''; }
 
     // The rest of upstream's surface. None of it is load-bearing for the
     // sources we ship today; all of it is the same class of silent break as
@@ -552,6 +730,191 @@
       { name: 'AES-CBC', iv }, key, base64ToBytes(text),
     );
     return new TextDecoder().decode(plain);
+  }
+
+  // --- built-in video extractors -----------------------------------------
+  //
+  // Mangayomi gives anime sources a set of host extractors as globals —
+  // `streamWishExtractor(url, prefix)` and the rest — so a source hands a
+  // mirror page over instead of scraping it itself. None of them existed
+  // here: a source calling one threw a ReferenceError and lost the mirror,
+  // or the whole episode. Each returns Mangayomi's video shape, and an empty
+  // list when the host has changed or refuses; never a throw.
+
+  const ORIGIN = (u) => { try { return new URL(u).origin; } catch (_) { return ''; } };
+
+  async function pageText(url, headers) {
+    try {
+      const res = await new Client().get(url, headers || {});
+      return res.isOk ? res.body : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  const PACKED = /eval\(function\(p,a,c,k,e,[dr]\)[\s\S]*?\.split\(['"]\|['"]\)[^)]*\)\)/;
+
+  /** The page's packed player script unpacked, appended to the page itself. */
+  function withUnpacked(html) {
+    const m = html.match(PACKED);
+    if (!m) return html;
+    try { return html + '\n' + unpackJs(m[0]); } catch (_) { return html; }
+  }
+
+  function video(url, quality, headers) {
+    return { url, originalUrl: url, quality, headers: headers || {} };
+  }
+
+  /** One row per variant of an HLS master, after the master itself. */
+  async function hlsRows(master, headers, label) {
+    const rows = [video(master, `${label} - Auto`, headers)];
+    const text = await pageText(master, headers);
+    if (!text.includes('#EXT-X-STREAM-INF')) return rows;
+    const lines = text.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i].startsWith('#EXT-X-STREAM-INF')) continue;
+      const res = /RESOLUTION=\d+x(\d+)/.exec(lines[i]);
+      const next = (lines[i + 1] || '').trim();
+      if (!next || next.startsWith('#')) continue;
+      let abs = next;
+      try { abs = new URL(next, master).href; } catch (_) {}
+      rows.push(video(abs, `${label} - ${res ? res[1] + 'p' : 'Video'}`, headers));
+    }
+    return rows;
+  }
+
+  function firstMatch(text, patterns) {
+    for (const re of patterns) {
+      const m = re.exec(text);
+      if (m && m[1]) return m[1].replace(/\\\//g, '/');
+    }
+    return '';
+  }
+
+  const HLS_IN_PLAYER = [
+    /file\s*:\s*["']([^"']+\.m3u8[^"']*)["']/,
+    /["']hls\d?["']\s*:\s*["']([^"']+)["']/,
+    /sources\s*:\s*\[\s*\{\s*file\s*:\s*["']([^"']+)["']/,
+    /src\s*:\s*["']([^"']+\.m3u8[^"']*)["']/,
+  ];
+
+  /** StreamWish, Filemoon and their many mirror domains: a packed jwplayer. */
+  async function packedHls(url, label, depth) {
+    const headers = { Referer: ORIGIN(url) + '/' };
+    let html = await pageText(url, headers);
+    if (!html) return [];
+    let found = firstMatch(withUnpacked(html), HLS_IN_PLAYER);
+    // Filemoon puts the player in an iframe on its own page.
+    if (!found && !depth) {
+      const frame = /<iframe[^>]+src=["']([^"']+)["']/i.exec(html);
+      if (frame) {
+        let next = frame[1];
+        try { next = new URL(next, url).href; } catch (_) {}
+        return packedHls(next, label, 1);
+      }
+    }
+    if (!found) return [];
+    try { found = new URL(found, url).href; } catch (_) {}
+    return hlsRows(found, headers, label);
+  }
+
+  const extractors = {
+    streamWishExtractor: (url, prefix) =>
+      packedHls(url, `${prefix || ''}StreamWish`.trim()),
+
+    filemoonExtractor: async (url, prefix, suffix) =>
+      (await packedHls(url, `${prefix || ''}Filemoon`.trim()))
+        .map((v) => Object.assign(v, { quality: v.quality + (suffix || '') })),
+
+    mp4UploadExtractor: async (url, headers, prefix, suffix) => {
+      const h = Object.assign({ Referer: 'https://www.mp4upload.com/' }, normaliseHeaders(headers));
+      const html = withUnpacked(await pageText(url, h));
+      const src = firstMatch(html, [/src\s*:\s*["']([^"']+\.mp4[^"']*)["']/, /player\.src\(\s*["']([^"']+)["']/]);
+      return src ? [video(src, `${prefix || ''}Mp4Upload${suffix || ''}`, h)] : [];
+    },
+
+    doodExtractor: async (url, quality) => {
+      const html = await pageText(url, {});
+      const pass = /\/pass_md5\/[^'"\s]+/.exec(html);
+      if (!pass) return [];
+      const origin = ORIGIN(url);
+      const base = await pageText(origin + pass[0], { Referer: url });
+      if (!base) return [];
+      const token = pass[0].split('/').pop();
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let tail = '';
+      for (let i = 0; i < 10; i++) tail += chars[Math.floor(Math.random() * chars.length)];
+      return [video(`${base}${tail}?token=${token}&expiry=${Date.now()}`,
+        quality || 'Doodstream', { Referer: origin + '/' })];
+    },
+
+    streamTapeExtractor: async (url, quality) => {
+      const html = await pageText(url, {});
+      const m = /robotlink'\)\.innerHTML\s*=\s*'([^']+)'\s*\+\s*\('([^']+)'\)(?:\.substring\((\d+)\))?/.exec(html);
+      if (!m) return [];
+      const tail = m[2].substring(m[3] ? Number(m[3]) : 3);
+      const link = 'https:' + m[1] + tail;
+      return [video(link, quality || 'StreamTape', { Referer: ORIGIN(url) + '/' })];
+    },
+
+    yourUploadExtractor: async (url, headers, name, prefix) => {
+      const h = Object.assign({ Referer: 'https://www.yourupload.com/' }, normaliseHeaders(headers));
+      const html = await pageText(url, h);
+      const src = firstMatch(html, [/file\s*:\s*'([^']+)'/, /file\s*:\s*"([^"]+)"/]);
+      return src ? [video(src, `${prefix || ''}${name || 'YourUpload'}`, h)] : [];
+    },
+
+    sibnetExtractor: async (url, prefix) => {
+      const html = await pageText(url, {});
+      const path = firstMatch(html, [/player\.src\(\[\{\s*src\s*:\s*"([^"]+)"/]);
+      if (!path) return [];
+      const link = path.startsWith('http') ? path : 'https://video.sibnet.ru' + path;
+      return [video(link, `${prefix || ''}Sibnet`, { Referer: url })];
+    },
+
+    voeExtractor: async (url, prefix) => {
+      const html = await pageText(url, {});
+      let hls = firstMatch(html, [/["']hls["']\s*:\s*["']([^"']+)["']/, /sources\[['"]hls['"]\]\s*=\s*['"]([^'"]+)['"]/]);
+      if (hls && !hls.startsWith('http')) { try { hls = atob(hls); } catch (_) {} }
+      return hls ? hlsRows(hls, { Referer: ORIGIN(url) + '/' }, `${prefix || ''}Voe`) : [];
+    },
+
+    okruExtractor: async (url) => {
+      const html = await pageText(url, {});
+      const m = /data-options="([^"]+)"/.exec(html);
+      if (!m) return [];
+      try {
+        const options = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+        const meta = JSON.parse(options.flashvars.metadata);
+        const names = { mobile: '144p', lowest: '240p', low: '360p', sd: '480p', hd: '720p', full: '1080p', quad: '1440p', ultra: '2160p' };
+        const rows = (meta.videos || []).map((v) => video(v.url, `Okru - ${names[v.name] || v.name}`, {}));
+        if (meta.hlsManifestUrl) rows.unshift(video(meta.hlsManifestUrl, 'Okru - Auto', {}));
+        return rows.reverse();
+      } catch (_) {
+        return [];
+      }
+    },
+  };
+
+  // The rest of upstream's set: cloud drives that need an account (Quark,
+  // UC) and hosts without a working scrape. Present, so a source that calls
+  // one keeps its other mirrors instead of throwing.
+  for (const name of [
+    'quarkVideosExtractor', 'quarkFilesExtractor', 'ucVideosExtractor',
+    'ucFilesExtractor', 'gogoCdnExtractor', 'streamlareExtractor',
+    'myTvExtractor', 'sendVidExtractor', 'vidBomExtractor',
+  ]) {
+    extractors[name] = async () => [];
+  }
+
+  for (const [name, fn] of Object.entries(extractors)) {
+    globalThis[name] = async (...args) => {
+      try {
+        return (await fn(...args)) || [];
+      } catch (_) {
+        return [];
+      }
+    };
   }
 
   // --- expose --------------------------------------------------------------

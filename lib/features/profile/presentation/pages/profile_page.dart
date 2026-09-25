@@ -23,6 +23,7 @@ import 'package:soplay/core/system/nav_prefs.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/private_list/presentation/private_unlock.dart';
+import 'package:soplay/features/profiles/presentation/widgets/active_profile_card.dart';
 import 'package:soplay/features/auth/domain/entities/user_entity.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
@@ -44,6 +45,10 @@ import 'package:soplay/features/mal/presentation/widgets/mal_brand.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 import 'package:soplay/features/watch_party/presentation/party_entry.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
+import 'package:soplay/features/social/data/social_service.dart';
+import 'package:soplay/features/social/domain/social_models.dart';
+import 'package:soplay/features/achievements/presentation/widgets/achievements_entry_card.dart';
 
 // Split into parts the way player_page.dart is: the page was 2721 lines
 // across nine sections, which is past the point where anyone can find
@@ -169,13 +174,15 @@ class _ProfileViewState extends State<_ProfileView> {
                         // no matter how much the app grows behind it.
                         final sections = <Widget>[
                           _ProfileHeader(user: user),
+                          if (signedIn) const ActiveProfileCard(),
                           // Watch counters are local, so a guest who has
                           // watched something has real numbers; a guest who
                           // has not would only get three zeroes.
                           if (signedIn || _StatsStripState.hasNumbers)
                             const _StatsStrip(),
                           if (signedIn) const StreakCard(),
-                          const _HubOverview(),
+                          if (signedIn) const AchievementsEntryCard(),
+                          _HubOverview(signedIn: signedIn),
                           // signedIn is passed rather than read inside: a
                           // const widget is the same instance every build, so
                           // Flutter would skip rebuilding it and the Watch
@@ -372,11 +379,22 @@ class _ProfileViewState extends State<_ProfileView> {
             BlocBuilder<AuthBloc, AuthState>(
               builder: (context, state) {
                 final user = state is AuthLoaded ? state.token.user : null;
-                return _ProfileHeader(user: user);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ProfileHeader(user: user),
+                    if (user != null) ...[
+                      const SizedBox(height: 8),
+                      const ActiveProfileCard(),
+                    ],
+                  ],
+                );
               },
             ),
             const SizedBox(height: 8),
             const StreakCard(),
+            const SizedBox(height: 8),
+            const AchievementsEntryCard(),
             const SizedBox(height: 16),
             const _ConnectionsSection(),
           ],

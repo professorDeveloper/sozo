@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
+import 'package:soplay/core/network/host_rate_limiter.dart';
 import 'package:soplay/core/network/private_address.dart';
 import 'package:soplay/core/network/user_agent.dart';
 import 'package:soplay/core/network/http_headers.dart';
@@ -18,6 +19,12 @@ class DartFetch {
   final Dio? _backendDio;
 
   final Map<String, String> _savedCookies = {};
+
+  final HostRateLimiter _limiter = HostRateLimiter();
+
+  /// How many times one request is re-sent after a 429 before the refusal is
+  /// handed back to the extension.
+  static const int _maxRateLimitRetries = 3;
 
   /// The image widget uses a different HTTP client. Export only cookies whose
   /// domain/path match this image, retaining the clearance cookie's user agent.
@@ -276,6 +283,29 @@ class DartFetch {
     return solveCfHosts([host]);
   }
 
+  /// Runs [attempt] and, if it met a Cloudflare challenge, solves it and runs
+  /// it once more with the clearance.
+  ///
+  /// [attempt] must not be a call made from inside a JavaScript handler; see
+  /// [_pendingCf] for why the solve has to wait until the call has returned.
+  Future<T> retryAfterCloudflare<T>(Future<T> Function() attempt) async {
+    final start = mark();
+    final first = await attempt();
+    final challenged = cfHostsSince(start);
+    if (challenged.isEmpty || !await solveCfHosts(challenged)) return first;
+    JsLog.info('fetch', 'retrying with a fresh clearance for $challenged');
+    return attempt();
+  }
+
+  /// The Cloudflare refusal recorded after [mark], if any.
+  String? cloudflareBlockSince(int mark) {
+    for (final e in _events.reversed) {
+      if (e.seq <= mark) break;
+      if (e.cf) return e.message;
+    }
+    return null;
+  }
+
   Future<bool> _solveHost(String host) async {
     _pendingCf.remove(host);
     final cf = _cfService;
@@ -360,26 +390,62 @@ class DartFetch {
     }
 
     try {
-      final response = await _dio.request<String>(
-        req.url,
-        data: req.body,
-        options: Options(
-          method: req.method,
-          headers: extraHeaders,
-          responseType: ResponseType.plain,
-          followRedirects: true,
-          validateStatus: (_) => true,
-        ),
-      );
-      final headers = <String, String>{};
-      response.headers.forEach((k, v) => headers[k] = v.join(','));
-      final status = response.statusCode ?? 0;
+      Response<dynamic> response;
+      Map<String, String> headers;
+      int status;
+      String? text;
+      var attempt = 0;
+      while (true) {
+        if (host != null) await _limiter.acquire(host);
+        response = await _dio.request<dynamic>(
+          req.url,
+          data: req.body,
+          options: Options(
+            method: req.method,
+            headers: extraHeaders,
+            responseType: req.binary ? ResponseType.bytes : ResponseType.plain,
+            followRedirects: true,
+            validateStatus: (_) => true,
+          ),
+        );
+        headers = <String, String>{};
+        response.headers.forEach((k, v) => headers[k] = v.join(','));
+        status = response.statusCode ?? 0;
+        text = req.binary
+            ? utf8.decode(
+                response.data as List<int>? ?? const [],
+                allowMalformed: true,
+              )
+            : response.data as String?;
+        // A plain 429 is the site pacing us, not Cloudflare challenging us:
+        // wait as long as it asks and try again, and keep this host paced
+        // from now on so the next request does not trip it.
+        if (status != 429 ||
+            host == null ||
+            attempt >= _maxRateLimitRetries ||
+            _looksLikeCfChallenge(status, headers, text)) {
+          break;
+        }
+        final asked = HostRateLimiter.parseRetryAfter(headers['retry-after']);
+        if (asked != null && asked > const Duration(seconds: 30)) break;
+        final wait = _limiter.throttled(
+          host,
+          retryAfter: asked,
+          attempt: attempt,
+        );
+        JsLog.err(
+          'fetch',
+          '429 from $host — waiting ${wait.inMilliseconds}ms '
+              '(retry ${attempt + 1}/$_maxRateLimitRetries)',
+        );
+        attempt++;
+      }
 
       final cf = _cfService;
       if (allowCfRetry &&
           host != null &&
           cf != null &&
-          _looksLikeCfChallenge(status, headers, response.data)) {
+          _looksLikeCfChallenge(status, headers, text)) {
         // Record, do not solve — see [_pendingCf]. The cookie just sent is
         // the one that got challenged, so it is dead either way.
         _savedCookies.remove(host);
@@ -387,7 +453,7 @@ class DartFetch {
         _pendingCf.add(host);
       }
 
-      if (_looksLikeCfChallenge(status, headers, response.data)) {
+      if (_looksLikeCfChallenge(status, headers, text)) {
         _record(
           host,
           '${host ?? 'server'} is behind a Cloudflare challenge',
@@ -405,8 +471,12 @@ class DartFetch {
       );
       return {
         'status': status,
-        'data': _decodeBody(response.data, headers['content-type']),
+        'data': req.binary
+            ? base64Encode(response.data as List<int>? ?? const [])
+            : _decodeBody(text, headers['content-type']),
         'headers': headers,
+        // Where the redirects ended, which plugins read as `response.url`.
+        'url': response.realUri.toString(),
       };
     } catch (e) {
       JsLog.err('fetch', '${req.method} ${_shortUrl(req.url)} — $e');
@@ -503,8 +573,16 @@ class DartFetch {
         if (k is String && v != null) headers[k] = v.toString();
       });
     }
-    final body = raw['body'];
-    return _Request(method: method, url: url, headers: headers, body: body);
+    // Bytes cross from JavaScript as base64: a gRPC-web frame is not text.
+    final bytes = raw['bodyBase64'];
+    final body = bytes is String ? base64Decode(bytes) : raw['body'];
+    return _Request(
+      method: method,
+      url: url,
+      headers: headers,
+      body: body,
+      binary: raw['responseType'] == 'base64',
+    );
   }
 
   dynamic _decodeBody(String? data, String? contentType) {
@@ -527,11 +605,15 @@ class _Request {
   final Map<String, String> headers;
   final dynamic body;
 
+  /// The response is handed back as base64 rather than decoded text.
+  final bool binary;
+
   const _Request({
     required this.method,
     required this.url,
     required this.headers,
     this.body,
+    this.binary = false,
   });
 }
 

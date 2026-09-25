@@ -11,26 +11,32 @@ import 'package:soplay/features/detail/domain/player_controls_layout.dart';
 /// code and an `IconData` is Flutter — there is a test that keeps that layer
 /// clean. The pairing still has to be exhaustive, which is what [_iconFor]'s
 /// fallback makes visible rather than silently blank.
+/// Every glyph here is a `_rounded` filled variant, and that is the rule
+/// rather than a coincidence: the bar mixed outlined and filled, which over
+/// video read as a row somebody had not finished. This map and the bar have to
+/// agree — a control that wears one face in the editor and another on screen
+/// is not recognisably the same control — so a change in either belongs in
+/// both, and `player_control_icons_test.dart` holds the one-to-one.
 const Map<String, IconData> _kControlIcons = <String, IconData>{
   'previous': Icons.skip_previous_rounded,
   'next': Icons.skip_next_rounded,
   'speed': Icons.speed_rounded,
-  'server': Icons.dns_outlined,
+  'server': Icons.dns_rounded,
   'quality': Icons.high_quality_rounded,
-  'episodes': Icons.list_rounded,
+  'episodes': Icons.video_library_rounded,
   'shader': Icons.auto_awesome_rounded,
   'fit': Icons.aspect_ratio_rounded,
-  'sleep': Icons.bedtime_outlined,
+  'sleep': Icons.bedtime_rounded,
   'cast': Icons.cast_rounded,
-  'party': Icons.groups_2_outlined,
-  'pip': Icons.picture_in_picture_alt_rounded,
+  'party': Icons.groups_2_rounded,
+  'pip': Icons.picture_in_picture_rounded,
   'download': Icons.download_rounded,
   'language': Icons.translate_rounded,
-  'subtitles': Icons.subtitles_outlined,
+  'subtitles': Icons.closed_caption_rounded,
   'orientation': Icons.screen_rotation_rounded,
-  'lock': Icons.lock_outline_rounded,
-  'settings': Icons.settings_outlined,
-  'stats': Icons.info_outline_rounded,
+  'lock': Icons.lock_rounded,
+  'settings': Icons.settings_rounded,
+  'stats': Icons.info_rounded,
 };
 
 IconData iconForControl(String id) =>
@@ -57,8 +63,9 @@ class PlayerControlsPage extends StatefulWidget {
 
 class _PlayerControlsPageState extends State<PlayerControlsPage> {
   final HiveService _hive = getIt<HiveService>();
-  late PlayerControlsLayout _layout =
-      PlayerControlsLayout.fromStored(_hive.getPlayerControlsLayout());
+  late PlayerControlsLayout _layout = PlayerControlsLayout.fromStored(
+    _hive.getPlayerControlsLayout(),
+  );
 
   /// Saved on every edit, not on leave. There is no Save button and no
   /// confirmation, so a back-swipe must not be able to lose the arrangement.
@@ -190,8 +197,7 @@ class _PlayerControlsPageState extends State<PlayerControlsPage> {
                   ),
                   child: Text(
                     'player.layout_empty'.tr(),
-                    style:
-                        const TextStyle(color: Colors.white30, fontSize: 13),
+                    style: const TextStyle(color: Colors.white30, fontSize: 13),
                   ),
                 )
               : ReorderableListView.builder(
@@ -310,12 +316,12 @@ class _PlayerControlsPageState extends State<PlayerControlsPage> {
   }
 
   static String _slotLabel(PlayerControlSlot slot) => switch (slot) {
-        PlayerControlSlot.topBar => 'player.layout_top_bar'.tr(),
-        PlayerControlSlot.center => 'player.layout_center'.tr(),
-        PlayerControlSlot.bottomLeft => 'player.layout_bottom_left'.tr(),
-        PlayerControlSlot.bottomRight => 'player.layout_bottom_right'.tr(),
-        PlayerControlSlot.hidden => 'player.layout_hidden'.tr(),
-      };
+    PlayerControlSlot.topBar => 'player.layout_top_bar'.tr(),
+    PlayerControlSlot.center => 'player.layout_center'.tr(),
+    PlayerControlSlot.bottomLeft => 'player.layout_bottom_left'.tr(),
+    PlayerControlSlot.bottomRight => 'player.layout_bottom_right'.tr(),
+    PlayerControlSlot.hidden => 'player.layout_hidden'.tr(),
+  };
 }
 
 /// A miniature of the real player, drawn from the same layout the player reads.
@@ -399,8 +405,8 @@ class _LayoutPreview extends StatelessWidget {
                 // film.
                 mainAxisAlignment:
                     layout.of(PlayerControlSlot.bottomLeft).isEmpty
-                        ? MainAxisAlignment.start
-                        : MainAxisAlignment.spaceBetween,
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.spaceBetween,
                 children: [
                   _group(layout.of(PlayerControlSlot.bottomLeft)),
                   _group(layout.of(PlayerControlSlot.bottomRight)),
@@ -414,13 +420,13 @@ class _LayoutPreview extends StatelessWidget {
   }
 
   Widget _group(List<String> ids) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final id in ids)
-            Padding(
-              padding: const EdgeInsets.only(right: 9),
-              child: Icon(iconForControl(id), color: Colors.white, size: 14),
-            ),
-        ],
-      );
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (final id in ids)
+        Padding(
+          padding: const EdgeInsets.only(right: 9),
+          child: Icon(iconForControl(id), color: Colors.white, size: 14),
+        ),
+    ],
+  );
 }

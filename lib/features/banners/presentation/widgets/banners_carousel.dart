@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -107,28 +109,28 @@ class _CarouselViewState extends State<_CarouselView> {
           curve: Curves.easeOut,
           alignment: Alignment.topCenter,
           child: Padding(
-          padding: widget.padding,
-          child: SizedBox(
-            height: widget.height,
-            child: PageView.builder(
-              controller: _controller,
-              itemCount: state.items.length,
-              onPageChanged: (index) {
-                _trackView(context, state.items[index]);
-              },
-              itemBuilder: (context, index) {
-                final item = state.items[index];
-                if (index == 0) _trackView(context, item);
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: _BannerCard(
-                    item: item,
-                    onTap: () => _onTap(context, item),
-                  ),
-                );
-              },
+            padding: widget.padding,
+            child: SizedBox(
+              height: widget.height,
+              child: PageView.builder(
+                controller: _controller,
+                itemCount: state.items.length,
+                onPageChanged: (index) {
+                  _trackView(context, state.items[index]);
+                },
+                itemBuilder: (context, index) {
+                  final item = state.items[index];
+                  if (index == 0) _trackView(context, item);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: _BannerCard(
+                      item: item,
+                      onTap: () => _onTap(context, item),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
           ),
         );
       },
@@ -152,22 +154,30 @@ class _BannerCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            CachedNetworkImage(
-              imageUrl: item.imageUrl,
-              fit: BoxFit.cover,
-              errorWidget: (_, _, _) => ColoredBox(
-                color: AppColors.surfaceVariant,
-              ),
+            // Decoded near the card's size. Banners are uploaded as print
+            // artwork — the detail page's was 3508 by 2480, 35 MB decoded,
+            // a third of the whole image cache and most of a second to upload
+            // — for a card a phone draws at under a thousand pixels wide.
+            // Wide enough to cover the card for any artwork up to 2:1.
+            LayoutBuilder(
+              builder: (context, box) {
+                final dpr = MediaQuery.devicePixelRatioOf(context);
+                final width = math.max(box.maxWidth, box.maxHeight * 2);
+                return CachedNetworkImage(
+                  imageUrl: item.imageUrl,
+                  fit: BoxFit.cover,
+                  memCacheWidth: width.isFinite ? (width * dpr).round() : null,
+                  errorWidget: (_, _, _) =>
+                      ColoredBox(color: AppColors.surfaceVariant),
+                );
+              },
             ),
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
-                  colors: [
-                    Color(0xCC000000),
-                    Color(0x00000000),
-                  ],
+                  colors: [Color(0xCC000000), Color(0x00000000)],
                 ),
               ),
             ),

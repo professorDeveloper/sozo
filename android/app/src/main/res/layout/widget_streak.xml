@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The streak as its badge: the medal of the tier reached with the days
+     struck in it, the last seven days under it, and the way to the next. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_streak"
+    android:clipToOutline="true">
+
+    <ImageView
+        android:id="@+id/profile_avatar"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="12dp"
+        android:contentDescription="@null"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingTop="4dp"
+        android:paddingBottom="10dp">
+
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+
+            <!-- Drawn by the app with room for its halo, so it sits larger
+                 than it looks and the label below tucks under it. -->
+            <ImageView
+                android:id="@+id/medal"
+                android:layout_width="86dp"
+                android:layout_height="86dp"
+                android:contentDescription="@null"
+                android:visibility="gone" />
+
+            <!-- Until the app has drawn one. -->
+            <LinearLayout
+                android:id="@+id/plain"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/flame"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_widget_flame" />
+
+                <TextView
+                    android:id="@+id/days"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="-2dp"
+                    android:fontFamily="sans-serif-black"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="34sp" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- The count beside its words: plain white on the card, not struck
+             in the medal, where a number in orange on pewter jarred. -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="-9dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="5dp"
+                android:fontFamily="sans-serif-black"
+                android:includeFontPadding="false"
+                android:textColor="#FFFFFFFF"
+                android:textSize="22sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFC078"
+                android:textSize="11.5sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/week"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:orientation="horizontal">
+            <LinearLayout
+                android:id="@+id/col_0"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_0"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_0"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/col_1"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_1"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/col_2"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_2"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/col_3"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_3"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_3"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/col_4"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_4"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_4"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/col_5"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_5"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_5"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/col_6"
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+                <ImageView
+                    android:id="@+id/dot_6"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_dot_off" />
+                <TextView
+                    android:id="@+id/letter_6"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/next_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:textColor="#B3FFFFFF"
+            android:textSize="9.5sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/locked"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="14dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_lock" />
+
+        <TextView
+            android:id="@+id/locked_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:textColor="#FFFFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</FrameLayout>

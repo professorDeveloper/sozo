@@ -1,3 +1,7 @@
+import 'package:soplay/core/content/content_mode.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_about_tab.dart';
+import 'package:soplay/core/content/catalogue.dart';
+import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
 import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
@@ -30,7 +34,10 @@ import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite
 import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite_state.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
-import 'package:soplay/features/tracker/domain/entities/followed_title.dart';
+import 'package:soplay/features/tracker/data/release_watch.dart';
+import 'package:soplay/features/tracker/domain/release_entry.dart';
+import 'package:soplay/features/tracker/presentation/widgets/follow_bell.dart';
+import 'package:soplay/features/tracker/presentation/widgets/release_callout.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
 import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
@@ -44,6 +51,7 @@ import 'package:soplay/features/detail/presentation/widgets/detail_comments_tab.
 import 'package:soplay/features/detail/presentation/widgets/detail_hero.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_info.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_more_menu.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_save_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_related.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_screenshots.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_skeleton.dart';
@@ -53,34 +61,53 @@ import 'package:soplay/core/widgets/app_tab_bar.dart';
 import 'package:soplay/core/widgets/poster_hero.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
+import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
+import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
 import 'package:soplay/features/download/presentation/download_messages.dart';
+import 'package:soplay/features/download/presentation/widgets/offline_copy_banner.dart';
 import 'package:showcaseview/showcaseview.dart';
 
 class DetailPage extends StatelessWidget {
   const DetailPage({super.key, required this.args});
   final DetailArgs args;
 
+  /// The provider the page was opened with, or — when none was given — the
+  /// catalogue the link itself belongs to. See [Catalogue.forUrl].
+  String? get _provider =>
+      args.provider ??
+      Catalogue.forUrl(
+        args.contentUrl,
+        current: getIt<HiveService>().getCurrentProvider(),
+      )?.id;
+
   @override
   Widget build(BuildContext context) {
+    final provider = _provider;
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) =>
-              getIt<DetailBloc>()
-                ..add(DetailLoad(args.contentUrl, provider: args.provider)),
+          create: (_) => getIt<DetailBloc>()
+            ..add(
+              DetailLoad(
+                args.contentUrl,
+                provider: provider,
+                hint: args.preview,
+              ),
+            ),
         ),
         BlocProvider(create: (_) => getIt<EpisodesBloc>()),
         BlocProvider(create: (_) => getIt<FavoriteBloc>()),
       ],
       child: _DetailScaffold(
         contentUrl: args.contentUrl,
-        provider: args.provider,
+        provider: provider,
         autoPlay: args.autoPlay,
         resumeEpisodeIndex: args.resumeEpisodeIndex,
         preview: args.preview,
         heroTag: args.heroTag,
+        focusEpisode: args.focusEpisode,
       ),
     );
   }
@@ -94,6 +121,7 @@ class _DetailScaffold extends StatelessWidget {
     this.resumeEpisodeIndex,
     this.preview,
     this.heroTag,
+    this.focusEpisode,
   });
   final String contentUrl;
   final String? provider;
@@ -104,6 +132,7 @@ class _DetailScaffold extends StatelessWidget {
   /// Enough to draw the top of the page before the request lands.
   final MovieEntity? preview;
   final String? heroTag;
+  final int? focusEpisode;
 
   @override
   Widget build(BuildContext context) {
@@ -165,21 +194,36 @@ class _DetailScaffold extends StatelessWidget {
                 // showListAction. It also removes a latent lock-up — a silent
                 // DetailLoaded refresh that skips DetailLoading would strand
                 // the page on the skeleton for good.
-                DetailLoaded(:final detail) => Builder(
-                  builder: (context) {
-                    return _DetailView(
-                      detail: detail,
-                      provider: provider,
-                      autoPlay: autoPlay,
-                      resumeEpisodeIndex: resumeEpisodeIndex,
-                      heroTag: heroTag,
-                    );
-                  },
-                ),
+                DetailLoaded(
+                  :final detail,
+                  :final via,
+                  :final resolving,
+                  :final offline,
+                ) =>
+                  Builder(
+                    builder: (context) {
+                      return _DetailView(
+                        detail: detail,
+                        // A catalogue title was loaded from the source found
+                        // for it, and everything downstream — episodes, play,
+                        // download — must ask that source, not the catalogue.
+                        provider: via?.providerId ?? provider,
+                        via: via,
+                        resolvingSource: resolving,
+                        offline: offline,
+                        autoPlay: autoPlay,
+                        resumeEpisodeIndex: resumeEpisodeIndex,
+                        heroTag: heroTag,
+                        focusEpisode: focusEpisode,
+                      );
+                    },
+                  ),
                 DetailError(:final message) => _ErrorView(
-                  message: message,
+                  message: message.startsWith('catalogue.')
+                      ? message.tr()
+                      : message,
                   onRetry: () => context.read<DetailBloc>().add(
-                    DetailLoad(contentUrl, provider: provider),
+                    DetailLoad(contentUrl, provider: provider, hint: preview),
                   ),
                   onSolveCloudflare: isCloudflareError(message)
                       ? () async {
@@ -222,15 +266,32 @@ class _DetailView extends StatefulWidget {
   const _DetailView({
     required this.detail,
     this.provider,
+    this.via,
+    this.resolvingSource = false,
+    this.offline = false,
     this.autoPlay = false,
     this.resumeEpisodeIndex,
     this.heroTag,
+    this.focusEpisode,
   });
   final DetailEntity detail;
+
+  /// Opened from the copy saved with the downloads. See [DetailLoaded.offline].
+  final bool offline;
   final String? provider;
+
+  /// The source this title was found on, when it came from a catalogue.
+  final CatalogueLink? via;
+
+  /// The search for that source has not finished. See [DetailLoaded.resolving].
+  final bool resolvingSource;
   final bool autoPlay;
   final int? resumeEpisodeIndex;
   final String? heroTag;
+
+  /// The new episode a release notification was about. See
+  /// [DetailArgs.focusEpisode].
+  final int? focusEpisode;
 
   @override
   State<_DetailView> createState() => _DetailViewState();
@@ -280,11 +341,18 @@ class _DetailViewState extends State<_DetailView>
   bool _autoPlayTriggered = false;
   bool _isFollowing = false;
 
+  /// The release this page was opened for, while its card is up.
+  ReleaseEntry? _release;
+
+  /// Handed to the episode list the next time it opens, then spent.
+  int? _focusOnOpen;
+
   /// Whether the next episode list opened should go straight on to the
   /// episode history points at. True only for the auto-play that Continue
   /// Watching starts, and spent by the first list it opens: a later Play from
   /// this page is somebody choosing to browse.
-  late bool _resumeOnOpen = widget.autoPlay && widget.resumeEpisodeIndex != null;
+  late bool _resumeOnOpen =
+      widget.autoPlay && widget.resumeEpisodeIndex != null;
 
   @override
   void initState() {
@@ -294,7 +362,18 @@ class _DetailViewState extends State<_DetailView>
         (widget.detail.director?.trim().isNotEmpty ?? false);
     _hasShots = widget.detail.screenshots.isNotEmpty;
     _isFollowing = getIt<FollowService>().isFollowed(widget.detail.contentUrl);
+    getIt<FollowService>().revision.addListener(_onFollowsChanged);
+    _release = releaseForCallout(
+      widget.detail.contentUrl,
+      widget.focusEpisode,
+      reading: widget.detail.provider.opensReader,
+    );
+    // Opening the title is what "seen" means for the feed and its NEW badge.
+    unawaited(getIt<ReleaseWatch>().markOpened(widget.detail.contentUrl));
     _tabs = [
+      // First for a title that came with a record: the record is the point
+      // of a catalogue page. A source's page has no such tab.
+      if (widget.detail.record != null) 'About',
       'Similar',
       // Always offered, because whether there is anything to show cannot be
       // known without asking AniList — and asking on every detail load would
@@ -425,6 +504,7 @@ class _DetailViewState extends State<_DetailView>
 
   @override
   void dispose() {
+    getIt<FollowService>().revision.removeListener(_onFollowsChanged);
     _showcaseView?.unregister();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
@@ -437,6 +517,7 @@ class _DetailViewState extends State<_DetailView>
   }
 
   String _tabLabel(String tab) => switch (tab) {
+    'About' => 'detail.about'.tr(),
     'Similar' => 'detail.similar'.tr(),
     'Relations' => 'detail.relations'.tr(),
     'Cast' => 'movie.cast'.tr(),
@@ -462,6 +543,7 @@ class _DetailViewState extends State<_DetailView>
       child: KeyedSubtree(
         key: ValueKey('detail-tab-$tab'),
         child: switch (tab) {
+          'About' => DetailAboutTab(record: detail.record!),
           'Similar' => DetailRelatedSection(related: detail.related),
           'Relations' => DetailRelationsTab(
             provider: detail.provider,
@@ -502,6 +584,18 @@ class _DetailViewState extends State<_DetailView>
   }
 
   void _onPrimaryAction() {
+    // A catalogue title with no source has nothing to play yet. The app bar
+    // pill reaches here too, so the redirect lives here rather than only on
+    // the body's button.
+    if (Catalogue.isId(widget.detail.provider)) {
+      // Unless the automatic search is still running, in which case a second
+      // fan-out over the same sources for the same title is the one thing that
+      // cannot help.
+      if (widget.resolvingSource) return;
+      _onFindOtherSources();
+      return;
+    }
+    if (_playLocalMovie()) return;
     final state = context.read<EpisodesBloc>().state;
     if (state is EpisodesLoading) return;
     _pendingDownload = false;
@@ -510,6 +604,38 @@ class _DetailViewState extends State<_DetailView>
     );
   }
 
+  /// A downloaded film plays from disk without asking the source anything.
+  bool _playLocalMovie() {
+    final downloads = getIt<GetDownloadsUseCase>();
+    final local = downloads.localVideo(contentUrl: widget.detail.contentUrl);
+    if (local == null) return false;
+    unawaited(_openLocalMovie(local, downloads.thumbnailOf(local.item)));
+    return true;
+  }
+
+  Future<void> _openLocalMovie(LocalVideo local, String? thumbnail) async {
+    final detail = widget.detail;
+    final history = getIt<HistoryService>().get(detail.contentUrl);
+    if (!await confirmPlayerEngine(context) || !mounted) return;
+    context.push(
+      '/player',
+      extra: PlayerArgs(
+        title: detail.title,
+        provider: local.item.provider,
+        headers: const {},
+        contentUrl: detail.contentUrl,
+        thumbnail: thumbnail ?? detail.thumbnail,
+        movieUrl: local.url,
+        type: local.type,
+        showDownloadAction: false,
+        resumePosition: Duration(milliseconds: history?.positionMs ?? 0),
+      ),
+    );
+  }
+
+  /// The last episode list came from the saved copy; the list page says so.
+  bool _episodesOffline = false;
+
   /// Play and download need the same thing first — the provider's playback
   /// payload — and it arrives asynchronously through the bloc. Rather than a
   /// second loader, the intent is remembered and the one result is routed when
@@ -517,6 +643,10 @@ class _DetailViewState extends State<_DetailView>
   bool _pendingDownload = false;
 
   void _onDownloadAction() {
+    if (Catalogue.isId(widget.detail.provider)) {
+      _onFindOtherSources();
+      return;
+    }
     final state = context.read<EpisodesBloc>().state;
     if (state is EpisodesLoading) return;
     _pendingDownload = true;
@@ -552,6 +682,7 @@ class _DetailViewState extends State<_DetailView>
     var headers = playback.headers;
     var sources = playback.videoSources;
     var type = playback.type;
+    var subtitles = const <SubtitleEntity>[];
 
     // An embed page rather than a stream: the same resolve the player does on
     // open. Downloading the page would produce an unplayable HTML file.
@@ -583,6 +714,9 @@ class _DetailViewState extends State<_DetailView>
         headers = result.value.headers;
         sources = result.value.videoSources;
         type = result.value.type;
+        if (result.value.subtitles.isNotEmpty) {
+          subtitles = result.value.subtitles;
+        }
       }
     }
 
@@ -609,6 +743,7 @@ class _DetailViewState extends State<_DetailView>
         videoHeight: selection.height,
         thumbnailUrl: widget.detail.thumbnail,
         headers: selection.headers,
+        subtitles: subtitles,
       ),
     );
     if (!mounted) return;
@@ -760,8 +895,84 @@ class _DetailViewState extends State<_DetailView>
   ///
   /// Falls back to the old screen when nothing matched, rather than leaving a
   /// dead end: cross-search casts a wider net and lets them look by hand.
+  /// The viewer disagrees with the source that was picked for a catalogue
+  /// title. Forget the pick, so it is not repeated, and let them choose.
+  Future<void> _changeSource() async {
+    final via = widget.via;
+    if (via != null) {
+      // The catalogue id and the title's id in it are what the link was
+      // remembered under; the page only knows the source it landed on, so the
+      // key is rebuilt from the route it was opened with.
+      final args = GoRouterState.of(context).extra;
+      if (args is DetailArgs) {
+        final catalogue =
+            Catalogue.fromId(args.provider) ??
+            Catalogue.forUrl(
+              args.contentUrl,
+              current: getIt<HiveService>().getCurrentProvider(),
+            );
+        if (catalogue != null) {
+          await getIt<CatalogueResolver>().forget(
+            catalogue.id,
+            args.contentUrl,
+          );
+        }
+      }
+    }
+    if (!mounted) return;
+    await _onFindOtherSources();
+  }
+
   Future<void> _onFindOtherSources() async {
     final detail = widget.detail;
+    // A manga or a novel opens on the source that has it — its own page, with
+    // its chapters — not in the video player.
+    if (detail.provider.contentMode != ContentMode.video) {
+      final source = await AlternateSourceSheet.pickToRead(
+        context,
+        title: detail.title,
+        provider: detail.provider,
+        category: getIt<HiveService>().providerCategory(detail.provider),
+      );
+      if (!mounted || source == null) return;
+      // On a catalogue page (AniList manga or novels) the pick is remembered
+      // for the catalogue title, so it opens with this source next time.
+      final args = GoRouterState.of(context).extra;
+      if (args is DetailArgs) {
+        final catalogue =
+            Catalogue.fromId(args.provider) ??
+            Catalogue.forUrl(
+              args.contentUrl,
+              current: getIt<HiveService>().getCurrentProvider(),
+            );
+        if (catalogue != null) {
+          unawaited(
+            getIt<CatalogueResolver>().choose(
+              catalogue.id,
+              args.contentUrl,
+              CatalogueLink(
+                providerId: source.provider.id,
+                providerName: source.provider.name,
+                contentUrl: source.item.url,
+                catalogueId: catalogue.id,
+                providerImage: '',
+                approximate: false,
+              ),
+            ),
+          );
+        }
+      }
+      if (!mounted) return;
+      context.push(
+        '/detail',
+        extra: DetailArgs(
+          contentUrl: source.item.url,
+          provider: source.provider.id,
+          preview: source.item,
+        ),
+      );
+      return;
+    }
     final history = getIt<HistoryService>().get(detail.contentUrl);
 
     final args = await AlternateSourceSheet.show(
@@ -777,28 +988,20 @@ class _DetailViewState extends State<_DetailView>
     context.push('/player', extra: args);
   }
 
-  Future<void> _toggleFollow() async {
-    final svc = getIt<FollowService>();
-    if (_isFollowing) {
-      await svc.unfollow(widget.detail.contentUrl);
-    } else {
-      final d = widget.detail;
-      await svc.follow(
-        FollowedTitle(
-          contentUrl: d.contentUrl,
-          provider: d.provider,
-          title: d.title,
-          thumbnail: d.thumbnail ?? '',
-          year: d.year,
-          addedAt: DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
-    }
-    if (!mounted) return;
-    setState(() => _isFollowing = !_isFollowing);
-    _showSnack(
-      _isFollowing ? 'detail.following_on'.tr() : 'detail.following_off'.tr(),
-    );
+  Future<void> _toggleFollow() => toggleFollow(context, widget.detail);
+
+  void _onFollowsChanged() {
+    final now = getIt<FollowService>().isFollowed(widget.detail.contentUrl);
+    if (mounted && now != _isFollowing) setState(() => _isFollowing = now);
+  }
+
+  /// "Watch episode 12" on the release card: the list, opened on it.
+  void _openRelease() {
+    final release = _release;
+    if (release == null) return;
+    _focusOnOpen = release.fromEpisode;
+    _resumeOnOpen = false;
+    _onPrimaryAction();
   }
 
   /// The public link to this title — the one Share sends and Copy hands over.
@@ -811,6 +1014,30 @@ class _DetailViewState extends State<_DetailView>
 
   void _onShare() {
     Share.share('${widget.detail.title}\n$_shareLink');
+  }
+
+  /// Everything this title could be saved into, from the tick that already
+  /// means "keep this".
+  void _openSaveSheet() {
+    final detail = widget.detail;
+    final favState = context.read<FavoriteBloc>().state;
+    showDetailSaveSheet(
+      context,
+      entity: FavoriteEntity(
+        provider: detail.provider,
+        contentUrl: detail.contentUrl,
+        title: detail.title,
+        thumbnail: detail.thumbnail ?? '',
+      ),
+      isInList: favState is FavoriteReady && favState.isInList,
+      inPrivate: favState is FavoriteReady && favState.inPrivate,
+      showFollow: detail.isSerial,
+      following: _isFollowing,
+      onToggleMyList: _toggleMyList,
+      onToggleFollow: _toggleFollow,
+      onMoveToPrivate: _onMoveToPrivate,
+      onPrivateActions: _showPrivateActions,
+    );
   }
 
   void _showMoreMenu() {
@@ -901,8 +1128,16 @@ class _DetailViewState extends State<_DetailView>
         total: playback.total,
         totalPages: playback.totalPages,
         resumeFromHistory: resume,
+        offline: _episodesOffline,
+        focusEpisode: _takeFocus(),
       ),
     );
+  }
+
+  int? _takeFocus() {
+    final focus = _focusOnOpen;
+    _focusOnOpen = null;
+    return focus;
   }
 
   /// The stream a movie should use: the provider's own pick, else the default
@@ -1086,6 +1321,7 @@ class _DetailViewState extends State<_DetailView>
           listenWhen: (prev, curr) => prev.runtimeType != curr.runtimeType,
           listener: (context, state) {
             if (state is EpisodesLoaded) {
+              _episodesOffline = state.offline;
               if (_pendingDownload) {
                 _pendingDownload = false;
                 _handleDownload(state.playback);
@@ -1191,14 +1427,35 @@ class _DetailViewState extends State<_DetailView>
                   ),
                 ),
               ),
+              if (_release != null)
+                SliverToBoxAdapter(
+                  child: ReleaseCallout(
+                    entry: _release!,
+                    onOpen: _openRelease,
+                    onDismiss: () => setState(() => _release = null),
+                  ),
+                ),
               SliverToBoxAdapter(
                 child: DetailContentHeader(
                   detail: detail,
                   onPrimaryAction: _onPrimaryAction,
                   onDownload: _onDownloadAction,
                   playButtonKey: _bodyPlayKey,
+                  via: widget.via,
+                  resolvingSource: widget.resolvingSource,
+                  onChangeSource: widget.via == null ? null : _changeSource,
+                  onFindSource: _onFindOtherSources,
                 ),
               ),
+              if (widget.offline)
+                SliverToBoxAdapter(
+                  child: OfflineCopyBanner(
+                    message: 'detail.offline_copy_desc'.tr(),
+                    onRetry: () => context.read<DetailBloc>().add(
+                      DetailLoad(detail.contentUrl, provider: widget.provider),
+                    ),
+                  ),
+                ),
               // Sponsor/CMS banner (detail_top placement). Opt-in: self-collapses
               // to nothing unless an admin creates a detail_top banner. Guest-safe.
               const SliverToBoxAdapter(
@@ -1304,7 +1561,7 @@ class _DetailViewState extends State<_DetailView>
                             showcaseScope: _showcaseScope,
                             onBack: _goBack,
                             onPrimaryAction: _onPrimaryAction,
-                            onAddToList: _toggleMyList,
+                            onSave: _openSaveSheet,
                             onMoveToPrivate: _onMoveToPrivate,
                             onPrivateActions: _showPrivateActions,
                             moreButtonKey: _moreButtonKey,
@@ -1369,7 +1626,7 @@ class _AnimatedTopBar extends StatelessWidget {
     required this.moreButtonKey,
     required this.onBack,
     required this.onPrimaryAction,
-    required this.onAddToList,
+    required this.onSave,
     required this.onMoveToPrivate,
     required this.onPrivateActions,
     required this.onMore,
@@ -1391,7 +1648,7 @@ class _AnimatedTopBar extends StatelessWidget {
   final GlobalKey moreButtonKey;
   final VoidCallback onBack;
   final VoidCallback onPrimaryAction;
-  final VoidCallback onAddToList;
+  final VoidCallback onSave;
   final VoidCallback onMoveToPrivate;
   final VoidCallback onPrivateActions;
   final VoidCallback onMore;
@@ -1506,16 +1763,18 @@ class _AnimatedTopBar extends StatelessWidget {
                       // The icon has four states and the label follows it —
                       // "Add to list" announced on a button that would in fact
                       // remove it is worse than no label.
+                      // One label, because the tap now opens the lists
+                      // rather than committing to one of them. It used to
+                      // announce "Remove from My List" on a button that, after
+                      // the sheet, might do nothing of the sort.
                       semanticLabel: inPrivate
                           ? 'detail.in_private_list'.tr()
-                          : isInList
-                          ? 'detail.remove_from_my_list_action'.tr()
-                          : 'detail.add_to_my_list_action'.tr(),
+                          : 'detail.save_action'.tr(),
                       onTap: isListActionLoading
                           ? null
                           : inPrivate
                           ? onPrivateActions
-                          : onAddToList,
+                          : onSave,
                       onLongPress: isListActionLoading || inPrivate
                           ? null
                           : onMoveToPrivate,

@@ -41,13 +41,11 @@ abstract final class DownloadLayout {
     String id, {
     required DownloadKind kind,
     String? extension,
-  }) =>
-      switch (kind) {
-        DownloadKind.manga => dirFor(id),
-        DownloadKind.hls => '${dirFor(id)}/$hlsIndexName',
-        DownloadKind.video =>
-          '${dirFor(id)}/$videoStemName${extension ?? '.mp4'}',
-      };
+  }) => switch (kind) {
+    DownloadKind.manga => dirFor(id),
+    DownloadKind.hls => '${dirFor(id)}/$hlsIndexName',
+    DownloadKind.video => '${dirFor(id)}/$videoStemName${extension ?? '.mp4'}',
+  };
 
   /// The playlist rewritten to point at local segments.
   static const String hlsIndexName = 'index.m3u8';
@@ -79,6 +77,21 @@ abstract final class DownloadLayout {
   /// File name of that record, for code that already has the folder.
   static const String manifestName = 'manifest.json';
 
+  /// The row, written beside a finished download so the folder can describe
+  /// itself without the Hive box.
+  static const String sidecarName = 'item.json';
+
+  /// [relative] moved from download [fromId]'s folder to [toId]'s. Anything not
+  /// under [fromId]'s folder is returned unchanged.
+  static String rekeyed(String relative, String fromId, String toId) {
+    final from = dirFor(fromId);
+    if (relative == from) return dirFor(toId);
+    if (relative.startsWith('$from/')) {
+      return '${dirFor(toId)}${relative.substring(from.length)}';
+    }
+    return relative;
+  }
+
   static String segmentName(int index) => 'seg_$index.ts';
 
   /// A decryption key an HLS playlist points at (`#EXT-X-KEY`).
@@ -89,8 +102,34 @@ abstract final class DownloadLayout {
   static String hlsMapName(int index, String extension) =>
       'init_$index$extension';
 
+  /// A stream whose audio is a rendition of its own (`#EXT-X-MEDIA`) is saved
+  /// as two playlists under a small master at [hlsIndexName]: the video one
+  /// here, the audio one at [hlsAudioPlaylistName]. Audio files carry an
+  /// `aud_` prefix so the `seg_` count the verifier checks is the video's.
+  static const String hlsVideoPlaylistName = 'video.m3u8';
+  static const String hlsAudioPlaylistName = 'audio.m3u8';
+  static String audioSegmentName(int index) => 'aud_$index.ts';
+  static String hlsAudioKeyName(int index) => 'aud_key_$index.bin';
+  static String hlsAudioMapName(int index, String extension) =>
+      'aud_init_$index$extension';
+
   static String pageName(int index, String extension) =>
       'p_${index.toString().padLeft(3, '0')}$extension';
+
+  /// A novel chapter's prose.
+  ///
+  /// A comic chapter is a folder of `p_*` images; a novel chapter is one HTML
+  /// document, and it used to be neither — [DownloadTransferDataSource] was
+  /// handed an empty page list and failed the whole download with "the chapter
+  /// has no pages", so a novel could not be saved for offline at all.
+  ///
+  /// The images a chapter's prose references are written beside it under
+  /// [pageName], and the document that lands here has its `src` attributes
+  /// rewritten to those names — so the folder is self-contained and deleting it
+  /// takes the pictures with the words.
+  static const String chapterHtmlName = 'chapter.html';
+
+  static String chapterHtmlFor(String id) => '${dirFor(id)}/$chapterHtmlName';
 
   /// Recovers a relative path from whatever an older build stored.
   ///

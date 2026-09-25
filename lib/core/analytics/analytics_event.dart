@@ -38,6 +38,29 @@ enum AnalyticsEvent {
   playbackFailed('playback_failed'),
   sourceSwitched('source_switched'),
 
+  // --- Home, and what people let onto it -----------------------------------
+  //
+  // A suggestion is the app asking for room on somebody's Home screen, so the
+  // whole exchange is worth counting: how often it is put, how often it is
+  // taken, and how often what was taken is later given back. The band's id
+  // rides along as a property rather than being baked into the event name, so
+  // the next suggestion reuses these three charts instead of starting its own.
+  homeSuggestionShown('home_suggestion_shown'),
+  homeSuggestionAccepted('home_suggestion_accepted'),
+  homeSuggestionDismissed('home_suggestion_dismissed'),
+
+  /// A band switched off from the band itself. Against
+  /// [homeSuggestionAccepted] this is the honest measure of whether the
+  /// suggestion was worth making.
+  homeRailRemoved('home_rail_removed'),
+
+  /// The streaming line-up opened, from wherever.
+  watchServicesOpened('watch_services_opened'),
+
+  /// The country had no line-up at all and a populated one was shown instead.
+  /// If this is common the feature is being sold to people it cannot serve.
+  watchServicesRegionFellBack('watch_services_region_fell_back'),
+
   // --- Everything else -----------------------------------------------------
   downloadQueued('download_queued'),
   extensionRepoAdded('extension_repo_added'),

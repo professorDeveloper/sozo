@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -24,11 +26,18 @@ class HomeRepositoryImp implements HomeRepository {
   const HomeRepositoryImp(
     this.dataSource, {
     required this.mangayomi,
+    this.jellyfin,
     this.jsRuntime,
     this.hive,
+    this.onOutcome,
   });
 
+  /// Told how each home load went, for the source health record: opening a
+  /// source's home is the same evidence a check would gather, for free.
+  final void Function(String providerId, bool ok, String? error)? onOutcome;
+
   final MangayomiBridge mangayomi;
+  final JellyfinBridge? jellyfin;
 
   String? get _currentProvider {
     final id = hive?.getCurrentProvider();
@@ -59,6 +68,24 @@ class HomeRepositoryImp implements HomeRepository {
 
   @override
   Future<Result<HomeDataEntity>> loadHome() async {
+    final provider = _currentProvider;
+    final result = await _loadHome();
+    final report = onOutcome;
+    if (report != null && provider != null && !Catalogue.isId(provider)) {
+      switch (result) {
+        case Success(:final value):
+          final items =
+              value.banner.length +
+              value.sections.fold<int>(0, (n, s) => n + s.items.length);
+          if (items > 0) report(provider, true, null);
+        case Failure(:final error):
+          report(provider, false, error.toString());
+      }
+    }
+    return result;
+  }
+
+  Future<Result<HomeDataEntity>> _loadHome() async {
     final js = jsRuntime;
     final provider = _currentProvider;
     // Every on-device host reports *why* it came back empty in an `error` field
@@ -67,6 +94,21 @@ class HomeRepositoryImp implements HomeRepository {
     // can act — re-add the repo, update the extension — and one who just sees a
     // blank screen. None of these paths touch our backend, so they must keep
     // working during an outage.
+    // A catalogue before any host: it is the one "provider" that no host
+    // serves and the backend does, and asking a host for `cat:anilist` would
+    // get an honest-looking "source not installed".
+    final catalogue = Catalogue.fromId(provider);
+    if (catalogue != null) {
+      try {
+        return Success(await dataSource.loadCatalogueHome(catalogue.kind));
+      } on DioException catch (e) {
+        final raw = e.response?.data;
+        final message = (raw is Map ? raw['message'] : null) ?? e.message;
+        return Failure(Exception(message.toString()));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (provider != null && provider.startsWith('cs:')) {
       return _fromHost(
         () => CloudStreamChannel.getMainPage(provider.substring(3)),
@@ -89,6 +131,13 @@ class HomeRepositoryImp implements HomeRepository {
       return _fromHost(
         () => mangayomi.getMainPage(provider.substring(3)),
         'Mangayomi',
+      );
+    }
+    final jf = jellyfin;
+    if (jf != null && provider != null && provider.startsWith('jf:')) {
+      return _fromHost(
+        () => jf.getMainPage(JellyfinBridge.bare(provider)),
+        'Jellyfin',
       );
     }
     if (js != null && provider != null) {
@@ -123,6 +172,88 @@ class HomeRepositoryImp implements HomeRepository {
   }) async {
     final js = jsRuntime;
     final provider = _currentProvider;
+    // A streaming service is not any source's section — it is TMDB's answer
+    // about a country, asked the same way whichever source happens to be
+    // current. Ahead of the prefix branches for that reason: the active source
+    // is irrelevant here, and letting a CloudStream extension be asked for a
+    // Netflix page would be nonsense.
+    if (key == 'catalogue-discover') {
+      final parts = slug.split(':');
+      if (parts.length != 2 ||
+          !{
+            'anilist',
+            'anilist-manga',
+            'anilist-novel',
+          }.contains(parts.first)) {
+        return Failure(Exception('Invalid catalogue collection'));
+      }
+      try {
+        return Success(
+          await dataSource.loadCatalogueViewAll(
+            kind: parts.first,
+            type: 'discover',
+            slug: parts.last,
+            page: page,
+          ),
+        );
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
+    if (key == 'catalogue-genre') {
+      final i = slug.indexOf(':');
+      final kind = i > 0 ? slug.substring(0, i) : '';
+      final genre = i > 0 ? slug.substring(i + 1) : '';
+      if (genre.isEmpty ||
+          !{
+            'tmdb',
+            'anilist',
+            'anilist-manga',
+            'anilist-novel',
+          }.contains(kind)) {
+        return Failure(Exception('Invalid catalogue genre'));
+      }
+      try {
+        return Success(
+          await dataSource.loadCatalogueViewAll(
+            kind: kind,
+            type: 'genre',
+            slug: genre,
+            page: page,
+          ),
+        );
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
+    if (key == 'watch-service') {
+      try {
+        return Success(
+          await dataSource.loadWatchService(slug: slug, page: page),
+        );
+      } on DioException catch (e) {
+        final raw = e.response?.data;
+        final message = (raw is Map ? raw['message'] : null) ?? e.message;
+        return Failure(Exception(message.toString()));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
+    final catalogue = Catalogue.fromId(provider);
+    if (catalogue != null) {
+      try {
+        return Success(
+          await dataSource.loadCatalogueViewAll(
+            kind: catalogue.kind,
+            type: key,
+            slug: slug,
+            page: page,
+          ),
+        );
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (provider != null && provider.startsWith('cs:')) {
       try {
         final map = await CloudStreamChannel.getSection(
@@ -171,6 +302,20 @@ class HomeRepositoryImp implements HomeRepository {
         return Failure(Exception(e.toString()));
       }
     }
+    final jf = jellyfin;
+    if (jf != null && provider != null && provider.startsWith('jf:')) {
+      try {
+        // Home's genre tiles open a view-all keyed `genre` with the bare id.
+        final map = await jf.getSection(
+          JellyfinBridge.bare(provider),
+          key == 'genre' ? 'genre:$slug' : slug,
+          page: page,
+        );
+        return Success(ViewAllPagingModel.fromJson(map));
+      } catch (e) {
+        return Failure(Exception(jf.describe(e)));
+      }
+    }
     if (js != null && provider != null && key == 'category') {
       try {
         final map = await js.tryGetCategory(provider, slug, page);
@@ -202,6 +347,14 @@ class HomeRepositoryImp implements HomeRepository {
   @override
   Future<Result<List<GenreEntity>>> loadGenres() async {
     final provider = _currentProvider;
+    final catalogue = Catalogue.fromId(provider);
+    if (catalogue != null) {
+      try {
+        return Success(await dataSource.loadCatalogueGenres(catalogue.kind));
+      } catch (_) {
+        return const Success(<GenreEntity>[]);
+      }
+    }
     if (provider != null && provider.startsWith('cs:')) {
       try {
         final list = await CloudStreamChannel.getGenres(provider.substring(3));
@@ -229,6 +382,15 @@ class HomeRepositoryImp implements HomeRepository {
     if (provider != null && provider.startsWith('my:')) {
       // Mangayomi exposes filters, not the app's flat genre list.
       return const Success(<GenreEntity>[]);
+    }
+    final jf = jellyfin;
+    if (jf != null && provider != null && provider.startsWith('jf:')) {
+      try {
+        final list = await jf.genres(JellyfinBridge.bare(provider));
+        return Success(list.map(GenreModel.fromJson).toList());
+      } catch (_) {
+        return const Success(<GenreEntity>[]);
+      }
     }
     if (provider != null && provider.startsWith('mn:')) {
       try {

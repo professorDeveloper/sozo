@@ -13,10 +13,18 @@ const List<double> _speeds = [1.0, 0.74, 1.22, 0.9, 1.1];
 /// artwork reads as the same slide again. Rows moving against each other also
 /// echo the shelves the catalogue itself is laid out in.
 class AnimeRibbons extends StatefulWidget {
-  const AnimeRibbons({super.key, this.rows = 6, this.tilesPerRow = 11});
+  const AnimeRibbons({
+    super.key,
+    this.rows = 6,
+    this.tilesPerRow = 11,
+    this.fadeBottom = true,
+  });
 
   final int rows;
   final int tilesPerRow;
+
+  /// Off where the page already fades the ribbons into its background.
+  final bool fadeBottom;
 
   @override
   State<AnimeRibbons> createState() => _AnimeRibbonsState();
@@ -61,6 +69,29 @@ class _AnimeRibbonsState extends State<AnimeRibbons>
           final tileWidth = rowHeight * _coverRatio;
           final strip = (tileWidth + _gap) * widget.tilesPerRow;
 
+          final ribbons = Column(
+            children: [
+              for (var r = 0; r < widget.rows; r++) ...[
+                if (r > 0) const SizedBox(height: _gap),
+                SizedBox(
+                  height: rowHeight,
+                  child: _Ribbon(
+                    controller: _controller,
+                    covers: _coversFor(r),
+                    // Odd rows travel the other way. Everything drifting the
+                    // same direction looks like one sheet being dragged.
+                    reverse: r.isOdd,
+                    speed: _speeds[r % _speeds.length],
+                    strip: strip,
+                    tileWidth: tileWidth,
+                    tileHeight: rowHeight,
+                    phase: r / widget.rows,
+                  ),
+                ),
+              ],
+            ],
+          );
+          if (!widget.fadeBottom) return ribbons;
           return ShaderMask(
             blendMode: BlendMode.dstIn,
             shaderCallback: (rect) => const LinearGradient(
@@ -69,28 +100,7 @@ class _AnimeRibbonsState extends State<AnimeRibbons>
               colors: [Colors.white, Colors.white, Colors.transparent],
               stops: [0, 0.4, 1],
             ).createShader(rect),
-            child: Column(
-              children: [
-                for (var r = 0; r < widget.rows; r++) ...[
-                  if (r > 0) const SizedBox(height: _gap),
-                  SizedBox(
-                    height: rowHeight,
-                    child: _Ribbon(
-                      controller: _controller,
-                      covers: _coversFor(r),
-                      // Odd rows travel the other way. Everything drifting the
-                      // same direction looks like one sheet being dragged.
-                      reverse: r.isOdd,
-                      speed: _speeds[r % _speeds.length],
-                      strip: strip,
-                      tileWidth: tileWidth,
-                      tileHeight: rowHeight,
-                      phase: r / widget.rows,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            child: ribbons,
           );
         },
       ),

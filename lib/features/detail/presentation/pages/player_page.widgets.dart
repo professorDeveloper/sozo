@@ -261,11 +261,20 @@ class _IconButton extends StatelessWidget {
   const _IconButton({
     required this.icon,
     required this.onTap,
+    this.onLongPress,
     this.color,
     this.enabled = true,
   });
   final IconData icon;
   final VoidCallback onTap;
+
+  /// The long way round, for a control whose tap is a shortcut.
+  ///
+  /// Speed and aspect ratio both used to open a full sheet over the video for
+  /// what is, nine times out of ten, "one step up". The tap now takes that step
+  /// and says so in a toast; this is how the full list is still reached when
+  /// somebody wants to jump straight to 2x.
+  final VoidCallback? onLongPress;
 
   /// Dimmed and inert rather than absent.
   ///
@@ -281,9 +290,15 @@ class _IconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 0.45, matching _CenterIconButton — though not for its reason. The centre
+    // cluster sits where the controls scrim has already faded to nothing, so
+    // its disc is all the contrast it gets. These sit inside the scrim and
+    // still needed it: a bar button is a 20pt white glyph against whatever
+    // frame is behind it, and on a bright shot 0.35 left it reading as a
+    // smudge. Raised for legibility, not because the scrim is absent.
     final fill = color != null
         ? color!.withValues(alpha: 0.22)
-        : Colors.black.withValues(alpha: 0.35);
+        : Colors.black.withValues(alpha: 0.45);
     final tint = (color ?? Colors.white).withValues(
       alpha: enabled ? 1.0 : 0.38,
     );
@@ -307,16 +322,20 @@ class _IconButton extends StatelessWidget {
           shape: const CircleBorder(),
           child: InkWell(
             onTap: enabled ? onTap : null,
+            onLongPress: enabled ? onLongPress : null,
             customBorder: const CircleBorder(),
             child: Center(
               child: Container(
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+                // 20 inside a 38pt disc. It was 18, which left 10pt of empty
+                // disc a side and read as a small mark in a large circle —
+                // half of why these looked flimsy over video.
                 child: Icon(
                   icon,
                   color: tint,
-                  size: 18,
+                  size: 20,
                   shadows: _kControlShadow,
                 ),
               ),
@@ -393,7 +412,9 @@ class _LangPill extends StatelessWidget {
     return _tvRing(
       radius: 20,
       Material(
-        color: Colors.black.withValues(alpha: 0.35),
+        // The same 0.45 disc its _IconButton neighbours wear; at 0.35 it was
+        // the one washed-out shape in the row.
+        color: Colors.black.withValues(alpha: 0.45),
         shape: const StadiumBorder(),
         child: InkWell(
           onTap: onTap,
@@ -508,9 +529,14 @@ class _BottomTextButton extends StatelessWidget {
     required this.enabled,
     required this.onTap,
     this.compact = false,
+    this.compactLabel,
   });
   final IconData icon;
   final String label;
+
+  /// Drawn instead of the icon when [compact], for a button whose value is
+  /// worth more than its glyph.
+  final String? compactLabel;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -529,35 +555,155 @@ class _BottomTextButton extends StatelessWidget {
     return Padding(
       padding: const EdgeInsetsDirectional.only(end: 10),
       child: _tvRing(
-        radius: 6,
-        InkWell(
-          onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(6),
-          child: Padding(
-            // 18pt glyph + 13 above and below = a 44pt row, Apple's minimum.
-            // It was 10, i.e. 38 — the same miss as _IconButton above.
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: color, size: 18, shadows: _kControlShadow),
-                if (!compact) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    label,
-                    style: TextStyle(
+        radius: 10,
+        // The landscape bottom row — Lock, the speed, the server, the quality —
+        // was drawn as bare white text and a bare white glyph over the frame,
+        // with only a drop shadow to hold it. Against a bright shot that is
+        // exactly the "thin, low quality" the icon buttons beside it had
+        // already been given a disc to fix; this is that disc, shaped for a
+        // label instead of a glyph, at the same 0.45.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: InkWell(
+            onTap: enabled ? onTap : null,
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              // 20pt glyph + 12 above and below = a 44pt row, Apple's minimum.
+              // The glyph grew to match _IconButton, so the padding gave back the
+              // 2pt rather than letting the row grow past 44.
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (compact && compactLabel != null)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 20),
+                      child: Text(
+                        compactLabel!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12,
+                          height: 1.67,
+                          fontWeight: FontWeight.w800,
+                          shadows: _kControlShadow,
+                        ),
+                      ),
+                    )
+                  else
+                    Icon(
+                      icon,
                       color: color,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      size: 20,
                       shadows: _kControlShadow,
                     ),
-                  ),
+                  if (!compact) ...[
+                    const SizedBox(width: 4),
+                    // Cross-faded, because several of these buttons now CYCLE
+                    // rather than open a sheet: the label is the only thing that
+                    // reports what the tap did, and a label that swaps instantly
+                    // reads as a glitch rather than as an answer.
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: SizeTransition(
+                          axis: Axis.horizontal,
+                          alignment: AlignmentDirectional.centerStart,
+                          sizeFactor: animation,
+                          child: child,
+                        ),
+                      ),
+                      child: Text(
+                        label,
+                        key: ValueKey(label),
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          shadows: _kControlShadow,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The row of controls under the seek bar, as the viewer arranged it.
+///
+/// Public, and taking its children rather than building them, for one reason:
+/// it is the piece that keeps breaking, and everything around it —
+/// `_PlayerPageState`, a `VideoPlayerController`, a resolved stream — cannot be
+/// stood up in a test. `PlayerTransportRow` was pulled out of the centre
+/// cluster for the same reason and is tested the same way.
+///
+/// The two groups are drawn as one CENTRED block. They used to sit at opposite
+/// ends of a `spaceBetween`, which on a landscape phone put a hand's width of
+/// empty bar between them and threw the controls to the two corners furthest
+/// from a thumb already resting in the middle of the screen. Adjacent groups
+/// keep the transport/everything-else split readable without spending the whole
+/// width saying it.
+///
+/// Overflow stays a horizontal scroll rather than a `FittedBox`. Shrinking is
+/// what the top bar does and what caps it at six: past a few percent the glyphs
+/// stop being hittable, and a bottom row the viewer can fill from the layout
+/// editor would hit that far sooner. The caller trims this row to what fits in
+/// portrait; the scroll is the floor under that, not the plan.
+class PlayerBottomControlRow extends StatelessWidget {
+  const PlayerBottomControlRow({
+    super.key,
+    required this.leading,
+    required this.trailing,
+  });
+
+  /// The transport group — whatever the viewer left in `bottomLeft`.
+  final List<Widget> leading;
+
+  /// Everything in `bottomRight`, already trimmed to what fits.
+  final List<Widget> trailing;
+
+  /// Separates the two groups when both exist, so centring them together does
+  /// not read as one undifferentiated row of ten buttons.
+  static const double groupGap = 16;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            // The floor is what makes centring possible without giving up the
+            // scroll: at minWidth the row has slack to centre in, while an
+            // unbounded maxWidth still lets a genuinely over-long row scroll
+            // instead of overflowing. Spacer and Expanded cannot be used here
+            // for exactly that reason — they throw on an unbounded main axis.
+            constraints: BoxConstraints(minWidth: box.maxWidth),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ...leading,
+                if (leading.isNotEmpty && trailing.isNotEmpty)
+                  const SizedBox(width: groupGap),
+                ...trailing,
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -579,6 +725,7 @@ class _EpisodeRow extends StatelessWidget {
         ? 'player.episode_n'.tr(args: ['${episode.episode}'])
         : episode.label;
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       // On TV the panel opens with the remote already on the episode being
       // watched, so OK re-plays it and up/down walks the list from there.
@@ -646,6 +793,7 @@ class _VideoTrackRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final detail = track.detail;
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       autofocus: isTvPlatform && isActive,
       focusColor: _kTvFocusFill,
@@ -703,6 +851,7 @@ class _QualityRow extends StatelessWidget {
     final worst = StreamWarning.worst(source);
 
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       autofocus: isTvPlatform && isActive,
       focusColor: _kTvFocusFill,
@@ -919,6 +1068,7 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final disabled = onTap == null;
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       focusColor: _kTvFocusFill,
       child: Padding(
@@ -1001,6 +1151,7 @@ class _OptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       onLongPress: onLongPress,
       // Land the remote on the value that is already active, the way the
@@ -1365,20 +1516,35 @@ class _GeneratedFramePreview extends StatefulWidget {
     required this.url,
     required this.headers,
     required this.positionMs,
+    required this.width,
+    required this.height,
+    this.hls = false,
   });
 
   final String url;
   final Map<String, String> headers;
   final int positionMs;
+  final bool hls;
+  final double width;
+  final double height;
 
   @override
   State<_GeneratedFramePreview> createState() => _GeneratedFramePreviewState();
 }
 
+/// The frame under the finger, in three steps: the nearest frame already
+/// held (from the background grid or an earlier scrub) at once; the exact one
+/// cross-faded in when it is decoded; a dark skeleton only while there is
+/// nothing at all. A position that cannot be decoded and has nothing near it
+/// draws no box — the time alone is honest, an empty frame is not.
 class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
-  static const double _w = 160;
-  static const double _h = 90;
-  Uint8List? _bytes;
+  Uint8List? _exact;
+  Uint8List? _near;
+
+  /// The last frame shown, kept up while a new position has nothing near it,
+  /// so a fast drag does not flash the skeleton between frames.
+  Uint8List? _previous;
+  int? _lastPosition;
   bool _failed = false;
 
   int get _bucket => widget.positionMs ~/ FramePreviewService.bucketMs;
@@ -1386,7 +1552,7 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
   @override
   void initState() {
     super.initState();
-    _fetch();
+    _refresh();
   }
 
   @override
@@ -1394,70 +1560,317 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
     super.didUpdateWidget(old);
     if (old.positionMs ~/ FramePreviewService.bucketMs != _bucket ||
         old.url != widget.url) {
-      _fetch();
+      _refresh();
     }
   }
 
+  void _refresh() {
+    // The exact frame belongs to the position the finger left; a grid frame
+    // near the new one is closer to the truth than it is.
+    _previous = _exact ?? _near ?? _previous;
+    _exact = null;
+    _near = FramePreviewService.nearest(
+      widget.url,
+      widget.positionMs,
+      hls: widget.hls,
+    );
+    _fetch();
+  }
+
   Future<void> _fetch() async {
+    final asked = _bucket;
     final bytes = await FramePreviewService.previewFrame(
       widget.url,
       widget.headers,
       widget.positionMs,
+      hls: widget.hls,
     );
-    if (!mounted) return;
-    if (bytes != null) {
-      setState(() {
-        _bytes = bytes;
+    if (!mounted || asked != _bucket) return;
+    setState(() {
+      if (bytes != null) {
+        _exact = bytes;
         _failed = false;
-      });
-    } else if (_bytes == null && !_failed) {
-      setState(() => _failed = true);
+      } else if (_exact == null) {
+        _failed = true;
+      }
+    });
+    // The next frame in the direction of the drag, while the decoder is free.
+    final last = _lastPosition;
+    _lastPosition = widget.positionMs;
+    if (bytes != null && last != null && last != widget.positionMs) {
+      FramePreviewService.prefetch(
+        widget.url,
+        widget.positionMs,
+        widget.positionMs > last ? 1 : -1,
+        hls: widget.hls,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final b = _bytes;
-    if (b != null) {
-      return Image.memory(
-        b,
-        width: _w,
-        height: _h,
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        filterQuality: FilterQuality.low,
-      );
-    }
-    if (_failed) return const SizedBox.shrink();
-    return Container(
-      width: _w,
-      height: _h,
-      color: Colors.black54,
-      alignment: Alignment.center,
-      child: const SizedBox(
-        width: 18,
-        height: 18,
-        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+    final shown = _exact ?? _near ?? (_failed ? null : _previous);
+    if (shown == null && _failed) return const SizedBox.shrink();
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return _PreviewFrame(
+      width: widget.width,
+      height: widget.height,
+      child: shown == null
+          ? const _PreviewSkeleton()
+          : AnimatedSwitcher(
+              duration: const Duration(milliseconds: 140),
+              child: Image.memory(
+                shown,
+                key: ValueKey(identityHashCode(shown)),
+                width: widget.width,
+                height: widget.height,
+                // Decoded at the size it is drawn, not at the stream's own
+                // resolution.
+                cacheWidth: (widget.width * dpr).round(),
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                filterQuality: FilterQuality.medium,
+              ),
+            ),
+    );
+  }
+}
+
+/// The box every preview frame sits in, whatever it came from.
+class _PreviewFrame extends StatelessWidget {
+  const _PreviewFrame({
+    required this.width,
+    required this.height,
+    required this.child,
+  });
+
+  final double width;
+  final double height;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: Colors.black,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x80000000),
+          blurRadius: 16,
+          offset: Offset(0, 6),
+        ),
+      ],
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: child,
+  );
+}
+
+/// What stands in for a frame that has not arrived: a dark surface with a
+/// slow shimmer, never a spinner that reads as the player stalling.
+class _PreviewSkeleton extends StatefulWidget {
+  const _PreviewSkeleton();
+
+  @override
+  State<_PreviewSkeleton> createState() => _PreviewSkeletonState();
+}
+
+class _PreviewSkeletonState extends State<_PreviewSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _c,
+    builder: (_, _) => DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment(-1.6 + _c.value * 3.2, 0),
+          end: Alignment(-0.6 + _c.value * 3.2, 0),
+          colors: const [
+            Color(0xFF15181C),
+            Color(0xFF262B31),
+            Color(0xFF15181C),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// The scrub preview: the frame, the time under it, how far that is from
+/// where playback is, the opening or ending it falls in, and a caret down to
+/// the thumb. Appears with a short rise, never a pop.
+class _ScrubPreviewCard extends StatelessWidget {
+  const _ScrubPreviewCard({
+    required this.frame,
+    required this.width,
+    required this.time,
+    required this.delta,
+    this.segment,
+    this.caretX,
+  });
+
+  /// The framed image, or null when there is no picture to show.
+  final Widget? frame;
+  final double width;
+  final String time;
+
+  /// "+1:25" / "−0:40" from the current position; empty when negligible.
+  final String delta;
+
+  /// "Opening" or "Ending" when the position falls inside one.
+  final String? segment;
+
+  /// Where the thumb is, measured from the card's left edge; null for no
+  /// caret (the swipe-to-seek overlay, which has no thumb).
+  final double? caretX;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 120),
+      curve: Curves.easeOutCubic,
+      builder: (_, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, (1 - t) * 6),
+          child: Transform.scale(scale: 0.94 + 0.06 * t, child: child),
+        ),
+      ),
+      child: SizedBox(
+        width: width,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (frame != null)
+              Stack(
+                children: [
+                  frame!,
+                  if (segment != null)
+                    Positioned(left: 6, top: 6, child: _SegmentTag(segment!)),
+                ],
+              ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    time,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  if (frame == null && segment != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      segment!,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  if (delta.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      delta,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (caretX != null)
+              SizedBox(
+                width: width,
+                height: 7,
+                child: CustomPaint(painter: _CaretPainter(caretX!)),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// What the player shows while it moves from one mirror to another.
-///
-/// ## Why this is not the ordinary loading screen
-///
-/// Switching servers is what somebody does when the stream they had was not
-/// working. The generic spinner they got in return looked exactly like the
-/// state they were trying to leave, gave no sign the tap had registered, and
-/// named neither the server they picked nor the one being left behind. On a
-/// mirror that takes eight seconds to answer, that is eight seconds of
-/// wondering whether the app heard you.
-///
-/// So this says the one thing worth saying: which server, on its way. The two
-/// badges make it legible without reading — the mark you just chose is the one
-/// arriving on the right — and they are the same marks as in the picker, which
-/// is what lets somebody learn "the teal one works for this show".
+/// "Opening" / "Ending" on a preview frame.
+class _SegmentTag extends StatelessWidget {
+  const _SegmentTag(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: 0.72),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 10.5,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.3,
+      ),
+    ),
+  );
+}
+
+/// A small downward triangle at [x], pointing at the thumb.
+class _CaretPainter extends CustomPainter {
+  const _CaretPainter(this.x);
+  final double x;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = x.clamp(8.0, size.width - 8.0);
+    final path = Path()
+      ..moveTo(cx - 6, 0)
+      ..lineTo(cx + 6, 0)
+      ..lineTo(cx, size.height)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()..color = Colors.black.withValues(alpha: 0.72),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CaretPainter old) => old.x != x;
+}
+
 class _ServerSwitchOverlay extends StatelessWidget {
   const _ServerSwitchOverlay({required this.switch_});
 

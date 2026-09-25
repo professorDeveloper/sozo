@@ -2,6 +2,36 @@
 part of 'player_page.dart';
 
 extension _PlayerPanels on _PlayerPageState {
+  /// The source by name. The row showed its raw id — "an:58639604…" for an
+  /// Aniyomi source — which names nothing anyone would recognise.
+  String get _providerLabel {
+    final id = widget.args.provider;
+    try {
+      final name = getIt<ProviderManager>().getProvider(id)?.name.trim();
+      if (name != null && name.isNotEmpty) return name;
+    } catch (_) {}
+    return id;
+  }
+
+  /// Why a media_kit-only control is off, in words that match the cause.
+  ///
+  /// It used to say "needs the media_kit engine" to someone who had chosen
+  /// media_kit — true of the engine running, false of their setting, and
+  /// no help either way. The emulator never runs libmpv (its GL cannot draw
+  /// it), and a device where libmpv failed to start falls back the same way.
+  String _mediaKitMissing({bool onlyLabel = false}) {
+    if (resolvePlayerEngine() != PlayerEngine.mediaKit) {
+      return (onlyLabel
+              ? 'player.audio_track_engine_only'
+              : 'player.needs_media_kit')
+          .tr();
+    }
+    return (isAndroidEmulator
+            ? 'player.media_kit_emulator'
+            : 'player.media_kit_fell_back')
+        .tr();
+  }
+
   /// Opens the info-row picker over the player.
   ///
   /// The overlay is switched on as it opens: a checklist whose effect is
@@ -22,12 +52,14 @@ extension _PlayerPanels on _PlayerPageState {
   /// back through a result, because the page saves on every edit and a viewer
   /// who backs out has still made those edits.
   Future<void> _openControlsLayoutPage() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => const PlayerControlsPage()),
-    );
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => const PlayerControlsPage()));
     if (!mounted) return;
     setState(() {
-      _layout = PlayerControlsLayout.fromStored(_hive.getPlayerControlsLayout());
+      _layout = PlayerControlsLayout.fromStored(
+        _hive.getPlayerControlsLayout(),
+      );
     });
   }
 
@@ -118,16 +150,16 @@ extension _PlayerPanels on _PlayerPageState {
   /// settings sheet. See [PlayerAffordances] for what the two copies of this
   /// used to disagree about.
   PlayerAffordances get _affordances => PlayerAffordances(
-        isSerial: widget.args.isSerial,
-        episodeCount: _episodes.length,
-        serverCount: _sourceServers.length,
-        serverSourceCount: _currentServerSources.length,
-        engineTrackCount: _engineVideoTracks.length,
-        langCount: _availableLangsForCurrentEpisode().length,
-        showDownloadAction: widget.args.showDownloadAction,
-        provider: widget.args.provider,
-        hasResolvedUrl: _videoUrl != null,
-      );
+    isSerial: widget.args.isSerial,
+    episodeCount: _episodes.length,
+    serverCount: _sourceServers.length,
+    serverSourceCount: _currentServerSources.length,
+    engineTrackCount: _engineVideoTracks.length,
+    langCount: _availableLangsForCurrentEpisode().length,
+    showDownloadAction: widget.args.showDownloadAction,
+    provider: widget.args.provider,
+    hasResolvedUrl: _videoUrl != null,
+  );
 
   /// The qualities of the host currently playing.
   ///
@@ -158,9 +190,39 @@ extension _PlayerPanels on _PlayerPageState {
   }
 
   Future<void> _switchVideoTrack(PlayerVideoTrack track) async {
+    _manualHeight = track.isAuto ? 0 : (track.height ?? 0);
     setState(() => _panel = _SidePanel.none);
     await _controller?.setVideoTrack(track.id);
     if (mounted) setState(() {});
+    // Kept for the next episode, which picks the same height from its own
+    // renditions. Auto is remembered too, as 0, so an older pin does not
+    // come back.
+    final contentUrl = widget.args.contentUrl ?? '';
+    if (contentUrl.isNotEmpty) {
+      unawaited(
+        _titlePrefs.rememberHeight(
+          widget.args.provider,
+          contentUrl,
+          track.isAuto ? 0 : (track.height ?? 0),
+        ),
+      );
+    }
+  }
+
+  /// The current server's other files, for the quality panel beside the
+  /// stream's renditions: a server offering an adaptive master and separate
+  /// MP4s had its MP4s unreachable from the panel on libmpv.
+  List<int> get _otherServerSources {
+    final current = _currentSourceIndex;
+    if (current < 0 || current >= _videoSources.length) return const [];
+    final prefix = '${_videoSources[current].quality} · ';
+    return [
+      for (final i in _currentServerSources)
+        if (i != current &&
+            !(_videoSources[i].height != null &&
+                _videoSources[i].quality.startsWith(prefix)))
+          i,
+    ];
   }
 
   List<int> get _currentServerSources {
@@ -181,6 +243,53 @@ extension _PlayerPanels on _PlayerPageState {
     // renditions were hung off. Painting it "Server 1" among 1080p and 720p
     // read as a stray server row.
     return _hasParsedSiblings(label) ? 'player.auto'.tr() : label;
+  }
+
+  /// What the quality button reads: the pinned height, or Auto with the
+  /// height the engine settled on once the picture says so.
+  String get _qualityChipLabel {
+    final auto = 'player.auto'.tr();
+    final playing = _playingHeight;
+    final withPlaying = playing == null ? auto : '$auto · ${playing}p';
+    final c = _controller;
+    final tracks = _engineVideoTracks;
+    if (c != null && tracks.isNotEmpty) {
+      final active = tracks.where((t) => t.id == c.activeVideoTrackId);
+      final track = active.isEmpty ? null : active.first;
+      if (track == null || track.isAuto || track.height == null) {
+        return withPlaying;
+      }
+      return '${track.height}p';
+    }
+    final idx = _currentSourceIndex;
+    final source = idx >= 0 && idx < _videoSources.length
+        ? _videoSources[idx]
+        : null;
+    if (source == null) return 'player.quality'.tr();
+    final pinned =
+        source.height ?? VideoOptionGroups.resolutionOf(source.quality);
+    if (pinned != null) return '${pinned}p';
+    return _hasParsedSiblings(source.quality)
+        ? withPlaying
+        : _qualityLabel(source.quality);
+  }
+
+  /// For the icon-only portrait row, where "Auto · 720p" does not fit: the
+  /// height alone, or null to keep the icon when no height is known.
+  String? get _qualityChipShort {
+    final label = _qualityChipLabel;
+    final dot = label.lastIndexOf(' · ');
+    final tail = dot < 0 ? label : label.substring(dot + 3);
+    return RegExp(r'^\d{3,4}p$').hasMatch(tail) ? tail : null;
+  }
+
+  int? get _playingHeight {
+    final size = _controller?.value.size;
+    if (size == null) return null;
+    return QualityPreference.displayHeight(
+      size.width.round(),
+      size.height.round(),
+    );
   }
 
   bool _hasParsedSiblings(String label) {
@@ -239,8 +348,10 @@ extension _PlayerPanels on _PlayerPageState {
               for (final server in servers)
                 _ServerTile(
                   label: server,
-                  qualities: VideoOptionGroups.qualitiesFor(labels, server)
-                      .join(' · '),
+                  qualities: VideoOptionGroups.qualitiesFor(
+                    labels,
+                    server,
+                  ).join(' · '),
                   selected: server == _currentServer,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
@@ -259,8 +370,8 @@ extension _PlayerPanels on _PlayerPageState {
     final labels = _sourceLabels;
     // The row playing, not the first row wearing its label — see
     // _switchQuality.
-    final current = _currentSourceIndex >= 0 &&
-            _currentSourceIndex < labels.length
+    final current =
+        _currentSourceIndex >= 0 && _currentSourceIndex < labels.length
         ? _currentSourceIndex
         : (_currentQuality == null ? -1 : labels.indexOf(_currentQuality!));
     final target = VideoOptionGroups.switchTo(labels, current, server);
@@ -271,7 +382,7 @@ extension _PlayerPanels on _PlayerPageState {
     // left to ask where we came from.
     _serverSwitch = ServerSwitch(from: _currentServer, to: server);
     try {
-      await _switchQuality(_videoSources[target]);
+      await _switchQuality(_videoSources[target], pickedHeight: false);
     } finally {
       if (mounted) setState(() => _serverSwitch = null);
     }
@@ -287,7 +398,10 @@ extension _PlayerPanels on _PlayerPageState {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (sheetContext) => SafeArea(
+      // StatefulBuilder so a row can change its own value without the sheet
+      // closing and reopening — see the aspect-ratio tile below.
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -330,7 +444,7 @@ extension _PlayerPanels on _PlayerPageState {
                 _SettingsTile(
                   icon: Icons.swap_horiz_rounded,
                   label: 'player.change_source'.tr(),
-                  value: widget.args.provider,
+                  value: _providerLabel,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     _openAlternateSources(keepPosition: true);
@@ -356,15 +470,34 @@ extension _PlayerPanels on _PlayerPageState {
                     _startDownload();
                   },
                 ),
+              // Three values, stepped in place.
+              //
+              // This opened a SECOND sheet over the first to choose one of
+              // three — a whole modal, covering the video, for a setting whose
+              // entire interaction is "the next one". The row cycles now and
+              // shows where it landed, and the sheet it is in stays open so
+              // two steps cost two taps.
               _SettingsTile(
                 icon: Icons.aspect_ratio_rounded,
                 label: 'player.aspect'.tr(),
                 value: _fitLabel(_fit),
                 onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _openFitSheet();
+                  _cycleFit(toast: false);
+                  setSheetState(() {});
                 },
               ),
+              if (!isDesktopPlatform &&
+                  !_preferPlatformPlayer &&
+                  (_controller?.supportsVideoTracks ?? false))
+                _SettingsTile(
+                  icon: Icons.play_circle_outline,
+                  label: 'profile.player_engine_native'.tr(),
+                  value: '',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _playWithSystemPlayer();
+                  },
+                ),
               // Absent on the platform player, which has no runtime picture
               // control at all. Offering a menu that silently does nothing
               // teaches people the app is broken rather than that the feature
@@ -436,7 +569,7 @@ extension _PlayerPanels on _PlayerPageState {
                 _SettingsTile(
                   icon: Icons.auto_awesome_rounded,
                   label: 'player.shaders'.tr(),
-                  value: 'player.needs_media_kit'.tr(),
+                  value: _mediaKitMissing(),
                   onTap: null,
                 ),
               // Shown here, and not only in Settings, so a mode that suppresses
@@ -505,7 +638,8 @@ extension _PlayerPanels on _PlayerPageState {
                     _openLangSheet();
                   },
                 ),
-              if (_subtitles.isNotEmpty)
+              if (_subtitles.isNotEmpty ||
+                  (_controller?.subtitleTracks.isNotEmpty ?? false))
                 _SettingsTile(
                   icon: Icons.text_fields_rounded,
                   label: 'player.subtitle_style'.tr(),
@@ -528,7 +662,7 @@ extension _PlayerPanels on _PlayerPageState {
                       return _SettingsTile(
                         icon: Icons.audiotrack_outlined,
                         label: 'player.audio_track'.tr(),
-                        value: 'player.audio_track_engine_only'.tr(),
+                        value: _mediaKitMissing(onlyLabel: true),
                         onTap: null,
                       );
                     }
@@ -602,6 +736,7 @@ extension _PlayerPanels on _PlayerPageState {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -610,8 +745,9 @@ extension _PlayerPanels on _PlayerPageState {
   /// business reaching for the locale. So do that one case here.
   String _audioTrackLabel(PlayerAudioTrack t) {
     if (t.hasMetadata) return t.label;
-    return 'player.audio_track_numbered'
-        .tr(args: <String>[t.ordinal.toString()]);
+    return 'player.audio_track_numbered'.tr(
+      args: <String>[t.ordinal.toString()],
+    );
   }
 
   String _activeAudioTrackLabel() {
@@ -734,10 +870,25 @@ extension _PlayerPanels on _PlayerPageState {
       if (proceed != true) return;
     }
     await _controller?.pause();
+    // The subtitles go along: the other app had the video and nothing to
+    // read. Only plain web addresses — it cannot send a Referer, and it
+    // cannot read this app's files or an AI track held in memory. The one on
+    // screen goes first, so it is the one switched on.
+    final handed = <({String url, String label})>[
+      for (final i in [
+        if (_activeSubtitleIndex >= 0) _activeSubtitleIndex,
+        for (var j = 0; j < _subtitles.length; j++)
+          if (j != _activeSubtitleIndex) j,
+      ])
+        if (_subtitles[i].file.startsWith('http') &&
+            ExternalPlayer.gatingHeaders(_subtitles[i].headers).isEmpty)
+          (url: _subtitles[i].file, label: _subtitles[i].label),
+    ];
     final ok = await ExternalPlayer.open(
       url: url,
       title: widget.args.title,
       headers: headers,
+      subtitles: handed,
     );
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -764,8 +915,11 @@ extension _PlayerPanels on _PlayerPageState {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.speed_rounded,
-                        color: Colors.white, size: 18),
+                    const Icon(
+                      Icons.speed_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                     const SizedBox(width: 10),
                     Text(
                       'player.speed'.tr(),
@@ -787,58 +941,6 @@ extension _PlayerPanels on _PlayerPageState {
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     _setSpeed(s);
-                  },
-                ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openFitSheet() {
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.aspect_ratio_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'player.aspect_ratio'.tr(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(color: Colors.white12, height: 1),
-              for (final fit in _PlayerFit.values)
-                _OptionTile(
-                  label: _fitLabel(fit),
-                  selected: fit == _fit,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _setFit(fit);
                   },
                 ),
               const SizedBox(height: 8),
@@ -1167,42 +1269,54 @@ extension _PlayerPanels on _PlayerPageState {
     final tracks = _engineVideoTracks;
     final list = isQuality
         ? (tracks.isNotEmpty
-            // Renditions of the stream that is playing. Preferred over the
-            // mirror list because switching between them is instant and keeps
-            // the position, where switching mirror is a reload.
-            ? ListView.separated(
-                controller: _tvPanelScroll,
-                shrinkWrap: asSheet,
-                padding: EdgeInsets.zero,
-                itemCount: tracks.length,
-                separatorBuilder: (_, _) => Divider(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  height: 1,
-                ),
-                itemBuilder: (_, i) => _VideoTrackRow(
-                  track: tracks[i],
-                  isActive: tracks[i].id == (_controller?.activeVideoTrackId),
-                  onTap: () => _switchVideoTrack(tracks[i]),
-                ),
-              )
-            : ListView.separated(
-            controller: _tvPanelScroll,
-            shrinkWrap: asSheet,
-            padding: EdgeInsets.zero,
-            itemCount: sources.length,
-            separatorBuilder: (_, _) => Divider(
-              color: Colors.white.withValues(alpha: 0.06),
-              height: 1,
-            ),
-            itemBuilder: (_, i) {
-              final src = _videoSources[sources[i]];
-              return _QualityRow(
-                source: _resolutionOnly(src),
-                isActive: sources[i] == _currentSourceIndex,
-                onTap: () => _switchQuality(src),
-              );
-            },
-          ))
+              // Renditions of the stream that is playing. Preferred over the
+              // mirror list because switching between them is instant and keeps
+              // the position, where switching mirror is a reload.
+              ? ListView.separated(
+                  controller: _tvPanelScroll,
+                  shrinkWrap: asSheet,
+                  padding: EdgeInsets.zero,
+                  itemCount: tracks.length + _otherServerSources.length,
+                  separatorBuilder: (_, _) => Divider(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    height: 1,
+                  ),
+                  itemBuilder: (_, i) {
+                    if (i < tracks.length) {
+                      return _VideoTrackRow(
+                        track: tracks[i],
+                        isActive:
+                            tracks[i].id == (_controller?.activeVideoTrackId),
+                        onTap: () => _switchVideoTrack(tracks[i]),
+                      );
+                    }
+                    final src =
+                        _videoSources[_otherServerSources[i - tracks.length]];
+                    return _QualityRow(
+                      source: _resolutionOnly(src),
+                      isActive: false,
+                      onTap: () => _switchQuality(src),
+                    );
+                  },
+                )
+              : ListView.separated(
+                  controller: _tvPanelScroll,
+                  shrinkWrap: asSheet,
+                  padding: EdgeInsets.zero,
+                  itemCount: sources.length,
+                  separatorBuilder: (_, _) => Divider(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    height: 1,
+                  ),
+                  itemBuilder: (_, i) {
+                    final src = _videoSources[sources[i]];
+                    return _QualityRow(
+                      source: _resolutionOnly(src),
+                      isActive: sources[i] == _currentSourceIndex,
+                      onTap: () => _switchQuality(src),
+                    );
+                  },
+                ))
         : ListView.separated(
             // Non-null only on TV (see _openPanel), where it opens
             // the list near the episode being watched.
@@ -1210,10 +1324,8 @@ extension _PlayerPanels on _PlayerPageState {
             shrinkWrap: asSheet,
             padding: EdgeInsets.zero,
             itemCount: _episodes.length,
-            separatorBuilder: (_, _) => Divider(
-              color: Colors.white.withValues(alpha: 0.06),
-              height: 1,
-            ),
+            separatorBuilder: (_, _) =>
+                Divider(color: Colors.white.withValues(alpha: 0.06), height: 1),
             itemBuilder: (_, i) => _EpisodeRow(
               episode: _episodes[i],
               isActive: i == _episodeIndex,
@@ -1319,6 +1431,7 @@ class _ServerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       autofocus: isTvPlatform && selected,
       focusColor: _kTvFocusFill,

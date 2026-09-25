@@ -19,10 +19,79 @@ void main() {
     });
 
     test('the defaults are the order Home has always had', () {
-      expect(
-        HomeRail.defaults.map((r) => r.id).toList(),
-        ['hero', 'resume', 'genres', 'live_tv', 'catalogue'],
+      expect(HomeRail.defaults.map((r) => r.id).toList(), [
+        'hero',
+        'resume',
+        'new_releases',
+        'genres',
+        'picked_for_you',
+        'live_tv',
+        'watch_services',
+        'catalogue',
+      ]);
+    });
+  });
+
+  group('default visibility', () {
+    test('streaming services are enabled by default', () {
+      expect(HomeRail.watchServices.isOptIn, isFalse);
+      expect(HomeRail.catalogue.isOptIn, isFalse);
+      expect(HomeRail.liveTv.isOptIn, isFalse);
+    });
+
+    test('the default home includes streaming services', () {
+      final shown = visibleRails(HomeRail.defaults, HomeRail.optIn);
+      expect(shown.contains(HomeRail.watchServices), isTrue);
+      expect(shown.contains(HomeRail.catalogue), isTrue);
+    });
+
+    test('and it shows once it is taken out of the hidden set', () {
+      final shown = visibleRails(HomeRail.defaults, const {});
+      expect(shown.contains(HomeRail.watchServices), isTrue);
+    });
+  });
+
+  group('placing a band where it was offered', () {
+    test('an accepted band lands under the one it was offered beneath', () {
+      // The card sits after Genres. Taking it up used to drop the band
+      // wherever the defaults put it — three rails further down — so the thing
+      // you just agreed to appeared somewhere you were not looking.
+      final out = placeRailAfter(
+        ['hero', 'resume', 'genres', 'live_tv', 'watch_services', 'catalogue'],
+        'watch_services',
+        'genres',
       );
+      expect(out, [
+        'hero',
+        'resume',
+        'genres',
+        'watch_services',
+        'live_tv',
+        'catalogue',
+      ]);
+    });
+
+    test('and moving it backwards works the same way', () {
+      expect(placeRailAfter(['a', 'b', 'c'], 'a', 'c'), ['b', 'c', 'a']);
+    });
+
+    test('an id that is already there is left alone', () {
+      expect(
+        placeRailAfter(
+          ['hero', 'genres', 'watch_services'],
+          'watch_services',
+          'genres',
+        ),
+        ['hero', 'genres', 'watch_services'],
+      );
+    });
+
+    test('and an unknown id changes nothing', () {
+      // A stored order can name a band this version has dropped. Re-ordering
+      // around it must not quietly delete it.
+      expect(placeRailAfter(['a', 'b'], 'zzz', 'a'), ['a', 'b']);
+      expect(placeRailAfter(['a', 'b'], 'a', 'zzz'), ['a', 'b']);
+      expect(placeRailAfter(['a', 'b'], 'a', 'a'), ['a', 'b']);
     });
   });
 
@@ -32,9 +101,29 @@ void main() {
     });
 
     test('a stored order is kept', () {
-      final out = sanitizeRailOrder(['catalogue', 'resume', 'hero', 'genres', 'live_tv']);
-      expect(out.map((r) => r.id).toList(),
-          ['catalogue', 'resume', 'hero', 'genres', 'live_tv']);
+      final out = sanitizeRailOrder([
+        'catalogue',
+        'resume',
+        'hero',
+        'genres',
+        'live_tv',
+      ]);
+      expect(out.map((r) => r.id).toList(), [
+        'catalogue',
+        'resume',
+        // Newer than this stored order too, but anchored beside Continue
+        // Watching rather than buried at the end.
+        'new_releases',
+        'hero',
+        'genres',
+        // Anchored under the genre chips.
+        'picked_for_you',
+        'live_tv',
+        // Appended, because it is newer than this stored order. Being in the
+        // order is not being on Home: it still decides for itself whether it
+        // has anything to show.
+        'watch_services',
+      ]);
     });
 
     test('an id this build does not know is dropped', () {
@@ -42,7 +131,11 @@ void main() {
       // render loop.
       final out = sanitizeRailOrder(['hero', 'shorts_rail', 'catalogue']);
       expect(out.contains(HomeRail.hero), isTrue);
-      expect(out.length, HomeRail.values.length, reason: 'the rest is appended');
+      expect(
+        out.length,
+        HomeRail.values.length,
+        reason: 'the rest is appended',
+      );
     });
 
     test('a duplicate is dropped', () {
@@ -63,7 +156,10 @@ void main() {
     test('an order of nothing but junk falls back whole', () {
       // A home screen with no bands is not a preference, it is a broken
       // screen.
-      expect(sanitizeRailOrder(['nonsense', 'more_nonsense']), HomeRail.defaults);
+      expect(
+        sanitizeRailOrder(['nonsense', 'more_nonsense']),
+        HomeRail.defaults,
+      );
     });
   });
 

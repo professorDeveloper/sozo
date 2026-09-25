@@ -5,12 +5,14 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   connectivity_plus
+  dynamic_color
   file_selector_windows
   firebase_auth
   firebase_core
   flutter_inappwebview_windows
   flutter_secure_storage_windows
   flutter_timezone
+  flutter_tts
   gal
   local_auth_windows
   media_kit_libs_windows_video

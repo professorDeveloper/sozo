@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/anilist/data/anilist_api.dart';
@@ -60,8 +61,17 @@ class AnilistLinkSheet extends StatefulWidget {
 class _AnilistLinkSheetState extends State<AnilistLinkSheet> {
   final AnilistService _service = getIt<AnilistService>();
   final AnilistLinkStore _store = getIt<AnilistLinkStore>();
-  late final TextEditingController _query =
-      TextEditingController(text: widget.title);
+  late final TextEditingController _query = TextEditingController(
+    text: widget.title,
+  );
+
+  /// Which half of AniList to search, taken from the source the title is
+  /// being linked FROM. A manga searched as an anime comes back empty, so
+  /// without this the sheet answered "nothing found" for every reader title —
+  /// and hand-linking is exactly what a reader title needs, because its name
+  /// on a scanlation site rarely matches AniList's.
+  late final String _type =
+      widget.provider.contentMode == ContentMode.video ? 'ANIME' : 'MANGA';
 
   Timer? _debounce;
 
@@ -109,7 +119,11 @@ class _AnilistLinkSheetState extends State<AnilistLinkSheet> {
       _error = null;
     });
     try {
-      final results = await _service.api.searchMedia(query, perPage: 20);
+      final results = await _service.api.searchMedia(
+        query,
+        perPage: 20,
+        type: _type,
+      );
       if (!mounted || token != _token) return;
       setState(() {
         _results = results;
@@ -119,8 +133,9 @@ class _AnilistLinkSheetState extends State<AnilistLinkSheet> {
       if (!mounted || token != _token) return;
       setState(() {
         _searching = false;
-        _error =
-            e is AnilistException ? e.message : 'anilist.browse_failed'.tr();
+        _error = e is AnilistException
+            ? e.message
+            : 'anilist.browse_failed'.tr();
       });
     }
   }
@@ -133,7 +148,10 @@ class _AnilistLinkSheetState extends State<AnilistLinkSheet> {
         mediaId: media.id,
         title: media.displayTitle,
         coverImage: media.coverImage,
-        totalEpisodes: media.episodes,
+        // Episodes for an anime, chapters for a manga. Through `totalUnits`
+        // rather than picking the field here, so the link a reader creates by
+        // hand counts in the same unit as everything else that reads a media.
+        totalEpisodes: media.totalUnits,
         linkedAt: DateTime.now().millisecondsSinceEpoch,
       ),
     );
@@ -244,8 +262,9 @@ class _AnilistLinkSheetState extends State<AnilistLinkSheet> {
                             : null,
                         filled: true,
                         fillColor: Colors.white.withValues(alpha: 0.05),
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 13),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 13,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -323,7 +342,10 @@ class _CurrentLink extends StatelessWidget {
       decoration: BoxDecoration(
         color: kAnilistBlue.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: kAnilistBlue.withValues(alpha: 0.3), width: 0.7),
+        border: Border.all(
+          color: kAnilistBlue.withValues(alpha: 0.3),
+          width: 0.7,
+        ),
       ),
       child: Row(
         children: [
@@ -374,8 +396,19 @@ class _ResultTile extends StatelessWidget {
     final subtitle = [
       if (media.format != null) media.format!,
       if (media.seasonYear != null) '${media.seasonYear}',
+      // Chapters when there are no episodes: AniList fills `episodes` for anime
+      // only, so a manga row carried no count at all — and telling two entries
+      // of the same name apart is the entire job of this list.
+      //
+      // Volumes are deliberately not a third fallback. AniList never fills
+      // `volumes` on a title whose `chapters` is empty — of the hundred most
+      // popular manga, seventy-one carry both and twenty-nine carry neither —
+      // so a volume count could only ever repeat a row that already says how
+      // many chapters there are.
       if (media.episodes != null)
-        'anilist.n_episodes_short'.tr(args: ['${media.episodes}']),
+        'anilist.n_episodes_short'.tr(args: ['${media.episodes}'])
+      else if (media.chapters != null)
+        'anilist.n_chapters_short'.tr(args: ['${media.chapters}']),
     ].join(' · ');
 
     return Material(
@@ -421,8 +454,11 @@ class _ResultTile extends StatelessWidget {
                 ),
               ),
               if (selected)
-                const Icon(Icons.check_circle_rounded,
-                    color: kAnilistBlue, size: 20),
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: kAnilistBlue,
+                  size: 20,
+                ),
             ],
           ),
         ),

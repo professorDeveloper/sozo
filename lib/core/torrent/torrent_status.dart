@@ -25,17 +25,18 @@ enum TorrentState {
   unknown;
 
   static TorrentState fromCode(int? code) => switch (code) {
-        0 => TorrentState.added,
-        1 => TorrentState.gettingInfo,
-        2 => TorrentState.preloading,
-        3 => TorrentState.working,
-        4 => TorrentState.closed,
-        5 => TorrentState.inDatabase,
-        _ => TorrentState.unknown,
-      };
+    0 => TorrentState.added,
+    1 => TorrentState.gettingInfo,
+    2 => TorrentState.preloading,
+    3 => TorrentState.working,
+    4 => TorrentState.closed,
+    5 => TorrentState.inDatabase,
+    _ => TorrentState.unknown,
+  };
 
   /// Whether the stream URL can be opened yet.
-  bool get isReady => this == TorrentState.working || this == TorrentState.preloading;
+  bool get isReady =>
+      this == TorrentState.working || this == TorrentState.preloading;
 
   /// Whether the app should keep waiting rather than surface an error.
   bool get isTransient =>
@@ -72,7 +73,17 @@ class TorrentFileEntry {
 
   /// Containers the app's players can actually open.
   static const _videoExtensions = {
-    'mkv', 'mp4', 'avi', 'webm', 'mov', 'm4v', 'ts', 'm2ts', 'flv', 'wmv', 'ogv',
+    'mkv',
+    'mp4',
+    'avi',
+    'webm',
+    'mov',
+    'm4v',
+    'ts',
+    'm2ts',
+    'flv',
+    'wmv',
+    'ogv',
   };
 
   static const _subtitleExtensions = {'srt', 'ass', 'ssa', 'vtt', 'sub'};
@@ -102,11 +113,11 @@ class TorrentFileEntry {
   }
 
   static int? _int(Object? raw) => switch (raw) {
-        int value => value,
-        num value => value.toInt(),
-        String value => int.tryParse(value.trim()),
-        _ => null,
-      };
+    int value => value,
+    num value => value.toInt(),
+    String value => int.tryParse(value.trim()),
+    _ => null,
+  };
 }
 
 /// A snapshot of one torrent, as the server reports it.
@@ -202,13 +213,17 @@ class TorrentStatus {
       name: json['name']?.toString(),
       files: rawFiles is List
           ? rawFiles
-              .whereType<Map>()
-              .map((f) => TorrentFileEntry.fromJson(Map<String, dynamic>.from(f)))
-              .whereType<TorrentFileEntry>()
-              .toList()
+                .whereType<Map>()
+                .map(
+                  (f) =>
+                      TorrentFileEntry.fromJson(Map<String, dynamic>.from(f)),
+                )
+                .whereType<TorrentFileEntry>()
+                .toList()
           : const [],
       totalBytes: _int(json['torrent_size']),
-      downloadedBytes: _int(json['loaded_size']) ?? _int(json['bytes_read_data']),
+      downloadedBytes:
+          _int(json['loaded_size']) ?? _int(json['bytes_read_data']),
       preloadedBytes: _int(json['preloaded_bytes']),
       preloadTargetBytes: _int(json['preload_size']),
       downloadSpeed: _double(json['download_speed']) ?? 0,
@@ -220,15 +235,15 @@ class TorrentStatus {
   }
 
   static int? _int(Object? raw) => switch (raw) {
-        int value => value,
-        num value => value.toInt(),
-        String value => int.tryParse(value.trim()),
-        _ => null,
-      };
+    int value => value,
+    num value => value.toInt(),
+    String value => int.tryParse(value.trim()),
+    _ => null,
+  };
 
   static double? _double(Object? raw) => switch (raw) {
-        num value => value.toDouble(),
-        String value => double.tryParse(value.trim()),
-        _ => null,
-      };
+    num value => value.toDouble(),
+    String value => double.tryParse(value.trim()),
+    _ => null,
+  };
 }

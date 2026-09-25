@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:soplay/core/system/app_dates.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/stats/data/watch_stats_store.dart';
@@ -227,7 +228,7 @@ class _Headline extends StatelessWidget {
             // last Tuesday must not read as a lifetime.
             Text(
               'stats.since'.tr(
-                args: [DateFormat.yMMMd(context.locale.toString()).format(since!)],
+                args: [AppDates.short(context, since!)],
               ),
               style: const TextStyle(color: AppColors.textHint, fontSize: 11.5),
             ),

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -93,14 +94,18 @@ class DownloadStorage {
     try {
       if (!await target.exists()) await target.create(recursive: true);
       if (await from.exists()) {
-        await for (final entity in from.list(recursive: true, followLinks: false)) {
+        await for (final entity in from.list(
+          recursive: true,
+          followLinks: false,
+        )) {
           final relative = entity.path.substring(from.path.length + 1);
           final destination = '${target.path}/$relative';
           if (entity is Directory) {
             await Directory(destination).create(recursive: true);
           } else if (entity is File) {
-            await Directory(destination.substring(0, destination.lastIndexOf('/')))
-                .create(recursive: true);
+            await Directory(
+              destination.substring(0, destination.lastIndexOf('/')),
+            ).create(recursive: true);
             await entity.copy(destination);
           }
         }
@@ -207,7 +212,10 @@ class DownloadStorage {
     if (!await dir.exists()) return 0;
     var total = 0;
     try {
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      await for (final entity in dir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is File) {
           try {
             total += await entity.length();
@@ -231,15 +239,43 @@ class DownloadStorage {
     try {
       await for (final entity in dir.list(followLinks: false)) {
         if (entity is! Directory) continue;
-        final name = entity.uri.pathSegments
-            .where((s) => s.isNotEmpty)
-            .last;
+        final name = entity.uri.pathSegments.where((s) => s.isNotEmpty).last;
         if (!knownIds.contains(name)) out.add(name);
       }
     } catch (e) {
       debugPrint('[downloads] orphan scan failed: $e');
     }
     return out;
+  }
+
+  /// Renames download [fromId]'s folder to [toId]'s. Refuses to overwrite a
+  /// folder that is already there. True when [toId]'s folder now exists.
+  Future<bool> rekey(String fromId, String toId) async {
+    final from = Directory(dirOf(fromId));
+    final to = Directory(dirOf(toId));
+    if (await to.exists()) return false;
+    if (!await from.exists()) return false;
+    try {
+      await from.rename(to.path);
+      return true;
+    } catch (e) {
+      debugPrint('[downloads] could not move $fromId to $toId: $e');
+      return false;
+    }
+  }
+
+  /// Best-effort: a sidecar that cannot be written costs nothing today.
+  Future<void> writeSidecar(String id, Map<String, dynamic> json) async {
+    final dir = Directory(dirOf(id));
+    if (!await dir.exists()) return;
+    try {
+      final file = File('${dir.path}/${DownloadLayout.sidecarName}');
+      final part = File(DownloadLayout.partOf(file.path));
+      await part.writeAsString(jsonEncode(json), flush: true);
+      await part.rename(file.path);
+    } catch (e) {
+      debugPrint('[downloads] sidecar not written for $id: $e');
+    }
   }
 
   Future<void> deleteItem(String id) async {

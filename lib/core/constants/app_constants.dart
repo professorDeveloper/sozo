@@ -28,6 +28,9 @@ class AppConstants {
   static const String historyBox = 'history_box';
 
   static const String downloadBox = 'download_box';
+
+  /// Title snapshots for downloaded titles, so they open offline.
+  static const String offlineTitlesBox = 'offline_titles_box';
   static const String productsBox = 'products_box';
   static const String cartBox = 'cart_box';
   static const String extractorsBox = 'extractors_box';
@@ -45,6 +48,9 @@ class AppConstants {
   static const String languageKey = 'language';
   static const String currentProviderKey = 'current_provider';
 
+  /// The source last picked in each content mode.
+  static const String modeProvidersKey = 'mode_providers';
+
   /// Which kind of catalogue the app is showing — video, manga or novel.
   /// Absent ⇒ video, which is what every install had before modes existed.
   static const String contentModeKey = 'content_mode';
@@ -52,6 +58,12 @@ class AppConstants {
   /// Which bands the home screen shows, and in what order. See [HomeRail].
   static const String homeRailOrderKey = 'home_rail_order';
   static const String homeRailHiddenKey = 'home_rail_hidden';
+
+  /// Which Home suggestions have been answered, either way. Separate from the
+  /// hidden set: "you said no" and "it is switched off" are different facts,
+  /// and conflating them means somebody who turns a band off in the customizer
+  /// gets asked about it again on the next launch.
+  static const String homeSuggestionsAnsweredKey = 'home_suggestions_answered';
 
   /// Accumulated watch time and completions. See [WatchStatsStore] — it cannot
   /// be derived from history, which is a rolling fifty-item window.
@@ -66,6 +78,12 @@ class AppConstants {
   /// download that silently does not start is worse than one that costs data
   /// somebody chose to spend.
   static const String downloadWifiOnlyKey = 'download_wifi_only';
+
+  /// Seconds to wait between one download finishing and the next starting.
+  static const String downloadCooldownKey = 'download_cooldown_seconds';
+
+  /// How a date is written: day first, month first, or ISO.
+  static const String dateFormatKey = 'date_format';
 
   /// Which volume downloads are kept on.
   ///
@@ -85,6 +103,8 @@ class AppConstants {
   static const String liveTvFavouritesKey = 'live_tv_favourites';
   static const String liveTvRecentKey = 'live_tv_recent';
   static const String liveTvCardsKey = 'live_tv_cards';
+  static const String liveTvScopeKey = 'live_tv_scope';
+  static const String liveTvScopeHistoryKey = 'live_tv_scope_history';
   static const String airingRemindersKey = 'anilist_airing_reminders';
   static const String airingReminderCountKey = 'anilist_airing_reminder_count';
 
@@ -172,6 +192,7 @@ class AppConstants {
   /// the system player keeps it, because a stored id wins over this constant.
   static const String defaultPlayerEngine = 'media_kit';
   static const String telegramPromoSeenKey = 'telegram_promo_seen';
+
   /// Appearance → "Pure black". Absent ⇒ off, i.e. the greys the app has
   /// always shipped.
   static const String amoledModeKey = 'amoled_mode';
@@ -185,19 +206,55 @@ class AppConstants {
   /// [accentIdKey] is `AppAccent.customId`.
   static const String customAccentKey = 'custom_accent';
 
+  /// The colour Material You last reported, as a 32-bit ARGB int. Only
+  /// consulted when [accentIdKey] is `AppAccent.systemId`, and only for the
+  /// first frame: the wallpaper's colour is read again on every launch, but
+  /// that takes a trip to the platform, and an app on Material You should not
+  /// open red and then turn blue.
+  static const String systemAccentKey = 'system_accent';
+
+  /// Tracker progress writes that failed and are waiting to be sent again, as
+  /// a JSON list. See `TrackerOutbox`.
+  static const String trackerOutboxKey = 'tracker_outbox';
+
   /// Appearance → "Colour the tab bar". Absent ⇒ **on**: the accent is a
   /// setting people choose in order to see it, and the tab bar is the one piece
   /// of chrome that is on screen the whole time. Turning it off puts the
   /// original white pill back.
   static const String tintNavKey = 'tint_nav';
   static const String onboardingSeenKey = 'onboarding_seen';
+
+  /// The setup in progress, so a killed app reopens on the same step.
+  static const String onboardingFlowKey = 'onboarding_flow';
+
+  /// What a profile said it likes, as JSON. Per profile.
+  static const String tasteProfileKey = 'taste_profile';
   static const String deeplinkPromptSeenKey = 'deeplink_prompt_seen';
   static const String deeplinkOptInKey = 'deeplink_opt_in';
   static const String openSubtitlesKeyKey = 'opensubtitles_api_key';
 
-  /// Opt-in for adult manga sources. Absent ⇒ off, so a fresh install never
-  /// surfaces an 18+ source until the user asks for it.
+  /// The old, manga-only 18+ opt-in. Only read now, once, to carry an explicit
+  /// choice over to [adultContentKey].
   static const String showNsfwMangaSourcesKey = 'show_nsfw_manga_sources';
+
+  /// Settings → 18+ content: whether adult titles and sources appear anywhere
+  /// — AniList, TMDB, CloudStream, Aniyomi, manga, torrents. Absent ⇒ off.
+  static const String adultContentKey = 'show_adult_content';
+  static const String libraryUpdateHoursKey = 'library_update_hours';
+  static const String traktLinkKey = 'trakt_link';
+  static const String libraryUpdateLastKey = 'library_update_last_at';
+
+  static const String autoDownloadEnabledKey = 'auto_download_enabled';
+  static const String autoDownloadWifiOnlyKey = 'auto_download_wifi_only';
+  static const String autoDownloadKeepLastKey = 'auto_download_keep_last';
+  static const String autoDownloadMaxBytesKey = 'auto_download_max_bytes';
+  static const String autoDownloadIdsKey = 'auto_download_ids';
+  static const String autoDownloadSkippedKey = 'auto_download_skipped';
+  static const String autoDownloadStatusKey = 'auto_download_status';
+  static const String autoDeleteWatchedKey = 'auto_delete_watched';
+  static const String prefetchNextEpisodeKey = 'prefetch_next_episode';
+  static const String prefetchNextChapterKey = 'prefetch_next_chapter';
+  static const String upNextSecondsKey = 'up_next_seconds';
 
   static const String appLockEnabledKey = 'app_lock_enabled';
   static const String appLockPinLengthKey = 'app_lock_pin_length';
@@ -223,7 +280,11 @@ class AppConstants {
   /// mid-playback still works exactly as before.
   static const String defaultPlaybackSpeedKey = 'default_playback_speed';
   static const String defaultPlayerFitKey = 'default_player_fit';
+  static const String preferredQualityKey = 'preferred_quality';
   static const String autoPlayNextEpisodeKey = 'auto_play_next_episode';
+
+  /// Open the player without starting it.
+  static const String startPausedKey = 'start_paused';
   static const String doubleTapSeekSecondsKey = 'double_tap_seek_seconds';
   static const String longPressBoostKey = 'long_press_boost';
   static const String brightnessGestureKey = 'brightness_gesture';

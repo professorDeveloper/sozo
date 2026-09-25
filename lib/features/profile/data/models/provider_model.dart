@@ -15,7 +15,9 @@ class ProviderModel extends ProviderEntity {
     super.browseOnlyReason,
     super.nsfw,
     super.lang,
+    super.repo,
     super.extractor,
+    super.internalName,
   });
 
   factory ProviderModel.fromJson(Map<String, dynamic> json) {
@@ -48,7 +50,12 @@ class ProviderModel extends ProviderEntity {
       // `lang` in — and until now it was parsed by nobody, so the picker had no
       // idea any source had a language at all.
       lang: (json['lang'] as String?)?.trim() ?? '',
+      // Same story as `lang`: every extension host reports which repository a
+      // source came from, and it was going straight into `description` and
+      // being read nowhere. See [ProviderEntity.repo].
+      repo: (json['repo'] as String?)?.trim() ?? '',
       extractor: _parseExtractor(json['extractor']),
+      internalName: (json['internalName'] as String?)?.trim() ?? '',
     );
   }
 
@@ -66,6 +73,8 @@ class ProviderModel extends ProviderEntity {
     if (browseOnlyReason != null) 'browseOnlyReason': browseOnlyReason,
     'nsfw': nsfw,
     if (lang.isNotEmpty) 'lang': lang,
+    if (repo.isNotEmpty) 'repo': repo,
+    if (internalName.isNotEmpty) 'internalName': internalName,
     if (extractor != null)
       'extractor': {
         'name': extractor!.name,

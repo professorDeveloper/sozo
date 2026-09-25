@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/mal/data/mal_link_store.dart';
 import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
+import 'package:soplay/features/anilist/domain/entities/tracker_lookup.dart';
+import 'package:soplay/features/tracker/data/tracker_outbox.dart';
 
 /// Turns "an episode finished playing" into "MyAnimeList knows about it".
 ///
@@ -18,17 +22,53 @@ import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
 /// the MAL id for the same entry, so the AniList match is reused and `idMal`
 /// read off it. MAL's search is only the fallback for entries AniList has no
 /// counterpart for.
+///
+/// Anime only, and that is a limit rather than an oversight: every id here is
+/// an ANIME id and every call below is an anime endpoint, while MAL numbers
+/// manga in a separate space and reads their progress from `num_chapters_read`
+/// on `/manga/{id}`. Handing a manga's `idMal` to `updateProgress` would
+/// therefore write a chapter count onto whatever anime happens to hold that
+/// number. The reader reports to AniList alone for this reason; adding manga
+/// here means adding the manga endpoints to MalApi first, not calling these
+/// with a different id.
+///
+/// A write that fails for a reason that says nothing about the title goes to
+/// the [TrackerOutbox] and is sent again later, as AniList's does.
 class MalTracker {
   MalTracker({
     required MalService service,
     required MalLinkStore links,
     required AnilistTracker anilist,
-  })  : _service = service,
-        _links = links,
-        _anilist = anilist;
+    TrackerOutbox? outbox,
+  }) : _service = service,
+       _links = links,
+       _anilist = anilist,
+       _outbox = outbox {
+    outbox?.register(
+      outboxName,
+      send: (w) => _report(
+        provider: w.provider,
+        contentUrl: w.contentUrl,
+        title: w.title,
+        number: w.number,
+      ).then((r) => r.result),
+      account: _account,
+    );
+  }
 
   final MalService _service;
   final MalLinkStore _links;
+  final TrackerOutbox? _outbox;
+
+  /// This tracker's name in the [TrackerOutbox].
+  static const String outboxName = 'mal';
+
+  /// Who is connected, for binding a queued write to one account.
+  String? _account() {
+    final viewer = _service.viewer;
+    if (viewer != null) return '${viewer.id}';
+    return isConnected ? 'connected' : null;
+  }
 
   /// Used only as a MATCHER. AniList search needs no token, so this works even
   /// when the user has connected MAL and nothing else.
@@ -57,17 +97,66 @@ class MalTracker {
     if (!isConnected || episodeNumber <= 0 || contentUrl.trim().isEmpty) {
       return null;
     }
+    final outcome = await _report(
+      provider: provider,
+      contentUrl: contentUrl,
+      title: title,
+      number: episodeNumber,
+    );
+    final outbox = _outbox;
+    switch (outcome.result) {
+      case TrackerWriteResult.failed when outbox != null:
+        // Bound to the account it was meant for, so a switch of account can
+        // never deliver it somewhere else.
+        final account = _account();
+        if (account == null) break;
+        unawaited(
+          outbox.queue(
+            PendingTrackerWrite(
+              tracker: outboxName,
+              provider: provider,
+              contentUrl: contentUrl,
+              title: title,
+              number: episodeNumber,
+              account: account,
+              queuedAt: DateTime.now().millisecondsSinceEpoch,
+            ),
+          ),
+        );
+      case TrackerWriteResult.written when outbox != null:
+        unawaited(outbox.flush());
+      default:
+        break;
+    }
+    return outcome.result == TrackerWriteResult.written ? outcome.id : null;
+  }
 
-    final animeId = await _resolveAnimeId(
+  /// One report, start to finish, saying how it went.
+  Future<({TrackerWriteResult result, int? id})> _report({
+    required String provider,
+    required String contentUrl,
+    required String title,
+    required int number,
+  }) async {
+    if (!isConnected) return (result: TrackerWriteResult.skipped, id: null);
+    final resolved = await _resolveAnimeId(
       provider: provider,
       contentUrl: contentUrl,
       title: title,
     );
-    if (animeId == null) return null;
-
-    return await _write(animeId: animeId, episodeNumber: episodeNumber)
-        ? animeId
-        : null;
+    final animeId = resolved.id;
+    if (animeId == null) {
+      return (
+        result: resolved.unanswered
+            ? TrackerWriteResult.failed
+            : TrackerWriteResult.skipped,
+        id: null,
+      );
+    }
+    return (
+      result: await _write(animeId: animeId, episodeNumber: number),
+      id: animeId,
+    );
   }
 
   /// Finds the MAL id for a local title.
@@ -81,16 +170,18 @@ class MalTracker {
   /// straight to matching would re-run the search that already failed, fall
   /// through to MAL's weaker one, and quietly track nothing for exactly the
   /// titles the user took the trouble to link.
-  Future<int?> _resolveAnimeId({
+  ///
+  /// [unanswered] when there is no id because a catalogue was not reached.
+  Future<({int? id, bool unanswered})> _resolveAnimeId({
     required String provider,
     required String contentUrl,
     required String title,
   }) async {
     final existing = _links.mediaIdFor(provider, contentUrl);
-    if (existing != null) return existing;
+    if (existing != null) return (id: existing, unanswered: false);
 
     final key = MalLinkStore.keyFor(provider, contentUrl);
-    if (_autoMatchFailed.contains(key)) return null;
+    if (_autoMatchFailed.contains(key)) return (id: null, unanswered: false);
 
     int? animeId;
     String linkTitle = title;
@@ -105,10 +196,17 @@ class MalTracker {
       total = linked.totalEpisodes;
     }
 
+    // Whether every catalogue asked actually answered. Two lookups follow, and
+    // either can fail for a reason that says nothing about the title: it takes
+    // only one unanswered request to make giving up permanently wrong.
+    var allAnswered = true;
+
     // No hand-made link, or AniList has no MAL counterpart for the one there
     // is. Fall back to matching by title.
     if (animeId == null) {
-      final match = await _anilist.findExactMatch(title);
+      final lookup = await _anilist.lookUpExactMatch(title);
+      allAnswered = allAnswered && lookup.answered;
+      final match = lookup.value;
       // AniList matched, and knows the MAL counterpart — the free path, and the
       // one that runs for almost every anime.
       animeId = match?.idMal;
@@ -123,10 +221,15 @@ class MalTracker {
     // same exact-title rule — a fuzzy best-result would quietly attach season 2
     // to season 1 and write into it for months.
     if (animeId == null) {
-      final fallback = await _searchMal(title);
+      final lookup = await _lookUpMal(title);
+      allAnswered = allAnswered && lookup.answered;
+      final fallback = lookup.value;
       if (fallback == null) {
-        _autoMatchFailed.add(key);
-        return null;
+        // Remembered as hopeless only when both catalogues actually said so.
+        // Recording an unanswered request here stopped the title ever
+        // auto-linking again for the life of the process.
+        if (allAnswered) _autoMatchFailed.add(key);
+        return (id: null, unanswered: !allAnswered);
       }
       animeId = fallback.id;
       linkTitle = fallback.title;
@@ -146,7 +249,7 @@ class MalTracker {
         auto: true,
       ),
     );
-    return animeId;
+    return (id: animeId, unanswered: false);
   }
 
   /// AniList media id -> MAL anime id, swallowing a lookup that cannot be made.
@@ -164,31 +267,42 @@ class MalTracker {
 
   /// Searches MAL and returns a result only when one of its titles matches
   /// [title] EXACTLY once normalized.
-  Future<MalAnime?> _searchMal(String title) async {
+  ///
+  /// Reports whether MAL answered, not just what it answered — see
+  /// [TrackerLookup].
+  Future<TrackerLookup<MalAnime>> _lookUpMal(String title) async {
     final token = _service.token;
-    if (token == null) return null;
+    // No token is not a miss and not a network failure: there is nobody to ask.
+    // Treated as unanswered so a signed-out moment cannot poison the set.
+    if (token == null) return const TrackerLookup.unreachable();
 
     final wanted = AnilistTracker.normalizeTitle(title);
-    if (wanted.isEmpty) return null;
+    if (wanted.isEmpty) return const TrackerLookup.noMatch();
 
     try {
       final results = await _service.api.search(title, token: token);
       for (final anime in results) {
         for (final candidate in anime.searchTitles) {
-          if (AnilistTracker.normalizeTitle(candidate) == wanted) return anime;
+          if (AnilistTracker.normalizeTitle(candidate) == wanted) {
+            return TrackerLookup.found(anime);
+          }
         }
       }
+      return const TrackerLookup.noMatch();
     } catch (e) {
       debugPrint('$_tag search failed for "$title": $e');
+      return const TrackerLookup.unreachable();
     }
-    return null;
   }
 
   /// Reads the account's current position, then writes only if this episode is
   /// genuinely ahead of it.
-  Future<bool> _write({required int animeId, required int episodeNumber}) async {
+  Future<TrackerWriteResult> _write({
+    required int animeId,
+    required int episodeNumber,
+  }) async {
     final token = _service.token;
-    if (token == null) return false;
+    if (token == null) return TrackerWriteResult.skipped;
 
     try {
       final state = await _service.api.entryState(
@@ -198,7 +312,7 @@ class MalTracker {
       if (state != null && episodeNumber <= state.watchedEpisodes) {
         // Already at or beyond this episode — a rewatch, or another device got
         // here first. Writing would move the list backwards.
-        return false;
+        return TrackerWriteResult.skipped;
       }
 
       final result = await _service.api.updateProgress(
@@ -216,11 +330,12 @@ class MalTracker {
         '$_tag anime $animeId → episode ${result.watchedEpisodes} '
         '(${result.status})',
       );
-      return true;
+      return TrackerWriteResult.written;
     } catch (e) {
-      // Playback must not be disturbed by a tracker outage.
+      // Playback must not be disturbed by a tracker outage — it is queued
+      // and sent later instead.
       debugPrint('$_tag write failed for anime $animeId: $e');
-      return false;
+      return TrackerWriteResult.failed;
     }
   }
 

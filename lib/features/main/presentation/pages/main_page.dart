@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../widgets/scroll_compact_navigation.dart';
 import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -15,7 +16,7 @@ import 'package:soplay/core/deeplink/deeplink_opt_in.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/nav_prefs.dart';
-import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/app_updater/presentation/services/update_checker.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
@@ -44,6 +45,7 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   final GlobalKey _shortsRefreshShowcaseKey = GlobalKey();
+  final _navigationScroll = NavigationScrollState();
   int _index = 0;
   int _shortsRefreshTick = 0;
   List<TabId> _visibleTabs = const [];
@@ -82,9 +84,17 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     super.initState();
     _navController = getIt<NavController>();
     _hiveService = getIt<HiveService>();
+    // The source can also change without ProviderBloc ever hearing: a Short
+    // and a deep link both carry one and write it straight to storage, because
+    // ProviderBloc is a factory and they have no live instance to tell. The
+    // listener below reloads the shell for those too — otherwise Home kept the
+    // old source's rows and Search kept the old source's genre grid, whose
+    // tiles then browsed the NEW source with the OLD source's slugs.
+    _hiveService.currentProviderChanged.addListener(_onProviderStored);
     // Reflect the persisted nav-style preference into the shared notifier the
     // nav listens to (so it renders correctly on first frame).
     NavPrefs.navStyle.value = _hiveService.navStyle;
+    NavPrefs.compactOnScroll.value = _hiveService.compactNavOnScroll;
     // TV runs a fixed tab set — the customizer is drag-driven and hidden there,
     // and the persisted mobile order is left completely untouched (never read,
     // never written) so a user's phone bar survives round-tripping.
@@ -124,6 +134,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   }
 
   void _onNavChange() {
+    _navigationScroll.expand();
     setState(() => _index = _navController.index.value);
     _maybeShowShortsRefreshTip();
   }
@@ -147,37 +158,72 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _navigationScroll.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _navController.index.removeListener(_onNavChange);
     NavPrefs.tabOrder.removeListener(_onTabSetChange);
     ShowcaseView.getNamed(_showcaseScope).unregister();
     _tvRailScope.dispose();
+    _hiveService.currentProviderChanged.removeListener(_onProviderStored);
     for (final n in _tvTabScopes.values) {
       n.dispose();
     }
     super.dispose();
   }
 
+  /// The source changed underneath us, outside [ProviderBloc].
+  void _onProviderStored() {
+    if (!mounted) return;
+    final newId = _hiveService.currentProviderChanged.value;
+    if (newId.isEmpty) return;
+    _reconcileHome(newId);
+  }
+
   void _onProviderStateChange(BuildContext context, ProviderState state) {
     if (state is! ProviderLoaded) return;
-    final newId = state.currentProviderId;
-    if (_lastProviderId == null) {
-      _lastProviderId = newId;
-      // HomePage.initState already fires a (non-silent) HomeLoad the moment the
-      // shell mounts. Kicking a second one here while that is still in flight
-      // runs BOTH handlers concurrently (bloc's default transformer), and the
-      // late completion re-emits HomeLoaded/HomeError — churning HomeContent
-      // through extra mounts. Only load if nothing is in flight or landed.
-      final homeState = context.read<HomeBloc>().state;
-      if (homeState is! HomeLoaded && homeState is! HomeLoading) {
-        context.read<HomeBloc>().add(HomeLoad(silent: true));
-      }
-      return;
-    }
-    if (_lastProviderId == newId) return;
-    _lastProviderId = newId;
+    _reconcileHome(state.currentProviderId);
+  }
+
+  /// Make Home agree with the source that is actually selected.
+  ///
+  /// This replaces two rules that each tracked the source by remembering the
+  /// last id they were told about, and each got it wrong in a different way.
+  ///
+  /// **Home came up empty on a cold start.** `HomePage.initState` fires a load
+  /// the moment the shell mounts, which is before `ProviderBloc` has resolved
+  /// which source is current — so the repository asked with no provider and got
+  /// nothing back. The guard here then saw a load already in flight and
+  /// declined to start another, so the empty answer stood until somebody pulled
+  /// to refresh. Every first launch looked like the app had nothing in it.
+  ///
+  /// **And coming back from Manga showed Watch's old source.** The last-id
+  /// rules compare the incoming id against what they were last TOLD, not
+  /// against what Home is actually showing — so returning to a mode whose
+  /// source had not changed since the shell last heard about it was a no-op,
+  /// and the rows on screen stayed the ones from before the trip.
+  ///
+  /// So neither of those is tracked any more. `HomeLoaded` carries the provider
+  /// its rows came from, which is the only fact that cannot drift: if it is not
+  /// the current source, Home is stale and reloads, whatever route got it
+  /// there. A load already in flight for the WRONG source is not a reason to
+  /// skip — it is the reason to start the right one, and `HomeBloc`'s run token
+  /// stops the stale one emitting over it.
+  void _reconcileHome(String providerId) {
+    if (!mounted || providerId.isEmpty) return;
+    final changed = _lastProviderId != providerId;
+    _lastProviderId = providerId;
+
+    final homeState = context.read<HomeBloc>().state;
+    final showing = homeState is HomeLoaded
+        ? homeState.homeData.provider
+        : null;
+    if (showing == providerId) return;
+
     context.read<HomeBloc>().add(HomeLoad(silent: true));
-    context.read<SearchBloc>().add(const SearchLoad());
+    // Search keeps its own results and genres per source, and only needs
+    // telling when the source genuinely moved — reloading it because Home was
+    // stale would throw away a query somebody is in the middle of.
+    if (changed) context.read<SearchBloc>().add(const SearchLoad());
   }
 
   void _onTabTap(int index) {
@@ -191,6 +237,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   // re-taps). Capture the "was already selected" state before _onTabTap mutates
   // _index.
   void _handleTabTap(int index) {
+    _navigationScroll.expand();
     final reselected = index == _index;
     _onTabTap(index);
     if (reselected && _shortsIndex >= 0 && index == _shortsIndex) {
@@ -279,7 +326,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           // over the top of it (see below), so gaining focus never reflows the
           // page underneath.
           Positioned.fill(
-            left: _TvNavRail.collapsedWidth,
+            left: _SozoNavRail.collapsedWidth,
             child: Focus(
               // Not focusable itself — it exists purely to observe whether
               // focus is anywhere inside the tab body, which BACK keys off.
@@ -296,14 +343,79 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             left: 0,
             top: 0,
             bottom: 0,
-            child: _TvNavRail(
+            child: _SozoNavRail(
               index: _index,
               items: defs,
               scope: _tvRailScope,
-              onFocusItem: _tvFocusTab,
+              onSelect: _tvFocusTab,
               onEnterContent: _tvEnterContent,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ----------------------------------------------------------- desktop shell
+
+  /// Desktop's two shells: the side rail from [SozoWidth.expanded] upwards, the
+  /// floating pill it has always had below that.
+  ///
+  /// The tier comes from `SozoWidth` rather than a number kept here, because a
+  /// second set of breakpoints in a page is how two parts of the app end up
+  /// disagreeing about what "wide" means. This is the same `expanded` tier the
+  /// local placeholder was always meant to be replaced by.
+  ///
+  /// Same tabs, same [IndexedStack], same state — only where the navigation
+  /// sits changes, so crossing the breakpoint by dragging the window edge never
+  /// re-mounts a page or loses a scroll offset.
+  ///
+  /// The rail overlays the content and the content is inset by the rail's
+  /// COLLAPSED width, exactly as on television: the rail widens on hover, and
+  /// insetting by the expanded width instead would leave a permanent 232px of
+  /// dead space, while reflowing on hover would shove the page sideways every
+  /// time the pointer crossed it.
+  Widget _buildDesktopShell(List<Widget> tabs, List<AppTabDef> defs) {
+    final wide = SozoWidth.of(context).isExpanded;
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          if (wide) ...[
+            PositionedDirectional(
+              start: _SozoNavRail.collapsedWidth,
+              end: 0,
+              top: 0,
+              bottom: 0,
+              child: IndexedStack(index: _index, children: tabs),
+            ),
+            PositionedDirectional(
+              start: 0,
+              top: 0,
+              bottom: 0,
+              child: _SozoNavRail(
+                index: _index,
+                items: defs,
+                onSelect: _onTabTap,
+              ),
+            ),
+          ] else ...[
+            Positioned.fill(
+              child: IndexedStack(index: _index, children: tabs),
+            ),
+            // Sozo-Desktop: floating bottom-center rounded pill nav
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: _SoplayFloatingNav(
+                  index: _index,
+                  onTap: _onTabTap,
+                  items: defs,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -318,7 +430,22 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           // Stable per-tab key so reordering the bar MOVES a page (keeping its
           // State) instead of rebuilding it at a new index — which was
           // re-mounting Home and re-firing its "Join Telegram" sheet.
-          key: ValueKey(defs[i].id),
+          //
+          // The language is part of the key because `easy_localization`'s
+          // `.tr()` reads a singleton and registers no dependency, so changing
+          // it marks nothing dirty. A row like
+          // `SettingsNavTile(title: 'profile.downloads'.tr())` has its words
+          // computed in its PARENT's build, and the parent does not re-run — so
+          // switching from Cantonese to English left a Profile tab reading
+          // "Downloads" and "Activity" beside 連接 and 來源, which have their
+          // own builds and did re-run. Tearing the tab down and building it
+          // again is what makes the whole page speak one language.
+          //
+          // Keyed here, below the Navigator, and not around the app: GoRouter
+          // is a single long-lived instance holding a GlobalKey, and rebuilding
+          // the Router around it puts that key in two live trees at once —
+          // which asserts, immediately, on the first switch.
+          key: ValueKey('${defs[i].id}:${context.locale.languageCode}'),
           // No-op off TV: returns the page widget unchanged.
           child: _tvWrapTab(
             defs[i].builder(
@@ -365,28 +492,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           child: isTvPlatform
               ? _buildTvShell(tabs, defs)
               : isDesktopPlatform
-              ? Scaffold(
-                  backgroundColor: AppColors.background,
-                  body: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: IndexedStack(index: _index, children: tabs),
-                      ),
-                      // Sozo-Desktop: floating bottom-center rounded pill nav
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 18),
-                          child: _SoplayFloatingNav(
-                            index: _index,
-                            onTap: _onTabTap,
-                            items: defs,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
+              ? _buildDesktopShell(tabs, defs)
               : Scaffold(
                   backgroundColor: AppColors.background,
                   extendBody: !readableNav,
@@ -403,86 +509,116 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                       // the nav style never re-mounts the tabs (that remount was
                       // re-triggering the Home "Join Telegram" sheet).
                       Positioned.fill(
-                        child: IndexedStack(index: _index, children: tabs),
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            if (!readableNav &&
+                                !keyboardOpen &&
+                                _index != _shortsIndex) {
+                              _navigationScroll.onScroll(notification);
+                            }
+                            return false;
+                          },
+                          child: IndexedStack(index: _index, children: tabs),
+                        ),
                       ),
                       if (!keyboardOpen && !readableNav)
                         Positioned(
                           left: 0,
                           right: 0,
                           bottom: 0,
-                          child: ValueListenableBuilder<String>(
-                            valueListenable: NavPrefs.navStyle,
-                            builder: (context, style, _) {
-                              // Classic: the original full-width frosted bar (keeps
-                              // the per-tab Showcase + real double-tap-to-refresh).
-                              if (style == NavPrefs.classic) {
-                                return _SoplayClassicBar(
-                                  index: _index,
-                                  items: defs,
-                                  shortsShowcaseKey: _shortsRefreshShowcaseKey,
-                                  // _handleTabTap, not _onTabTap: it adds
-                                  // reselect-to-refresh and no-ops on every other
-                                  // tab. The coach-mark shown to classic users
-                                  // described a gesture only the capsule had, so
-                                  // following its instructions did nothing.
-                                  // Double-tap stays as the additional shortcut.
-                                  onTap: _handleTabTap,
-                                  onShortsDoubleTap: _refreshShorts,
-                                );
-                              }
-                              // Glass / Solid: a floating capsule inset 16 each side.
-                              final nativeIosBar =
-                                  PlatformInfo.isIOS &&
-                                  PlatformInfo.isIOS26OrHigher();
-                              return Padding(
-                                padding: EdgeInsets.fromLTRB(
-                                  16,
-                                  0,
-                                  16,
-                                  // The native bar reserves the home-indicator
-                                  // inset itself: the package sizes it from
-                                  // `UITabBar.sizeThatFits`, and a UITabBar folds
-                                  // the bottom safe area into that height. Adding
-                                  // the inset again here counted it twice and
-                                  // floated the bar a safe area's worth too high,
-                                  // leaving a gap under it. The Flutter capsule
-                                  // has no such notion and still needs it.
-                                  nativeIosBar
-                                      ? 12
-                                      : MediaQuery.paddingOf(context).bottom +
-                                            12,
+                          child: ListenableBuilder(
+                            listenable: Listenable.merge([
+                              _navigationScroll,
+                              NavPrefs.navStyle,
+                              NavPrefs.compactOnScroll,
+                            ]),
+                            builder: (context, child) =>
+                                ScrollCompactNavigation(
+                                  compact:
+                                      _navigationScroll.value &&
+                                      NavPrefs.compactOnScroll.value &&
+                                      NavPrefs.navStyle.value !=
+                                          NavPrefs.classic &&
+                                      _index != _shortsIndex &&
+                                      MediaQuery.sizeOf(context).width >=
+                                          defs.length * 48 + 40,
+                                  expanded: child!,
                                 ),
-                                // A fixed 16dp inset is a capsule on a phone and a
-                                // full-width band on a foldable or a tablet, where
-                                // it stops reading as a floating control at all.
-                                // Nothing changes below 480dp.
-                                child: Center(
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 480,
-                                    ),
-                                    // iOS 26+ gets the system's own tab bar;
-                                    // everywhere else keeps the shader capsule.
-                                    // `classic` is handled above and is an
-                                    // explicit user choice on every platform.
-                                    child: nativeIosBar
-                                        ? _SoplayNativeGlassBar(
-                                            index: _index,
-                                            items: defs,
-                                            onTabSelected: _handleTabTap,
-                                          )
-                                        : _SoplayGlassCapsule(
-                                            index: _index,
-                                            items: defs,
-                                            glass: style == NavPrefs.glass,
-                                            shortsShowcaseKey:
-                                                _shortsRefreshShowcaseKey,
-                                            onTabSelected: _handleTabTap,
-                                          ),
+                            child: ValueListenableBuilder<String>(
+                              valueListenable: NavPrefs.navStyle,
+                              builder: (context, style, _) {
+                                // Classic: the original full-width frosted bar (keeps
+                                // the per-tab Showcase + real double-tap-to-refresh).
+                                if (style == NavPrefs.classic) {
+                                  return _SoplayClassicBar(
+                                    index: _index,
+                                    items: defs,
+                                    shortsShowcaseKey:
+                                        _shortsRefreshShowcaseKey,
+                                    // _handleTabTap, not _onTabTap: it adds
+                                    // reselect-to-refresh and no-ops on every other
+                                    // tab. The coach-mark shown to classic users
+                                    // described a gesture only the capsule had, so
+                                    // following its instructions did nothing.
+                                    // Double-tap stays as the additional shortcut.
+                                    onTap: _handleTabTap,
+                                    onShortsDoubleTap: _refreshShorts,
+                                  );
+                                }
+                                // Glass / Solid: a floating capsule inset 16 each side.
+                                final nativeIosBar =
+                                    PlatformInfo.isIOS &&
+                                    PlatformInfo.isIOS26OrHigher();
+                                return Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    // The native bar reserves the home-indicator
+                                    // inset itself: the package sizes it from
+                                    // `UITabBar.sizeThatFits`, and a UITabBar folds
+                                    // the bottom safe area into that height. Adding
+                                    // the inset again here counted it twice and
+                                    // floated the bar a safe area's worth too high,
+                                    // leaving a gap under it. The Flutter capsule
+                                    // has no such notion and still needs it.
+                                    nativeIosBar
+                                        ? 12
+                                        : MediaQuery.paddingOf(context).bottom +
+                                              12,
                                   ),
-                                ),
-                              );
-                            },
+                                  // A fixed 16dp inset is a capsule on a phone and a
+                                  // full-width band on a foldable or a tablet, where
+                                  // it stops reading as a floating control at all.
+                                  // Nothing changes below 480dp.
+                                  child: Center(
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 480,
+                                      ),
+                                      // iOS 26+ gets the system's own tab bar;
+                                      // everywhere else keeps the shader capsule.
+                                      // `classic` is handled above and is an
+                                      // explicit user choice on every platform.
+                                      child: nativeIosBar
+                                          ? _SoplayNativeGlassBar(
+                                              index: _index,
+                                              items: defs,
+                                              onTabSelected: _handleTabTap,
+                                            )
+                                          : _SoplayGlassCapsule(
+                                              index: _index,
+                                              items: defs,
+                                              glass: style == NavPrefs.glass,
+                                              shortsShowcaseKey:
+                                                  _shortsRefreshShowcaseKey,
+                                              onTabSelected: _handleTabTap,
+                                            ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
                     ],
@@ -592,13 +728,15 @@ class _SoplayGlassCapsule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final density = NavigationDensity.of(context);
+    final barHeight = _barHeight - 8 * density;
     final bar = GlassTabBar.bottom(
       tabs: [
         for (final it in items)
           GlassTab(
             label: it.labelKey.tr(),
-            icon: Icon(it.icon),
-            activeIcon: Icon(it.activeIcon),
+            icon: Icon(it.icon, size: 24 - 2 * density),
+            activeIcon: Icon(it.activeIcon, size: 24 - 2 * density),
           ),
       ],
       selectedIndex: index,
@@ -608,17 +746,19 @@ class _SoplayGlassCapsule extends StatelessWidget {
       tabWidth: null,
       horizontalPadding: 0,
       verticalPadding: 0,
-      barHeight: _barHeight,
-      barBorderRadius: _barHeight / 2, // full capsule
+      barHeight: barHeight,
+      iconSize: 24 - 2 * density,
+      barBorderRadius: barHeight / 2, // full capsule
+      iconLabelSpacing: 4 - density,
       magnification: glass
-          ? 1.12
+          ? 1.12 - .10 * density
           : 1.0, // subtle iOS-26 lens on the selected tab
-      indicatorPinchStrength: glass ? 0.3 : 0.0,
+      indicatorPinchStrength: glass ? .3 * (1 - density) : 0.0,
       // The selected pill used to expand 4dp past the top and bottom of the
       // 62dp capsule on every tap, clipping against the rim.
-      indicatorExpansion: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 2,
+      indicatorExpansion: EdgeInsets.symmetric(
+        horizontal: 12 - 6 * density,
+        vertical: 2 * (1 - density),
       ),
       // Selected-tab pill: a soft, restrained light pill on the dark body —
       // unless Appearance → "Colour the tab bar" is on, in which case the whole
@@ -675,7 +815,7 @@ class _SoplayGlassCapsule extends StatelessWidget {
           child: IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(_barHeight / 2),
+                borderRadius: BorderRadius.circular(barHeight / 2),
                 boxShadow: [
                   AppColors.isBlack
                       ? BoxShadow(
@@ -727,31 +867,45 @@ class _SoplayGlassCapsule extends StatelessWidget {
     // Drag-to-switch is undiscoverable and currently fires selection twice, so
     // that is a trade worth making. The selected-tab lens still animates: it is
     // driven by `selectedIndex`, not by touch.
-    return Stack(
-      children: [
-        // Pointers stay with the package; only its semantics are suppressed.
-        //
-        // Owning the taps here fixed the hit-region arithmetic, but it cost the
-        // thing that makes the bar feel like the bar: while you drag, the
-        // package moves its indicator *continuously* with your finger. That
-        // motion cannot be reproduced from outside — `selectedIndex` is an int,
-        // so an app-owned gesture can only snap between whole tabs, and a slow
-        // swipe then gives no sign that anything is happening at all.
-        //
-        // So the gesture goes back. `ExcludeSemantics` stays: the accessibility
-        // defects are in the package's *semantics* tree, not its gestures, and
-        // the layer above supplies one correct, activatable node per tab —
-        // which is what TalkBack was missing entirely.
-        ExcludeSemantics(child: shadowed),
-        Positioned.fill(
-          child: _CapsuleTabLayer(
-            items: items,
-            index: index,
-            onTabSelected: onTabSelected,
-            shortsShowcaseKey: shortsShowcaseKey,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Compact width follows the number of destinations, not a tiny
+        // percentage of the screen. 56dp slots retain labels and touch space.
+        final compactWidth = (items.length * 56.0).clamp(
+          0.0,
+          constraints.maxWidth,
+        );
+        final availableInset = (constraints.maxWidth - compactWidth) / 2;
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: availableInset * density),
+          child: Stack(
+            children: [
+              // Pointers stay with the package; only its semantics are suppressed.
+              //
+              // Owning the taps here fixed the hit-region arithmetic, but it cost the
+              // thing that makes the bar feel like the bar: while you drag, the
+              // package moves its indicator *continuously* with your finger. That
+              // motion cannot be reproduced from outside — `selectedIndex` is an int,
+              // so an app-owned gesture can only snap between whole tabs, and a slow
+              // swipe then gives no sign that anything is happening at all.
+              //
+              // So the gesture goes back. `ExcludeSemantics` stays: the accessibility
+              // defects are in the package's *semantics* tree, not its gestures, and
+              // the layer above supplies one correct, activatable node per tab —
+              // which is what TalkBack was missing entirely.
+              ExcludeSemantics(child: shadowed),
+              Positioned.fill(
+                child: _CapsuleTabLayer(
+                  items: items,
+                  index: index,
+                  onTabSelected: onTabSelected,
+                  shortsShowcaseKey: shortsShowcaseKey,
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -974,6 +1128,7 @@ class _CapsuleTabSlot extends StatelessWidget {
 
     return Showcase.withWidget(
       key: key,
+      scope: _showcaseScope,
       tooltipPosition: TooltipPosition.top,
       targetBorderRadius: BorderRadius.circular(18),
       targetPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -1172,6 +1327,7 @@ class _ClassicNavButtonState extends State<_ClassicNavButton> {
 
     return Showcase.withWidget(
       key: key,
+      scope: _showcaseScope,
       tooltipPosition: TooltipPosition.top,
       targetBorderRadius: BorderRadius.circular(18),
       targetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -1315,91 +1471,130 @@ class _NavCircleState extends State<_NavCircle> {
   }
 }
 
-/// Android-TV navigation rail — the THIRD shell, mounted only when
-/// [isTvPlatform]. The bottom pill (mobile glass capsule, desktop floating pill)
-/// is a touch idiom; a 10-foot D-pad UI wants a vertical rail on the leading
-/// edge, so this is a genuine third arm rather than a reuse of either.
+/// The vertical navigation rail: Android TV's only shell, and the desktop shell
+/// once the window is wide enough to carry one.
 ///
-/// It lives in a Stack ABOVE the content and animates 92 → 232 wide while it
-/// holds focus, so showing the labels never reflows the page underneath.
+/// The bottom pill (mobile glass capsule, desktop floating pill) is a touch
+/// idiom. It reads correctly on a phone and on a small window; across a 1400px
+/// one it is a capsule stranded in the middle of an empty strip, with every tab
+/// as far from the content as it is possible to put it. A rail on the leading
+/// edge is what a window that wide has always wanted, and the 10-foot shell had
+/// already built one.
 ///
-/// Interaction model: focus-follows-selection (arrowing the rail switches the
-/// tab live), OK or arrow-right hands focus to the tab body, BACK brings it back
-/// (see [_MainPageState._buildTvShell] and the PopScope above it).
-class _TvNavRail extends StatefulWidget {
-  const _TvNavRail({
+/// It lives in a Stack ABOVE the content and animates 92 → 232 wide, so showing
+/// the labels never reflows the page underneath — on a television because
+/// reflowing under a moving D-pad cursor is disorienting, on a desktop because
+/// the rail widens on hover and a page that jumps sideways whenever the pointer
+/// drifts past it would be unusable.
+///
+/// The two arms differ only in what widens the rail and what reaching a button
+/// means. A television drives it with a D-pad: the rail owns a [FocusScope],
+/// widens while it holds focus, switches the tab as focus moves over it
+/// (focus-follows-selection), and hands focus to the page body on OK, which
+/// BACK then takes back — see [_MainPageState._buildTvShell] and the PopScope
+/// above it. A desktop drives it with a pointer: it widens on hover and
+/// switches the tab on click. Everything D-pad hangs off [scope], which is null
+/// on desktop, so none of it can fire there.
+class _SozoNavRail extends StatefulWidget {
+  const _SozoNavRail({
     required this.index,
     required this.items,
-    required this.scope,
-    required this.onFocusItem,
-    required this.onEnterContent,
+    required this.onSelect,
+    this.scope,
+    this.onEnterContent,
   });
 
   final int index;
   final List<AppTabDef> items;
-  final FocusScopeNode scope;
-  final ValueChanged<int> onFocusItem;
-  final VoidCallback onEnterContent;
+
+  /// TV: fired as D-pad focus lands on a button. Desktop: fired on click.
+  final ValueChanged<int> onSelect;
+
+  /// TV only — the scope the rail's buttons live in, so BACK can put focus back
+  /// on the item the remote last sat on. Null on desktop, which has no focus
+  /// model of its own to keep.
+  final FocusScopeNode? scope;
+
+  /// TV only: what OK does once a tab is already selected.
+  final VoidCallback? onEnterContent;
 
   static const double collapsedWidth = 92;
   static const double expandedWidth = 232;
 
   @override
-  State<_TvNavRail> createState() => _TvNavRailState();
+  State<_SozoNavRail> createState() => _SozoNavRailState();
 }
 
-class _TvNavRailState extends State<_TvNavRail> {
+class _SozoNavRailState extends State<_SozoNavRail> {
   bool _expanded = false;
+
+  void _setExpanded(bool value) {
+    if (_expanded == value) return;
+    setState(() => _expanded = value);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FocusScope(
-      node: widget.scope,
-      onFocusChange: (hasFocus) {
-        if (_expanded == hasFocus) return;
-        setState(() => _expanded = hasFocus);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        width: _expanded ? _TvNavRail.expandedWidth : _TvNavRail.collapsedWidth,
-        decoration: BoxDecoration(
-          color: AppColors.navBackground,
-          border: Border(
-            right: BorderSide(color: AppColors.border, width: 0.6),
-          ),
-          boxShadow: _expanded
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: 36,
-                    offset: const Offset(10, 0),
-                  ),
-                ]
-              : null,
+    final scope = widget.scope;
+    final rail = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      width: _expanded
+          ? _SozoNavRail.expandedWidth
+          : _SozoNavRail.collapsedWidth,
+      decoration: BoxDecoration(
+        color: AppColors.navBackground,
+        // Directional, to match the PositionedDirectional the desktop shell
+        // places this rail with: the hairline belongs on the edge the content
+        // is on, which is the right one in English and the left one in Arabic.
+        border: BorderDirectional(
+          end: BorderSide(color: AppColors.border, width: 0.6),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var i = 0; i < widget.items.length; i++)
-              _TvRailButton(
-                item: widget.items[i],
-                selected: widget.index == i,
-                expanded: _expanded,
-                // Initial focus for the whole app lands on the active tab.
-                autofocus: widget.index == i,
-                onFocused: () => widget.onFocusItem(i),
-                onActivate: widget.onEnterContent,
-              ),
-          ],
-        ),
+        boxShadow: _expanded
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 36,
+                  offset: const Offset(10, 0),
+                ),
+              ]
+            : null,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (var i = 0; i < widget.items.length; i++)
+            _SozoRailButton(
+              item: widget.items[i],
+              selected: widget.index == i,
+              expanded: _expanded,
+              // Initial focus for the whole app lands on the active tab — on a
+              // television, where there is nothing else to drive it. A desktop
+              // rail must not claim the first focus of the window away from the
+              // page the user is actually looking at.
+              autofocus: scope != null && widget.index == i,
+              onFocused: scope == null ? null : () => widget.onSelect(i),
+              // OK on a television means "into the content": the tab is already
+              // selected, because focus landing on the button selected it. A
+              // click is the whole gesture on a desktop, so it has to select.
+              onActivate: widget.onEnterContent ?? () => widget.onSelect(i),
+            ),
+        ],
       ),
     );
+    if (scope == null) {
+      return MouseRegion(
+        onEnter: (_) => _setExpanded(true),
+        onExit: (_) => _setExpanded(false),
+        child: rail,
+      );
+    }
+    return FocusScope(node: scope, onFocusChange: _setExpanded, child: rail);
   }
 }
 
-class _TvRailButton extends StatefulWidget {
-  const _TvRailButton({
+class _SozoRailButton extends StatefulWidget {
+  const _SozoRailButton({
     required this.item,
     required this.selected,
     required this.expanded,
@@ -1412,19 +1607,26 @@ class _TvRailButton extends StatefulWidget {
   final bool selected;
   final bool expanded;
   final bool autofocus;
-  final VoidCallback onFocused;
+
+  /// Null where focus does not select — i.e. everywhere but the television.
+  final VoidCallback? onFocused;
   final VoidCallback onActivate;
 
   @override
-  State<_TvRailButton> createState() => _TvRailButtonState();
+  State<_SozoRailButton> createState() => _SozoRailButtonState();
 }
 
-class _TvRailButtonState extends State<_TvRailButton> {
+class _SozoRailButtonState extends State<_SozoRailButton> {
   bool _focused = false;
+
+  /// Only ever true on desktop: a television has no pointer to hover with, so
+  /// this needs no platform test to stay out of the 10-foot shell's way.
+  bool _hover = false;
 
   @override
   Widget build(BuildContext context) {
-    final active = widget.selected || _focused;
+    final highlighted = _focused || _hover;
+    final active = widget.selected || highlighted;
     final color = active ? AppColors.textPrimary : AppColors.textSecondary;
 
     return Padding(
@@ -1437,8 +1639,9 @@ class _TvRailButtonState extends State<_TvRailButton> {
         onTap: widget.onActivate,
         onFocusChange: (v) {
           setState(() => _focused = v);
-          if (v) widget.onFocused();
+          if (v) widget.onFocused?.call();
         },
+        onHover: (v) => setState(() => _hover = v),
         borderRadius: BorderRadius.circular(12),
         // The focus ring below is the affordance; suppress the default wash.
         focusColor: Colors.transparent,
@@ -1449,10 +1652,10 @@ class _TvRailButtonState extends State<_TvRailButton> {
           height: 54,
           padding: const EdgeInsets.symmetric(horizontal: 13),
           decoration: BoxDecoration(
-            color: _focused ? AppColors.surface : Colors.transparent,
+            color: highlighted ? AppColors.surface : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _focused ? AppColors.border : Colors.transparent,
+              color: highlighted ? AppColors.border : Colors.transparent,
               width: 0.6,
             ),
           ),

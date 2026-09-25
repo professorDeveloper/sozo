@@ -6,6 +6,7 @@ import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
+import 'package:soplay/features/sources/domain/source_failure.dart';
 
 /// One row of a day's list.
 ///
@@ -213,9 +214,24 @@ class AiringCalendarController extends ChangeNotifier {
       _fetchedAt[day] = DateTime.now();
       _prefetchNext(day);
     } catch (e) {
-      _errors[day] = e is AnilistException
-          ? (e.rateLimited ? 'anilist.calendar_rate_limited'.tr() : e.message)
-          : 'anilist.calendar_error'.tr();
+      // The generic sentence only when nothing more specific is known.
+      //
+      // AniList's own failures already say what happened; everything else —
+      // no connection, a timeout, a 5xx, a response that would not parse —
+      // fell into one message that tells the reader nothing and tells a bug
+      // report less. [SourceFailure] is the app's existing answer to exactly
+      // this and knows the vocabulary of both Dart and Dio, so being offline
+      // now says so instead of being reported as the schedule being broken.
+      if (e is AnilistException) {
+        _errors[day] = e.rateLimited
+            ? 'anilist.calendar_rate_limited'.tr()
+            : e.message;
+      } else {
+        final failure = SourceFailure.of(e.toString());
+        _errors[day] = failure.kind == SourceFailureKind.unknown
+            ? 'anilist.calendar_error'.tr()
+            : failure.headline;
+      }
     } finally {
       _inFlight.remove(day);
       // The day may no longer be selected — the user can switch while a fetch

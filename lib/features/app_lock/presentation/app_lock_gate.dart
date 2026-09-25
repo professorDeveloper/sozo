@@ -10,10 +10,10 @@ import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository
 /// says so — so every way into the app lands under it.
 class AppLockGate extends ChangeNotifier with WidgetsBindingObserver {
   AppLockGate(this._repo, {DateTime Function()? clock})
-      : _now = clock ?? DateTime.now,
-        // Locked from the start when a PIN is set. DI builds this after the
-        // settings box is open, so the flag is already readable here.
-        _locked = _repo.isEnabled;
+    : _now = clock ?? DateTime.now,
+      // Locked from the start when a PIN is set. DI builds this after the
+      // settings box is open, so the flag is already readable here.
+      _locked = _repo.isEnabled;
 
   final AppLockRepository _repo;
   final DateTime Function() _now;

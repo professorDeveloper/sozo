@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
@@ -25,7 +26,7 @@ class UserListsRepositoryImpl implements UserListsRepository {
   final UserListsRemoteDataSource remote;
   final HiveService hive;
 
-  Box get _box => Hive.box(AppConstants.userListsBox);
+  Box get _box => Hive.box(ProfileScope.box(AppConstants.userListsBox));
 
   List<FavoriteEntity> _cached(UserListKind kind) {
     final raw = _box.get(kind.slug);

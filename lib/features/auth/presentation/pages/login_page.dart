@@ -9,6 +9,7 @@ import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
 import 'package:soplay/features/auth/presentation/widgets/auth_widgets.dart';
+import 'package:soplay/features/onboarding/presentation/onboarding_navigation.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -76,7 +77,7 @@ class _LoginPageState extends State<LoginPage> {
           // it Android never offers to save, and the next sign-in is manual
           // again.
           TextInput.finishAutofillContext();
-          context.go('/main');
+          goAfterAuth(context);
         } else if (state is AuthError) {
           setState(() {
             _googlePending = false;

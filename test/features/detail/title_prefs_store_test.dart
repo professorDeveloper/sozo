@@ -51,8 +51,11 @@ void main() {
     await s.rememberLang('p', 'u', 'dub');
     await s.rememberQuality('p', 'u', 'Server 3');
     expect(s.langFor('p', 'u'), 'dub');
-    expect(s.qualityFor('p', 'u'), 'Server 3',
-        reason: 'writing one field must not wipe the other');
+    expect(
+      s.qualityFor('p', 'u'),
+      'Server 3',
+      reason: 'writing one field must not wipe the other',
+    );
   });
 
   test('a later choice replaces the earlier one', () async {
@@ -101,8 +104,34 @@ void main() {
   });
 
   test('a corrupt store reads as empty instead of throwing', () async {
-    await Hive.box(AppConstants.settingsBox)
-        .put(AppConstants.titlePrefsKey, 'not a map');
+    await Hive.box(
+      AppConstants.settingsBox,
+    ).put(AppConstants.titlePrefsKey, 'not a map');
     expect(TitlePrefsStore().langFor('p', 'u'), isNull);
+  });
+
+  test('the subtitle choice is kept per title, off included', () async {
+    final s = TitlePrefsStore();
+    await s.rememberSubtitle('p', 'a', 'English');
+    await s.rememberSubtitle('p', 'b', TitlePrefsStore.subtitleOff);
+    expect(s.subtitleFor('p', 'a'), 'English');
+    expect(s.subtitleFor('p', 'b'), TitlePrefsStore.subtitleOff);
+    expect(s.subtitleFor('p', 'c'), isNull);
+  });
+
+  test('a pinned height is kept, and Auto clears it', () async {
+    final s = TitlePrefsStore();
+    await s.rememberHeight('p', 'a', 720);
+    expect(s.heightFor('p', 'a'), 720);
+    await s.rememberHeight('p', 'a', 0);
+    expect(s.heightFor('p', 'a'), isNull);
+  });
+
+  test('the chapter group is kept per title, and "all" clears it', () async {
+    final s = TitlePrefsStore();
+    await s.rememberScanlator('mn:x', 'a', 'Asura Scans');
+    expect(s.scanlatorFor('mn:x', 'a'), 'Asura Scans');
+    await s.rememberScanlator('mn:x', 'a', null);
+    expect(s.scanlatorFor('mn:x', 'a'), isNull);
   });
 }

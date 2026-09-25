@@ -4,6 +4,7 @@ import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/features/manga/data/models/manga_pages_model.dart';
@@ -26,11 +27,13 @@ class DetailRepositoryImpl implements DetailRepository {
   const DetailRepositoryImpl(
     this.dataSource, {
     required this.mangayomi,
+    this.jellyfin,
     this.jsRuntime,
     this.hive,
   });
 
   final MangayomiBridge mangayomi;
+  final JellyfinBridge? jellyfin;
 
   /// The reason the host gave, when it gave one.
   ///
@@ -44,6 +47,21 @@ class DetailRepositoryImpl implements DetailRepository {
     return text.isEmpty ? null : text;
   }
 
+  /// A host's detail payload as a result.
+  ///
+  /// A host that could not reach the source still answers with a map, holding
+  /// only its `error`. That map is not empty, so it used to open as a title
+  /// with no name, no poster and no chapters, which looks like a broken page
+  /// rather than a source that failed. With no title, the reason is the answer.
+  static Result<DetailEntity> _detailOf(Map<String, dynamic> map, String host) {
+    final title = map['title'];
+    final untitled = title is! String || title.trim().isEmpty;
+    if (map.isEmpty || (untitled && _hostError(map) != null)) {
+      return Failure(Exception(_hostError(map) ?? '$host: details not found'));
+    }
+    return Success(DetailModel.fromJson(map));
+  }
+
   String? _resolveProvider(String? provider) {
     if (provider != null && provider.isNotEmpty) return provider;
     final fromHive = hive?.getCurrentProvider();
@@ -52,23 +70,30 @@ class DetailRepositoryImpl implements DetailRepository {
   }
 
   @override
-  Future<Result<DetailEntity>> getDetail(String contentUrl, {String? provider}) async {
+  Future<Result<DetailEntity>> getDetail(
+    String contentUrl, {
+    String? provider,
+  }) async {
     final js = jsRuntime;
     final effective = _resolveProvider(provider);
     if (effective != null && effective.startsWith('cs:')) {
       try {
-        final map = await CloudStreamChannel.load(effective.substring(3), contentUrl);
-        if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
-        return Failure(Exception('CloudStream: details not found'));
+        final map = await CloudStreamChannel.load(
+          effective.substring(3),
+          contentUrl,
+        );
+        return _detailOf(map, 'CloudStream');
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
     }
     if (effective != null && effective.startsWith('an:')) {
       try {
-        final map = await AniyomiChannel.load(effective.substring(3), contentUrl);
-        if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
-        return Failure(Exception('Aniyomi: details not found'));
+        final map = await AniyomiChannel.load(
+          effective.substring(3),
+          contentUrl,
+        );
+        return _detailOf(map, 'Aniyomi');
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -76,8 +101,7 @@ class DetailRepositoryImpl implements DetailRepository {
     if (effective != null && effective.startsWith('mn:')) {
       try {
         final map = await MangaChannel.load(effective.substring(3), contentUrl);
-        if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
-        return Failure(Exception('Manga: details not found'));
+        return _detailOf(map, 'Manga');
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -85,8 +109,18 @@ class DetailRepositoryImpl implements DetailRepository {
     if (effective != null && effective.startsWith('my:')) {
       try {
         final map = await mangayomi.load(effective.substring(3), contentUrl);
-        if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
-        return Failure(Exception('Mangayomi: details not found'));
+        return _detailOf(map, 'Mangayomi');
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
+    final jf = jellyfin;
+    if (jf != null && effective != null && effective.startsWith('jf:')) {
+      try {
+        final map = await jf.load(JellyfinBridge.bare(effective), contentUrl);
+        final err = _hostError(map);
+        if (err != null) return Failure(Exception('Jellyfin: $err'));
+        return Success(DetailModel.fromJson(map));
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -100,7 +134,9 @@ class DetailRepositoryImpl implements DetailRepository {
       }
     }
     try {
-      return Success(await dataSource.getDetail(contentUrl, provider: effective));
+      return Success(
+        await dataSource.getDetail(contentUrl, provider: effective),
+      );
     } on DioException catch (e) {
       return Failure(Exception(_messageFrom(e)));
     } catch (e) {
@@ -126,9 +162,13 @@ class DetailRepositoryImpl implements DetailRepository {
     final model = PlaybackModel.fromJson(map);
     if (model.episodes.isEmpty) {
       final err = map['error'];
-      return Failure(Exception(
-        err is String && err.isNotEmpty ? '$label: $err' : '$label: nothing to play',
-      ));
+      return Failure(
+        Exception(
+          err is String && err.isNotEmpty
+              ? '$label: $err'
+              : '$label: nothing to play',
+        ),
+      );
     }
     return Success(_applySort(model, sort));
   }
@@ -145,7 +185,10 @@ class DetailRepositoryImpl implements DetailRepository {
     final effective = _resolveProvider(provider);
     if (effective != null && effective.startsWith('cs:')) {
       try {
-        final map = await CloudStreamChannel.load(effective.substring(3), contentUrl);
+        final map = await CloudStreamChannel.load(
+          effective.substring(3),
+          contentUrl,
+        );
         return _playbackFrom(map, 'CloudStream', sort);
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
@@ -153,7 +196,10 @@ class DetailRepositoryImpl implements DetailRepository {
     }
     if (effective != null && effective.startsWith('an:')) {
       try {
-        final map = await AniyomiChannel.load(effective.substring(3), contentUrl);
+        final map = await AniyomiChannel.load(
+          effective.substring(3),
+          contentUrl,
+        );
         return _playbackFrom(map, 'Aniyomi', sort);
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
@@ -171,6 +217,15 @@ class DetailRepositoryImpl implements DetailRepository {
       try {
         final map = await mangayomi.load(effective.substring(3), contentUrl);
         return _playbackFrom(map, 'Mangayomi', sort);
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
+    final jf = jellyfin;
+    if (jf != null && effective != null && effective.startsWith('jf:')) {
+      try {
+        final map = await jf.load(JellyfinBridge.bare(effective), contentUrl);
+        return _playbackFrom(map, 'Jellyfin', sort);
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -215,7 +270,10 @@ class DetailRepositoryImpl implements DetailRepository {
   }) async {
     if (provider.startsWith('cs:')) {
       try {
-        final map = await CloudStreamChannel.loadLinks(provider.substring(3), ref);
+        final map = await CloudStreamChannel.loadLinks(
+          provider.substring(3),
+          ref,
+        );
         final sources = map['videoSources'];
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
           return await _postProcess(MediaResolveModel.fromJson(map));
@@ -224,11 +282,13 @@ class DetailRepositoryImpl implements DetailRepository {
         // its text, or "the provider returned no mirrors" — and this threw it
         // away, so a plugin that crashed, a title with no mirrors and a WebView
         // sniff that timed out after sixty seconds were one sentence.
-        return Failure(Exception(
-          _hostError(map) ?? 'CloudStream: stream not found',
-        ));
+        return Failure(
+          Exception(_hostError(map) ?? 'CloudStream: stream not found'),
+        );
       } catch (e) {
-        if (kDebugMode) debugPrint('[resolveMedia] CloudStream path failed: $e');
+        if (kDebugMode) {
+          debugPrint('[resolveMedia] CloudStream path failed: $e');
+        }
         return Failure(Exception(_normalizeJsError(e)));
       }
     }
@@ -239,9 +299,9 @@ class DetailRepositoryImpl implements DetailRepository {
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
           return await _postProcess(MediaResolveModel.fromJson(map));
         }
-        return Failure(Exception(
-          _hostError(map) ?? 'Aniyomi: stream not found',
-        ));
+        return Failure(
+          Exception(_hostError(map) ?? 'Aniyomi: stream not found'),
+        );
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] Aniyomi path failed: $e');
         return Failure(Exception(_normalizeJsError(e)));
@@ -254,11 +314,26 @@ class DetailRepositoryImpl implements DetailRepository {
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
           return await _postProcess(MediaResolveModel.fromJson(map));
         }
-        return Failure(Exception(
-          _hostError(map) ?? 'Mangayomi: stream not found',
-        ));
+        return Failure(
+          Exception(_hostError(map) ?? 'Mangayomi: stream not found'),
+        );
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] Mangayomi path failed: $e');
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
+    final jf = jellyfin;
+    if (jf != null && provider.startsWith('jf:')) {
+      try {
+        final map = await jf.loadLinks(JellyfinBridge.bare(provider), ref);
+        final sources = map['videoSources'];
+        if (sources is List && sources.isNotEmpty) {
+          return await _postProcess(MediaResolveModel.fromJson(map));
+        }
+        return Failure(
+          Exception(_hostError(map) ?? 'Jellyfin: stream not found'),
+        );
+      } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
     }
@@ -281,11 +356,7 @@ class DetailRepositoryImpl implements DetailRepository {
 
     try {
       return await _postProcess(
-        await dataSource.resolveMedia(
-          ref: ref,
-          provider: provider,
-          lang: lang,
-        ),
+        await dataSource.resolveMedia(ref: ref, provider: provider, lang: lang),
       );
     } on DioException catch (e) {
       final code = e.response?.statusCode;

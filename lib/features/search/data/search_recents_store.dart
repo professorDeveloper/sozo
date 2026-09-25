@@ -1,5 +1,8 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 
 /// The last queries the user actually ran, so the idle search screen has
 /// something on it. Every operation is best-effort: search must keep working
@@ -26,14 +29,29 @@ class SearchRecentsStore {
   /// emit that would have shown its results. Search fetched, and then showed
   /// nothing, on every query.
   List<String> load() {
-    final raw = _box?.get(_key);
+    final raw = _box?.get(ProfileScope.key(_key));
     if (raw is! List) return <String>[];
     return raw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
   }
 
+  /// Whether the app is currently promising to remember nothing.
+  ///
+  /// Guarded by `isRegistered` the same way history's check is: this store is
+  /// constructed in tests and on first run with no DI behind it, and a private
+  /// mode that throws is worse than one that is off.
+  bool get _incognito =>
+      getIt.isRegistered<HiveService>() && getIt<HiveService>().isIncognito;
+
   Future<List<String>> add(String query) async {
     final q = query.trim();
     if (q.isEmpty) return load();
+    // The most visible leak there was: every query typed in incognito was
+    // written here, and the idle Search screen draws this list. Close the
+    // player, go back to Search, and the private session was listed on screen.
+    //
+    // Enforced at the write rather than in the bloc, so the next caller cannot
+    // forget — the same reasoning as HistoryService.save.
+    if (_incognito) return load();
     final list = load()
       ..removeWhere((e) => e.toLowerCase() == q.toLowerCase())
       ..insert(0, q);
@@ -56,7 +74,7 @@ class SearchRecentsStore {
 
   Future<void> _write(List<String> list) async {
     try {
-      await _box?.put(_key, list);
+      await _box?.put(ProfileScope.key(_key), list);
     } catch (_) {}
   }
 }

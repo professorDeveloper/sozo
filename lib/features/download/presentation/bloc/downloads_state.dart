@@ -16,13 +16,14 @@ enum DownloadsFilter {
   problems;
 
   bool matches(DownloadItem item) => switch (this) {
-        DownloadsFilter.all => true,
-        DownloadsFilter.active => item.status.isActive ||
-            item.status == DownloadStatus.paused,
-        DownloadsFilter.completed => item.status == DownloadStatus.completed,
-        DownloadsFilter.problems => item.status == DownloadStatus.failed ||
-            item.status == DownloadStatus.missing,
-      };
+    DownloadsFilter.all => true,
+    DownloadsFilter.active =>
+      item.status.isActive || item.status == DownloadStatus.paused,
+    DownloadsFilter.completed => item.status == DownloadStatus.completed,
+    DownloadsFilter.problems =>
+      item.status == DownloadStatus.failed ||
+          item.status == DownloadStatus.missing,
+  };
 }
 
 /// How the list is ordered.
@@ -47,24 +48,21 @@ class DownloadGroup extends Equatable {
 
   String get title => lead.title;
 
-  int get sizeBytes =>
-      items.fold(0, (sum, item) => sum + item.sizeBytes);
+  int get sizeBytes => items.fold(0, (sum, item) => sum + item.sizeBytes);
 
   int get newestAt => items.fold(
-        0,
-        (newest, item) => item.createdAt > newest ? item.createdAt : newest,
-      );
+    0,
+    (newest, item) => item.createdAt > newest ? item.createdAt : newest,
+  );
 
-  int countWhere(bool Function(DownloadItem) test) =>
-      items.where(test).length;
+  int countWhere(bool Function(DownloadItem) test) => items.where(test).length;
 
   bool get hasActive => items.any((i) => i.status.isActive);
 
   bool get hasProblem => items.any(
-        (i) =>
-            i.status == DownloadStatus.failed ||
-            i.status == DownloadStatus.missing,
-      );
+    (i) =>
+        i.status == DownloadStatus.failed || i.status == DownloadStatus.missing,
+  );
 
   List<String> get ids => [for (final i in items) i.id];
 
@@ -76,23 +74,23 @@ class DownloadGroup extends Equatable {
   /// "completed" until something else changed the set of rows.
   @override
   List<Object?> get props => [
-        key,
+    key,
+    [
+      for (final i in items)
         [
-          for (final i in items)
-            [
-              i.id,
-              i.status,
-              i.completedUnits,
-              i.totalUnits,
-              i.sizeBytes,
-              i.updatedAt,
-              i.failure,
-              i.failureDetail,
-              i.attempts,
-              i.thumbnailRelativePath,
-            ],
+          i.id,
+          i.status,
+          i.completedUnits,
+          i.totalUnits,
+          i.sizeBytes,
+          i.updatedAt,
+          i.failure,
+          i.failureDetail,
+          i.attempts,
+          i.thumbnailRelativePath,
         ],
-      ];
+    ],
+  ];
 }
 
 class DownloadsState extends Equatable {
@@ -104,6 +102,7 @@ class DownloadsState extends Equatable {
     this.usage = StorageUsage.empty,
     this.waitingForWifi = false,
     this.wifiOnly = false,
+    this.cooldownSeconds = 0,
     this.loading = true,
     this.busy = false,
     this.locations = const [],
@@ -122,6 +121,9 @@ class DownloadsState extends Equatable {
   final StorageUsage usage;
   final bool waitingForWifi;
   final bool wifiOnly;
+
+  /// Seconds between one download finishing and the next starting.
+  final int cooldownSeconds;
   final bool loading;
 
   /// A long-running action — an export, an orphan sweep, a move — is in
@@ -154,37 +156,38 @@ class DownloadsState extends Equatable {
     StorageUsage? usage,
     bool? waitingForWifi,
     bool? wifiOnly,
+    int? cooldownSeconds,
     bool? loading,
     bool? busy,
     List<DownloadLocation>? locations,
     String? locationPath,
-  }) =>
-      DownloadsState(
-        groups: groups ?? this.groups,
-        total: total ?? this.total,
-        filter: filter ?? this.filter,
-        sort: sort ?? this.sort,
-        usage: usage ?? this.usage,
-        waitingForWifi: waitingForWifi ?? this.waitingForWifi,
-        wifiOnly: wifiOnly ?? this.wifiOnly,
-        loading: loading ?? this.loading,
-        busy: busy ?? this.busy,
-        locations: locations ?? this.locations,
-        locationPath: locationPath ?? this.locationPath,
-      );
+  }) => DownloadsState(
+    groups: groups ?? this.groups,
+    total: total ?? this.total,
+    filter: filter ?? this.filter,
+    sort: sort ?? this.sort,
+    usage: usage ?? this.usage,
+    waitingForWifi: waitingForWifi ?? this.waitingForWifi,
+    wifiOnly: wifiOnly ?? this.wifiOnly,
+    cooldownSeconds: cooldownSeconds ?? this.cooldownSeconds,
+    loading: loading ?? this.loading,
+    busy: busy ?? this.busy,
+    locations: locations ?? this.locations,
+    locationPath: locationPath ?? this.locationPath,
+  );
 
   @override
   List<Object?> get props => [
-        groups,
-        total,
-        filter,
-        sort,
-        usage,
-        waitingForWifi,
-        wifiOnly,
-        loading,
-        busy,
-        locations.map((l) => l.path).toList(),
-        locationPath,
-      ];
+    groups,
+    total,
+    filter,
+    sort,
+    usage,
+    waitingForWifi,
+    wifiOnly,
+    loading,
+    busy,
+    locations.map((l) => l.path).toList(),
+    locationPath,
+  ];
 }

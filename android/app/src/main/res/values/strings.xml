@@ -3,4 +3,22 @@
     <!-- Shown as Sozo's entry in the system "Open with" chooser for extension
          repository index files (index.pb / index.min.json / repo.json). -->
     <string name="open_repo_file">Install extension repo in Sozo</string>
+    <!-- Home screen widgets, as the widget picker lists them. -->
+    <string name="widget_small_label">Continue watching</string>
+    <string name="widget_small_description">The title you were watching, where you stopped, and your streak.</string>
+    <string name="widget_medium_label">Continue and next episode</string>
+    <string name="widget_medium_description">Pick up where you left off, and count down to the next episode.</string>
+    <!-- Sample content for the widget picker's preview. -->
+    <string name="widget_preview_title">Frieren</string>
+    <string name="widget_preview_sub">Ep 7</string>
+    <string name="widget_preview_title_0">Frieren</string>
+    <string name="widget_preview_sub_0">Ep 7</string>
+    <string name="widget_preview_title_1">Solo Leveling</string>
+    <string name="widget_preview_sub_1">Ep 11</string>
+    <string name="widget_preview_title_2">Berserk</string>
+    <string name="widget_preview_sub_2">Ch 128</string>
+    <string name="widget_preview_next">Dandadan</string>
+    <string name="widget_streak_title">Streak</string>
+    <string name="widget_streak_description">Your streak, this week at a glance, and a warning on the evening it would end.</string>
+    <string name="widget_streak_label">day streak</string>
 </resources>

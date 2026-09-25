@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_small_label">Продолжить просмотр</string>
+    <string name="widget_small_description">Что вы смотрели, где остановились, и ваша серия.</string>
+    <string name="widget_medium_label">Продолжить и следующая серия</string>
+    <string name="widget_medium_description">Продолжайте с того же места и следите за отсчётом до следующей серии.</string>
+    <!-- Sample content for the widget picker's preview. -->
+    <string name="widget_preview_title">Frieren</string>
+    <string name="widget_preview_sub">Эп. 7</string>
+    <string name="widget_preview_title_0">Frieren</string>
+    <string name="widget_preview_sub_0">Эп. 7</string>
+    <string name="widget_preview_title_1">Solo Leveling</string>
+    <string name="widget_preview_sub_1">Эп. 11</string>
+    <string name="widget_preview_title_2">Berserk</string>
+    <string name="widget_preview_sub_2">Гл. 128</string>
+    <string name="widget_preview_next">Dandadan</string>
+    <string name="widget_streak_title">Серия</string>
+    <string name="widget_streak_description">Ваша серия, неделя одним взглядом и напоминание в вечер, когда она может прерваться.</string>
+    <string name="widget_streak_label">дней подряд</string>
+</resources>

@@ -62,7 +62,9 @@ class SecureBoxes {
       if (check != base64UrlEncode(key)) return null;
       return HiveAesCipher(key);
     } catch (e) {
-      debugPrint('[SecureBoxes] secure storage unavailable, boxes stay plain: $e');
+      debugPrint(
+        '[SecureBoxes] secure storage unavailable, boxes stay plain: $e',
+      );
       return null;
     }
   }
@@ -94,7 +96,10 @@ class SecureBoxes {
         // Plain box on disk (or none yet): copy it aside, encrypted.
         final plain = await Hive.openBox(name);
         final snapshot = Map<dynamic, dynamic>.from(plain.toMap());
-        final side = await Hive.openBox(_sideBox(name), encryptionCipher: cipher);
+        final side = await Hive.openBox(
+          _sideBox(name),
+          encryptionCipher: cipher,
+        );
         await side.clear();
         await side.putAll(snapshot);
         await side.flush();

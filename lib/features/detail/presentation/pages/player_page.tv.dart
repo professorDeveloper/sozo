@@ -44,8 +44,8 @@ extension _PlayerTv on _PlayerPageState {
   int get _tvSeekStepSeconds => _tvSeekRepeats >= 8
       ? 60
       : _tvSeekRepeats >= 4
-          ? 30
-          : 10;
+      ? 30
+      : 10;
 
   bool _isTvDirectional(LogicalKeyboardKey k) =>
       k == LogicalKeyboardKey.arrowLeft ||
@@ -147,26 +147,19 @@ extension _PlayerTv on _PlayerPageState {
 
     final now = DateTime.now();
     final last = _tvSeekLastStep;
-    _tvSeekRepeats =
-        last != null && now.difference(last).inMilliseconds < 450
-            ? _tvSeekRepeats + 1
-            : 0;
+    _tvSeekRepeats = last != null && now.difference(last).inMilliseconds < 450
+        ? _tvSeekRepeats + 1
+        : 0;
     _tvSeekLastStep = now;
 
-    final base = _sliderDragValue.value ??
-        c.value.position.inMilliseconds.toDouble();
-    _sliderDragValue.value =
-        (base + direction * _tvSeekStepSeconds * 1000).clamp(
-      0.0,
-      durationMs.toDouble(),
-    );
+    final base =
+        _sliderDragValue.value ?? c.value.position.inMilliseconds.toDouble();
+    _sliderDragValue.value = (base + direction * _tvSeekStepSeconds * 1000)
+        .clamp(0.0, durationMs.toDouble());
 
     _hideTimer?.cancel();
     _tvSeekCommit?.cancel();
-    _tvSeekCommit = Timer(
-      const Duration(milliseconds: 650),
-      _tvCommitSeek,
-    );
+    _tvSeekCommit = Timer(const Duration(milliseconds: 650), _tvCommitSeek);
   }
 
   /// Applies a pending step-seek. Safe to call when nothing is pending.
@@ -287,7 +280,8 @@ extension _PlayerTv on _PlayerPageState {
 
     // A guest without playback control must not drive playback locally, but the
     // D-pad must still move focus so they can open episodes, subtitles etc.
-    final isPlaybackKey = _isTvSelect(k) ||
+    final isPlaybackKey =
+        _isTvSelect(k) ||
         k == LogicalKeyboardKey.arrowLeft ||
         k == LogicalKeyboardKey.arrowRight ||
         k == LogicalKeyboardKey.mediaPlayPause;
@@ -348,7 +342,8 @@ extension _PlayerTv on _PlayerPageState {
         }
         return KeyEventResult.handled;
       }
-      if (k == LogicalKeyboardKey.arrowUp || k == LogicalKeyboardKey.arrowDown) {
+      if (k == LogicalKeyboardKey.arrowUp ||
+          k == LogicalKeyboardKey.arrowDown) {
         // Leaving the bar commits whatever was previewed, then lets traversal
         // carry the keystroke on.
         if (_sliderDragValue.value != null) _tvCommitSeek();
@@ -493,10 +488,7 @@ class _TvStepper extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _IconButton(
-          icon: Icons.remove_rounded,
-          onTap: onDecrease ?? () {},
-        ),
+        _IconButton(icon: Icons.remove_rounded, onTap: onDecrease ?? () {}),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Text(
@@ -508,10 +500,7 @@ class _TvStepper extends StatelessWidget {
             ),
           ),
         ),
-        _IconButton(
-          icon: Icons.add_rounded,
-          onTap: onIncrease ?? () {},
-        ),
+        _IconButton(icon: Icons.add_rounded, onTap: onIncrease ?? () {}),
       ],
     );
   }
@@ -555,8 +544,9 @@ class _TvFocusRingState extends State<_TvFocusRing> {
         // so focus never nudges the layout.
         foregroundDecoration: BoxDecoration(
           shape: widget.circle ? BoxShape.circle : BoxShape.rectangle,
-          borderRadius:
-              widget.circle ? null : BorderRadius.circular(widget.radius),
+          borderRadius: widget.circle
+              ? null
+              : BorderRadius.circular(widget.radius),
           border: Border.all(
             color: _focused ? AppColors.primary : Colors.transparent,
             width: 2,

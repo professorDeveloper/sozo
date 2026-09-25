@@ -33,6 +33,7 @@ extension _PlayerGestures on _PlayerPageState {
       setState(() => _controlsVisible = true);
       _controlsAnimation.forward();
     }
+    FramePreviewService.scrubbing = true;
     _scrub.value = _ScrubState(
       baseline: c.value.position,
       duration: c.value.duration,
@@ -54,6 +55,7 @@ extension _PlayerGestures on _PlayerPageState {
     unawaited(FramePreviewService.endScrub());
     final state = _scrub.value;
     final c = _controller;
+    FramePreviewService.scrubbing = false;
     _scrub.value = null;
     if (state == null || c == null || !c.value.isInitialized) {
       _scheduleHide();
@@ -68,6 +70,7 @@ extension _PlayerGestures on _PlayerPageState {
 
   void _onHDragCancel() {
     unawaited(FramePreviewService.endScrub());
+    FramePreviewService.scrubbing = false;
     _scrub.value = null;
     _scheduleHide();
   }

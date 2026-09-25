@@ -101,3 +101,44 @@ jobs:
       # needs secrets a fork's pull request cannot have, and gating CI on them
       # would mean no outside contribution could ever go green.
       - run: flutter build apk --debug
+
+  # The same argument as build-android, applied to the desktop side: a broken
+  # CMakeLists, a plugin with no Linux implementation or a missing system
+  # library is invisible to the analyzer and only surfaces on release day, in
+  # the job that is supposed to be publishing.
+  #
+  # Linux only, on purpose. A windows-latest runner bills at twice the Linux
+  # rate and its builds are the slowest of the three, which would roughly
+  # triple the cost of every pull request to catch a narrow class of
+  # Windows-only breakage. Most desktop plugin failures are not platform
+  # specific, and Linux catches those for the price of the cheapest runner
+  # GitHub sells. If Windows-only breakage ever actually reaches a release,
+  # that is the evidence for adding the job — not this comment.
+  build-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      # Some transitive native dependencies still declare a cmake_minimum_required
+      # below 3.5, which current CMake refuses outright. Mirrors release.yml.
+      CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # Kept in step with the same list in release.yml's linux job; a build that
+      # goes green here and red there teaches nobody anything.
+      - name: Install Linux desktop + plugin system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libmpv-dev mpv \
+            libsecret-1-dev libjsoncpp-dev libsecret-1-0
+
+      - run: touch .env
+      - run: flutter pub get
+      - run: flutter build linux --debug

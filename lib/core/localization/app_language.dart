@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/widgets.dart';
+import 'package:soplay/features/tracker/data/release_watch.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
@@ -35,6 +36,7 @@ abstract final class AppLanguage {
     'fr': 'Français',
     'tr': 'Türkçe',
     'id': 'Bahasa Indonesia',
+    'yue': '廣東話',
   };
 
   static String labelOf(String code) => names[code] ?? code;
@@ -51,6 +53,7 @@ abstract final class AppLanguage {
     'fr': '🇫🇷',
     'tr': '🇹🇷',
     'id': '🇮🇩',
+    'yue': '🇭🇰',
   };
 
   static String flagOf(String code) => flags[code] ?? '🌐';
@@ -65,6 +68,11 @@ abstract final class AppLanguage {
     // forget: a language change must not wait on the network, and the next
     // launch re-registers anyway.
     unawaited(getIt<NotificationService>().refreshRegistration());
+    // The background check writes its notifications in whatever language it
+    // was last handed.
+    if (getIt.isRegistered<ReleaseWatch>()) {
+      unawaited(getIt<ReleaseWatch>().writeSnapshot());
+    }
   }
 
   /// Points Hive at the locale `easy_localization` actually resolved.

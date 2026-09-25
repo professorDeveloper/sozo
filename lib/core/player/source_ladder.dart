@@ -1,3 +1,4 @@
+import 'package:soplay/core/player/quality_preference.dart';
 import 'package:soplay/features/detail/data/title_prefs_store.dart';
 import 'package:soplay/features/detail/domain/video_option_groups.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
@@ -29,6 +30,7 @@ class SourceLadder {
     this.rememberedQuality,
     this.avoidCodec,
     this.triedUrls = const <String>{},
+    this.preferredHeight = QualityPreference.auto,
   });
 
   final List<VideoSourceEntity> sources;
@@ -51,6 +53,11 @@ class SourceLadder {
   /// Mirrors already attempted this session, by `videoUrl`.
   final Set<String> triedUrls;
 
+  /// A [QualityPreference] value: the viewer's standing choice of height,
+  /// below a remembered label but above the provider's default, because it
+  /// is the viewer's decision and the default is the provider's.
+  final int preferredHeight;
+
   /// Whether this candidate is worth handing to the player at all.
   ///
   /// Two ways it is not. A source the backend already probed and marked
@@ -59,10 +66,7 @@ class SourceLadder {
   /// providers push one first for every server, so `sources[0]` was routinely
   /// an HTML document handed to a video decoder. That only becomes playable
   /// once a directive says a WebView will sniff the real stream out of it.
-  static bool isPlayable(
-    VideoSourceEntity s, {
-    required bool hasDirective,
-  }) {
+  static bool isPlayable(VideoSourceEntity s, {required bool hasDirective}) {
     if (!s.accessible) return false;
     if (s.videoUrl.isEmpty) return false;
     if (s.type == 'iframe' && !hasDirective) return false;
@@ -74,10 +78,11 @@ class SourceLadder {
   /// Precedence, in order:
   ///   1. the remembered quality label — an explicit past choice outranks
   ///      everything below it;
-  ///   2. the source's own default;
-  ///   3. the higher resolution;
-  ///   4. the order the backend returned.
-  /// A codec being avoided sinks below all four without leaving the list.
+  ///   2. the height [preferredHeight] picks out of what is on offer;
+  ///   3. the source's own default;
+  ///   4. the higher resolution;
+  ///   5. the order the backend returned.
+  /// A codec being avoided sinks below all of them without leaving the list.
   ///
   /// Rule 3 used not to exist, on the assumption recorded here that the backend
   /// order is already ranked. It is for most providers — anilibria lists 1080p
@@ -97,27 +102,51 @@ class SourceLadder {
       candidates.add(i);
     }
 
-    final avoid = avoidCodec?.toLowerCase();
-    int rank(int i) {
-      final s = sources[i];
-      if (avoid != null && s.codec?.toLowerCase() == avoid) return 3;
-      if (rememberedQuality != null && s.quality == rememberedQuality) return 0;
-      if (s.isDefault) return 1;
-      return 2;
-    }
-
     // Zero where the label carries no resolution — "Server 1", "Auto", a host
     // name. Those compare equal to each other and keep the backend's order,
     // which is the only thing known about them.
-    int height(int i) => VideoOptionGroups.resolutionOf(sources[i].quality) ?? 0;
+    int height(int i) =>
+        sources[i].height ??
+        VideoOptionGroups.resolutionOf(sources[i].quality) ??
+        0;
 
-    candidates.sort((a, b) {
+    final avoid = avoidCodec?.toLowerCase();
+    String? server;
+    int? target;
+    int rank(int i) {
+      final s = sources[i];
+      if (avoid != null && s.codec?.toLowerCase() == avoid) return 4;
+      if (rememberedQuality != null && s.quality == rememberedQuality) return 0;
+      if (target != null &&
+          height(i) == target &&
+          VideoOptionGroups.serverOf(s.quality) == server) {
+        return 1;
+      }
+      if (s.isDefault) return 2;
+      return 3;
+    }
+
+    int compare(int a, int b) {
       final byRank = rank(a).compareTo(rank(b));
       if (byRank != 0) return byRank;
       final byHeight = height(b).compareTo(height(a));
       // Stable at the end: equal rank and equal resolution keep backend order.
       return byHeight != 0 ? byHeight : a.compareTo(b);
-    });
+    }
+
+    candidates.sort(compare);
+    // The preference picks a height on the server that would have played
+    // anyway. Across servers it would trade a provider's adaptive default for
+    // some other host's fixed file, which is a server choice, not a quality one.
+    if (preferredHeight != QualityPreference.auto && candidates.isNotEmpty) {
+      server = VideoOptionGroups.serverOf(sources[candidates.first].quality);
+      target = QualityPreference.pick([
+        for (final i in candidates)
+          if (VideoOptionGroups.serverOf(sources[i].quality) == server)
+            height(i),
+      ], preferredHeight);
+      if (target != null) candidates.sort(compare);
+    }
     return candidates;
   }
 

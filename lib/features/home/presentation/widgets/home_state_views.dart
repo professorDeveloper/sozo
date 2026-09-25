@@ -144,6 +144,30 @@ class _SkeletonCard extends StatelessWidget {
   }
 }
 
+/// The picture that goes with a failure.
+///
+/// One icon for everything told the reader they were offline about a site that
+/// had shut down, about an extension that would not load, and about a
+/// Cloudflare wall the strip was at that same moment offering a button to
+/// solve — three problems with three different answers wearing one icon.
+///
+/// The branch used to live here and re-derive the kind from the raw string,
+/// beside a [SourceFailure] that had just done the same work. It reads the
+/// kind now, so the two can no longer disagree.
+IconData _failureIcon(SourceFailure failure) => switch (failure.kind) {
+  // The only kind that is genuinely about the reader's connection.
+  SourceFailureKind.unreachable => Icons.wifi_off_rounded,
+  SourceFailureKind.blocked => Icons.shield_outlined,
+  SourceFailureKind.rateLimited => Icons.hourglass_empty_rounded,
+  // The source is what is broken, either its code or its contract.
+  SourceFailureKind.outdated => Icons.update_rounded,
+  SourceFailureKind.incompatible ||
+  SourceFailureKind.broken => Icons.extension_off_rounded,
+  // Reached, answered, and the answer was no.
+  SourceFailureKind.gone || SourceFailureKind.unknown => Icons.cloud_off_rounded,
+};
+
+
 /// The catalogue failed, said inline above the rows that still work.
 ///
 /// Same words and the same two buttons as [HomeErrorView] — including the
@@ -188,7 +212,7 @@ class HomeErrorStrip extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.wifi_off_rounded,
+              Icon(_failureIcon(failure),
                   color: AppColors.textSecondary, size: 18),
               const SizedBox(width: 10),
               Expanded(
@@ -275,8 +299,8 @@ class HomeErrorView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
               ),
-              child: const Icon(
-                Icons.wifi_off_rounded,
+              child: Icon(
+                _failureIcon(failure),
                 color: AppColors.textSecondary,
                 size: 32,
               ),

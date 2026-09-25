@@ -5,13 +5,13 @@ import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/playback/episode_window.dart';
 
 List<EpisodeEntity> eps(int n, {int from = 1}) => [
-      for (var i = 0; i < n; i++)
-        EpisodeEntity(
-          episode: from + i,
-          label: 'Episode ${from + i}',
-          mediaRef: 'ref-${from + i}',
-        ),
-    ];
+  for (var i = 0; i < n; i++)
+    EpisodeEntity(
+      episode: from + i,
+      label: 'Episode ${from + i}',
+      mediaRef: 'ref-${from + i}',
+    ),
+];
 
 EpisodeWindow window({
   int loaded = 20,
@@ -19,14 +19,13 @@ EpisodeWindow window({
   int index = 0,
   int total = 100,
   bool isSerial = true,
-}) =>
-    EpisodeWindow(
-      episodes: eps(loaded, from: windowStart + 1),
-      windowStart: windowStart,
-      index: index,
-      total: total,
-      isSerial: isSerial,
-    );
+}) => EpisodeWindow(
+  episodes: eps(loaded, from: windowStart + 1),
+  windowStart: windowStart,
+  index: index,
+  total: total,
+  isSerial: isSerial,
+);
 
 void main() {
   group('the two indices', () {
@@ -41,11 +40,13 @@ void main() {
       expect(w.current?.episode, 84);
     });
 
-    test('an index outside the window names no episode rather than throwing',
-        () {
-      expect(window(loaded: 5, index: 9).current, isNull);
-      expect(window(loaded: 5, index: -1).current, isNull);
-    });
+    test(
+      'an index outside the window names no episode rather than throwing',
+      () {
+        expect(window(loaded: 5, index: 9).current, isNull);
+        expect(window(loaded: 5, index: -1).current, isNull);
+      },
+    );
 
     test('a movie has no current episode', () {
       expect(const EpisodeWindow.movie().current, isNull);
@@ -63,8 +64,10 @@ void main() {
     });
 
     test('false only at the genuine end of the series', () {
-      expect(window(loaded: 20, windowStart: 80, index: 19, total: 100).hasNext,
-          isFalse);
+      expect(
+        window(loaded: 20, windowStart: 80, index: 19, total: 100).hasNext,
+        isFalse,
+      );
     });
 
     test('a movie never has a next or a previous', () {
@@ -102,8 +105,12 @@ void main() {
 
     test('a fetched page replaces the window and rebases the index', () {
       final w = window(loaded: 100, windowStart: 0, index: 4, total: 500);
-      final next = w.withPage(eps(100, from: 401), page: 5, pageSize: 100,
-          absoluteIndex: 455);
+      final next = w.withPage(
+        eps(100, from: 401),
+        page: 5,
+        pageSize: 100,
+        absoluteIndex: 455,
+      );
       expect(next.windowStart, 400);
       expect(next.index, 55, reason: '455 - 400');
       expect(next.absoluteIndex, 455);
@@ -134,9 +141,19 @@ void main() {
       // hundred episodes on every rebuild.
       final shared = eps(3);
       final a = EpisodeWindow(
-          episodes: shared, windowStart: 0, index: 0, total: 3, isSerial: true);
+        episodes: shared,
+        windowStart: 0,
+        index: 0,
+        total: 3,
+        isSerial: true,
+      );
       final b = EpisodeWindow(
-          episodes: shared, windowStart: 0, index: 0, total: 3, isSerial: true);
+        episodes: shared,
+        windowStart: 0,
+        index: 0,
+        total: 3,
+        isSerial: true,
+      );
       expect(a, equals(b));
       expect(a, isNot(equals(a.withEpisodes(eps(3)))));
       expect(a, isNot(equals(a.at(1))));

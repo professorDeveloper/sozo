@@ -21,6 +21,11 @@ class DetailArgs {
   /// opened from search, a deeplink or the player.
   final String? heroTag;
 
+  /// Opened from a new-release notification or the New releases feed: the
+  /// episode (or chapter) that is new. The page offers it first and the list
+  /// opens on it.
+  final int? focusEpisode;
+
   const DetailArgs({
     required this.contentUrl,
     this.preview,
@@ -28,5 +33,6 @@ class DetailArgs {
     this.resumeEpisodeIndex,
     this.provider,
     this.heroTag,
+    this.focusEpisode,
   });
 }

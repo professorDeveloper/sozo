@@ -60,9 +60,22 @@ void main() {
 
   group('a label that only repeats the number is dropped', () {
     for (final label in [
-      'Episode 12', 'episode 12', 'EPISODE 12', 'Ep 12', 'Ep. 12', 'Ep: 12',
-      'Episode 012', '12-qism', "12-bo'lim", '12-boʻlim', 'Серия 12',
-      'Episodio 12', 'حلقة 12', '12 серия', '12 Episode', '12. qism',
+      'Episode 12',
+      'episode 12',
+      'EPISODE 12',
+      'Ep 12',
+      'Ep. 12',
+      'Ep: 12',
+      'Episode 012',
+      '12-qism',
+      "12-bo'lim",
+      '12-boʻlim',
+      'Серия 12',
+      'Episodio 12',
+      'حلقة 12',
+      '12 серия',
+      '12 Episode',
+      '12. qism',
     ]) {
       test('"$label"', () => expect(isRedundant(label, 12), isTrue));
     }

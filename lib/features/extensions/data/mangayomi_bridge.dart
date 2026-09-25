@@ -177,7 +177,14 @@ class MangayomiBridge {
         s.contains('is not a function');
   }
 
-  Future<Map<String, dynamic>> getMainPage(String id, {int page = 1}) async {
+  /// [popularOnly] is for a health check: one call instead of two when the
+  /// first already shows the source works. Latest is still asked when popular
+  /// has nothing, so a source that only implements latest is not condemned.
+  Future<Map<String, dynamic>> getMainPage(
+    String id, {
+    int page = 1,
+    bool popularOnly = false,
+  }) async {
     final src = _source(id);
     if (src == null) {
       return {'provider': 'my:$id', 'error': 'source not installed: my:$id'};
@@ -215,6 +222,14 @@ class MangayomiBridge {
       outcomes.add(
         _isNotImplemented(e) ? 'popular: not implemented' : 'popular: $e',
       );
+    }
+
+    if (popularOnly && sections.isNotEmpty) {
+      return {
+        'provider': src.providerId,
+        'banner': banner,
+        'sections': sections,
+      };
     }
 
     try {
@@ -381,10 +396,12 @@ class MangayomiBridge {
         final c = ordered[i];
         final ref = (c['url'] ?? c['link'])?.toString() ?? '';
         if (ref.isEmpty) continue;
+        final group = (c['scanlator'] ?? '').toString().trim();
         episodes.add({
           'episode': i + 1,
           'label': (c['name'] ?? 'Chapter ${i + 1}').toString(),
           'mediaRef': ref,
+          if (group.isNotEmpty) 'scanlator': group,
         });
       }
     }
@@ -568,6 +585,7 @@ class MangayomiBridge {
     final subtitles = <Map<String, dynamic>>[];
     final seen = <String>{};
     final seenSub = <String>{};
+    final subLabels = <String, int>{};
 
     if (raw is List) {
       for (final e in raw.whereType<Map>()) {
@@ -580,15 +598,28 @@ class MangayomiBridge {
             headers[entry.key.toString()] = entry.value.toString();
           }
         }
+        // Blank as well as missing: an empty quality put the source under a
+        // nameless server while its parsed HLS rows landed under another.
+        final quality = (e['quality'] ?? '').toString().trim();
+        final lowerUrl = url.toLowerCase();
         videoSources.add({
-          'quality': (e['quality'] ?? 'Source').toString(),
+          'quality': quality.isEmpty ? 'Source' : quality,
           'videoUrl': url,
           // A type the rest of the app knows. `http` is not one: the download
           // sheet labels hls / mp4 rows as "HLS" / "Direct" and an `http` row
           // got neither, and the player's format hint had nothing to go on.
-          'type': url.contains('.m3u8')
+          //
+          // HLS by more than ".m3u8" in the path: masters served as
+          // "/playlist" or ".txt" opened as a progressive file and failed.
+          'type':
+              lowerUrl.contains('m3u8') ||
+                  lowerUrl.contains('/hls/') ||
+                  RegExp(
+                    r'\b(?:hls|m3u8)\b',
+                    caseSensitive: false,
+                  ).hasMatch(quality)
               ? 'hls'
-              : url.contains('.mpd')
+              : lowerUrl.contains('.mpd')
               ? 'dash'
               : 'mp4',
           'host': src.name,
@@ -601,10 +632,26 @@ class MangayomiBridge {
           for (final s in subs.whereType<Map>()) {
             final file = (s['file'] ?? s['url'])?.toString() ?? '';
             if (file.isEmpty || !seenSub.add(file)) continue;
+            final lang = (s['label'] ?? s['lang'] ?? '').toString().trim();
+            final label = lang.isEmpty ? 'Subtitle' : lang;
+            // A second copy of a language, from another video, says which
+            // one it belongs to instead of repeating "English".
+            final n = subLabels.update(label, (v) => v + 1, ifAbsent: () => 1);
+            final own = s['headers'];
             subtitles.add({
-              'label': (s['label'] ?? s['lang'] ?? 'Subtitle').toString(),
+              'label': n == 1
+                  ? label
+                  : '$label · ${quality.isEmpty ? n : quality}',
               'file': file,
               'default': false,
+              // The video's Referer and cookies, which hosts check on the
+              // subtitle file too; the track's own headers win.
+              'headers': {
+                ...headers,
+                if (own is Map)
+                  for (final h in own.entries)
+                    h.key.toString(): h.value.toString(),
+              },
             });
           }
         }

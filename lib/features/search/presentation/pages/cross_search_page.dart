@@ -157,14 +157,32 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
   /// hand is theirs, and is never trimmed.
   bool get _capped => _scope.isAll && _scopedCount > _refs().length;
 
+  /// The planned leg set, computed once per (scope, provider list).
+  ///
+  /// `planLegs` runs the health store's `order()` over the whole set, and this
+  /// was called three times per build — twice through [_capped], which two
+  /// separate widgets read, and once directly for the count beside it. The page
+  /// rebuilds on every `notifyListeners()` from the controller, which is every
+  /// arriving leg and every flush tick, and on every frame of the keyboard
+  /// animation. Three sorts of several hundred sources per frame, to answer a
+  /// question whose inputs had not changed.
+  List<ProviderRef>? _refsCache;
+  String? _refsKey;
+
   List<ProviderRef> _refs() {
+    final key =
+        '${identityHashCode(_providers)}|${_providers.length}|${_scope.toStored()}';
+    final cached = _refsCache;
+    if (cached != null && _refsKey == key) return cached;
     final selected = _scope
         .resolve(_providers)
         .map(ProviderRef.fromEntity)
         .toList();
-    return _scope.isAll
+    final planned = _scope.isAll
         ? getIt<CrossSearchEngine>().planLegs(selected)
         : selected;
+    _refsKey = key;
+    return _refsCache = planned;
   }
 
   void _applyScope(CrossSearchScope scope, {bool reorder = false}) {
@@ -781,74 +799,106 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
           'search.sources'.tr(),
           style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
-        children: open ? _statusRows(legs, pending) : const [],
+        children: open ? _statusBody(legs, pending) : const [],
       ),
     );
+  }
+
+  /// How many rows are worth building all at once.
+  ///
+  /// Beyond this the list is virtualised. A hand-picked scope is uncapped, so
+  /// this can be as long as the selected set — hundreds of rows — and it lives
+  /// in a `SliverToBoxAdapter`, which is not lazy. It also force-opens the
+  /// moment any leg fails, which on a device whose extension sources are cold
+  /// is immediately. So every `notifyListeners()` from the controller — one per
+  /// arriving leg, plus a flush tick — rebuilt every one of those ListTiles.
+  static const int _statusInlineLimit = 20;
+
+  List<Widget> _statusBody(
+    List<ProviderSearchResult> legs,
+    List<String> pending,
+  ) {
+    final total = legs.length + pending.length;
+    if (total <= _statusInlineLimit) return _statusRows(legs, pending);
+    // Bounded and scrollable, so the cost is the rows on SCREEN rather than
+    // the rows that exist — built in the delegate, not collected into a list
+    // first, or the allocation is still O(n) however little of it is laid out.
+    return [
+      SizedBox(
+        height: 320,
+        child: ListView.builder(
+          padding: EdgeInsets.zero,
+          itemCount: total,
+          itemBuilder: (_, i) => i < legs.length
+              ? _legRow(legs[i])
+              : _pendingRow(pending[i - legs.length]),
+        ),
+      ),
+    ];
   }
 
   List<Widget> _statusRows(
     List<ProviderSearchResult> legs,
     List<String> pending,
-  ) {
-    return [
-      for (final leg in legs)
-        ListTile(
-          dense: true,
-          contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
-          title: Text(
-            leg.provider.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-          ),
-          subtitle: Text(
-            _statusLabel(leg),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: _statusColor(leg), fontSize: 11.5),
-          ),
-          trailing:
-              leg.status == ProviderSearchStatus.ok ||
-                  leg.status == ProviderSearchStatus.empty
-              ? null
-              : _controller.isRetrying(leg.provider.id)
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : TextButton(
-                  onPressed: () => _controller.retryProvider(leg.provider.id),
-                  child: Text('general.retry'.tr()),
-                ),
-        ),
-      // Legs that have not answered are listed too: an absent row is what
-      // made a still-running source look like a source with no results.
-      for (final name in pending)
-        ListTile(
-          dense: true,
-          contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
-          title: Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-          ),
-          subtitle: Text(
-            'search.status_searching'.tr(),
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11.5,
-            ),
-          ),
-          trailing: const SizedBox(
+  ) => [
+    for (final leg in legs) _legRow(leg),
+    // Legs that have not answered are listed too: an absent row is what made a
+    // still-running source look like a source with no results.
+    for (final name in pending) _pendingRow(name),
+  ];
+
+  /// One leg, by name, with what it did and a Retry when it failed.
+  Widget _legRow(ProviderSearchResult leg) => ListTile(
+    dense: true,
+    contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
+    title: Text(
+      leg.provider.name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(color: Colors.white, fontSize: 13),
+    ),
+    subtitle: Text(
+      _statusLabel(leg),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(color: _statusColor(leg), fontSize: 11.5),
+    ),
+    trailing:
+        leg.status == ProviderSearchStatus.ok ||
+            leg.status == ProviderSearchStatus.empty
+        ? null
+        : _controller.isRetrying(leg.provider.id)
+        ? const SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : TextButton(
+            onPressed: () => _controller.retryProvider(leg.provider.id),
+            child: Text('general.retry'.tr()),
           ),
-        ),
-    ];
-  }
+  );
+
+  /// A source that has not answered yet.
+  Widget _pendingRow(String name) => ListTile(
+    dense: true,
+    contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
+    title: Text(
+      name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(color: Colors.white, fontSize: 13),
+    ),
+    subtitle: Text(
+      'search.status_searching'.tr(),
+      style: const TextStyle(color: AppColors.textSecondary, fontSize: 11.5),
+    ),
+    trailing: const SizedBox(
+      width: 16,
+      height: 16,
+      child: CircularProgressIndicator(strokeWidth: 2),
+    ),
+  );
 
   String _statusLabel(ProviderSearchResult leg) => switch (leg.status) {
     ProviderSearchStatus.ok => 'search.results_n'.tr(

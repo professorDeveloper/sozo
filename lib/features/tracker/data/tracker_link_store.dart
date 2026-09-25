@@ -103,11 +103,11 @@ abstract class TrackerLinkStore {
 
   /// Everything this device has to tell the account: its links, and its unlinks.
   List<Map<String, dynamic>> pendingChanges() => [
-        for (final raw in _read().values)
-          if (raw is Map) _toWire(raw.cast<String, dynamic>()),
-        for (final entry in _readTombstones().entries)
-          {'key': entry.key, 'deletedAt': entry.value, 'updatedAt': entry.value},
-      ];
+    for (final raw in _read().values)
+      if (raw is Map) _toWire(raw.cast<String, dynamic>()),
+    for (final entry in _readTombstones().entries)
+      {'key': entry.key, 'deletedAt': entry.value, 'updatedAt': entry.value},
+  ];
 
   /// Replaces the local map with the account's merged answer.
   ///
@@ -129,31 +129,30 @@ abstract class TrackerLinkStore {
   }
 
   Map<String, dynamic> _toWire(Map<String, dynamic> json) => {
-        ...json,
-        'key': keyFor(
-          (json['provider'] ?? '').toString(),
-          (json['contentUrl'] ?? '').toString(),
-        ),
-        'contentId': json['contentUrl'],
-        'updatedAt': DateTime.fromMillisecondsSinceEpoch(
-          (json['linkedAt'] as num?)?.toInt() ?? 0,
-        ).toUtc().toIso8601String(),
-      };
+    ...json,
+    'key': keyFor(
+      (json['provider'] ?? '').toString(),
+      (json['contentUrl'] ?? '').toString(),
+    ),
+    'contentId': json['contentUrl'],
+    'updatedAt': DateTime.fromMillisecondsSinceEpoch(
+      (json['linkedAt'] as num?)?.toInt() ?? 0,
+    ).toUtc().toIso8601String(),
+  };
 
   /// The server speaks `contentId`; this store is keyed by the URL it was built
   /// from. Named differently because on the TV the same field really is an id.
   Map<String, dynamic> _fromWire(Map<String, dynamic> item) => {
-        'provider': item['provider'] ?? '',
-        'contentUrl': item['contentId'] ?? '',
-        'mediaId': item['mediaId'] ?? 0,
-        'title': item['title'] ?? '',
-        'coverImage': item['coverImage'],
-        'totalEpisodes': item['totalEpisodes'],
-        'linkedAt': DateTime.tryParse('${item['updatedAt']}')
-                ?.millisecondsSinceEpoch ??
-            0,
-        'auto': item['auto'] ?? false,
-      };
+    'provider': item['provider'] ?? '',
+    'contentUrl': item['contentId'] ?? '',
+    'mediaId': item['mediaId'] ?? 0,
+    'title': item['title'] ?? '',
+    'coverImage': item['coverImage'],
+    'totalEpisodes': item['totalEpisodes'],
+    'linkedAt':
+        DateTime.tryParse('${item['updatedAt']}')?.millisecondsSinceEpoch ?? 0,
+    'auto': item['auto'] ?? false,
+  };
 
   /// Every link, newest first — for a "linked titles" screen and for deciding
   /// whether an auto-match has already been attempted.
@@ -203,24 +202,24 @@ class TrackerLink {
   final bool auto;
 
   Map<String, dynamic> toJson() => {
-        'provider': provider,
-        'contentUrl': contentUrl,
-        'mediaId': mediaId,
-        'title': title,
-        'coverImage': ?coverImage,
-        'totalEpisodes': ?totalEpisodes,
-        'linkedAt': linkedAt,
-        'auto': auto,
-      };
+    'provider': provider,
+    'contentUrl': contentUrl,
+    'mediaId': mediaId,
+    'title': title,
+    'coverImage': ?coverImage,
+    'totalEpisodes': ?totalEpisodes,
+    'linkedAt': linkedAt,
+    'auto': auto,
+  };
 
   factory TrackerLink.fromJson(Map<String, dynamic> j) => TrackerLink(
-        provider: (j['provider'] ?? '').toString(),
-        contentUrl: (j['contentUrl'] ?? '').toString(),
-        mediaId: (j['mediaId'] as num?)?.toInt() ?? 0,
-        title: (j['title'] ?? '').toString(),
-        coverImage: j['coverImage'] as String?,
-        totalEpisodes: (j['totalEpisodes'] as num?)?.toInt(),
-        linkedAt: (j['linkedAt'] as num?)?.toInt() ?? 0,
-        auto: j['auto'] as bool? ?? false,
-      );
+    provider: (j['provider'] ?? '').toString(),
+    contentUrl: (j['contentUrl'] ?? '').toString(),
+    mediaId: (j['mediaId'] as num?)?.toInt() ?? 0,
+    title: (j['title'] ?? '').toString(),
+    coverImage: j['coverImage'] as String?,
+    totalEpisodes: (j['totalEpisodes'] as num?)?.toInt(),
+    linkedAt: (j['linkedAt'] as num?)?.toInt() ?? 0,
+    auto: j['auto'] as bool? ?? false,
+  );
 }

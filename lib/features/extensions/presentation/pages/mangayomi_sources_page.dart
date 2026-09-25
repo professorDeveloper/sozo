@@ -10,6 +10,7 @@ import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
 import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
 import 'package:soplay/features/extensions/presentation/widgets/recommended_repos_section.dart';
+import 'package:soplay/features/extensions/presentation/widgets/source_settings_sheet.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 
@@ -48,7 +49,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
     // sorting the branch that passed the original list straight through blew up
     // the whole page for any user with adult sources enabled and no sources yet.
     final all = _store.sources();
-    final visible = _hive.showNsfwMangaSources
+    final visible = _hive.showAdultContent
         ? all.toList()
         : all.where((s) => !s.isNsfw).toList();
     visible.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
@@ -203,7 +204,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
             busy: _busy,
             accent: _accent,
             fallbackIcon: _logo,
-            nsfwAllowed: _hive.showNsfwMangaSources,
+            nsfwAllowed: _hive.showAdultContent,
             onInstall: (repo) => _install(repo.allUrls),
           ),
           const SizedBox(height: 24),
@@ -249,6 +250,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
             child: Image.network(_logo,
                 width: 44,
                 height: 44,
+                cacheWidth: 132,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => Container(
                       width: 44,
@@ -420,6 +422,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                   s.iconUrl.isEmpty ? _logo : s.iconUrl,
                   width: 26,
                   height: 26,
+                  cacheWidth: 78,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Container(
                     width: 26,
@@ -469,6 +472,15 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                     ),
                   ],
                 ),
+              ),
+              // The source's own settings — its domain, preferred quality,
+              // what it hides.
+              IconButton(
+                tooltip: 'ext.settings'.tr(),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.tune_rounded,
+                    size: 19, color: Colors.white70),
+                onPressed: () => SourceSettingsSheet.show(context, s),
               ),
             ],
           ),

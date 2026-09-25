@@ -11,6 +11,14 @@ class HistoryItem {
   final int durationMs;
   final int watchedAt;
 
+  /// 'manga' or 'novel' for reader rows; null means video. Synced so the
+  /// server can tell reading from watching in friends' activity.
+  final String? mediaType;
+
+  /// The last episode or chapter on offer: finishing it finishes the title,
+  /// which is what the "series finished" and "manga finished" badges count.
+  final bool isFinale;
+
   const HistoryItem({
     required this.contentUrl,
     required this.provider,
@@ -23,6 +31,8 @@ class HistoryItem {
     this.positionMs = 0,
     this.durationMs = 0,
     required this.watchedAt,
+    this.mediaType,
+    this.isFinale = false,
   });
 
   double get progress =>
@@ -66,6 +76,8 @@ class HistoryItem {
     positionMs: positionMs ?? this.positionMs,
     durationMs: durationMs ?? this.durationMs,
     watchedAt: watchedAt ?? this.watchedAt,
+    mediaType: mediaType,
+    isFinale: isFinale,
   );
 
   Map<String, dynamic> toJson() => {
@@ -80,6 +92,8 @@ class HistoryItem {
     'positionMs': positionMs,
     'durationMs': durationMs,
     'watchedAt': watchedAt,
+    if (mediaType != null) 'mediaType': mediaType,
+    if (isFinale) 'finale': true,
   };
 
   factory HistoryItem.fromJson(Map<String, dynamic> json) => HistoryItem(
@@ -94,5 +108,7 @@ class HistoryItem {
     positionMs: json['positionMs'] as int? ?? 0,
     durationMs: json['durationMs'] as int? ?? 0,
     watchedAt: json['watchedAt'] as int? ?? 0,
+    mediaType: json['mediaType'] as String?,
+    isFinale: json['finale'] == true,
   );
 }

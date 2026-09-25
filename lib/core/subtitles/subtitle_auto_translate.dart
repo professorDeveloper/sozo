@@ -58,7 +58,9 @@ abstract final class SubtitleAutoTranslate {
     // subtitle with a machine one, which is a downgrade, not a service.
     if (hasTargetTrack) return AutoTranslateAction.none;
     if (hasReadyTranslation) return AutoTranslateAction.loadReady;
-    return enabled ? AutoTranslateAction.translateNow : AutoTranslateAction.none;
+    return enabled
+        ? AutoTranslateAction.translateNow
+        : AutoTranslateAction.none;
   }
 
   /// Whether a subtitle track already reads in [code].
@@ -92,6 +94,16 @@ abstract final class SubtitleAutoTranslate {
     return false;
   }
 
+  /// The language a track label names, as a code where one is known, so
+  /// "English", "eng" and "English · Filemoon" all come out as `en`.
+  /// Otherwise the label without the server or tags a source adds.
+  static String languageOf(String label) {
+    for (final code in _nativeNames.keys) {
+      if (labelMatchesLanguage(label, code)) return code;
+    }
+    return label.split(RegExp(r'\s*[·•|(\[]\s*')).first.trim().toLowerCase();
+  }
+
   /// Whether any of [labels] already reads in [code].
   static bool anyMatches(Iterable<String> labels, String code) {
     for (final l in labels) {
@@ -105,10 +117,26 @@ abstract final class SubtitleAutoTranslate {
 
   /// The three-letter codes subtitle sites use, mapped to two-letter ones.
   static const Map<String, String> _threeLetter = {
-    'eng': 'en', 'rus': 'ru', 'spa': 'es', 'fra': 'fr', 'fre': 'fr',
-    'deu': 'de', 'ger': 'de', 'ita': 'it', 'por': 'pt', 'jpn': 'ja',
-    'kor': 'ko', 'zho': 'zh', 'chi': 'zh', 'ara': 'ar', 'tur': 'tr',
-    'ukr': 'uk', 'nld': 'nl', 'dut': 'nl', 'pol': 'pl', 'ind': 'id',
+    'eng': 'en',
+    'rus': 'ru',
+    'spa': 'es',
+    'fra': 'fr',
+    'fre': 'fr',
+    'deu': 'de',
+    'ger': 'de',
+    'ita': 'it',
+    'por': 'pt',
+    'jpn': 'ja',
+    'kor': 'ko',
+    'zho': 'zh',
+    'chi': 'zh',
+    'ara': 'ar',
+    'tur': 'tr',
+    'ukr': 'uk',
+    'nld': 'nl',
+    'dut': 'nl',
+    'pol': 'pl',
+    'ind': 'id',
     'uzb': 'uz',
   };
 

@@ -211,12 +211,17 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
     CommentsEdit event,
     Emitter<CommentsState> emit,
   ) async {
+    // `submitting` around the write, as create already does. It draws the
+    // spinner on the compose bar, and — the reason it was added — it is how
+    // the panel knows an edit has LANDED, so it can stop holding on to the
+    // text it would otherwise have to put back.
+    emit(state.copyWith(submitting: true, error: null));
     final result = await repository.edit(id: event.id, text: event.text);
     switch (result) {
       case Success(:final value):
-        emit(_replaceComment(state, value));
+        emit(_replaceComment(state, value).copyWith(submitting: false));
       case Failure(:final error):
-        emit(state.copyWith(error: _msg(error)));
+        emit(state.copyWith(submitting: false, error: _msg(error)));
     }
   }
 

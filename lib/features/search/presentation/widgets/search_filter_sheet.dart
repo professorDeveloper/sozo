@@ -37,11 +37,40 @@ class SearchFilterSheet extends StatefulWidget {
 
 class _SearchFilterSheetState extends State<SearchFilterSheet> {
   late SearchFilterSelection _selection;
+  String _query = '';
 
   @override
   void initState() {
     super.initState();
     _selection = widget.initialSelection;
+  }
+
+  /// The chips to draw, narrowed by the filter field.
+  ///
+  /// The selected genre is pinned first and is never filtered out. Without
+  /// that, typing enough to narrow the list removes the chip showing what is
+  /// currently on — so the sheet stops saying what it is doing at exactly the
+  /// moment somebody is changing it, and the only way to see the current value
+  /// again is to clear what they just typed.
+  List<SearchFilterOption> get _options {
+    final q = _query.trim().toLowerCase();
+    bool hit(GenreEntity g) =>
+        q.isEmpty ||
+        g.name.toLowerCase().contains(q) ||
+        g.slug.toLowerCase().contains(q);
+
+    SearchFilterOption of(GenreEntity g) => SearchFilterOption(
+      label: g.name.isNotEmpty ? g.name : g.slug,
+      value: g.slug,
+    );
+
+    final selected = _selection.genre;
+    return [
+      for (final g in widget.genres)
+        if (g.slug == selected) of(g),
+      for (final g in widget.genres)
+        if (g.slug != selected && hit(g)) of(g),
+    ];
   }
 
   void _clearFilters() {
@@ -70,96 +99,120 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
             ),
           ),
           padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _SheetHandle(),
-                const SizedBox(height: 20),
-                Text(
-                  'search.filter'.tr(),
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
+          // A Column, not a scroll view.
+          //
+          // Everything used to be inside one `SingleChildScrollView`: the
+          // title, every genre chip, AND the buttons that commit the choice.
+          // On a source with forty-one genres that puts Apply below the fold —
+          // so you tap a chip, nothing appears to happen, and the control that
+          // would have applied it is somewhere off the bottom of a sheet that
+          // gave no sign it scrolled. Only the chips scroll now; the commit row
+          // is pinned where a thumb already is.
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _SheetHandle(),
+              const SizedBox(height: 20),
+              Text(
+                'search.filter'.tr(),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
                 ),
-                if (widget.genres.isNotEmpty) ...[
-                  const SizedBox(height: 22),
-                  SearchFilterChipSection(
-                    title: 'search.categories'.tr(),
-                    options: widget.genres
-                        .map(
-                          (genre) => SearchFilterOption(
-                            label: genre.name.isNotEmpty
-                                ? genre.name
-                                : genre.slug,
-                            value: genre.slug,
-                          ),
-                        )
-                        .toList(),
-                    selectedValue: _selection.genre,
-                    onSelected: (genre) => setState(() {
-                      _selection = _selection.copyWith(
-                        genre: _selection.genre == genre ? '' : genre,
-                      );
-                    }),
+              ),
+              if (widget.genres.isNotEmpty) ...[
+                // Past this many, reading the list is slower than typing.
+                if (widget.genres.length > 15) ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    onChanged: (v) => setState(() => _query = v),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'search.filter_genres_hint'.tr(),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 19),
+                    ),
                   ),
                 ],
-                const SizedBox(height: 28),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _clearFilters,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textSecondary,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(kButtonRadius),
-                          ),
-                        ),
-                        child: Text(
-                          'search.clear_filter'.tr(),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                const SizedBox(height: 18),
+                // Flexible, not Expanded: a source with six genres still gets
+                // a short sheet rather than one stretched to the cap.
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: SearchFilterChipSection(
+                      title: 'search.categories'.tr(),
+                      options: _options,
+                      selectedValue: _selection.genre,
+                      onSelected: (genre) {
+                        final next = _selection.genre == genre ? '' : genre;
+                        setState(
+                          () =>
+                              _selection = _selection.copyWith(genre: next),
+                        );
+                        // A chip IS the choice. Making somebody tap it and
+                        // then tap Apply is asking them to confirm a decision
+                        // they have already expressed — and clearing still
+                        // reaches the bloc, which `search_page` documents as
+                        // load-bearing when there is text in the box.
+                        _applyFilters();
+                      },
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        onPressed: _applyFilters,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(kButtonRadius),
-                          ),
-                        ),
-                        child: Text(
-                          'search.apply'.tr(),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-                SizedBox(height: bottomPad + 16),
               ],
-            ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _clearFilters,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textSecondary,
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(kButtonRadius),
+                        ),
+                      ),
+                      child: Text(
+                        'search.clear_filter'.tr(),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: _applyFilters,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(kButtonRadius),
+                        ),
+                      ),
+                      child: Text(
+                        'search.apply'.tr(),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                ),
+              SizedBox(height: bottomPad + 16),
+            ],
           ),
         ),
       ),

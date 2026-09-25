@@ -15,7 +15,11 @@ class AnilistLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ClipRRect(
     borderRadius: BorderRadius.circular(radius),
-    child: SvgPicture.asset('assets/icons/anilist.svg', width: size, height: size),
+    child: SvgPicture.asset(
+      'assets/icons/anilist.svg',
+      width: size,
+      height: size,
+    ),
   );
 }
 
@@ -27,6 +31,5 @@ class AnilistLogoBadge extends StatelessWidget {
   final double radius;
 
   @override
-  Widget build(BuildContext context) =>
-      AnilistLogo(size: size, radius: radius);
+  Widget build(BuildContext context) => AnilistLogo(size: size, radius: radius);
 }

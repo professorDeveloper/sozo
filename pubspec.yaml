@@ -35,6 +35,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Direct rather than transitive: lib/core/localization/yue_localizations.dart
+  # imports it to lend Cantonese the framework's Traditional Chinese strings.
+  flutter_localizations:
+    sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -67,6 +71,9 @@ dependencies:
   flutter_local_notifications: ^17.2.3
   timezone: ^0.9.4
   flutter_timezone: ^3.0.1
+  # Periodic background check for new episodes on sources the server cannot
+  # watch (extensions), and for guests who have no server-side follows.
+  workmanager: ^0.10.10
 
   # Local Storage
   hive_flutter: ^1.1.0
@@ -86,8 +93,13 @@ dependencies:
   # UI
   shimmer: ^3.0.0
   flutter_svg: ^2.0.3
+  # The Sozo mark's SVG path, as a Path the switch can draw with a pen.
+  path_parsing: ^1.1.0
   url_launcher: ^6.3.1
   cached_network_image: ^3.4.1
+  # Used directly to find the file cached_network_image already wrote, so a
+  # zoomed page can be re-read from disk instead of downloaded a second time.
+  flutter_cache_manager: ^3.4.1
   scrollable_positioned_list: ^0.3.8
   palette_generator: ^0.3.3+5
   video_player: ^2.9.5
@@ -124,6 +136,8 @@ dependencies:
   media_kit_libs_linux: ^1.2.1
   liquid_glass_widgets: ^0.18.4
   mobile_scanner: ^7.4.0
+  # The TV's pairing code, painted rather than pulled in as a widget package.
+  qr: ^3.0.2
   firebase_auth: ^5.7.0
   google_sign_in: ^7.2.0
   image_picker: ^1.2.3
@@ -161,9 +175,17 @@ dependencies:
   # over a local socket. Already in the lockfile transitively; declared because
   # this now depends on it directly.
   web_socket_channel: ^3.0.1
+  dynamic_color: ^2.1.0
+  flutter_tts: ^4.2.5
+  sensors_plus: ^7.1.0
 
 dev_dependencies:
   shared_preferences: 2.5.5
+  # Declared for the tests only. The app reaches DateFormat through
+  # easy_localization's re-export, but `date_symbol_data_local` is not part of
+  # that — and without it a test that checks a non-English date order is
+  # checking English twice.
+  intl: any
   flutter_test:
     sdk: flutter
   integration_test:
@@ -189,9 +211,11 @@ flutter:
 
   assets:
     - assets/translations/
+    - assets/avatars/
     - assets/icons/
     - assets/brand/
     - assets/onboarding/
     - assets/onboarding/channels/
     - assets/js/
+    - assets/lnreader/patches/
     - .env

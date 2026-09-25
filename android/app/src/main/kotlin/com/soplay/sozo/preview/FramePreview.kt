@@ -19,7 +19,8 @@ import kotlin.concurrent.withLock
  */
 object FramePreview {
     private const val TAG = "FramePreview"
-    private const val MAX_W = 240
+    // The card is drawn up to ~210pt wide; 240px was soft on a 3x screen.
+    private const val MAX_W = 360
     private val work = ReentrantLock()
     private val state = Any()
     private val generation = AtomicLong(0)
@@ -143,7 +144,7 @@ object FramePreview {
         } ?: return null
         val scaled = scaleTo(bmp, maxW)
         val out = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, 70, out)
+        scaled.compress(Bitmap.CompressFormat.JPEG, 78, out)
         if (scaled !== bmp) scaled.recycle()
         bmp.recycle()
         return out.toByteArray()

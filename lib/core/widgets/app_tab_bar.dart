@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
 /// Canonical tab strip. Styling lifted verbatim from the detail page's
@@ -26,10 +29,12 @@ class AppTabBar extends StatefulWidget implements PreferredSizeWidget {
   final TabController? controller;
   final bool isScrollable;
   final bool showDivider;
+
   /// Defaults to [AppColors.background]. Nullable rather than defaulted in the
   /// constructor because the palette is a runtime value now, and a default
   /// parameter has to be a compile-time constant.
   final Color? background;
+
   /// Geometry rather than [EdgeInsets] so a caller — and the default below —
   /// can express a leading inset that mirrors in Arabic instead of clinging to
   /// the left edge.
@@ -112,6 +117,24 @@ class _AppTabBarState extends State<AppTabBar>
     if (!_c.indexIsChanging) widget.onChanged?.call(_c.index);
   }
 
+  /// Fires on the tap rather than inside [_onTabChanged], which also runs for
+  /// index changes the app made itself — a deep link landing on the Episodes
+  /// tab should not buzz in the user's hand.
+  ///
+  /// The label and indicator crossfade needs nothing here: [TabBar] drives both
+  /// off the controller's animation, so tapping a tab already interpolates the
+  /// weight and colour between [TextStyle]s over kTabScrollDuration instead of
+  /// cutting.
+  void _onTapped(int index) {
+    // `indexIsChanging` is already true here — TabBar drives the controller
+    // before it calls back — and it is the one flag that distinguishes a tap
+    // that moved the selection from a tap on the tab that was already open,
+    // which should stay silent.
+    if (isMobilePlatform && _c.indexIsChanging) {
+      HapticFeedback.selectionClick();
+    }
+  }
+
   @override
   void dispose() {
     _c.removeListener(_onTabChanged);
@@ -132,6 +155,7 @@ class _AppTabBarState extends State<AppTabBar>
               padding: widget.padding,
               child: TabBar(
                 controller: _c,
+                onTap: _onTapped,
                 isScrollable: widget.isScrollable,
                 // TabAlignment.start asserts under isScrollable: false.
                 tabAlignment: widget.isScrollable

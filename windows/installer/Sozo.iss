@@ -1,13 +1,24 @@
 ; Inno Setup script for the Sozo Windows desktop app.
 ; Build the app first:  flutter build windows --release
-; Then compile this:    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows\installer\Sozo.iss
+; Then compile this:    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=1.2.3 windows\installer\Sozo.iss
 ; Output: Sozo-Setup.exe on the Desktop.
 
 #define MyAppName "Sozo"
-#define MyAppVersion "1.0.0"
+; The release workflow passes the resolved version in with
+; /DMyAppVersion=<name>. Everything downstream of it — AppVersion, AppVerName,
+; the entry in Add/Remove Programs, and the upgrade comparison Inno makes
+; against the previous install — reads that one define, so a hard-coded value
+; here meant every release ever shipped identified itself as the same version.
+; The fallback exists only so a local `ISCC Sozo.iss` still compiles; 0.0.0 is
+; deliberately a version nobody would mistake for a release.
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0"
+#endif
 #define MyAppPublisher "Azamov"
 #define MyAppURL "https://sozo.azamov.me"
 #define MyAppExeName "soplay.exe"
+; Must stay in step with DeeplinkService._scheme.
+#define MyAppScheme "sozo"
 #define SourceDir "..\..\build\windows\x64\runner\Release"
 #define IconFile "..\runner\resources\app_icon.ico"
 
@@ -50,6 +61,32 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#SourceDir}\*"; DestDir: "{app}"; \
   Flags: recursesubdirs createallsubdirs ignoreversion; \
   Excludes: "*.lib,*.exp,*.pdb,soplay.exe.WebView2,soplay.exe.WebView2\*"
+
+[Registry]
+; DeeplinkService handles the custom `sozo:` scheme on every platform, but on
+; Windows nothing had ever told the OS which program owns it, so a sozo:// link
+; in a browser or a chat client went nowhere. HKA rather than HKCU/HKLM: this is
+; a per-user install by default (PrivilegesRequired=lowest) but the user may
+; elevate through the dialog, and HKA follows whichever one actually happened.
+; uninsdeletekey on the root key alone removes the whole subtree.
+;
+; Nothing is needed on the Dart side for this: app_links is a native plugin on
+; Windows and reads ::GetCommandLineW() itself, accepting the link only when the
+; command line holds exactly one argument after the exe — which is precisely
+; what the "%1" in shell\open\command below produces.
+Root: HKA; Subkey: "Software\Classes\{#MyAppScheme}"; ValueType: string; ValueName: ""; \
+  ValueData: "URL:{#MyAppName} Protocol"; Flags: uninsdeletekey
+; An empty "URL Protocol" value is the marker Windows looks for; its content is
+; never read, only its presence.
+Root: HKA; Subkey: "Software\Classes\{#MyAppScheme}"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+; The path is quoted here as it is in shell\open\command below. Windows' icon
+; parser copes either way, but {app} defaults to a Program Files path with a
+; space in it and there is no reason for two values in the same key to disagree
+; about how a path is written.
+Root: HKA; Subkey: "Software\Classes\{#MyAppScheme}\DefaultIcon"; ValueType: string; ValueName: ""; \
+  ValueData: """{app}\{#MyAppExeName}"",0"
+Root: HKA; Subkey: "Software\Classes\{#MyAppScheme}\shell\open\command"; ValueType: string; ValueName: ""; \
+  ValueData: """{app}\{#MyAppExeName}"" ""%1"""
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

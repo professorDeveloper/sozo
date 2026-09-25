@@ -1,7 +1,10 @@
 import 'dart:io';
+import 'package:easy_localization/easy_localization.dart';
+import '../widgets/catalogue_discovery_sheet.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
@@ -89,6 +92,44 @@ class _SearchViewState extends State<_SearchView> {
     context.push('/torrents', extra: query);
   }
 
+  /// Pull to refresh: the same retry the error views offer, on the gesture
+  /// every other tab already answers.
+  Future<void> _refresh() async {
+    HapticFeedback.lightImpact();
+    final bloc = context.read<SearchBloc>();
+    bloc.add(const SearchRetry());
+    if (bloc.state.criteria.isEmpty) {
+      // The landing, not a result set. Nothing here runs a request the screen
+      // can watch — the genres and the recents reload in place, and where
+      // neither changed the bloc emits nothing at all — so waiting on a state
+      // change would hold the spinner until the timeout. It gets long enough
+      // to finish its own animation instead.
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      return;
+    }
+    // The spinner has to outlive the request, not the dispatch. Adding an
+    // event returns on the next microtask, so without this the indicator
+    // snapped shut before the source had been asked anything and the pull read
+    // as having done nothing. The ceiling is there because a source that never
+    // answers must not leave the spinner up for good.
+    //
+    // Two ways this wait can end without a settled state, and both have to end
+    // it quietly: RefreshIndicator does not guard the future it is given, so
+    // anything thrown here surfaces as an unhandled async error rather than as
+    // a failed refresh. `timeout` covers the bloc that never answers; `orElse`
+    // covers the bloc that is CLOSED mid-pull — switching provider, or leaving
+    // the tab while the spinner is up, ends the stream with no match at all,
+    // and a bare `firstWhere` completes that with a StateError.
+    await bloc.stream
+        .firstWhere(
+          (s) =>
+              s.status != SearchStatus.loading &&
+              s.status != SearchStatus.refreshing,
+          orElse: () => bloc.state,
+        )
+        .timeout(const Duration(seconds: 20), onTimeout: () => bloc.state);
+  }
+
   void _clearSearch() {
     _controller.clear();
     context.read<SearchBloc>().add(const SearchQueryChanged(''));
@@ -107,6 +148,25 @@ class _SearchViewState extends State<_SearchView> {
 
   void _openFilter() {
     final bloc = context.read<SearchBloc>();
+    final kind = bloc.catalogueKind;
+    if (kind != null) {
+      showAdaptiveModal<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => CatalogueDiscoverySheet(
+          kind: kind,
+          loadGenres: bloc.discoveryGenres,
+          genres: bloc.state.genres,
+          initial: bloc.state.criteria.filters,
+          onApply: (filters) {
+            _controller.clear();
+            bloc.add(SearchDiscoverySelected(filters));
+          },
+        ),
+      );
+      return;
+    }
     showAdaptiveModal<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -156,8 +216,12 @@ class _SearchViewState extends State<_SearchView> {
                       topPad: topPad,
                       controller: _controller,
                       focus: _focus,
-                      hasActiveFilter: state.criteria.genre.isNotEmpty,
-                      showFilter: state.hasGenres,
+                      hasActiveFilter:
+                          state.criteria.genre.isNotEmpty ||
+                          state.criteria.filters.isNotEmpty,
+                      showFilter:
+                          state.hasGenres ||
+                          context.read<SearchBloc>().catalogueKind != null,
                       onFilterTap: _openFilter,
                       onTorrentTap: _torrentsAvailable
                           ? () => _openTorrents(_controller.text)
@@ -185,6 +249,56 @@ class _SearchViewState extends State<_SearchView> {
                   ),
                 ),
               ),
+              if (context.read<SearchBloc>().catalogueKind != null)
+                SizedBox(
+                  height: 52,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ActionChip(
+                          avatar: const Icon(Icons.tune, size: 18),
+                          label: Text(
+                            'search.discovery.${state.criteria.filters.isEmpty ? 'title' : 'active'}'
+                                .tr(),
+                          ),
+                          onPressed: _openFilter,
+                        ),
+                      ),
+                      for (final entry in const {
+                        'popular': 'popular',
+                        'rating': 'highest',
+                        'newest': 'newest',
+                      }.entries)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text('search.discovery.${entry.value}'.tr()),
+                            selected:
+                                state.criteria.filters['sort'] == entry.key,
+                            onSelected: (_) {
+                              _controller.clear();
+                              context.read<SearchBloc>().add(
+                                SearchDiscoverySelected({
+                                  ...state.criteria.filters,
+                                  'sort': entry.key,
+                                }),
+                              );
+                            },
+                          ),
+                        ),
+                      if (state.criteria.filters.isNotEmpty)
+                        ActionChip(
+                          label: Text('search.clear_filter'.tr()),
+                          onPressed: () => context.read<SearchBloc>().add(
+                            const SearchGenreSelected(''),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: SearchContentView(
                   state: state,
@@ -193,6 +307,10 @@ class _SearchViewState extends State<_SearchView> {
                   bottomPad: bottomPad,
                   onRetry: () =>
                       context.read<SearchBloc>().add(const SearchRetry()),
+                  onRetryMore: () => context.read<SearchBloc>().add(
+                    const SearchLoadMore(retry: true),
+                  ),
+                  onRefresh: _refresh,
                   onSuggestion: _runQuery,
                   onGenre: (genre) => context.read<SearchBloc>().add(
                     SearchGenreSelected(genre),

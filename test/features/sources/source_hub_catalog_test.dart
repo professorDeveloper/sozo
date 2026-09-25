@@ -44,11 +44,18 @@ class _Hive implements HiveService {
   @override
   List<String> getProviderLanguages() => [];
   @override
-  bool get showNsfwMangaSources => false;
+  bool get showAdultContent => false;
   @override
   String getCurrentProvider() => 'my:123';
   @override
   String getPreOutageProvider() => '';
+  @override
+  String? providerForMode(String modeId) => null;
+  @override
+  Future<void> rememberProviderForMode(
+    String modeId,
+    String providerId,
+  ) async {}
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -213,7 +220,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
-  testWidgets('tabs and categories remain together after search scrolls away', (
+  testWidgets('scroll hides optional filters, keeps tabs and fills the body', (
     tester,
   ) async {
     final bloc = _Providers(
@@ -229,22 +236,37 @@ void main() {
     await pump(tester, const SourcesHubPage(), bloc);
     expect(find.byType(FlexibleSpaceBar), findsNothing);
     final tabs = find.byType(TabBar);
-    final categories = find.text('All');
+    final categories = find.text('All · 36');
     final tabsTop = tester.getTopLeft(tabs).dy;
-    expect(
-      tester.getTopLeft(categories).dy,
-      greaterThan(tester.getBottomLeft(tabs).dy + 50),
+    final categoriesTop = tester.getTopLeft(categories).dy;
+    expect(categoriesTop, greaterThan(tester.getBottomLeft(tabs).dy));
+
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, -480),
     );
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -480));
     await tester.pumpAndSettle();
+
     expect(tester.takeException(), isNull);
     expect(tester.getTopLeft(tabs).dy, closeTo(tabsTop, 1));
+    expect(categories.hitTestable(), findsNothing);
+    expect(find.byType(TextField).hitTestable(), findsOneWidget);
+    final listBottom = tester
+        .getBottomLeft(find.byType(CustomScrollView).first)
+        .dy;
     expect(
-      tester.getTopLeft(categories).dy,
-      inInclusiveRange(
-        tester.getBottomLeft(tabs).dy,
-        tester.getBottomLeft(tabs).dy + 22,
+      listBottom,
+      closeTo(
+        tester.view.physicalSize.height / tester.view.devicePixelRatio,
+        1,
       ),
+    );
+    await tester.tap(find.byTooltip('Source type'));
+    await tester.pumpAndSettle();
+    expect(categories.hitTestable(), findsOneWidget);
+    expect(
+      tester.getBottomLeft(find.byType(CustomScrollView).first).dy,
+      closeTo(listBottom, 1),
     );
   });
 

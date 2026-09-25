@@ -43,6 +43,16 @@ class _CommentsViewState extends State<_CommentsView> {
   String? _editId;
   String _initialText = '';
 
+  /// What was dispatched and has not been confirmed yet.
+  ///
+  /// The compose box used to clear the moment Send was pressed — before the
+  /// request had even been issued, because this panel only adds an event and
+  /// returns. When the write then failed, a snackbar said so over an empty
+  /// box, and a comment somebody had spent a minute writing was simply gone.
+  /// Held here until the bloc reports the write landed, and put back if it
+  /// did not.
+  _PendingWrite? _pending;
+
   void _startReply(CommentEntity c) {
     setState(() {
       _replyTo = c.id;
@@ -72,12 +82,35 @@ class _CommentsViewState extends State<_CommentsView> {
 
   Future<void> _submit(String text) async {
     final bloc = context.read<CommentsBloc>();
+    // The whole composing context, not only the text: an edit that failed has
+    // to come back as an edit of the same comment, and a reply as a reply to
+    // the same person. Restoring the words into a box that had forgotten what
+    // they were for would post them as a new top-level comment.
+    _pending = _PendingWrite(
+      text: text,
+      editId: _editId,
+      replyTo: _replyTo,
+      replyToName: _replyToName,
+    );
     if (_editId != null) {
       bloc.add(CommentsEdit(id: _editId!, text: text));
     } else {
       bloc.add(CommentsCreate(text: text, parentId: _replyTo));
     }
     _cancel();
+  }
+
+  /// Puts an unsent comment back in the box.
+  void _restorePending() {
+    final pending = _pending;
+    if (pending == null) return;
+    _pending = null;
+    setState(() {
+      _initialText = pending.text;
+      _editId = pending.editId;
+      _replyTo = pending.replyTo;
+      _replyToName = pending.replyToName;
+    });
   }
 
   Widget _buildList(
@@ -241,15 +274,25 @@ class _CommentsViewState extends State<_CommentsView> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<CommentsBloc, CommentsState>(
-      listenWhen: (a, b) => a.error != b.error && b.error != null,
+      // Also on `submitting`, because that edge is how a write is known to have
+      // landed — which is when the held draft can safely be let go of.
+      listenWhen: (a, b) =>
+          (a.error != b.error && b.error != null) || a.submitting != b.submitting,
       listener: (context, state) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(state.error ?? ''),
-            backgroundColor: AppColors.surface,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        if (state.error != null && state.error!.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.error!),
+              backgroundColor: AppColors.surface,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          // The snackbar is the only thing that used to happen here, over an
+          // empty box.
+          _restorePending();
+        } else if (!state.submitting) {
+          _pending = null;
+        }
       },
       builder: (context, state) {
         final bloc = context.read<CommentsBloc>();
@@ -421,4 +464,19 @@ class _CommentTree extends StatelessWidget {
       ],
     );
   }
+}
+
+/// A comment handed to the bloc whose outcome is not known yet.
+class _PendingWrite {
+  const _PendingWrite({
+    required this.text,
+    required this.editId,
+    required this.replyTo,
+    required this.replyToName,
+  });
+
+  final String text;
+  final String? editId;
+  final String? replyTo;
+  final String? replyToName;
 }

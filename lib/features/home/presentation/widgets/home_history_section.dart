@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -8,6 +9,8 @@ import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:soplay/features/recap/domain/recap.dart';
+import 'package:soplay/features/recap/presentation/recap_sheet.dart';
 
 class HistorySection extends StatelessWidget {
   const HistorySection({super.key, required this.items});
@@ -58,7 +61,12 @@ class HistorySection extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'home.continue_watching'.tr(),
+                      (items.isNotEmpty &&
+                                  items.first.provider.contentMode !=
+                                      ContentMode.video
+                              ? 'home.continue_reading'
+                              : 'home.continue_watching')
+                          .tr(),
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 17,
@@ -120,6 +128,7 @@ class _HistoryCard extends StatelessWidget {
   }
 
   Future<void> _showActions(BuildContext context) async {
+    final recap = RecapRequest.fromHistory(item);
     final action = await showModalBottomSheet<_HistoryAction>(
       context: context,
       backgroundColor: AppColors.background,
@@ -156,10 +165,7 @@ class _HistoryCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             ListTile(
-              leading: Icon(
-                Icons.play_arrow_rounded,
-                color: AppColors.primary,
-              ),
+              leading: Icon(Icons.play_arrow_rounded, color: AppColors.primary),
               title: Text(
                 'player.resume'.tr(),
                 style: const TextStyle(
@@ -169,6 +175,28 @@ class _HistoryCard extends StatelessWidget {
               ),
               onTap: () => Navigator.of(sheetCtx).pop(_HistoryAction.resume),
             ),
+            if (recap != null)
+              ListTile(
+                leading: Icon(
+                  Icons.history_edu_rounded,
+                  color: AppColors.textPrimary,
+                ),
+                title: Text(
+                  'recap.action'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  'recap.action_hint'.tr(args: ['${recap.episode}']),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+                onTap: () => Navigator.of(sheetCtx).pop(_HistoryAction.recap),
+              ),
             ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,
@@ -192,6 +220,8 @@ class _HistoryCard extends StatelessWidget {
     switch (action) {
       case _HistoryAction.resume:
         _openDetail(context);
+      case _HistoryAction.recap:
+        await RecapSheet.show(context, recap!);
       case _HistoryAction.remove:
         await getIt<HistoryService>().remove(item.storageKey);
       case null:
@@ -238,10 +268,7 @@ class _HistoryCard extends StatelessWidget {
                               gradient: LinearGradient(
                                 begin: Alignment.bottomCenter,
                                 end: Alignment.topCenter,
-                                colors: [
-                                  Color(0xDD000000),
-                                  Color(0x00000000),
-                                ],
+                                colors: [Color(0xDD000000), Color(0x00000000)],
                               ),
                             ),
                           ),
@@ -348,4 +375,4 @@ class _HistoryCard extends StatelessWidget {
   }
 }
 
-enum _HistoryAction { resume, remove }
+enum _HistoryAction { resume, recap, remove }

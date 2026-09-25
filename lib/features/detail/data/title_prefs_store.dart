@@ -1,5 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 
 /// What the viewer chose last time they watched a particular title.
 ///
@@ -49,7 +50,7 @@ class TitlePrefsStore {
   String _key(String provider, String contentUrl) => '$provider::$contentUrl';
 
   Map<String, dynamic> _load() {
-    final raw = _box?.get(AppConstants.titlePrefsKey);
+    final raw = _box?.get(ProfileScope.key(AppConstants.titlePrefsKey));
     if (raw is! Map) return const {};
     return raw.map((k, v) => MapEntry(k.toString(), v));
   }
@@ -72,19 +73,75 @@ class TitlePrefsStore {
     return (value is String && value.isNotEmpty) ? value : null;
   }
 
-  Future<void> rememberLang(
+  /// The subtitle last chosen for this title: a track label, [subtitleOff],
+  /// or [embeddedSubtitle] followed by the stream track's label. Null when
+  /// nothing was chosen.
+  String? subtitleFor(String provider, String contentUrl) {
+    final value = _entry(provider, contentUrl)?['subtitle'];
+    return (value is String && value.isNotEmpty) ? value : null;
+  }
+
+  /// Turned off on purpose — kept off on the next episode.
+  static const String subtitleOff = '\u0000off';
+
+  /// Prefix of a remembered track that is inside the stream.
+  static const String embeddedSubtitle = '\u0000embedded:';
+
+  Future<void> rememberSubtitle(
     String provider,
     String contentUrl,
-    String lang,
-  ) =>
+    String choice,
+  ) => _write(provider, contentUrl, 'subtitle', choice);
+
+  /// The translation group the chapter list is narrowed to for this title,
+  /// or null for every group.
+  String? scanlatorFor(String provider, String contentUrl) {
+    final value = _entry(provider, contentUrl)?['scanlator'];
+    return (value is String && value.isNotEmpty && value != _allGroups)
+        ? value
+        : null;
+  }
+
+  static const String _allGroups = '\u0000all';
+
+  Future<void> rememberScanlator(
+    String provider,
+    String contentUrl,
+    String? group,
+  ) => _write(provider, contentUrl, 'scanlator', group ?? _allGroups);
+
+  /// The picture height last picked for this title, or null.
+  ///
+  /// Beside the label because a height outlives it: "Server · 720p" from a
+  /// parsed HLS master and mpv's own 720p rendition are the same choice under
+  /// two names, and neither exists yet when the next episode starts.
+  int? heightFor(String provider, String contentUrl) {
+    final value = _entry(provider, contentUrl)?['height'];
+    final height = value is String ? int.tryParse(value) : null;
+    return height != null && height > 0 ? height : null;
+  }
+
+  /// Like [heightFor], but 0 when Auto was picked on purpose — which has to
+  /// beat the global preferred quality, where "nothing picked" must not.
+  int? heightChoiceFor(String provider, String contentUrl) {
+    final value = _entry(provider, contentUrl)?['height'];
+    final height = value is String ? int.tryParse(value) : null;
+    return height != null && height >= 0 ? height : null;
+  }
+
+  /// [height] 0 is Auto: the choice not to pin one, which a stale height
+  /// must not override on the next episode.
+  Future<void> rememberHeight(String provider, String contentUrl, int height) =>
+      _write(provider, contentUrl, 'height', '${height < 0 ? 0 : height}');
+
+  Future<void> rememberLang(String provider, String contentUrl, String lang) =>
       _write(provider, contentUrl, 'lang', lang);
 
   Future<void> rememberQuality(
     String provider,
     String contentUrl,
     String quality,
-  ) =>
-      _write(provider, contentUrl, 'quality', quality);
+  ) => _write(provider, contentUrl, 'quality', quality);
 
   Future<void> _write(
     String provider,
@@ -116,7 +173,7 @@ class TitlePrefsStore {
     }
 
     try {
-      await _box?.put(AppConstants.titlePrefsKey, map);
+      await _box?.put(ProfileScope.key(AppConstants.titlePrefsKey), map);
     } catch (_) {}
   }
 
@@ -125,7 +182,7 @@ class TitlePrefsStore {
 
   Future<void> clear() async {
     try {
-      await _box?.delete(AppConstants.titlePrefsKey);
+      await _box?.delete(ProfileScope.key(AppConstants.titlePrefsKey));
     } catch (_) {}
   }
 }

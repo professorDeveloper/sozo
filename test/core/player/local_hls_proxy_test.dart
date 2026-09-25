@@ -301,6 +301,30 @@ void main() {
       final status = await _httpGetStatus(loopback);
       expect(status, 403);
     });
+
+    test('a DASH manifest comes back with one video rendition and proxied '
+        'addresses', () async {
+      upstream.respond(
+        path: '/v/stream.mpd',
+        contentType: 'application/dash+xml',
+        body: _mpd('https://other.cdn.test/seg/'),
+      );
+      final loopback = await proxy.register(
+        upstreamUrl: '${upstream.origin}/v/stream.mpd',
+        headers: {'User-Agent': 'x'},
+        dashRepresentation: 'v720',
+      );
+      final body = await _httpGetString(loopback);
+      expect(body, contains('id="v720"'));
+      expect(body, isNot(contains('id="v1080"')));
+      expect(body, isNot(contains('id="v480"')));
+      // Audio is left alone.
+      expect(body, contains('id="a1"'));
+      // An absolute BaseURL points back at the proxy, so segments carry the
+      // stream's headers.
+      expect(body, isNot(contains('https://other.cdn.test')));
+      expect(body, contains('/hls/'));
+    });
   });
 }
 
@@ -529,3 +553,19 @@ List<int> _rc4Bytes(String key, List<int> input) {
   }
   return out;
 }
+
+String _mpd(String base) =>
+    '''<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static">
+  <Period>
+    <BaseURL>$base</BaseURL>
+    <AdaptationSet mimeType="video/mp4">
+      <Representation id="v1080" width="1920" height="1080" bandwidth="5000000"/>
+      <Representation id="v720" width="1280" height="720" bandwidth="2500000"/>
+      <Representation id="v480" width="854" height="480" bandwidth="1000000"/>
+    </AdaptationSet>
+    <AdaptationSet mimeType="audio/mp4">
+      <Representation id="a1" bandwidth="128000"/>
+    </AdaptationSet>
+  </Period>
+</MPD>''';

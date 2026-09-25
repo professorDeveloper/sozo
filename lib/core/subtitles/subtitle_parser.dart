@@ -27,7 +27,7 @@ enum SubtitleParseFailure {
 class SubtitleParseResult {
   const SubtitleParseResult.success(this.captions) : failure = null;
   const SubtitleParseResult.failed(SubtitleParseFailure this.failure)
-      : captions = const [];
+    : captions = const [];
 
   final List<Caption> captions;
   final SubtitleParseFailure? failure;
@@ -100,9 +100,11 @@ SubtitleParseResult parseSubtitleText(
   }
 
   final format = declaredFormat.trim().toUpperCase();
-  final isVtt = trimmed.startsWith('WEBVTT') ||
+  final isVtt =
+      trimmed.startsWith('WEBVTT') ||
       (format == 'VTT' && !lowerHead.contains('dialogue:'));
-  final isAss = lowerHead.contains('[script info]') ||
+  final isAss =
+      lowerHead.contains('[script info]') ||
       lowerHead.contains('[events]') ||
       lowerHead.contains('dialogue:') ||
       format == 'ASS' ||
@@ -190,7 +192,7 @@ String _normalizeSubRip(String text) {
     }
     final body = <String>[];
     for (var i = idx + 1; i < stop; i++) {
-      final line = lines[i].trimRight();
+      final line = _stripSubRipMarkup(lines[i]).trimRight();
       if (line.trim().isEmpty) continue;
       body.add(line);
     }
@@ -205,6 +207,20 @@ String _normalizeSubRip(String text) {
   }
   return buf.toString();
 }
+
+final RegExp _htmlTag = RegExp(r'</?[a-zA-Z][^>]*>');
+
+/// SubRip's inline markup — `<i>`, `<b>`, `<font color=…>` — and the ASS
+/// position codes fansub SRTs carry (`{\an8}`), none of which the overlay
+/// draws. They were shown as typed. WebVTT goes through an HTML parser
+/// upstream; SubRip did not.
+String _stripSubRipMarkup(String line) => line
+    .replaceAll(_htmlTag, '')
+    .replaceAll(_assOverride, '')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&nbsp;', ' ')
+    .replaceAll('&amp;', '&');
 
 Duration _srtStamp(RegExpMatch m, int group) {
   final ms = m.group(group + 3)!;
@@ -228,7 +244,15 @@ String _fmtStamp(Duration d) {
 // --- ASS / SSA --------------------------------------------------------------
 
 final RegExp _assOverride = RegExp(r'\{[^}]*\}');
-final RegExp _assStamp = RegExp(r'^(\d{1,3}):(\d{1,2}):(\d{1,2})[.,](\d{1,2})$');
+
+/// An ASS vector drawing: `{\p1}m 0 0 l 100 0 …{\p0}`. With the braces
+/// removed, the path's coordinates were drawn on screen as text.
+final RegExp _assDrawing = RegExp(
+  r'\{[^}]*\\p[1-9][^}]*\}[^{]*(?:\{[^}]*\\p0[^}]*\})?',
+);
+final RegExp _assStamp = RegExp(
+  r'^(\d{1,3}):(\d{1,2}):(\d{1,2})[.,](\d{1,2})$',
+);
 
 /// Converts the `Dialogue:` lines of an ASS/SSA script into cues. Feeding these
 /// to the SubRip parser throws a FormatException on the very first line.
@@ -275,6 +299,7 @@ List<Caption> _parseAss(String text) {
     final body = parts
         .sublist(textField)
         .join(',')
+        .replaceAll(_assDrawing, '')
         .replaceAll(_assOverride, '')
         .replaceAll(r'\N', '\n')
         .replaceAll(r'\n', '\n')

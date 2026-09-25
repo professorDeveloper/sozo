@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/app_dates.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_accent.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -11,6 +13,9 @@ import 'package:soplay/core/theme/theme_controller.dart';
 import 'package:soplay/features/profile/presentation/widgets/library_accents.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 import 'package:soplay/features/profile/presentation/widgets/theme_preview.dart';
+import 'package:soplay/features/profile/presentation/widgets/accent_preview_card.dart';
+import 'package:soplay/features/profile/presentation/widgets/home_rail_customizer_sheet.dart';
+import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
 
 /// Settings → Appearance.
 ///
@@ -18,7 +23,7 @@ import 'package:soplay/features/profile/presentation/widgets/theme_preview.dart'
 /// touched: the accent colour and whether the neutrals go to true black.
 ///
 /// Everything on this page is deliberately shown rather than described. The
-/// accent is a row of colours *and* a full miniature of the app; the darkness
+/// accent is a row of palette previews; the darkness
 /// choice is two miniatures side by side. Nothing here asks the user to imagine
 /// what "AMOLED" will do to a screen they are not currently looking at.
 class AppearancePage extends StatelessWidget {
@@ -59,6 +64,8 @@ class AppearanceSettings extends StatefulWidget {
 }
 
 class _AppearanceSettingsState extends State<AppearanceSettings> {
+  late String _dateFormat = getIt<HiveService>().dateFormatPattern;
+
   final ThemeController _theme = getIt<ThemeController>();
 
   /// Held in the State, not started in build(): this page rebuilds on every
@@ -94,6 +101,11 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
     await _theme.cycleAccent();
   }
 
+  Future<void> _setSystemAccent(bool value) async {
+    _tap();
+    await _theme.setSystemAccent(value);
+  }
+
   Future<void> _openCustom() async {
     _tap();
     final picked = await showCustomAccentSheet(
@@ -111,20 +123,43 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Live preview ────────────────────────────────────────────────
-          SettingsLabel('appearance.section_preview'.tr()),
-          const _PreviewStage(),
+          SettingsCard(
+            children: [
+              _ActionRow(
+                icon: Icons.dashboard_customize_outlined,
+                title: 'home_rails.entry_title'.tr(),
+                subtitle: 'home_rails.entry_subtitle'.tr(),
+                onTap: () => showHomeRailCustomizer(context),
+              ),
+              const SettingsDivider(),
+              _ActionRow(
+                icon: Icons.view_week_outlined,
+                title: 'nav_customize.entry_title'.tr(),
+                subtitle: 'nav_customize.entry_subtitle'.tr(),
+                onTap: () => showTabCustomizer(context),
+              ),
+            ],
+          ),
           const SizedBox(height: 20),
 
-          // ── Accent ──────────────────────────────────────────────────────
           SettingsLabel('appearance.section_accent'.tr()),
           SettingsCard(
             children: [
-              _AccentGrid(selected: accent, onPick: _pick),
-              const SettingsDivider(),
-              _CurrentAccentRow(accent: accent),
-              const SettingsDivider(),
-              _CustomAccentRow(active: accent.isCustom, onTap: _openCustom),
+              if (_theme.hasSystemAccent) ...[
+                SettingsSwitchTile(
+                  icon: Icons.auto_awesome_rounded,
+                  title: 'appearance.material_you'.tr(),
+                  subtitle: 'appearance.material_you_desc'.tr(),
+                  value: accent.isSystem,
+                  onChanged: _setSystemAccent,
+                ),
+                const SettingsDivider(),
+              ],
+              _AccentStrip(
+                selected: accent,
+                onPick: _pick,
+                onCustom: _openCustom,
+              ),
             ],
           ),
           SettingsFootnote('appearance.accent_footnote'.tr()),
@@ -174,6 +209,24 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
                 onChanged: _setNavTinted,
               ),
               const SettingsDivider(),
+              // The sample, not the pattern: "dd/MM/yyyy" means nothing to
+              // most people, and "22/09/2026" is the question they are
+              // actually being asked.
+              SettingsDropdownTile<String>(
+                icon: Icons.event_rounded,
+                title: 'profile.date_format'.tr(),
+                subtitle: 'profile.date_format_desc'.tr(),
+                value: _dateFormat,
+                options: AppDates.choices,
+                labelOf: (p) => p.isEmpty
+                    ? 'profile.date_format_auto'.tr()
+                    : AppDates.sample(p, context.locale.toString()),
+                onChanged: (p) {
+                  setState(() => _dateFormat = p);
+                  getIt<HiveService>().setDateFormatPattern(p);
+                },
+              ),
+              const SettingsDivider(),
               _ActionRow(
                 icon: Icons.shuffle_rounded,
                 title: 'appearance.shuffle'.tr(),
@@ -205,141 +258,98 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
 
 // ── Preview ─────────────────────────────────────────────────────────────────
 
-/// Wraps the component sample.
-///
-/// No device frame and no stage lighting: the sample is a real card on a real
-/// background, and dressing it up as a photographed object would put back the
-/// suggestion that it is a picture of a screen somewhere.
-class _PreviewStage extends StatelessWidget {
-  const _PreviewStage();
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-      child: const ThemePreview(),
-    );
-  }
-}
-
-// ── Accent ──────────────────────────────────────────────────────────────────
-
-class _AccentGrid extends StatelessWidget {
-  const _AccentGrid({required this.selected, required this.onPick});
+/// Side-by-side theme previews, each painted in its own resolved palette.
+class _AccentStrip extends StatelessWidget {
+  const _AccentStrip({
+    required this.selected,
+    required this.onPick,
+    required this.onCustom,
+  });
 
   final AppAccent selected;
   final ValueChanged<AppAccent> onPick;
+  final VoidCallback onCustom;
+
+  /// Small enough that twelve fit a phone's width with room to scroll, big
+  /// enough to stay a comfortable target with the gap around each.
+  static const double swatch = 28;
 
   @override
   Widget build(BuildContext context) {
+    final hex = selected.base
+        .toARGB32()
+        .toRadixString(16)
+        .padLeft(8, '0')
+        .substring(2)
+        .toUpperCase();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // Only the presets live here, and there are twelve of them — which
-          // divides evenly by 6, 4 and 3. So whatever width the card gets, the
-          // grid comes out as full rows instead of leaving one swatch stranded
-          // on a line of its own. (Custom is a labelled row underneath, where
-          // it can say what it is.)
-          const gap = 10.0;
-          final columns = switch (constraints.maxWidth) {
-            >= 420 => 6,
-            >= 300 => 6,
-            >= 220 => 4,
-            _ => 3,
-          };
-          final size = (constraints.maxWidth - gap * (columns - 1)) / columns;
-          return Wrap(
-            spacing: gap,
-            runSpacing: gap,
-            children: [
-              for (final accent in AppAccent.presets)
-                _Swatch(
-                  size: size,
-                  color: accent.base,
-                  selected: !selected.isCustom && selected.id == accent.id,
-                  onTap: () => onPick(accent),
-                  semanticLabel: accent.labelKey.tr(),
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// The way into the colour wheel. A row rather than a thirteenth circle: it can
-/// carry a label, it never breaks the grid's rhythm, and when a custom colour
-/// is in force it shows which one.
-class _CustomAccentRow extends StatelessWidget {
-  const _CustomAccentRow({required this.active, required this.onTap});
-
-  final bool active;
-  final VoidCallback onTap;
-
-  /// Hues around the wheel chip. Twelve is enough for the sweep to read as
-  /// continuous at this size.
-  static const List<Color> _wheel = [
-    Color(0xFFE53935), Color(0xFFF4511E), Color(0xFFFFB300),
-    Color(0xFFC0CA33), Color(0xFF43A047), Color(0xFF00897B),
-    Color(0xFF039BE5), Color(0xFF3949AB), Color(0xFF8E24AA),
-    Color(0xFFD81B60), Color(0xFFE53935),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Row(
-            children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const SweepGradient(colors: _wheel),
-                  border: Border.all(
-                    color: active
-                        ? AppColors.textPrimary
-                        : AppColors.textPrimary.withValues(alpha: 0.12),
-                    width: active ? 2 : 1,
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 0, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: 16, bottom: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    selected.labelKey.tr(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'appearance.custom_title'.tr(),
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                Text(
+                  '#$hex',
+                  style: const TextStyle(
+                    color: AppColors.textHint,
+                    fontSize: 11.5,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                    letterSpacing: 0.4,
                   ),
                 ),
-              ),
-              if (active)
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 6),
-                  child: Icon(
-                    Icons.check_rounded,
-                    size: 18,
-                    color: AppColors.primary,
-                  ),
-                ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.textHint,
-                size: 20,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          SizedBox(
+            height:
+                164 +
+                (MediaQuery.textScalerOf(context).scale(13) - 13).clamp(0, 30),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsetsDirectional.only(end: 16),
+              itemCount: AppAccent.presets.length + 1,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final custom = index == AppAccent.presets.length;
+                final option = custom
+                    ? (selected.isCustom || selected.isSystem
+                          ? selected
+                          : AppAccent.custom(selected.base))
+                    : AppAccent.presets[index];
+                return AccentPreviewCard(
+                  palette: AppPalette.resolve(
+                    accent: option,
+                    darkness: AppPalette.current.darkness,
+                    tintNav: AppPalette.current.tintNav,
+                  ),
+                  label: custom
+                      ? 'appearance.accent_custom'.tr()
+                      : option.labelKey.tr(),
+                  selected: custom
+                      ? selected.isCustom
+                      : selected.id == option.id,
+                  custom: custom,
+                  onTap: custom ? onCustom : () => onPick(option),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -404,62 +414,6 @@ class _Swatch extends StatelessWidget {
   }
 }
 
-/// Names the accent in force and, for a custom one, offers the way back into
-/// the picker. Without it the grid is twelve unlabelled dots.
-class _CurrentAccentRow extends StatelessWidget {
-  const _CurrentAccentRow({required this.accent});
-
-  final AppAccent accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final hex = accent.base
-        .toARGB32()
-        .toRadixString(16)
-        .padLeft(8, '0')
-        .substring(2)
-        .toUpperCase();
-    return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Row(
-            children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: accent.base,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppColors.textPrimary.withValues(alpha: 0.12),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  accent.labelKey.tr(),
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Text(
-                '#$hex',
-                style: const TextStyle(
-                  color: AppColors.textHint,
-                  fontSize: 12.5,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                  letterSpacing: 0.4,
-                ),
-              ),
-            ],
-          ),
-        );
-  }
-}
-
 /// The accents the user's own library is made of.
 ///
 /// Hides itself entirely when there is nothing to show — a fresh install, an
@@ -507,23 +461,20 @@ class _LibraryAccentSection extends StatelessWidget {
                               // Between one and six swatches can turn up, and a
                               // Wrap would stretch two of them into saucers.
                               const gap = 10.0;
-                              const columns = 6;
-                              final size =
-                                  (constraints.maxWidth - gap * (columns - 1)) /
-                                      columns;
                               return Wrap(
                                 spacing: gap,
                                 runSpacing: gap,
                                 children: [
                                   for (final accent in found)
                                     _Swatch(
-                                      size: size,
+                                      size: _AccentStrip.swatch,
                                       color: accent.base,
-                                      selected: selected.isCustom &&
+                                      selected:
+                                          selected.isCustom &&
                                           selected.base == accent.base,
                                       onTap: () => onPick(accent),
-                                      semanticLabel:
-                                          'appearance.accent_custom'.tr(),
+                                      semanticLabel: 'appearance.accent_custom'
+                                          .tr(),
                                     ),
                                 ],
                               );
@@ -725,8 +676,9 @@ class _DarknessTile extends StatelessWidget {
                             ? AppColors.textPrimary
                             : AppColors.textSecondary,
                         fontSize: 13,
-                        fontWeight:
-                            selected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                       ),
                     ),
                   ),
@@ -948,11 +900,16 @@ class _CustomAccentSheetState extends State<_CustomAccentSheet> {
                 value: _hsl.hue / 360,
                 thumbColor: HSLColor.fromAHSL(1, _hsl.hue, 1, 0.5).toColor(),
                 gradient: const [
-                  Color(0xFFFF0000), Color(0xFFFFFF00), Color(0xFF00FF00),
-                  Color(0xFF00FFFF), Color(0xFF0000FF), Color(0xFFFF00FF),
+                  Color(0xFFFF0000),
+                  Color(0xFFFFFF00),
+                  Color(0xFF00FF00),
+                  Color(0xFF00FFFF),
+                  Color(0xFF0000FF),
+                  Color(0xFFFF00FF),
                   Color(0xFFFF0000),
                 ],
-                onChanged: (t) => _update(_hsl.withHue((t * 360).clamp(0, 360))),
+                onChanged: (t) =>
+                    _update(_hsl.withHue((t * 360).clamp(0, 360))),
               ),
               const SizedBox(height: 14),
               _GradientSlider(
@@ -972,7 +929,12 @@ class _CustomAccentSheetState extends State<_CustomAccentSheet> {
                 thumbColor: _seed,
                 gradient: [
                   Colors.black,
-                  HSLColor.fromAHSL(1, _hsl.hue, _hsl.saturation, 0.5).toColor(),
+                  HSLColor.fromAHSL(
+                    1,
+                    _hsl.hue,
+                    _hsl.saturation,
+                    0.5,
+                  ).toColor(),
                   Colors.white,
                 ],
                 onChanged: (t) => _update(_hsl.withLightness(t)),
@@ -1109,14 +1071,18 @@ class _GradientSlider extends StatelessWidget {
                           borderRadius: BorderRadius.circular(_trackHeight / 2),
                           gradient: LinearGradient(colors: gradient),
                           border: Border.all(
-                            color: AppColors.textPrimary.withValues(alpha: 0.10),
+                            color: AppColors.textPrimary.withValues(
+                              alpha: 0.10,
+                            ),
                             width: 0.5,
                           ),
                         ),
                       ),
                     ),
                     Positioned(
-                      left: usable.clamp(0, double.infinity) * value.clamp(0.0, 1.0),
+                      left:
+                          usable.clamp(0, double.infinity) *
+                          value.clamp(0.0, 1.0),
                       child: Container(
                         width: _thumbRadius * 2,
                         height: _thumbRadius * 2,

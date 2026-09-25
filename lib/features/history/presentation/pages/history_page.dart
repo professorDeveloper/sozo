@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:soplay/core/system/app_dates.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/platform_utils.dart';
@@ -497,7 +498,7 @@ class _HistoryRow extends StatelessWidget {
     if (diff.inHours < 1) return 'time.minutes'.tr(args: ['${diff.inMinutes}']);
     if (diff.inDays < 1) return 'time.hours'.tr(args: ['${diff.inHours}']);
     if (diff.inDays < 7) return 'time.days'.tr(args: ['${diff.inDays}']);
-    return DateFormat.yMMMd(context.locale.toString()).format(at);
+    return AppDates.short(context, at);
   }
 }
 

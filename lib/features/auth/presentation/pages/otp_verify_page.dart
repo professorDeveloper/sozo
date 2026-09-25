@@ -10,6 +10,7 @@ import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
 import 'package:soplay/features/auth/presentation/widgets/auth_widgets.dart';
+import 'package:soplay/features/onboarding/presentation/onboarding_navigation.dart';
 
 class OtpVerifyPage extends StatefulWidget {
   const OtpVerifyPage({super.key, required this.email});
@@ -153,7 +154,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
                   a.cooldownUntil != b.cooldownUntil),
           listener: (context, state) {
             if (state is AuthLoaded) {
-              context.go('/main');
+              goAfterAuth(context);
               return;
             }
             if (state is AuthOtpPending) {

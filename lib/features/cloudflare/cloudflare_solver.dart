@@ -15,6 +15,23 @@ Future<bool> requestCloudflareSolve(
 ) async {
   if (Platform.isLinux) return false;
   if (provider.length < 4) return false;
+  // One solver at a time, app-wide. Every branch below awaits a platform
+  // channel before it pushes the page, so two taps on "Solve Cloudflare" both
+  // got through the await and pushed two solver routes onto the stack — the
+  // second over the first, so solving the visible one popped back to another
+  // copy of itself and the challenge looked unsolvable.
+  if (_solving) return false;
+  _solving = true;
+  try {
+    return await _solve(context, provider);
+  } finally {
+    _solving = false;
+  }
+}
+
+bool _solving = false;
+
+Future<bool> _solve(BuildContext context, String provider) async {
   final id = provider.substring(3);
 
   // `my:` handled first, and separately: it is the one ecosystem that does not

@@ -22,10 +22,10 @@ class PinCheckResult extends Equatable {
   const PinCheckResult.ok() : this._(PinCheck.ok);
 
   const PinCheckResult.wrong(int attemptsLeft)
-      : this._(PinCheck.wrong, attemptsLeft: attemptsLeft);
+    : this._(PinCheck.wrong, attemptsLeft: attemptsLeft);
 
   const PinCheckResult.lockedOut(DateTime retryAt)
-      : this._(PinCheck.lockedOut, retryAt: retryAt);
+    : this._(PinCheck.lockedOut, retryAt: retryAt);
 
   const PinCheckResult.unavailable() : this._(PinCheck.unavailable);
 

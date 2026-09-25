@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:soplay/core/system/app_dates.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:soplay/core/di/injection.dart';
@@ -33,16 +34,19 @@ class _BackupPageState extends State<BackupPage> {
   final BackupService _service = getIt<BackupService>();
   bool _busy = false;
 
+  /// What the page is doing while busy, when it is worth saying: reinstalling
+  /// sources takes long enough that a bare spinner looks like a hang.
+  String? _stage;
+
   Future<void> _export() async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
       final file = await _service.export();
       if (!mounted) return;
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: 'backup.file_subject'.tr(),
-      );
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], subject: 'backup.file_subject'.tr());
     } catch (_) {
       if (mounted) _say('backup.export_failed'.tr());
     } finally {
@@ -107,9 +111,19 @@ class _BackupPageState extends State<BackupPage> {
         if (mounted) setState(() => _busy = false);
         return;
       }
-      final summary = await _service.import(File(path));
+      final summary = await _service.import(
+        File(path),
+        onExtensions: (_) {
+          if (mounted) {
+            setState(() => _stage = 'backup.reinstalling_sources'.tr());
+          }
+        },
+      );
       if (!mounted) return;
-      setState(() => _busy = false);
+      setState(() {
+        _busy = false;
+        _stage = null;
+      });
       if (!summary.ok) {
         _say(
           summary.error == 'too_new'
@@ -118,13 +132,95 @@ class _BackupPageState extends State<BackupPage> {
         );
         return;
       }
-      _say('backup.restored'.tr(args: ['${summary.restored}']));
+      if (summary.extensions.reposAdded == 0 &&
+          summary.extensions.pluginsInstalled == 0 &&
+          summary.extensions.complete) {
+        _say('backup.restored'.tr(args: ['${summary.restored}']));
+      } else {
+        await _report(summary);
+      }
     } catch (_) {
       if (mounted) {
-        setState(() => _busy = false);
+        setState(() {
+          _busy = false;
+          _stage = null;
+        });
         _say('backup.restore_failed'.tr());
       }
     }
+  }
+
+  /// The whole account of a restore that touched the sources: how much came
+  /// back, and by name what did not — a source that silently failed to return
+  /// is found only when somebody goes to read from it.
+  Future<void> _report(BackupSummary summary) {
+    final ext = summary.extensions;
+    final lines = <String>[
+      'backup.restored'.tr(args: ['${summary.restored}']),
+      if (ext.reposAdded > 0)
+        'backup.repos_added'.tr(args: ['${ext.reposAdded}']),
+      if (ext.pluginsInstalled > 0)
+        'backup.plugins_installed'.tr(args: ['${ext.pluginsInstalled}']),
+      if (ext.preferencesRestored > 0)
+        'backup.prefs_restored'.tr(args: ['${ext.preferencesRestored}']),
+    ];
+    const muted = TextStyle(color: AppColors.textSecondary, fontSize: 14);
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          ext.complete
+              ? 'backup.restore_done'.tr()
+              : 'backup.restore_partial'.tr(),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final l in lines) Text(l, style: muted),
+              if (ext.missingSources.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'backup.missing_sources'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(ext.missingSources.join(', '), style: muted),
+              ],
+              if (ext.failedRepos.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'backup.failed_repos'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(ext.failedRepos.join('\n'), style: muted),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('general.ok'.tr()),
+          ),
+        ],
+      ),
+    );
   }
 
   void _say(String message) {
@@ -140,9 +236,9 @@ class _BackupPageState extends State<BackupPage> {
   String _lastLine() {
     final at = _service.lastExportAt;
     if (at == null) return 'backup.never_exported'.tr();
-    final stamp = DateFormat.yMMMd(
-      context.locale.toString(),
-    ).add_Hm().format(at);
+    final stamp =
+        '${AppDates.short(context, at)} '
+        '${DateFormat.Hm(context.locale.toString()).format(at)}';
     return 'backup.last_export'.tr(args: [stamp]);
   }
 
@@ -186,6 +282,7 @@ class _BackupPageState extends State<BackupPage> {
         ),
         // What a backup holds, then whether this device has one. Two notes
         // rather than a row apiece: neither is something to tap.
+        if (_stage != null) SettingsFootnote(_stage!),
         SettingsFootnote('backup.subtitle'.tr()),
         SettingsFootnote(_lastLine()),
       ],

@@ -18,8 +18,8 @@ class SafeCookieManager extends Interceptor {
       final header = _formatCookies(cookies);
       if (header.isNotEmpty) {
         final existing = options.headers[HttpHeaders.cookieHeader];
-        options.headers[HttpHeaders.cookieHeader] = existing is String &&
-                existing.isNotEmpty
+        options.headers[HttpHeaders.cookieHeader] =
+            existing is String && existing.isNotEmpty
             ? '$existing; $header'
             : header;
       }
@@ -28,10 +28,7 @@ class SafeCookieManager extends Interceptor {
   }
 
   @override
-  void onResponse(
-    Response response,
-    ResponseInterceptorHandler handler,
-  ) async {
+  void onResponse(Response response, ResponseInterceptorHandler handler) async {
     try {
       await _saveCookies(response);
     } catch (_) {}

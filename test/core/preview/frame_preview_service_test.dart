@@ -196,4 +196,77 @@ void main() {
     expect(calls.where((call) => call == 'frame'), isEmpty);
     await session.close();
   });
+
+  group('the background grid', () {
+    FramePreviewSession session({List<int>? frames, Completer<void>? hold}) =>
+        FramePreviewSession(
+          supported: true,
+          invoke: (method, args) async {
+            if (method != 'frame') return true;
+            final pos = args!['posMs'] as int;
+            frames?.add(pos);
+            if (hold != null) await hold.future;
+            return Uint8List.fromList([pos ~/ 1000 % 256]);
+          },
+        );
+
+    test(
+      'a grid frame is served at once, and nearest finds the closest',
+      () async {
+        final s = session();
+        await s.open('https://media.example/ep.m3u8', {});
+        expect(await s.gridFrame(60000), isTrue);
+        expect(await s.gridFrame(120000), isTrue);
+        // Exact bucket: straight from the grid, no decoder.
+        expect(await s.frame(61000), [60]);
+        // Between the two, nearer 120s.
+        expect(s.nearest(100000), [120]);
+        // Too far from anything.
+        expect(s.nearest(400000), isNull);
+        await s.close();
+      },
+    );
+
+    test('it steps aside while the viewer has a request out', () async {
+      final hold = Completer<void>();
+      final s = session(hold: hold);
+      await s.open('https://media.example/ep.m3u8', {});
+      final mine = s.frame(30000);
+      await settle();
+      expect(s.busy, isTrue);
+      expect(await s.gridFrame(90000), isFalse, reason: 'retry later');
+      hold.complete();
+      await mine;
+      await settle();
+      expect(await s.gridFrame(90000), isTrue);
+      await s.close();
+    });
+
+    test('scrubbing cannot evict it', () async {
+      final s = FramePreviewSession(
+        supported: true,
+        maxFrames: 2,
+        invoke: (method, args) async => method == 'frame'
+            ? Uint8List.fromList([(args!['posMs'] as int) ~/ 5000])
+            : true,
+      );
+      await s.open('https://media.example/ep.mp4', {});
+      await s.gridFrame(500000);
+      for (var t = 0; t < 60000; t += 5000) {
+        await s.frame(t);
+      }
+      expect(s.nearest(500000, withinMs: 0), [100]);
+      await s.close();
+    });
+
+    test('a new source starts an empty grid', () async {
+      final s = session();
+      await s.open('https://media.example/ep1.m3u8', {});
+      await s.gridFrame(60000);
+      await s.open('https://media.example/ep2.m3u8', {});
+      expect(s.nearest(60000), isNull);
+      expect(s.serves('https://media.example/ep2.m3u8'), isTrue);
+      await s.close();
+    });
+  });
 }

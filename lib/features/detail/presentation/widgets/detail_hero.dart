@@ -1,4 +1,8 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/network/image_headers.dart';
@@ -42,10 +46,12 @@ class DetailHeroBackground extends StatelessWidget {
         // Only the image travels; the gradients and the title stay with the
         // page. A gradient in flight is a dark rectangle sliding across the
         // screen, and a title in flight is text scaling from 9pt to 26pt.
-        PosterHero(
-          tag: heroTag,
-          url: thumbnail,
-          child: _ThumbnailImage(url: thumbnail),
+        _Bloom(
+          child: PosterHero(
+            tag: heroTag,
+            url: thumbnail,
+            child: _ThumbnailImage(url: thumbnail),
+          ),
         ),
         // Between the poster and the furniture: the gradients and the title
         // have to sit over the trailer exactly as they sit over the artwork,
@@ -55,10 +61,7 @@ class DetailHeroBackground extends StatelessWidget {
         // interpolated from a grid tile, and it has no business travelling —
         // what flies is the poster the viewer tapped.
         if (trailer != null)
-          HeroTrailerPreview(
-            query: trailer,
-            active: trailerActive,
-          ),
+          HeroTrailerPreview(query: trailer, active: trailerActive),
         // Everything else fades in WITH the route rather than being painted at
         // full strength from the first frame.
         //
@@ -70,67 +73,70 @@ class DetailHeroBackground extends StatelessWidget {
         // around it as it settles.
         _HeroOverlayFade(
           hasFlight: heroTag != null,
-          child: Stack(fit: StackFit.expand, children: [
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment(0, 0.4),
-              colors: [Color(0xCC000000), Color(0x00000000)],
-            ),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: SizedBox(
-            height: 220,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  // All three stops are the page background at falling
-                  // opacity — that is what makes the poster dissolve INTO the
-                  // page. The middle one used to be the literal #181818, which
-                  // left a grey band hanging in mid-air under AMOLED.
-                  colors: [
-                    AppColors.background,
-                    AppColors.background.withValues(alpha: 0.933),
-                    AppColors.background.withValues(alpha: 0.0),
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment(0, 0.4),
+                    colors: [Color(0xCC000000), Color(0x00000000)],
+                  ),
                 ),
               ),
-            ),
-          ),
-        ),
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 20,
-          child: Text(
-            title.trim(),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              height: 1.15,
-              letterSpacing: -0.3,
-              shadows: [
-                Shadow(
-                  color: Colors.black87,
-                  blurRadius: 20,
-                  offset: Offset(0, 2),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SizedBox(
+                  height: 220,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        // All three stops are the page background at falling
+                        // opacity — that is what makes the poster dissolve INTO the
+                        // page. The middle one used to be the literal #181818, which
+                        // left a grey band hanging in mid-air under AMOLED.
+                        colors: [
+                          AppColors.background,
+                          AppColors.background.withValues(alpha: 0.933),
+                          AppColors.background.withValues(alpha: 0.0),
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      ),
+                    ),
+                  ),
                 ),
-              ],
-            ),
+              ),
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 20,
+                child: Text(
+                  title.trim(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    height: 1.15,
+                    letterSpacing: -0.3,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black87,
+                        blurRadius: 20,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-          ]),
         ),
       ],
     );
@@ -236,7 +242,12 @@ class _HeroOverlayFadeState extends State<_HeroOverlayFade> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final animation = widget.hasFlight
+    // Same gate as [_Bloom], for the same reason and on the same animation:
+    // on iOS the route is a Cupertino page, so this controller runs backwards
+    // under an edge-swipe and the scrims fade out as the finger moves — the
+    // header's gradients measurably gone by about halfway through a drag the
+    // user may still abandon. The arrival fade belongs to arriving.
+    final animation = widget.hasFlight && _Bloom.runsHere
         ? ModalRoute.of(context)?.animation
         : null;
     if (identical(animation, _parent)) return;
@@ -265,3 +276,111 @@ class _HeroOverlayFadeState extends State<_HeroOverlayFade> {
   }
 }
 
+/// The artwork sharpens into place as the page arrives.
+///
+/// Along the incoming route's animation the image starts blurred and a little
+/// larger, and resolves to sharp at full size — a photograph pulling into
+/// focus, the same beat as the page rising under it. Nothing once the route
+/// has settled: the filter is only in the tree for the run, so a page being
+/// scrolled or revisited paints a plain image.
+///
+/// ## Off on iOS
+///
+/// This reads `ModalRoute.of(context)?.animation`, and on iOS that animation is
+/// not only the arrival. (On Android it is the same object the bloom
+/// transition is handed — `CustomTransitionPage` passes `route.animation`
+/// straight into its `transitionsBuilder` — so there is no contrast to draw
+/// there; the difference is entirely what the route does with it.)
+/// `_bloomPage` in `app_router.dart` hands iOS the platform page so
+/// the edge swipe survives, and a Cupertino route's back gesture drives that
+/// same animation controller backwards as the finger moves. Ungated, dragging
+/// in from the left edge blurs and grows the poster under the thumb, frame by
+/// frame, at 18px of blur across the largest image on the screen — a beat that
+/// belongs to arriving, played over a gesture that is leaving, and one iOS
+/// does not draw that way anywhere else.
+///
+/// So the gate is [defaultTargetPlatform], deliberately the same check
+/// `_bloomPage` makes to choose the page type: the two decisions are one
+/// decision, and if they ever disagree the platform that gets the Cupertino
+/// page is the platform that gets the blur on its back swipe.
+class _Bloom extends StatefulWidget {
+  const _Bloom({required this.child});
+
+  final Widget child;
+
+  static const double _blur = 18;
+  static const double _grow = 0.10;
+
+  /// True wherever the route animation means "arriving" and nothing else.
+  ///
+  /// Read by [_HeroOverlayFade] too: both ride the route animation, so both
+  /// have to be off on exactly the platforms where it is also the back
+  /// gesture, and one getter is how they stay that way.
+  static bool get runsHere => defaultTargetPlatform != TargetPlatform.iOS;
+
+  @override
+  State<_Bloom> createState() => _BloomState();
+}
+
+class _BloomState extends State<_Bloom> {
+  Animation<double>? _parent;
+  CurvedAnimation? _curve;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Also skips the ancestor walk on the platform that has no use for the
+    // answer.
+    final animation = _Bloom.runsHere
+        ? ModalRoute.of(context)?.animation
+        : null;
+    if (identical(animation, _parent)) return;
+    _curve?.dispose();
+    _parent = animation;
+    _curve = animation == null
+        ? null
+        : CurvedAnimation(
+            parent: animation,
+            curve: const Cubic(0.05, 0.7, 0.1, 1.0),
+          );
+  }
+
+  @override
+  void dispose() {
+    _curve?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final curve = _curve;
+    if (curve == null || MediaQuery.disableAnimationsOf(context)) {
+      return widget.child;
+    }
+    // The same tree before, during and after the run — only the numbers
+    // change. Swapping the filter out at the end would remount the image
+    // under it, and a poster that blinks as it lands undoes the landing.
+    return AnimatedBuilder(
+      animation: curve,
+      child: widget.child,
+      builder: (context, child) {
+        final t = curve.value;
+        final sigma = _Bloom._blur * (1 - t);
+        return ClipRect(
+          child: Transform.scale(
+            scale: 1 + _Bloom._grow * (1 - t),
+            child: ImageFiltered(
+              enabled: sigma > 0.1,
+              imageFilter: ImageFilter.blur(
+                sigmaX: sigma,
+                sigmaY: sigma,
+                tileMode: TileMode.clamp,
+              ),
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

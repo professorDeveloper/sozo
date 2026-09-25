@@ -66,6 +66,9 @@ const List<int> _subtitleColorPresets = <int>[
 ];
 
 const MethodChannel _pipChannel = MethodChannel('soplay/pip');
+
+/// iOS picture-in-picture, handed to a native player — see NativePip.swift.
+const MethodChannel _iosPipChannel = MethodChannel('soplay/ios_pip');
 const MethodChannel _systemControlsChannel = MethodChannel(
   'soplay/system_controls',
 );
@@ -78,16 +81,16 @@ const double _scrubSecondsPerFullSwipe = 90;
 /// actually jumps. Anything else falls back to the 10s icon rather than
 /// silently lying about a number.
 IconData _rewindIconFor(int seconds) => switch (seconds) {
-      5 => Icons.replay_5_rounded,
-      30 => Icons.replay_30_rounded,
-      _ => Icons.replay_10_rounded,
-    };
+  5 => Icons.replay_5_rounded,
+  30 => Icons.replay_30_rounded,
+  _ => Icons.replay_10_rounded,
+};
 
 IconData _forwardIconFor(int seconds) => switch (seconds) {
-      5 => Icons.forward_5_rounded,
-      30 => Icons.forward_30_rounded,
-      _ => Icons.forward_10_rounded,
-    };
+  5 => Icons.forward_5_rounded,
+  30 => Icons.forward_30_rounded,
+  _ => Icons.forward_10_rounded,
+};
 
 String _formatDuration(Duration d) {
   final hours = d.inHours;
@@ -151,8 +154,7 @@ class _VttThumbnail {
 
   bool get hasSprite => w > 0 && h > 0;
 
-  bool contains(Duration position) =>
-      position >= start && position < end;
+  bool contains(Duration position) => position >= start && position < end;
 
   static List<_VttThumbnail> parse(String vttBody, String baseUrl) {
     final lines = vttBody.split('\n').map((l) => l.trim()).toList();
@@ -206,15 +208,17 @@ class _VttThumbnail {
         url = baseUri.resolve(url).toString();
       }
 
-      results.add(_VttThumbnail(
-        start: start,
-        end: end,
-        imageUrl: url,
-        x: x,
-        y: y,
-        w: w,
-        h: h,
-      ));
+      results.add(
+        _VttThumbnail(
+          start: start,
+          end: end,
+          imageUrl: url,
+          x: x,
+          y: y,
+          w: w,
+          h: h,
+        ),
+      );
     }
     return results;
   }

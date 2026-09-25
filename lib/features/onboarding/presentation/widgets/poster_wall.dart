@@ -15,6 +15,7 @@ class PosterWall extends StatefulWidget {
     this.columns = 5,
     this.tilesPerColumn = 11,
     this.fadeTop = false,
+    this.fadeBottom = true,
   });
 
   final List<String> posters;
@@ -24,6 +25,10 @@ class PosterWall extends StatefulWidget {
   /// Fades the top edge instead of only the bottom — what the auth headers
   /// want, where the wall sits under a top bar.
   final bool fadeTop;
+
+  /// Off where the page already fades the wall into its background: the mask
+  /// is a full-screen offscreen pass on every frame of the drift.
+  final bool fadeBottom;
 
   @override
   State<PosterWall> createState() => _PosterWallState();
@@ -79,6 +84,31 @@ class _PosterWallState extends State<PosterWall>
           final tileHeight = tileWidth / _posterRatio;
           final strip = (tileHeight + _gap) * widget.tilesPerColumn;
 
+          final wall = SizedBox(
+            height: constraints.maxHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var c = 0; c < widget.columns; c++) ...[
+                  if (c > 0) const SizedBox(width: _gap),
+                  Expanded(
+                    child: _PosterColumn(
+                      controller: _controller,
+                      posters: _postersFor(c),
+                      speed: _speeds[c % _speeds.length],
+                      strip: strip,
+                      tileHeight: tileHeight,
+                      tileWidth: tileWidth,
+                      // Staggering the start stops every column from
+                      // beginning on the same row of the wall.
+                      phase: c / widget.columns,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+          if (!widget.fadeTop && !widget.fadeBottom) return wall;
           return ShaderMask(
             blendMode: BlendMode.dstIn,
             shaderCallback: (rect) => LinearGradient(
@@ -91,30 +121,7 @@ class _PosterWallState extends State<PosterWall>
               ],
               stops: const [0, 0.35, 1],
             ).createShader(rect),
-            child: SizedBox(
-              height: constraints.maxHeight,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var c = 0; c < widget.columns; c++) ...[
-                    if (c > 0) const SizedBox(width: _gap),
-                    Expanded(
-                      child: _PosterColumn(
-                        controller: _controller,
-                        posters: _postersFor(c),
-                        speed: _speeds[c % _speeds.length],
-                        strip: strip,
-                        tileHeight: tileHeight,
-                        tileWidth: tileWidth,
-                        // Staggering the start stops every column from
-                        // beginning on the same row of the wall.
-                        phase: c / widget.columns,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+            child: wall,
           );
         },
       ),

@@ -199,6 +199,40 @@ class MalApi {
     _ok(res, 'could not remove it from MyAnimeList');
   }
 
+  /// Edits the entry by id: any of status, episodes and score, only those
+  /// given. What [updateEntry] does for a search hit, for a page that has
+  /// the id and nothing else.
+  Future<MalEntryState> updateListStatus({
+    required String token,
+    required int animeId,
+    String? status,
+    int? episodes,
+    int? score,
+    int? totalEpisodes,
+  }) async {
+    final res = await _dio.patch(
+      '/anime/$animeId/my_list_status',
+      data: {
+        'status': ?status,
+        'num_watched_episodes': ?episodes,
+        'score': ?score,
+      },
+      options: _auth(
+        token,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      ),
+    );
+    final data = _ok(res, 'could not update MyAnimeList');
+    return MalEntryState(
+      watchedEpisodes:
+          (data['num_episodes_watched'] as num?)?.toInt() ?? episodes ?? 0,
+      status: data['status'] as String? ?? status,
+      totalEpisodes: totalEpisodes,
+      isRewatching: data['is_rewatching'] == true,
+      score: (data['score'] as num?)?.toInt() ?? score,
+    );
+  }
+
   /// Writes [episodes] watched, and optionally moves the entry's status.
   ///
   /// [status] is null when the entry should keep whatever status it has —

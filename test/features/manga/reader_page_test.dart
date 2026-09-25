@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/repositories/detail_repository.dart';
@@ -23,7 +24,12 @@ import 'package:soplay/features/manga/presentation/pages/reader_page.dart';
 class Settings implements HiveService {
   final bool spread;
   final String mode;
-  Settings({this.spread = false, this.mode = 'horizontal'});
+  String layout;
+  Settings({
+    this.spread = false,
+    this.mode = 'horizontal',
+    this.layout = 'scroll',
+  });
   @override
   bool get readerSpread => spread;
   @override
@@ -41,6 +47,41 @@ class Settings implements HiveService {
   @override
   bool getNovelJustify() => false;
   @override
+  String getNovelLayout() => layout;
+  @override
+  Future<void> saveNovelLayout(String v) async => layout = v;
+  @override
+  String getNovelTheme() => '';
+  @override
+  double getNovelMargin() => 20;
+  // The reader asks before telling a tracker anything; incognito is the one
+  // reader setting that reaches past this screen.
+  @override
+  bool get isIncognito => false;
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+/// Stands in for the real tracker so a finished chapter can be observed
+/// without an account, a token or a network.
+class Tracker implements AnilistTracker {
+  Tracker({this.connected = false});
+  bool connected;
+  final reported = <int>[];
+  @override
+  bool get isConnected => connected;
+  @override
+  Future<int?> reportChapter({
+    required String provider,
+    required String contentUrl,
+    required String title,
+    required int chapterNumber,
+  }) async {
+    reported.add(chapterNumber);
+    return 1;
+  }
+
+  @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
 
@@ -52,6 +93,8 @@ class Downloads implements DownloadRepository {
   DownloadRequest? lastRequest;
   @override
   Future<List<MangaPageEntity>> localMangaPages(String id) async => [];
+  @override
+  Future<String?> localChapterHtml(String id) async => null;
   @override
   DownloadItem? byId(String id) => null;
   @override
@@ -123,14 +166,32 @@ class History implements HistoryService {
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
 
+/// A tracker that is down, from the reader's point of view.
+class Throwing extends Tracker {
+  Throwing() : super(connected: true);
+  int calls = 0;
+  @override
+  Future<int?> reportChapter({
+    required String provider,
+    required String contentUrl,
+    required String title,
+    required int chapterNumber,
+  }) async {
+    calls++;
+    throw StateError('tracker down');
+  }
+}
+
 Future<void> open(
   WidgetTester t, {
   required Settings settings,
   required Content content,
   int? resume = 0,
   History? history,
+  Tracker? tracker,
 }) async {
   getIt.registerSingleton<HiveService>(settings);
+  getIt.registerSingleton<AnilistTracker>(tracker ?? Tracker());
   getIt.registerSingleton<GetDownloadsUseCase>(
     GetDownloadsUseCase(Downloads()),
   );
@@ -395,6 +456,95 @@ void main() {
       history: history,
     );
     expect(t.widget<PageView>(find.byType(PageView)).controller!.page, 0);
+    await close(t);
+  });
+  testWidgets('a chapter opened and abandoned tells the tracker nothing', (
+    t,
+  ) async {
+    final tracker = Tracker(connected: true);
+    await open(t, settings: Settings(), content: Content(), tracker: tracker);
+    await t.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    expect(find.text('2/9'), findsOneWidget);
+    await t.pump(const Duration(milliseconds: 900));
+    expect(tracker.reported, isEmpty);
+    await close(t);
+  });
+  testWidgets('a chapter read to its last page reports once, and only once', (
+    t,
+  ) async {
+    final tracker = Tracker(connected: true);
+    await open(t, settings: Settings(), content: Content(), tracker: tracker);
+    await t.sendKeyEvent(LogicalKeyboardKey.end);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    expect(find.text('9/9'), findsOneWidget);
+    await t.pump(const Duration(milliseconds: 900));
+    expect(tracker.reported, [1]);
+    // Paging back over the end and returning to it is ordinary reading, not a
+    // second chapter.
+    await t.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    await t.sendKeyEvent(LogicalKeyboardKey.end);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 900));
+    expect(tracker.reported, [1]);
+    await close(t);
+  });
+  testWidgets('a novel chapter read to the end of its scroll reports', (
+    t,
+  ) async {
+    // Prose is one long scroll with no last page, so the scroll position is
+    // the only evidence there is that it was read.
+    final tracker = Tracker(connected: true);
+    await open(
+      t,
+      settings: Settings(mode: 'vertical'),
+      content: Content(novel: true),
+      tracker: tracker,
+    );
+    await t.pump(const Duration(milliseconds: 900));
+    expect(tracker.reported, isEmpty);
+    await t.sendKeyEvent(LogicalKeyboardKey.end);
+    await t.pump();
+    expect(find.text('100%'), findsOneWidget);
+    await t.pump(const Duration(milliseconds: 900));
+    expect(tracker.reported, [1]);
+    await close(t);
+  });
+  testWidgets('nothing is reported while no tracker is connected', (t) async {
+    final tracker = Tracker();
+    await open(t, settings: Settings(), content: Content(), tracker: tracker);
+    await t.sendKeyEvent(LogicalKeyboardKey.end);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 900));
+    expect(tracker.reported, isEmpty);
+    // Connecting mid-sitting: the chapter was finished, so the next time the
+    // reader's position is recorded it must still be reportable.
+    tracker.connected = true;
+    await t.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    await t.sendKeyEvent(LogicalKeyboardKey.end);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 900));
+    expect(tracker.reported, [1]);
+    await close(t);
+  });
+  testWidgets('a tracker that throws never reaches the reader', (t) async {
+    // A dead tracker, an expired token and no network all arrive here as a
+    // rejected future. None of them may put an error over the page.
+    final tracker = Throwing();
+    await open(t, settings: Settings(), content: Content(), tracker: tracker);
+    await t.sendKeyEvent(LogicalKeyboardKey.end);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 900));
+    expect(tracker.calls, 1);
+    expect(t.takeException(), isNull);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('9/9'), findsOneWidget);
     await close(t);
   });
 }

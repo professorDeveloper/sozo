@@ -12,7 +12,8 @@ class MangaChannel {
 
   static const MethodChannel _ch = MethodChannel('soplay/manga');
 
-  static bool get isSupported => Platform.isAndroid || ExtensionBridge.isEnabled;
+  static bool get isSupported =>
+      Platform.isAndroid || ExtensionBridge.isEnabled;
 
   static final StreamController<({int current, int total})> _progressCtrl =
       StreamController<({int current, int total})>.broadcast();
@@ -40,7 +41,10 @@ class MangaChannel {
     return _progressCtrl.stream;
   }
 
-  static Future<T?> _call<T>(String method, [Map<String, dynamic>? args]) async {
+  static Future<T?> _call<T>(
+    String method, [
+    Map<String, dynamic>? args,
+  ]) async {
     if (Platform.isAndroid) {
       try {
         return await _ch.invokeMethod<T>(method, args);
@@ -79,6 +83,14 @@ class MangaChannel {
     return {'languages': langs};
   }
 
+  /// Which of [ids] (without their prefix) are installed here; null when the
+  /// host cannot say, as on a desktop bridge that predates the call.
+  static Future<Set<String>?> installed(List<String> ids) async {
+    final raw = await _call<String>('hasSources', {'ids': ids});
+    if (raw == null) return null;
+    return _arr(raw).whereType<String>().toSet();
+  }
+
   static Future<List<dynamic>> listProviders() async =>
       _arr(await _call<String>('listProviders', _langArgs()));
 
@@ -110,28 +122,46 @@ class MangaChannel {
   static Future<List<dynamic>> getGenres(String provider) async =>
       _arr(await _call<String>('getGenres', {'provider': provider}));
 
-  static Future<Map<String, dynamic>> getMainPage(String provider,
-          {int page = 1}) async =>
-      _obj(await _call<String>('getMainPage', {'provider': provider, 'page': page}));
+  static Future<Map<String, dynamic>> getMainPage(
+    String provider, {
+    int page = 1,
+  }) async => _obj(
+    await _call<String>('getMainPage', {'provider': provider, 'page': page}),
+  );
 
   static Future<Map<String, dynamic>> getSection(
     String provider,
     String data, {
     int page = 1,
-  }) async =>
-      _obj(await _call<String>(
-          'getSection', {'provider': provider, 'data': data, 'page': page}));
+  }) async => _obj(
+    await _call<String>('getSection', {
+      'provider': provider,
+      'data': data,
+      'page': page,
+    }),
+  );
 
-  static Future<Map<String, dynamic>> search(String provider, String query,
-          {int page = 1}) async =>
-      _obj(await _call<String>(
-          'search', {'provider': provider, 'query': query, 'page': page}));
+  static Future<Map<String, dynamic>> search(
+    String provider,
+    String query, {
+    int page = 1,
+  }) async => _obj(
+    await _call<String>('search', {
+      'provider': provider,
+      'query': query,
+      'page': page,
+    }),
+  );
 
   static Future<Map<String, dynamic>> load(String provider, String url) async =>
       _obj(await _call<String>('load', {'provider': provider, 'url': url}));
 
-  static Future<Map<String, dynamic>> pageList(String provider, String data) async =>
-      _obj(await _call<String>('pageList', {'provider': provider, 'data': data}));
+  static Future<Map<String, dynamic>> pageList(
+    String provider,
+    String data,
+  ) async => _obj(
+    await _call<String>('pageList', {'provider': provider, 'data': data}),
+  );
 
   static Future<Map<String, dynamic>> cloudflareInfo(String id) async =>
       _obj(await _call<String>('cloudflareInfo', {'id': id}));

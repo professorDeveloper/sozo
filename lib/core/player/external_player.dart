@@ -58,6 +58,7 @@ class ExternalPlayer {
     required String url,
     String? title,
     Map<String, String> headers = const <String, String>{},
+    List<({String url, String label})> subtitles = const [],
   }) async {
     if (!isSupported) return false;
     try {
@@ -65,6 +66,11 @@ class ExternalPlayer {
         'url': url,
         'title': title ?? '',
         'headers': gatingHeaders(headers),
+        // The first is the one switched on. MX Player takes all of them,
+        // VLC the first.
+        'subtitles': [
+          for (final s in subtitles) {'url': s.url, 'label': s.label},
+        ],
       });
       return ok ?? false;
     } on PlatformException {

@@ -35,11 +35,11 @@ class ProviderManager {
     required SearchDataSource searchDataSource,
     required ExtractorRunner extractor,
     required HiveService hiveService,
-  })  : _detailDataSource = detailDataSource,
-        _homeDataSource = homeDataSource,
-        _searchDataSource = searchDataSource,
-        _extractor = extractor,
-        _hiveService = hiveService;
+  }) : _detailDataSource = detailDataSource,
+       _homeDataSource = homeDataSource,
+       _searchDataSource = searchDataSource,
+       _extractor = extractor,
+       _hiveService = hiveService;
 
   void updateProviders(List<ProviderEntity> providers) {
     _providers
@@ -75,7 +75,6 @@ class ProviderManager {
     );
   }
 
-
   Future<Result<HomeDataEntity>> getHome({String? providerId}) async {
     final pid = providerId ?? currentProviderId;
     final info = getProvider(pid);
@@ -96,11 +95,9 @@ class ProviderManager {
     required String key,
     required String slug,
     int page = 1,
-  }) =>
-      _serverCall(
-        () => _homeDataSource.loadViewAll(type: key, slug: slug, page: page),
-      );
-
+  }) => _serverCall(
+    () => _homeDataSource.loadViewAll(type: key, slug: slug, page: page),
+  );
 
   Future<Result<SearchEntity>> search({
     String? providerId,
@@ -122,14 +119,8 @@ class ProviderManager {
   Future<Result<List<GenreEntity>>> searchGenres() =>
       _serverCall(() => _searchDataSource.getGenres());
 
-  Future<Result<SearchEntity>> getMoviesByGenre(
-    String genre, {
-    int page = 1,
-  }) =>
-      _serverCall(
-        () => _searchDataSource.getMoviesByGenre(genre, page: page),
-      );
-
+  Future<Result<SearchEntity>> getMoviesByGenre(String genre, {int page = 1}) =>
+      _serverCall(() => _searchDataSource.getMoviesByGenre(genre, page: page));
 
   Future<Result<DetailEntity>> getDetail(
     String contentUrl, {
@@ -172,7 +163,6 @@ class ProviderManager {
     );
   }
 
-
   Future<Result<MediaResolveEntity>> resolveMedia({
     required String ref,
     required String provider,
@@ -183,10 +173,7 @@ class ProviderManager {
       info: info,
       fullScopeRequired: false,
       method: 'resolveMedia',
-      args: {
-        'ref': ref,
-        if (lang != null && lang.isNotEmpty) 'lang': lang,
-      },
+      args: {'ref': ref, if (lang != null && lang.isNotEmpty) 'lang': lang},
       fromJson: MediaResolveModel.fromJson,
       serverFn: () => _detailDataSource.resolveMedia(
         ref: ref,
@@ -196,7 +183,6 @@ class ProviderManager {
     );
   }
 
-
   Future<Result<T>> _resolve<T>({
     required ProviderEntity? info,
     required bool fullScopeRequired,
@@ -205,17 +191,14 @@ class ProviderManager {
     required T Function(Map<String, dynamic>) fromJson,
     required Future<T> Function() serverFn,
   }) async {
-    final useExtractor =
-        fullScopeRequired ? _hasFullScope(info) : _canExtract(info);
+    final useExtractor = fullScopeRequired
+        ? _hasFullScope(info)
+        : _canExtract(info);
 
     if (useExtractor) {
       try {
         await _ensureExtractorReady(info!);
-        final json = await _extractor.call(
-          info.extractor!.name,
-          method,
-          args,
-        );
+        final json = await _extractor.call(info.extractor!.name, method, args);
         return Success(fromJson(json));
       } catch (e) {
         debugPrint(
@@ -235,9 +218,7 @@ class ProviderManager {
     } on DioException catch (e) {
       final raw = e.response?.data;
       final message =
-          (raw is Map ? raw['message'] : null) ??
-          e.message ??
-          'Server xatolik';
+          (raw is Map ? raw['message'] : null) ?? e.message ?? 'Server xatolik';
       debugPrint('[ProviderManager] _serverCall DioError: $message');
       return Failure(Exception(message.toString()));
     } catch (e) {

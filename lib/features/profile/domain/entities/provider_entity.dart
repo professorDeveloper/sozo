@@ -48,7 +48,24 @@ class ProviderEntity {
   /// on the floor in `ProviderModel.fromJson`.
   final String lang;
 
+  /// Which repository this source was installed from, when it came from one.
+  ///
+  /// Empty for Sozo's own providers and for the catalogues, which have no repo
+  /// to belong to. Every extension ecosystem has one and every host already
+  /// reported it — it was being written straight into [description] and read
+  /// nowhere, so a user with six CloudStream repos installed had no way to ask
+  /// which of two hundred sources came from which.
+  ///
+  /// The url, not a display name: the url is what the index is keyed by and the
+  /// only thing that is stable. Whatever shows it is responsible for shortening
+  /// it — see `repoLabel`.
+  final String repo;
+
   final ExtractorRef? extractor;
+
+  /// The CloudStream plugin this source was registered by. Empty for every
+  /// other kind.
+  final String internalName;
 
   const ProviderEntity({
     required this.id,
@@ -57,6 +74,7 @@ class ProviderEntity {
     required this.url,
     required this.description,
     required this.domains,
+    this.repo = '',
     this.mode = 'server',
     this.category = 'other',
     this.requiresCfBypass = false,
@@ -65,7 +83,17 @@ class ProviderEntity {
     this.nsfw = false,
     this.lang = '',
     this.extractor,
+    this.internalName = '',
   });
+
+  /// The id the server's health report knows this source by.
+  ///
+  /// The same as [id] except for CloudStream: `cs:` is the MainAPI name, which
+  /// exists only once the plugin has loaded, so the server can key its verdict
+  /// only by the plugin's internal name.
+  String get healthKey => id.startsWith('cs:') && internalName.isNotEmpty
+      ? 'csp:$internalName'
+      : id;
 
   /// Normalised for comparison: `pt-BR` and `pt-br` are the same language, and
   /// a source tagged `all` belongs to every selection rather than to none.
@@ -84,7 +112,8 @@ class ProviderEntity {
       id.startsWith('cs:') ||
       id.startsWith('an:') ||
       id.startsWith('mn:') ||
-      id.startsWith('my:');
+      id.startsWith('my:') ||
+      id.startsWith('jf:');
 
   bool get scopesResolveMedia =>
       extractor != null &&

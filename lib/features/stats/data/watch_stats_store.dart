@@ -1,6 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/storage/profile_scope.dart';
 
 /// How much has been watched, and when.
 ///
@@ -45,14 +46,14 @@ class WatchStatsStore {
   }
 
   Map<String, dynamic> _load() {
-    final raw = _box?.get(AppConstants.watchStatsKey);
+    final raw = _box?.get(ProfileScope.key(AppConstants.watchStatsKey));
     if (raw is! Map) return {};
     return raw.map((k, v) => MapEntry(k.toString(), v));
   }
 
   Future<void> _write(Map<String, dynamic> data) async {
     try {
-      await _box?.put(AppConstants.watchStatsKey, data);
+      await _box?.put(ProfileScope.key(AppConstants.watchStatsKey), data);
     } catch (_) {}
   }
 
@@ -88,15 +89,28 @@ class WatchStatsStore {
 
   /// Adds [seconds] of watching against [provider].
   ///
-  /// Silently ignores a non-positive or implausibly large amount. The player
-  /// ticks every few seconds, so a jump of hours is a clock change or a
-  /// resumed process, not somebody who watched for hours between two ticks —
-  /// and counting it would put a number on the screen nobody can explain.
+  /// A stretch longer than [_maxPlausibleTick] is CLAMPED rather than dropped.
+  /// It used to be dropped, on the reasoning that "a jump of hours is a clock
+  /// change or a resumed process" — but the only caller measures with a
+  /// `Stopwatch`, which is monotonic, so neither of those can reach here. What
+  /// the rule actually did was throw away the longest viewings in their
+  /// entirety: the player's save tick was a one-shot that never re-armed, so a
+  /// film watched straight through arrived as a single delta of two hours,
+  /// failed the ten-minute test, and counted for nothing. The statistics page
+  /// read zero for exactly the sessions it was there to show.
+  ///
+  /// The tick repeats now, so deltas are seconds apart in the ordinary case.
+  /// A long one still happens when the platform suspends timers — background
+  /// playback, picture-in-picture with the screen off — and that is real
+  /// watching. Clamping keeps the guard's purpose, which is that no single
+  /// call can put an unexplainable number on the screen, while crediting a
+  /// real stretch as far as it is plausible.
   Future<void> record({
     required int seconds,
     required String provider,
   }) async {
-    if (seconds <= 0 || seconds > _maxPlausibleTick) return;
+    if (seconds <= 0) return;
+    if (seconds > _maxPlausibleTick) seconds = _maxPlausibleTick;
     final data = Map<String, dynamic>.of(_load());
     final now = DateTime.now();
 
@@ -163,12 +177,15 @@ class WatchStatsStore {
 
   Future<void> clear() async {
     try {
-      await _box?.delete(AppConstants.watchStatsKey);
+      await _box?.delete(ProfileScope.key(AppConstants.watchStatsKey));
     } catch (_) {}
   }
 
-  /// A tick larger than this did not happen — see [record].
-  static const int _maxPlausibleTick = 600;
+  /// The most one call may credit — see [record].
+  ///
+  /// Four hours: longer than any single film, so nothing genuine is cut short,
+  /// and short enough that a caller passing nonsense cannot add a week.
+  static const int _maxPlausibleTick = 4 * 60 * 60;
 
   static String _dayKey(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'

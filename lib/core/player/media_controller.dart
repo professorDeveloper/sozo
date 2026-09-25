@@ -33,6 +33,7 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     vp.VideoFormat? formatHint,
     vp.VideoPlayerOptions? videoPlayerOptions,
     DrmConfig? drm,
+    bool preferPlatform = false,
   }) {
     // Encryption decides the backend before anything else does. libmpv cannot
     // decrypt CENC at all and `video_player` exposes no way to configure it, so
@@ -73,7 +74,7 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     // reaches here — the player page hands off before building a controller —
     // but if it somehow does, falling through to the native backend is the
     // safe answer, not a crash.
-    if (_useMediaKit() && _mediaKitUsable()) {
+    if (!preferPlatform && _useMediaKit() && _mediaKitUsable()) {
       return _MediaKitController(_MediaKitSource.uri(url, httpHeaders));
     }
     return _NativeController(
@@ -89,8 +90,9 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
   factory PlayerController.file(
     File file, {
     vp.VideoPlayerOptions? videoPlayerOptions,
+    bool preferPlatform = false,
   }) {
-    if (_useMediaKit() && _mediaKitUsable()) {
+    if (!preferPlatform && _useMediaKit() && _mediaKitUsable()) {
       return _MediaKitController(_MediaKitSource.path(file.path));
     }
     return _NativeController(
@@ -148,6 +150,29 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
   /// No-op on backends where [supportsVideoTracks] is false.
   Future<void> setVideoTrack(String id) async {}
 
+  /// Whether this backend can list and switch the subtitle tracks carried in
+  /// the stream itself — an MKV's text tracks, an HLS master's subtitle
+  /// renditions.
+  ///
+  /// libmpv only. The platform player neither lists nor draws them.
+  bool get supportsSubtitleTracks => false;
+
+  /// The stream's own subtitle tracks, empty when unsupported or when it
+  /// carries none. Only meaningful after [initialize] has completed.
+  List<PlayerSubtitleTrack> get subtitleTracks => const <PlayerSubtitleTrack>[];
+
+  /// [PlayerSubtitleTrack.id] of the track being read, or null when none is.
+  String? get activeSubtitleTrackId => null;
+
+  /// Picks one of [subtitleTracks]; [PlayerSubtitleTrack.off] turns them off.
+  Future<void> setSubtitleTrack(String id) async {}
+
+  /// The chosen stream track's current line, empty between lines.
+  ///
+  /// The backend does not draw it: the player page does, in the viewer's
+  /// subtitle style, the same way it draws a downloaded subtitle file.
+  ValueListenable<String> get embeddedSubtitleText => _noEmbeddedText;
+
   /// Whether this backend can adjust the picture while playing.
   ///
   /// libmpv only. The platform player exposes no runtime video equalizer at
@@ -196,49 +221,102 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
 /// A code that is missing here falls back to its own uppercase form, which is
 /// still strictly better than the raw mpv track id.
 const Map<String, String> _languageNames = <String, String>{
-  'en': 'English', 'eng': 'English',
-  'ru': 'Русский', 'rus': 'Русский',
-  'uz': 'O\'zbekcha', 'uzb': 'O\'zbekcha',
-  'tr': 'Türkçe', 'tur': 'Türkçe',
-  'es': 'Español', 'spa': 'Español',
-  'fr': 'Français', 'fra': 'Français', 'fre': 'Français',
-  'de': 'Deutsch', 'deu': 'Deutsch', 'ger': 'Deutsch',
-  'it': 'Italiano', 'ita': 'Italiano',
-  'pt': 'Português', 'por': 'Português',
-  'ja': '日本語', 'jpn': '日本語',
-  'ko': '한국어', 'kor': '한국어',
-  'zh': '中文', 'zho': '中文', 'chi': '中文',
-  'hi': 'हिन्दी', 'hin': 'हिन्दी',
-  'ar': 'العربية', 'ara': 'العربية',
-  'fa': 'فارسی', 'fas': 'فارسی', 'per': 'فارسی',
-  'he': 'עברית', 'heb': 'עברית',
-  'th': 'ไทย', 'tha': 'ไทย',
-  'vi': 'Tiếng Việt', 'vie': 'Tiếng Việt',
-  'id': 'Bahasa Indonesia', 'ind': 'Bahasa Indonesia',
-  'ms': 'Bahasa Melayu', 'msa': 'Bahasa Melayu', 'may': 'Bahasa Melayu',
-  'pl': 'Polski', 'pol': 'Polski',
-  'nl': 'Nederlands', 'nld': 'Nederlands', 'dut': 'Nederlands',
-  'sv': 'Svenska', 'swe': 'Svenska',
-  'no': 'Norsk', 'nor': 'Norsk',
-  'da': 'Dansk', 'dan': 'Dansk',
-  'fi': 'Suomi', 'fin': 'Suomi',
-  'cs': 'Čeština', 'ces': 'Čeština', 'cze': 'Čeština',
-  'sk': 'Slovenčina', 'slk': 'Slovenčina', 'slo': 'Slovenčina',
-  'uk': 'Українська', 'ukr': 'Українська',
-  'ro': 'Română', 'ron': 'Română', 'rum': 'Română',
-  'hu': 'Magyar', 'hun': 'Magyar',
-  'el': 'Ελληνικά', 'ell': 'Ελληνικά', 'gre': 'Ελληνικά',
-  'bg': 'Български', 'bul': 'Български',
-  'sr': 'Српски', 'srp': 'Српски',
-  'hr': 'Hrvatski', 'hrv': 'Hrvatski',
-  'kk': 'Қазақша', 'kaz': 'Қазақша',
-  'ky': 'Кыргызча', 'kir': 'Кыргызча',
-  'tg': 'Тоҷикӣ', 'tgk': 'Тоҷикӣ',
-  'tk': 'Türkmençe', 'tuk': 'Türkmençe',
-  'az': 'Azərbaycan', 'aze': 'Azərbaycan',
-  'bn': 'বাংলা', 'ben': 'বাংলা',
-  'ta': 'தமிழ்', 'tam': 'தமிழ்',
-  'te': 'తెలుగు', 'tel': 'తెలుగు',
+  'en': 'English',
+  'eng': 'English',
+  'ru': 'Русский',
+  'rus': 'Русский',
+  'uz': 'O\'zbekcha',
+  'uzb': 'O\'zbekcha',
+  'tr': 'Türkçe',
+  'tur': 'Türkçe',
+  'es': 'Español',
+  'spa': 'Español',
+  'fr': 'Français',
+  'fra': 'Français',
+  'fre': 'Français',
+  'de': 'Deutsch',
+  'deu': 'Deutsch',
+  'ger': 'Deutsch',
+  'it': 'Italiano',
+  'ita': 'Italiano',
+  'pt': 'Português',
+  'por': 'Português',
+  'ja': '日本語',
+  'jpn': '日本語',
+  'ko': '한국어',
+  'kor': '한국어',
+  'zh': '中文',
+  'zho': '中文',
+  'chi': '中文',
+  'hi': 'हिन्दी',
+  'hin': 'हिन्दी',
+  'ar': 'العربية',
+  'ara': 'العربية',
+  'fa': 'فارسی',
+  'fas': 'فارسی',
+  'per': 'فارسی',
+  'he': 'עברית',
+  'heb': 'עברית',
+  'th': 'ไทย',
+  'tha': 'ไทย',
+  'vi': 'Tiếng Việt',
+  'vie': 'Tiếng Việt',
+  'id': 'Bahasa Indonesia',
+  'ind': 'Bahasa Indonesia',
+  'ms': 'Bahasa Melayu',
+  'msa': 'Bahasa Melayu',
+  'may': 'Bahasa Melayu',
+  'pl': 'Polski',
+  'pol': 'Polski',
+  'nl': 'Nederlands',
+  'nld': 'Nederlands',
+  'dut': 'Nederlands',
+  'sv': 'Svenska',
+  'swe': 'Svenska',
+  'no': 'Norsk',
+  'nor': 'Norsk',
+  'da': 'Dansk',
+  'dan': 'Dansk',
+  'fi': 'Suomi',
+  'fin': 'Suomi',
+  'cs': 'Čeština',
+  'ces': 'Čeština',
+  'cze': 'Čeština',
+  'sk': 'Slovenčina',
+  'slk': 'Slovenčina',
+  'slo': 'Slovenčina',
+  'uk': 'Українська',
+  'ukr': 'Українська',
+  'ro': 'Română',
+  'ron': 'Română',
+  'rum': 'Română',
+  'hu': 'Magyar',
+  'hun': 'Magyar',
+  'el': 'Ελληνικά',
+  'ell': 'Ελληνικά',
+  'gre': 'Ελληνικά',
+  'bg': 'Български',
+  'bul': 'Български',
+  'sr': 'Српски',
+  'srp': 'Српски',
+  'hr': 'Hrvatski',
+  'hrv': 'Hrvatski',
+  'kk': 'Қазақша',
+  'kaz': 'Қазақша',
+  'ky': 'Кыргызча',
+  'kir': 'Кыргызча',
+  'tg': 'Тоҷикӣ',
+  'tgk': 'Тоҷикӣ',
+  'tk': 'Türkmençe',
+  'tuk': 'Türkmençe',
+  'az': 'Azərbaycan',
+  'aze': 'Azərbaycan',
+  'bn': 'বাংলা',
+  'ben': 'বাংলা',
+  'ta': 'தமிழ்',
+  'tam': 'தமிழ்',
+  'te': 'తెలుగు',
+  'tel': 'తెలుగు',
 };
 
 /// One selectable audio track, flattened out of whatever the backend calls it.
@@ -301,8 +379,27 @@ class PlayerAudioTrack {
   }
 }
 
+final ValueNotifier<String> _noEmbeddedText = ValueNotifier<String>('');
+
+/// One subtitle track inside the stream.
+class PlayerSubtitleTrack extends PlayerAudioTrack {
+  const PlayerSubtitleTrack({
+    required super.id,
+    required super.title,
+    required super.language,
+    super.ordinal,
+  });
+
+  /// The id that turns the stream's subtitles off.
+  static const String off = 'no';
+
+  @override
+  String get label => hasMetadata ? super.label : 'Subtitle $ordinal';
+}
+
 /// Whether a controller built right now should use the libmpv backend.
-bool _useMediaKit() => resolvePlayerEngine() == PlayerEngine.mediaKit;
+bool _useMediaKit() =>
+    !isAndroidEmulator && resolvePlayerEngine() == PlayerEngine.mediaKit;
 
 /// media_kit needs its native side initialised exactly once before the first
 /// [mk.Player]. `main()` does this eagerly on desktop; on Android the engine is
@@ -375,7 +472,6 @@ Future<void> warmUpPlayerEngine() async {
   _mediaKitUsable();
 }
 
-
 class _NativeController extends PlayerController {
   _NativeController(this._inner) {
     _inner.addListener(_sync);
@@ -416,7 +512,6 @@ class _NativeController extends PlayerController {
   @override
   bool get letterboxesInternally => false;
 
-
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) => vp.VideoPlayer(_inner);
 
@@ -435,14 +530,13 @@ class _NativeController extends PlayerController {
   }
 }
 
-
 class _MediaKitSource {
   _MediaKitSource.uri(Uri uri, this.headers)
-      : source = uri.isScheme('file') ? uri.toFilePath() : uri.toString(),
-        uri = uri.isScheme('file') ? null : uri;
+    : source = uri.isScheme('file') ? uri.toFilePath() : uri.toString(),
+      uri = uri.isScheme('file') ? null : uri;
   _MediaKitSource.path(this.source)
-      : headers = const <String, String>{},
-        uri = null;
+    : headers = const <String, String>{},
+      uri = null;
 
   /// What libmpv is given: a URL string, or a path for a local file.
   final String source;
@@ -494,8 +588,12 @@ class _MediaKitController extends PlayerController {
   List<PlayerAudioTrack> _audioTracks = const <PlayerAudioTrack>[];
   String? _activeAudioTrackId;
   List<PlayerVideoTrack> _videoTracks = const <PlayerVideoTrack>[];
+  List<PlayerSubtitleTrack> _subtitleTracks = const <PlayerSubtitleTrack>[];
+  String? _activeSubtitleTrackId;
+  final ValueNotifier<String> _embeddedText = ValueNotifier<String>('');
   String? _activeVideoTrackId;
-  final List<StreamSubscription<dynamic>> _subs = <StreamSubscription<dynamic>>[];
+  final List<StreamSubscription<dynamic>> _subs =
+      <StreamSubscription<dynamic>>[];
   bool _disposed = false;
   Future<void>? _mpvDisposal;
   Future<void>? _disposal;
@@ -517,7 +615,9 @@ class _MediaKitController extends PlayerController {
     } on TimeoutException {
       if (_disposed) return;
       if (!kIsWeb && Platform.isAndroid) {
-        debugPrint('[player] libmpv never produced video parameters; trying platform playback');
+        debugPrint(
+          '[player] libmpv never produced video parameters; trying platform playback',
+        );
         await _swapToPlatformBackend();
         return;
       }
@@ -527,27 +627,20 @@ class _MediaKitController extends PlayerController {
     final w = _player.state.width ?? 0;
     final h = _player.state.height ?? 0;
 
-    // Decoded is not the same as displayed.
-    //
-    // libmpv draws through its own GL context, and where that context cannot be
-    // created the player carries on perfectly: it demuxes, it decodes, it
-    // reports a size and a duration, it plays the audio — and the texture never
-    // receives a frame. What the viewer gets is a black rectangle with sound,
-    // and nothing anywhere reports an error, because by libmpv's account
-    // nothing went wrong.
-    //
-    // Waiting for the first frame is the only signal that separates the two.
-    // Dimensions being known means a frame has already been decoded, so the
-    // remaining step is local work and a few seconds is generous; the cost is
-    // paid once, by a device that was going to show nothing anyway.
-    if (w > 0 && h > 0 && !await _firstFrameArrives()) {
+    // This detects a missing surface, not proof of visible pixels. On Android
+    // media_kit_video 1.3.1 completes this future on SetSurfaceSize. Emulator
+    // software-rendering can still display black, so emulator playback is
+    // routed to the platform backend before constructing this controller.
+    if (w > 0 && h > 0 && !await _surfaceBecomesAvailable()) {
       if (_disposed) return;
       // A codec/stream can fail while other MediaKit videos still work. Do not
       // silently change the user's engine for every later title in the session.
       if (kIsWeb || !Platform.isAndroid) {
         throw StateError(kVideoOutputUnavailable);
       }
-      debugPrint('[player] libmpv played without a picture — trying platform playback for this stream');
+      debugPrint(
+        '[player] libmpv surface unavailable — trying platform playback for this stream',
+      );
       await _swapToPlatformBackend();
       return;
     }
@@ -555,9 +648,7 @@ class _MediaKitController extends PlayerController {
     value = value.copyWith(
       isInitialized: _error == null,
       duration: _player.state.duration,
-      size: (w > 0 && h > 0)
-          ? Size(w.toDouble(), h.toDouble())
-          : value.size,
+      size: (w > 0 && h > 0) ? Size(w.toDouble(), h.toDouble()) : value.size,
       errorDescription: _error,
     );
   }
@@ -593,14 +684,13 @@ class _MediaKitController extends PlayerController {
     value = replacement.value;
   }
 
-  /// Whether the texture ever receives a frame.
-  ///
-  /// Not a health check on the file — that has already decoded. This asks
-  /// whether this device can put what was decoded on the screen.
-  Future<bool> _firstFrameArrives() async {
+  /// Whether the plugin has made a video surface available.
+  /// Android does not confirm that pixels were rendered (see initialize).
+  Future<bool> _surfaceBecomesAvailable() async {
     try {
-      await _videoController.waitUntilFirstFrameRendered
-          .timeout(_firstFrameTimeout);
+      await _videoController.waitUntilFirstFrameRendered.timeout(
+        _firstFrameTimeout,
+      );
       return true;
     } catch (_) {
       return false;
@@ -609,33 +699,68 @@ class _MediaKitController extends PlayerController {
 
   void _wire() {
     _subs
-      ..add(_player.stream.position
-          .listen((p) => _emit(value.copyWith(position: p))))
-      ..add(_player.stream.duration
-          .listen((d) => _emit(value.copyWith(duration: d))))
-      ..add(_player.stream.playing
-          .listen((p) => _emit(value.copyWith(isPlaying: p))))
-      ..add(_player.stream.buffering
-          .listen((b) => _emit(value.copyWith(isBuffering: b))))
-      ..add(_player.stream.completed
-          .listen((c) => _emit(value.copyWith(isCompleted: c))))
+      ..add(
+        _player.stream.position.listen(
+          (p) => _emit(value.copyWith(position: p)),
+        ),
+      )
+      ..add(
+        _player.stream.duration.listen(
+          (d) => _emit(value.copyWith(duration: d)),
+        ),
+      )
+      ..add(
+        _player.stream.playing.listen(
+          (p) => _emit(value.copyWith(isPlaying: p)),
+        ),
+      )
+      ..add(
+        _player.stream.buffering.listen(
+          (b) => _emit(value.copyWith(isBuffering: b)),
+        ),
+      )
+      ..add(
+        _player.stream.completed.listen(
+          (c) => _emit(value.copyWith(isCompleted: c)),
+        ),
+      )
       ..add(_player.stream.width.listen((_) => _emitSize()))
       ..add(_player.stream.height.listen((_) => _emitSize()))
       // Both halves. This subscription existed and read only `t.audio`, so
       // every HLS rendition mpv reported was thrown away and the quality list
       // had nothing to offer but the provider's separate mirrors.
-      ..add(_player.stream.tracks.listen((t) {
-        _syncAudioTracks(t.audio);
-        _syncVideoTracks(t.video);
-      }))
-      ..add(_player.stream.track.listen((t) {
-        _activeAudioTrackId = t.audio.id;
-        _activeVideoTrackId = t.video.id;
-      }))
-      ..add(_player.stream.error.listen((e) {
-        _error = e;
-        _emit(value.copyWith(errorDescription: e));
-      }));
+      ..add(
+        _player.stream.tracks.listen((t) {
+          _syncAudioTracks(t.audio);
+          _syncVideoTracks(t.video);
+          _syncSubtitleTracks(t.subtitle);
+        }),
+      )
+      ..add(
+        _player.stream.track.listen((t) {
+          _activeAudioTrackId = t.audio.id;
+          _activeVideoTrackId = t.video.id;
+          final sid = t.subtitle.id;
+          _activeSubtitleTrackId = sid == 'no' || sid == 'auto' ? null : sid;
+        }),
+      )
+      // mpv's current subtitle line. Drawn by the page in the viewer's style
+      // rather than by media_kit's own view, which has a fixed one — so the
+      // size, colour and position settings reach these tracks too.
+      ..add(
+        _player.stream.subtitle.listen((lines) {
+          _embeddedText.value = lines
+              .map((l) => l.trim())
+              .where((l) => l.isNotEmpty)
+              .join('\n');
+        }),
+      )
+      ..add(
+        _player.stream.error.listen((e) {
+          _error = e;
+          _emit(value.copyWith(errorDescription: e));
+        }),
+      );
   }
 
   /// mpv always reports a `no` (disabled) and an `auto` pseudo-track. Neither is
@@ -676,7 +801,9 @@ class _MediaKitController extends PlayerController {
         ),
     ];
     final selectable = real.where((t) => !t.isAuto).length;
-    final next = selectable > 1 ? sortVideoTracks(real) : const <PlayerVideoTrack>[];
+    final next = selectable > 1
+        ? sortVideoTracks(real)
+        : const <PlayerVideoTrack>[];
     // Same lesson as the audio list: mpv probes in stages and reports the same
     // renditions twice, bare then described. Comparing by value rather than
     // length is what stops the sheet keeping the un-probed copy.
@@ -696,9 +823,28 @@ class _MediaKitController extends PlayerController {
     return true;
   }
 
+  void _syncSubtitleTracks(List<mk.SubtitleTrack> tracks) {
+    final filtered = tracks
+        .where((t) => t.id != 'no' && t.id != 'auto' && !t.uri && !t.data)
+        .toList();
+    final next = <PlayerSubtitleTrack>[
+      for (var i = 0; i < filtered.length; i++)
+        PlayerSubtitleTrack(
+          id: filtered[i].id,
+          title: filtered[i].title,
+          language: filtered[i].language,
+          ordinal: i + 1,
+        ),
+    ];
+    if (_sameTracks(next, _subtitleTracks)) return;
+    _subtitleTracks = next;
+    _emit(value.copyWith());
+  }
+
   void _syncAudioTracks(List<mk.AudioTrack> tracks) {
-    final filtered =
-        tracks.where((t) => t.id != 'no' && t.id != 'auto').toList();
+    final filtered = tracks
+        .where((t) => t.id != 'no' && t.id != 'auto')
+        .toList();
     final real = <PlayerAudioTrack>[
       for (var i = 0; i < filtered.length; i++)
         PlayerAudioTrack(
@@ -735,8 +881,12 @@ class _MediaKitController extends PlayerController {
     read: () => PlaybackReadiness(
       width: _player.state.width ?? 0,
       height: _player.state.height ?? 0,
-      hasVideo: _player.state.tracks.video.any((t) => t.id != 'no' && t.id != 'auto'),
-      hasAudio: _player.state.tracks.audio.any((t) => t.id != 'no' && t.id != 'auto'),
+      hasVideo: _player.state.tracks.video.any(
+        (t) => t.id != 'no' && t.id != 'auto',
+      ),
+      hasAudio: _player.state.tracks.audio.any(
+        (t) => t.id != 'no' && t.id != 'auto',
+      ),
       duration: _player.state.duration,
       error: _error,
     ),
@@ -773,9 +923,8 @@ class _MediaKitController extends PlayerController {
   Future<void> setLooping(bool looping) => _fallback != null
       ? _fallback!.setLooping(looping)
       : _player.setPlaylistMode(
-        looping ? mk.PlaylistMode.single : mk.PlaylistMode.none,
-      );
-
+          looping ? mk.PlaylistMode.single : mk.PlaylistMode.none,
+        );
 
   @override
   bool get letterboxesInternally => _fallback?.letterboxesInternally ?? true;
@@ -856,9 +1005,9 @@ class _MediaKitController extends PlayerController {
       _fallback?.audioTracks ?? _audioTracks;
 
   @override
-  String? get activeAudioTrackId =>
-      _fallback != null ? null : _activeAudioTrackId ?? _player.state.track.audio.id;
-
+  String? get activeAudioTrackId => _fallback != null
+      ? null
+      : _activeAudioTrackId ?? _player.state.track.audio.id;
 
   @override
   @override
@@ -885,6 +1034,39 @@ class _MediaKitController extends PlayerController {
   }
 
   @override
+  bool get supportsSubtitleTracks => _fallback == null;
+
+  @override
+  List<PlayerSubtitleTrack> get subtitleTracks =>
+      _fallback != null ? const <PlayerSubtitleTrack>[] : _subtitleTracks;
+
+  @override
+  String? get activeSubtitleTrackId =>
+      _fallback != null ? null : _activeSubtitleTrackId;
+
+  @override
+  ValueListenable<String> get embeddedSubtitleText =>
+      _fallback != null ? _noEmbeddedText : _embeddedText;
+
+  @override
+  Future<void> setSubtitleTrack(String id) async {
+    if (_fallback != null) return;
+    if (id == PlayerSubtitleTrack.off) {
+      await _player.setSubtitleTrack(mk.SubtitleTrack.no());
+      _activeSubtitleTrackId = null;
+      _embeddedText.value = '';
+      return;
+    }
+    final match = _player.state.tracks.subtitle
+        .where((t) => t.id == id)
+        .cast<mk.SubtitleTrack?>()
+        .firstWhere((_) => true, orElse: () => null);
+    if (match == null) return;
+    await _player.setSubtitleTrack(match);
+    _activeSubtitleTrackId = id;
+  }
+
+  @override
   Future<void> setAudioTrack(String id) async {
     // The platform player has no track API at all, so there is nothing to
     // forward to. supportsAudioTracks already reports false once swapped, which
@@ -904,13 +1086,18 @@ class _MediaKitController extends PlayerController {
       // The surface, not just the controls: after a swap the mpv texture is a
       // dead black rectangle, and it is the thing the viewer is looking at.
       _fallback?.buildView(fit: fit) ??
-          mkv.Video(
+      mkv.Video(
         controller: _videoController,
         fit: fit,
         fill: const Color(0xFF000000),
         controls: mkv.NoVideoControls,
+        // The page draws the stream's subtitles itself, in the viewer's
+        // style; media_kit's own view would draw them a second time in its
+        // fixed one.
+        subtitleViewConfiguration: const mkv.SubtitleViewConfiguration(
+          visible: false,
+        ),
       );
-
 
   @override
   Future<void> dispose() {

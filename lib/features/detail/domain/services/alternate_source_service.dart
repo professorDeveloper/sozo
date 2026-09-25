@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:soplay/core/matching/title_match.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -11,21 +12,35 @@ import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/domain/usecases/get_providers_usecase.dart';
 import 'package:soplay/features/search/domain/entities/cross_search_result.dart';
 import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
+import 'package:soplay/core/content/content_mode.dart';
 
 /// One other source that appears to carry the same title.
 class AlternateSource {
   const AlternateSource({
     required this.provider,
     required this.item,
-    required this.score,
+    required this.match,
   });
 
   final ProviderRef provider;
   final MovieEntity item;
 
-  /// 0..1 title similarity. Ordering only — never a threshold on its own, see
-  /// [AlternateSourceService.rank].
-  final double score;
+  /// How the source's spelling of the title compares to the one asked for.
+  final TitleMatch match;
+
+  /// 0..1 title similarity. Ordering only — never a threshold on its own.
+  double get score => match.score;
+
+  /// Which of the three bands this row is in.
+  ///
+  /// Carried rather than re-derived from [score] because the sheet has to
+  /// render it and, before this, it rendered nothing: every row looked equally
+  /// certain, so a guess and a match were the same card and the viewer had no
+  /// way to tell which was which except by opening it.
+  TitleConfidence get confidence => match.confidence;
+
+  /// Whether this is good enough to pick for someone rather than offer them.
+  bool get isTrustworthy => match.isTrustworthy;
 }
 
 /// Finding the thing you are watching on a source that still works.
@@ -67,16 +82,21 @@ class AlternateSearchOutcome {
 
 class AlternateSourceService {
   AlternateSourceService({
-    required CrossSearchEngine engine,
+    required SearchFanOut engine,
     required GetProvidersUseCase providers,
     required GetEpisodesUseCase episodes,
-  })  : _engine = engine,
-        _providers = providers,
-        _episodes = episodes;
+  }) : _engine = engine,
+       _providers = providers,
+       _episodes = episodes;
 
   static const String _tag = '[alt-source]';
 
-  final CrossSearchEngine _engine;
+  /// The fan-out interface rather than [CrossSearchEngine] itself: everything
+  /// here needs is `planLegs`, `search` and `searchProvider`, and the concrete
+  /// engine reaches WebViews, a Dio client and the Mangayomi bridge, so taking
+  /// the class made this service impossible to test without standing all three
+  /// up.
+  final SearchFanOut _engine;
   final GetProvidersUseCase _providers;
   final GetEpisodesUseCase _episodes;
 
@@ -89,7 +109,15 @@ class AlternateSourceService {
   Stream<AlternateSource> find({
     required String title,
     required String excludeProvider,
-    required String category,
+    /// The provider the title is being read on. Its id, not its category:
+    /// the kind is derived from the id because that is the only value that is
+    /// unambiguous for catalogues and extensions alike — see [_kindAllows].
+    ///
+    /// Empty means "do not filter": the catalogue resolver has already chosen
+    /// its candidates by [ContentMode] before calling, and filtering a second
+    /// time on a provider it does not have would only be able to take sources
+    /// away that it deliberately put in.
+    String titleProvider = '',
     List<ProviderEntity>? candidates,
     void Function(AlternateSearchOutcome outcome)? onOutcome,
   }) async* {
@@ -112,12 +140,15 @@ class AlternateSourceService {
       all = snapshot.providers;
     }
 
-    final targets = all.where((p) {
-      if (p.id == excludeProvider) return false;
-      if (p.browseOnly) return false;
-      if (!_categoryAllows(category, p.category)) return false;
-      return true;
-    }).map(ProviderRef.fromEntity).toList();
+    final targets = all
+        .where((p) {
+          if (p.id == excludeProvider) return false;
+          if (p.browseOnly) return false;
+          if (!_kindAllows(titleProvider, p.id)) return false;
+          return true;
+        })
+        .map(ProviderRef.fromEntity)
+        .toList();
 
     if (targets.isEmpty) {
       onOutcome?.call(const AlternateSearchOutcome());
@@ -128,7 +159,9 @@ class AlternateSourceService {
     // clock; it only stayed tolerable before because the backend-only list was
     // short by accident.
     final legs = _engine.planLegs(targets);
-    debugPrint('$_tag searching ${legs.length} of ${targets.length} sources for "$title"');
+    debugPrint(
+      '$_tag searching ${legs.length} of ${targets.length} sources for "$title"',
+    );
 
     var failed = 0;
     var asked = 0;
@@ -146,26 +179,88 @@ class AlternateSourceService {
       yield AlternateSource(
         provider: result.provider,
         item: best.$1,
-        score: best.$2,
+        match: best.$2,
       );
     }
     onOutcome?.call(AlternateSearchOutcome(asked: asked, failed: failed));
   }
 
-  /// Whether a provider's category is compatible with the title's.
+  /// Ask ONE source, by id, for whatever it has for [query].
   ///
-  /// Only content categories are comparable. Extension providers are stamped
-  /// with their ECOSYSTEM — `cloudstream`, `aniyomi`, `manga`, `mangayomi` —
-  /// and comparing one of those against `anime` excluded every installed source
-  /// on a value that was never a category in the first place.
-  static const Set<String> _ecosystems = {
-    'cloudstream', 'aniyomi', 'manga', 'mangayomi',
-  };
+  /// Unranked and unfiltered on purpose. [find] and [rank] exist to keep a
+  /// machine's guesses honest; this is the other half — the viewer typing the
+  /// name themselves because the automatic answer was wrong or there was none.
+  /// Filtering their own query against the title the catalogue happens to use
+  /// would defeat the point: they may be searching the romaji, the dub's name
+  /// or a spelling only this source uses, and the app has no standing to tell
+  /// them their own search missed.
+  ///
+  /// The whole [ProviderSearchResult] comes back rather than a list, so a
+  /// source that timed out can be told apart from one that honestly has
+  /// nothing — the distinction the sheet already makes for [find].
+  ///
+  /// Null only when [providerId] is not a source this app can reach, which is a
+  /// caller bug rather than an empty result.
+  ///
+  /// Goes through [SearchFanOut.searchProvider], which is the same call one leg
+  /// of [find] makes: per-source timeouts, the extension-host budget and the
+  /// health record all apply here exactly as they do there.
+  Future<ProviderSearchResult?> searchOne({
+    required String providerId,
+    required String query,
+    List<ProviderEntity>? candidates,
+    int page = 1,
+  }) async {
+    if (query.trim().isEmpty) return null;
+    var all = candidates;
+    if (all == null) {
+      final snapshot = (await _providers()).getOrNull();
+      if (snapshot == null) return null;
+      all = snapshot.providers;
+    }
+    ProviderEntity? entity;
+    for (final p in all) {
+      if (p.id == providerId) {
+        entity = p;
+        break;
+      }
+    }
+    if (entity == null) return null;
+    return _engine.searchProvider(
+      ProviderRef.fromEntity(entity),
+      query,
+      page: page,
+    );
+  }
 
-  static bool _categoryAllows(String want, String have) {
-    if (want.isEmpty || have.isEmpty) return true;
-    if (_ecosystems.contains(want) || _ecosystems.contains(have)) return true;
-    return want == have;
+  /// Whether a candidate can carry the kind of thing the title IS.
+  ///
+  /// This compared `category` strings, and that was wrong twice over.
+  ///
+  /// `category` holds a content category for a backend provider (`anime`,
+  /// `movies`, `tmdb`) but an ECOSYSTEM for an extension (`cloudstream`,
+  /// `aniyomi`, `manga`, `mangayomi`). The old rule waved through any pair
+  /// where either side was an ecosystem, on the reasoning that an ecosystem
+  /// says nothing about content — and `manga` is BOTH a content category and
+  /// an ecosystem name. So for a manga title the test short-circuited to true
+  /// and the sheet offered every video source in the app. On a catalogue title
+  /// it was worse: `providerCategory` looks a catalogue up in the backend list,
+  /// does not find it, and returns `''` — which the first line waved through
+  /// as well. Two different routes to no filtering at all, on exactly the
+  /// titles where it matters.
+  ///
+  /// The reasoning was also wrong on its own terms: an ecosystem says precisely
+  /// what a source carries. CloudStream and Aniyomi are video, MangaHost and
+  /// Mangayomi are read. [String.contentMode] already encodes all of that —
+  /// catalogues, ecosystems and Mangayomi's novel index — so the comparison is
+  /// made on the thing the app already knows instead of on a string that means
+  /// two things.
+  ///
+  /// Manga and novel are kept apart: a novel is looked for on novel sources
+  /// only, and a manga on manga sources only.
+  static bool _kindAllows(String wantId, String haveId) {
+    if (wantId.isEmpty || haveId.isEmpty) return true;
+    return wantId.contentMode == haveId.contentMode;
   }
 
   /// Best match for [title] among [items], or null when none is close enough.
@@ -173,27 +268,23 @@ class AlternateSourceService {
   /// A source that answers a search for "Naruto" with its ten most recent
   /// uploads is common, and taking `items.first` from one of those puts an
   /// unrelated show at the top of a list the viewer is being asked to trust.
-  /// The floor is deliberately loose rather than strict: these are different
-  /// sources' spellings of the same show — transliterations, season suffixes,
-  /// an added "(Uzbek tilida)" — so demanding a close match would throw away
-  /// the correct answer more often than it removes a wrong one.
+  ///
+  /// The scoring itself is [TitleMatch], and moving it there is the fix for a
+  /// real ranking: a search for "Return of the Blossoming Blade" offered a row
+  /// called "Return", one called "Blade of the Immortal" and one called "The
+  /// Lord of the Rings: The Return of the King", because the formula that used
+  /// to live here divided the shared words by the SHORTER title and so scored
+  /// a one-word row 1.00. The knowledge that made this method worth having —
+  /// that "barcha qismlar" and "(Uzbek tilida)" are decoration and not part of
+  /// the name — moved with it and is [TitleMatch.normalise].
+  ///
+  /// Still returns rows that are only plausible, not only confident ones: this
+  /// list is shown to somebody who explicitly asked what else has the title,
+  /// and they can read a row and reject it. The band comes back with the match
+  /// so the sheet can say which is which.
   @visibleForTesting
-  (MovieEntity, double)? rank(List<MovieEntity> items, String title) {
-    final want = _normalise(title);
-    if (want.isEmpty) return null;
-
-    MovieEntity? best;
-    var bestScore = 0.0;
-    for (final it in items) {
-      final score = _similarity(want, _normalise(it.title));
-      if (score > bestScore) {
-        bestScore = score;
-        best = it;
-      }
-    }
-    if (best == null || bestScore < 0.35) return null;
-    return (best, bestScore);
-  }
+  (MovieEntity, TitleMatch)? rank(List<MovieEntity> items, String title) =>
+      TitleMatch.best(items, query: title, titleOf: (it) => it.title);
 
   /// Turn a chosen alternate into something the player can be handed.
   ///
@@ -214,8 +305,7 @@ class AlternateSourceService {
     final playback = (await _episodes(
       source.item.url,
       provider: source.provider.id,
-    ))
-        .getOrNull();
+    )).getOrNull();
     if (playback == null) {
       debugPrint('$_tag episodes failed for ${source.provider.id}');
       return null;
@@ -302,62 +392,11 @@ class AlternateSourceService {
         size: size,
         sort: first.sort,
         provider: source.provider.id,
-      ))
-          .getOrNull();
+      )).getOrNull();
       if (result == null) continue;
       final i = result.episodes.indexWhere((e) => e.episode == number);
       if (i >= 0) return (result, i);
     }
     return null;
-  }
-
-  // --- title matching ------------------------------------------------------
-
-  /// Lowercase, strip punctuation and the decoration sources bolt on.
-  ///
-  /// The noise words are what these particular catalogues add — quality tags,
-  /// "barcha qismlar", dub markers — and removing them is what makes an Uzbek
-  /// listing comparable to an English one at all.
-  static String _normalise(String raw) {
-    var s = raw.toLowerCase();
-    for (final word in const [
-      'barcha qismlar',
-      'uzbek tilida',
-      "o'zbekcha",
-      'ozbekcha',
-      'tarjima',
-      'kino',
-      'serial',
-      'full hd',
-      'season',
-      'sezon',
-      'fasl',
-      'subbed',
-      'dubbed',
-      'sub',
-      'dub',
-    ]) {
-      s = s.replaceAll(word, ' ');
-    }
-    s = s.replaceAll(RegExp(r'[^a-z0-9Ѐ-ӿ ]+'), ' ');
-    return s.replaceAll(RegExp(r'\s+'), ' ').trim();
-  }
-
-  /// Token overlap, weighted toward the shorter title.
-  ///
-  /// Plain Jaccard punishes the correct answer here: one source lists
-  /// "Naruto" and another "Naruto Shippuden Uzbek tilida barcha qismlar", and
-  /// the union is dominated by words only one of them has. Dividing by the
-  /// smaller token set asks the question that actually matters — is the shorter
-  /// title contained in the longer one.
-  static double _similarity(String a, String b) {
-    if (a.isEmpty || b.isEmpty) return 0;
-    if (a == b) return 1;
-    final ta = a.split(' ').where((t) => t.length > 1).toSet();
-    final tb = b.split(' ').where((t) => t.length > 1).toSet();
-    if (ta.isEmpty || tb.isEmpty) return 0;
-    final shared = ta.intersection(tb).length;
-    if (shared == 0) return 0;
-    return shared / (ta.length < tb.length ? ta.length : tb.length);
   }
 }

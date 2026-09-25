@@ -4,6 +4,7 @@ import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/download/domain/entities/download_location.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/entities/storage_usage.dart';
+import 'package:soplay/features/download/domain/offline_relink.dart';
 import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
 
 /// Why an enqueue was refused.
@@ -105,8 +106,23 @@ abstract class DownloadRepository {
 
   /// Copies a finished download into the device's shared Downloads folder.
   /// Returns the user-visible location, or null when it could not be done.
-  Future<String?> exportToPublicDownloads(String id);
+  ///
+  /// [onProgress] is told how many of the chapters an EPUB export has read,
+  /// out of how many — a long novel takes a while to gather.
+  Future<String?> exportToPublicDownloads(
+    String id, {
+    void Function(int done, int total)? onProgress,
+  });
 
   /// The pages of a finished manga chapter, as local file paths.
   Future<List<MangaPageEntity>> localMangaPages(String id);
+
+  /// Moves each download to its new identity on another source, folder and
+  /// all, so the files follow the title. Downloads still transferring are
+  /// skipped. Returns how many moved.
+  Future<int> relink(List<RelinkMove> moves);
+
+  /// A downloaded novel chapter's prose, with its pictures pointed at the
+  /// files beside it. Null when this download is not one, or is not finished.
+  Future<String?> localChapterHtml(String id);
 }

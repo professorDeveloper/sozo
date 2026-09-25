@@ -177,8 +177,7 @@ class DiscordGatewayClient {
       // The gateway takes an external url, proxied, where the IPC transport
       // takes an uploaded asset key. Same field, different contents — which is
       // why encoding lives in each transport rather than in the activity.
-      assets['large_image'] =
-          'mp:external/${Uri.encodeComponent(a.imageUrl!)}';
+      assets['large_image'] = 'mp:external/${Uri.encodeComponent(a.imageUrl!)}';
       if (a.imageText != null) assets['large_text'] = a.imageText;
     }
     return {

@@ -12,20 +12,24 @@ class EpisodeModel extends EpisodeEntity {
     super.airdate,
     super.runtime,
     super.overview,
+    super.webUrl,
+    super.scanlator,
   });
 
   factory EpisodeModel.fromJson(Map<String, dynamic> json) => EpisodeModel(
-        episode: (json['episode'] as num?)?.toInt() ?? 0,
-        label: json['label'] as String? ?? '',
-        mediaRef: json['mediaRef'] as String? ?? '',
-        availableLangs: _parseLangs(json['availableLangs']),
-        hasSub: json['hasSub'] as bool?,
-        hasDub: json['hasDub'] as bool?,
-        image: _stringOrNull(json['image']),
-        airdate: _stringOrNull(json['airdate']),
-        runtime: _stringOrNull(json['runtime']),
-        overview: _stringOrNull(json['overview']),
-      );
+    episode: (json['episode'] as num?)?.toInt() ?? 0,
+    label: json['label'] as String? ?? '',
+    mediaRef: json['mediaRef'] as String? ?? '',
+    availableLangs: _parseLangs(json['availableLangs']),
+    hasSub: json['hasSub'] as bool?,
+    hasDub: json['hasDub'] as bool?,
+    image: _stringOrNull(json['image']),
+    airdate: _stringOrNull(json['airdate']),
+    runtime: _stringOrNull(json['runtime']),
+    overview: _stringOrNull(json['overview']),
+    webUrl: _stringOrNull(json['webUrl']),
+    scanlator: _stringOrNull(json['scanlator']),
+  );
 
   static List<String> _parseLangs(dynamic raw) {
     if (raw is! List) return const [];

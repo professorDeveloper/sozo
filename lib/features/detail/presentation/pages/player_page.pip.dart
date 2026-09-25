@@ -35,8 +35,7 @@ extension _PlayerPip on _PlayerPageState {
         if (_hasPrevEpisode) _loadEpisode(_episodeIndex - 1);
       case 'next':
         if (_partyBlockEpisodeNav()) return;
-        if (widget.args.isSerial &&
-            _hasNextEpisode) {
+        if (widget.args.isSerial && _hasNextEpisode) {
           _loadEpisode(_episodeIndex + 1);
         }
     }
@@ -47,8 +46,7 @@ extension _PlayerPip on _PlayerPageState {
     if (c == null || !c.value.isInitialized) return;
     final isPlaying = c.value.isPlaying;
     final hasPrev = _hasPrevEpisode;
-    final hasNext =
-        _hasNextEpisode;
+    final hasNext = _hasNextEpisode;
     if (isPlaying == _lastPipPlaying) {
       try {
         await _pipChannel.invokeMethod('updatePiPActions', {
@@ -70,6 +68,7 @@ extension _PlayerPip on _PlayerPageState {
   }
 
   Future<void> _enterPip() async {
+    if (isIosPlatform) return _enterIosPip();
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
     try {
@@ -101,6 +100,221 @@ extension _PlayerPip on _PlayerPageState {
         _refreshPipActions();
       }
     } catch (_) {}
+  }
+
+  /// iOS: the episode goes to a native player the system can float — the
+  /// in-app one draws through a Flutter texture no PiP controller can take —
+  /// at the same second and speed. [_onIosPipCall] picks it back up.
+  Future<void> _enterIosPip() async {
+    final c = _controller;
+    final url = _videoUrl;
+    if (c == null || !c.value.isInitialized || url == null || url.isEmpty) {
+      return;
+    }
+    final wasPlaying = c.value.isPlaying;
+    final position = c.value.position.inMilliseconds;
+    await c.pause();
+    if (!mounted) return;
+    _hideTimer?.cancel();
+    setState(() {
+      _isPip = true;
+      _controlsVisible = false;
+      _panel = _SidePanel.none;
+    });
+    _controlsAnimation.reverse();
+    var ok = false;
+    try {
+      ok =
+          await _iosPipChannel.invokeMethod<bool>('start', {
+            'url': url,
+            'headers': _headers,
+            'positionMs': position,
+            'rate': c.value.playbackSpeed,
+          }) ??
+          false;
+    } catch (_) {}
+    if (ok || !mounted) return;
+    setState(() => _isPip = false);
+    if (wasPlaying) unawaited(c.play());
+    _toast('player.pip_unavailable'.tr());
+  }
+
+  /// The floating window closed — by the viewer returning to the app or
+  /// dismissing it: playback carries on here from where it got to.
+  Future<void> _onIosPipCall(MethodCall call) async {
+    if (call.method != 'stopped' && call.method != 'failed') return;
+    final c = _controller;
+    if (!mounted || c == null) return;
+    setState(() => _isPip = false);
+    if (call.method == 'failed') return;
+    final args = (call.arguments as Map?) ?? const {};
+    final ms = (args['positionMs'] as num?)?.toInt() ?? 0;
+    if (ms > 0) await c.seekTo(Duration(milliseconds: ms));
+    // Back in the app it plays on if it was playing; closed from the window
+    // it stays paused, as the system player left it.
+    if (args['playing'] == true && args['restored'] == true) {
+      unawaited(c.play());
+    }
+  }
+
+  /// Desktop picture-in-picture: the whole window becomes a small player
+  /// above every other window, and back.
+  Future<void> _toggleDesktopMini() async {
+    if (!isDesktopPlatform) return;
+    if (_desktopMini) {
+      setState(() {
+        _desktopMini = false;
+        _isPip = false;
+      });
+      _miniHover.value = false;
+      await DesktopWindow.exitMini();
+      return;
+    }
+    final size = _controller?.value.size ?? Size.zero;
+    final aspect = size.width > 0 && size.height > 0
+        ? size.width / size.height
+        : 16 / 9;
+    _hideTimer?.cancel();
+    setState(() {
+      _desktopMini = true;
+      _isPip = true;
+      _controlsVisible = false;
+      _panel = _SidePanel.none;
+      if (_isFullscreen) _isFullscreen = false;
+    });
+    _controlsAnimation.reverse();
+    await DesktopWindow.enterMini(aspect: aspect);
+  }
+
+  /// The mini window's own controls, shown while the pointer is over it:
+  /// play or pause in the middle, back to the full window and a step either
+  /// way at the top, and how far along under it. The rest of the window is a
+  /// handle to move it by.
+  Widget _buildDesktopMiniOverlay() {
+    final c = _controller;
+    Widget round(
+      IconData icon,
+      String tip,
+      VoidCallback onTap, {
+      double size = 18,
+    }) => Tooltip(
+      message: tip,
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.55),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(7),
+            child: Icon(icon, color: Colors.white, size: size),
+          ),
+        ),
+      ),
+    );
+    return Positioned.fill(
+      child: MouseRegion(
+        onEnter: (_) => _miniHover.value = true,
+        onHover: (_) => _miniHover.value = true,
+        onExit: (_) => _miniHover.value = false,
+        child: ValueListenableBuilder<bool>(
+          valueListenable: _miniHover,
+          builder: (context, hover, _) => AnimatedOpacity(
+            opacity: hover ? 1 : 0,
+            duration: const Duration(milliseconds: 160),
+            child: IgnorePointer(
+              ignoring: !hover,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const DragToMoveArea(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0x99000000),
+                            Color(0x22000000),
+                            Color(0x99000000),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        round(
+                          Icons.fast_rewind_rounded,
+                          'player.rewind'.tr(),
+                          () => _seekRelative(-_seekStep),
+                        ),
+                        const SizedBox(width: 14),
+                        if (c != null)
+                          ListenableBuilder(
+                            listenable: c,
+                            builder: (_, _) => round(
+                              c.value.isPlaying
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                              c.value.isPlaying
+                                  ? 'player.pause'.tr()
+                                  : 'player.play'.tr(),
+                              _togglePlay,
+                              size: 30,
+                            ),
+                          ),
+                        const SizedBox(width: 14),
+                        round(
+                          Icons.fast_forward_rounded,
+                          'player.forward'.tr(),
+                          () => _seekRelative(_seekStep),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: round(
+                      Icons.open_in_full_rounded,
+                      'player.mini_restore'.tr(),
+                      _toggleDesktopMini,
+                    ),
+                  ),
+                  if (c != null)
+                    Positioned(
+                      left: 10,
+                      right: 10,
+                      bottom: 8,
+                      child: ListenableBuilder(
+                        listenable: c,
+                        builder: (_, _) {
+                          final d = c.value.duration.inMilliseconds;
+                          final p = c.value.position.inMilliseconds;
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(2),
+                            child: LinearProgressIndicator(
+                              value: d > 0 ? (p / d).clamp(0.0, 1.0) : 0,
+                              minHeight: 3,
+                              backgroundColor: Colors.white24,
+                              valueColor: AlwaysStoppedAnimation(
+                                AppColors.primary,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _startup() async {
@@ -142,9 +356,7 @@ extension _PlayerPip on _PlayerPageState {
     _isPortrait = !_isPortrait;
     try {
       if (_isPortrait) {
-        await AppOrientation.set([
-          DeviceOrientation.portraitUp,
-        ]);
+        await AppOrientation.set([DeviceOrientation.portraitUp]);
       } else {
         await AppOrientation.set([
           DeviceOrientation.landscapeLeft,
@@ -173,9 +385,7 @@ extension _PlayerPip on _PlayerPageState {
         SystemUiMode.manual,
         overlays: SystemUiOverlay.values,
       );
-      await AppOrientation.set([
-        DeviceOrientation.portraitUp,
-      ]);
+      await AppOrientation.set([DeviceOrientation.portraitUp]);
     } catch (_) {}
     _wakelockHeld = false;
     await WakelockHolds.release(this);

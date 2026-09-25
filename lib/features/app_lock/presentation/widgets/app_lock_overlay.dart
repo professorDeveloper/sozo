@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/router/app_router.dart';
 import 'package:soplay/features/app_lock/presentation/app_lock_gate.dart';
 import 'package:soplay/features/app_lock/presentation/pages/pin_verify_page.dart';
 
@@ -18,10 +19,29 @@ class AppLockOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gate = getIt<AppLockGate>();
+    // The route information provider, and not the router delegate.
+    //
+    // Both say where the app is, but the delegate learns it during the
+    // Router's own first build — `setInitialRoutePath` runs from inside
+    // `didChangeDependencies` — and this overlay is the Router's ANCESTOR, so
+    // being told then is "setState() called during build" on the first frame
+    // of every launch. The provider is built with the initial location before
+    // anything is drawn, so its answer is right on frame one, and it only
+    // changes when something navigates, which never happens inside a build.
+    //
+    // Deciding by route rather than by a flag the splash raises and lowers is
+    // deliberate too. That version raised it from `initState` — also inside a
+    // build — and lowered it from `dispose`, which runs while the tree is
+    // locked; neither end worked. A route cannot leak: the frame the app
+    // leaves the splash, however it leaves, is the frame this covers it again.
+    final location = AppRouter.router.routeInformationProvider;
     return ListenableBuilder(
-      listenable: gate,
+      listenable: Listenable.merge([gate, location]),
       builder: (context, _) {
-        final locked = gate.isLocked;
+        final locked = lockCovers(
+          locked: gate.isLocked,
+          path: location.value.uri.path,
+        );
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -47,3 +67,18 @@ class AppLockOverlay extends StatelessWidget {
     );
   }
 }
+
+/// Whether the PIN pad is drawn over the route at [path].
+///
+/// Everywhere, while locked — except the splash. The lock exists to cover
+/// CONTENT, and the splash has none: it is the app's own mark on a black
+/// field, which is what the launcher icon already shows to anybody holding the
+/// phone. Covered, the one animation the app gets to introduce itself with
+/// played behind the PIN pad on every locked device, and nobody who uses the
+/// lock ever saw it.
+///
+/// Exempting a route does not unlock anything. [AppLockGate] stays locked the
+/// whole time, so the next route — whatever it is and however it was reached —
+/// is covered on its first frame.
+bool lockCovers({required bool locked, required String path}) =>
+    locked && path != '/splash';

@@ -5,12 +5,20 @@
 	<!-- Casting. iOS gates both halves: the prompt text below is what the user
 	     is shown when the app first looks for a television, and Bonjour service
 	     types have to be declared up front or mDNS returns nothing at all — with
-	     no error, which reads as "no devices found". -->
+	     no error, which reads as "no devices found". The same prompt covers a
+	     Jellyfin server on a LAN address. NSAllowsLocalNetworking is NOT added
+	     to the ATS dict below: iOS ignores NSAllowsArbitraryLoads once it is
+	     present, which would break every plain-http source. -->
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Sozo looks for Chromecast devices on your Wi-Fi so you can play videos on your TV.</string>
+	<string>Sozo looks for Chromecast devices on your Wi-Fi so you can play videos on your TV, and connects to media servers such as Jellyfin on your network.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_googlecast._tcp</string>
+	</array>
+	<!-- Picture-in-picture keeps playing with the app in the background. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>

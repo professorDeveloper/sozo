@@ -111,6 +111,8 @@ class MangayomiRuntime {
         javaScriptEnabled: true,
         javaScriptCanOpenWindowsAutomatically: false,
         mediaPlaybackRequiresUserGesture: true,
+        // No system picture-in-picture for a page nobody is looking at.
+        allowsPictureInPictureMediaPlayback: false,
         clearCache: false,
         cacheEnabled: false,
         transparentBackground: true,
@@ -124,6 +126,27 @@ class MangayomiRuntime {
               return {'status': 0, 'data': null, 'headers': {}};
             }
             return await dartFetch.call(args.first);
+          },
+        );
+        // LNReader's fetchFile: bytes, as base64, through the same client.
+        controller.addJavaScriptHandler(
+          handlerName: 'dartFetchBytes',
+          callback: (args) async {
+            try {
+              final req = args.isEmpty ? null : args.first;
+              if (req is! Map || req['url'] is! String) return {'base64': ''};
+              final headers = <String, String>{
+                for (final e in ((req['headers'] as Map?) ?? const {}).entries)
+                  e.key.toString(): e.value.toString(),
+              };
+              final bytes = await dartFetch.fetchBytes(
+                req['url'] as String,
+                headers,
+              );
+              return {'base64': base64Encode(bytes)};
+            } catch (error) {
+              return {'base64': '', 'error': error.toString()};
+            }
           },
         );
         controller.addJavaScriptHandler(
@@ -170,6 +193,14 @@ class MangayomiRuntime {
 
     final bridge = await rootBundle.loadString('assets/js/mangayomi_bridge.js');
     await controller.evaluateJavascript(source: bridge);
+    // The real cheerio, htmlparser2 and dayjs LNReader plugins require, then
+    // the adapter that hands them over. The adapter sends plugin requests
+    // through `dartFetch` — the WebView's own fetch is cross-origin from
+    // this page, and almost no novel site allows that.
+    final deps = await rootBundle.loadString('assets/js/lnreader_deps.js');
+    await controller.evaluateJavascript(source: deps);
+    final lnreader = await rootBundle.loadString('assets/js/lnreader.js');
+    await controller.evaluateJavascript(source: lnreader);
   }
 
   Future<void> _waitForHost(InAppWebViewController controller) async {
@@ -218,7 +249,21 @@ class MangayomiRuntime {
     final code = await store.code(source);
     await _seedPrefs(source);
     final result = await _controller!.callAsyncJavaScript(
-      functionBody: r'return __sozoLoadMangayomi(code, source);',
+      // Two ecosystems, one registry. An LNReader plugin is a CommonJS bundle
+      // exporting a class with `parseChapter`; the shim turns it into the same
+      // object shape a Mangayomi extension produces, which is why nothing
+      // downstream of this line — search, home, detail, chapters, the reader,
+      // downloads, EPUB export — needed changing for it.
+      functionBody: source.isLnReader
+          ? r'''
+        const p = __sozoLoadLnReader(code, source);
+        const registry = globalThis.__sozoProviders || (globalThis.__sozoProviders = {});
+        registry[String(source.id)] = p;
+        globalThis.__sozoProvider = p;
+        globalThis.__sozoSource = source;
+        return true;
+      '''
+          : r'return __sozoLoadMangayomi(code, source);',
       arguments: {'code': code, 'source': source.toJs()},
     );
     final error = result?.error;
@@ -323,13 +368,19 @@ class MangayomiRuntime {
     // single extension that never answers — a Cloudflare solve that never
     // resolves, most often — used to hold every later call behind it forever,
     // which is a screen left shimmering with nothing to time out.
-    final result = await _locked(() async {
-      try {
-        await ensureReady().timeout(kJsCallTimeout);
-        await _ensureExtension(source).timeout(kJsCallTimeout);
-        final r = await _controller!
-            .callAsyncJavaScript(
-              functionBody: r'''
+    //
+    // The Cloudflare solve happens between attempts, outside the lock and
+    // after the JavaScript handler has answered. Without it a challenged
+    // LNReader site only failed with the plugin's own "open in webview".
+    final start = dartFetch.mark();
+    final result = await dartFetch.retryAfterCloudflare(
+      () => _locked(() async {
+        try {
+          await ensureReady().timeout(kJsCallTimeout);
+          await _ensureExtension(source).timeout(kJsCallTimeout);
+          final r = await _controller!
+              .callAsyncJavaScript(
+                functionBody: r'''
           const p = globalThis.__sozoProvider;
           const fn = fnName === '__sozoImageHeaders' ? globalThis.__sozoImageHeaders : (p ? p[fnName] : null);
           if (typeof fn !== 'function') {
@@ -349,18 +400,19 @@ class MangayomiRuntime {
           // extension returns plain data anyway.
           return out === undefined ? null : JSON.stringify(out);
         ''',
-              arguments: {'fnName': method, 'fnArgs': args},
-            )
-            .timeout(kJsCallTimeout);
-        await _flushPrefs(source);
-        return r;
-      } on TimeoutException {
-        // Future.timeout does not cancel JavaScript. Destroy the shared context
-        // before another provider can run with a timed-out provider's globals.
-        await dispose();
-        rethrow;
-      }
-    });
+                arguments: {'fnName': method, 'fnArgs': args},
+              )
+              .timeout(kJsCallTimeout);
+          await _flushPrefs(source);
+          return r;
+        } on TimeoutException {
+          // Future.timeout does not cancel JavaScript. Destroy the shared context
+          // before another provider can run with a timed-out provider's globals.
+          await dispose();
+          rethrow;
+        }
+      }),
+    );
 
     if (result == null) {
       JsLog.err(tag, '$method returned null');
@@ -369,7 +421,9 @@ class MangayomiRuntime {
     final error = result.error;
     if (error != null && error.isNotEmpty) {
       JsLog.err(tag, '$method threw: $error');
-      throw Exception(error);
+      throw Exception(
+        withCloudflareCause(error, dartFetch.cloudflareBlockSince(start)),
+      );
     }
     JsLog.res(tag, method, ms: sw.elapsedMilliseconds, status: 200);
     final value = result.value;
@@ -383,6 +437,17 @@ class MangayomiRuntime {
       }
     }
     return value;
+  }
+
+  /// [error] naming the Cloudflare challenge behind it, so the error screen
+  /// offers the solver. Plugins throw their own words for a challenged page
+  /// ("Could not reach site (403)"), which never mention it.
+  @visibleForTesting
+  static String withCloudflareCause(String error, String? block) {
+    if (block == null || error.toLowerCase().contains('cloudflare')) {
+      return error;
+    }
+    return '$error ($block)';
   }
 
   /// Drops the loaded extension so the next call re-reads its code. Used after

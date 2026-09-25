@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/torrent/data/indexers/torrent_indexer.dart';
 import 'package:soplay/features/torrent/data/torrent_search_repository.dart';
 import 'package:soplay/features/torrent/domain/entities/torrent_result.dart';
@@ -32,7 +34,9 @@ class TorrentSearchController extends ChangeNotifier {
   TorrentQuery _query = const TorrentQuery(term: '');
   TorrentFilters _filters = const TorrentFilters();
   Set<String>? _enabledIndexers;
-  bool _nsfwAllowed = false;
+  /// The app's 18+ setting, read at each search. It had a setter nobody
+  /// called, so Sukebei was never searched whatever the user had chosen.
+  bool get _nsfwAllowed => getIt<HiveService>().showAdultContent;
 
   List<TorrentResult> _results = const [];
 
@@ -135,12 +139,6 @@ class TorrentSearchController extends ChangeNotifier {
     _enabledIndexers = ids;
     notifyListeners();
     if (_term.trim().isNotEmpty) search();
-  }
-
-  set nsfwAllowed(bool value) {
-    if (_nsfwAllowed == value) return;
-    _nsfwAllowed = value;
-    notifyListeners();
   }
 
   /// Starts a search, publishing results as each tracker answers.

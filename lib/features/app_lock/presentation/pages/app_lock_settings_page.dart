@@ -181,10 +181,7 @@ class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
               enabled
                   ? 'app_lock.enabled_hint'.tr()
                   : 'app_lock.disabled_hint'.tr(),
-              style: const TextStyle(
-                color: AppColors.textHint,
-                fontSize: 12,
-              ),
+              style: const TextStyle(color: AppColors.textHint, fontSize: 12),
             ),
           ),
         ],

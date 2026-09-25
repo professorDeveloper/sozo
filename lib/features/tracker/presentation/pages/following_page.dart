@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -11,9 +13,18 @@ import 'package:soplay/features/anilist/presentation/controllers/anilist_library
 import 'package:soplay/features/anilist/presentation/pages/anilist_library_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/upcoming_page.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
+import 'package:soplay/features/automation/data/auto_download_service.dart';
+import 'package:soplay/features/automation/data/automation_settings.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
 import 'package:soplay/features/tracker/domain/entities/followed_title.dart';
+import 'package:soplay/core/widgets/item_appear.dart';
+import 'package:soplay/features/notifications/presentation/widgets/animated_bell.dart';
+import 'package:soplay/features/notifications/presentation/widgets/notification_priming.dart';
+import 'package:soplay/features/tracker/data/release_feed_store.dart';
+import 'package:soplay/features/tracker/data/release_watch.dart';
+import 'package:soplay/features/tracker/presentation/widgets/release_labels.dart';
+import 'package:soplay/features/tracker/presentation/widgets/release_widgets.dart';
 
 /// Everything the user is keeping track of, in one place.
 ///
@@ -35,8 +46,9 @@ class FollowingPage extends StatefulWidget {
 class _FollowingPageState extends State<FollowingPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(length: 3, vsync: this);
-  late final AnilistLibraryController _anilist =
-      AnilistLibraryController(service: getIt<AnilistService>());
+  late final AnilistLibraryController _anilist = AnilistLibraryController(
+    service: getIt<AnilistService>(),
+  );
 
   @override
   void dispose() {
@@ -60,6 +72,11 @@ class _FollowingPageState extends State<FollowingPage>
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
         ),
         actions: [
+          IconButton(
+            tooltip: 'release_notify.feed_title'.tr(),
+            onPressed: () => context.push('/releases'),
+            icon: const Icon(Icons.new_releases_outlined),
+          ),
           IconButton(
             tooltip: 'anilist.connections_title'.tr(),
             onPressed: () => context.push('/connections'),
@@ -101,6 +118,7 @@ class FollowedTitlesView extends StatefulWidget {
 class _FollowedTitlesViewState extends State<FollowedTitlesView>
     with AutomaticKeepAliveClientMixin {
   final FollowService _service = getIt<FollowService>();
+  final ReleaseFeedStore _feed = getIt<ReleaseFeedStore>();
   List<FollowedTitle> _items = const [];
   bool _checking = false;
 
@@ -111,16 +129,49 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
   void initState() {
     super.initState();
     _items = _service.list();
+    _service.revision.addListener(_reload);
+    _feed.revision.addListener(_reload);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_items.isNotEmpty) _check(silent: true);
     });
+  }
+
+  @override
+  void dispose() {
+    _service.revision.removeListener(_reload);
+    _feed.revision.removeListener(_reload);
+    super.dispose();
+  }
+
+  void _reload() {
+    if (mounted) setState(() => _items = _service.list());
+  }
+
+  Future<void> _toggleNotify(FollowedTitle t) async {
+    final on = !t.notify;
+    await _service.setNotify(t.contentUrl, on);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            (on ? 'release_notify.unmuted_snack' : 'release_notify.muted_snack')
+                .tr(args: [t.title]),
+          ),
+        ),
+      );
+    if (on) await showNotificationPriming(context, titleHint: t.title);
   }
 
   Future<void> _check({bool silent = false}) async {
     if (_checking) return;
     setState(() => _checking = true);
     try {
-      final grown = await _service.checkForUpdates();
+      final auto = getIt<AutoDownloadService>();
+      final grown = await getIt<ReleaseWatch>().checkNow(onChecked: auto.collect);
+      unawaited(auto.afterCheck());
       if (!mounted) return;
       setState(() => _items = _service.list());
       if (!silent || grown > 0) {
@@ -138,6 +189,33 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
     } finally {
       if (mounted) setState(() => _checking = false);
     }
+  }
+
+  Future<void> _toggleAutoDownload(FollowedTitle t) async {
+    final on = !t.autoDownload;
+    await _service.setAutoDownload(t.contentUrl, on);
+    if (!mounted) return;
+    setState(() => _items = _service.list());
+    final globalOff = on && !getIt<AutomationSettings>().autoDownloadEnabled;
+    final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          globalOff
+              ? 'automation.global_off'.tr()
+              : on
+              ? 'automation.follow_auto_on'.tr(args: [t.title])
+              : 'automation.follow_auto_off'.tr(args: [t.title]),
+        ),
+        behavior: SnackBarBehavior.floating,
+        action: globalOff
+            ? SnackBarAction(
+                label: 'automation.open_settings'.tr(),
+                onPressed: () => context.push('/automation'),
+              )
+            : null,
+      ),
+    );
   }
 
   Future<void> _unfollow(FollowedTitle t) async {
@@ -171,7 +249,8 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            SizedBox(height: MediaQuery.sizeOf(context).height * 0.18),
+            const ReleasesHeaderCard(margin: EdgeInsets.fromLTRB(14, 12, 14, 0)),
+            SizedBox(height: MediaQuery.sizeOf(context).height * 0.12),
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
@@ -217,12 +296,22 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
             child: ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
-              itemCount: _items.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (_, i) => _FollowTile(
-                title: _items[i],
-                onUnfollow: () => _unfollow(_items[i]),
-              ),
+              itemCount: _items.length + 1,
+              separatorBuilder: (_, i) => SizedBox(height: i == 0 ? 14 : 10),
+              itemBuilder: (_, i) {
+                if (i == 0) return const ReleasesHeaderCard();
+                final t = _items[i - 1];
+                return ItemAppear(
+                  index: i,
+                  child: _FollowTile(
+                    title: t,
+                    isNew: _feed.unseenFor(t.contentUrl) != null,
+                    onUnfollow: () => _unfollow(t),
+                    onToggleNotify: () => _toggleNotify(t),
+                    onToggleAutoDownload: () => _toggleAutoDownload(t),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -231,11 +320,22 @@ class _FollowedTitlesViewState extends State<FollowedTitlesView>
   }
 }
 
+enum _TileAction { notify, unfollow }
+
 class _FollowTile extends StatelessWidget {
-  const _FollowTile({required this.title, required this.onUnfollow});
+  const _FollowTile({
+    required this.title,
+    required this.isNew,
+    required this.onUnfollow,
+    required this.onToggleNotify,
+    required this.onToggleAutoDownload,
+  });
 
   final FollowedTitle title;
+  final bool isNew;
   final VoidCallback onUnfollow;
+  final VoidCallback onToggleNotify;
+  final VoidCallback onToggleAutoDownload;
 
   @override
   Widget build(BuildContext context) {
@@ -247,29 +347,41 @@ class _FollowTile extends StatelessWidget {
         onTap: title.contentUrl.isEmpty
             ? null
             : () => context.push(
-                  '/detail',
-                  extra: DetailArgs(
-                    contentUrl: title.contentUrl,
-                    provider: title.provider,
-                  ),
+                '/detail',
+                extra: DetailArgs(
+                  contentUrl: title.contentUrl,
+                  provider: title.provider,
                 ),
+              ),
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 46,
-                  height: 65,
-                  child: title.thumbnail.isEmpty
-                      ? const _Placeholder()
-                      : CachedNetworkImage(
-                          imageUrl: title.thumbnail,
-                          fit: BoxFit.cover,
-                          placeholder: (_, _) => const _Placeholder(),
-                          errorWidget: (_, _, _) => const _Placeholder(),
-                        ),
+              SizedBox(
+                width: 46,
+                height: 65,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  fit: StackFit.expand,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: title.thumbnail.isEmpty
+                          ? const _Placeholder()
+                          : CachedNetworkImage(
+                              imageUrl: title.thumbnail,
+                              fit: BoxFit.cover,
+                              placeholder: (_, _) => const _Placeholder(),
+                              errorWidget: (_, _, _) => const _Placeholder(),
+                            ),
+                    ),
+                    if (isNew)
+                      const PositionedDirectional(
+                        top: -5,
+                        start: -5,
+                        child: NewBadge(compact: true),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(width: 12),
@@ -295,8 +407,9 @@ class _FollowTile extends StatelessWidget {
                       children: [
                         AnilistChip(
                           label: title.lastEpisodeCount > 0
-                              ? 'tracker.n_episodes'
-                                  .tr(args: ['${title.lastEpisodeCount}'])
+                              ? 'tracker.n_episodes'.tr(
+                                  args: ['${title.lastEpisodeCount}'],
+                                )
                               : 'tracker.not_checked'.tr(),
                           color: AppColors.textSecondary,
                         ),
@@ -305,17 +418,83 @@ class _FollowTile extends StatelessWidget {
                             label: title.provider,
                             color: AppColors.textHint,
                           ),
+                        if (title.autoDownload)
+                          AnilistChip(
+                            label: 'automation.auto_chip'.tr(),
+                            color: AppColors.primary,
+                          ),
+                        if (!title.notify)
+                          AnilistChip(
+                            label: 'release_notify.muted'.tr(),
+                            color: AppColors.textHint,
+                          ),
+                        if (nextAiringHint(title, reading: title.isReading)
+                            case final hint?)
+                          AnilistChip(label: hint, color: AppColors.primaryLight),
                       ],
                     ),
                   ],
                 ),
               ),
               IconButton(
-                tooltip: 'tracker.unfollow'.tr(),
-                onPressed: onUnfollow,
-                icon: const Icon(
-                  Icons.notifications_off_outlined,
-                  color: AppColors.textHint,
+                tooltip: 'automation.follow_auto_tooltip'.tr(),
+                onPressed: onToggleAutoDownload,
+                isSelected: title.autoDownload,
+                icon: Icon(
+                  title.autoDownload
+                      ? Icons.download_for_offline_rounded
+                      : Icons.download_for_offline_outlined,
+                  color: title.autoDownload
+                      ? AppColors.primary
+                      : AppColors.textHint,
+                  size: 21,
+                ),
+              ),
+              PopupMenuButton<_TileAction>(
+                tooltip: 'release_notify.follow_tooltip'.tr(),
+                color: AppColors.surface,
+                onSelected: (a) => switch (a) {
+                  _TileAction.notify => onToggleNotify(),
+                  _TileAction.unfollow => onUnfollow(),
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: _TileAction.notify,
+                    child: Row(
+                      children: [
+                        Icon(
+                          title.notify
+                              ? Icons.notifications_off_outlined
+                              : Icons.notifications_active_outlined,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          title.notify
+                              ? 'release_notify.mute'.tr()
+                              : 'release_notify.unmute'.tr(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _TileAction.unfollow,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.remove_circle_outline_rounded,
+                          size: 20,
+                          color: AppColors.errorLight,
+                        ),
+                        const SizedBox(width: 12),
+                        Text('tracker.unfollow'.tr()),
+                      ],
+                    ),
+                  ),
+                ],
+                icon: AnimatedBell(
+                  state: title.notify ? BellState.on : BellState.muted,
+                  color: title.notify ? AppColors.primary : AppColors.textHint,
                   size: 20,
                 ),
               ),
@@ -332,7 +511,7 @@ class _Placeholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        color: AppColors.surfaceVariant,
-        child: const Icon(Icons.movie_rounded, color: AppColors.textHint, size: 20),
-      );
+    color: AppColors.surfaceVariant,
+    child: const Icon(Icons.movie_rounded, color: AppColors.textHint, size: 20),
+  );
 }

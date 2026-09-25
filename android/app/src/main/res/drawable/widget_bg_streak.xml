@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#F2161210" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    <!-- The flame's own warmth, from below. -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient android:type="radial" android:gradientRadius="130dp"
+                android:centerX="0.5" android:centerY="0.55"
+                android:startColor="#40EF7A35" android:endColor="#00EF7A35" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+</layer-list>

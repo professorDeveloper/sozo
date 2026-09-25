@@ -41,7 +41,7 @@ class _Hive implements HiveService {
   @override
   List<String> getProviderLanguages() => [];
   @override
-  bool get showNsfwMangaSources => false;
+  bool get showAdultContent => false;
   @override
   String getCurrentProvider() => 'my:123';
   @override

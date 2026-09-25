@@ -26,6 +26,14 @@ class AnilistApi {
 
   final Dio _dio;
 
+  /// Whether adult titles may be returned — the app's 18+ setting.
+  ///
+  /// A hook rather than a constructor argument: this class is built in several
+  /// places that know nothing of settings, and every one of them must follow
+  /// the same switch. Wired to the setting at startup; until then, and in
+  /// tests, nothing adult comes back.
+  static bool Function() allowAdult = () => false;
+
   /// When the next request may be sent, after AniList answered 429.
   ///
   /// AniList's budget is small and enforced hard, and the calendar spends
@@ -68,7 +76,10 @@ class AnilistApi {
   static const String _mediaFields = '''
     id
     idMal
+    type
     episodes
+    chapters
+    volumes
     averageScore
     seasonYear
     format
@@ -181,6 +192,38 @@ class AnilistApi {
     return data.cast<String, dynamic>();
   }
 
+  /// A staff credit reduced to its bare words, so one role is one string.
+  ///
+  /// AniList qualifies credits freely and by hand — "Story & Art (vols 1-41)",
+  /// "Original Story (eps 1-12)", "Storyboard  (eps 16, 20)" with two spaces —
+  /// so the same job arrives spelled a dozen ways. Dropping the parenthesis and
+  /// everything that is not a letter leaves "story art", which a named set can
+  /// be compared against exactly.
+  static String _normalizeRole(String? raw) {
+    if (raw == null) return '';
+    return raw
+        .replaceAll(RegExp(r'\([^)]*\)'), ' ')
+        .toLowerCase()
+        .replaceAll(RegExp('[^a-z]+'), ' ')
+        .trim();
+  }
+
+  /// The credits that mean "this person wrote the thing", as [_normalizeRole]
+  /// spells them. Everything absent from this set is somebody else's job on it:
+  /// "story board", "storyboard", "story composition", "series composition",
+  /// "story editor", "story supervisor", "original character design",
+  /// "original work assistance".
+  static const Set<String> _authorRoles = {
+    'story',
+    'story art',
+    'original creator',
+    'original story',
+    'original work',
+  };
+
+  /// Drawn but not written. Only a last resort — see the author block.
+  static const Set<String> _artistRoles = {'art'};
+
   /// The first message out of a GraphQL `errors` array, wherever it arrives —
   /// a 200 body or the body of a refusal. Null when the payload carries none.
   static String? _graphqlError(dynamic body) {
@@ -213,17 +256,25 @@ class AnilistApi {
     return AnilistViewer.fromJson(v.cast<String, dynamic>());
   }
 
-  /// The viewer's anime list, every status in one call.
+  /// One of the viewer's lists, every status in one call.
   ///
   /// AniList returns it grouped by status; flattening here keeps the grouping
   /// decision in the UI rather than baking one layout into the transport.
+  ///
+  /// [type] is AniList's own split and defaults to ANIME, so the callers that
+  /// only ever meant anime — the episode reminders among them — keep making
+  /// exactly the request they made before. A reader asks for MANGA, which is
+  /// also where their light novels are: AniList has no NOVEL type, only the
+  /// format, so novels arrive in this same collection and are told apart after.
   Future<List<AnilistListEntry>> mediaList({
     required String token,
     required int userId,
+    String type = 'ANIME',
   }) async {
-    final query = '''
-      query (\$userId: Int) {
-        MediaListCollection(userId: \$userId, type: ANIME) {
+    final query =
+        '''
+      query (\$userId: Int, \$type: MediaType) {
+        MediaListCollection(userId: \$userId, type: \$type) {
           lists {
             entries {
               id
@@ -237,7 +288,11 @@ class AnilistApi {
         }
       }
     ''';
-    final data = await _run(query, variables: {'userId': userId}, token: token);
+    final data = await _run(
+      query,
+      variables: {'userId': userId, 'type': type},
+      token: token,
+    );
 
     final collection = data['MediaListCollection'];
     final lists = collection is Map ? collection['lists'] : null;
@@ -274,17 +329,22 @@ class AnilistApi {
     int page = 1,
     int perPage = 30,
   }) async {
-    final gql = '''
+    final gql =
+        '''
       query (\$sort: [MediaSort], \$season: MediaSeason, \$seasonYear: Int,
              \$status: MediaStatus, \$page: Int, \$perPage: Int) {
         Page(page: \$page, perPage: \$perPage) {
           media(
+            # Fixed, unlike the list query's: this shelf's whole point is
+            # `season` and `seasonYear`, and AniList only gives those to an
+            # anime. A manga shelf would need a different sort and a different
+            # row, so it is a screen of its own rather than a variable here.
             type: ANIME
             sort: \$sort
             season: \$season
             seasonYear: \$seasonYear
             status: \$status
-            isAdult: false
+            ${allowAdult() ? '' : 'isAdult: false'}
           ) {
             $_mediaFields
           }
@@ -311,18 +371,30 @@ class AnilistApi {
     return media
         .whereType<Map>()
         .map((e) => AnilistMedia.fromJson(e.cast<String, dynamic>()))
-        .where((m) => !m.isAdult)
+        .where((m) => allowAdult() || !m.isAdult)
         .toList(growable: false);
   }
 
   /// Public title search — used to attach an AniList id to something the user
   /// is watching from a source that knows nothing about AniList.
-  Future<List<AnilistMedia>> searchMedia(String query, {int perPage = 20}) async {
+  ///
+  /// [type] is AniList's own split and defaults to ANIME rather than to "both".
+  /// Widening it silently would be the expensive mistake here: the skip-times
+  /// lookup and the search suggestions both feed the id they find to services
+  /// that only know anime, and a manga would arrive there as a plausible id
+  /// for the wrong thing. A reader asks for MANGA — which is also AniList's
+  /// type for a light novel.
+  Future<List<AnilistMedia>> searchMedia(
+    String query, {
+    int perPage = 20,
+    String type = 'ANIME',
+  }) async {
     if (query.trim().isEmpty) return const [];
-    final gql = '''
-      query (\$search: String, \$perPage: Int) {
+    final gql =
+        '''
+      query (\$search: String, \$type: MediaType, \$perPage: Int) {
         Page(page: 1, perPage: \$perPage) {
-          media(search: \$search, type: ANIME, sort: SEARCH_MATCH) {
+          media(search: \$search, type: \$type, sort: SEARCH_MATCH) {
             $_mediaFields
           }
         }
@@ -330,7 +402,7 @@ class AnilistApi {
     ''';
     final data = await _run(
       gql,
-      variables: {'search': query.trim(), 'perPage': perPage},
+      variables: {'search': query.trim(), 'type': type, 'perPage': perPage},
     );
     final page = data['Page'];
     final media = page is Map ? page['media'] : null;
@@ -338,6 +410,10 @@ class AnilistApi {
     return media
         .whereType<Map>()
         .map((e) => AnilistMedia.fromJson(e.cast<String, dynamic>()))
+        // Search feeds suggestions a person sees, as well as the matcher; an
+        // adult title matched while the setting is off would be one they are
+        // then shown.
+        .where((m) => allowAdult() || !m.isAdult)
         .toList(growable: false);
   }
 
@@ -349,6 +425,162 @@ class AnilistApi {
   ///
   /// Empty on any failure. A missing relations list costs a tab that says
   /// nothing was found; a thrown one would take the detail page with it.
+  /// The page for one title. See [AnilistMediaDetail] for what and why.
+  ///
+  /// [type] is AniList's own split, `ANIME` or `MANGA` (a light novel is
+  /// MANGA with format NOVEL). Ids are unique across both, so it is a check
+  /// rather than a lookup key: a manga id asked for as an anime is null, not
+  /// the wrong record.
+  Future<AnilistMediaDetail?> mediaDetail(int id, {String? type}) async {
+    const gql =
+        '''
+      query (\$id: Int, \$type: MediaType) {
+        Media(id: \$id, type: \$type) {
+          $_mediaFields
+          meanScore
+          popularity
+          duration
+          countryOfOrigin
+          source
+          genres
+          rankings { rank type context allTime year season }
+          studios(isMain: true) { nodes { name } }
+          staff(sort: RELEVANCE, perPage: 3) {
+            edges { role node { name { full } } }
+          }
+          tags { name rank isMediaSpoiler }
+          trailer { id site }
+          characters(sort: [ROLE, RELEVANCE], perPage: 12) {
+            edges {
+              node { name { full } image { large } }
+              voiceActors(language: JAPANESE, sort: RELEVANCE) {
+                name { full }
+                image { large }
+              }
+            }
+          }
+          recommendations(sort: RATING_DESC, perPage: 12) {
+            nodes { mediaRecommendation { $_mediaFields } }
+          }
+        }
+      }
+    ''';
+    final data = await _run(gql, variables: {'id': id, 'type': ?type});
+    final raw = data['Media'];
+    if (raw is! Map) return null;
+    final m = raw.cast<String, dynamic>();
+
+    // Who wrote it: a manga's answer to the studio line, and on an anime the
+    // person whose book it came from.
+    //
+    // Only a writing credit counts, and the credit has to BE one rather than
+    // contain one. AniList's role vocabulary is full of near misses that a
+    // substring test cannot tell apart from the real thing: "Storyboard" and
+    // "Story Supervisor" both hold "story", "Original Character Design" and
+    // "Original Work Assistance" both hold "original", and every one of those
+    // is a job done on somebody else's story. Relevance order makes this worse,
+    // not better — AniList sorts the helper above the writer often enough that
+    // whichever near miss matched first became the name printed under "Author".
+    //
+    // "Art" alone is the illustrator, so it is taken only when no writing
+    // credit appears at all: on a manga drawn and written by one person AniList
+    // sometimes files them that way, and there it is the right name — but it
+    // must never outrank a real story credit sorted below it.
+    String? author;
+    String? artist;
+    final staff = ((m['staff'] as Map?)?['edges'] as List?)?.whereType<Map>();
+    for (final e in staff ?? const <Map>[]) {
+      final name = ((e['node'] as Map?)?['name'] as Map?)?['full']?.toString();
+      if (name == null || name.isEmpty) continue;
+      final role = _normalizeRole(e['role']?.toString());
+      if (_authorRoles.contains(role)) {
+        author = name;
+        break;
+      }
+      if (artist == null && _artistRoles.contains(role)) artist = name;
+    }
+    author ??= artist;
+
+    // The ranking worth one line: this season's, if AniList has one, else
+    // the all-time one. "#2 most popular this season" beats "#1043 all time".
+    String? rankText;
+    final rankings = (m['rankings'] as List?)?.whereType<Map>().toList() ?? [];
+    Map? pick;
+    for (final r in rankings) {
+      if (r['allTime'] != true && r['season'] != null) {
+        pick = r;
+        break;
+      }
+    }
+    pick ??= rankings.where((r) => r['allTime'] == true).firstOrNull;
+    if (pick != null && pick['rank'] != null && pick['context'] != null) {
+      rankText = '#${pick['rank']} ${pick['context']}';
+    }
+
+    final studios = (m['studios'] as Map?)?['nodes'] as List?;
+    final studio = studios != null && studios.isNotEmpty
+        ? (studios.first as Map)['name']?.toString()
+        : null;
+
+    final tags = <String>[
+      for (final t in (m['tags'] as List?)?.whereType<Map>() ?? const <Map>[])
+        if (t['isMediaSpoiler'] != true && (t['rank'] as num? ?? 0) >= 40)
+          t['name'].toString(),
+    ].take(8).toList();
+
+    final characters = <AnilistCharacter>[
+      for (final e
+          in ((m['characters'] as Map?)?['edges'] as List?)?.whereType<Map>() ??
+              const <Map>[])
+        AnilistCharacter(
+          name:
+              ((e['node'] as Map?)?['name'] as Map?)?['full']?.toString() ?? '',
+          image: ((e['node'] as Map?)?['image'] as Map?)?['large']?.toString(),
+          voiceActor:
+              (((e['voiceActors'] as List?)?.firstOrNull as Map?)?['name']
+                      as Map?)?['full']
+                  ?.toString(),
+          voiceActorImage:
+              (((e['voiceActors'] as List?)?.firstOrNull as Map?)?['image']
+                      as Map?)?['large']
+                  ?.toString(),
+        ),
+    ];
+
+    final recs = <AnilistMedia>[
+      for (final n
+          in ((m['recommendations'] as Map?)?['nodes'] as List?)
+                  ?.whereType<Map>() ??
+              const <Map>[])
+        if (n['mediaRecommendation'] is Map)
+          AnilistMedia.fromJson(
+            (n['mediaRecommendation'] as Map).cast<String, dynamic>(),
+          ),
+    ];
+
+    final trailer = m['trailer'] as Map?;
+    return AnilistMediaDetail(
+      media: AnilistMedia.fromJson(m),
+      meanScore: m['meanScore'] as int?,
+      popularity: m['popularity'] as int?,
+      rankText: rankText,
+      studio: studio,
+      author: author,
+      source: m['source']?.toString(),
+      durationMinutes: m['duration'] as int?,
+      countryOfOrigin: m['countryOfOrigin']?.toString(),
+      genres: [
+        for (final g in (m['genres'] as List?) ?? const []) g.toString(),
+      ],
+      tags: tags,
+      characters: characters,
+      recommendations: recs,
+      trailerYoutubeId: trailer != null && trailer['site'] == 'youtube'
+          ? trailer['id']?.toString()
+          : null,
+    );
+  }
+
   Future<List<AnilistRelation>> relations(int mediaId) async {
     if (mediaId <= 0) return const [];
     const gql = """
@@ -418,6 +650,36 @@ class AnilistApi {
     return (idMal != null && idMal > 0) ? idMal : null;
   }
 
+  /// The AniList records for MyAnimeList ids, keyed by MAL id. Public, no
+  /// token; asked fifty at a time, AniList's page cap.
+  Future<Map<int, AnilistMedia>> mediaByMalIds(List<int> malIds) async {
+    final ids = malIds.where((id) => id > 0).toSet().toList();
+    final out = <int, AnilistMedia>{};
+    const gql =
+        '''
+      query (\$ids: [Int], \$perPage: Int) {
+        Page(page: 1, perPage: \$perPage) {
+          media(idMal_in: \$ids, type: ANIME) {
+            $_mediaFields
+          }
+        }
+      }
+    ''';
+    for (var i = 0; i < ids.length; i += 50) {
+      final chunk = ids.sublist(i, i + 50 > ids.length ? ids.length : i + 50);
+      final data = await _run(gql, variables: {'ids': chunk, 'perPage': 50});
+      final page = data['Page'];
+      final media = page is Map ? page['media'] : null;
+      if (media is! List) continue;
+      for (final raw in media.whereType<Map>()) {
+        final m = AnilistMedia.fromJson(raw.cast<String, dynamic>());
+        final mal = m.idMal;
+        if (mal != null && mal > 0) out[mal] = m;
+      }
+    }
+    return out;
+  }
+
   /// Everything airing between [from] and [to].
   ///
   /// Paged rather than a single large request: a day of global airings runs to
@@ -427,9 +689,11 @@ class AnilistApi {
   Future<List<AnilistScheduledAiring>> airingSchedule({
     required DateTime from,
     required DateTime to,
-    bool includeAdult = false,
+    bool? includeAdult,
   }) async {
-    final gql = '''
+    final adult = includeAdult ?? allowAdult();
+    final gql =
+        '''
       query (\$start: Int, \$end: Int, \$page: Int) {
         Page(page: \$page, perPage: 50) {
           pageInfo { hasNextPage }
@@ -465,10 +729,11 @@ class AnilistApi {
       final schedules = pageData['airingSchedules'];
       if (schedules is List) {
         for (final raw in schedules.whereType<Map>()) {
-          final airing =
-              AnilistScheduledAiring.fromJson(raw.cast<String, dynamic>());
+          final airing = AnilistScheduledAiring.fromJson(
+            raw.cast<String, dynamic>(),
+          );
           if (airing == null) continue;
-          if (!includeAdult && airing.media.isAdult) continue;
+          if (!adult && airing.media.isAdult) continue;
           out.add(airing);
         }
       }
@@ -489,23 +754,35 @@ class AnilistApi {
     required String token,
     required int mediaId,
   }) async {
+    // No type: the id is enough, and a manga id under `type: ANIME` is a
+    // null Media — which read as "not on the list" for every manga title.
     const query = '''
       query (\$mediaId: Int) {
-        Media(id: \$mediaId, type: ANIME) {
+        Media(id: \$mediaId) {
           episodes
-          mediaListEntry { progress status }
+          chapters
+          mediaListEntry { id progress status score(format: POINT_10) }
         }
       }
     ''';
-    final data = await _run(query, variables: {'mediaId': mediaId}, token: token);
+    final data = await _run(
+      query,
+      variables: {'mediaId': mediaId},
+      token: token,
+    );
     final media = data['Media'];
     if (media is! Map) return null;
     final entry = media['mediaListEntry'];
     return AnilistEntryState(
       onList: entry is Map,
+      entryId: entry is Map ? (entry['id'] as num?)?.toInt() : null,
       progress: entry is Map ? (entry['progress'] as num?)?.toInt() ?? 0 : 0,
       status: entry is Map ? entry['status'] as String? : null,
-      totalEpisodes: (media['episodes'] as num?)?.toInt(),
+      score: entry is Map ? (entry['score'] as num?)?.toInt() : null,
+      // Chapters for a manga: "progress" counts whichever the title has.
+      totalEpisodes:
+          (media['episodes'] as num?)?.toInt() ??
+          (media['chapters'] as num?)?.toInt(),
     );
   }
 
@@ -524,8 +801,12 @@ class AnilistApi {
     required int mediaId,
     AnilistStatus status = AnilistStatus.planning,
   }) async {
+    // `entryState` answers for every title AniList knows, on the list or
+    // not — `onList` is the flag. Testing the object for null here meant a
+    // title not yet on the list was read as already there, and nothing was
+    // ever written.
     final existing = await entryState(token: token, mediaId: mediaId);
-    if (existing != null) return null;
+    if (existing?.onList ?? false) return null;
     return saveProgress(token: token, mediaId: mediaId, status: status.value);
   }
 
@@ -547,11 +828,7 @@ class AnilistApi {
         }
       }
     ''';
-    final data = await _run(
-      mutation,
-      variables: {'id': entryId},
-      token: token,
-    );
+    final data = await _run(mutation, variables: {'id': entryId}, token: token);
     final result = data['DeleteMediaListEntry'];
     if (result is Map && result['deleted'] == false) {
       throw const AnilistException('AniList did not remove the entry');
@@ -576,13 +853,17 @@ class AnilistApi {
     // AniList would take as "set it to nothing".
     int? progress,
     String? status,
+    // Out of 10, the way the page shows it; AniList converts to whatever
+    // scale the account uses.
+    int? score,
   }) async {
     const mutation = '''
-      mutation (\$mediaId: Int, \$progress: Int, \$status: MediaListStatus) {
-        SaveMediaListEntry(mediaId: \$mediaId, progress: \$progress, status: \$status) {
+      mutation (\$mediaId: Int, \$progress: Int, \$status: MediaListStatus, \$score: Float) {
+        SaveMediaListEntry(mediaId: \$mediaId, progress: \$progress, status: \$status, score: \$score) {
           id
           progress
           status
+          score(format: POINT_10)
         }
       }
     ''';
@@ -592,6 +873,7 @@ class AnilistApi {
         'mediaId': mediaId,
         'progress': ?progress,
         'status': ?status,
+        'score': ?score?.toDouble(),
       },
       token: token,
     );
@@ -600,17 +882,27 @@ class AnilistApi {
       throw const AnilistException('AniList did not save the change');
     }
     return AnilistSaveResult(
+      entryId: (saved['id'] as num?)?.toInt(),
       progress: (saved['progress'] as num?)?.toInt() ?? progress ?? 0,
-      status: saved['status'] as String? ?? status ?? AnilistStatus.current.value,
+      status:
+          saved['status'] as String? ?? status ?? AnilistStatus.current.value,
+      score: (saved['score'] as num?)?.toInt() ?? score,
     );
   }
 }
 
 /// What AniList actually stored after a write.
 class AnilistSaveResult {
-  const AnilistSaveResult({required this.progress, required this.status});
+  const AnilistSaveResult({
+    required this.progress,
+    required this.status,
+    this.entryId,
+    this.score,
+  });
   final int progress;
   final String status;
+  final int? entryId;
+  final int? score;
 }
 
 /// The viewer's current position on one title, as AniList holds it.
@@ -620,12 +912,22 @@ class AnilistEntryState {
     required this.progress,
     this.status,
     this.totalEpisodes,
+    this.entryId,
+    this.score,
   });
 
   final bool onList;
   final int progress;
   final String? status;
+
+  /// Episodes for an anime, chapters for a manga — whatever progress counts.
   final int? totalEpisodes;
+
+  /// The list row's own id, which is what a delete takes.
+  final int? entryId;
+
+  /// Out of 10. Null or 0 when unscored.
+  final int? score;
 }
 
 class AnilistException implements Exception {

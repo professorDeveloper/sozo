@@ -6,11 +6,14 @@ import android.content.Context
 import android.util.Log
 import com.soplay.sozo.extensions.ApkSignature
 import eu.kanade.tachiyomi.animesource.AnimeCatalogueSource
+import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
+import com.soplay.sozo.manga.MangaPreferences
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SAnimeImpl
 import eu.kanade.tachiyomi.animesource.model.Hoster
+import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.SEpisodeImpl
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
@@ -29,6 +32,10 @@ class AniyomiHost(private val context: Context) {
 
     companion object {
         private const val TAG = "AniyomiHost"
+
+        // How long resolving deferred video links may take in total, so one
+        // slow hoster cannot hold the whole episode back.
+        private const val LAZY_BUDGET_MS = 20_000L
         private const val UA =
             "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
 
@@ -66,6 +73,9 @@ class AniyomiHost(private val context: Context) {
     var refreshMissingApk: ((String) -> Unit)? = null
     private val missingApkUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val refreshAttempts = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    /** Installed here, without loading it. */
+    fun has(id: String): Boolean = sources.containsKey(id)
 
     fun registerMeta(entry: JSONObject, repoName: String) {
         val id = entry.optString("id")
@@ -302,7 +312,7 @@ class AniyomiHost(private val context: Context) {
      * from a class loader of its own, and an extension may override the hoster
      * call without extending our AnimeHttpSource at all.
      */
-    private fun fetchVideos(src: Any, episode: SEpisodeImpl, id: String): List<Video> {
+    private fun fetchVideos(src: Any, episode: SEpisodeImpl, id: String): List<HostedVideo> {
         val viaHosters = if (!implementsHosterApi(src)) {
             null
         } else {
@@ -319,8 +329,14 @@ class AniyomiHost(private val context: Context) {
                     } ?: emptyList()
                     // A hoster that already carries its videos needs no second
                     // call; one that does not is asked for them individually.
-                    hosters.flatMap { hoster ->
-                        hoster.videoList ?: fetchHosterVideos(src, hoster)
+                    // The hoster's name travels with each video: lib-16
+                    // extensions title videos "1080p" and name the server on
+                    // the hoster, so dropping it merged every server into one.
+                    extensionSorted(src, "sortHosters", hosters).flatMap { hoster ->
+                        val name = hoster.hosterName
+                            .takeIf { it.isNotBlank() && it != Hoster.NO_HOSTER_LIST }
+                        extensionSorted(src, "sortVideos", hoster.videoList ?: fetchHosterVideos(src, hoster))
+                            .map { HostedVideo(name, it) }
                     }
                 }
             } catch (t: Throwable) {
@@ -332,7 +348,8 @@ class AniyomiHost(private val context: Context) {
         if (!viaHosters.isNullOrEmpty()) return viaHosters
 
         return try {
-            runBlocking { (src as AnimeHttpSource).getVideoList(episode) }
+            extensionSorted(src, "sortVideos", runBlocking { (src as AnimeHttpSource).getVideoList(episode) })
+                .map { HostedVideo(null, it) }
         } catch (t: Throwable) {
             Log.e(TAG, "videos $id: ${t.message}")
             emptyList()
@@ -365,6 +382,49 @@ class AniyomiHost(private val context: Context) {
     }
 
     /** One hoster's qualities, when the hoster list did not carry them. */
+    /**
+     * The extension's own ordering — `List<Hoster>.sortHosters()` and
+     * `List<Video>.sortVideos()` — where it applies the user's preferred
+     * server and quality from its settings. Extension functions compile to a
+     * method taking the list, so they are reached the same reflective way as
+     * the hoster calls. Unsorted when the extension has none, or it throws.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> extensionSorted(src: Any, name: String, list: List<T>): List<T> {
+        if (list.size < 2) return list
+        return try {
+            val method = src.javaClass.methods.firstOrNull {
+                it.name == name && it.parameterTypes.size == 1 &&
+                    List::class.java.isAssignableFrom(it.parameterTypes[0])
+            } ?: return list
+            (method.invoke(src, list) as? List<T>) ?: list
+        } catch (t: Throwable) {
+            list
+        }
+    }
+
+    /**
+     * The address of a video whose extension defers it until playback —
+     * `resolveVideo` (lib 16) or `getVideoUrl` (the older API). Aniyomi's own
+     * player resolves only the one it plays; this host lists every quality up
+     * front, so each lazy one is resolved here, within [deadline].
+     */
+    private fun lazyUrl(src: Any, video: Video, deadline: Long): String? {
+        if (System.currentTimeMillis() > deadline) return null
+        val http = src as? AnimeHttpSource ?: return null
+        return try {
+            runBlocking {
+                kotlinx.coroutines.withTimeoutOrNull(deadline - System.currentTimeMillis()) {
+                    http.resolveVideo(video)?.videoUrl?.takeIf { it.isNotEmpty() }
+                        ?: http.getVideoUrl(video).takeIf { it.isNotEmpty() }
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "lazy video ${video.quality}: ${t.message}")
+            null
+        }
+    }
+
     private fun fetchHosterVideos(src: Any, hoster: Hoster): List<Video> = try {
         val method = src.javaClass.methods.firstOrNull {
             it.name == "getVideoList" &&
@@ -429,13 +489,80 @@ class AniyomiHost(private val context: Context) {
     private fun failureReason(id: String): String =
         AniyomiRuntime.lastError ?: lastError ?: "source unavailable: an:$id"
 
+    /**
+     * A browse or search row.
+     *
+     * [SAnimeImpl.title] is `lateinit`, so an entry whose source never set one
+     * does not read back as empty — the getter throws
+     * `UninitializedPropertyAccessException`, and one such entry anywhere in a
+     * page took the whole page with it. The log line below already knew this
+     * and guarded its own read; the card that the reader actually sees did not,
+     * and the details path guards it separately.
+     *
+     * A row with no name falls back to the slug the site itself uses. It is
+     * legible and, more to the point, it still opens.
+     */
+    /**
+     * A url a browser can open, out of the path an extension stores.
+     *
+     * An Aniyomi source keeps `SAnime.url` and `SEpisode.url` as paths relative
+     * to its own `baseUrl`, so the app held nothing it could hand to a browser.
+     * The source object knows the base; this is the only place that has both.
+     *
+     * Empty when there is nothing openable, and the caller omits the field
+     * entirely then — an action that cannot work should not be on screen.
+     */
+    private fun webUrl(src: Any?, path: String?): String {
+        val p = path?.trim().orEmpty()
+        if (p.isEmpty()) return ""
+        if (p.startsWith("http://") || p.startsWith("https://")) return p
+        val base = (src as? AnimeHttpSource)?.baseUrl?.trimEnd('/').orEmpty()
+        if (base.isEmpty()) return ""
+        return if (p.startsWith("/")) base + p else "$base/$p"
+    }
+
+    /**
+     * An episode's page, asked of the source rather than assembled here.
+     *
+     * `SEpisode.url` is not always a path — for some sources it is a key the
+     * source turns into the real address, which is why
+     * [AnimeHttpSource.getEpisodeUrl] exists and why joining baseUrl to the
+     * stored string 404s on those. Its default IS the join, so a source that
+     * does not override it loses nothing. Same three fallbacks as the manga
+     * host: not an AnimeHttpSource, the source threw, or the answer is not
+     * http(s).
+     */
+    private fun episodeWebUrl(src: Any?, episode: SEpisode): String {
+        val http = src as? AnimeHttpSource ?: return webUrl(src, episode.url)
+        val asked = try {
+            http.getEpisodeUrl(episode).trim()
+        } catch (_: Throwable) {
+            ""
+        }
+        if (asked.startsWith("http://") || asked.startsWith("https://")) return asked
+        if (asked.isNotEmpty() && asked != episode.url) return webUrl(src, asked)
+        return webUrl(src, episode.url)
+    }
+
+    private fun titleOf(a: SAnime): String {
+        val given = try { a.title } catch (_: Throwable) { "" }
+        if (given.isNotBlank()) return given
+        return a.url.trimEnd('/')
+            .substringAfterLast('/')
+            .substringBefore('?')
+            .replace('-', ' ')
+            .replace('_', ' ')
+            .trim()
+            .ifEmpty { "Untitled" }
+    }
+
     private fun cardJson(a: SAnime, id: String) = JSONObject().apply {
         put("provider", "an:$id")
         put("externalId", a.url)
-        put("title", a.title)
+        put("title", titleOf(a))
         put("slug", a.url)
         put("contentUrl", a.url)
-        put("thumbnail", a.thumbnail_url)
+        put("thumbnail", try { a.thumbnail_url } catch (_: Throwable) { null })
         put("type", "Anime")
     }
 
@@ -552,6 +679,35 @@ class AniyomiHost(private val context: Context) {
 
     fun getGenresJson(id: String): String = "[]"
 
+    // --- per-source settings (ConfigurableAnimeSource) ---
+
+    /**
+     * The source's settings as a JSON array, or `[]` if it has none. Aniyomi
+     * sources read them from `source_<numeric id>`, which is the store this
+     * builds the screen against.
+     */
+    fun getPrefsJson(id: String): String {
+        val src = sourceFor(id) ?: return "[]"
+        if (src !is ConfigurableAnimeSource) return "[]"
+        return try {
+            MangaPreferences.extractScreen(context, "source_${src.id}") {
+                src.setupPreferenceScreen(it)
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "prefs an:$id: ${t.message}"); "[]"
+        }
+    }
+
+    fun setPrefJson(id: String, key: String, value: Any?, type: String): String {
+        val src = sourceFor(id) ?: return "{\"ok\":false}"
+        return try {
+            MangaPreferences.writeTo(context, "source_${src.id}", key, value, type)
+            "{\"ok\":true}"
+        } catch (t: Throwable) {
+            Log.e(TAG, "setPref an:$id: ${t.message}"); "{\"ok\":false}"
+        }
+    }
+
     /**
      * Returns `{"baseUrl","userAgent"}` for the interactive Cloudflare solver.
      * The userAgent is the EXACT one the native OkHttp client sends for this
@@ -627,12 +783,13 @@ class AniyomiHost(private val context: Context) {
                 put("episode", num)
                 put("label", label)
                 put("mediaRef", e.url)
+                episodeWebUrl(src, e).takeIf { it.isNotEmpty() }?.let { put("webUrl", it) }
             })
         }
         if (eps.isEmpty() && failure == null) {
             failure = "no episodes returned for this title"
         }
-        val title = try { details.title } catch (_: Throwable) { "" }
+        val title = titleOf(details)
         val author = try { details.author } catch (_: Throwable) { null }
         val status = statusLabel(try { details.status } catch (_: Throwable) { 0 })
         val desc = buildString {
@@ -684,6 +841,20 @@ class AniyomiHost(private val context: Context) {
         }.toString()
     }
 
+    /** A video and the server it came from, when the extension named one. */
+    private data class HostedVideo(val hoster: String?, val video: Video)
+
+    /**
+     * HLS without ".m3u8" in the path — "/playlist", ".txt", signed paths —
+     * went to ExoPlayer as a progressive file and failed to open.
+     */
+    private fun looksHls(url: String, quality: String): Boolean {
+        val u = url.lowercase()
+        val q = quality.lowercase()
+        return u.contains("m3u8") || u.contains("/hls/") ||
+            q.contains("hls") || q.contains("m3u8")
+    }
+
     fun loadLinksJson(id: String, data: String): String {
         val meta = sources[id]
         val src = sourceFor(id)
@@ -703,24 +874,48 @@ class AniyomiHost(private val context: Context) {
                 failure = ExtensionFailure.describe(t)
                 emptyList()
             }
-            for (v in videos) {
-                val vu = v.videoUrl ?: continue
-                if (vu.isEmpty() || !seen.add(vu)) continue
+            val lazyDeadline = System.currentTimeMillis() + LAZY_BUDGET_MS
+            val subLabels = HashMap<String, Int>()
+            for ((hoster, v) in videos) {
+                val vu = v.videoUrl?.takeIf { it.isNotEmpty() }
+                    ?: lazyUrl(src, v, lazyDeadline)
+                    ?: continue
+                if (!seen.add(vu)) continue
                 val headers = JSONObject()
                 v.headers?.forEach { (k, value) -> headers.put(k, value) }
-                val isHls = vu.contains(".m3u8")
+                val quality = v.quality.trim().ifEmpty { "Source" }
+                // "Filemoon · 1080p", unless the extension already put the
+                // server in the title.
+                val label = if (hoster != null && !quality.contains(hoster, ignoreCase = true)) {
+                    "$hoster · $quality"
+                } else {
+                    quality
+                }
                 videoSources.put(JSONObject().apply {
-                    put("quality", v.quality.ifEmpty { "Source" })
+                    put("quality", label)
                     put("videoUrl", vu)
-                    put("type", if (isHls) "hls" else "http")
-                    put("host", meta.name)
+                    put("type", if (looksHls(vu, quality)) "hls" else "http")
+                    put("host", hoster ?: meta.name)
                     put("isDefault", videoSources.length() == 0)
                     put("accessible", true)
                     put("headers", headers)
                 })
                 for (t in v.subtitleTracks) {
-                    if (t.url.isNotEmpty() && seenSub.add(t.url)) subs.put(JSONObject().apply {
-                        put("label", t.lang); put("file", t.url); put("default", false)
+                    if (t.url.isEmpty() || !seenSub.add(t.url)) continue
+                    // The same language from a second server is told apart by
+                    // where it comes from; three identical "English" rows
+                    // gave no way to pick the one timed for this video.
+                    val lang = t.lang.trim().ifEmpty { "Subtitle" }
+                    val n = (subLabels[lang] ?: 0) + 1
+                    subLabels[lang] = n
+                    subs.put(JSONObject().apply {
+                        put("label", if (n == 1) lang else "$lang · ${hoster ?: quality}")
+                        put("file", t.url)
+                        put("default", false)
+                        // The video's Referer and cookies: hosts gate their
+                        // subtitle files the same way as the stream, and
+                        // Aniyomi's player loads both through one session.
+                        put("headers", headers)
                     })
                 }
             }

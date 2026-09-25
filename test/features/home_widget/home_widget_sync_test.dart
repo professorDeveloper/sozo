@@ -1,0 +1,156 @@
+// What the home screen widget is handed: the same titles Home would offer to
+// continue, and a line under each in the viewer's words.
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:soplay/features/history/domain/entities/history_item.dart';
+import 'package:soplay/features/home_widget/home_widget_sync.dart';
+
+class _Translations extends AssetLoader {
+  const _Translations();
+  @override
+  Future<Map<String, dynamic>> load(String path, Locale locale) async =>
+      jsonDecode(File('assets/translations/en.json').readAsStringSync())
+          as Map<String, dynamic>;
+}
+
+HistoryItem item(
+  String url, {
+  int at = 0,
+  bool serial = true,
+  int? ep,
+  int pos = 10 * 60000,
+  int dur = 24 * 60000,
+  String? media,
+}) => HistoryItem(
+  contentUrl: url,
+  provider: 'p',
+  title: url,
+  isSerial: serial,
+  episodeNumber: ep,
+  positionMs: pos,
+  durationMs: dur,
+  watchedAt: at,
+  mediaType: media,
+);
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'one row per title, newest first, finished films left out, three at most',
+    () {
+      final rows = HomeWidgetSync.continueItems([
+        item('a', at: 1, ep: 1),
+        item('a', at: 5, ep: 2),
+        item('film', at: 9, serial: false, pos: 99, dur: 100),
+        item('b', at: 3),
+        item('c', at: 4),
+        item('d', at: 2),
+      ]);
+      expect(rows.map((r) => r.contentUrl), ['a', 'c', 'b']);
+      expect(rows.first.episodeNumber, 2);
+    },
+  );
+
+  testWidgets('the line under a title', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await EasyLocalization.ensureInitialized();
+    late BuildContext ctx;
+    await tester.pumpWidget(
+      EasyLocalization(
+        supportedLocales: const [Locale('en')],
+        startLocale: const Locale('en'),
+        path: 'assets/translations',
+        assetLoader: const _Translations(),
+        saveLocale: false,
+        child: Builder(
+          builder: (context) => MaterialApp(
+            locale: context.locale,
+            supportedLocales: context.supportedLocales,
+            localizationsDelegates: context.localizationDelegates,
+            home: Builder(
+              builder: (inner) {
+                ctx = inner;
+                return const SizedBox();
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(ctx, isNotNull);
+    // The number and nothing else: no chapter titles, no minutes left.
+    expect(
+      HomeWidgetSync.subtitleOf(item('a', ep: 7, pos: 10 * 60000)),
+      'Ep 7',
+    );
+    expect(
+      HomeWidgetSync.subtitleOf(
+        item('m', ep: 128, pos: 3, dur: 20, media: 'manga'),
+      ),
+      'Ch 128',
+    );
+    expect(HomeWidgetSync.subtitleOf(item('f', serial: false)), '');
+    // An old row with no media type: a manga source's mode says chapter.
+    expect(
+      HomeWidgetSync.subtitleOf(
+        HistoryItem(
+          contentUrl: 'x',
+          provider: 'mn:1',
+          title: 'x',
+          isSerial: true,
+          episodeNumber: 3,
+          positionMs: 0,
+          durationMs: 0,
+          watchedAt: 0,
+        ),
+      ),
+      'Ch 3',
+    );
+  });
+
+  test('rows on a removed source are left out', () async {
+    final asked = <String, List<String>>{};
+    final kept = await HomeWidgetSync.installedOf(
+      {'mn:1', 'mn:2', 'an:9', 'cs:Gone', 'my:x', 'my:y', 'hdrezka'},
+      mangayomi: (p) => p == 'my:x',
+      host: (prefix, ids) async {
+        asked[prefix] = ids;
+        return switch (prefix) {
+          'mn:' => {'1'},
+          'cs:' => <String>{},
+          _ => null, // a host that cannot say keeps its rows
+        };
+      },
+    );
+    expect(kept, {'mn:1', 'an:9', 'my:x', 'hdrezka'});
+    expect(asked['mn:'], unorderedEquals(['1', '2']));
+  });
+
+  test('the streak badge: tier won, the next, and the way to it', () {
+    const tiers = [7, 30, 100, 365];
+    expect(HomeWidgetSync.streakBadge(0, tiers), (
+      tier: 0,
+      next: 7,
+      progress: 0.0,
+    ));
+    final two = HomeWidgetSync.streakBadge(2, tiers);
+    expect((two.tier, two.next), (0, 7));
+    expect(two.progress, closeTo(2 / 7, 1e-9));
+    final nine = HomeWidgetSync.streakBadge(9, tiers);
+    expect((nine.tier, nine.next), (1, 30));
+    expect(nine.progress, closeTo(2 / 23, 1e-9));
+    expect(HomeWidgetSync.streakBadge(400, tiers), (
+      tier: 4,
+      next: null,
+      progress: 1.0,
+    ));
+  });
+}

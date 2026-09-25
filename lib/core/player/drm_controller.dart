@@ -58,9 +58,9 @@ class DrmController extends PlayerController {
   Future<void> initialize() async {
     final ready = _ready = Completer<void>();
     _sub = _events.receiveBroadcastStream().listen(
-          _onEvent,
-          onError: (Object e) => _fail(e.toString()),
-        );
+      _onEvent,
+      onError: (Object e) => _fail(e.toString()),
+    );
 
     final created = await _channel.invokeMapMethod<String, dynamic>('create', {
       'url': url,
@@ -98,8 +98,12 @@ class DrmController extends PlayerController {
 
     final width = (raw['width'] as num?)?.toDouble() ?? 0;
     final height = (raw['height'] as num?)?.toDouble() ?? 0;
-    final position = Duration(milliseconds: (raw['position'] as num?)?.toInt() ?? 0);
-    final buffered = Duration(milliseconds: (raw['buffered'] as num?)?.toInt() ?? 0);
+    final position = Duration(
+      milliseconds: (raw['position'] as num?)?.toInt() ?? 0,
+    );
+    final buffered = Duration(
+      milliseconds: (raw['buffered'] as num?)?.toInt() ?? 0,
+    );
 
     value = value.copyWith(
       isInitialized: raw['ready'] == true && width > 0,
@@ -129,12 +133,11 @@ class DrmController extends PlayerController {
   Future<T?> _send<T>(String method, [Map<String, dynamic> args = const {}]) {
     final id = _sessionId;
     if (id == null || _disposed) return Future<T?>.value();
-    return _channel
-        .invokeMethod<T>(method, {'id': id, ...args})
-        // Every one of these is a button under a thumb. The failure shape is
-        // always the same — the session went away — and a tap handler must not
-        // become a crash report.
-        .catchError((Object e) {
+    return _channel.invokeMethod<T>(method, {'id': id, ...args})
+    // Every one of these is a button under a thumb. The failure shape is
+    // always the same — the session went away — and a tap handler must not
+    // become a crash report.
+    .catchError((Object e) {
       debugPrint('[drm] $method failed: $e');
       return null;
     });

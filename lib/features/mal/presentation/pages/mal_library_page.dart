@@ -9,6 +9,8 @@ import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
 import 'package:soplay/features/mal/presentation/controllers/mal_library_controller.dart';
 import 'package:soplay/features/mal/presentation/widgets/mal_brand.dart';
 import 'package:soplay/features/mal/presentation/widgets/mal_entry_sheet.dart';
+import 'package:soplay/features/onboarding/data/library_import_service.dart';
+import 'package:soplay/features/onboarding/presentation/widgets/import_showcase.dart';
 
 /// The viewer's MyAnimeList, in the app.
 ///
@@ -126,6 +128,13 @@ class _MalLibraryPageState extends State<MalLibraryPage>
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
         actions: [
+          if (connected)
+            IconButton(
+              tooltip: 'onboarding.import_row_title'.tr(),
+              onPressed: () =>
+                  showLibraryImportSheet(context, ImportSource.mal),
+              icon: const Icon(Icons.download_rounded, size: 20),
+            ),
           if (connected)
             IconButton(
               tooltip: 'anilist.refresh'.tr(),

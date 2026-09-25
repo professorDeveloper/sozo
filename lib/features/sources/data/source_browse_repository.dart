@@ -3,6 +3,7 @@ import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/features/home/data/models/home_data_model.dart';
 import 'package:soplay/features/home/domain/entities/home_data_entity.dart';
 
@@ -24,10 +25,15 @@ import 'package:soplay/features/home/domain/entities/home_data_entity.dart';
 /// to know this — sending a `cs:` id to `/contents/home` is what made opening
 /// XD Movies here answer 400.
 class SourceBrowseRepository {
-  const SourceBrowseRepository({required this.dio, required this.bridge});
+  const SourceBrowseRepository({
+    required this.dio,
+    required this.bridge,
+    this.jellyfin,
+  });
 
   final Dio dio;
   final MangayomiBridge bridge;
+  final JellyfinBridge? jellyfin;
 
   Future<HomeDataEntity> load(String providerId) async {
     final bare = providerId.length > 3 ? providerId.substring(3) : providerId;
@@ -44,12 +50,28 @@ class SourceBrowseRepository {
     if (providerId.startsWith('my:')) {
       return _fromHost(() => bridge.getMainPage(bare), 'Mangayomi');
     }
+    final jf = jellyfin;
+    if (jf != null && providerId.startsWith('jf:')) {
+      return _fromHost(() => jf.getMainPage(bare), 'Jellyfin');
+    }
 
     final res = await dio.get<Map<String, dynamic>>(
       '/contents/home',
       queryParameters: {'provider': providerId},
     );
     return HomeDataModel.fromJson(res.data ?? const <String, dynamic>{});
+  }
+
+  /// The cheapest call that shows whether [providerId] works: the same as
+  /// [load], except that a Mangayomi source stops after its first list.
+  Future<HomeDataEntity> probe(String providerId) {
+    if (providerId.startsWith('my:')) {
+      return _fromHost(
+        () => bridge.getMainPage(providerId.substring(3), popularOnly: true),
+        'Mangayomi',
+      );
+    }
+    return load(providerId);
   }
 
   /// An on-device host's catalogue.

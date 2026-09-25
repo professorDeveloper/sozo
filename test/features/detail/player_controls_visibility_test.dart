@@ -42,16 +42,16 @@ void main() {
   test('every write to _controlsVisible goes through setState', () {
     final offenders = <String>[];
 
-    for (final file in Directory(dir)
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.dart'))) {
+    for (final file in Directory(
+      dir,
+    ).listSync().whereType<File>().where((f) => f.path.endsWith('.dart'))) {
       final source = file.readAsStringSync();
       final ranges = setStateRanges(source);
 
       // The field's own declaration is an initialiser, not a write.
-      for (final m in RegExp(r'(?<!bool )_controlsVisible\s*=(?!=)')
-          .allMatches(source)) {
+      for (final m in RegExp(
+        r'(?<!bool )_controlsVisible\s*=(?!=)',
+      ).allMatches(source)) {
         final inside = ranges.any((r) => m.start > r.$1 && m.start < r.$2);
         if (inside) continue;
         final line = '\n'.allMatches(source.substring(0, m.start)).length + 1;
@@ -62,7 +62,8 @@ void main() {
     expect(
       offenders,
       isEmpty,
-      reason: 'these writes fade the overlay in without rebuilding the '
+      reason:
+          'these writes fade the overlay in without rebuilding the '
           'IgnorePointer that gates it, so the controls appear and do nothing',
     );
   });

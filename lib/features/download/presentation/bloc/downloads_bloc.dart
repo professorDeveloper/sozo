@@ -35,14 +35,14 @@ class DownloadsBloc extends Bloc<DownloadsEvent, DownloadsState> {
     required DownloadStorageUseCase storage,
     required DownloadLocationUseCase location,
     required HiveService hive,
-  })  : _get = getDownloads,
-        _control = control,
-        _remove = remove,
-        _verify = verify,
-        _storage = storage,
-        _location = location,
-        _hive = hive,
-        super(const DownloadsState()) {
+  }) : _get = getDownloads,
+       _control = control,
+       _remove = remove,
+       _verify = verify,
+       _storage = storage,
+       _location = location,
+       _hive = hive,
+       super(const DownloadsState()) {
     on<DownloadsStarted>(_onStarted);
     on<DownloadsRefreshed>(_onRefreshed);
     on<DownloadsFilterChanged>(_onFilter);
@@ -55,6 +55,7 @@ class DownloadsBloc extends Bloc<DownloadsEvent, DownloadsState> {
     on<DownloadsClearRequested>(_onClear);
     on<DownloadsSweepRequested>(_onSweep);
     on<DownloadsWifiOnlyToggled>(_onWifiOnly);
+    on<DownloadsCooldownChanged>(_onCooldown);
     on<DownloadsLocationChosen>(_onLocation);
   }
 
@@ -80,7 +81,12 @@ class DownloadsBloc extends Bloc<DownloadsEvent, DownloadsState> {
     _get.revision.addListener(listener);
     _unsubscribe = () => _get.revision.removeListener(listener);
 
-    emit(state.copyWith(wifiOnly: _hive.downloadWifiOnly));
+    emit(
+      state.copyWith(
+        wifiOnly: _hive.downloadWifiOnly,
+        cooldownSeconds: _hive.downloadCooldownSeconds,
+      ),
+    );
     // Draw what is known first, then correct it. The sweep walks the whole
     // folder, and an empty screen while it runs is worse than a screen that
     // adjusts a moment later.
@@ -109,20 +115,17 @@ class DownloadsBloc extends Bloc<DownloadsEvent, DownloadsState> {
   Future<void> _onPause(
     DownloadsPauseRequested event,
     Emitter<DownloadsState> emit,
-  ) =>
-      _control.pause(event.id);
+  ) => _control.pause(event.id);
 
   Future<void> _onResume(
     DownloadsResumeRequested event,
     Emitter<DownloadsState> emit,
-  ) =>
-      _control.resume(event.id);
+  ) => _control.resume(event.id);
 
   Future<void> _onRetry(
     DownloadsRetryRequested event,
     Emitter<DownloadsState> emit,
-  ) =>
-      _control.retry(event.id);
+  ) => _control.retry(event.id);
 
   Future<void> _onRetryAll(
     DownloadsRetryAllRequested event,
@@ -173,6 +176,14 @@ class DownloadsBloc extends Bloc<DownloadsEvent, DownloadsState> {
     await _hive.setDownloadWifiOnly(event.value);
   }
 
+  Future<void> _onCooldown(
+    DownloadsCooldownChanged event,
+    Emitter<DownloadsState> emit,
+  ) async {
+    emit(state.copyWith(cooldownSeconds: event.seconds));
+    await _hive.setDownloadCooldownSeconds(event.seconds);
+  }
+
   /// Moves the library, reporting what happened.
   ///
   /// Marked busy for the whole copy: it is minutes on a large library, and a
@@ -204,12 +215,14 @@ class DownloadsBloc extends Bloc<DownloadsEvent, DownloadsState> {
     final locations = await _location();
     if (isClosed) return;
     final current = _hive.getDownloadLocation();
-    emit(state.copyWith(
-      locations: locations,
-      locationPath: current.isNotEmpty
-          ? current
-          : (locations.isEmpty ? '' : locations.first.path),
-    ));
+    emit(
+      state.copyWith(
+        locations: locations,
+        locationPath: current.isNotEmpty
+            ? current
+            : (locations.isEmpty ? '' : locations.first.path),
+      ),
+    );
   }
 
   Future<void> _refreshUsage(Emitter<DownloadsState> emit) async {
@@ -224,12 +237,14 @@ class DownloadsBloc extends Bloc<DownloadsEvent, DownloadsState> {
       for (final item in all)
         if (state.filter.matches(item)) item,
     ];
-    emit(state.copyWith(
-      groups: _group(filtered, state.sort),
-      total: all.length,
-      loading: loading,
-      waitingForWifi: _get.isWaitingForWifi,
-    ));
+    emit(
+      state.copyWith(
+        groups: _group(filtered, state.sort),
+        total: all.length,
+        loading: loading,
+        waitingForWifi: _get.isWaitingForWifi,
+      ),
+    );
   }
 
   /// One row per title, with a film staying one row.
@@ -261,8 +276,9 @@ class DownloadsBloc extends Bloc<DownloadsEvent, DownloadsState> {
             // Ascending by episode inside a group: a season reads 1, 2, 3 even
             // though the list itself is newest-first.
             ..sort((a, b) {
-              final byEpisode =
-                  (a.episodeNumber ?? 0).compareTo(b.episodeNumber ?? 0);
+              final byEpisode = (a.episodeNumber ?? 0).compareTo(
+                b.episodeNumber ?? 0,
+              );
               return byEpisode != 0
                   ? byEpisode
                   : a.createdAt.compareTo(b.createdAt);

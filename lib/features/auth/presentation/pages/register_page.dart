@@ -9,6 +9,7 @@ import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
 import 'package:soplay/features/auth/presentation/widgets/auth_widgets.dart';
+import 'package:soplay/features/onboarding/presentation/onboarding_navigation.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -89,7 +90,7 @@ class _RegisterPageState extends State<RegisterPage> {
           // it Android never offers to save, and the next sign-in is manual
           // again.
           TextInput.finishAutofillContext();
-          context.go('/main');
+          goAfterAuth(context);
         } else if (state is AuthOtpPending) {
           context.push('/otp', extra: state.email);
         } else if (state is AuthError) {

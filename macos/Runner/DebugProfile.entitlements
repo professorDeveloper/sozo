@@ -2,8 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>com.apple.security.app-sandbox</key>
-	<true/>
+	<!--
+	  App Sandbox is deliberately absent, exactly as it is in Release.entitlements
+	  and for the same reason: it would block the on-device LocalHlsProxy local
+	  socket server and file downloads. It used to be on here only, which meant
+	  debug and release disagreed about the one subsystem most likely to send you
+	  looking at entitlements in the first place — the bug would appear under the
+	  debugger and vanish in the build that ships, or the reverse.
+	-->
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
 	<key>com.apple.security.network.server</key>

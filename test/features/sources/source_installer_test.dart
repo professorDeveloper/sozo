@@ -14,7 +14,7 @@ void main() {
     'old catalog uses the known novel sibling, custom roots are preserved',
     () {
       const root =
-          'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json';
+          'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/index.json';
       CatalogSourceEntity novel(String url, {String index = ''}) =>
           CatalogSourceEntity(
             id: '1',

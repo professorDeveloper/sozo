@@ -106,8 +106,8 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
     if (!state.biometricAvailable || !state.biometricPreferred) return;
     _biometricTried = true;
     context.read<AppLockBloc>().add(
-          AppLockBiometricRequested('app_lock.biometric_unlock_reason'.tr()),
-        );
+      AppLockBiometricRequested('app_lock.biometric_unlock_reason'.tr()),
+    );
   }
 
   @override
@@ -188,16 +188,17 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
                     ),
                     const Spacer(),
                     PinKeypad(
-                      onDigit: (d) =>
-                          bloc.add(AppLockPinDigitPressed(d)),
+                      onDigit: (d) => bloc.add(AppLockPinDigitPressed(d)),
                       onBackspace: () =>
                           bloc.add(const AppLockPinBackspacePressed()),
                       onBiometric:
                           state.biometricAvailable && state.biometricPreferred
-                              ? () => bloc.add(AppLockBiometricRequested(
-                                    'app_lock.biometric_unlock_reason'.tr(),
-                                  ))
-                              : null,
+                          ? () => bloc.add(
+                              AppLockBiometricRequested(
+                                'app_lock.biometric_unlock_reason'.tr(),
+                              ),
+                            )
+                          : null,
                     ),
                     // Desktop has no other way back in; a phone whose
                     // stored PIN cannot be read (a restore onto new hardware,
@@ -207,7 +208,9 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
                         onPressed: _resetLock,
                         child: Text(
                           'app_lock.forgot_pin'.tr(),
-                          style: const TextStyle(color: AppColors.textSecondary),
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ),
                     const SizedBox(height: 16),

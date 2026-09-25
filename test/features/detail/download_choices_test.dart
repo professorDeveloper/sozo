@@ -12,19 +12,18 @@ VideoSourceEntity src(
   bool atmos = false,
   int? sizeBytes,
   bool accessible = true,
-}) =>
-    VideoSourceEntity(
-      quality: quality,
-      videoUrl: url ?? 'https://cdn.test/${quality.replaceAll(' ', '')}',
-      isDefault: false,
-      accessible: accessible,
-      type: type,
-      mirror: mirror,
-      codec: codec,
-      hdr: hdr,
-      atmos: atmos,
-      sizeBytes: sizeBytes,
-    );
+}) => VideoSourceEntity(
+  quality: quality,
+  videoUrl: url ?? 'https://cdn.test/${quality.replaceAll(' ', '')}',
+  isDefault: false,
+  accessible: accessible,
+  type: type,
+  mirror: mirror,
+  codec: codec,
+  hdr: hdr,
+  atmos: atmos,
+  sizeBytes: sizeBytes,
+);
 
 void main() {
   group('what is offered', () {
@@ -44,7 +43,11 @@ void main() {
 
     test('every other direct source is offered too — the whole point', () {
       // Watching 480p to save data used to mean you could only download 480p.
-      final sources = [src('Voe · 480p'), src('Voe · 720p'), src('Voe · 1080p')];
+      final sources = [
+        src('Voe · 480p'),
+        src('Voe · 720p'),
+        src('Voe · 1080p'),
+      ];
       final offers = DownloadChoices.from(
         sources: sources,
         currentIndex: 0,
@@ -53,8 +56,10 @@ void main() {
         hasDirective: false,
       );
       expect(offers.length, 3);
-      expect(offers.map((o) => o.url).toSet(),
-          sources.map((s) => s.videoUrl).toSet());
+      expect(
+        offers.map((o) => o.url).toSet(),
+        sources.map((s) => s.videoUrl).toSet(),
+      );
     });
 
     test('under a directive the other mirrors are offered, but flagged', () {
@@ -72,8 +77,11 @@ void main() {
       );
       expect(offers.length, 2);
       expect(offers.first.isCurrent, isTrue);
-      expect(offers.first.needsSniff, isFalse,
-          reason: 'the playing stream is already resolved');
+      expect(
+        offers.first.needsSniff,
+        isFalse,
+        reason: 'the playing stream is already resolved',
+      );
       expect(offers.last.needsSniff, isTrue);
       expect(offers.last.url, sources[1].videoUrl);
     });
@@ -217,8 +225,13 @@ void main() {
     test('the risky properties are stated before you commit to a file', () {
       final offer = DownloadChoices.from(
         sources: [
-          src('Voe · 2160p',
-              codec: 'h265', hdr: 'dv', atmos: true, sizeBytes: 17179869184),
+          src(
+            'Voe · 2160p',
+            codec: 'h265',
+            hdr: 'dv',
+            atmos: true,
+            sizeBytes: 17179869184,
+          ),
         ],
         currentIndex: 0,
         currentUrl: 'https://cdn.test/a',
@@ -278,7 +291,10 @@ void main() {
     test('a plain resolved url is downloadable', () {
       expect(
         DownloadChoices.isDownloadableUrl(
-            url: 'https://cdn.test/a.mp4', type: 'mp4', hasDirective: false),
+          url: 'https://cdn.test/a.mp4',
+          type: 'mp4',
+          hasDirective: false,
+        ),
         isTrue,
       );
     });
@@ -286,9 +302,10 @@ void main() {
     test('an iframe url is an embed page, not a file', () {
       expect(
         DownloadChoices.isDownloadableUrl(
-            url: 'https://host.test/embed/abc',
-            type: 'iframe',
-            hasDirective: true),
+          url: 'https://host.test/embed/abc',
+          type: 'iframe',
+          hasDirective: true,
+        ),
         isFalse,
       );
     });
@@ -299,9 +316,10 @@ void main() {
       // the directive alone stopped downloads that had always worked.
       expect(
         DownloadChoices.isDownloadableUrl(
-            url: 'https://cdn.test/master.m3u8',
-            type: 'hls',
-            hasDirective: true),
+          url: 'https://cdn.test/master.m3u8',
+          type: 'hls',
+          hasDirective: true,
+        ),
         isTrue,
       );
     });
@@ -310,12 +328,18 @@ void main() {
       // Nothing else to go on, so the directive decides.
       expect(
         DownloadChoices.isDownloadableUrl(
-            url: 'https://host.test/watch/1', type: null, hasDirective: true),
+          url: 'https://host.test/watch/1',
+          type: null,
+          hasDirective: true,
+        ),
         isFalse,
       );
       expect(
         DownloadChoices.isDownloadableUrl(
-            url: 'https://cdn.test/a.mp4', type: null, hasDirective: false),
+          url: 'https://cdn.test/a.mp4',
+          type: null,
+          hasDirective: false,
+        ),
         isTrue,
       );
     });
@@ -323,7 +347,10 @@ void main() {
     test('an empty url is never downloadable', () {
       expect(
         DownloadChoices.isDownloadableUrl(
-            url: '', type: 'hls', hasDirective: false),
+          url: '',
+          type: 'hls',
+          hasDirective: false,
+        ),
         isFalse,
       );
     });

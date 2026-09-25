@@ -58,21 +58,21 @@ class PlaybackModel extends PlaybackEntity {
   /// built from a const list — and silently reorders a list another screen may
   /// still be holding. Returning a new model keeps sorting a pure operation.
   PlaybackModel copyWithEpisodes(List<EpisodeEntity> episodes) => PlaybackModel(
-        provider: provider,
-        contentUrl: contentUrl,
-        isSerial: isSerial,
-        episodes: episodes,
-        videoSources: videoSources,
-        playerSrc: playerSrc,
-        type: type,
-        headers: headers,
-        thumbnails: thumbnails,
-        page: page,
-        size: size,
-        total: total,
-        totalPages: totalPages,
-        sort: sort,
-      );
+    provider: provider,
+    contentUrl: contentUrl,
+    isSerial: isSerial,
+    episodes: episodes,
+    videoSources: videoSources,
+    playerSrc: playerSrc,
+    type: type,
+    headers: headers,
+    thumbnails: thumbnails,
+    page: page,
+    size: size,
+    total: total,
+    totalPages: totalPages,
+    sort: sort,
+  );
 
   static Map<String, String> _parseHeaders(dynamic raw) {
     if (raw is! Map) return const {};

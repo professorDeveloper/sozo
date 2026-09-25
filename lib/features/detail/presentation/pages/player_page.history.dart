@@ -1,16 +1,38 @@
 part of 'player_page.dart';
 
 extension _PlayerHistory on _PlayerPageState {
+  /// Starts the five-second tick that keeps the resume point current.
+  ///
+  /// Periodic, and that is the whole point of it. This was a one-shot `Timer`,
+  /// whose single callback landed at five seconds and hit the ten-second floor
+  /// in [_saveHistory] — so it wrote nothing, and nothing re-armed it. The only
+  /// other save was `dispose`. A viewer who started an episode and watched it
+  /// straight through was relying on the player being closed politely: lose
+  /// the network and kill the app, get killed by Android for memory, crash,
+  /// and the session left no trace at all. Which is exactly the report.
   void _scheduleHistorySave() {
     _historyTimer?.cancel();
-    _historyTimer = Timer(const Duration(seconds: 5), () {
+    _historyTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _saveHistory();
+      _jellyfinProgress();
       // Deliberately not inside _saveHistory: that returns early for a
       // finished episode, a title with no url and a session under ten seconds,
       // and none of those are reasons to leave a stale line on somebody's
       // Discord profile.
       _publishDiscordPresence();
     });
+  }
+
+  /// Stops the tick, after one last save.
+  ///
+  /// Called when playback stops rather than letting the timer idle: the clock
+  /// behind [_bankWatchTime] is stopped too, so every further tick would bank
+  /// zero and rewrite the same row.
+  void _stopHistorySaves() {
+    _historyTimer?.cancel();
+    _historyTimer = null;
+    _saveHistory();
+    _jellyfinProgress(paused: true);
   }
 
   /// Tells Discord what is playing, if the viewer asked for that.
@@ -60,7 +82,7 @@ extension _PlayerHistory on _PlayerPageState {
   }
 
   void _saveHistory() {
-    if (_playbackWatch.elapsed.inSeconds < 10) return;
+    if (!WatchProgress.countsAsAViewing(_playbackWatch.elapsed)) return;
 
     // Time watched since the last save, banked before anything can return
     // early. History skips a finished episode and a title with no url; the
@@ -104,6 +126,11 @@ extension _PlayerHistory on _PlayerPageState {
         positionMs: posMs,
         durationMs: durMs,
         watchedAt: DateTime.now().millisecondsSinceEpoch,
+        // The last episode on offer: finishing it finishes the series.
+        isFinale:
+            widget.args.isSerial &&
+            _episodes.length > 1 &&
+            _episodeIndex == _episodes.length - 1,
       ),
     );
   }
@@ -177,7 +204,10 @@ extension _PlayerHistory on _PlayerPageState {
 
     final anilist = getIt<AnilistTracker>();
     final mal = getIt<MalTracker>();
-    if (!anilist.isConnected && !mal.isConnected) return;
+    final trakt = getIt<TraktTracker>();
+    if (!anilist.isConnected && !mal.isConnected && !trakt.isConnected) {
+      return;
+    }
 
     // The window says which episode; WatchProgress decides whether to report
     // it. The movie-is-episode-1 rule, the zero-or-less guard and the
@@ -204,9 +234,63 @@ extension _PlayerHistory on _PlayerPageState {
           title: widget.args.title,
           episodeNumber: episodeNumber,
         ),
+      if (trakt.isConnected && _traktApplies)
+        () => trakt
+            .reportWatched(
+              provider: widget.args.provider,
+              contentUrl: contentUrl,
+              title: widget.args.title,
+              isSerial: widget.args.isSerial,
+              episode: episodeNumber,
+              progress: _playbackPercent.clamp(80, 100).toDouble(),
+            )
+            .then((_) => null),
     ]) {
       unawaited(tracker().catchError((Object _) => null));
     }
+  }
+
+  /// Trakt is for films and series: not live channels, not trailers.
+  bool get _traktApplies =>
+      !_isLive && widget.args.provider != 'trailer' && widget.args.contentUrl != null;
+
+  double get _playbackPercent {
+    final v = _controller?.value;
+    if (v == null) return 0;
+    final d = v.duration.inMilliseconds;
+    return d <= 0 ? 0 : v.position.inMilliseconds * 100 / d;
+  }
+
+  /// "Watching now" on the viewer's Trakt profile: a start when playback
+  /// starts or resumes, a pause when it pauses. Only on a change of state —
+  /// the listener behind this fires on every frame.
+  void _syncTraktScrobble(bool playing) {
+    if (playing == _traktPlaying) return;
+    _traktPlaying = playing;
+    if (_hive.isIncognito) return;
+    final trakt = getIt<TraktTracker>();
+    if (!trakt.isConnected || !_traktApplies) return;
+    final c = _controller;
+    if (c == null || c.value.duration.inMilliseconds <= 0) return;
+    // Past the watched mark the stop has been sent; a later start or pause
+    // would open a fresh "in progress" playback on Trakt for a finished one.
+    if (WatchProgress.isWatched(c.value.position, c.value.duration)) return;
+    final offlineEp = widget.args.offlineEpisodeNumber;
+    final episode = widget.args.isSerial
+        ? (_window.current?.episode ?? offlineEp ?? 0)
+        : 1;
+    if (episode <= 0) return;
+    unawaited(
+      trakt.scrobble(
+        playing ? 'start' : 'pause',
+        provider: widget.args.provider,
+        contentUrl: widget.args.contentUrl!,
+        title: widget.args.title,
+        isSerial: widget.args.isSerial,
+        episode: episode,
+        progress: _playbackPercent,
+      ),
+    );
   }
 
   Future<void> _pingStreak() async {
@@ -219,6 +303,7 @@ extension _PlayerHistory on _PlayerPageState {
           context,
           milestone,
           freezeAwarded: result.freezeAwarded,
+          badgeTier: result.streakBadgeTier,
         );
       }
       // Independent of the milestone: a ping can both cross a milestone AND
@@ -420,6 +505,10 @@ extension _PlayerHistory on _PlayerPageState {
         isSerial: widget.args.isSerial,
         episodeNumber: widget.args.isSerial && ep != null ? ep.episode : null,
         episodeLabel: ep?.label,
+        // The episode's subtitles go with it, the one on screen switched on
+        // offline.
+        subtitles: List.of(_subtitles),
+        activeSubtitle: _activeSubtitleIndex,
       ),
     );
     if (!mounted) return;

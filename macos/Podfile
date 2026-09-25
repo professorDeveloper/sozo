@@ -1,7 +1,14 @@
-# 11.0, not 10.15: `gal` and `speech_to_text` both declare an 11.0 minimum, and
-# CocoaPods refuses the whole install rather than skipping them — "Error running
-# pod install" was the entire macOS build, not one plugin.
-platform :osx, '11.0'
+# 12.0, and not lower, because the toolchain will not take lower. Xcode's
+# current macOS SDK refuses any MACOSX_DEPLOYMENT_TARGET under 12.0 outright —
+# not a warning, an error per pod — so a build here failed fifteen times over
+# before it reached a line of Dart. (It was 11.0 for `gal` and
+# `speech_to_text`, which declare an 11.0 minimum and make CocoaPods refuse the
+# whole install rather than skip them; that reason still holds, it is simply
+# no longer the binding one.)
+#
+# This drops macOS 11 Big Sur, which stopped receiving security updates in
+# 2023. The alternative is a desktop target that cannot be compiled at all.
+platform :osx, '12.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -41,5 +48,17 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_macos_build_settings(target)
+    # And then say it again, per target, because several pods hard-code their
+    # own deployment target in their podspec — 10.11 in PromisesObjC, 10.12 in
+    # GTMAppAuth, 10.13, 10.14, 10.15 elsewhere — and the platform line above
+    # does not override a podspec that names a version. Every one of those is
+    # an error rather than a warning under the current SDK, so one unpinned pod
+    # fails the whole build.
+    target.build_configurations.each do |config|
+      current = config.build_settings['MACOSX_DEPLOYMENT_TARGET']
+      if current.nil? || current.to_f < 12.0
+        config.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '12.0'
+      end
+    end
   end
 end

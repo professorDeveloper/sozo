@@ -1,3 +1,5 @@
+import 'package:soplay/features/achievements/domain/achievements.dart';
+
 class StreakMilestone {
   final int value;
   final bool reached;
@@ -171,12 +173,26 @@ class StreakPingResult {
   final bool freezeSaved;
   final bool freezeAwarded;
 
+  /// Badges this streak day earned.
+  final List<AchievementUnlock> achievements;
+
   const StreakPingResult({
     required this.state,
     this.newMilestone,
     this.freezeSaved = false,
     this.freezeAwarded = false,
+    this.achievements = const [],
   });
+
+  /// The streak badge's tier this day reached, when it reached one — the
+  /// milestone dialog shows it rather than a second dialog saying the same.
+  int? get streakBadgeTier {
+    int? best;
+    for (final a in achievements) {
+      if (a.id == 'streak' && (best == null || a.tier > best)) best = a.tier;
+    }
+    return best;
+  }
 
   factory StreakPingResult.fromJson(Map<String, dynamic> json) {
     final ms = json['isNewMilestone'];
@@ -185,6 +201,7 @@ class StreakPingResult {
       newMilestone: ms is num ? ms.toInt() : null,
       freezeSaved: json['freezeSaved'] as bool? ?? false,
       freezeAwarded: json['freezeAwarded'] as bool? ?? false,
+      achievements: AchievementUnlock.listOf(json['achievements']),
     );
   }
 }

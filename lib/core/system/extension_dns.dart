@@ -50,10 +50,9 @@ class ExtensionDns {
   static Future<DnsProvider> apply(DnsProvider provider) async {
     if (!isSupported) return DnsProvider.system;
     try {
-      final applied = await _ch.invokeMethod<String>(
-        'setExtensionDns',
-        {'id': provider.id},
-      );
+      final applied = await _ch.invokeMethod<String>('setExtensionDns', {
+        'id': provider.id,
+      });
       return DnsProvider.byId(applied);
     } catch (_) {
       return DnsProvider.system;

@@ -4,16 +4,21 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/extensions/source_language.dart';
+import 'package:soplay/core/extractor/provider_manager.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/network/http_headers.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/system/system_controls.dart';
+import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/detail/domain/playback/wakelock_holds.dart';
 import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
 import 'package:soplay/core/error/result.dart';
@@ -25,10 +30,31 @@ import 'package:soplay/features/download/domain/usecases/enqueue_download_usecas
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
+import 'package:soplay/features/manga/presentation/widgets/novel_chapter_header.dart';
+import 'package:soplay/features/manga/presentation/widgets/novel_highlight_sheets.dart';
+import 'package:soplay/features/manga/presentation/widgets/novel_pagination.dart';
 import 'package:soplay/features/manga/presentation/widgets/novel_text.dart';
+import 'package:soplay/features/manga/presentation/widgets/novel_theme.dart';
+import 'package:soplay/features/manga/presentation/widgets/page_curl.dart';
 import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:soplay/features/manga/domain/reading/chapter_groups.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:soplay/features/manga/data/chapter_read_store.dart';
+import 'package:soplay/features/manga/data/novel_highlight_store.dart';
+import 'package:soplay/features/manga/domain/reading/novel_highlight.dart';
+import 'package:soplay/features/manga/data/page_tiles.dart';
+import 'package:soplay/features/manga/presentation/widgets/tiled_zoom.dart';
+import 'package:soplay/features/manga/domain/reading/chapter_progress.dart';
+import 'package:soplay/features/manga/domain/reading/tts_language.dart';
+import 'package:soplay/features/manga/domain/reading/tts_segmenter.dart';
+import 'package:soplay/features/manga/data/tts/tts_engine.dart';
+import 'package:soplay/features/manga/presentation/tts/novel_tts_controller.dart';
+import 'package:soplay/features/manga/presentation/tts/tts_player_bar.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/automation/data/automation_settings.dart';
+import 'package:soplay/features/automation/domain/prefetch_slot.dart';
+import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
 
 class ReaderPage extends StatefulWidget {
   final ReaderArgs args;
@@ -54,6 +80,32 @@ class _ReaderPageState extends State<ReaderPage> {
   /// See MangaPagesEntity.html — the two are different shapes, not two ways of
   /// saying the same thing.
   String? _html;
+
+  /// Find in chapter, for prose. Open while [_finding]; [_findIndex] is the
+  /// current occurrence of [_findTotal], and [_findKey] sits on the paragraph
+  /// holding it so the page can scroll there.
+  bool _finding = false;
+  String _findQuery = '';
+  int _findIndex = 0;
+  int _findTotal = 0;
+  final GlobalKey _findKey = GlobalKey();
+  final TextEditingController _findController = TextEditingController();
+
+  /// Read-aloud. Created on first use, so a comic or an unheard chapter never
+  /// touches the speech engine. [_ttsChapter] is the chapter its script was
+  /// cut from; the highlight only applies while that is the one on screen.
+  NovelTtsController? _tts;
+  AppLifecycleListener? _ttsLifecycle;
+  int _ttsChapter = -1;
+  List<NovelBlock> _ttsBlocks = const [];
+  final GlobalKey _ttsKey = GlobalKey();
+  bool _ttsAdvancing = false;
+  bool _ttsScrolling = false;
+  int _ttsFollowedIndex = -1;
+
+  /// Following the voice stops for a while after the reader scrolls by hand,
+  /// or it would drag them back mid-glance.
+  DateTime _userScrolledAt = DateTime.fromMillisecondsSinceEpoch(0);
   Map<String, String> _headers = const {};
   bool _loading = true;
   bool _localChapter = false;
@@ -76,12 +128,51 @@ class _ReaderPageState extends State<ReaderPage> {
   late double _novelLeading;
   late String _novelFamily;
   late bool _novelJustify;
+  late String _novelLayout;
+  late String _novelThemeId;
+  late double _novelMargin;
 
-  Color get _backgroundColor => switch (_bgPref) {
-    'white' => const Color(0xFFFAFAFA),
-    'gray' => const Color(0xFF2A2A2A),
-    _ => const Color(0xFF0A0A0A),
-  };
+  NovelTheme get _novelTheme =>
+      NovelTheme.of(_novelThemeId, background: _bgPref);
+
+  /// Prose in pages that turn, rather than one long scroll.
+  bool get _book => _html != null && _novelLayout == 'book';
+
+  /// The book layout: the chapter cut into pages for [_bookMetrics], the page
+  /// on screen, and where that page starts, which is what finds the place
+  /// again after the text is cut anew — a rotation, a font size.
+  List<NovelPage> _bookPages = const [];
+  NovelPageMetrics? _bookMetrics;
+  String? _bookHtml;
+  int _bookPage = 0;
+  (int, int)? _bookAnchor;
+
+  /// A saved position, in thousandths, waiting for the chapter to be cut.
+  int? _bookPendingPermille;
+
+  /// A place to open at once the chapter loading now is on screen, as a block
+  /// and an offset: a highlight in another chapter.
+  (int, int)? _pendingJump;
+  bool _ttsTurning = false;
+  final GlobalKey<PageCurlViewState> _curlKey = GlobalKey();
+
+  final NovelHighlightStore _highlightStore = NovelHighlightStore();
+  List<NovelHighlight> _highlights = const [];
+  HighlightColor _lastHighlightColor = HighlightColor.yellow;
+  int _revealBlock = -1;
+  final GlobalKey _revealKey = GlobalKey();
+
+  Offset? _tapDown;
+  DateTime _tapDownAt = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _tapStoppedScroll = false;
+
+  Color get _backgroundColor => _html != null
+      ? _novelTheme.paper
+      : switch (_bgPref) {
+          'white' => const Color(0xFFFAFAFA),
+          'gray' => const Color(0xFF2A2A2A),
+          _ => const Color(0xFF0A0A0A),
+        };
 
   final ValueNotifier<int> _page = ValueNotifier<int>(0);
   final ValueNotifier<int?> _dragging = ValueNotifier<int?>(null);
@@ -99,11 +190,37 @@ class _ReaderPageState extends State<ReaderPage> {
   int _initialIndex = 0;
   Timer? _saveDebounce;
 
+  /// Which chapters of this sitting have been read far enough to report, and
+  /// which have already been reported. Per reader session, like the player's
+  /// WatchProgress: leaving and coming back starts a fresh ledger, and the
+  /// tracker's own refusal to move progress backwards catches the repeat.
+  final ChapterProgress _progress = ChapterProgress();
+  final ChapterReadStore _readStore = ChapterReadStore();
+
+  /// The furthest page of this chapter that has been on screen, as a
+  /// high-water mark.
+  ///
+  /// Only the continuous reader moves this. Its notion of the current page is
+  /// whatever straddles the top of the viewport, which goes backwards as
+  /// freely as it goes forwards and, for the last page of a chapter, may never
+  /// be true at all: a final page shorter than the viewport sits under the top
+  /// of the screen with the end-of-chapter footer below it, so the chapter
+  /// ends with some middle page at the top. A mark that only ever rises is the
+  /// only thing here that can answer "was this chapter read".
+  ///
+  /// Reset to the start page by [_resetPageControllers], because it describes
+  /// one chapter and not the sitting.
+  int _furthestSeenPage = 0;
+
   /// Bumped by every [_loadChapter]. A chapter answer that arrives after the
   /// reader has already moved on — two quick taps on "next", a pick from the
   /// chapter sheet while the previous chapter is still loading — is dropped
   /// instead of painting the wrong chapter under the new chapter's title.
   int _loadToken = 0;
+
+  /// The next chapter's page list, fetched while this one is being read.
+  final PrefetchSlot<MangaPagesEntity> _chapterPrefetch =
+      PrefetchSlot<MangaPagesEntity>();
 
   /// How far through a novel chapter the reader is, in thousandths.
   ///
@@ -116,7 +233,10 @@ class _ReaderPageState extends State<ReaderPage> {
 
   int get _currentPage => _page.value;
   int get _pageCount => _pages.length;
-  List<dynamic> get _chapters => widget.args.chapters;
+
+  /// Typed, because the args are: this was `List<dynamic>`, which meant every
+  /// read off a chapter in this file went unchecked.
+  List<EpisodeEntity> get _chapters => widget.args.chapters;
 
   @override
   void initState() {
@@ -133,7 +253,12 @@ class _ReaderPageState extends State<ReaderPage> {
     _novelLeading = _hive.getNovelLineHeight();
     _novelFamily = _hive.getNovelFontFamily();
     _novelJustify = _hive.getNovelJustify();
+    _novelLayout = _hive.getNovelLayout();
+    _novelThemeId = _hive.getNovelTheme();
+    _novelMargin = _hive.getNovelMargin();
     _itemPositionsListener.itemPositions.addListener(_onItemPositions);
+    _page.addListener(_maybePrefetchNextChapter);
+    _novelProgress.addListener(_maybePrefetchNextChapter);
     _novelScrollController.addListener(_onNovelScroll);
     if (!isDesktopPlatform) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -196,15 +321,22 @@ class _ReaderPageState extends State<ReaderPage> {
       initialPage: _slotForPage(page),
     );
     _page.value = page;
+    _furthestSeenPage = page;
     _initialIndex = page;
   }
 
   @override
   void dispose() {
+    // Reading stops with the reader: nothing else on screen shows what is
+    // being read or offers a way to stop it.
+    _ttsLifecycle?.dispose();
+    _tts?.removeListener(_onTtsChanged);
+    _tts?.dispose();
     _spreadController.dispose();
     _novelScrollController.removeListener(_onNovelScroll);
     _saveProgress();
     _novelScrollController.dispose();
+    _findController.dispose();
     _saveDebounce?.cancel();
     _itemPositionsListener.itemPositions.removeListener(_onItemPositions);
     _pageController?.dispose();
@@ -231,6 +363,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   Future<void> _loadChapter(int index, {int startPage = 0}) async {
     if (index < 0 || index >= _chapters.length) return;
+    if (!_ttsAdvancing) _tts?.stop();
     _saveDebounce?.cancel();
     _saveProgress();
     final token = ++_loadToken;
@@ -241,8 +374,16 @@ class _ReaderPageState extends State<ReaderPage> {
       _localChapter = false;
       _pages = const [];
       _html = null;
+      _bookPages = const [];
+      _bookMetrics = null;
+      _bookHtml = null;
+      _bookAnchor = null;
+      _bookPage = 0;
+      _revealBlock = -1;
+      _highlights = const [];
     });
     _page.value = 0;
+    _furthestSeenPage = 0;
     final ch = widget.args.chapters[index];
     final ref = ch.mediaRef;
 
@@ -251,6 +392,25 @@ class _ReaderPageState extends State<ReaderPage> {
       provider: widget.args.provider,
       chapterRef: ref,
     );
+    // Prose first: a novel chapter is one document beside its pictures, and
+    // asking for pages would find those pictures and render them as a comic.
+    final localHtml = await _downloads.localChapterHtml(localId);
+    if (!mounted || token != _loadToken) return;
+    if (localHtml != null && localHtml.trim().isNotEmpty) {
+      _novelPermille = startPage.clamp(0, 1000);
+      setState(() {
+        _localChapter = true;
+        _html = localHtml;
+        _pages = const [];
+        _headers = const {};
+        _loading = false;
+        _refreshFind();
+      });
+      _afterTextLoaded();
+      _scheduleSave();
+      return;
+    }
+
     final local = await _downloads.localMangaPages(localId);
     if (!mounted || token != _loadToken) return;
     if (local.isNotEmpty) {
@@ -267,10 +427,13 @@ class _ReaderPageState extends State<ReaderPage> {
     }
     _localChapter = false;
 
-    final result = await getIt<GetPagesUseCase>()(
-      ref: ref,
-      provider: widget.args.provider,
-    );
+    final prefetched = await _chapterPrefetch.take(_prefetchKey(ch));
+    final result = prefetched != null
+        ? Success(prefetched)
+        : await getIt<GetPagesUseCase>()(
+            ref: ref,
+            provider: widget.args.provider,
+          );
     if (!mounted || token != _loadToken) return;
     switch (result) {
       case Success(:final value):
@@ -285,10 +448,12 @@ class _ReaderPageState extends State<ReaderPage> {
           _html = isText ? value.html : null;
           _headers = value.headers;
           _loading = false;
+          _refreshFind();
         });
-        if (isText) _restoreNovelPosition(_novelPermille);
+        if (isText) _afterTextLoaded();
         _scheduleSave();
       case Failure(:final error):
+        _pendingJump = null;
         setState(() {
           _error = error.toString().replaceFirst('Exception: ', '');
           _loading = false;
@@ -296,8 +461,92 @@ class _ReaderPageState extends State<ReaderPage> {
     }
   }
 
+  void _afterTextLoaded() {
+    _highlights = _chapterHighlights();
+    _bookPendingPermille = _novelPermille;
+    final jump = _pendingJump;
+    if (jump == null) {
+      _restoreNovelPosition(_novelPermille);
+    } else if (!_book) {
+      _pendingJump = null;
+      _reveal(jump.$1);
+    }
+  }
+
+  String _prefetchKey(EpisodeEntity ch) =>
+      '${widget.args.provider}|${ch.mediaRef}';
+
+  static const double _prefetchAt = 0.7;
+  static const int _prefetchImages = 4;
+
+  /// Lists the next chapter's pages and warms the disk cache with its first
+  /// few images once this chapter is mostly read, so turning the page onto it
+  /// does not start with a spinner. Downloaded chapters are already local.
+  void _maybePrefetchNextChapter() {
+    if (_loading || _error != null || _localChapter) return;
+    final next = _chapterIndex + 1;
+    if (next >= _chapters.length) return;
+    final ch = _chapters[next];
+    if (ch.mediaRef.isEmpty) return;
+    final isNovel = _html != null;
+    final read = isNovel
+        ? _novelPermille / 1000
+        : _pageCount == 0
+        ? 0.0
+        : ((_furthestSeenPage > _currentPage
+                      ? _furthestSeenPage
+                      : _currentPage) +
+                  1) /
+              _pageCount;
+    if (read < _prefetchAt) return;
+    final key = _prefetchKey(ch);
+    if (_chapterPrefetch.covers(key)) return;
+    if (!getIt.isRegistered<AutomationSettings>() ||
+        !getIt<AutomationSettings>().prefetchNextChapter) {
+      return;
+    }
+    final origin = _chapterIndex;
+    unawaited(
+      _chapterPrefetch.fill(key, () async {
+        final result = await getIt<GetPagesUseCase>()(
+          ref: ch.mediaRef,
+          provider: widget.args.provider,
+        );
+        if (result is! Success<MangaPagesEntity>) return null;
+        unawaited(_warmImages(result.value, origin));
+        return result.value;
+      }),
+    );
+  }
+
+  Future<void> _warmImages(MangaPagesEntity pages, int origin) async {
+    if (pages.isText) return;
+    for (final page in pages.pages.take(_prefetchImages)) {
+      if (!mounted ||
+          (_chapterIndex != origin && _chapterIndex != origin + 1)) {
+        return;
+      }
+      if (!page.imageUrl.startsWith('http')) continue;
+      final cookie = page.cookie;
+      try {
+        await DefaultCacheManager().getSingleFile(
+          page.imageUrl,
+          key: page.cacheKey,
+          headers: mergeHttpHeaders([
+            pages.headers,
+            page.headers,
+            if (cookie != null && cookie.isNotEmpty) {'Cookie': cookie},
+          ]),
+        );
+      } catch (_) {
+        // The reader fetches it again when the page is shown.
+      }
+    }
+  }
+
   void _onItemPositions() {
     if (_mode != 'vertical' || _pageCount == 0) return;
+    _markSeenPages(_itemPositionsListener.itemPositions.value);
     final positions = _itemPositionsListener.itemPositions.value.where(
       (p) => p.index < _pageCount && p.itemTrailingEdge > 0,
     );
@@ -316,6 +565,51 @@ class _ReaderPageState extends State<ReaderPage> {
       _page.value = page;
       _scheduleSave();
     }
+  }
+
+  /// Raises [_furthestSeenPage] to the furthest page [positions] shows the
+  /// bottom of, and schedules a save when it moves.
+  ///
+  /// The bottom edge rather than any part of the page, because in a continuous
+  /// reader the top of a page arrives long before the page is read: a flick
+  /// that brings the last page's first centimetre into view would otherwise
+  /// finish the chapter. A page whose trailing edge has been inside the
+  /// viewport is a page that has been scrolled through.
+  ///
+  /// A page only partly on screen is reported too, with whichever edge is off
+  /// the screen outside 0..1 — the last page arriving with its top showing
+  /// and its bottom below the fold reports a trailing edge past 1 — so the
+  /// edge has to be tested against both ends of the viewport and not merely
+  /// for being a position at all.
+  ///
+  /// Zero-height items do not count. An image the reader has not measured yet
+  /// lays out flat, so a chapter that has just opened is briefly the pages it
+  /// has not measured stacked on one line under the ones it has, every one of
+  /// their bottom edges on screen at the same height. Counting that frame
+  /// would report every chapter the moment it was opened, which is the one
+  /// thing this rule exists to prevent.
+  ///
+  /// A chapter short enough to fit on the screen is therefore read as soon as
+  /// it is open, which matches the one-page comic in [ChapterProgress]: there
+  /// is no scrolling left to do and no more of it to see.
+  ///
+  /// Saves on its own rather than leaving that to the page-changed path,
+  /// because the two do not move together: scrolling the end of a tall last
+  /// page into view advances this while the page at the top of the viewport
+  /// stays exactly where it was.
+  void _markSeenPages(Iterable<ItemPosition> positions) {
+    var furthest = _furthestSeenPage;
+    for (final position in positions) {
+      if (position.index >= _pageCount) continue;
+      final bottom = position.itemTrailingEdge;
+      if (bottom <= 0 || bottom > 1 || bottom <= position.itemLeadingEdge) {
+        continue;
+      }
+      if (position.index > furthest) furthest = position.index;
+    }
+    if (furthest == _furthestSeenPage) return;
+    _furthestSeenPage = furthest;
+    _scheduleSave();
   }
 
   void _jumpVerticalTo(int page) {
@@ -343,6 +637,9 @@ class _ReaderPageState extends State<ReaderPage> {
 
   void _onNovelScroll() {
     if (_html == null || !_novelScrollController.hasClients) return;
+    // The voice's own scrolling says nothing about where the reader is; the
+    // spoken position is recorded in [_onTtsChanged] instead.
+    if (_ttsScrolling) return;
     final max = _novelScrollController.position.maxScrollExtent;
     if (max <= 0) return;
     final permille = (_novelScrollController.offset / max * 1000).round().clamp(
@@ -380,13 +677,137 @@ class _ReaderPageState extends State<ReaderPage> {
         positionMs: isNovel ? _novelPermille : _currentPage,
         durationMs: isNovel ? 1000 : (_pageCount > 1 ? _pageCount - 1 : 0),
         watchedAt: DateTime.now().millisecondsSinceEpoch,
+        mediaType: isNovel ? 'novel' : 'manga',
+        // The last chapter on offer: reading it finishes the title.
+        isFinale:
+            widget.args.chapters.length > 1 &&
+            _chapterIndex == widget.args.chapters.length - 1,
       ),
+    );
+    // On the same tick as the history write, because the two answer questions
+    // about the same moment: this is where the reader's position is known to
+    // have changed, and every path that moves it already comes through here.
+    _maybeReportChapter();
+  }
+
+  /// The furthest page of this chapter that has been on screen.
+  ///
+  /// Each reader needs a different answer, and none of them is the current
+  /// page on its own:
+  ///
+  /// - The double-page reader reports the FIRST page of the pair, so the
+  ///   second half of the last slot is just as read and a chapter whose last
+  ///   slot holds two would otherwise never reach its last page at all.
+  /// - The continuous reader's current page is whatever straddles the top of
+  ///   the viewport, which is never the last page of a long chapter; it keeps
+  ///   [_furthestSeenPage] instead. That mark starts at the current page and
+  ///   only rises, so the max of the two is right whether or not the listener
+  ///   has fired yet.
+  /// - The page-at-a-time reader turns one page at a time and the current page
+  ///   is already the furthest.
+  ///
+  /// Reads [_spreadLayout] rather than [_spread] because this is reachable
+  /// from dispose, where there is no MediaQuery left to ask.
+  int get _furthestVisiblePage {
+    if (_pages.isEmpty) return _currentPage;
+    if (_spreadLayout) {
+      final slots = _spreadSlots;
+      final slot = _slotForPage(_currentPage);
+      return slot < slots.length ? slots[slot].last : _currentPage;
+    }
+    return _furthestSeenPage > _currentPage ? _furthestSeenPage : _currentPage;
+  }
+
+  /// Tells AniList this chapter has been read, once it has been.
+  ///
+  /// The reader's half of the player's `_maybeReportTrackers`, and deliberately
+  /// the same design: a threshold rather than the first page, one report per
+  /// chapter however many times that threshold is crossed, nothing awaited on
+  /// a path the reader is on, and no error surfaced. A tracker being down, a
+  /// token having expired or there being no network at all must cost the
+  /// reader nothing — they are reading, not syncing.
+  ///
+  /// AniList only. MyAnimeList's client here speaks anime endpoints and anime
+  /// ids exclusively, so a manga's `idMal` sent through it would write chapters
+  /// onto an unrelated anime; see MalTracker's own note. That is also why the
+  /// detail page keeps MAL off manga titles.
+  ///
+  /// Incognito covers the trackers for the reason it covers history: pushing
+  /// the chapter to somebody's public list while hiding it locally would put
+  /// the record in the one place the reader cannot quietly clear.
+  ///
+  /// The ledger is marked before the write is sent, not after it succeeds, so
+  /// a write that fails — offline, expired token, tracker down — is not tried
+  /// again for the rest of the sitting. That is the player's rule too, and for
+  /// its reason: one chapter is one event. Once the threshold is crossed it
+  /// stays crossed, so without the ledger every later save on this chapter —
+  /// every scroll, every page turn, the write on the way out — would send the
+  /// chapter again, and somebody reading back and forth over the end would aim
+  /// a burst of them at a tracker that is already not answering. None of it is
+  /// ever shown to them. The chapter is picked up again on the next sitting,
+  /// where the ledger starts empty.
+  void _maybeReportChapter() {
+    if (_hive.isIncognito) return;
+    if (widget.args.contentUrl.trim().isEmpty) return;
+
+    final read = _html != null
+        ? ChapterProgress.isProseRead(_novelPermille)
+        : ChapterProgress.isComicRead(
+            furthestPage: _furthestVisiblePage,
+            pageCount: _pageCount,
+          );
+    if (!read) return;
+
+    // The reader's own record first, and unconditionally.
+    //
+    // It is deliberately NOT behind the tracker gate below. Whether a chapter
+    // has been read is a fact about this device and this list; whether anybody
+    // was told about it is a different question with its own preconditions —
+    // an account, a connection, a title the tracker recognises — and tying the
+    // two together meant the list could only show progress to somebody signed
+    // in to AniList.
+    //
+    // Nor behind the once-per-session ledger: that exists to stop a tracker
+    // hearing twice, and [ChapterReadStore.mark] is idempotent, so re-reading
+    // a finished chapter writes nothing and costs nothing.
+    unawaited(
+      _readStore.mark(widget.args.provider, widget.args.contentUrl, [
+        widget.args.chapters[_chapterIndex].episode,
+      ]),
+    );
+
+    // Asked before the ledger is marked: a chapter finished while no tracker
+    // is connected must still be reportable if one is connected later in the
+    // same sitting.
+    final anilist = getIt<AnilistTracker>();
+    if (!anilist.isConnected) return;
+
+    final number = _progress.chapterToReport(
+      widget.args.chapters[_chapterIndex].episode,
+    );
+    if (number == null) return;
+
+    unawaited(
+      anilist
+          .reportChapter(
+            provider: widget.args.provider,
+            contentUrl: widget.args.contentUrl,
+            title: widget.args.title,
+            chapterNumber: number,
+          )
+          .catchError((Object _) => null),
     );
   }
 
   void _toggleOverlay() => setState(() => _showOverlay = !_showOverlay);
 
   void _seekNovel(int permille) {
+    if (_book) {
+      if (_bookPages.isNotEmpty) {
+        _onBookTurn(_pageAtPermille(permille, _bookPages.length));
+      }
+      return;
+    }
     if (!_novelScrollController.hasClients) return;
     final position = _novelScrollController.position;
     _novelScrollController.jumpTo(
@@ -395,6 +816,11 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _scrollNovel(int direction) {
+    if (_book) {
+      final curl = _curlKey.currentState;
+      direction > 0 ? curl?.turnForward() : curl?.turnBackward();
+      return;
+    }
     if (!_novelScrollController.hasClients) return;
     final position = _novelScrollController.position;
     _novelScrollController.animateTo(
@@ -486,6 +912,16 @@ class _ReaderPageState extends State<ReaderPage> {
     }
   }
 
+  /// Turning back past a book's first page lands on the previous chapter's
+  /// last, the way a book does.
+  void _prevChapterAtEnd() {
+    if (_chapterIndex > 0) {
+      _loadChapter(_chapterIndex - 1, startPage: 1000);
+    } else {
+      _snack('manga.first_chapter'.tr());
+    }
+  }
+
   void _setMode(String mode) {
     if (mode == _mode) return;
     final page = _currentPage;
@@ -545,9 +981,15 @@ class _ReaderPageState extends State<ReaderPage> {
             _pageArrow(left: true),
             _pageArrow(left: false),
           ],
-          if (_showOverlay) _topBar(),
+          if (_finding && _html != null)
+            _findBar()
+          else if (_showOverlay)
+            _topBar(),
+          if (_html != null && !_book && !_showOverlay && !_loading)
+            _progressLine(),
           if (isDesktopPlatform && !_showOverlay) _persistentClose(),
           if (_showOverlay && !_loading && _error == null) _bottomBar(),
+          if (_tts != null && _tts!.isActive) _ttsBar(),
         ],
       ),
     );
@@ -560,6 +1002,10 @@ class _ReaderPageState extends State<ReaderPage> {
     final k = event.logicalKey;
     if (k == LogicalKeyboardKey.escape) {
       if (context.canPop()) context.pop();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.space && (_tts?.isActive ?? false)) {
+      _tts!.toggle();
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowRight ||
@@ -680,39 +1126,391 @@ class _ReaderPageState extends State<ReaderPage> {
 
   /// A chapter of prose.
   ///
-  /// Always vertical: paging a novel by screenful is a choice comic readers
-  /// have because a page is a fixed unit, and prose has no such unit — a page
-  /// boundary would land mid-sentence and move every time the font size did.
-  ///
-  /// The reader's own background and text settings apply, so a novel and a
-  /// comic read as the same app rather than as one screen borrowing whatever
-  /// styling its source shipped.
+  /// A scroll by default, or pages that turn. Either way the reader's own
+  /// theme and text settings apply, so a novel and a comic read as the same
+  /// app rather than as one screen borrowing whatever styling its source
+  /// shipped.
   Widget _novelReader(String html) {
-    final onWhite = _bgPref == 'white';
-    return GestureDetector(
-      onTapUp: _handleTapZone,
+    if (_book) return _bookReader(html);
+    return Listener(
+      onPointerSignal: (_) => _userScrolledAt = DateTime.now(),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if ((n is ScrollStartNotification && n.dragDetails != null) ||
+              (n is ScrollUpdateNotification && n.dragDetails != null)) {
+            _userScrolledAt = DateTime.now();
+          }
+          return false;
+        },
+        child: _novelScroll(html),
+      ),
+    );
+  }
+
+  double get _paragraphSpacing =>
+      // Paragraphs need air in proportion to their leading, or a generous line
+      // height closes the gap between them and the page reads as one block.
+      _novelSize * _novelLeading * 0.85;
+
+  String? get _novelFamilyOrNull => _novelFamily.isEmpty ? null : _novelFamily;
+
+  List<NovelMark> get _marks {
+    final alpha = _novelTheme.markAlpha;
+    return [
+      for (final h in _highlights)
+        NovelMark(
+          h.block,
+          h.start,
+          h.end,
+          Color(h.color.argb).withValues(alpha: alpha),
+          noted: h.note.isNotEmpty,
+        ),
+    ];
+  }
+
+  /// The chapter's text as the reader has set it up. A page of the book gets
+  /// [slices] and no keys: while a page turns it is on screen twice.
+  NovelText _novelText(
+    String html, {
+    List<NovelSlice>? slices,
+    TextScaler? textScaler,
+  }) {
+    final spoken = _ttsChapter == _chapterIndex ? _tts?.current : null;
+    final keyed = slices == null;
+    final theme = _novelTheme;
+    return NovelText(
+      html: html,
+      color: theme.ink,
+      fontSize: _novelSize,
+      lineHeight: _novelLeading,
+      fontFamily: _novelFamilyOrNull,
+      justify: _novelJustify,
+      paragraphSpacing: _paragraphSpacing,
+      query: _finding ? _findQuery : '',
+      activeMatch: _findIndex,
+      activeKey: keyed ? _findKey : null,
+      speakingBlock: spoken?.block ?? -1,
+      speakingStart: spoken?.start ?? 0,
+      speakingEnd: spoken?.end ?? 0,
+      speakingKey: keyed ? _ttsKey : null,
+      speakingColor: _accent.withValues(alpha: theme.isLight ? 0.22 : 0.32),
+      marks: _marks,
+      slices: slices,
+      onHighlight: _createHighlight,
+      onUnhighlight: _removeHighlightsIn,
+      revealBlock: _revealBlock,
+      revealKey: keyed ? _revealKey : null,
+      textScaler: textScaler,
+    );
+  }
+
+  /// The chapter's name for its opening, or empty when the text opens with
+  /// the same title and would only say it twice.
+  String _headerLabel(String html) {
+    final label = widget.args.chapters[_chapterIndex].label.trim();
+    final blocks = parseNovelBlocks(html);
+    if (blocks.isEmpty || blocks.first.kind != NovelBlockKind.heading) {
+      return label;
+    }
+    final heading = blocks.first.text.toLowerCase();
+    final own = label.toLowerCase();
+    return own.isNotEmpty && (heading.contains(own) || own.contains(heading))
+        ? ''
+        : label;
+  }
+
+  Widget _chapterHeader(String html) => NovelChapterHeader(
+    chapter: _headerLabel(html),
+    book: widget.args.title,
+    ink: _novelTheme.ink,
+    accent: _accent,
+    fontFamily: _novelFamilyOrNull,
+  );
+
+  Widget _novelScroll(String html) {
+    return _tapCatcher(
+      book: false,
       child: SingleChildScrollView(
         controller: _novelScrollController,
         // Comfortable measure on a phone and not edge-to-edge: text running
         // into the bezel is the single most common thing that makes a reader
         // tiring.
         padding: EdgeInsets.fromLTRB(
-          20,
-          MediaQuery.paddingOf(context).top + 64,
-          20,
-          MediaQuery.paddingOf(context).bottom + 96,
+          _novelMargin,
+          MediaQuery.paddingOf(context).top + 48,
+          _novelMargin,
+          MediaQuery.paddingOf(context).bottom +
+              ((_tts?.isActive ?? false) ? 150 : 24),
         ),
-        child: NovelText(
-          html: html,
-          color: onWhite ? const Color(0xFF16181C) : Colors.white,
-          fontSize: _novelSize,
-          lineHeight: _novelLeading,
-          fontFamily: _novelFamily.isEmpty ? null : _novelFamily,
-          justify: _novelJustify,
-          // Paragraphs need air in proportion to their leading, or a generous
-          // line height closes the gap between them and the page reads as one
-          // block.
-          paragraphSpacing: _novelSize * _novelLeading * 0.85,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [_chapterHeader(html), _novelText(html), _chapterFooter()],
+        ),
+      ),
+    );
+  }
+
+  /// Taps on prose, seen without joining the gesture arena: the selectable
+  /// text wins every tap it is under, which left the controls reachable only
+  /// from the margins.
+  Widget _tapCatcher({required bool book, required Widget child}) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (e) {
+        _tapDown = e.position;
+        _tapDownAt = DateTime.now();
+        // A tap that stops a fling is not a request for the controls.
+        _tapStoppedScroll =
+            !book &&
+            _novelScrollController.hasClients &&
+            _novelScrollController.position.isScrollingNotifier.value;
+      },
+      onPointerCancel: (_) => _tapDown = null,
+      onPointerUp: (e) {
+        final down = _tapDown;
+        _tapDown = null;
+        if (down == null || _tapStoppedScroll) return;
+        if ((e.position - down).distance > 16 ||
+            DateTime.now().difference(_tapDownAt) >
+                const Duration(milliseconds: 350)) {
+          return;
+        }
+        _onProseTap(e.position, book);
+      },
+      child: child,
+    );
+  }
+
+  void _onProseTap(Offset position, bool book) {
+    // A tap with text selected only clears the selection.
+    final editing = FocusManager.instance.primaryFocus?.context
+        ?.findAncestorStateOfType<EditableTextState>();
+    if (editing != null && !editing.textEditingValue.selection.isCollapsed) {
+      return;
+    }
+    if (!book) {
+      _toggleOverlay();
+      return;
+    }
+    final w = MediaQuery.sizeOf(context).width;
+    if (position.dx < w * 0.3) {
+      _goPrevPage();
+    } else if (position.dx > w * 0.7) {
+      _goNextPage();
+    } else {
+      _toggleOverlay();
+    }
+  }
+
+  EdgeInsets _bookPadding(BuildContext context) {
+    final safe = MediaQuery.paddingOf(context);
+    final voice = (_tts?.isActive ?? false) ? 76.0 : 0.0;
+    return EdgeInsets.fromLTRB(
+      safe.left + _novelMargin,
+      safe.top + 40,
+      safe.right + _novelMargin,
+      safe.bottom + 40 + voice,
+    );
+  }
+
+  static int _pageAtPermille(int permille, int pages) =>
+      pages <= 1 ? 0 : (permille.clamp(0, 1000) * (pages - 1) / 1000).round();
+
+  static int _permilleOfPage(int page, int pages) =>
+      pages <= 1 ? 1000 : (page * 1000 / (pages - 1)).round().clamp(0, 1000);
+
+  /// Cuts the chapter into pages when anything that decides a page break has
+  /// changed, and finds the place again in the new pages.
+  void _paginate(String html, NovelPageMetrics metrics) {
+    if (identical(html, _bookHtml) && metrics == _bookMetrics) return;
+    final pages = paginateNovel(parseNovelBlocks(html), metrics);
+    final jump = _pendingJump;
+    final saved = _bookPendingPermille;
+    final anchor = _bookAnchor;
+    var page = 0;
+    if (jump != null) {
+      page = novelPageOf(pages, jump.$1, jump.$2);
+    } else if (saved != null) {
+      page = _pageAtPermille(saved, pages.length);
+    } else if (anchor != null) {
+      page = novelPageOf(pages, anchor.$1, anchor.$2);
+    }
+    _pendingJump = null;
+    _bookPendingPermille = null;
+    _bookHtml = html;
+    _bookMetrics = metrics;
+    _bookPages = pages;
+    _bookPage = page;
+    _bookAnchor = (pages[page].block, pages[page].offset);
+    // Cut during layout, after the bars were built from the old pages.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_book) return;
+      setState(() {});
+      if (jump != null) _recordBookPage();
+    });
+  }
+
+  void _onBookTurn(int page) {
+    if (_bookPages.isEmpty) return;
+    final target = page.clamp(0, _bookPages.length - 1);
+    if (_ttsTurning) {
+      _ttsTurning = false;
+    } else {
+      _userScrolledAt = DateTime.now();
+    }
+    setState(() {
+      _bookPage = target;
+      _bookAnchor = (_bookPages[target].block, _bookPages[target].offset);
+    });
+    _recordBookPage();
+  }
+
+  void _recordBookPage() {
+    _novelPermille = _permilleOfPage(_bookPage, _bookPages.length);
+    _scheduleSave();
+  }
+
+  Widget _bookReader(String html) {
+    return LayoutBuilder(
+      builder: (context, box) {
+        final pad = _bookPadding(context);
+        final scaler = MediaQuery.textScalerOf(context);
+        _paginate(
+          html,
+          NovelPageMetrics(
+            width: box.maxWidth - pad.horizontal,
+            height: box.maxHeight - pad.vertical,
+            fontSize: _novelSize,
+            lineHeight: _novelLeading,
+            justify: _novelJustify,
+            paragraphSpacing: _paragraphSpacing,
+            fontFamily: _novelFamilyOrNull,
+            textScaler: scaler,
+            baseStyle: DefaultTextStyle.of(context).style,
+            firstPageInset: NovelChapterHeader.height,
+            textDirection: Directionality.of(context),
+            locale: Localizations.maybeLocaleOf(context),
+          ),
+        );
+        return _tapCatcher(
+          book: true,
+          child: PageCurlView(
+            key: _curlKey,
+            pageCount: _bookPages.length,
+            page: _bookPage,
+            paper: _novelTheme.paper,
+            pageBuilder: (context, i) => _bookPageView(html, i, pad, scaler),
+            onPageChanged: _onBookTurn,
+            onPastEnd: _nextChapter,
+            onPastStart: _prevChapterAtEnd,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _bookPageView(
+    String html,
+    int index,
+    EdgeInsets pad,
+    TextScaler scaler,
+  ) {
+    final theme = _novelTheme;
+    if (index >= _bookPages.length) return ColoredBox(color: theme.paper);
+    final page = _bookPages[index];
+    final total = _bookPages.length;
+    final label = widget.args.chapters[_chapterIndex].label;
+    final small = TextStyle(
+      color: theme.muted,
+      fontSize: 11,
+      letterSpacing: 0.3,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        // The inner edge of a bound page is a shade darker.
+        gradient: LinearGradient(
+          colors: [
+            Color.lerp(theme.paper, Colors.black, theme.isLight ? 0.07 : 0.3)!,
+            theme.paper,
+            theme.paper,
+          ],
+          stops: const [0, 0.05, 1],
+        ),
+      ),
+      child: Stack(
+        children: [
+          if (index > 0)
+            Positioned(
+              top: pad.top - 28,
+              left: pad.left,
+              right: pad.right,
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: small,
+              ),
+            ),
+          Positioned.fill(
+            left: pad.left,
+            top: pad.top,
+            right: pad.right,
+            bottom: pad.bottom,
+            child: ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.topCenter,
+                minHeight: 0,
+                maxHeight: double.infinity,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (index == 0) _chapterHeader(html),
+                    _novelText(html, slices: page.slices, textScaler: scaler),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: pad.left,
+            right: pad.right,
+            bottom: pad.bottom - 30,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${_permilleOfPage(index, total) ~/ 10}%',
+                    style: small,
+                  ),
+                ),
+                Text('${index + 1} / $total', style: small),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// How far through the chapter, along the bottom edge while the controls
+  /// are hidden.
+  Widget _progressLine() {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: IgnorePointer(
+        child: ValueListenableBuilder<int>(
+          valueListenable: _novelProgress,
+          builder: (context, permille, _) => LinearProgressIndicator(
+            value: permille / 1000,
+            minHeight: 2,
+            color: _accent.withValues(alpha: 0.8),
+            backgroundColor: Colors.transparent,
+          ),
         ),
       ),
     );
@@ -856,7 +1654,7 @@ class _ReaderPageState extends State<ReaderPage> {
     final nextLabel = hasNext
         ? widget.args.chapters[_chapterIndex + 1].label
         : null;
-    final onWhite = _bgPref == 'white';
+    final onWhite = _html != null ? _novelTheme.isLight : _bgPref == 'white';
     final muted = onWhite ? Colors.black54 : Colors.white54;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 48, 20, 60),
@@ -936,6 +1734,360 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
+  /// A new chapter keeps the query but not its count or place.
+  void _refreshFind() {
+    _findTotal = NovelText.countInChapter(_html ?? '', _findQuery);
+    _findIndex = 0;
+  }
+
+  void _onFind(String value) {
+    setState(() {
+      _findQuery = value;
+      _findTotal = NovelText.countInChapter(_html ?? '', value);
+      _findIndex = 0;
+    });
+    _showFound();
+  }
+
+  void _stepFind(int delta) {
+    if (_findTotal == 0) return;
+    setState(() => _findIndex = (_findIndex + delta) % _findTotal);
+    _showFound();
+  }
+
+  /// Scrolls the paragraph holding the current match into view, after the
+  /// frame that tags it.
+  void _showFound() {
+    if (_findTotal == 0) return;
+    if (_book) {
+      final at = NovelText.locateMatch(_html ?? '', _findQuery, _findIndex);
+      if (at != null) _jumpTo(at.$1, at.$2);
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _findKey.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.3,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  void _closeFind() {
+    _findController.clear();
+    setState(() {
+      _finding = false;
+      _findQuery = '';
+      _findTotal = 0;
+      _findIndex = 0;
+    });
+  }
+
+  /// The top bar while finding: the query, where in the results, up, down.
+  Widget _findBar() {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: EdgeInsets.only(
+          top: MediaQuery.paddingOf(context).top + 4,
+          bottom: 8,
+          left: 4,
+          right: 8,
+        ),
+        color: Colors.black.withValues(alpha: 0.9),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+              icon: const Icon(Icons.close_rounded, color: Colors.white),
+              onPressed: _closeFind,
+            ),
+            Expanded(
+              child: TextField(
+                controller: _findController,
+                autofocus: true,
+                onChanged: _onFind,
+                onSubmitted: (_) => _stepFind(1),
+                textInputAction: TextInputAction.search,
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'manga.find_in_chapter'.tr(),
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  border: InputBorder.none,
+                  filled: false,
+                ),
+              ),
+            ),
+            Text(
+              _findQuery.trim().isEmpty
+                  ? ''
+                  : _findTotal == 0
+                  ? '0 / 0'
+                  : '${_findIndex + 1} / $_findTotal',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(
+                Icons.keyboard_arrow_up_rounded,
+                color: Colors.white,
+              ),
+              onPressed: _findTotal > 1 ? () => _stepFind(-1) : null,
+            ),
+            IconButton(
+              icon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: Colors.white,
+              ),
+              onPressed: _findTotal > 1 ? () => _stepFind(1) : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool get _ttsAvailable =>
+      getIt.isRegistered<TtsEngine>() && getIt<TtsEngine>().isSupported;
+
+  NovelTtsController get _ttsController {
+    final existing = _tts;
+    if (existing != null) return existing;
+    final tts =
+        NovelTtsController(
+            engine: getIt<TtsEngine>(),
+            prefs: HiveTtsPreferences(_hive),
+          )
+          ..onChapterEnd = _ttsNextChapter
+          ..onNotice = _onTtsNotice
+          ..addListener(_onTtsChanged);
+    // The app declares no background audio on iOS, so the system silences
+    // speech as soon as it is hidden. Pausing keeps the place instead of
+    // leaving the loop waiting on a sentence that will never finish.
+    if (Platform.isIOS) {
+      _ttsLifecycle = AppLifecycleListener(onHide: tts.pause);
+    }
+    return _tts = tts;
+  }
+
+  List<NovelBlock> _ttsBlocksForCurrent() {
+    if (_ttsChapter == _chapterIndex && _ttsBlocks.isNotEmpty) {
+      return _ttsBlocks;
+    }
+    return parseNovelBlocks(_html ?? '');
+  }
+
+  Future<void> _prepareTtsLanguage(List<NovelBlock> blocks) {
+    final provider = getIt.isRegistered<ProviderManager>()
+        ? getIt<ProviderManager>().getProvider(widget.args.provider)
+        : null;
+    final sample = [for (final b in blocks.take(16)) b.text].join(' ');
+    return _ttsController.setLanguage(
+      resolveTtsLanguage(declared: provider?.displayLang, sample: sample),
+    );
+  }
+
+  /// The chapter's label, said first when the text does not open with a
+  /// title of its own — otherwise auto-continue runs chapters together.
+  String? _ttsPreface(List<NovelBlock> blocks) {
+    if (blocks.isNotEmpty && blocks.first.kind == NovelBlockKind.heading) {
+      return null;
+    }
+    final label = widget.args.chapters[_chapterIndex].label.trim();
+    return label.isEmpty ? null : label;
+  }
+
+  Future<void> _startTts() async {
+    final html = _html;
+    if (html == null) return;
+    final tts = _ttsController;
+    final blocks = parseNovelBlocks(html);
+    await _prepareTtsLanguage(blocks);
+    if (!mounted || _html != html) return;
+    tts.setChapter(blocks, preface: _ttsPreface(blocks));
+    _ttsBlocks = blocks;
+    _ttsChapter = _chapterIndex;
+    _ttsFollowedIndex = -1;
+    _userScrolledAt = DateTime.fromMillisecondsSinceEpoch(0);
+    if (_book) {
+      final anchor = _bookAnchor;
+      await tts.play(
+        from: _bookPage == 0 || anchor == null
+            ? 0
+            : _ttsIndexAt(tts.script!, anchor.$1, anchor.$2),
+      );
+      return;
+    }
+    final at = _viewportTopPermille();
+    await tts.play(from: at < 5 ? 0 : tts.script!.indexAtPermille(at));
+  }
+
+  /// The first utterance that reaches past character [offset] of [block].
+  static int _ttsIndexAt(TtsScript script, int block, int offset) {
+    for (var i = 0; i < script.length; i++) {
+      final u = script[i];
+      if (u.block < 0) continue;
+      if (u.block > block || (u.block == block && u.end > offset)) return i;
+    }
+    return 0;
+  }
+
+  /// Where the top of the screen sits in the chapter, in thousandths: where
+  /// somebody pressing play expects to hear from.
+  int _viewportTopPermille() {
+    if (!_novelScrollController.hasClients) return 0;
+    final p = _novelScrollController.position;
+    final total = p.maxScrollExtent + p.viewportDimension;
+    if (total <= 0) return 0;
+    return (p.pixels / total * 1000).round().clamp(0, 1000);
+  }
+
+  void _onTtsChanged() {
+    if (!mounted) return;
+    final tts = _tts!;
+    setState(() {});
+    if (_ttsChapter != _chapterIndex || _html == null) return;
+    // Heard counts as read: history and the chapter's read mark follow the
+    // voice even when the page has been scrolled somewhere else.
+    final spoken = tts.spokenPermille;
+    if (tts.isActive && spoken > _novelPermille) {
+      _novelPermille = spoken;
+      _scheduleSave();
+    }
+    final u = tts.current;
+    if (u != null && u.block >= 0 && tts.index != _ttsFollowedIndex) {
+      _ttsFollowedIndex = tts.index;
+      _followSpoken(u);
+    }
+  }
+
+  /// Keeps the spoken sentence in the upper part of the screen, scrolling only
+  /// once it drifts out of the comfortable band so the page is not always
+  /// moving under the eye.
+  void _followSpoken(TtsUtterance u) {
+    final idle = DateTime.now().difference(_userScrolledAt);
+    if (idle < const Duration(seconds: 6)) return;
+    if (_book) {
+      if (_bookPages.isEmpty) return;
+      final target = novelPageOf(_bookPages, u.block, u.start);
+      if (target == _bookPage) return;
+      final curl = _curlKey.currentState;
+      if (target == _bookPage + 1 && curl != null && !curl.isTurning) {
+        _ttsTurning = true;
+        curl.turnForward();
+      } else {
+        _ttsTurning = true;
+        _onBookTurn(target);
+      }
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_novelScrollController.hasClients) return;
+      final box = _ttsKey.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached) return;
+      final viewport = RenderAbstractViewport.maybeOf(box);
+      if (viewport == null) return;
+      final position = _novelScrollController.position;
+      final blockTop = viewport.getOffsetToReveal(box, 0).offset;
+      final length = u.block < _ttsBlocks.length
+          ? _ttsBlocks[u.block].text.length
+          : 0;
+      // A paragraph can be taller than the screen; aim at the sentence's
+      // share of it rather than at its first line.
+      final fraction = length == 0 ? 0.0 : (u.start + u.end) / 2 / length;
+      final y = blockTop + box.size.height * fraction;
+      final view = position.viewportDimension;
+      final onScreen = y - position.pixels;
+      if (onScreen > view * 0.2 && onScreen < view * 0.65) return;
+      final target = (y - view * 0.35).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      _ttsScrolling = true;
+      _novelScrollController
+          .animateTo(
+            target,
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.easeInOutCubic,
+          )
+          .whenComplete(() => _ttsScrolling = false);
+    });
+  }
+
+  /// Auto-continue: loads the next chapter the way "next" does, and hands its
+  /// text back once it is on screen. Null stops reading.
+  Future<TtsChapter?> _ttsNextChapter() async {
+    if (!mounted) return null;
+    if (_chapterIndex >= _chapters.length - 1) {
+      _ttsSnack('manga.last_chapter'.tr());
+      return null;
+    }
+    // Heard to the end: recorded before the load so the chapter is marked
+    // read by the save [_loadChapter] makes on the way out.
+    _novelPermille = 1000;
+    _ttsAdvancing = true;
+    try {
+      await _loadChapter(_chapterIndex + 1);
+    } finally {
+      _ttsAdvancing = false;
+    }
+    final html = _html;
+    if (!mounted || html == null || _loading) return null;
+    final blocks = parseNovelBlocks(html);
+    _ttsBlocks = blocks;
+    _ttsChapter = _chapterIndex;
+    _ttsFollowedIndex = -1;
+    return TtsChapter(blocks, preface: _ttsPreface(blocks));
+  }
+
+  void _onTtsNotice(TtsNotice notice) {
+    switch (notice) {
+      case TtsNotice.noVoiceForLanguage:
+        _ttsSnack(
+          'manga.tts_no_voice_for_lang'.tr(
+            args: [labelFor(_tts?.language ?? '')],
+          ),
+        );
+      case TtsNotice.failed:
+        _ttsSnack('manga.tts_failed'.tr());
+      case TtsNotice.sleepStopped:
+        _ttsSnack('manga.tts_sleep_stopped'.tr());
+    }
+  }
+
+  void _ttsSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
+    );
+  }
+
+  Widget _ttsBar() {
+    final overBar = _showOverlay && !_loading && _error == null;
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      left: 12,
+      right: 12,
+      bottom: MediaQuery.paddingOf(context).bottom + (overBar ? 70 : 14),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: TtsPlayerBar(controller: _tts!, accent: _accent),
+        ),
+      ),
+    );
+  }
+
   Widget _topBar() {
     final ch = widget.args.chapters[_chapterIndex];
     return Positioned(
@@ -988,7 +2140,40 @@ class _ReaderPageState extends State<ReaderPage> {
                 ],
               ),
             ),
+            if (_html != null)
+              IconButton(
+                tooltip: 'manga.find_in_chapter'.tr(),
+                icon: const Icon(Icons.search_rounded, color: Colors.white),
+                onPressed: () => setState(() => _finding = true),
+              ),
+            if (_html != null && _ttsAvailable)
+              IconButton(
+                tooltip: (_tts?.isActive ?? false)
+                    ? 'manga.tts_stop'.tr()
+                    : 'manga.tts_listen'.tr(),
+                icon: Icon(
+                  Icons.headphones_rounded,
+                  color: (_tts?.isActive ?? false) ? _accent : Colors.white,
+                ),
+                onPressed: (_tts?.isActive ?? false)
+                    ? () => _tts!.stop()
+                    : _startTts,
+              ),
             _downloadButton(ch),
+            // Only when there is somewhere to go. A provider with no web page
+            // for this chapter gets no button rather than a button that
+            // apologises.
+            if (_html != null)
+              _novelMenu()
+            else if (_chapterOnSite case final uri?)
+              IconButton(
+                tooltip: 'manga.open_on_site'.tr(),
+                icon: const Icon(
+                  Icons.open_in_new_rounded,
+                  color: Colors.white,
+                ),
+                onPressed: () => _openOnSite(uri),
+              ),
             IconButton(
               tooltip: 'manga.chapters'.tr(),
               icon: const Icon(Icons.format_list_bulleted, color: Colors.white),
@@ -1014,6 +2199,47 @@ class _ReaderPageState extends State<ReaderPage> {
       ),
     );
   }
+
+  /// Prose has more to offer than fits along the bar on a phone.
+  Widget _novelMenu() {
+    final site = _chapterOnSite;
+    return PopupMenuButton<String>(
+      tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+      icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+      color: const Color(0xFF1E1E1E),
+      onSelected: (v) {
+        if (v == 'highlights') _openHighlights();
+        if (v == 'site' && site != null) _openOnSite(site);
+      },
+      itemBuilder: (_) => [
+        _menuItem(
+          'highlights',
+          Icons.border_color_outlined,
+          'manga.highlights',
+        ),
+        if (site != null)
+          _menuItem('site', Icons.open_in_new_rounded, 'manga.open_on_site'),
+      ],
+    );
+  }
+
+  PopupMenuItem<String> _menuItem(String value, IconData icon, String label) =>
+      PopupMenuItem<String>(
+        value: value,
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white70, size: 20),
+            const SizedBox(width: 14),
+            Flexible(
+              child: Text(
+                label.tr(),
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      );
 
   Widget _downloadButton(EpisodeEntity ch) {
     if (_html != null) {
@@ -1096,100 +2322,247 @@ class _ReaderPageState extends State<ReaderPage> {
     _snack(downloadOutcomeMessage(outcome));
   }
 
+  /// The chapter list, with a spine and a way to search it.
+  ///
+  /// It was six hundred identical rows and a scrollbar. Reaching chapter 300
+  /// meant dragging until the numbers looked right, and there was nothing to
+  /// type into — which for the one list in this app that routinely runs to
+  /// four figures is the wrong shape entirely.
+  ///
+  /// Two things. Headings, from the source's own labels where they carry a
+  /// volume and from chapter-number ranges where they do not — see
+  /// [groupChapters], which never renumbers anything, because the index is the
+  /// identity the rest of the reader is keyed on. And a filter, which is how
+  /// somebody who knows the number gets there in one move.
   void _openChapterList() {
-    Widget tile(int i) {
-      final ch = widget.args.chapters[i];
-      final selected = i == _chapterIndex;
-      return ListTile(
-        dense: true,
-        selected: selected,
-        selectedTileColor: _accent.withValues(alpha: 0.12),
-        leading: Icon(
-          selected ? Icons.play_arrow_rounded : Icons.menu_book_outlined,
-          color: selected ? _accent : Colors.white38,
-          size: 20,
-        ),
-        title: Text(
-          ch.label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: selected ? _accent : Colors.white,
-            fontSize: 13.5,
-          ),
-        ),
-        onTap: () {
-          Navigator.of(context).pop();
-          if (i != _chapterIndex) _loadChapter(i);
-        },
-      );
-    }
-
     showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF161616),
       isScrollControlled: true,
       showDragHandle: !isDesktopPlatform,
-      builder: (_) {
-        if (isDesktopPlatform) {
-          return SizedBox(
-            width: 360,
-            height: 480,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Text(
-                    'manga.chapters'.tr(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _chapters.length,
-                    itemBuilder: (context, i) => tile(i),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.7,
-          maxChildSize: 0.92,
-          builder: (context, scroll) => Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'manga.chapters'.tr(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  controller: scroll,
-                  itemCount: _chapters.length,
-                  itemBuilder: (context, i) => tile(i),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (_) => _ChapterListSheet(
+        chapters: _chapters,
+        current: _chapterIndex,
+        accent: _accent,
+        onPick: (i) {
+          Navigator.of(context).pop();
+          if (i != _chapterIndex) _loadChapter(i);
+        },
+      ),
     );
   }
 
+  List<NovelHighlight> _chapterHighlights() {
+    final ch = widget.args.chapters[_chapterIndex];
+    return _highlightStore.forChapter(
+      widget.args.provider,
+      widget.args.contentUrl,
+      ref: ch.mediaRef,
+      number: ch.episode,
+    );
+  }
+
+  void _reloadHighlights() {
+    if (!mounted) return;
+    setState(() => _highlights = _chapterHighlights());
+  }
+
+  Future<void> _createHighlight(int block, int start, int end) async {
+    final html = _html;
+    if (html == null) return;
+    final blocks = parseNovelBlocks(html);
+    if (block < 0 || block >= blocks.length) return;
+    final text = blocks[block].text;
+    var a = start.clamp(0, text.length);
+    var b = end.clamp(a, text.length);
+    while (a < b && text[a].trim().isEmpty) {
+      a++;
+    }
+    while (b > a && text[b - 1].trim().isEmpty) {
+      b--;
+    }
+    if (b <= a) return;
+    final quote = text.substring(a, b);
+    final chapter = _chapterIndex;
+    final edit = await showHighlightEditor(
+      context,
+      quote: quote,
+      accent: _accent,
+      color: _lastHighlightColor,
+    );
+    if (edit == null || !mounted || chapter != _chapterIndex) return;
+    _lastHighlightColor = edit.color;
+    final ch = widget.args.chapters[chapter];
+    final now = DateTime.now();
+    await _highlightStore.add(
+      widget.args.provider,
+      widget.args.contentUrl,
+      NovelHighlight(
+        id: '${now.microsecondsSinceEpoch}',
+        chapterRef: ch.mediaRef,
+        chapter: ch.episode,
+        chapterLabel: ch.label,
+        block: block,
+        start: a,
+        end: b,
+        text: quote,
+        color: edit.color,
+        note: edit.note,
+        createdAt: now.millisecondsSinceEpoch,
+      ),
+    );
+    _reloadHighlights();
+  }
+
+  Future<void> _removeHighlightsIn(int block, int start, int end) async {
+    final ids = {
+      for (final h in _highlights)
+        if (h.overlaps(block, start, end)) h.id,
+    };
+    if (ids.isEmpty) return;
+    await _highlightStore.remove(
+      widget.args.provider,
+      widget.args.contentUrl,
+      ids,
+    );
+    _reloadHighlights();
+  }
+
+  Future<void> _editHighlight(NovelHighlight h) async {
+    final edit = await showHighlightEditor(
+      context,
+      quote: h.text,
+      accent: _accent,
+      color: h.color,
+      note: h.note,
+      existing: true,
+    );
+    if (edit == null) return;
+    if (edit.delete) {
+      await _highlightStore.remove(
+        widget.args.provider,
+        widget.args.contentUrl,
+        {h.id},
+      );
+    } else {
+      await _highlightStore.update(
+        widget.args.provider,
+        widget.args.contentUrl,
+        h.copyWith(color: edit.color, note: edit.note),
+      );
+    }
+    _reloadHighlights();
+  }
+
+  void _openHighlights() {
+    showAdaptiveModal<void>(
+      context: context,
+      backgroundColor: const Color(0xFF161616),
+      isScrollControlled: true,
+      showDragHandle: !isDesktopPlatform,
+      builder: (sheet) => NovelHighlightsSheet(
+        load: () =>
+            _highlightStore.all(widget.args.provider, widget.args.contentUrl),
+        accent: _accent,
+        onOpen: (h) {
+          Navigator.of(sheet).pop();
+          _openHighlight(h);
+        },
+        onEdit: _editHighlight,
+        onDelete: (h) async {
+          await _highlightStore.remove(
+            widget.args.provider,
+            widget.args.contentUrl,
+            {h.id},
+          );
+          _reloadHighlights();
+        },
+      ),
+    );
+  }
+
+  void _openHighlight(NovelHighlight h) {
+    var index = _chapters.indexWhere((c) => c.mediaRef == h.chapterRef);
+    if (index < 0 && h.chapter > 0) {
+      index = _chapters.indexWhere((c) => c.episode == h.chapter);
+    }
+    if (index < 0) return;
+    if (index != _chapterIndex || _html == null) {
+      _pendingJump = (h.block, h.start);
+      _loadChapter(index);
+      return;
+    }
+    _jumpTo(h.block, h.start);
+  }
+
+  /// Brings character [offset] of [block] into view.
+  void _jumpTo(int block, int offset) {
+    if (_book) {
+      if (_bookPages.isNotEmpty) {
+        _onBookTurn(novelPageOf(_bookPages, block, offset));
+      }
+      return;
+    }
+    _reveal(block);
+  }
+
+  void _reveal(int block) {
+    setState(() => _revealBlock = block);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _revealKey.currentContext;
+      if (!mounted || ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.25,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  /// This chapter's page on the source's own website, or null when there is
+  /// none to open.
+  ///
+  /// The chapter's own url first, the title's second. A Mihon or Aniyomi
+  /// extension stores both as paths relative to its `baseUrl`, so the hosts
+  /// resolve them there and send an absolute one up; a backend provider has an
+  /// absolute `contentUrl` and no per-chapter page, which is why the fallback
+  /// exists rather than the action disappearing for every provider that is not
+  /// an extension.
+  Uri? get _chapterOnSite {
+    for (final candidate in [
+      widget.args.chapters[_chapterIndex].webUrl,
+      widget.args.contentUrl,
+    ]) {
+      final text = candidate?.trim() ?? '';
+      if (text.isEmpty) continue;
+      final uri = Uri.tryParse(text);
+      if (uri == null) continue;
+      if (uri.scheme != 'http' && uri.scheme != 'https') continue;
+      if (uri.host.isEmpty) continue;
+      return uri;
+    }
+    return null;
+  }
+
+  Future<void> _openOnSite(Uri uri) async {
+    // Out of the app on purpose: the point is to see the chapter the way the
+    // source publishes it — its own images, its own comments, its own report
+    // button — which an in-app webview would only half do.
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('errors.no_browser'.tr())));
+    }
+  }
+
   void _openSettingsSheet() {
+    // The voice list is per language, so the language has to be known before
+    // the sheet can offer one.
+    if (_html != null && _ttsAvailable) {
+      unawaited(_prepareTtsLanguage(_ttsBlocksForCurrent()));
+    }
     showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF161616),
@@ -1281,6 +2654,23 @@ class _ReaderPageState extends State<ReaderPage> {
                   ],
                 ],
                 if (_html != null) ...[
+                  _sheetLabel('manga.layout'),
+                  const SizedBox(height: 8),
+                  _segmented(
+                    options: {
+                      'scroll': 'manga.mode_scroll'.tr(),
+                      'book': 'manga.mode_book'.tr(),
+                    },
+                    value: _novelLayout,
+                    onChanged: (v) {
+                      _setNovelLayout(v);
+                      setSheet(() {});
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  _sheetLabel('manga.reading_theme'),
+                  const SizedBox(height: 10),
+                  _themePicker(() => setSheet(() {})),
                   const SizedBox(height: 18),
                   Text(
                     'manga.text_size'.tr(),
@@ -1334,6 +2724,23 @@ class _ReaderPageState extends State<ReaderPage> {
                     },
                   ),
                   const SizedBox(height: 18),
+                  _sheetLabel('manga.margins'),
+                  const SizedBox(height: 8),
+                  _segmented(
+                    options: {
+                      '12': 'manga.margin_narrow'.tr(),
+                      '20': 'manga.margin_normal'.tr(),
+                      '32': 'manga.margin_wide'.tr(),
+                    },
+                    value: '${_novelMargin.round()}',
+                    onChanged: (v) {
+                      final margin = double.parse(v);
+                      _hive.saveNovelMargin(margin);
+                      setState(() => _novelMargin = margin);
+                      setSheet(() {});
+                    },
+                  ),
+                  const SizedBox(height: 18),
                   Text(
                     'manga.alignment'.tr(),
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
@@ -1352,26 +2759,35 @@ class _ReaderPageState extends State<ReaderPage> {
                       setSheet(() {});
                     },
                   ),
+                  if (_ttsAvailable) ...[
+                    const SizedBox(height: 22),
+                    TtsSettingsSection(
+                      controller: _ttsController,
+                      accent: _accent,
+                    ),
+                  ],
                 ],
-                const SizedBox(height: 18),
-                Text(
-                  'manga.background'.tr(),
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                _segmented(
-                  options: {
-                    'black': 'manga.bg_black'.tr(),
-                    'gray': 'manga.bg_gray'.tr(),
-                    'white': 'manga.bg_white'.tr(),
-                  },
-                  value: _bgPref,
-                  onChanged: (v) {
-                    _hive.saveReaderBackground(v);
-                    setState(() => _bgPref = v);
-                    setSheet(() {});
-                  },
-                ),
+                if (_html == null) ...[
+                  const SizedBox(height: 18),
+                  Text(
+                    'manga.background'.tr(),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  _segmented(
+                    options: {
+                      'black': 'manga.bg_black'.tr(),
+                      'gray': 'manga.bg_gray'.tr(),
+                      'white': 'manga.bg_white'.tr(),
+                    },
+                    value: _bgPref,
+                    onChanged: (v) {
+                      _hive.saveReaderBackground(v);
+                      setState(() => _bgPref = v);
+                      setSheet(() {});
+                    },
+                  ),
+                ],
                 if (!isDesktopPlatform) ...[
                   const SizedBox(height: 18),
                   Row(
@@ -1403,6 +2819,85 @@ class _ReaderPageState extends State<ReaderPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _sheetLabel(String key) => Text(
+    key.tr(),
+    style: const TextStyle(color: Colors.white70, fontSize: 12),
+  );
+
+  void _setNovelLayout(String layout) {
+    if (layout == _novelLayout) return;
+    _hive.saveNovelLayout(layout);
+    setState(() {
+      _novelLayout = layout;
+      _bookPendingPermille = _novelPermille;
+      _bookMetrics = null;
+      _bookHtml = null;
+      _bookAnchor = null;
+      _revealBlock = -1;
+    });
+    if (layout != 'book') _restoreNovelPosition(_novelPermille);
+  }
+
+  /// Paper swatches, each set in its own ink.
+  Widget _themePicker(VoidCallback refresh) {
+    final current = _novelTheme;
+    return Row(
+      children: [
+        for (final theme in NovelTheme.all)
+          Expanded(
+            child: HoverTap(
+              onTap: () {
+                _hive.saveNovelTheme(theme.id);
+                setState(() => _novelThemeId = theme.id);
+                refresh();
+              },
+              child: Column(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    width: 48,
+                    height: 48,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: theme.paper,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: theme.id == current.id
+                            ? _accent
+                            : Colors.white.withValues(alpha: 0.14),
+                        width: theme.id == current.id ? 2.5 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      'Aa',
+                      style: TextStyle(
+                        color: theme.ink,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: _novelFamilyOrNull,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    theme.label.tr(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: theme.id == current.id
+                          ? Colors.white
+                          : Colors.white54,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -1484,6 +2979,7 @@ class _ReaderPageState extends State<ReaderPage> {
     final hasPrevChapter = _chapterIndex > 0;
     final hasNextChapter = _chapterIndex < _chapters.length - 1;
     final isNovel = _html != null;
+    final bookPages = _book ? _bookPages.length : 0;
     final maxPage = isNovel
         ? 1000.0
         : (_pageCount - 1).clamp(0, 9999).toDouble();
@@ -1537,6 +3033,7 @@ class _ReaderPageState extends State<ReaderPage> {
                             child: Slider(
                               min: 0,
                               max: maxPage,
+                              divisions: bookPages > 1 ? bookPages - 1 : null,
                               value: display.toDouble(),
                               onChanged: isNovel || _pageCount > 1
                                   ? (v) => _dragging.value = v.round()
@@ -1551,7 +3048,9 @@ class _ReaderPageState extends State<ReaderPage> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          isNovel
+                          bookPages > 0
+                              ? '${_pageAtPermille(display, bookPages) + 1}/$bookPages'
+                              : isNovel
                               ? '${(display / 10).round()}%'
                               : '${display + 1}/$_pageCount',
                           style: const TextStyle(
@@ -1600,6 +3099,49 @@ class _PageImageState extends State<_PageImage> {
   /// accent in the app now, and the user chooses it.
   static Color get _accent => AppColors.primary;
   int _retry = 0;
+
+  /// The file this page was drawn from, once there is one.
+  ///
+  /// A downloaded page is already a path. A network page becomes one as soon as
+  /// it has been fetched, because [CachedNetworkImage] writes it to disk on the
+  /// way in — so the sharp zoom below works for both without downloading
+  /// anything twice. Null until then, which is the same thing as "not zoomable
+  /// yet".
+  String? _sourcePath;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveSource();
+  }
+
+  @override
+  void didUpdateWidget(_PageImage old) {
+    super.didUpdateWidget(old);
+    if (old.page.imageUrl != widget.page.imageUrl) {
+      _sourcePath = null;
+      _resolveSource();
+    }
+  }
+
+  Future<void> _resolveSource() async {
+    if (!widget.zoomable || !PageTiles.isSupported) return;
+    final url = widget.page.imageUrl;
+    if (!url.startsWith('http')) {
+      if (mounted) setState(() => _sourcePath = url);
+      return;
+    }
+    try {
+      final file = await DefaultCacheManager().getFileFromCache(
+        widget.page.cacheKey ?? url,
+      );
+      if (!mounted || file == null) return;
+      setState(() => _sourcePath = file.file.path);
+    } catch (_) {
+      // No cached file yet. The page still draws; it just zooms the way it
+      // always did until the next build finds one.
+    }
+  }
 
   /// Chapter headers plus this page's host-scoped cookies, if it has any.
   Map<String, String> get _imageHeaders {
@@ -1662,7 +3204,13 @@ class _PageImageState extends State<_PageImage> {
             );
 
       if (!widget.zoomable) return img;
-      return InteractiveViewer(
+      // Zoomed, the image above is a bitmap decoded at column width being
+      // magnified — which is exactly when a dense page or small lettering turns
+      // to mush. [TiledZoom] re-reads the part that is on screen from the file
+      // at the size it is being shown at, and falls back to precisely this
+      // InteractiveViewer wherever it cannot.
+      return TiledZoom(
+        sourcePath: _sourcePath,
         maxScale: 4,
         child: SizedBox(width: width, child: img),
       );
@@ -1694,4 +3242,194 @@ class _PageImageState extends State<_PageImage> {
       ),
     ),
   );
+}
+
+/// The chapter list: headings, a filter, and the current chapter in view.
+///
+/// Stateful because of the filter. A sheet that rebuilds the whole reader on
+/// every keystroke would be the wrong thing twice over — the reader is holding
+/// decoded pages.
+class _ChapterListSheet extends StatefulWidget {
+  const _ChapterListSheet({
+    required this.chapters,
+    required this.current,
+    required this.accent,
+    required this.onPick,
+  });
+
+  final List<EpisodeEntity> chapters;
+  final int current;
+  final Color accent;
+  final ValueChanged<int> onPick;
+
+  @override
+  State<_ChapterListSheet> createState() => _ChapterListSheetState();
+}
+
+class _ChapterListSheetState extends State<_ChapterListSheet> {
+  final TextEditingController _filter = TextEditingController();
+  String _query = '';
+
+  /// Past this many, reading the list is slower than typing at it.
+  static const int _filterThreshold = 25;
+
+  bool get _hasFilter => widget.chapters.length >= _filterThreshold;
+
+  @override
+  void dispose() {
+    _filter.dispose();
+    super.dispose();
+  }
+
+  /// The rows to draw: a heading, then its chapters, then the next heading.
+  ///
+  /// Flattened here rather than nested, so the whole thing stays one lazy
+  /// list — a thousand chapters in a Column of Columns is a thousand rows laid
+  /// out before the sheet can open.
+  List<Object> get _rows {
+    final q = _query.trim().toLowerCase();
+    final rows = <Object>[];
+    for (final group in groupChapters(widget.chapters)) {
+      final hits = [
+        for (final i in group.indices)
+          if (q.isEmpty || widget.chapters[i].label.toLowerCase().contains(q))
+            i,
+      ];
+      if (hits.isEmpty) continue;
+      // A heading over a filtered list still says where the hits came from,
+      // which is most of what somebody scanning for "12" wants to know.
+      if (group.label.isNotEmpty || group.volume != null) rows.add(group);
+      rows.addAll(hits);
+    }
+    return rows;
+  }
+
+  Widget _heading(ChapterGroup group) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+    child: Text(
+      group.volume != null
+          ? 'manga.volume_n'.tr(args: ['${group.volume}'])
+          : (group.label.isEmpty ? 'manga.other_chapters'.tr() : group.label),
+      style: const TextStyle(
+        color: Colors.white38,
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.9,
+      ),
+    ),
+  );
+
+  Widget _tile(int i) {
+    final ch = widget.chapters[i];
+    final selected = i == widget.current;
+    return ListTile(
+      dense: true,
+      selected: selected,
+      selectedTileColor: widget.accent.withValues(alpha: 0.12),
+      leading: Icon(
+        selected ? Icons.play_arrow_rounded : Icons.menu_book_outlined,
+        color: selected ? widget.accent : Colors.white38,
+        size: 20,
+      ),
+      title: Text(
+        ch.label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: selected ? widget.accent : Colors.white,
+          fontSize: 13.5,
+        ),
+      ),
+      onTap: () => widget.onPick(i),
+    );
+  }
+
+  Widget _list(ScrollController? controller) {
+    final rows = _rows;
+    if (rows.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            'manga.no_chapter_match'.tr(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white38, fontSize: 13),
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      controller: controller,
+      itemCount: rows.length,
+      itemBuilder: (context, i) {
+        final row = rows[i];
+        return row is ChapterGroup ? _heading(row) : _tile(row as int);
+      },
+    );
+  }
+
+  Widget _field() => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+    child: TextField(
+      controller: _filter,
+      onChanged: (v) => setState(() => _query = v),
+      style: const TextStyle(color: Colors.white, fontSize: 13.5),
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'manga.find_chapter'.tr(),
+        prefixIcon: const Icon(Icons.search_rounded, size: 18),
+        suffixIcon: _query.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'general.clear'.tr(),
+                icon: const Icon(Icons.close_rounded, size: 16),
+                onPressed: () {
+                  _filter.clear();
+                  setState(() => _query = '');
+                },
+              ),
+      ),
+    ),
+  );
+
+  Widget _title() => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: Text(
+      'manga.chapters'.tr(),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    if (isDesktopPlatform) {
+      return SizedBox(
+        width: 360,
+        height: 480,
+        child: Column(
+          children: [
+            _title(),
+            if (_hasFilter) _field(),
+            Expanded(child: _list(null)),
+          ],
+        ),
+      );
+    }
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.7,
+      maxChildSize: 0.92,
+      builder: (context, scroll) => Column(
+        children: [
+          _title(),
+          if (_hasFilter) _field(),
+          Expanded(child: _list(scroll)),
+        ],
+      ),
+    );
+  }
 }

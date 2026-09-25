@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/network/auth_interceptor.dart';
 import 'package:soplay/core/network/certificate_pinning.dart';
 
 /// Single-flight JWT freshener for the socket handshake.
@@ -13,7 +14,7 @@ import 'package:soplay/core/network/certificate_pinning.dart';
 /// expiry (or when a handshake was rejected). This does NOT touch
 /// [AuthInterceptor]; it refreshes on a BARE Dio with no interceptors.
 class TokenRefresher {
-  TokenRefresher(this._hive);
+  TokenRefresher(this._hive, {Dio? dio}) : _bareDio = dio;
 
   final HiveService _hive;
   Dio? _bareDio;
@@ -29,8 +30,9 @@ class TokenRefresher {
     if (token == null || token.isEmpty) return null;
     if (!force && !_needsRefresh(token)) return token;
 
-    final refreshed = await (_inFlight ??=
-        _performRefresh().whenComplete(() => _inFlight = null));
+    final refreshed = await (_inFlight ??= _performRefresh().whenComplete(
+      () => _inFlight = null,
+    ));
     if (refreshed != null && refreshed.isNotEmpty) return refreshed;
 
     // Non-forced refresh failure: fall back to the (still possibly valid)
@@ -41,8 +43,10 @@ class TokenRefresher {
   bool _needsRefresh(String token) {
     final exp = _decodeExp(token);
     if (exp == null) return false; // can't tell — leave it to the server.
-    final expiresAt =
-        DateTime.fromMillisecondsSinceEpoch(exp * 1000, isUtc: true);
+    final expiresAt = DateTime.fromMillisecondsSinceEpoch(
+      exp * 1000,
+      isUtc: true,
+    );
     final threshold = expiresAt.subtract(const Duration(seconds: 60));
     return DateTime.now().toUtc().isAfter(threshold);
   }
@@ -80,7 +84,7 @@ class TokenRefresher {
       final dio = _bareDio ??= Dio(BaseOptions(baseUrl: AppConstants.baseUrl))
         ..httpClientAdapter = CertificatePinning.adapter();
       final res = await dio.post(
-        '/auth/refresh',
+        refreshPathFor(refreshToken),
         data: {'refreshToken': refreshToken},
       );
       final data = res.data;

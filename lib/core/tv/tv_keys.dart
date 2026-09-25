@@ -63,9 +63,9 @@ class TvShortcuts extends StatelessWidget {
 
   static const Map<ShortcutActivator, Intent> _map =
       <ShortcutActivator, Intent>{
-    SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
-    SingleActivator(LogicalKeyboardKey.gameButtonA): ActivateIntent(),
-  };
+        SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.gameButtonA): ActivateIntent(),
+      };
 
   @override
   Widget build(BuildContext context) {

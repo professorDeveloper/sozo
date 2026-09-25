@@ -63,17 +63,29 @@ class AiringReminders {
 
       final now = DateTime.now();
       final until = now.add(horizon);
-      final due = <({DateTime at, String title, int episode, bool released})>[];
+      final due =
+          <
+            ({
+              DateTime at,
+              String title,
+              int episode,
+              bool released,
+              String url,
+            })
+          >[];
 
       for (final entry in entries) {
         final airing = entry.media.nextAiring;
         if (airing == null) continue;
         if (airing.airsAt.isAfter(until)) continue;
-        final title = entry.media.englishTitle ??
+        final title =
+            entry.media.englishTitle ??
             entry.media.romajiTitle ??
             entry.media.nativeTitle ??
             '';
         if (title.isEmpty) continue;
+        final url =
+            entry.media.siteUrl ?? 'https://anilist.co/anime/${entry.media.id}';
 
         // Two moments matter, and only one of them was ever scheduled: the
         // heads-up before it airs, and the episode actually being out. The
@@ -81,11 +93,23 @@ class AiringReminders {
         // a reminder ten minutes early is a promise, not the thing itself.
         final ahead = airing.airsAt.subtract(lead);
         if (ahead.isAfter(now)) {
-          due.add((at: ahead, title: title, episode: airing.episode, released: false));
+          due.add((
+            at: ahead,
+            title: title,
+            episode: airing.episode,
+            released: false,
+            url: url,
+          ));
         }
         final out = airing.airsAt.add(releaseDelay);
         if (out.isAfter(now)) {
-          due.add((at: out, title: title, episode: airing.episode, released: true));
+          due.add((
+            at: out,
+            title: title,
+            episode: airing.episode,
+            released: true,
+            url: url,
+          ));
         }
       }
 
@@ -98,10 +122,19 @@ class AiringReminders {
           id: _idBase + scheduled,
           when: item.at,
           title: item.title,
-          body: (item.released
-                  ? 'anilist.released_body'
-                  : 'anilist.reminder_body')
-              .tr(namedArgs: {'episode': '${item.episode}'}),
+          body:
+              (item.released
+                      ? 'anilist.released_body'
+                      : 'anilist.reminder_body')
+                  .tr(namedArgs: {'episode': '${item.episode}'}),
+          // Opens the title on that episode; without a payload the tap only
+          // brought the app forward.
+          payload: {
+            'type': 'airing_reminder',
+            'provider': 'cat:anilist',
+            'contentUrl': item.url,
+            'episodeNumber': item.episode,
+          },
         );
         scheduled++;
       }
@@ -119,9 +152,9 @@ class AiringReminders {
   Future<void> _cancelAll() async {
     final count = _hive.airingReminderCount;
     if (count <= 0) return;
-    await _notifications.cancelAllScheduled(
-      [for (var i = 0; i < count; i++) _idBase + i],
-    );
+    await _notifications.cancelAllScheduled([
+      for (var i = 0; i < count; i++) _idBase + i,
+    ]);
     await _hive.setAiringReminderCount(0);
   }
 }
