@@ -531,6 +531,14 @@ extension _PlayerMedia on _PlayerPageState {
     }
   }
 
+  /// The signer of the source playing [url], if it has one.
+  UrlSigner? _signerFor(String url) {
+    for (final s in _videoSources) {
+      if (s.videoUrl == url && s.signer != null) return s.signer;
+    }
+    return null;
+  }
+
   /// Where playback is, or where it is about to be when the stream has not
   /// reached its resume point yet.
   Duration get _keepPosition {
@@ -953,6 +961,24 @@ extension _PlayerMedia on _PlayerPageState {
     var effUrl = url;
     var effHeaders = headers;
     var effType = type;
+
+    // A file the device must sign itself (see UrlSigner): signed here, on
+    // every start, so a retry after the token expires asks for a fresh one.
+    // [_playSourceUrl] keeps the unsigned file for exactly that reason.
+    final signer = _signerFor(url);
+    if (signer != null) {
+      final signed = await signer.sign(url, headers);
+      if (!mounted || generation != _mediaGeneration) return;
+      if (signed != null) {
+        _plog('signed on device -> $signed');
+        effUrl = signed;
+      } else {
+        _plog(
+          'signing refused — playing the file as given',
+          level: LogLevel.warn,
+        );
+      }
+    }
 
     // Only when the server sent a directive — no provider check, no url
     // pattern-matching. See `_extractorConfig`.

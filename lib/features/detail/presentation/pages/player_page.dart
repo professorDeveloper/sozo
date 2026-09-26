@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:soplay/core/player/hls_variants.dart';
 import 'package:soplay/core/player/quality_preference.dart';
+import 'package:soplay/core/player/url_signer.dart';
 import 'package:soplay/core/analytics/analytics.dart';
 import 'package:soplay/core/player/color_profile.dart';
 import 'package:soplay/core/player/shader_presets.dart';

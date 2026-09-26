@@ -302,14 +302,24 @@ class _DownloadChoiceSheetState extends State<DownloadChoiceSheet> {
               child: FilledButton(
                 onPressed: _loading
                     ? null
-                    : () {
+                    : () async {
                         final variant = _variants.isEmpty
                             ? null
                             : _variants[_variant];
+                        // A file the host signs per device (asilmedia):
+                        // fetched unsigned it is a 403, so sign it first,
+                        // with the headers the download will send.
+                        var url = variant?.url ?? source.videoUrl;
+                        final signer = source.signer;
+                        if (variant == null && signer != null) {
+                          setState(() => _loading = true);
+                          url = await signer.sign(url, source.headers) ?? url;
+                          if (!context.mounted) return;
+                        }
                         Navigator.pop(
                           context,
                           DownloadSelection(
-                            url: variant?.url ?? source.videoUrl,
+                            url: url,
                             headers: source.headers,
                             // The label is a last resort, but it is a real
                             // one: plenty of sources declare no height and
