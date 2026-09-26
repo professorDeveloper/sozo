@@ -96,6 +96,7 @@ const Map<String, String> _names = {
   'ar': 'Arabic',
   'bn': 'Bengali',
   'ca': 'Catalan',
+  'ckb': 'Kurdish (Sorani)',
   'cs': 'Czech',
   'de': 'German',
   'el': 'Greek',
@@ -113,6 +114,7 @@ const Map<String, String> _names = {
   'it': 'Italian',
   'ja': 'Japanese',
   'ko': 'Korean',
+  'ku': 'Kurdish (Kurmanji)',
   'ml': 'Malayalam',
   'mr': 'Marathi',
   'ms': 'Malay',
@@ -268,6 +270,11 @@ const Map<String, String> _nameHints = {
   'persian': 'fa',
   'farsi': 'fa',
   'uzbek': 'uz',
+  // The two Kurdish standards by name. Plain "kurdish" is left out: it does
+  // not say which, and guessing wrong files a source under a script its
+  // reader cannot read.
+  'sorani': 'ckb',
+  'kurmanc': 'ku',
 };
 
 /// A host that ends in one of these is almost always in that language. Only

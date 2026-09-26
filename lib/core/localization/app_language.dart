@@ -37,6 +37,8 @@ abstract final class AppLanguage {
     'tr': 'Türkçe',
     'id': 'Bahasa Indonesia',
     'yue': '廣東話',
+    'ku': 'Kurdî (Kurmancî)',
+    'ckb': 'کوردی (سۆرانی)',
   };
 
   static String labelOf(String code) => names[code] ?? code;
@@ -54,6 +56,9 @@ abstract final class AppLanguage {
     'tr': '🇹🇷',
     'id': '🇮🇩',
     'yue': '🇭🇰',
+    // No flag for either Kurdish: Unicode has no Kurdistan emoji, and the
+    // flag of a state Kurds live in would be the wrong answer. They get the
+    // globe [flagOf] gives any code not listed.
   };
 
   static String flagOf(String code) => flags[code] ?? '🌐';
