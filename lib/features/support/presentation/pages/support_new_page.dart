@@ -282,6 +282,9 @@ class _DiagnosticsCard extends StatelessWidget {
           SwitchListTile.adaptive(
             value: attach,
             onChanged: onAttach,
+            // White thumb, as SettingsSwitchTile has it: at its default the
+            // thumb takes the track's primary and the "on" state vanishes.
+            activeThumbColor: Colors.white,
             activeTrackColor: AppColors.primary,
             contentPadding: const EdgeInsets.fromLTRB(14, 4, 8, 0),
             title: Text(
