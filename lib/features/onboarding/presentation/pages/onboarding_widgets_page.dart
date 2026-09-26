@@ -312,7 +312,9 @@ class _HomeScreenState extends State<_HomeScreen>
           final width = math.min(box.maxWidth, 360.0);
           const pad = 14.0;
           const gap = 12.0;
-          final cell = (width - pad * 2 - gap) / 2;
+          // What is left inside the card's 1 px border and its padding.
+          final inner = width - 2 - pad * 2;
+          final cell = (inner - gap) / 2;
           // The same card as the rest of the setup — its surface, its
           // hairline border, no shadow — so the widgets are what stands out,
           // not a slab of their own.
@@ -346,7 +348,7 @@ class _HomeScreenState extends State<_HomeScreen>
                     _ring(
                       on: widget.streakPlaced && !widget.continuePlaced,
                       child: _ContinueMock(
-                        width: width - pad * 2,
+                        width: inner,
                         posters: [poster(1), poster(2), poster(3)],
                       ),
                     ),
