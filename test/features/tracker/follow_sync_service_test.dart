@@ -183,16 +183,19 @@ void main() {
     expect(sync.pendingCount, 0);
   });
 
-  test('a 404 means not deployed: local keeps working, nothing is lost', () async {
-    remote.mode = _Mode.notDeployed;
-    await follows.follow(_title('a'));
-    await pumpEventQueue();
-    expect(sync.serverLive, isFalse);
-    expect(follows.list().single.contentUrl, 'a');
-    expect(sync.pendingCount, 1);
-    expect(await sync.fullSync(force: true), isFalse);
-    expect(follows.list(), hasLength(1));
-  });
+  test(
+    'a 404 means not deployed: local keeps working, nothing is lost',
+    () async {
+      remote.mode = _Mode.notDeployed;
+      await follows.follow(_title('a'));
+      await pumpEventQueue();
+      expect(sync.serverLive, isFalse);
+      expect(follows.list().single.contentUrl, 'a');
+      expect(sync.pendingCount, 1);
+      expect(await sync.fullSync(force: true), isFalse);
+      expect(follows.list(), hasLength(1));
+    },
+  );
 
   test('an unfollow travels as a tombstone in the full sync', () async {
     remote.mode = _Mode.offline;
@@ -207,7 +210,10 @@ void main() {
 
   test('the merge keeps device-only fields and never lowers a count', () async {
     hive.raw = [
-      _title('a', count: 12).copyWith(autoDownload: true, autoDownloadFrom: 9).toJson(),
+      _title(
+        'a',
+        count: 12,
+      ).copyWith(autoDownload: true, autoDownloadFrom: 9).toJson(),
     ];
     remote.server = [
       _title('a', count: 10).copyWith(anilistId: 7),
@@ -231,37 +237,52 @@ void main() {
     expect(remote.calls, contains('sync'));
   });
 
-  test('an unfollow made while the follow is in flight still goes up', () async {
-    remote.hold = Completer<void>();
-    await follows.follow(_title('a'));
-    await pumpEventQueue();
-    expect(remote.calls, ['add a']);
-    await follows.unfollow('a');
-    await pumpEventQueue();
-    remote.hold!.complete();
-    remote.hold = null;
-    await pumpEventQueue();
-    expect(remote.calls, ['add a', 'remove a']);
-    expect(sync.pendingCount, 0);
-  });
+  test(
+    'an unfollow made while the follow is in flight still goes up',
+    () async {
+      remote.hold = Completer<void>();
+      await follows.follow(_title('a'));
+      await pumpEventQueue();
+      expect(remote.calls, ['add a']);
+      await follows.unfollow('a');
+      await pumpEventQueue();
+      remote.hold!.complete();
+      remote.hold = null;
+      // The queue drains through real storage I/O, not only microtasks, so a
+      // fixed number of event-queue pumps passed locally and failed on a slower
+      // CI runner. Wait for the outcome itself, with a ceiling.
+      for (
+        var i = 0;
+        i < 200 && (remote.calls.length < 2 || sync.pendingCount > 0);
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(remote.calls, ['add a', 'remove a']);
+      expect(sync.pendingCount, 0);
+    },
+  );
 
-  test('a profile switch mid-sync keeps the old list out of the new profile', () async {
-    hive.raw = [_title('mine').toJson()];
-    remote.server = [_title('theirs')];
-    remote.hold = Completer<void>();
-    final first = sync.fullSync(force: true);
-    await pumpEventQueue();
-    ProfileScope.set(namespace: 'kid', remoteId: 'kid');
-    remote.hold!.complete();
-    remote.hold = null;
-    remote.server = [_title('mine')];
-    expect(await first, isFalse);
-    expect(hive.raw.map((e) => e['contentUrl']), ['mine']);
-    await pumpEventQueue();
-    // The new profile gets a sync of its own instead of being skipped.
-    expect(remote.calls.where((c) => c == 'sync'), hasLength(2));
-    ProfileScope.reset();
-  });
+  test(
+    'a profile switch mid-sync keeps the old list out of the new profile',
+    () async {
+      hive.raw = [_title('mine').toJson()];
+      remote.server = [_title('theirs')];
+      remote.hold = Completer<void>();
+      final first = sync.fullSync(force: true);
+      await pumpEventQueue();
+      ProfileScope.set(namespace: 'kid', remoteId: 'kid');
+      remote.hold!.complete();
+      remote.hold = null;
+      remote.server = [_title('mine')];
+      expect(await first, isFalse);
+      expect(hive.raw.map((e) => e['contentUrl']), ['mine']);
+      await pumpEventQueue();
+      // The new profile gets a sync of its own instead of being skipped.
+      expect(remote.calls.where((c) => c == 'sync'), hasLength(2));
+      ProfileScope.reset();
+    },
+  );
 
   group('collapse', () {
     test('a delete wins over whatever was queued', () {
@@ -282,7 +303,10 @@ void main() {
 
     test('a patch on a queued upsert is already in it', () {
       expect(
-        FollowSyncService.collapse({'op': 'upsert'}, {'op': 'patch', 'notify': true}),
+        FollowSyncService.collapse(
+          {'op': 'upsert'},
+          {'op': 'patch', 'notify': true},
+        ),
         {'op': 'upsert'},
       );
     });
