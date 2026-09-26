@@ -10,6 +10,8 @@ import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/home/presentation/widgets/home_banner.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:soplay/features/support/presentation/widgets/support_suggestion.dart';
+import 'package:soplay/features/support/data/support_models.dart';
 
 class HomeSkeleton extends StatelessWidget {
   const HomeSkeleton({super.key});
@@ -376,6 +378,13 @@ class HomeErrorView extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 8),
+            SupportSuggestion(
+              screen: 'home',
+              category: SupportCategory.content,
+              provider: getIt<HiveService>().getCurrentProvider(),
+              error: failure.detail ?? message,
+            ),
           ],
         ),
       ),

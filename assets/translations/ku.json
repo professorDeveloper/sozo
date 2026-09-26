@@ -3003,6 +3003,7 @@
     "error_attachment": "Dîmena ekranê nehat barkirin. Dîsa biceribîne.",
     "error_attachment_type": "Tenê wêneyên jpg, png an webp.",
     "error_attachment_size": "Divê her wêne herî zêde 5 MB be.",
-    "error_attachment_count": "Di peyamekê de herî zêde 5 dîmenên ekranê."
+    "error_attachment_count": "Di peyamekê de herî zêde 5 dîmenên ekranê.",
+    "suggest": "Dubare dibe? Ji piştgiriyê re binivîse"
   }
 }

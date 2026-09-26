@@ -3003,6 +3003,7 @@
     "error_attachment": "Une capture n’a pas pu être envoyée. Réessaie.",
     "error_attachment_type": "Images jpg, png ou webp uniquement.",
     "error_attachment_size": "Chaque image doit faire 5 Mo maximum.",
-    "error_attachment_count": "5 captures maximum par message."
+    "error_attachment_count": "5 captures maximum par message.",
+    "suggest": "Ça se reproduit ? Écris au support"
   }
 }

@@ -3007,6 +3007,7 @@
     "error_attachment": "تعذّر رفع لقطة الشاشة. حاول مرة أخرى.",
     "error_attachment_type": "صور jpg أو png أو webp فقط.",
     "error_attachment_size": "يجب ألا يتجاوز حجم كل صورة 5 ميغابايت.",
-    "error_attachment_count": "5 لقطات شاشة كحد أقصى في الرسالة."
+    "error_attachment_count": "5 لقطات شاشة كحد أقصى في الرسالة.",
+    "suggest": "تتكرر المشكلة؟ راسل الدعم"
   }
 }

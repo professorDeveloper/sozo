@@ -3003,6 +3003,7 @@
     "error_attachment": "Ein Screenshot konnte nicht hochgeladen werden. Versuch es noch einmal.",
     "error_attachment_type": "Nur jpg-, png- oder webp-Bilder.",
     "error_attachment_size": "Jedes Bild darf höchstens 5 MB groß sein.",
-    "error_attachment_count": "Höchstens 5 Screenshots pro Nachricht."
+    "error_attachment_count": "Höchstens 5 Screenshots pro Nachricht.",
+    "suggest": "Passiert das öfter? Schreib dem Support"
   }
 }

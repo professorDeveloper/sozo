@@ -11,6 +11,7 @@ import 'package:soplay/features/notifications/domain/entities/notification_item.
 import 'package:soplay/features/notifications/presentation/bloc/notifications_bloc.dart';
 import 'package:soplay/features/notifications/presentation/notification_routing.dart';
 import 'package:soplay/features/tracker/presentation/widgets/release_widgets.dart';
+import 'package:soplay/features/support/presentation/widgets/support_suggestion.dart';
 
 class NotificationsPage extends StatelessWidget {
   const NotificationsPage({super.key});
@@ -592,6 +593,7 @@ class _ErrorView extends StatelessWidget {
               style: TextStyle(color: AppColors.primary),
             ),
           ),
+          SupportSuggestion(screen: 'notifications', error: message),
         ],
       ),
     );

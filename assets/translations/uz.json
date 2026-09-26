@@ -3003,6 +3003,7 @@
     "error_attachment": "Skrinshotni yuklab bo‘lmadi. Qaytadan urinib ko‘ring.",
     "error_attachment_type": "Faqat jpg, png yoki webp rasm.",
     "error_attachment_size": "Har bir rasm 5 MB dan oshmasin.",
-    "error_attachment_count": "Bitta xabarga ko‘pi bilan 5 ta skrinshot."
+    "error_attachment_count": "Bitta xabarga ko‘pi bilan 5 ta skrinshot.",
+    "suggest": "Takrorlanyaptimi? Support’ga yozing"
   }
 }

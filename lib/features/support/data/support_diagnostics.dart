@@ -51,6 +51,10 @@ class SupportDiagnostics {
     put('provider', args?.provider);
     put('content', args?.content);
     put('screen', args?.screen);
+    final error = args?.error?.trim();
+    if (error != null && error.isNotEmpty) {
+      put('error', error.length > 200 ? '${error.substring(0, 199)}…' : error);
+    }
     if (includeLog) {
       final log = PlayerLog.instance;
       if (log.lines.isNotEmpty) {

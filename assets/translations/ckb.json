@@ -3003,6 +3003,7 @@
     "error_attachment": "وێنەی شاشە بار نەکرا. دووبارە هەوڵ بدەرەوە.",
     "error_attachment_type": "تەنها وێنەی jpg یان png یان webp.",
     "error_attachment_size": "هەر وێنەیەک دەبێت 5 MB یان کەمتر بێت.",
-    "error_attachment_count": "لە هەر نامەیەکدا زۆرترین 5 وێنەی شاشە."
+    "error_attachment_count": "لە هەر نامەیەکدا زۆرترین 5 وێنەی شاشە.",
+    "suggest": "دووبارە دەبێتەوە؟ بۆ پشتگیری بنووسە"
   }
 }

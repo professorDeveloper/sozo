@@ -3003,6 +3003,7 @@
     "error_attachment": "截圖上載唔到，請再試一次。",
     "error_attachment_type": "只接受 jpg、png 或 webp 圖片。",
     "error_attachment_size": "每張圖唔可以大過 5 MB。",
-    "error_attachment_count": "每條訊息最多 5 張截圖。"
+    "error_attachment_count": "每條訊息最多 5 張截圖。",
+    "suggest": "成日都係咁？搵支援"
   }
 }

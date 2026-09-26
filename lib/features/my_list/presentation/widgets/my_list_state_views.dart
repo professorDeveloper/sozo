@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/support/presentation/widgets/support_suggestion.dart';
 
 class MyListEmptyView extends StatelessWidget {
   const MyListEmptyView({super.key});
@@ -52,6 +53,7 @@ class MyListErrorView extends StatelessWidget {
       message: message,
       actionLabel: 'general.try_again'.tr(),
       onAction: onRetry,
+      footer: SupportSuggestion(screen: 'my_list', error: message),
     );
   }
 }
@@ -64,6 +66,7 @@ class MyListStateView extends StatelessWidget {
     required this.message,
     this.actionLabel,
     this.onAction,
+    this.footer,
   });
 
   final IconData icon;
@@ -71,6 +74,9 @@ class MyListStateView extends StatelessWidget {
   final String message;
   final String? actionLabel;
   final VoidCallback? onAction;
+
+  /// Under the action, on an error only: the way to support.
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +131,7 @@ class MyListStateView extends StatelessWidget {
                       ),
                     ),
                   ],
+                  if (footer != null) ...[const SizedBox(height: 8), footer!],
                 ],
               ),
             ),

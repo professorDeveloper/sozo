@@ -3003,6 +3003,7 @@
     "error_attachment": "Een screenshot kon niet worden geüpload. Probeer het opnieuw.",
     "error_attachment_type": "Alleen jpg-, png- of webp-afbeeldingen.",
     "error_attachment_size": "Elke afbeelding mag maximaal 5 MB zijn.",
-    "error_attachment_count": "Maximaal 5 screenshots per bericht."
+    "error_attachment_count": "Maximaal 5 screenshots per bericht.",
+    "suggest": "Blijft het gebeuren? Schrijf support"
   }
 }

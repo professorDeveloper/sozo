@@ -3003,6 +3003,7 @@
     "error_attachment": "No se pudo subir una captura. Inténtalo de nuevo.",
     "error_attachment_type": "Solo imágenes jpg, png o webp.",
     "error_attachment_size": "Cada imagen debe pesar 5 MB o menos.",
-    "error_attachment_count": "Como máximo 5 capturas por mensaje."
+    "error_attachment_count": "Como máximo 5 capturas por mensaje.",
+    "suggest": "¿Sigue pasando? Escribe a soporte"
   }
 }

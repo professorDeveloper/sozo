@@ -3003,6 +3003,7 @@
     "error_attachment": "A screenshot couldn't be uploaded. Please try again.",
     "error_attachment_type": "Only jpg, png or webp images.",
     "error_attachment_size": "Each image must be 5 MB or less.",
-    "error_attachment_count": "At most 5 screenshots per message."
+    "error_attachment_count": "At most 5 screenshots per message.",
+    "suggest": "Keeps happening? Write to support"
   }
 }

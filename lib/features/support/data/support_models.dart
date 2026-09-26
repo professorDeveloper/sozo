@@ -124,12 +124,16 @@ class SupportRequestArgs {
     this.provider,
     this.content,
     this.screen,
+    this.error,
   });
 
   final SupportCategory? category;
   final String? provider;
   final String? content;
   final String? screen;
+
+  /// The error that was on screen when the viewer chose to write.
+  final String? error;
 }
 
 /// A refusal worth showing as it is: the server writes these for people.

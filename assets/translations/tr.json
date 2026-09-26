@@ -3003,6 +3003,7 @@
     "error_attachment": "Bir ekran görüntüsü yüklenemedi. Tekrar dene.",
     "error_attachment_type": "Yalnızca jpg, png veya webp görseller.",
     "error_attachment_size": "Her görsel en fazla 5 MB olmalı.",
-    "error_attachment_count": "Mesaj başına en fazla 5 ekran görüntüsü."
+    "error_attachment_count": "Mesaj başına en fazla 5 ekran görüntüsü.",
+    "suggest": "Tekrarlıyor mu? Desteğe yaz"
   }
 }

@@ -3004,6 +3004,7 @@
     "error_attachment": "Не удалось загрузить скриншот. Попробуйте ещё раз.",
     "error_attachment_type": "Только изображения jpg, png или webp.",
     "error_attachment_size": "Каждое изображение — не больше 5 МБ.",
-    "error_attachment_count": "Не больше 5 скриншотов в сообщении."
+    "error_attachment_count": "Не больше 5 скриншотов в сообщении.",
+    "suggest": "Повторяется? Напишите в поддержку"
   }
 }

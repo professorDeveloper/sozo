@@ -68,6 +68,8 @@ import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.d
 import 'package:soplay/features/download/presentation/download_messages.dart';
 import 'package:soplay/features/download/presentation/widgets/offline_copy_banner.dart';
 import 'package:showcaseview/showcaseview.dart';
+import 'package:soplay/features/support/presentation/widgets/support_suggestion.dart';
+import 'package:soplay/features/support/data/support_models.dart';
 
 class DetailPage extends StatelessWidget {
   const DetailPage({super.key, required this.args});
@@ -222,6 +224,8 @@ class _DetailScaffold extends StatelessWidget {
                   message: message.startsWith('catalogue.')
                       ? message.tr()
                       : message,
+                  provider: provider,
+                  content: contentUrl,
                   onRetry: () => context.read<DetailBloc>().add(
                     DetailLoad(contentUrl, provider: provider, hint: preview),
                   ),
@@ -2005,7 +2009,13 @@ class _ErrorView extends StatelessWidget {
     required this.onRetry,
     required this.onBack,
     this.onSolveCloudflare,
+    this.provider,
+    this.content,
   });
+
+  /// For a support request about this title, if the viewer writes one.
+  final String? provider;
+  final String? content;
 
   final String message;
   final VoidCallback onRetry;
@@ -2062,6 +2072,14 @@ class _ErrorView extends StatelessWidget {
               label: Text('cloudflare.solve'.tr()),
             ),
           ],
+          const SizedBox(height: 8),
+          SupportSuggestion(
+            screen: 'detail',
+            category: SupportCategory.content,
+            provider: provider,
+            content: content,
+            error: message,
+          ),
           const Spacer(),
         ],
       ),

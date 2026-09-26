@@ -3003,6 +3003,7 @@
     "error_attachment": "Tangkapan layar gagal diunggah. Coba lagi.",
     "error_attachment_type": "Hanya gambar jpg, png, atau webp.",
     "error_attachment_size": "Setiap gambar maksimal 5 MB.",
-    "error_attachment_count": "Maksimal 5 tangkapan layar per pesan."
+    "error_attachment_count": "Maksimal 5 tangkapan layar per pesan.",
+    "suggest": "Terus terjadi? Hubungi dukungan"
   }
 }
