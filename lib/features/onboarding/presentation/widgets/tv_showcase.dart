@@ -420,36 +420,40 @@ class _ChannelStrip extends StatelessWidget {
                   child: child,
                 );
               },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var pass = 0; pass < 2; pass++)
-                    for (final logo in logos)
-                      Padding(
-                        padding: const EdgeInsetsDirectional.only(end: _gap),
-                        child: Container(
-                          width: _tileWidth,
-                          height: _tileHeight,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.card.withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(7),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.08),
+              child: RepaintBoundary(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var pass = 0; pass < 2; pass++)
+                      for (final logo in logos)
+                        Padding(
+                          padding: const EdgeInsetsDirectional.only(end: _gap),
+                          child: Container(
+                            width: _tileWidth,
+                            height: _tileHeight,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.card.withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(7),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.08),
+                              ),
+                            ),
+                            child: Image.asset(
+                              logo,
+                              fit: BoxFit.contain,
+                              cacheWidth: (_tileWidth * devicePixelRatio)
+                                  .round(),
+                              errorBuilder: (_, _, _) =>
+                                  const SizedBox.shrink(),
                             ),
                           ),
-                          child: Image.asset(
-                            logo,
-                            fit: BoxFit.contain,
-                            cacheWidth: (_tileWidth * devicePixelRatio).round(),
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                          ),
                         ),
-                      ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

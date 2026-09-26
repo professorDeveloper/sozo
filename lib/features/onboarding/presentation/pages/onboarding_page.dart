@@ -286,6 +286,9 @@ class _Backdrops extends StatelessWidget {
             : page.toDouble();
 
         final opacities = backdropOpacities(position);
+        // Mid-swipe the walls hold still: the frame then only has the
+        // crossfade to draw, not two moving walls under it as well.
+        final settled = (position - position.roundToDouble()).abs() < 0.001;
 
         return Stack(
           fit: StackFit.expand,
@@ -297,6 +300,7 @@ class _Backdrops extends StatelessWidget {
                 _Backdrop(
                   key: ValueKey(i),
                   index: i,
+                  moving: settled,
                   opacity: opacities[i],
                   distance: (position - i).abs().clamp(0.0, 1.0),
                 ),
@@ -324,11 +328,13 @@ class _Backdrop extends StatelessWidget {
   const _Backdrop({
     super.key,
     required this.index,
+    required this.moving,
     required this.opacity,
     required this.distance,
   });
 
   final int index;
+  final bool moving;
   final double opacity;
   final double distance;
 
@@ -336,7 +342,7 @@ class _Backdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     final shown = opacity > 0.001;
     return TickerMode(
-      enabled: shown,
+      enabled: shown && moving,
       child: Opacity(
         opacity: opacity,
         child: RepaintBoundary(

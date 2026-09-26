@@ -13,12 +13,14 @@ import 'deeplink_settings.dart';
 class DeeplinkOptIn {
   DeeplinkOptIn._();
 
-  static Future<void> maybePrompt(BuildContext context) async {
+  /// Whether it showed anything.
+  static Future<bool> maybePrompt(BuildContext context) async {
     final hive = getIt<HiveService>();
-    if (hive.hasDeeplinkPromptSeen) return;
+    if (hive.hasDeeplinkPromptSeen) return false;
     await Future<void>.delayed(const Duration(milliseconds: 600));
-    if (!context.mounted) return;
+    if (!context.mounted) return false;
     await _show(context, persistDecision: true);
+    return true;
   }
 
   static Future<void> showManually(BuildContext context) =>

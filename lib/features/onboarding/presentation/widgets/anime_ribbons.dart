@@ -145,30 +145,33 @@ class _Ribbon extends StatelessWidget {
             final dx = reverse ? -t * strip : t * strip - strip;
             return Transform.translate(offset: Offset(dx, 0), child: child);
           },
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var pass = 0; pass < 2; pass++)
-                for (final cover in covers)
-                  Padding(
-                    padding: const EdgeInsetsDirectional.only(end: _gap),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: Image.asset(
-                        cover,
-                        width: tileWidth,
-                        height: tileHeight,
-                        fit: BoxFit.cover,
-                        cacheWidth: (tileWidth * devicePixelRatio).round(),
-                        errorBuilder: (_, _, _) => SizedBox(
+          // Its own layer, like the poster wall's columns.
+          child: RepaintBoundary(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var pass = 0; pass < 2; pass++)
+                  for (final cover in covers)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: _gap),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.asset(
+                          cover,
                           width: tileWidth,
                           height: tileHeight,
-                          child: ColoredBox(color: AppColors.surface),
+                          fit: BoxFit.cover,
+                          cacheWidth: (tileWidth * devicePixelRatio).round(),
+                          errorBuilder: (_, _, _) => SizedBox(
+                            width: tileWidth,
+                            height: tileHeight,
+                            child: ColoredBox(color: AppColors.surface),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

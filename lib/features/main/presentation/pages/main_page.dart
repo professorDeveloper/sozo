@@ -19,6 +19,7 @@ import 'package:soplay/core/system/nav_prefs.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/app_updater/presentation/services/update_checker.dart';
+import 'package:soplay/core/system/startup_prompts.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_state.dart';
@@ -117,10 +118,16 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (!isDesktopPlatform) {
-        getIt<UpdateChecker>().run(context);
+        // An update is never held back — only queued, so nothing stacks on it.
+        StartupPrompts.run(
+          () => getIt<UpdateChecker>().run(context),
+          always: true,
+        );
         // The deeplink opt-in walks the user into the Android "open by default"
         // settings screen, which does not exist on leanback — skip on TV.
-        if (!isTvPlatform) DeeplinkOptIn.maybePrompt(context);
+        if (!isTvPlatform) {
+          StartupPrompts.run(() => DeeplinkOptIn.maybePrompt(context));
+        }
       }
     });
   }
@@ -129,7 +136,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed && mounted && !isDesktopPlatform) {
-      getIt<UpdateChecker>().run(context);
+      StartupPrompts.run(
+        () => getIt<UpdateChecker>().run(context),
+        always: true,
+      );
     }
   }
 

@@ -167,34 +167,38 @@ class _PosterColumn extends StatelessWidget {
               child: child,
             );
           },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var pass = 0; pass < 2; pass++)
-                for (final poster in posters)
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      bottom: _PosterWallState._gap,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: Image.asset(
-                        poster,
-                        width: tileWidth,
-                        height: tileHeight,
-                        fit: BoxFit.cover,
-                        cacheWidth: (tileWidth * devicePixelRatio).round(),
-                        // The wall is decoration; a missing file must not take
-                        // the sign-in screen down with it.
-                        errorBuilder: (_, _, _) => Container(
+          // Its own layer: each frame moves the recorded strip instead of
+          // re-recording two dozen clipped posters.
+          child: RepaintBoundary(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var pass = 0; pass < 2; pass++)
+                  for (final poster in posters)
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        bottom: _PosterWallState._gap,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.asset(
+                          poster,
                           width: tileWidth,
                           height: tileHeight,
-                          color: AppColors.surface,
+                          fit: BoxFit.cover,
+                          cacheWidth: (tileWidth * devicePixelRatio).round(),
+                          // The wall is decoration; a missing file must not take
+                          // the sign-in screen down with it.
+                          errorBuilder: (_, _, _) => Container(
+                            width: tileWidth,
+                            height: tileHeight,
+                            color: AppColors.surface,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

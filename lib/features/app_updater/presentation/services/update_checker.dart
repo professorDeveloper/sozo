@@ -29,8 +29,9 @@ class UpdateChecker {
 
   UpdateChecker({required this.repository});
 
-  Future<void> run(BuildContext context) async {
-    if (_running) return;
+  /// Whether it showed anything.
+  Future<bool> run(BuildContext context) async {
+    if (_running) return false;
     _running = true;
     try {
       final info = await PackageInfo.fromPlatform();
@@ -40,27 +41,29 @@ class UpdateChecker {
         platform: platform,
         currentVersion: current,
       );
-      if (result is! Success<AppVersionCheck>) return;
+      if (result is! Success<AppVersionCheck>) return false;
       final check = result.value;
-      if (!check.updateAvailable) return;
-      if (!context.mounted) return;
+      if (!check.updateAvailable) return false;
+      if (!context.mounted) return false;
 
       if (check.forceUpdate) {
-        if (!context.mounted) return;
+        if (!context.mounted) return false;
         await _showForceUpdate(context, check);
-        return;
+        return true;
       }
-      if (_isSnoozed()) return;
-      if (!context.mounted) return;
+      if (_isSnoozed()) return false;
+      if (!context.mounted) return false;
       final accepted = await showUpdateDialog(context, check);
       if (accepted == true) {
-        if (!context.mounted) return;
+        if (!context.mounted) return true;
         await _performUpdate(context, check);
       } else {
         await _snooze();
       }
+      return true;
     } catch (e) {
       if (kDebugMode) debugPrint('[UpdateChecker] $e');
+      return false;
     } finally {
       _running = false;
     }
