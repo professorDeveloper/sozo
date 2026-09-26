@@ -41,6 +41,22 @@ class _FakeRemote implements ProfilesRemoteDataSource {
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
 
+/// A listing the server refuses, signing the app out as a 401 does.
+class _RefusingRemote implements ProfilesRemoteDataSource {
+  _RefusingRemote({required this.onRefuse});
+
+  final void Function() onRefuse;
+
+  @override
+  Future<ProfilesListing> list() async {
+    onRefuse();
+    throw const ProfileException('unauthorized', status: 401);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -75,13 +91,13 @@ void main() {
     await dir.delete(recursive: true);
   });
 
-  Widget app() => MaterialApp.router(
+  Widget app([ProfileSession? using]) => MaterialApp.router(
     routerConfig: GoRouter(
       initialLocation: '/profiles',
       routes: [
         GoRoute(
           path: '/profiles',
-          builder: (_, _) => ProfilePickerPage(session: session),
+          builder: (_, _) => ProfilePickerPage(session: using ?? session),
         ),
         GoRoute(
           path: '/main',
@@ -90,6 +106,36 @@ void main() {
       ],
     ),
   );
+
+  testWidgets('a signed-out user is sent on, never shown the picker', (
+    tester,
+  ) async {
+    final guest = ProfileSession(
+      remote: remote,
+      isLoggedIn: () => false,
+      settings: Hive.box(AppConstants.settingsBox),
+    );
+    await tester.pumpWidget(app(guest));
+    await tester.pumpAndSettle();
+    expect(find.text('HOME'), findsOneWidget);
+  });
+
+  testWidgets('a session the server refuses on the way in leaves the picker', (
+    tester,
+  ) async {
+    // Launch trusted a stored session; the listing then comes back 401 and
+    // the app signs out. That used to strand a guest on "Couldn't load
+    // profiles".
+    var signedIn = true;
+    final stale = ProfileSession(
+      remote: _RefusingRemote(onRefuse: () => signedIn = false),
+      isLoggedIn: () => signedIn,
+      settings: Hive.box(AppConstants.settingsBox),
+    );
+    await tester.pumpWidget(app(stale));
+    await tester.pumpAndSettle();
+    expect(find.text('HOME'), findsOneWidget);
+  });
 
   testWidgets('shows every profile with its kids badge and PIN lock', (
     tester,

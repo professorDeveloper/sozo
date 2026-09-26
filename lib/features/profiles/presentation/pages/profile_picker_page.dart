@@ -52,7 +52,25 @@ class _ProfilePickerPageState extends State<ProfilePickerPage> {
   void initState() {
     super.initState();
     _session.addListener(_changed);
-    if (!_session.loaded) _load();
+    if (!_session.signedIn) {
+      _leaveSignedOut();
+    } else if (!_session.loaded) {
+      _load();
+    }
+  }
+
+  /// Profiles belong to an account; a guest has none to pick. Launch can land
+  /// here on a cached list while the stored session is still there, and the
+  /// server then refuses it and the app signs out — which used to leave a
+  /// signed-out user on "Couldn't load profiles" with nothing to retry.
+  bool _left = false;
+
+  void _leaveSignedOut() {
+    if (_left) return;
+    _left = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.go(afterProfilePick(widget.then));
+    });
   }
 
   @override
@@ -62,7 +80,9 @@ class _ProfilePickerPageState extends State<ProfilePickerPage> {
   }
 
   void _changed() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    if (!_session.signedIn) return _leaveSignedOut();
+    setState(() {});
   }
 
   Future<void> _load() async {
@@ -72,6 +92,7 @@ class _ProfilePickerPageState extends State<ProfilePickerPage> {
     });
     final ok = await _session.refresh();
     if (!mounted) return;
+    if (!_session.signedIn) return _leaveSignedOut();
     setState(() {
       _loading = false;
       _failed = !ok;
