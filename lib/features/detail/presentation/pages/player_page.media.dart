@@ -109,7 +109,7 @@ extension _PlayerMedia on _PlayerPageState {
           : null;
       _currentQuality = source?.quality;
       _resolvedType = widget.args.type;
-      _resolvedLive = false;
+      _resolvedLive = widget.args.live;
       if (mounted) setState(() => _stage = _LoadingStage.loading);
       unawaited(_loadThumbnails(widget.args.thumbnails));
       _resolveHeaders = widget.args.headers;

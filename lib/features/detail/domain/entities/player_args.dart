@@ -40,6 +40,10 @@ class PlayerArgs {
   /// question had no way to answer it.
   final String? liveChannelId;
 
+  /// A provider's resolve said this is a live broadcast (a TV channel from a
+  /// source), for the paths that resolve before opening the player.
+  final bool live;
+
   final String? mediaRef;
   final String? lang;
   final String? partyCode;
@@ -103,6 +107,7 @@ class PlayerArgs {
     this.thumbnails,
     this.extractor,
     this.liveChannelId,
+    this.live = false,
     this.mediaRef,
     this.lang,
     this.partyCode,
