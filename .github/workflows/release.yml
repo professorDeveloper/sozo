@@ -93,11 +93,12 @@ jobs:
   version:
     # A tag pushed by this workflow must not start it again.
     #
-    # The bump is pushed with RELEASE_PAT, because the default branch is
-    # protected and GITHUB_TOKEN is not an admin — and unlike GITHUB_TOKEN, a
+    # The bump used to be pushed with a RELEASE_PAT, and unlike GITHUB_TOKEN a
     # PAT-pushed tag DOES trigger workflows. So every dispatched release was
     # running twice end to end: two Android builds, two Windows builds and two
-    # macOS runs, and the macOS one bills at ten times the rest.
+    # macOS runs, and the macOS one bills at ten times the rest. It is pushed
+    # with GITHUB_TOKEN now (see permissions below); this guard stays for the
+    # day a PAT is used again.
     #
     # A hand-cut tag (`git tag v1.0.1 && git push`) still builds, which is the
     # documented way to release without the dispatch form. What is filtered is
@@ -106,6 +107,14 @@ jobs:
       github.event_name != 'push' ||
       !startsWith(github.event.head_commit.message || '', 'chore: ')
     runs-on: ubuntu-latest
+    # The bump commit and its tag are pushed with GITHUB_TOKEN, which is
+    # read-only in this repository unless a job asks for more. Without this the
+    # push was refused with a 403 and every release shipped a version the repo
+    # never recorded. Nothing on master requires a pull request (the ruleset
+    # only forbids deletion and force-pushes), so a writable token is all it
+    # takes — no RELEASE_PAT.
+    permissions:
+      contents: write
     outputs:
       name: ${{ steps.resolve.outputs.name }}
       build: ${{ steps.resolve.outputs.build }}
@@ -121,9 +130,9 @@ jobs:
         with:
           # The tag push below needs real history, not a shallow clone.
           fetch-depth: 0
-          # The default GITHUB_TOKEN is not an admin, so the version bump is
-          # rejected by the branch protection on the default branch. A
-          # RELEASE_PAT that belongs to somebody who can push is what gets it in.
+          # GITHUB_TOKEN, writable through the job's permissions above. A
+          # RELEASE_PAT is still honoured if one is ever added, but see the
+          # push step: a PAT-pushed tag re-triggers workflows.
           token: ${{ secrets.RELEASE_PAT || github.token }}
 
       # Which machines build this release.
@@ -268,9 +277,10 @@ jobs:
           # no tag.
           # A rejected push must not cancel the release.
           #
-          # The default branch is protected and GITHUB_TOKEN is not an admin, so
-          # without a RELEASE_PAT this push is refused — and refusing to build
-          # because a bookkeeping commit could not land is the wrong trade. The
+          # It can still be refused — master moved on during the run (the push
+          # is not a force-push), or the job's permissions were narrowed — and
+          # refusing to build because a bookkeeping commit could not land is the
+          # wrong trade. The
           # version is already resolved, and the build jobs stamp it in
           # themselves, so the artifacts ship as exactly what this run says.
           # What is lost is the record in git: worth a loud warning, not a stop.
@@ -280,12 +290,12 @@ jobs:
           else
             git tag -d "${TAG}" || true
             echo "pushed=no" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Version bump not committed::The default branch is protected and this run is not an admin, so ${NAME}+${BUILD} was NOT written back to git — this build still ships as ${NAME}+${BUILD}, but the repo still says the old one. Add a RELEASE_PAT secret (fine-grained PAT, Contents: read and write) to close the gap."
+            echo "::warning title=Version bump not committed::The push of ${NAME}+${BUILD} to ${GITHUB_REF_NAME} was refused, so it was NOT written back to git — this build still ships as ${NAME}+${BUILD}, but the repo still says the old one. Commit the version by hand (pubspec.yaml) before the next release."
             {
               echo "### ⚠️ Version bump was not committed"
               echo ""
               echo "These builds ship as **${NAME}+${BUILD}**, but the repository still records the previous version."
-              echo "Add a \`RELEASE_PAT\` secret (fine-grained PAT with **Contents: read and write**) so the bump can land."
+              echo "Set \`version: ${NAME}+${BUILD}\` in pubspec.yaml by hand before the next release, or the next bump starts from the old one."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
