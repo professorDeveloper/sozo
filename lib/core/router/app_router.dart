@@ -94,6 +94,10 @@ import 'package:soplay/features/notifications/presentation/pages/notifications_p
 import 'package:soplay/features/private_list/presentation/pages/private_list_page.dart';
 import 'package:soplay/features/social/presentation/pages/friends_page.dart';
 import 'package:soplay/features/social/presentation/pages/social_privacy_page.dart';
+import 'package:soplay/features/support/data/support_models.dart';
+import 'package:soplay/features/support/presentation/pages/support_new_page.dart';
+import 'package:soplay/features/support/presentation/pages/support_page.dart';
+import 'package:soplay/features/support/presentation/pages/support_ticket_page.dart';
 import 'package:soplay/features/social/presentation/pages/user_profile_page.dart';
 import 'package:soplay/features/social/presentation/pages/user_search_page.dart';
 import 'package:soplay/features/splash/presentation/pages/splash_page.dart';
@@ -474,6 +478,21 @@ class AppRouter {
                 : state.uri.queryParameters['code'],
           );
         },
+      ),
+      // Help & Support. `new` before `:id`, which would otherwise take it.
+      GoRoute(path: '/support', builder: (context, state) => const SupportPage()),
+      GoRoute(
+        path: '/support/new',
+        builder: (context, state) => SupportNewPage(
+          args: state.extra is SupportRequestArgs
+              ? state.extra as SupportRequestArgs
+              : null,
+        ),
+      ),
+      GoRoute(
+        path: '/support/:id',
+        builder: (context, state) =>
+            SupportTicketPage(id: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: '/link-tv',

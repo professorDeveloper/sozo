@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
@@ -137,6 +138,7 @@ import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/reports/data/datasources/reports_data_source.dart';
 import 'package:soplay/features/reports/data/repositories/reports_repository_impl.dart';
 import 'package:soplay/features/reports/domain/repositories/reports_repository.dart';
+import 'package:soplay/features/support/data/support_repository.dart';
 import 'package:soplay/features/detail/data/datasources/detail_data_source.dart';
 import 'package:soplay/features/detail/data/repositories/detail_repository_impl.dart';
 import 'package:soplay/features/detail/domain/repositories/detail_repository.dart';
@@ -784,6 +786,16 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<ReportsRepository>(
     ReportsRepositoryImpl(getIt<ReportsDataSource>()),
+  );
+  getIt.registerLazySingleton<SupportRepository>(
+    () => SupportRepository(
+      dio: getIt<Dio>(),
+      deviceKey: () => getIt<HiveService>().supportDeviceKey,
+      // Push is Android-only in this app (NotificationService.setup).
+      pushToken: () async => Platform.isAndroid
+          ? await FirebaseMessaging.instance.getToken()
+          : null,
+    ),
   );
   getIt.registerSingleton<AppUpdaterDataSource>(
     AppUpdaterDataSource(dio: getIt<Dio>()),

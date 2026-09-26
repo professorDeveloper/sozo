@@ -408,7 +408,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               alignment: Alignment.bottomCenter,
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 18),
-                child: _SoplayFloatingNav(
+                child: _SozoFloatingNav(
                   index: _index,
                   onTap: _onTabTap,
                   items: defs,
@@ -550,7 +550,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                                 // Classic: the original full-width frosted bar (keeps
                                 // the per-tab Showcase + real double-tap-to-refresh).
                                 if (style == NavPrefs.classic) {
-                                  return _SoplayClassicBar(
+                                  return _SozoClassicBar(
                                     index: _index,
                                     items: defs,
                                     shortsShowcaseKey:
@@ -601,12 +601,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                                       // `classic` is handled above and is an
                                       // explicit user choice on every platform.
                                       child: nativeIosBar
-                                          ? _SoplayNativeGlassBar(
+                                          ? _SozoNativeGlassBar(
                                               index: _index,
                                               items: defs,
                                               onTabSelected: _handleTabTap,
                                             )
-                                          : _SoplayGlassCapsule(
+                                          : _SozoGlassCapsule(
                                               index: _index,
                                               items: defs,
                                               glass: style == NavPrefs.glass,
@@ -635,15 +635,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 /// Built on liquid_glass_widgets' [GlassTabBar.bottom]. Mounted only from the
 /// mobile Scaffold branch as a bottom-center overlay with `extendBody: true`, so
 /// the content scrolling behind it is refracted/blurred (native iOS-26 look).
-/// Desktop keeps [_SoplayFloatingNav]; this is never mounted on desktop, and the
+/// Desktop keeps [_SozoFloatingNav]; this is never mounted on desktop, and the
 /// glass shaders are pre-warmed / wrapped mobile-only in main.dart.
 ///
 /// The packaged bar exposes no per-tab GlobalKey or double-tap, so: the Shorts
 /// refresh Showcase highlights the whole capsule (Shorts is the central tab),
 /// and double-tap-to-refresh becomes re-tapping the already-active Shorts tab
 /// (see [_MainPageState._handleTabTap]).
-class _SoplayGlassCapsule extends StatelessWidget {
-  const _SoplayGlassCapsule({
+class _SozoGlassCapsule extends StatelessWidget {
+  const _SozoGlassCapsule({
     required this.index,
     required this.items,
     required this.glass,
@@ -932,8 +932,8 @@ class _SoplayGlassCapsule extends StatelessWidget {
 /// UIKit wants SF Symbols, not Material glyphs, so [_sfSymbol] maps the app's
 /// tabs by [TabId] — the ids are stable, the [IconData] are not. A tab with no
 /// mapping falls back to a neutral symbol rather than crashing the bar.
-class _SoplayNativeGlassBar extends StatelessWidget {
-  const _SoplayNativeGlassBar({
+class _SozoNativeGlassBar extends StatelessWidget {
+  const _SozoNativeGlassBar({
     required this.index,
     required this.items,
     required this.onTabSelected,
@@ -1146,8 +1146,8 @@ class _CapsuleTabSlot extends StatelessWidget {
 /// style option (Profile → Appearance). Unlike the glass capsule it keeps the
 /// per-tab Showcase anchor and double-tap-to-refresh, since each tab is its own
 /// [_ClassicNavButton].
-class _SoplayClassicBar extends StatelessWidget {
-  const _SoplayClassicBar({
+class _SozoClassicBar extends StatelessWidget {
+  const _SozoClassicBar({
     required this.index,
     required this.items,
     required this.shortsShowcaseKey,
@@ -1342,9 +1342,9 @@ class _ClassicNavButtonState extends State<_ClassicNavButton> {
 }
 
 /// Sozo-Desktop style floating bottom-center rounded pill navigation.
-/// Desktop only — mobile uses [_SoplayGlassCapsule]. Reuses the same 5 tabs.
-class _SoplayFloatingNav extends StatelessWidget {
-  const _SoplayFloatingNav({
+/// Desktop only — mobile uses [_SozoGlassCapsule]. Reuses the same 5 tabs.
+class _SozoFloatingNav extends StatelessWidget {
+  const _SozoFloatingNav({
     required this.index,
     required this.onTap,
     required this.items,

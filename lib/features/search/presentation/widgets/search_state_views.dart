@@ -12,6 +12,8 @@ import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
 import 'package:soplay/features/search/presentation/widgets/search_landing.dart';
 import 'package:soplay/features/search/presentation/widgets/search_result_card.dart';
 import 'package:soplay/features/sources/domain/source_failure.dart';
+import 'package:soplay/features/support/presentation/widgets/support_suggestion.dart';
+import 'package:soplay/features/support/data/support_models.dart';
 
 class SearchContentView extends StatelessWidget {
   const SearchContentView({
@@ -669,6 +671,12 @@ class _SearchErrorView extends StatelessWidget {
             label: 'general.retry'.tr(),
             onTap: onRetry,
             autofocus: true,
+          ),
+          const SizedBox(height: 8),
+          SupportSuggestion(
+            screen: 'search',
+            category: SupportCategory.content,
+            error: message,
           ),
         ],
       ),

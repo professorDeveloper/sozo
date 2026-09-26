@@ -109,6 +109,9 @@ NotificationRoute resolveNotificationRoute(
             ? '/friends?tab=friends'
             : '/u/${Uri.encodeComponent(username)}',
       );
+    case 'support_reply':
+      final ticket = data['ticketId']?.toString() ?? '';
+      return _push(ticket.isEmpty ? '/support' : '/support/$ticket');
     case 'streak_risk':
       return (action: NotificationAction.streakTab, location: '/main', extra: null);
     case 'system_unban':

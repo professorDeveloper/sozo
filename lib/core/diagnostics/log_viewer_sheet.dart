@@ -66,7 +66,7 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
   }
 
   Future<void> _share() async {
-    await Share.share(_log.formatForShare(), subject: 'Soplay player logs');
+    await Share.share(_log.formatForShare(), subject: 'Sozo player logs');
   }
 
   Color _colorFor(LogLevel level) => switch (level) {
