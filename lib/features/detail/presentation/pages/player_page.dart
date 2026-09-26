@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:soplay/core/player/hls_variants.dart';
 import 'package:soplay/core/player/quality_preference.dart';
+import 'package:soplay/core/player/stream_cloudflare.dart';
 import 'package:soplay/core/player/url_signer.dart';
 import 'package:soplay/core/analytics/analytics.dart';
 import 'package:soplay/core/player/color_profile.dart';
@@ -68,6 +69,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/mal/data/mal_tracker.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
+import 'package:soplay/features/cloudflare/cloudflare_solver_page.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
@@ -590,6 +592,18 @@ class _PlayerPageState extends State<PlayerPage>
   int _lifetimeRetries = 0;
 
   bool _autoRetrying = false;
+
+  /// Stream hosts already asked whether a Cloudflare challenge is what made
+  /// them refuse — once each per player, since the answer costs a request.
+  final Set<String> _cfChecked = {};
+
+  /// Hosts whose challenge was solved here. Their clearance was earned with
+  /// [kSozoUserAgent], and Cloudflare honours it only alongside that agent.
+  final Set<String> _cfSolved = {};
+
+  /// The stream behind a challenge that could not be solved headlessly — what
+  /// the error screen's "Solve Cloudflare" opens for someone to answer.
+  Uri? _cfWall;
   final Stopwatch _playbackWatch = Stopwatch();
   bool _streakPingScheduled = false;
 

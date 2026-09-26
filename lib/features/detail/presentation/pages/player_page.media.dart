@@ -73,7 +73,12 @@ extension _PlayerMedia on _PlayerPageState {
     if (merged.isEmpty || merged.containsKey('Cookie')) return merged;
     try {
       final jar = await getIt<CfBypassService>().readClearance(uri.host);
-      if (jar != null && jar.isNotEmpty) merged['Cookie'] = jar;
+      if (jar != null && jar.isNotEmpty) {
+        merged['Cookie'] = jar;
+        // A clearance earned here was earned as the app itself, and a source's
+        // own User-Agent (a desktop Chrome, say) would void it.
+        if (_cfSolved.contains(uri.host)) merged['User-Agent'] = kSozoUserAgent;
+      }
     } catch (_) {
       // A stream that plays without a cookie must not fail because the jar
       // could not be read.
@@ -954,6 +959,8 @@ extension _PlayerMedia on _PlayerPageState {
   }) async {
     final generation = intentGeneration ?? ++_mediaGeneration;
     if (!mounted || generation != _mediaGeneration) return;
+    // A wall belongs to the stream that met it; a new one starts without.
+    _cfWall = null;
     // Remembered before anything rewrites it — see [_playSourceUrl].
     _playSourceUrl = url;
     _playSourceHeaders = headers;
@@ -1709,6 +1716,13 @@ extension _PlayerMedia on _PlayerPageState {
       );
       if (!mounted || generation != _mediaGeneration) return;
       final raw = e.message ?? '';
+      if (e.code != 'channel-error' &&
+          !_isDecoderError(raw) &&
+          !_isLive &&
+          await _solveStreamCloudflare(generation)) {
+        return;
+      }
+      if (!mounted || generation != _mediaGeneration) return;
       String msg;
       if (e.code == 'channel-error') {
         msg = PlaybackFaultKind.engineUnavailable.messageKey.tr();
@@ -2225,6 +2239,66 @@ extension _PlayerMedia on _PlayerPageState {
       resumeAt: position,
       intentGeneration: generation,
     );
+  }
+
+  /// Whether a stream that would not open is behind a Cloudflare challenge,
+  /// and if so, getting past it.
+  ///
+  /// The player engines report a refused stream as "failed to open" and no
+  /// more, so the host is asked once the same way and the answer read (see
+  /// [probeCloudflare]). A challenge is first solved headlessly and the same
+  /// source started again, with the clearance (see [_streamHeaders]). One
+  /// that wants a person is left for the error screen: [_cfWall] puts a
+  /// "Solve Cloudflare" there that opens the solver on this host. Returns true
+  /// when it has taken over, so the caller stops.
+  Future<bool> _solveStreamCloudflare(int generation) async {
+    final url = _videoUrl;
+    final uri = url == null ? null : Uri.tryParse(url);
+    if (uri == null || !uri.scheme.startsWith('http')) return false;
+    if (uri.host == '127.0.0.1' || uri.host == 'localhost') return false;
+    if (!_cfChecked.add(uri.host)) return false;
+
+    final wall = await probeCloudflare(uri, _headers);
+    if (!mounted || generation != _mediaGeneration) return true;
+    if (wall == CloudflareWall.blocked) {
+      _plog('${uri.host} is blocking with Cloudflare — nothing to solve');
+    }
+    if (wall != CloudflareWall.challenge) return false;
+
+    _plog('${uri.host} is behind a Cloudflare challenge — solving');
+    final cookies = await getIt<CfBypassService>().solve(
+      host: uri.host,
+      url: uri.toString(),
+      userAgent: kSozoUserAgent,
+      timeout: const Duration(seconds: 20),
+    );
+    if (!mounted || generation != _mediaGeneration) return true;
+    if (cookies == null || cookies.isEmpty) {
+      _plog('the challenge wants a person', level: LogLevel.warn);
+      _cfWall = uri;
+      return false;
+    }
+    _plog('challenge solved headlessly — starting the stream again');
+    _cfSolved.add(uri.host);
+    unawaited(_retry());
+    return true;
+  }
+
+  /// The solver, in front of the viewer, for the stream host in [_cfWall].
+  Future<bool> _solveStreamWall() async {
+    final wall = _cfWall;
+    if (wall == null) return false;
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => CloudflareSolverPage(
+          baseUrl: wall.toString(),
+          userAgent: kSozoUserAgent,
+        ),
+      ),
+    );
+    if (ok != true) return false;
+    _cfSolved.add(wall.host);
+    return true;
   }
 
   Future<void> _retry() async {

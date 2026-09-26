@@ -492,14 +492,19 @@ extension _PlayerControls on _PlayerPageState {
                 ],
                 // Tested against the RAW failure, not the translated one —
                 // see [_errorRaw]. Against `_errorMessage` this never matched.
-                if (isCloudflareError(_errorRaw ?? _errorMessage)) ...[
+                if (_cfWall != null ||
+                    isCloudflareError(_errorRaw ?? _errorMessage)) ...[
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: () async {
-                      final ok = await requestCloudflareSolve(
-                        context,
-                        widget.args.provider,
-                      );
+                      // The stream's own host when that is what the challenge
+                      // stands in front of; the source's site otherwise.
+                      final ok = _cfWall != null
+                          ? await _solveStreamWall()
+                          : await requestCloudflareSolve(
+                              context,
+                              widget.args.provider,
+                            );
                       if (ok && mounted) _retry();
                     },
                     style: OutlinedButton.styleFrom(
