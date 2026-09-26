@@ -246,6 +246,10 @@ class _PlayerPageState extends State<PlayerPage>
   /// any source that does not state its own. See `_typeOf`.
   String? _resolvedType;
 
+  /// What the resolve said about liveness: a provider's live-TV channel is
+  /// marked there, since its playlist can report a finite DVR window.
+  bool _resolvedLive = false;
+
   /// Torrent playback, when the source turned out to be a magnet rather than a
   /// stream. The engine is lazy — constructing it costs nothing and it never
   /// touches the native side unless a torrent link actually arrives.

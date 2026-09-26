@@ -109,6 +109,7 @@ extension _PlayerMedia on _PlayerPageState {
           : null;
       _currentQuality = source?.quality;
       _resolvedType = widget.args.type;
+      _resolvedLive = false;
       if (mounted) setState(() => _stage = _LoadingStage.loading);
       unawaited(_loadThumbnails(widget.args.thumbnails));
       _resolveHeaders = widget.args.headers;
@@ -432,6 +433,7 @@ extension _PlayerMedia on _PlayerPageState {
       _secondaryCaptionFile = null;
       _extractorConfig = value.extractor;
       _resolvedType = value.type;
+      _resolvedLive = value.live;
     });
 
     unawaited(_loadThumbnails(value.thumbnails));
@@ -1545,7 +1547,9 @@ extension _PlayerMedia on _PlayerPageState {
     // moment you open it fails during initialize(), and the error path has to
     // already know it is looking at a broadcast — otherwise the one case that
     // most needs reconnecting is the one that gets a dead end.
-    if (type == 'live' || widget.args.type == 'live') _isLive = true;
+    if (type == 'live' || widget.args.type == 'live' || _resolvedLive) {
+      _isLive = true;
+    }
 
     try {
       await controller.initialize();
@@ -1585,6 +1589,7 @@ extension _PlayerMedia on _PlayerPageState {
       _isLive =
           _mediaType == 'live' ||
           widget.args.type == 'live' ||
+          _resolvedLive ||
           dur <= Duration.zero ||
           dur.inHours >= 12;
       PlayerLog.instance.setContext({

@@ -393,6 +393,7 @@ extension _PlayerParty on _PlayerPageState {
           _secondarySubtitleIndex = -1;
           _secondaryCaptionFile = null;
           _resolvedType = value.type;
+          _resolvedLive = value.live;
         });
         unawaited(_loadThumbnails(value.thumbnails));
         await _initializeWith(

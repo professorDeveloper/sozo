@@ -14,6 +14,10 @@ class MediaResolveEntity {
   final ThumbnailsEntity? thumbnails;
   final ExtractorConfigEntity? extractor;
 
+  /// A live broadcast (a TV channel) rather than a file: no seek bar, no
+  /// ±10 s, and a dropped stream reconnects instead of ending.
+  final bool live;
+
   const MediaResolveEntity({
     required this.videoUrl,
     required this.headers,
@@ -24,5 +28,6 @@ class MediaResolveEntity {
     this.subtitles = const [],
     this.thumbnails,
     this.extractor,
+    this.live = false,
   });
 }

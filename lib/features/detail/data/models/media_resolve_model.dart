@@ -15,6 +15,7 @@ class MediaResolveModel extends MediaResolveEntity {
     super.subtitles,
     super.thumbnails,
     super.extractor,
+    super.live,
   });
 
   factory MediaResolveModel.fromJson(Map<String, dynamic> json) {
@@ -37,6 +38,7 @@ class MediaResolveModel extends MediaResolveEntity {
       subtitles: subs,
       thumbnails: ThumbnailsModel.fromJson(json['thumbnails']),
       extractor: _parseExtractor(json['extractor']),
+      live: json['live'] == true,
     );
   }
 
