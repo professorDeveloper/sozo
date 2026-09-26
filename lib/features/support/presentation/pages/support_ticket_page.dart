@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -5,6 +7,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/support/data/support_models.dart';
 import 'package:soplay/features/support/data/support_repository.dart';
 import 'package:soplay/features/support/presentation/support_style.dart';
+import 'package:soplay/features/support/presentation/widgets/support_screenshots.dart';
 
 /// One conversation with support. Opening it marks the answer read.
 class SupportTicketPage extends StatefulWidget {
@@ -24,6 +27,18 @@ class _SupportTicketPageState extends State<SupportTicketPage> {
   SupportTicket? _ticket;
   String? _error;
   bool _sending = false;
+  final List<File> _shots = [];
+
+  bool get _canSend =>
+      !_sending && (_reply.text.trim().length >= 3 || _shots.isNotEmpty);
+
+  Future<void> _pickShots() async {
+    final picked = await pickSupportScreenshots(
+      context,
+      SupportRepository.maxAttachments - _shots.length,
+    );
+    if (picked.isNotEmpty && mounted) setState(() => _shots.addAll(picked));
+  }
 
   @override
   void initState() {
@@ -63,15 +78,25 @@ class _SupportTicketPageState extends State<SupportTicketPage> {
 
   Future<void> _send() async {
     final text = _reply.text.trim();
-    if (text.length < 3 || _sending) return;
+    if (!_canSend) return;
     setState(() => _sending = true);
     try {
-      final t = await _repo.reply(widget.id, text);
+      final keys = <String>[
+        for (final f in _shots) await _repo.uploadScreenshot(f),
+      ];
+      if (!mounted) return;
+      final t = await _repo.reply(
+        widget.id,
+        text,
+        attachments: keys,
+        language: context.locale.languageCode,
+      );
       if (!mounted) return;
       _reply.clear();
       setState(() {
         _ticket = t;
         _sending = false;
+        _shots.clear();
       });
       _toBottom();
     } on SupportException catch (e) {
@@ -186,7 +211,14 @@ class _SupportTicketPageState extends State<SupportTicketPage> {
                 _Composer(
                   controller: _reply,
                   sending: _sending,
-                  onSend: _reply.text.trim().length >= 3 ? _send : null,
+                  onSend: _canSend ? _send : null,
+                  shots: _shots,
+                  onRemoveShot: (i) => setState(() => _shots.removeAt(i)),
+                  onAttach:
+                      !_sending &&
+                          _shots.length < SupportRepository.maxAttachments
+                      ? _pickShots
+                      : null,
                 ),
               ],
             ),
@@ -246,14 +278,22 @@ class _Bubble extends StatelessWidget {
                     ),
                   ),
                 ),
-              SelectableText(
-                message.body,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 14.5,
-                  height: 1.4,
+              if (message.attachments.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom: message.body.isEmpty ? 0 : 6,
+                  ),
+                  child: AttachmentGrid(items: message.attachments),
                 ),
-              ),
+              if (message.body.isNotEmpty)
+                SelectableText(
+                  message.body,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14.5,
+                    height: 1.4,
+                  ),
+                ),
               const SizedBox(height: 4),
               Text(
                 supportTime(message.at),
@@ -294,11 +334,17 @@ class _Composer extends StatelessWidget {
     required this.controller,
     required this.sending,
     required this.onSend,
+    required this.shots,
+    required this.onRemoveShot,
+    required this.onAttach,
   });
 
   final TextEditingController controller;
   final bool sending;
   final VoidCallback? onSend;
+  final List<File> shots;
+  final ValueChanged<int> onRemoveShot;
+  final VoidCallback? onAttach;
 
   @override
   Widget build(BuildContext context) {
@@ -315,57 +361,81 @@ class _Composer extends StatelessWidget {
           top: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              enabled: !sending,
-              minLines: 1,
-              maxLines: 5,
-              maxLength: 2000,
-              textCapitalization: TextCapitalization.sentences,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 14.5,
-              ),
-              decoration: InputDecoration(
-                hintText: 'support.reply_hint'.tr(),
-                hintStyle: const TextStyle(color: AppColors.textHint),
-                counterText: '',
-                filled: true,
-                fillColor: AppColors.surface,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 11,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
-                  borderSide: BorderSide.none,
-                ),
+          if (shots.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: ScreenshotStrip(
+                files: shots,
+                height: 84,
+                onRemove: sending ? (_) {} : onRemoveShot,
               ),
             ),
-          ),
-          const SizedBox(width: 6),
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: sending
-                ? const Padding(
-                    padding: EdgeInsets.all(11),
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : IconButton(
-                    onPressed: onSend,
-                    icon: Icon(
-                      Icons.send_rounded,
-                      color: onSend == null
-                          ? AppColors.textHint
-                          : AppColors.primary,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              IconButton(
+                tooltip: 'support.attach'.tr(),
+                onPressed: onAttach,
+                icon: Icon(
+                  Icons.add_photo_alternate_outlined,
+                  color: onAttach == null
+                      ? AppColors.textHint
+                      : AppColors.textSecondary,
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  enabled: !sending,
+                  minLines: 1,
+                  maxLines: 5,
+                  maxLength: 2000,
+                  textCapitalization: TextCapitalization.sentences,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14.5,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'support.reply_hint'.tr(),
+                    hintStyle: const TextStyle(color: AppColors.textHint),
+                    counterText: '',
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 11,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(22),
+                      borderSide: BorderSide.none,
                     ),
                   ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: sending
+                    ? const Padding(
+                        padding: EdgeInsets.all(11),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : IconButton(
+                        onPressed: onSend,
+                        icon: Icon(
+                          Icons.send_rounded,
+                          color: onSend == null
+                              ? AppColors.textHint
+                              : AppColors.primary,
+                        ),
+                      ),
+              ),
+            ],
           ),
         ],
       ),

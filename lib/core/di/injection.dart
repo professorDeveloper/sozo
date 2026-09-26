@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
@@ -790,6 +791,10 @@ Future<void> configureDependencies() async {
     () => SupportRepository(
       dio: getIt<Dio>(),
       deviceKey: () => getIt<HiveService>().supportDeviceKey,
+      // Push is Android-only in this app (NotificationService.setup).
+      pushToken: () async => Platform.isAndroid
+          ? await FirebaseMessaging.instance.getToken()
+          : null,
     ),
   );
   getIt.registerSingleton<AppUpdaterDataSource>(

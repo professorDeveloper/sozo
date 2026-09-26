@@ -2994,6 +2994,15 @@
     "error_too_many": "Too many requests right now — please wait a little.",
     "error_short": "Please write a few more words.",
     "error_thread_full": "This conversation is too long — please start a new request.",
-    "error_not_found": "This request no longer exists."
+    "error_not_found": "This request no longer exists.",
+    "screenshots_title": "Screenshots (optional)",
+    "screenshots_hint": "Up to 5 images, jpg, png or webp, 5 MB each. They help us see the problem.",
+    "screenshots_skipped": "Some images were skipped: only jpg, png or webp up to 5 MB.",
+    "uploading": "Uploading screenshots {}/{}…",
+    "attach": "Attach screenshot",
+    "error_attachment": "A screenshot couldn't be uploaded. Please try again.",
+    "error_attachment_type": "Only jpg, png or webp images.",
+    "error_attachment_size": "Each image must be 5 MB or less.",
+    "error_attachment_count": "At most 5 screenshots per message."
   }
 }

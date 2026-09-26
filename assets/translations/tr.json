@@ -2994,6 +2994,15 @@
     "error_too_many": "Şu an çok fazla istek var — biraz bekle.",
     "error_short": "Lütfen birkaç kelime daha yaz.",
     "error_thread_full": "Bu konuşma çok uzun — yeni bir talep aç.",
-    "error_not_found": "Bu talep artık mevcut değil."
+    "error_not_found": "Bu talep artık mevcut değil.",
+    "screenshots_title": "Ekran görüntüleri (isteğe bağlı)",
+    "screenshots_hint": "En fazla 5 görsel; jpg, png veya webp, her biri en çok 5 MB. Sorunu görmemize yardım eder.",
+    "screenshots_skipped": "Bazı görseller atlandı: yalnızca 5 MB’a kadar jpg, png veya webp.",
+    "uploading": "Ekran görüntüleri yükleniyor {}/{}…",
+    "attach": "Ekran görüntüsü ekle",
+    "error_attachment": "Bir ekran görüntüsü yüklenemedi. Tekrar dene.",
+    "error_attachment_type": "Yalnızca jpg, png veya webp görseller.",
+    "error_attachment_size": "Her görsel en fazla 5 MB olmalı.",
+    "error_attachment_count": "Mesaj başına en fazla 5 ekran görüntüsü."
   }
 }

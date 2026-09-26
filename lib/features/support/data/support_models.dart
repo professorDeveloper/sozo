@@ -12,23 +12,44 @@ SupportStatus supportStatusOf(String? name) => SupportStatus.values.firstWhere(
   orElse: () => SupportStatus.open,
 );
 
+/// A screenshot on a message. The URL is signed and short-lived: it is
+/// fetched again with the ticket, never kept.
+class SupportAttachment {
+  const SupportAttachment({required this.url, this.size = 0});
+
+  final String url;
+  final int size;
+}
+
 class SupportMessage {
   const SupportMessage({
     required this.id,
     required this.fromSupport,
     required this.body,
     required this.at,
+    this.attachments = const [],
   });
 
   final String id;
   final bool fromSupport;
+
+  /// Empty when the message is only its screenshots.
   final String body;
   final DateTime at;
+  final List<SupportAttachment> attachments;
 
   factory SupportMessage.fromJson(Map<String, dynamic> json) => SupportMessage(
     id: json['id']?.toString() ?? '',
     fromSupport: json['from'] == 'admin',
     body: json['body']?.toString() ?? '',
+    attachments: [
+      for (final a in (json['attachments'] as List? ?? const []))
+        if (a is Map && a['url'] is String)
+          SupportAttachment(
+            url: a['url'] as String,
+            size: (a['size'] as num?)?.toInt() ?? 0,
+          ),
+    ],
     at:
         DateTime.tryParse(json['at']?.toString() ?? '')?.toLocal() ??
         DateTime.now(),

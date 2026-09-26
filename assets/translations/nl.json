@@ -2994,6 +2994,15 @@
     "error_too_many": "Te veel verzoeken — wacht even.",
     "error_short": "Schrijf nog een paar woorden.",
     "error_thread_full": "Dit gesprek is te lang — begin een nieuwe vraag.",
-    "error_not_found": "Deze vraag bestaat niet meer."
+    "error_not_found": "Deze vraag bestaat niet meer.",
+    "screenshots_title": "Screenshots (optioneel)",
+    "screenshots_hint": "Tot 5 afbeeldingen, jpg, png of webp, elk tot 5 MB. Zo zien we het probleem.",
+    "screenshots_skipped": "Sommige afbeeldingen zijn overgeslagen: alleen jpg, png of webp tot 5 MB.",
+    "uploading": "Screenshots uploaden {}/{}…",
+    "attach": "Screenshot bijvoegen",
+    "error_attachment": "Een screenshot kon niet worden geüpload. Probeer het opnieuw.",
+    "error_attachment_type": "Alleen jpg-, png- of webp-afbeeldingen.",
+    "error_attachment_size": "Elke afbeelding mag maximaal 5 MB zijn.",
+    "error_attachment_count": "Maximaal 5 screenshots per bericht."
   }
 }

@@ -2994,6 +2994,15 @@
     "error_too_many": "而家太多要求 —— 請等陣。",
     "error_short": "請再寫多幾個字。",
     "error_thread_full": "呢段對話太長 —— 請開過新查詢。",
-    "error_not_found": "呢個查詢已經唔存在。"
+    "error_not_found": "呢個查詢已經唔存在。",
+    "screenshots_title": "截圖（可選）",
+    "screenshots_hint": "最多 5 張圖，jpg、png 或 webp，每張 5 MB 以內。幫我哋睇清楚個問題。",
+    "screenshots_skipped": "有啲圖冇加到：只接受 5 MB 以內嘅 jpg、png 或 webp。",
+    "uploading": "上載緊截圖 {}/{}…",
+    "attach": "附加截圖",
+    "error_attachment": "截圖上載唔到，請再試一次。",
+    "error_attachment_type": "只接受 jpg、png 或 webp 圖片。",
+    "error_attachment_size": "每張圖唔可以大過 5 MB。",
+    "error_attachment_count": "每條訊息最多 5 張截圖。"
   }
 }

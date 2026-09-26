@@ -2994,6 +2994,15 @@
     "error_too_many": "Hozir so‘rovlar juda ko‘p — biroz kuting.",
     "error_short": "Iltimos, yana bir necha so‘z yozing.",
     "error_thread_full": "Bu yozishma juda uzun — yangi murojaat oching.",
-    "error_not_found": "Bu murojaat endi mavjud emas."
+    "error_not_found": "Bu murojaat endi mavjud emas.",
+    "screenshots_title": "Skrinshotlar (ixtiyoriy)",
+    "screenshots_hint": "5 tagacha rasm, jpg, png yoki webp, har biri 5 MB gacha. Muammoni ko‘rishimizga yordam beradi.",
+    "screenshots_skipped": "Ba’zi rasmlar qo‘shilmadi: faqat 5 MB gacha jpg, png yoki webp.",
+    "uploading": "Skrinshotlar yuklanmoqda {}/{}…",
+    "attach": "Skrinshot biriktirish",
+    "error_attachment": "Skrinshotni yuklab bo‘lmadi. Qaytadan urinib ko‘ring.",
+    "error_attachment_type": "Faqat jpg, png yoki webp rasm.",
+    "error_attachment_size": "Har bir rasm 5 MB dan oshmasin.",
+    "error_attachment_count": "Bitta xabarga ko‘pi bilan 5 ta skrinshot."
   }
 }

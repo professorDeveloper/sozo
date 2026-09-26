@@ -2994,6 +2994,15 @@
     "error_too_many": "Terlalu banyak permintaan — tunggu sebentar.",
     "error_short": "Tulis beberapa kata lagi, ya.",
     "error_thread_full": "Percakapan ini terlalu panjang — buat permintaan baru.",
-    "error_not_found": "Permintaan ini sudah tidak ada."
+    "error_not_found": "Permintaan ini sudah tidak ada.",
+    "screenshots_title": "Tangkapan layar (opsional)",
+    "screenshots_hint": "Hingga 5 gambar, jpg, png, atau webp, masing-masing maks. 5 MB. Membantu kami melihat masalahnya.",
+    "screenshots_skipped": "Beberapa gambar dilewati: hanya jpg, png, atau webp hingga 5 MB.",
+    "uploading": "Mengunggah tangkapan layar {}/{}…",
+    "attach": "Lampirkan tangkapan layar",
+    "error_attachment": "Tangkapan layar gagal diunggah. Coba lagi.",
+    "error_attachment_type": "Hanya gambar jpg, png, atau webp.",
+    "error_attachment_size": "Setiap gambar maksimal 5 MB.",
+    "error_attachment_count": "Maksimal 5 tangkapan layar per pesan."
   }
 }

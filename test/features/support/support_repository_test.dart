@@ -13,13 +13,27 @@ void main() {
     late HttpServer server;
     final seen = <({String method, String path, String? key, Object? body})>[];
     var status = 200;
+    final puts = <({String path, String? type, int length, int bytes})>[];
     Map<String, Object?> answer = {};
 
     setUp(() async {
       seen.clear();
+      puts.clear();
       status = 200;
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       server.listen((req) async {
+        if (req.method == 'PUT') {
+          final bytes = await req.fold<List<int>>([], (a, b) => a..addAll(b));
+          puts.add((
+            path: req.uri.path,
+            type: req.headers.contentType?.mimeType,
+            length: req.headers.contentLength,
+            bytes: bytes.length,
+          ));
+          req.response.statusCode = 200;
+          await req.response.close();
+          return;
+        }
         final raw = await utf8.decoder.bind(req).join();
         seen.add((
           method: req.method,
@@ -37,9 +51,10 @@ void main() {
 
     tearDown(() => server.close(force: true));
 
-    SupportRepository repo() => SupportRepository(
+    SupportRepository repo({String? token}) => SupportRepository(
       dio: Dio(BaseOptions(baseUrl: 'http://127.0.0.1:${server.port}/api')),
       deviceKey: () => 'k' * 43,
+      pushToken: token == null ? null : () async => token,
     );
 
     final ticketJson = {
@@ -144,5 +159,103 @@ void main() {
         );
       },
     );
+
+    test(
+      'a screenshot goes to its signed slot with its own size and type',
+      () async {
+        final dir = await Directory.systemTemp.createTemp('sozo_shot_');
+        addTearDown(() => dir.delete(recursive: true));
+        final file = File('${dir.path}/shot.png')
+          ..writeAsBytesSync(List.filled(2048, 7));
+        answer = {
+          'uploadUrl':
+              'http://127.0.0.1:${server.port}/put/support/k/abc/1.png',
+          'key': 'support/k/abc/1.png',
+        };
+        final key = await repo().uploadScreenshot(file);
+        expect(key, 'support/k/abc/1.png');
+        final slot = seen.single;
+        expect(slot.path, '/api/support/uploads');
+        expect(slot.key, 'k' * 43);
+        expect(slot.body, {'contentType': 'image/png', 'size': 2048});
+        expect(puts.single.path, '/put/support/k/abc/1.png');
+        expect(puts.single.type, 'image/png');
+        expect(puts.single.length, 2048);
+        expect(puts.single.bytes, 2048);
+      },
+    );
+
+    test(
+      'a file the server would refuse is refused before any request',
+      () async {
+        final dir = await Directory.systemTemp.createTemp('sozo_shot_');
+        addTearDown(() => dir.delete(recursive: true));
+        final gif = File('${dir.path}/a.gif')..writeAsBytesSync([1, 2, 3]);
+        await expectLater(
+          repo().uploadScreenshot(gif),
+          throwsA(
+            isA<SupportException>().having(
+              (e) => e.message,
+              'message',
+              'support.error_attachment_type',
+            ),
+          ),
+        );
+        final big = File('${dir.path}/big.jpg')
+          ..writeAsBytesSync(
+            List.filled(SupportRepository.maxAttachmentBytes + 1, 0),
+          );
+        await expectLater(
+          repo().uploadScreenshot(big),
+          throwsA(
+            isA<SupportException>().having(
+              (e) => e.message,
+              'message',
+              'support.error_attachment_size',
+            ),
+          ),
+        );
+        expect(seen, isEmpty);
+      },
+    );
+
+    test(
+      'a message carries its screenshots, the language and the push token',
+      () async {
+        answer = {'ticket': ticketJson};
+        await repo(
+          token: 'fcm-token-0123456789-abcdef',
+        ).reply('t1', '', attachments: ['support/k/abc/1.png'], language: 'ru');
+        final body = seen.single.body as Map;
+        expect(body['attachments'], ['support/k/abc/1.png']);
+        expect(body['language'], 'ru');
+        expect(body['pushToken'], 'fcm-token-0123456789-abcdef');
+        seen.clear();
+        await repo().create(
+          category: SupportCategory.bug,
+          message: 'No token here',
+        );
+        expect((seen.single.body as Map).containsKey('pushToken'), isFalse);
+      },
+    );
+
+    test('screenshots on a message read back with their signed URLs', () {
+      final m = SupportMessage.fromJson({
+        'id': 'm',
+        'from': 'user',
+        'body': '',
+        'at': '2026-09-26T09:00:00Z',
+        'attachments': [
+          {
+            'url': 'https://r2/get/a.jpg',
+            'contentType': 'image/jpeg',
+            'size': 900,
+          },
+          {'contentType': 'image/jpeg'},
+        ],
+      });
+      expect(m.attachments.map((a) => a.url), ['https://r2/get/a.jpg']);
+      expect(m.body, isEmpty);
+    });
   });
 }

@@ -2994,6 +2994,15 @@
     "error_too_many": "Niha gelek daxwaz hene — hinekî bisekine.",
     "error_short": "Ji kerema xwe çend peyvên din binivîse.",
     "error_thread_full": "Ev axaftin pir dirêj e — daxwazeke nû veke.",
-    "error_not_found": "Ev daxwaz êdî tune ye."
+    "error_not_found": "Ev daxwaz êdî tune ye.",
+    "screenshots_title": "Dîmenên ekranê (vebijarkî)",
+    "screenshots_hint": "Heta 5 wêne, jpg, png an webp, her yek heta 5 MB. Alîkariya me dikin ku em pirsgirêkê bibînin.",
+    "screenshots_skipped": "Hin wêne hatin derbaskirin: tenê jpg, png an webp heta 5 MB.",
+    "uploading": "Dîmenên ekranê têne barkirin {}/{}…",
+    "attach": "Dîmena ekranê pê ve bike",
+    "error_attachment": "Dîmena ekranê nehat barkirin. Dîsa biceribîne.",
+    "error_attachment_type": "Tenê wêneyên jpg, png an webp.",
+    "error_attachment_size": "Divê her wêne herî zêde 5 MB be.",
+    "error_attachment_count": "Di peyamekê de herî zêde 5 dîmenên ekranê."
   }
 }

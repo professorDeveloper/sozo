@@ -2998,6 +2998,15 @@
     "error_too_many": "طلبات كثيرة الآن — انتظر قليلاً.",
     "error_short": "يرجى كتابة بضع كلمات إضافية.",
     "error_thread_full": "هذه المحادثة طويلة جداً — ابدأ طلباً جديداً.",
-    "error_not_found": "هذا الطلب لم يعد موجوداً."
+    "error_not_found": "هذا الطلب لم يعد موجوداً.",
+    "screenshots_title": "لقطات الشاشة (اختياري)",
+    "screenshots_hint": "حتى 5 صور بصيغة jpg أو png أو webp، بحجم 5 ميغابايت لكل منها. تساعدنا على رؤية المشكلة.",
+    "screenshots_skipped": "تم تخطي بعض الصور: فقط jpg أو png أو webp حتى 5 ميغابايت.",
+    "uploading": "جارٍ رفع لقطات الشاشة {}/{}…",
+    "attach": "إرفاق لقطة شاشة",
+    "error_attachment": "تعذّر رفع لقطة الشاشة. حاول مرة أخرى.",
+    "error_attachment_type": "صور jpg أو png أو webp فقط.",
+    "error_attachment_size": "يجب ألا يتجاوز حجم كل صورة 5 ميغابايت.",
+    "error_attachment_count": "5 لقطات شاشة كحد أقصى في الرسالة."
   }
 }

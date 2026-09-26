@@ -2994,6 +2994,15 @@
     "error_too_many": "Muitas solicitações agora — espere um pouco.",
     "error_short": "Escreva mais algumas palavras, por favor.",
     "error_thread_full": "Esta conversa ficou longa demais — abra uma nova solicitação.",
-    "error_not_found": "Esta solicitação não existe mais."
+    "error_not_found": "Esta solicitação não existe mais.",
+    "screenshots_title": "Capturas de tela (opcional)",
+    "screenshots_hint": "Até 5 imagens, jpg, png ou webp, de até 5 MB cada. Ajudam a gente a ver o problema.",
+    "screenshots_skipped": "Algumas imagens foram ignoradas: só jpg, png ou webp de até 5 MB.",
+    "uploading": "Enviando capturas {}/{}…",
+    "attach": "Anexar captura",
+    "error_attachment": "Não foi possível enviar uma captura. Tente de novo.",
+    "error_attachment_type": "Só imagens jpg, png ou webp.",
+    "error_attachment_size": "Cada imagem pode ter no máximo 5 MB.",
+    "error_attachment_count": "No máximo 5 capturas por mensagem."
   }
 }

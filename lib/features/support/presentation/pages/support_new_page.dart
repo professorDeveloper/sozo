@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +12,7 @@ import 'package:soplay/features/support/data/support_diagnostics.dart';
 import 'package:soplay/features/support/data/support_models.dart';
 import 'package:soplay/features/support/data/support_repository.dart';
 import 'package:soplay/features/support/presentation/support_style.dart';
+import 'package:soplay/features/support/presentation/widgets/support_screenshots.dart';
 
 /// A new request to support.
 ///
@@ -37,10 +40,24 @@ class _SupportNewPageState extends State<SupportNewPage> {
   String? _error;
   Map<String, String>? _diagnostics;
   Future<void>? _collecting;
+  final List<File> _shots = [];
+
+  /// "Uploading screenshots 2/5" while they go up, before the message does.
+  String? _progress;
 
   bool get _guest => !_hive.isLoggedIn;
   bool get _canSend =>
-      !_sending && _category != null && _message.text.trim().length >= 3;
+      !_sending &&
+      _category != null &&
+      (_message.text.trim().length >= 3 || _shots.isNotEmpty);
+
+  Future<void> _pickShots() async {
+    final picked = await pickSupportScreenshots(
+      context,
+      SupportRepository.maxAttachments - _shots.length,
+    );
+    if (picked.isNotEmpty && mounted) setState(() => _shots.addAll(picked));
+  }
 
   @override
   void initState() {
@@ -81,11 +98,24 @@ class _SupportNewPageState extends State<SupportNewPage> {
     if (_attach) await _collecting;
     if (!mounted) return;
     try {
+      final keys = <String>[];
+      for (var i = 0; i < _shots.length; i++) {
+        setState(
+          () => _progress = 'support.uploading'.tr(
+            args: ['${i + 1}', '${_shots.length}'],
+          ),
+        );
+        keys.add(await _repo.uploadScreenshot(_shots[i]));
+      }
+      if (!mounted) return;
+      setState(() => _progress = null);
       final ticket = await _repo.create(
         category: _category!,
         message: _message.text.trim(),
         contact: _guest ? _contact.text : null,
         diagnostics: _attach ? _diagnostics : null,
+        attachments: keys,
+        language: context.locale.languageCode,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -96,6 +126,7 @@ class _SupportNewPageState extends State<SupportNewPage> {
       if (mounted) {
         setState(() {
           _sending = false;
+          _progress = null;
           _error = e.message;
         });
       }
@@ -150,6 +181,20 @@ class _SupportNewPageState extends State<SupportNewPage> {
           maxLength: 2000,
           enabled: !_sending,
         ),
+        const SizedBox(height: 4),
+        SettingsLabel('support.screenshots_title'.tr()),
+        ScreenshotStrip(
+          files: _shots,
+          onRemove: (i) => setState(() => _shots.removeAt(i)),
+          onAdd: !_sending && _shots.length < SupportRepository.maxAttachments
+              ? _pickShots
+              : null,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'support.screenshots_hint'.tr(),
+          style: const TextStyle(color: AppColors.textHint, fontSize: 12),
+        ),
         if (_guest) ...[
           const SizedBox(height: 16),
           SettingsLabel('support.contact_label'.tr()),
@@ -182,6 +227,16 @@ class _SupportNewPageState extends State<SupportNewPage> {
           Text(
             _error!,
             style: const TextStyle(color: AppColors.errorLight, fontSize: 13),
+          ),
+        ],
+        if (_progress != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            _progress!,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
           ),
         ],
         const SizedBox(height: 20),
