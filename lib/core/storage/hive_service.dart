@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/app_constants.dart';
@@ -1392,6 +1393,25 @@ class HiveService {
           defaultValue: false,
         ) ==
         true;
+  }
+
+  static const String _supportKey = 'support_device_key';
+
+  /// The random key a guest's support tickets belong to (features/support).
+  ///
+  /// Made once per install from a secure random source and kept on the device;
+  /// the server stores only its hash. It goes to the support endpoints and
+  /// nowhere else — whoever holds it can read those tickets, which is exactly
+  /// what lets a viewer without an account read the answer to their question.
+  String get supportDeviceKey {
+    final saved = _settingsBox.get(_supportKey);
+    if (saved is String && saved.length >= 32) return saved;
+    final random = Random.secure();
+    final key = base64Url
+        .encode(List<int>.generate(32, (_) => random.nextInt(256)))
+        .replaceAll('=', '');
+    _settingsBox.put(_supportKey, key);
+    return key;
   }
 
   Future<void> setSubtitleAutoTranslate(bool value) async {

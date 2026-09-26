@@ -138,9 +138,32 @@ class PlayerLog {
   String stamp(DateTime t) =>
       '${_two(t.hour)}:${_two(t.minute)}:${_two(t.second)}.${_three(t.millisecond)}';
 
+  /// The context and the newest [maxLines] lines, for a support ticket.
+  ///
+  /// Everything here was redacted as it was logged (see [redact]); the ticket's
+  /// other fields already say which app and device, so no header is repeated.
+  String formatForSupport({int maxLines = 400}) {
+    final b = StringBuffer();
+    if (_context.isNotEmpty) {
+      b.writeln('--- context ---');
+      _context.forEach((k, v) => b.writeln('$k: $v'));
+    }
+    final from = _lines.length > maxLines ? _lines.length - maxLines : 0;
+    b.writeln('--- log (${_lines.length - from} of ${_lines.length}) ---');
+    for (final l in _lines.skip(from)) {
+      final tag = switch (l.level) {
+        LogLevel.error => 'E',
+        LogLevel.warn => 'W',
+        LogLevel.info => 'I',
+      };
+      b.writeln('${stamp(l.time)} $tag  ${l.message}');
+    }
+    return b.toString();
+  }
+
   String formatForShare() {
     final b = StringBuffer()
-      ..writeln('Soplay player logs')
+      ..writeln('Sozo player logs')
       ..writeln('app: ${_appVersion.isEmpty ? 'unknown' : _appVersion}')
       ..writeln('device: ${_device.isEmpty ? 'unknown' : _device}')
       ..writeln('captured: ${DateTime.now().toIso8601String()}');

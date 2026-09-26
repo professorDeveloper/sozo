@@ -137,6 +137,7 @@ import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/reports/data/datasources/reports_data_source.dart';
 import 'package:soplay/features/reports/data/repositories/reports_repository_impl.dart';
 import 'package:soplay/features/reports/domain/repositories/reports_repository.dart';
+import 'package:soplay/features/support/data/support_repository.dart';
 import 'package:soplay/features/detail/data/datasources/detail_data_source.dart';
 import 'package:soplay/features/detail/data/repositories/detail_repository_impl.dart';
 import 'package:soplay/features/detail/domain/repositories/detail_repository.dart';
@@ -784,6 +785,12 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<ReportsRepository>(
     ReportsRepositoryImpl(getIt<ReportsDataSource>()),
+  );
+  getIt.registerLazySingleton<SupportRepository>(
+    () => SupportRepository(
+      dio: getIt<Dio>(),
+      deviceKey: () => getIt<HiveService>().supportDeviceKey,
+    ),
   );
   getIt.registerSingleton<AppUpdaterDataSource>(
     AppUpdaterDataSource(dio: getIt<Dio>()),

@@ -397,6 +397,13 @@ class _HubApp extends StatelessWidget {
                 onTap: () => context.push('/settings'),
               ),
               const SettingsDivider(),
+              SettingsNavTile(
+                icon: Icons.support_agent_rounded,
+                title: 'profile.help'.tr(),
+                subtitle: 'support.entry_subtitle'.tr(),
+                onTap: () => context.push('/support'),
+              ),
+              const SettingsDivider(),
               FutureBuilder<PackageInfo>(
                 future: _packageInfo,
                 builder: (context, snap) => SettingsNavTile(

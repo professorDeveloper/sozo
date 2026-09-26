@@ -66,4 +66,17 @@ void main() {
     expect(isLaunchRoute('/main'), isFalse);
     expect(isLaunchRoute('/detail'), isFalse);
   });
+
+  test('an answer from support opens its conversation', () {
+    final route = resolveNotificationRoute({
+      'type': 'support_reply',
+      'ticketId': '6ab7895d342db7ef3ac3bbe4',
+    });
+    expect(route.action, NotificationAction.push);
+    expect(route.location, '/support/6ab7895d342db7ef3ac3bbe4');
+    expect(
+      resolveNotificationRoute({'type': 'support_reply'}).location,
+      '/support',
+    );
+  });
 }

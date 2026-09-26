@@ -6,6 +6,7 @@ import 'package:soplay/core/player/hls_variants.dart';
 import 'package:soplay/core/player/quality_preference.dart';
 import 'package:soplay/core/player/stream_cloudflare.dart';
 import 'package:soplay/core/player/url_signer.dart';
+import 'package:soplay/features/support/data/support_models.dart';
 import 'package:soplay/core/analytics/analytics.dart';
 import 'package:soplay/core/player/color_profile.dart';
 import 'package:soplay/core/player/shader_presets.dart';
