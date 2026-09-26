@@ -247,7 +247,18 @@ dependencies {
     implementation("io.reactivex:rxjava:1.3.8")
     implementation("androidx.preference:preference-ktx:1.2.1")
     // JS engine for Aniyomi extractors that deobfuscate links (QuickJS).
-    implementation("app.cash.quickjs:quickjs-android:0.9.2")
+    //
+    // The published app.cash.quickjs:quickjs-android:0.9.2 with its native
+    // library rebuilt: the upstream libquickjs.so is 4 KB page-aligned, which
+    // Android 15+ devices with 16 KB pages warn about at launch and Play
+    // rejects. Same Java classes (the AAR's own classes.jar), same sources —
+    // cashapp/zipline at a738129cc4, "Prepare version 0.9.2" — and the same
+    // eight JNI entry points, built with NDK r28 and
+    // -Wl,-z,max-page-size=16384. Extensions compile against the
+    // app.cash.quickjs API, so it has to stay this library and this version.
+    // The upstream artifact is excluded below so nothing brings it back.
+    implementation(files("libs/quickjs-android-0.9.2-16k.aar"))
+    implementation("androidx.annotation:annotation:1.9.1")
 
     // Local HTTP bridge: lets a desktop soplay client reach the on-device
     // extension hosts when this app runs on a local emulator/device. The server
@@ -263,5 +274,21 @@ dependencies {
     // SIZE: this ships libgojni.so for all four ABIs, ~48 MB uncompressed. It is
     // by far the biggest single native payload in the app — see the size note in
     // .github/workflows/release.yml before changing how ABIs are split.
-    implementation("com.github.recloudstream:torrentserver:7861970")
+    //
+    // Vendored with libgojni.so rebuilt 16 KB page-aligned (the published one
+    // is 4 KB-aligned; see the quickjs note above for why that matters). The
+    // Java side is the published AAR's own classes.jar, hand-patched upstream
+    // for lazy loading, untouched. The native side is the same commit
+    // (recloudstream/torrentserver 7861970) built with Go 1.23.5, gomobile at
+    // golang/mobile cd096645 (its last commit before that release) and NDK
+    // r28. Its eleven JNI entry points match the original's, and every class
+    // signature it calls back into matches, apart from the upstream patches.
+    implementation(files("libs/torrentserver-7861970-16k.aar"))
+}
+
+// See the quickjs and torrentserver entries in dependencies: the 16 KB-aligned
+// rebuilds replace them, so nothing may bring the published ones back.
+configurations.all {
+    exclude(group = "app.cash.quickjs", module = "quickjs-android")
+    exclude(group = "com.github.recloudstream", module = "torrentserver")
 }
