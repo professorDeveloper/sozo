@@ -39,6 +39,71 @@ class VideoOptionGroups {
   /// Labels that name no host at all still need something to group under.
   static const String _fallbackServer = 'Default';
 
+  /// Words that describe a stream, not where it comes from. Read as host
+  /// names, a provider's own ladder — "Auto", "1080p", "720p" — became two
+  /// servers ("Auto" with nothing in it, "Default" with the rest), and the
+  /// same resolutions were then parsed out of the master a second time.
+  static const Set<String> _qualityWords = {
+    'auto',
+    'adaptive',
+    'default',
+    'hls',
+    'multi',
+    'hd',
+    'sd',
+    'hq',
+    'lq',
+    'mobile',
+    'mobile hd',
+    'full hd',
+    'fullhd',
+  };
+
+  /// Of those, the ones that mean "let the stream choose": no quality text
+  /// of their own, so the row reads as the player's Auto.
+  static const Set<String> _adaptiveWords = {
+    'auto',
+    'adaptive',
+    'default',
+    'hls',
+    'multi',
+  };
+
+  /// Encoding tags that ride along with a resolution ("4K HDR", "x265
+  /// 1080p") and were left behind as the host's name.
+  static const Set<String> _tagWords = {
+    'hdr',
+    'hdr10',
+    'hdr10+',
+    'dv',
+    'dolby vision',
+    'x264',
+    'x265',
+    'h264',
+    'h265',
+    'hevc',
+    'avc',
+    '10bit',
+    '8bit',
+  };
+
+  static bool _isQualityWord(String text) =>
+      _qualityWords.contains(text.trim().toLowerCase());
+
+  /// [host], or empty when it names no host: only encoding tags ("x265
+  /// 1080p", "4K HDR") or only a quality word ("HD 1080p"). A tag beside a
+  /// real name stays — "Torrentio x265" and "Torrentio x264" are different
+  /// files.
+  static String _hostOnly(String host) {
+    final words = [
+      for (final w in host.split(_spaces))
+        if (w.isNotEmpty) w,
+    ];
+    if (words.every((w) => _tagWords.contains(w.toLowerCase()))) return '';
+    final tidy = _tidy(host);
+    return _isQualityWord(tidy) ? '' : tidy;
+  }
+
   static List<String> servers(List<String> labels) {
     final out = <String>[];
     for (final label in labels) {
@@ -121,19 +186,29 @@ class VideoOptionGroups {
       // quality called 1-server.
       final at = parts.indexWhere(_resolution.hasMatch);
       if (at >= 0) {
-        final host = _tidy(
-          [...parts.take(at), ...parts.skip(at + 1)].join(' · '),
-        );
+        final host = [
+          for (final p in [...parts.take(at), ...parts.skip(at + 1)])
+            if (_hostOnly(p).isNotEmpty) _hostOnly(p),
+        ].join(' · ');
         return (
           server: host.isEmpty ? _fallbackServer : host,
           quality: parts[at],
         );
       }
       // Nothing resolution-shaped anywhere: the whole label names a host, the
-      // way "SUB · Mp4Upload" does. Taking the first part as the server would
+      // way "SUB · Mp4Upload" does — less any part that only describes the
+      // stream ("Auto · Mp4Upload"). Taking the first part as the server would
       // make a language tag into a host and the host into a quality.
-      return (server: text, quality: '');
+      final host = [
+        for (final p in parts)
+          if (!_isQualityWord(p)) p,
+      ].join(' · ');
+      if (host.isEmpty) return _qualityOnly(text);
+      return (server: host, quality: '');
     }
+
+    // A label that is only a quality word: "Auto", "HD", "Mobile HD".
+    if (_isQualityWord(text)) return _qualityOnly(text);
 
     final words = text.split(_spaces);
     final at = words.indexWhere(_resolution.hasMatch);
@@ -141,9 +216,18 @@ class VideoOptionGroups {
     // "Server 1" or "SUB Mp4Upload" does.
     if (at < 0) return (server: text, quality: '');
 
-    final host = _tidy([...words.take(at), ...words.skip(at + 1)].join(' '));
+    final host = _hostOnly(
+      [...words.take(at), ...words.skip(at + 1)].join(' '),
+    );
     return (server: host.isEmpty ? _fallbackServer : host, quality: words[at]);
   }
+
+  /// A label naming no host: grouped under the fallback server, with the
+  /// word kept as its quality unless it means the stream's own choice.
+  static ({String server, String quality}) _qualityOnly(String text) => (
+    server: _fallbackServer,
+    quality: _adaptiveWords.contains(text.trim().toLowerCase()) ? '' : text,
+  );
 
   /// A host without the separator it was cut from: "Filemoon -" → "Filemoon".
   static String _tidy(String host) => host.replaceAll(_edgePunctuation, '');

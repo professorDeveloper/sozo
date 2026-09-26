@@ -1,4 +1,5 @@
 import 'package:soplay/core/player/drm_config.dart';
+import 'package:soplay/core/player/url_signer.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 
 class VideoSourceModel extends VideoSourceEntity {
@@ -21,6 +22,7 @@ class VideoSourceModel extends VideoSourceEntity {
     super.localProxy,
     super.requestTransform,
     super.drm,
+    super.signer,
   });
 
   factory VideoSourceModel.fromJson(Map<String, dynamic> json) {
@@ -52,6 +54,7 @@ class VideoSourceModel extends VideoSourceEntity {
       // decrypting backend, which then fails, instead of letting the ordinary
       // player have a go at a stream that may not have needed decrypting.
       drm: DrmConfig.fromJson(_parseDynamicMap(json['drm'])),
+      signer: UrlSigner.fromJson(_parseDynamicMap(json['signer'])),
     );
   }
 

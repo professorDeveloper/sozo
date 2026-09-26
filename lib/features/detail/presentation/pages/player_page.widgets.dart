@@ -816,7 +816,11 @@ class _VideoTrackRow extends StatelessWidget {
                   if (track.isAuto || detail != null) ...[
                     const SizedBox(height: 2),
                     Text(
-                      track.isAuto ? 'player.auto_quality_desc'.tr() : detail!,
+                      // Engine tracks are libmpv's, which picks a rendition
+                      // when the stream opens and does not adapt after.
+                      track.isAuto
+                          ? 'player.auto_quality_desc_mpv'.tr()
+                          : detail!,
                       style: const TextStyle(
                         color: Colors.white38,
                         fontSize: 11,
@@ -1519,12 +1523,19 @@ class _GeneratedFramePreview extends StatefulWidget {
     required this.width,
     required this.height,
     this.hls = false,
+    this.prefetch = false,
   });
 
   final String url;
   final Map<String, String> headers;
   final int positionMs;
   final bool hls;
+
+  /// Fetch the next frame in the drag's direction while the decoder is free.
+  /// Worth it for a swipe, which moves a few seconds at a time; the seek bar
+  /// jumps minutes, and a prefetch there only held the decoder from the
+  /// frame actually asked for.
+  final bool prefetch;
   final double width;
   final double height;
 
@@ -1552,7 +1563,26 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
   @override
   void initState() {
     super.initState();
+    FramePreviewService.frames.addListener(_onFrames);
     _refresh();
+  }
+
+  @override
+  void dispose() {
+    FramePreviewService.frames.removeListener(_onFrames);
+    super.dispose();
+  }
+
+  /// A frame landed somewhere — the grid filling in, a prefetch — and this
+  /// card is still waiting on its own: show it if it is near enough now.
+  void _onFrames() {
+    if (!mounted || _exact != null) return;
+    final near = FramePreviewService.nearest(
+      widget.url,
+      widget.positionMs,
+      hls: widget.hls,
+    );
+    if (near != null && !identical(near, _near)) setState(() => _near = near);
   }
 
   @override
@@ -1569,6 +1599,9 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
     // near the new one is closer to the truth than it is.
     _previous = _exact ?? _near ?? _previous;
     _exact = null;
+    // A miss belongs to the position that missed. Kept, one failed frame hid
+    // the picture for the rest of the drag and left only the time.
+    _failed = false;
     _near = FramePreviewService.nearest(
       widget.url,
       widget.positionMs,
@@ -1597,7 +1630,10 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
     // The next frame in the direction of the drag, while the decoder is free.
     final last = _lastPosition;
     _lastPosition = widget.positionMs;
-    if (bytes != null && last != null && last != widget.positionMs) {
+    if (widget.prefetch &&
+        bytes != null &&
+        last != null &&
+        last != widget.positionMs) {
       FramePreviewService.prefetch(
         widget.url,
         widget.positionMs,
@@ -1609,27 +1645,41 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
 
   @override
   Widget build(BuildContext context) {
-    final shown = _exact ?? _near ?? (_failed ? null : _previous);
-    if (shown == null && _failed) return const SizedBox.shrink();
+    final own = _exact ?? _near;
+    final shown = own ?? _previous;
+    // No picture at all only when this source is plainly not decoding — not
+    // on one position's miss, which the next usually answers.
+    if (shown == null &&
+        _failed &&
+        FramePreviewService.failing(widget.url, hls: widget.hls)) {
+      return const SizedBox.shrink();
+    }
     final dpr = MediaQuery.devicePixelRatioOf(context);
     return _PreviewFrame(
       width: widget.width,
       height: widget.height,
       child: shown == null
           ? const _PreviewSkeleton()
-          : AnimatedSwitcher(
+          : AnimatedOpacity(
+              // The last frame, dimmed, while this position has none of its
+              // own yet: a fast drag never goes blank, and a stale picture
+              // does not pass for the right one.
+              opacity: own == null ? 0.55 : 1,
               duration: const Duration(milliseconds: 140),
-              child: Image.memory(
-                shown,
-                key: ValueKey(identityHashCode(shown)),
-                width: widget.width,
-                height: widget.height,
-                // Decoded at the size it is drawn, not at the stream's own
-                // resolution.
-                cacheWidth: (widget.width * dpr).round(),
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                filterQuality: FilterQuality.medium,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 140),
+                child: Image.memory(
+                  shown,
+                  key: ValueKey(identityHashCode(shown)),
+                  width: widget.width,
+                  height: widget.height,
+                  // Decoded at the size it is drawn, not at the stream's own
+                  // resolution.
+                  cacheWidth: (widget.width * dpr).round(),
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                  filterQuality: FilterQuality.medium,
+                ),
               ),
             ),
     );

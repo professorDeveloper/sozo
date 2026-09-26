@@ -8,6 +8,8 @@
 /// 1080p of the very same stream.
 library;
 
+import 'package:soplay/core/player/quality_preference.dart';
+
 /// One rendition: the height a viewer would call it, where it lives, and how
 /// many bits per second it spends getting there.
 ///
@@ -18,7 +20,7 @@ library;
 typedef HlsVariant = ({int height, int bandwidth, String url});
 
 final _namedHeight = RegExp(r'[-_/]s(\d{3,4})p\b');
-final _resolution = RegExp(r'RESOLUTION=\d+x(\d+)');
+final _resolution = RegExp(r'RESOLUTION=(\d+)x(\d+)');
 final _bandwidth = RegExp(r'[^-]BANDWIDTH=(\d+)');
 
 /// Every rendition in [playlist], best first, resolved against [base].
@@ -42,7 +44,14 @@ List<HlsVariant> parseHlsVariants(String playlist, Uri base) {
     // in `index-s1080p-v1-a1` is what the packager called it.
     final named = _namedHeight.firstMatch(uri);
     final res = _resolution.firstMatch(tag);
-    final height = int.tryParse(named?.group(1) ?? res?.group(1) ?? '') ?? 0;
+    // Without a name, the height a viewer would call it by both sides —
+    // 1920x800 is 1080p — not the raw pixel height.
+    final width = int.tryParse(res?.group(1) ?? '') ?? 0;
+    final pixels = int.tryParse(res?.group(2) ?? '') ?? 0;
+    final height =
+        int.tryParse(named?.group(1) ?? '') ??
+        QualityPreference.displayHeight(width, pixels) ??
+        pixels;
     if (height <= 0) continue;
 
     // AVERAGE-BANDWIDTH also contains the substring BANDWIDTH, so the pattern

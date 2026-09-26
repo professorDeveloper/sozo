@@ -268,5 +268,54 @@ void main() {
       expect(s.serves('https://media.example/ep2.m3u8'), isTrue);
       await s.close();
     });
+
+    test('near reaches as far as the frames held are apart', () async {
+      final s = session();
+      await s.open('https://media.example/ep.m3u8', {});
+      s.durationMs = 24 * 60000;
+      await s.gridFrame(60000);
+      await s.gridFrame(120000);
+      // Two frames for 24 minutes: a far jump still finds the nearer one,
+      // up to the three-minute cap.
+      expect(s.nearest(290000), [120]);
+      expect(s.nearest(400000), isNull);
+      await s.close();
+    });
+  });
+
+  test('a source that never decodes says so; one frame clears it', () async {
+    var give = false;
+    final s = FramePreviewSession(
+      supported: true,
+      invoke: (method, args) async =>
+          method == 'frame' ? (give ? Uint8List.fromList([1]) : null) : true,
+    );
+    await s.open('https://media.example/drm.mpd', {});
+    for (final t in [0, 10000, 20000]) {
+      await s.frame(t);
+    }
+    expect(s.failing, isTrue);
+    give = true;
+    await s.frame(40000);
+    expect(s.failing, isFalse);
+    await s.close();
+  });
+
+  test('the lightest variant is never an audio-only one', () {
+    const master = """#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=64000,CODECS="mp4a.40.2"
+audio.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=400000,RESOLUTION=426x240,CODECS="avc1.42c01e,mp4a.40.2"
+240.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=2000000,RESOLUTION=1280x720,CODECS="avc1.4d401f,mp4a.40.2"
+720.m3u8
+""";
+    expect(
+      FramePreviewService.lightestVariantOf(
+        master,
+        Uri.parse('https://cdn.example/a/master.m3u8'),
+      ),
+      'https://cdn.example/a/240.m3u8',
+    );
   });
 }

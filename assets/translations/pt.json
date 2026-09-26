@@ -555,7 +555,9 @@
     "subtitle_in_video": "No vídeo",
     "rewind": "Voltar",
     "mini_restore": "Voltar à janela inteira",
-    "pip_unavailable": "Não foi possível iniciar o picture-in-picture para este vídeo."
+    "pip_unavailable": "Não foi possível iniciar o picture-in-picture para este vídeo.",
+    "scrub_release_cancel": "Solte para cancelar",
+    "auto_quality_desc_mpv": "Começa na melhor qualidade que a transmissão oferece"
   },
   "profile": {
     "title": "Perfil",

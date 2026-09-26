@@ -190,7 +190,13 @@ extension _PlayerPanels on _PlayerPageState {
   }
 
   Future<void> _switchVideoTrack(PlayerVideoTrack track) async {
-    _manualHeight = track.isAuto ? 0 : (track.height ?? 0);
+    // The height a viewer would call it (1080 for 1920×800), so the next
+    // episode's rows, named by standard heights, match it exactly.
+    final height = track.isAuto ? 0 : (track.displayHeight ?? 0);
+    // A rendition known only by its bitrate applies to this stream only:
+    // stored, its 0 would read as Auto and undo an older real pin.
+    final remember = track.isAuto || height > 0;
+    if (remember) _manualHeight = height;
     setState(() => _panel = _SidePanel.none);
     await _controller?.setVideoTrack(track.id);
     if (mounted) setState(() {});
@@ -198,13 +204,9 @@ extension _PlayerPanels on _PlayerPageState {
     // renditions. Auto is remembered too, as 0, so an older pin does not
     // come back.
     final contentUrl = widget.args.contentUrl ?? '';
-    if (contentUrl.isNotEmpty) {
+    if (remember && contentUrl.isNotEmpty) {
       unawaited(
-        _titlePrefs.rememberHeight(
-          widget.args.provider,
-          contentUrl,
-          track.isAuto ? 0 : (track.height ?? 0),
-        ),
+        _titlePrefs.rememberHeight(widget.args.provider, contentUrl, height),
       );
     }
   }
@@ -216,11 +218,20 @@ extension _PlayerPanels on _PlayerPageState {
     final current = _currentSourceIndex;
     if (current < 0 || current >= _videoSources.length) return const [];
     final prefix = '${_videoSources[current].quality} · ';
+    // Heights the engine already lists: a provider's own "1080p" row under
+    // the same server would otherwise sit below mpv's 1080p, twice the same.
+    final engineHeights = {
+      for (final t in _controller?.videoTracks ?? const <PlayerVideoTrack>[])
+        if (!t.isAuto && t.displayHeight != null) t.displayHeight!,
+    };
     return [
       for (final i in _currentServerSources)
         if (i != current &&
             !(_videoSources[i].height != null &&
-                _videoSources[i].quality.startsWith(prefix)))
+                _videoSources[i].quality.startsWith(prefix)) &&
+            !engineHeights.contains(
+              VideoOptionGroups.resolutionOf(_videoSources[i].quality),
+            ))
           i,
     ];
   }
@@ -259,7 +270,8 @@ extension _PlayerPanels on _PlayerPageState {
       if (track == null || track.isAuto || track.height == null) {
         return withPlaying;
       }
-      return '${track.height}p';
+      // The same label its row shows ("1080p" for 1920×800, "4K").
+      return track.resolutionLabel ?? '${track.height}p';
     }
     final idx = _currentSourceIndex;
     final source = idx >= 0 && idx < _videoSources.length
@@ -299,12 +311,21 @@ extension _PlayerPanels on _PlayerPageState {
 
   /// [_QualityRow] paints the label verbatim, and every label in a one-server
   /// list starts with that server's name — so hand it a display-only copy.
+  ///
+  /// Everything the row reads besides the label goes along: the copy used to
+  /// drop the warnings, so a Dolby Vision or unreachable file never said so.
   VideoSourceEntity _resolutionOnly(VideoSourceEntity source) =>
       VideoSourceEntity(
         quality: _qualityLabel(source.quality),
         videoUrl: source.videoUrl,
         isDefault: source.isDefault,
         accessible: source.accessible,
+        height: source.height,
+        codec: source.codec,
+        hdr: source.hdr,
+        atmos: source.atmos,
+        sizeBytes: source.sizeBytes,
+        warnings: source.warnings,
       );
 
   void _openServerSheet() {

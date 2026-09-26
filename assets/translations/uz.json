@@ -555,7 +555,9 @@
     "subtitle_in_video": "Videoning ichida",
     "rewind": "Orqaga",
     "mini_restore": "Katta oynaga qaytish",
-    "pip_unavailable": "Bu video uchun “rasm ichida rasm” ishga tushmadi."
+    "pip_unavailable": "Bu video uchun “rasm ichida rasm” ishga tushmadi.",
+    "scrub_release_cancel": "Qo‘yib yuborsangiz bekor bo‘ladi",
+    "auto_quality_desc_mpv": "Oqim beradigan eng yaxshi sifatdan boshlanadi"
   },
   "profile": {
     "title": "Profil",

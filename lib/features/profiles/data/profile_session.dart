@@ -63,6 +63,10 @@ class ProfileSession extends ChangeNotifier {
 
   /// The server refuses profile management from a kids profile.
   bool get canManage => !(_active?.isKids ?? false);
+  /// Whether an account is signed in on this device at all. Profiles belong
+  /// to an account, so without one there is nothing to pick.
+  bool get signedIn => _isLoggedIn();
+
   bool get shouldPick =>
       _isLoggedIn() && _profiles.length > 1 && !_chosenThisRun;
 

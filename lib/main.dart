@@ -206,6 +206,13 @@ void main(List<String> args) async {
       // Standard Written Chinese a `zh` tag promises; a reader who set their
       // phone to Mandarin should not land here by a region match.
       Locale('yue'),
+      // Kurdish, in both of its written standards, which are not one language
+      // in two alphabets: Kurmanji (`ku`, Latin script, Turkey and Syria) and
+      // Sorani (`ckb`, Arabic script, Iraq and Iran) differ in grammar and
+      // vocabulary too. Sorani reads right to left, which comes from its
+      // borrowed WidgetsLocalizations — see borrowed_localizations.dart.
+      Locale('ku'),
+      Locale('ckb'),
     ],
     path: 'assets/translations',
     fallbackLocale: const Locale('en'),

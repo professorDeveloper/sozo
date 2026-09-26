@@ -360,14 +360,18 @@ extension _PlayerControls on _PlayerPageState {
   /// forwards thrashes that buffer, starves the player, and on a real device
   /// took the whole process down mid-episode.
   ///
-  /// HLS on Android and everything on desktop used to be excluded too, for
-  /// want of a decoder that could read them; [FramePreviewService] sends those
-  /// to libmpv now. Downloads are included: a local file is the cheapest
-  /// preview there is.
+  /// HLS on Android goes to Media3's frame extractor, a progressive file to
+  /// the platform retriever. Two cases have no decoder here and are left
+  /// out rather than drawing a skeleton that never fills: HLS on iOS, which
+  /// AVAssetImageGenerator cannot read, and DASH anywhere. Downloads are
+  /// included: a local file is the cheapest preview there is.
   bool get _canGeneratePreview =>
       FramePreviewService.isSupported &&
       _videoUrl != null &&
       !_isLive &&
+      !_isDash &&
+      !(Platform.isIOS && _isHls) &&
+      !_isEncrypted &&
       TorrentStreamUrl.parse(_videoUrl) == null;
 
   Widget _buildVideoLayer() {
@@ -488,14 +492,19 @@ extension _PlayerControls on _PlayerPageState {
                 ],
                 // Tested against the RAW failure, not the translated one —
                 // see [_errorRaw]. Against `_errorMessage` this never matched.
-                if (isCloudflareError(_errorRaw ?? _errorMessage)) ...[
+                if (_cfWall != null ||
+                    isCloudflareError(_errorRaw ?? _errorMessage)) ...[
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: () async {
-                      final ok = await requestCloudflareSolve(
-                        context,
-                        widget.args.provider,
-                      );
+                      // The stream's own host when that is what the challenge
+                      // stands in front of; the source's site otherwise.
+                      final ok = _cfWall != null
+                          ? await _solveStreamWall()
+                          : await requestCloudflareSolve(
+                              context,
+                              widget.args.provider,
+                            );
                       if (ok && mounted) _retry();
                     },
                     style: OutlinedButton.styleFrom(
@@ -599,9 +608,11 @@ extension _PlayerControls on _PlayerPageState {
       valueListenable: _scrub,
       builder: (_, state, _) {
         if (state == null) return const SizedBox.shrink();
-        final preview = state.previewPosition(_scrubSecondsPerFullSwipe);
-        final deltaSeconds = (preview - state.baseline).inSeconds;
-        final isForward = deltaSeconds >= 0;
+        final preview = state.previewPosition();
+        final isForward = preview >= state.baseline;
+        // Minutes as minutes: the swipe reaches far now, and "+734s" is not
+        // a number anyone reads at a glance.
+        final delta = _signedDelta(preview, state.baseline);
         return IgnorePointer(
           child: Center(
             child: Container(
@@ -613,7 +624,12 @@ extension _PlayerControls on _PlayerPageState {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (_previewImage(preview, 240, 240 / _previewAspect)
+                  if (_previewImage(
+                        preview,
+                        240,
+                        240 / _previewAspect,
+                        prefetch: true,
+                      )
                       case final frame?)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -641,11 +657,14 @@ extension _PlayerControls on _PlayerPageState {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${isForward ? '+' : '−'}${deltaSeconds.abs()}s',
+                        state.cancels || delta.isEmpty
+                            ? 'player.scrub_release_cancel'.tr()
+                            : delta,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
+                          fontFeatures: [FontFeature.tabularFigures()],
                         ),
                       ),
                     ],
@@ -666,6 +685,25 @@ extension _PlayerControls on _PlayerPageState {
         );
       },
     );
+  }
+
+  /// Encrypted: the frame decoders get no licence and can show nothing.
+  bool get _isEncrypted =>
+      _currentSourceIndex >= 0 &&
+      _currentSourceIndex < _videoSources.length &&
+      _videoSources[_currentSourceIndex].drm != null;
+
+  /// What the sprite sheets are requested with. Sources send their thumbnail
+  /// VTT without headers of its own, while the sheets sit on the stream's
+  /// header-gated host: so the source's own headers when it gave none.
+  Map<String, String>? get _spriteHeaders {
+    if (_thumbnailHeaders.isNotEmpty) return _thumbnailHeaders;
+    final source =
+        _currentSourceIndex >= 0 && _currentSourceIndex < _videoSources.length
+        ? _videoSources[_currentSourceIndex].headers
+        : const <String, String>{};
+    final merged = source.isNotEmpty ? source : _headers;
+    return merged.isEmpty ? null : merged;
   }
 
   Widget _buildThumbnailImage(
@@ -689,10 +727,13 @@ extension _PlayerControls on _PlayerPageState {
                 ..setTranslationRaw(-thumb.x * sx, -thumb.y * sy, 0.0),
               child: Image.network(
                 thumb.imageUrl,
+                headers: _spriteHeaders,
                 filterQuality: FilterQuality.low,
                 gaplessPlayback: true,
-                errorBuilder: (_, _, _) =>
-                    SizedBox(width: displayWidth, height: displayHeight),
+                errorBuilder: (_, _, _) {
+                  _onThumbnailFailed();
+                  return SizedBox(width: displayWidth, height: displayHeight);
+                },
               ),
             ),
           ),
@@ -702,13 +743,16 @@ extension _PlayerControls on _PlayerPageState {
 
     return Image.network(
       thumb.imageUrl,
+      headers: _spriteHeaders,
       width: displayWidth,
       height: displayHeight,
       fit: BoxFit.cover,
       filterQuality: FilterQuality.low,
       gaplessPlayback: true,
-      errorBuilder: (_, _, _) =>
-          SizedBox(width: displayWidth, height: displayHeight),
+      errorBuilder: (_, _, _) {
+        _onThumbnailFailed();
+        return SizedBox(width: displayWidth, height: displayHeight);
+      },
     );
   }
 
@@ -1408,8 +1452,13 @@ extension _PlayerControls on _PlayerPageState {
 
   /// The framed picture for [position], from the storyboard when the source
   /// has one and from the decoder otherwise; null when neither exists.
-  Widget? _previewImage(Duration position, double w, double h) {
-    final thumb = _thumbnailAt(position);
+  Widget? _previewImage(
+    Duration position,
+    double w,
+    double h, {
+    bool prefetch = false,
+  }) {
+    final thumb = _thumbnailsFailed ? null : _thumbnailAt(position);
     if (thumb != null) {
       return _PreviewFrame(
         width: w,
@@ -1425,6 +1474,7 @@ extension _PlayerControls on _PlayerPageState {
         width: w,
         height: h,
         hls: _isHls,
+        prefetch: prefetch,
       );
     }
     return null;
@@ -1506,6 +1556,7 @@ extension _PlayerControls on _PlayerPageState {
                 secondaryTrackValue: _bufferedMs(value, maxMs),
                 onChangeStart: (v) {
                   FramePreviewService.scrubbing = true;
+                  _seekBarDragging.value = true;
                   _sliderDragValue.value = v;
                   _hideTimer?.cancel();
                 },
@@ -1515,6 +1566,7 @@ extension _PlayerControls on _PlayerPageState {
                 },
                 onChangeEnd: (v) {
                   FramePreviewService.scrubbing = false;
+                  _seekBarDragging.value = false;
                   unawaited(FramePreviewService.endScrub());
                   final target = Duration(milliseconds: v.toInt());
                   _seekTo(target);
@@ -1547,13 +1599,20 @@ extension _PlayerControls on _PlayerPageState {
           children: [
             bar,
             if (showPreview)
-              Positioned(
-                left: left,
-                bottom: 40,
-                child: _buildScrubPreviewCard(
-                  previewPosition,
-                  current: value.position,
-                  caretX: thumbX - left,
+              ValueListenableBuilder<bool>(
+                valueListenable: _seekBarDragging,
+                // TV scrubs with the D-pad, with no finger to lift.
+                builder: (_, dragging, card) => dragging || isTvPlatform
+                    ? card!
+                    : const SizedBox.shrink(),
+                child: Positioned(
+                  left: left,
+                  bottom: 40,
+                  child: _buildScrubPreviewCard(
+                    previewPosition,
+                    current: value.position,
+                    caretX: thumbX - left,
+                  ),
                 ),
               ),
           ],

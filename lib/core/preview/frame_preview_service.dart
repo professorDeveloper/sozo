@@ -37,7 +37,7 @@ class FramePreviewService {
     supported: Platform.isAndroid,
     invoke: _invokeHls,
     openTimeout: const Duration(seconds: 15),
-    frameTimeout: const Duration(seconds: 9),
+    frameTimeout: const Duration(seconds: 6),
   );
 
   static const int bucketMs = FramePreviewSession.bucketMs;
@@ -63,11 +63,21 @@ class FramePreviewService {
     String url,
     int positionMs, {
     bool hls = false,
-    int withinMs = 30000,
+    int? withinMs,
   }) {
     final s = _sessionFor(hls);
     return s.serves(url) ? s.nearest(positionMs, withinMs: withinMs) : null;
   }
+
+  /// This source keeps failing to decode and nothing is held for it.
+  static bool failing(String url, {bool hls = false}) {
+    final s = _sessionFor(hls);
+    return s.serves(url) && s.failing;
+  }
+
+  /// Ticks whenever any frame lands in a cache, so a card still waiting on
+  /// its exact frame can show one that has just become near enough.
+  static final ValueNotifier<int> frames = ValueNotifier<int>(0);
 
   /// Spacing of the background grid for [durationMs], for [nearest]'s reach.
   static int gridSpacingMs(int durationMs, {required bool metered}) {
@@ -153,6 +163,9 @@ class FramePreviewService {
   }) {
     if (!isSupported || durationMs < 60000) return;
     _warmer?.stop();
+    // How far "near" reaches follows how sparse the grid is. Fixed at 30 s,
+    // a far jump on the seek bar found nothing on a 16-frame metered grid.
+    _sessionFor(hls).durationMs = durationMs;
     _warmer = _Warmer(
       session: _sessionFor(hls),
       url: url,
@@ -172,6 +185,10 @@ class FramePreviewService {
   static Future<void> close() async {
     _warmer?.stop();
     _warmer = null;
+    // A drag that never reported its end (a second finger, a closed page)
+    // would otherwise keep the next title's warmer waiting for good.
+    _scrubbing = false;
+    _proxiedCache.clear();
     await Future.wait([_native.close(), _hls.close()]);
   }
 
@@ -191,28 +208,42 @@ class FramePreviewService {
 
   /// One proxied address per stream, so the native side sees the same URL on
   /// every drag and keeps its extractor instead of rebuilding it.
-  static final Map<String, Future<String>> _proxiedCache = {};
+  ///
+  /// Renewed after 20 minutes: the proxy drops a session nobody has touched
+  /// for 30, and a preview session is touched only while frames are fetched.
+  /// Kept past that, a scrub late in a film opened a dead address and every
+  /// exact frame was missing.
+  static final Map<String, (Future<String>, DateTime)> _proxiedCache = {};
+  static const _proxiedTtl = Duration(minutes: 20);
 
   static Future<String> _proxied(String url, Map<String, String> headers) {
     final keys = headers.keys.toList()..sort();
     final key = '$url\u0000${keys.map((k) => '$k=${headers[k]}').join('&')}';
     if (_proxiedCache.length > 8) _proxiedCache.clear();
-    return _proxiedCache[key] ??= _proxy(url, headers);
+    final now = DateTime.now();
+    final held = _proxiedCache[key];
+    if (held != null && now.difference(held.$2) < _proxiedTtl) return held.$1;
+    final fresh = _proxy(url, headers);
+    _proxiedCache[key] = (fresh, now);
+    return fresh;
   }
 
   /// The lightest variant, behind the local proxy so its headers go along.
   static Future<String> _proxy(String url, Map<String, String> headers) async {
-    var target = url;
     final uri = Uri.tryParse(url);
     final local = uri != null && uri.host == '127.0.0.1';
-    if (!local) {
-      target = await _lightestVariant(url, headers) ?? url;
-    }
+    // The lightest rendition whichever way the stream is reached: a stream
+    // already on the local proxy used to open its whole master, and the
+    // decoder picked a 720p segment for a 360px thumbnail. Its variants are
+    // proxied paths of the same session, so they keep its headers.
+    final target = await _lightestVariant(url, headers) ?? url;
     if (local || headers.isEmpty) return target;
     try {
       return await getIt<LocalHlsProxy>().register(
         upstreamUrl: target,
         headers: headers,
+        // The player's own headers, Referer included: the CDN checks it.
+        keepOriginHeaders: true,
       );
     } catch (_) {
       return target;
@@ -256,6 +287,19 @@ class FramePreviewService {
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i].trim();
       if (!line.startsWith('#EXT-X-STREAM-INF')) continue;
+      // Not an audio-only rendition: a decoder handed one has no frame to
+      // give. Known by codecs naming no video, or by having no resolution
+      // where the others do.
+      final codecs =
+          RegExp(r'CODECS="([^"]*)"').firstMatch(line)?.group(1) ?? '';
+      if (codecs.isNotEmpty &&
+          !RegExp(r'avc|hvc|hev|av01|vp0?9|dvh|mp4v').hasMatch(codecs)) {
+        continue;
+      }
+      if (!line.contains('RESOLUTION=') &&
+          playlist.contains('RESOLUTION=')) {
+        continue;
+      }
       final rate =
           int.tryParse(
             RegExp(r'[:,]BANDWIDTH=(\d+)').firstMatch(line)?.group(1) ?? '',
@@ -326,6 +370,28 @@ class FramePreviewSession {
 
   /// Held in the grid already, so the warmer can skip it.
   bool hasGridFrame(int positionMs) => _grid.containsKey(_bucketOf(positionMs));
+
+  /// The length of the video the grid is filling, from
+  /// [FramePreviewService.warm]; how far [nearest] reaches follows from it.
+  int durationMs = 0;
+
+  /// How far [nearest] looks when not told: the gap between the frames held
+  /// so far, so a sparse grid early on still answers a far jump — a fixed
+  /// 30 s found nothing between the first pass's points minutes apart. At
+  /// most three minutes, past which a frame is more misleading than none.
+  int get reachMs {
+    final held = _grid.length + _cache.length;
+    if (durationMs <= 0 || held == 0) return 30000;
+    return (durationMs ~/ held * 3 ~/ 4).clamp(30000, 180000);
+  }
+
+  /// Nulls in a row from the decoder, reset by any frame. With nothing held
+  /// either, the source cannot be decoded here and the card should say so by
+  /// showing no picture rather than a skeleton that never fills.
+  int _consecutiveNulls = 0;
+  bool get failing =>
+      _consecutiveNulls >= 3 && _cache.isEmpty && _grid.isEmpty;
+
   final _misses = <int, DateTime>{};
   DateTime? _retryOpenAfter;
   int _cacheBytes = 0;
@@ -346,6 +412,7 @@ class FramePreviewSession {
     _grid.clear();
     _cacheBytes = 0;
     _misses.clear();
+    _consecutiveNulls = 0;
     _retryOpenAfter = null;
     _identity = identity;
     _url = url;
@@ -375,9 +442,9 @@ class FramePreviewSession {
   /// The cached frame closest to [positionMs], within [withinMs]; null when
   /// nothing is near enough. What the card shows while the exact frame is
   /// still being decoded.
-  Uint8List? nearest(int positionMs, {int withinMs = 30000}) {
+  Uint8List? nearest(int positionMs, {int? withinMs}) {
     Uint8List? best;
-    var bestGap = withinMs + 1;
+    var bestGap = (withinMs ?? reachMs) + 1;
     void consider(Map<int, Uint8List> from) {
       for (final e in from.entries) {
         final gap = (e.key - positionMs).abs();
@@ -405,9 +472,11 @@ class FramePreviewSession {
     if (bytes != null && _grid.length < maxGridFrames) {
       _cache.remove(bucket);
       _grid[bucket] = bytes;
+      FramePreviewService.frames.value++;
       final key = _diskKey;
       if (key != null) unawaited(PreviewDiskCache.save(key, bucket, bytes));
     }
+    // Tried, frame or not; the warmer comes back for the holes at the end.
     return true;
   }
 
@@ -476,6 +545,7 @@ class FramePreviewSession {
       }).timeout(frameTimeout);
       if (request.generation != _generation) return;
       bytes = raw is Uint8List ? raw : null;
+      _consecutiveNulls = bytes == null ? _consecutiveNulls + 1 : 0;
       if (bytes == null) {
         _misses[request.bucket] = DateTime.now().add(
           const Duration(seconds: 2),
@@ -485,6 +555,7 @@ class FramePreviewSession {
       if (bytes != null && bytes.length <= maxCacheBytes) {
         _cache[request.bucket] = bytes;
         _cacheBytes += bytes.length;
+        FramePreviewService.frames.value++;
         while (_cache.length > maxFrames || _cacheBytes > maxCacheBytes) {
           _cacheBytes -= _cache.remove(_cache.keys.first)!.length;
         }
@@ -553,6 +624,8 @@ class FramePreviewSession {
     _grid.clear();
     _cacheBytes = 0;
     _misses.clear();
+    _consecutiveNulls = 0;
+    durationMs = 0;
     _retryOpenAfter = null;
     await endScrub();
   }
@@ -593,20 +666,26 @@ class _Warmer {
     final start = durationMs * 0.02;
     final span = durationMs * 0.96;
     final near = ((positionMs - start) / span * (count - 1)).round();
-    for (final i in FramePreviewService.gridOrder(
+    final order = FramePreviewService.gridOrder(
       count,
       near: near.clamp(0, count - 1),
-    )) {
-      final at = (start + span * i / (count - 1)).round();
-      if (session.hasGridFrame(at)) continue;
-      while (true) {
-        if (_stopped || !session.serves(url)) return;
-        if (!FramePreviewService._scrubbing && await session.gridFrame(at)) {
-          break;
+    );
+    // A second pass for the points the first left empty: a frame cancelled
+    // by a drag or refused once is usually there on the next try, and the
+    // first pass counting it as done left a hole in the seek bar for good.
+    for (var pass = 0; pass < 2; pass++) {
+      for (final i in order) {
+        final at = (start + span * i / (count - 1)).round();
+        if (session.hasGridFrame(at)) continue;
+        while (true) {
+          if (_stopped || !session.serves(url)) return;
+          if (!FramePreviewService._scrubbing && await session.gridFrame(at)) {
+            break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 300));
         }
-        await Future<void>.delayed(const Duration(milliseconds: 300));
+        await Future<void>.delayed(pace);
       }
-      await Future<void>.delayed(pace);
     }
   }
 }

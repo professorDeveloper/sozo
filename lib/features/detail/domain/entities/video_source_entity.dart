@@ -1,3 +1,4 @@
+import 'package:soplay/core/player/url_signer.dart';
 import 'package:soplay/core/player/drm_config.dart';
 
 class VideoSourceEntity {
@@ -66,6 +67,10 @@ class VideoSourceEntity {
   /// there is exactly one backend that can play this at all.
   final DrmConfig? drm;
 
+  /// Where the device signs this file before playing it; null for the usual
+  /// source that plays as given. See [UrlSigner].
+  final UrlSigner? signer;
+
   const VideoSourceEntity({
     required this.quality,
     required this.videoUrl,
@@ -85,5 +90,6 @@ class VideoSourceEntity {
     this.localProxy = const {},
     this.requestTransform = const {},
     this.drm,
+    this.signer,
   });
 }
