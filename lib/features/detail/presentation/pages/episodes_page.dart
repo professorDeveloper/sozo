@@ -962,11 +962,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
       // needsPlayback: playing the episode once runs the WebView sniff, and
       // the player can then download the resolved stream.
       if (!quiet) {
-        _toast(
-          resolved.failure == DownloadBuildFailure.needsPlayback
-              ? 'detail.download_needs_playback'.tr()
-              : 'detail.download_resolve_failed'.tr(),
-        );
+        _toast(downloadBuildFailureMessage(resolved.failure!));
       }
       return false;
     }

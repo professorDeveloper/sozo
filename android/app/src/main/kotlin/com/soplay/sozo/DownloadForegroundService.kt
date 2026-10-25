@@ -17,9 +17,11 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
@@ -324,7 +326,9 @@ class DownloadForegroundService : Service() {
         val connection = openConnection(url, headers, written)
         val code = connection.responseCode
         rejectFailedResponse(code, connection)
-        rejectNonMedia(connection)
+        // Checked before the partial is touched: a web page now must not cost
+        // the bytes an earlier attempt already saved.
+        val body = mediaStream(connection)
 
         val append = written > 0 && code == HttpURLConnection.HTTP_PARTIAL
         if (!append) {
@@ -337,7 +341,7 @@ class DownloadForegroundService : Service() {
         updateState(id, title, url, artefactPath, STATUS_DOWNLOADING, written, total, written, null)
         updateProgressNotification(id, title, written, total)
 
-        connection.inputStream.use { input ->
+        body.use { input ->
             FileOutputStream(part, append).use { output ->
                 val buffer = ByteArray(IO_BUFFER)
                 while (true) {
@@ -361,7 +365,7 @@ class DownloadForegroundService : Service() {
      */
     private fun isResumable(e: IOException): Boolean {
         val message = e.message.orEmpty()
-        if (message.startsWith("HTTP ") || message.startsWith("not media")) return false
+        if (message.startsWith("HTTP ") || message.startsWith(NOT_MEDIA)) return false
         return e !is java.io.FileNotFoundException
     }
 
@@ -685,14 +689,13 @@ class DownloadForegroundService : Service() {
                 val connection = openConnection(url, headers, 0L, range)
                 val code = connection.responseCode
                 rejectFailedResponse(code, connection)
-                if (checkMedia) rejectNonMedia(connection)
                 // A server that ignores Range sends the whole file; the slice
                 // is cut out of it rather than every segment being saved as a
                 // full copy of the one file they all live in.
                 var skip = if (range != null && code != HttpURLConnection.HTTP_PARTIAL) range.offset else 0L
                 val want = range?.length ?: -1L
                 var written = 0L
-                connection.inputStream.use { input ->
+                mediaStream(connection, checkMedia).use { input ->
                     FileOutputStream(part, false).use { output ->
                         val buffer = ByteArray(IO_BUFFER)
                         while (true) {
@@ -723,8 +726,11 @@ class DownloadForegroundService : Service() {
                 if (!part.renameTo(file)) throw IOException("could not finish a part")
                 return
             } catch (e: Exception) {
-                lastError = e
                 part.delete()
+                // A web page is the same web page on the next attempt, and
+                // asking twice more only spends the viewer's data and time.
+                if (isNotMedia(e)) throw e
+                lastError = e
                 // 400ms, 800ms, 1600ms.
                 try {
                     Thread.sleep(400L shl attempt)
@@ -737,10 +743,14 @@ class DownloadForegroundService : Service() {
         throw lastError ?: IOException("could not fetch $url")
     }
 
+    /**
+     * A playlist. One that is a web page fails as one, the way the Dart
+     * downloader's does, instead of as "no segments in the playlist".
+     */
     private fun readText(url: String, headers: Map<String, String>): String {
         val connection = openConnection(url, headers, 0L)
         rejectFailedResponse(connection.responseCode, connection)
-        return connection.inputStream.bufferedReader().use { it.readText() }
+        return mediaStream(connection).bufferedReader().use { it.readText() }
     }
 
     private fun openConnection(
@@ -781,23 +791,47 @@ class DownloadForegroundService : Service() {
     }
 
     /**
-     * Refuses an answer that is not media.
+     * The body of [connection], refused if it is a web page.
      *
      * A challenge page or an error page served as 200 used to be written to
      * `video.mp4`: the download completed, the row said "Downloaded", and the
      * player failed on a file that was HTML.
+     *
+     * Decided by the first bytes, not the Content-Type. That header was the
+     * test, and the HLS CDNs behind vidapi and anikoto label real MPEG-TS
+     * segments `text/html`, so every one of their episodes failed on its first
+     * disguised segment while the same stream played (see
+     * [HlsDownloadPlaylist.looksLikeWebPage]).
      */
-    private fun rejectNonMedia(connection: HttpURLConnection) {
-        val type = connection.contentType?.lowercase().orEmpty()
-        if (type.isEmpty()) return
-        if (type.startsWith("text/html") ||
-            type.startsWith("application/xhtml") ||
-            type.startsWith("text/plain")
-        ) {
-            connection.disconnect()
-            throw IOException("not media: the server answered with $type")
+    private fun mediaStream(connection: HttpURLConnection, checkMedia: Boolean = true): InputStream {
+        val input = BufferedInputStream(connection.inputStream, IO_BUFFER)
+        if (!checkMedia) return input
+        val head = ByteArray(SNIFF_BYTES)
+        input.mark(SNIFF_BYTES)
+        var n = 0
+        try {
+            while (n < SNIFF_BYTES) {
+                val read = input.read(head, n, SNIFF_BYTES - n)
+                if (read == -1) break
+                n += read
+            }
+            input.reset()
+        } catch (e: IOException) {
+            input.close()
+            throw e
         }
+        if (HlsDownloadPlaylist.looksLikeWebPage(head, n)) {
+            val type = connection.contentType ?: "no type"
+            input.close()
+            connection.disconnect()
+            throw IOException("$NOT_MEDIA: the server answered with a web page ($type)")
+        }
+        return input
     }
+
+    /** A refusal [mediaStream] made, which no retry can change. */
+    private fun isNotMedia(e: Exception): Boolean =
+        e is IOException && e.message.orEmpty().startsWith(NOT_MEDIA)
 
     private fun isOnUnmeteredNetwork(): Boolean {
         return try {
@@ -1168,6 +1202,15 @@ class DownloadForegroundService : Service() {
 
         /** 64 KB reads: 8 KB meant eight times the syscalls for the same bytes. */
         private const val IO_BUFFER = 64 * 1024
+
+        /**
+         * What [mediaStream] reads ahead to tell a web page from media. Markup
+         * needs sixteen; the rest is room for a BOM and leading blank lines.
+         */
+        private const val SNIFF_BYTES = 512
+
+        /** The prefix Dart's `DownloadFailureKind.classify` reads as notMedia. */
+        private const val NOT_MEDIA = "not media"
 
         private const val TASK_CLEAR_TIMEOUT_MS = 4_000L
         private const val PART_ATTEMPTS = 3

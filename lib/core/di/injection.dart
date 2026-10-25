@@ -948,11 +948,16 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<GetPagesUseCase>(
     GetPagesUseCase(getIt<DetailRepository>()),
   );
+  // One probe for both questions: is a mirror playable media, and does a
+  // direct file turn out to be a web page (refused at tap time, not minutes
+  // later in the list).
+  final downloadProbe = DownloadMediaProbe(getIt<DartFetch>().dio);
   getIt.registerSingleton<DownloadRequestBuilder>(
     DownloadRequestBuilder(
       resolve: getIt<ResolveMediaUseCase>(),
       getPages: getIt<GetPagesUseCase>(),
-      canDownload: DownloadMediaProbe(getIt<DartFetch>().dio).accepts,
+      canDownload: downloadProbe.accepts,
+      servesWebPage: downloadProbe.servesWebPage,
       resolveEmbed: (media) async {
         final stream = await getIt<WebViewStreamExtractor>().extract(
           pageUrl: media.videoUrl,

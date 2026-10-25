@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data' show BytesBuilder;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:soplay/core/player/hls_variants.dart';
 import 'package:soplay/core/network/http_headers.dart';
+import 'package:soplay/core/network/web_page_sniff.dart';
 import 'package:soplay/features/download/domain/download_layout.dart';
 import 'package:soplay/features/download/domain/entities/download_failure.dart';
 import 'package:soplay/features/download/domain/entities/download_kind.dart';
@@ -111,13 +113,6 @@ class DownloadTransferDataSource {
   /// A single file whose connection drops midway picks up from the bytes it
   /// has, this many times, before the download is called failed.
   static const int _fileResumes = 3;
-
-  /// Content types that mean "this is not the file you asked for".
-  static const List<String> _nonMediaTypes = [
-    'text/html',
-    'application/xhtml',
-    'text/plain',
-  ];
 
   Future<TransferResult> run({
     required String id,
@@ -308,7 +303,12 @@ class DownloadTransferDataSource {
       ),
     );
 
-    _rejectNonMedia(response.headers.value('content-type'));
+    // Checked before the partial is touched: a web page now must not cost the
+    // bytes an earlier attempt already saved.
+    final body = await _mediaBody(
+      response.data!.stream,
+      response.headers.value('content-type'),
+    );
 
     // 206 means the server honoured the range; anything else means starting
     // over, and appending to the old bytes would corrupt the file silently.
@@ -331,7 +331,7 @@ class DownloadTransferDataSource {
       mode: append ? FileMode.append : FileMode.write,
     );
     try {
-      await for (final chunk in response.data!.stream) {
+      await for (final chunk in body) {
         if (cancel.isCancelled) break;
         sink.add(chunk);
         written += chunk.length;
@@ -911,9 +911,12 @@ class DownloadTransferDataSource {
             responseType: ResponseType.stream,
           ),
         );
-        if (checkMedia) {
-          _rejectNonMedia(response.headers.value('content-type'));
-        }
+        final body = checkMedia
+            ? await _mediaBody(
+                response.data!.stream,
+                response.headers.value('content-type'),
+              )
+            : response.data!.stream;
         // A server that ignores the Range header sends the whole file. The
         // slice is cut out of it rather than saving every segment as a full
         // copy of the one file they all live in.
@@ -924,7 +927,7 @@ class DownloadTransferDataSource {
         var written = 0;
         final sink = part.openWrite();
         try {
-          await for (var chunk in response.data!.stream) {
+          await for (var chunk in body) {
             if (cancel.isCancelled) break;
             if (skip > 0) {
               if (chunk.length <= skip) {
@@ -1006,13 +1009,55 @@ class DownloadTransferDataSource {
     );
   }
 
-  void _rejectNonMedia(String? contentType) {
-    final type = contentType?.toLowerCase() ?? '';
-    if (type.isEmpty) return;
-    for (final bad in _nonMediaTypes) {
-      if (type.startsWith(bad)) {
-        throw _NotMediaException('the server answered with $type');
+  /// [body], refused before a byte is written if it opens as a web page.
+  ///
+  /// A challenge or error page served as 200 used to be saved under a video's
+  /// name. The Content-Type was the test, and the HLS CDNs behind vidapi and
+  /// anikoto label real MPEG-TS segments `text/html` — every one of their
+  /// episodes failed on its first disguised segment while the same stream
+  /// played. The first bytes decide now (see [looksLikeWebPage]); the type is
+  /// only quoted in the message.
+  static Future<Stream<Uint8List>> _mediaBody(
+    Stream<Uint8List> body,
+    String? contentType,
+  ) async {
+    final it = StreamIterator(body);
+    final head = BytesBuilder(copy: false);
+    try {
+      while (head.length < webPageSniffBytes && await it.moveNext()) {
+        head.add(it.current);
       }
+    } catch (_) {
+      await it.cancel();
+      rethrow;
+    }
+    final first = head.takeBytes();
+    if (looksLikeWebPage(
+      first.length > webPageSniffBytes
+          ? Uint8List.sublistView(first, 0, webPageSniffBytes)
+          : first,
+    )) {
+      await it.cancel();
+      throw _NotMediaException(
+        'not media: the server answered with a web page '
+        '(${contentType ?? 'no type'})',
+      );
+    }
+    return _replay(first, it);
+  }
+
+  /// The bytes [_mediaBody] read ahead, then the rest of the body.
+  static Stream<Uint8List> _replay(
+    Uint8List first,
+    StreamIterator<Uint8List> rest,
+  ) async* {
+    try {
+      if (first.isNotEmpty) yield first;
+      while (await rest.moveNext()) {
+        yield rest.current;
+      }
+    } finally {
+      await rest.cancel();
     }
   }
 
