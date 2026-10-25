@@ -1,4 +1,5 @@
 import 'package:soplay/core/player/media_segment_relay.dart';
+import 'package:soplay/core/player/player_dock.dart';
 import 'package:soplay/features/search/data/source_health_store.dart';
 import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'package:share_plus/share_plus.dart';
@@ -221,6 +222,19 @@ class _PlayerPageState extends State<PlayerPage>
   /// Desktop picture-in-picture: the window is the small always-on-top
   /// player. [_isPip] is set with it, which hides the full controls.
   bool _desktopMini = false;
+
+  /// Desktop picture-in-picture inside the app: this page is the corner
+  /// player over whatever screen the viewer moved on to (see [PlayerDock]).
+  /// [_isPip] is set with it, as for [_desktopMini], which hides the full
+  /// controls.
+  bool _docked = false;
+
+  /// Either compact form: the always-on-top window or the corner player.
+  bool get _compact => _desktopMini || _docked;
+
+  /// The desktop key handler's node, held so docking can let go of the
+  /// keyboard and a click on the corner player can take it back.
+  final FocusNode _keyFocus = FocusNode(debugLabel: 'desktopPlayerKeys');
   final ValueNotifier<bool> _miniHover = ValueNotifier<bool>(false);
   bool _resumeAfterPause = false;
   bool _lastPipPlaying = false;
@@ -798,7 +812,12 @@ class _PlayerPageState extends State<PlayerPage>
         _saveHistory();
         break;
       case AppLifecycleState.resumed:
-        if (_isPip && mounted) {
+        // Back from Android's or iOS's floating window. On the desktop
+        // "resumed" only means the window got focus back — a click on the
+        // always-on-top mini window, or on the app around the corner player —
+        // and clearing _isPip there drew the full control bar into a 426-px
+        // window, under and over the mini controls.
+        if (_isPip && !_compact && mounted) {
           setState(() => _isPip = false);
         }
         if (_resumeAfterPause && c.value.isInitialized) {
@@ -822,6 +841,11 @@ class _PlayerPageState extends State<PlayerPage>
     // Leaving the player from the mini window must not leave the app a
     // thumbnail above everything else.
     if (_desktopMini) unawaited(DesktopWindow.exitMini());
+    // Closed from the corner, or disposed some other way while there: the
+    // dock must not keep pointing at a page that no longer exists.
+    final pageKey = widget.key;
+    if (pageKey is GlobalKey) PlayerDock.instance.forget(pageKey);
+    _keyFocus.dispose();
     _miniHover.dispose();
     // Leaving mid-play is a pause as far as Trakt's "watching now" goes.
     if (_traktPlaying) _syncTraktScrobble(false);
@@ -903,6 +927,7 @@ class _PlayerPageState extends State<PlayerPage>
 
   @override
   Widget build(BuildContext context) {
+    if (_docked) _reportDockAspect();
     return PopScope(
       // BACK is the *only* dismiss affordance on a remote, so on TV the player
       // intercepts it and unwinds one layer at a time (panel -> pending scrub ->
@@ -912,6 +937,9 @@ class _PlayerPageState extends State<PlayerPage>
       canPop: !isTvPlatform || _tvPopAllowed,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || !isTvPlatform) {
+          // Docking pops the route too, but the page plays on in the corner:
+          // its wakelock and window state are still in use.
+          if (_docked) return;
           _restoreSystemUi();
           return;
         }
@@ -953,7 +981,7 @@ class _PlayerPageState extends State<PlayerPage>
                   behavior: HitTestBehavior.opaque,
                   onTap: _locked
                       ? null
-                      : _desktopMini
+                      : _compact
                       ? _togglePlay
                       : _toggleControls,
                   onDoubleTapDown: _locked || isDesktopPlatform
@@ -961,6 +989,8 @@ class _PlayerPageState extends State<PlayerPage>
                       : (d) => _onDoubleTapDown(d, constraints),
                   onDoubleTap: _locked
                       ? null
+                      : _docked
+                      ? _expandFromDock
                       : _desktopMini
                       ? _toggleDesktopMini
                       : isDesktopPlatform
@@ -971,20 +1001,19 @@ class _PlayerPageState extends State<PlayerPage>
                   // the old pan handlers — see _onScaleUpdate — so brightness,
                   // volume and swipe-seek behave exactly as before, and two
                   // fingers pinch-zoom the picture.
-                  // In the mini window a drag moves the window instead.
-                  onScaleStart: _locked || _desktopMini
+                  // In the mini window a drag moves the window instead, and
+                  // in the corner player it moves the corner player.
+                  onScaleStart: _locked || _compact
                       ? null
                       : (d) => _onScaleStart(d, constraints),
-                  onScaleUpdate: _locked || _desktopMini
+                  onScaleUpdate: _locked || _compact
                       ? null
                       : (d) => _onScaleUpdate(d, constraints),
-                  onScaleEnd: _locked || _desktopMini ? null : _onScaleEnd,
-                  onLongPressStart: _locked || _desktopMini
+                  onScaleEnd: _locked || _compact ? null : _onScaleEnd,
+                  onLongPressStart: _locked || _compact
                       ? null
                       : _onLongPressStart,
-                  onLongPressEnd: _locked || _desktopMini
-                      ? null
-                      : _onLongPressEnd,
+                  onLongPressEnd: _locked || _compact ? null : _onLongPressEnd,
                   child: Listener(
                     // Seen before any recogniser claims the touch, and in the
                     // order they happen: where the finger went down (the
@@ -993,6 +1022,11 @@ class _PlayerPageState extends State<PlayerPage>
                     onPointerDown: (e) {
                       _pointerDownAt = e.localPosition;
                       _pointerCancelled = false;
+                      // The corner player gave the keyboard to the page under
+                      // it; a click on the player takes it back.
+                      if (_docked && !_keyFocus.hasFocus) {
+                        _keyFocus.requestFocus();
+                      }
                     },
                     onPointerCancel: (_) => _pointerCancelled = true,
                     child: Stack(
@@ -1027,7 +1061,7 @@ class _PlayerPageState extends State<PlayerPage>
                         if (!_locked && _panel != _SidePanel.none)
                           _buildSidePanel(),
                         if (!_locked && _inParty) _buildPartyReactionsLayer(),
-                        if (_desktopMini) _buildDesktopMiniOverlay(),
+                        if (_compact) _buildDesktopMiniOverlay(),
                         // Last, so it covers everything: while a television is
                         // playing this episode the phone is a remote, and leaving the
                         // local controls reachable underneath would let someone
@@ -1060,14 +1094,21 @@ class _PlayerPageState extends State<PlayerPage>
       );
     }
     if (!isDesktopPlatform) return child;
-    return Focus(autofocus: true, onKeyEvent: _onPlayerKey, child: child);
+    return Focus(
+      focusNode: _keyFocus,
+      // Not when the page arrives in the corner: the keyboard stays with the
+      // page the viewer went to.
+      autofocus: !_docked,
+      onKeyEvent: _onPlayerKey,
+      child: child,
+    );
   }
 
   Widget _wrapHover(Widget child) {
     if (!isDesktopPlatform) return child;
     return MouseRegion(
       onHover: (_) => _revealControlsForHover(),
-      cursor: _controlsVisible || _desktopMini
+      cursor: _controlsVisible || _compact
           ? MouseCursor.defer
           : SystemMouseCursors.none,
       child: child,
@@ -1089,6 +1130,18 @@ class _PlayerPageState extends State<PlayerPage>
     if (_desktopMini && k == LogicalKeyboardKey.escape) {
       _toggleDesktopMini();
       return KeyEventResult.handled;
+    }
+    if (_docked) {
+      // In the corner, Esc hands the keyboard back to the page underneath
+      // instead of closing the video — PlayerDockHost takes it from here, as
+      // it knows where that page is — and I opens the full player again.
+      // Nothing that opens a sheet: there is no room for one.
+      if (k == LogicalKeyboardKey.escape) return KeyEventResult.ignored;
+      if (k == LogicalKeyboardKey.keyI) {
+        if (event is! KeyRepeatEvent) _expandFromDock();
+        return KeyEventResult.handled;
+      }
+      if (!_kDockKeys.contains(k)) return KeyEventResult.ignored;
     }
     for (final shortcut in _playerShortcuts) {
       if (!shortcut.keys.contains(k)) continue;
@@ -1240,14 +1293,19 @@ class _PlayerPageState extends State<PlayerPage>
       label: 'player.fullscreen'.tr(),
       onKey: (_) => _toggleFullscreen(),
     ),
-    // The mini window: above other windows, the same player at 426 wide.
+    // I: the corner player, which stays while the rest of the app is used.
+    // Shift+I: the whole window as a small always-on-top player, for watching
+    // over other apps — the only way above them, since a second window would
+    // need a second engine that cannot share this texture.
     // I rather than P, which is already the previous episode.
     _PlayerShortcut(
       keys: const [LogicalKeyboardKey.keyI],
-      hint: 'I',
-      label: 'player.pip'.tr(),
+      hint: 'I  ·  ⇧ I',
+      label: 'player.shortcut_pip'.tr(),
       available: isDesktopPlatform,
-      onKey: (_) => _toggleDesktopMini(),
+      onKey: (_) => _desktopMini || HardwareKeyboard.instance.isShiftPressed
+          ? _toggleDesktopMini()
+          : _openMiniPlayer(),
     ),
     _PlayerShortcut(
       keys: const [LogicalKeyboardKey.keyS],
@@ -1549,3 +1607,21 @@ const _kDecileKeys = <LogicalKeyboardKey>[
 /// (player_page.panels.dart): a key that landed between its rows would leave
 /// the sheet open with nothing selected.
 const _kKeyboardSpeeds = <double>[0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+/// What the keyboard can still do while the player is in the corner: play,
+/// seek, volume, mute and the episode keys. The rest open a sheet or change
+/// the window, and the corner has room for neither.
+const _kDockKeys = <LogicalKeyboardKey>[
+  LogicalKeyboardKey.space,
+  LogicalKeyboardKey.mediaPlayPause,
+  LogicalKeyboardKey.keyK,
+  LogicalKeyboardKey.arrowLeft,
+  LogicalKeyboardKey.arrowRight,
+  LogicalKeyboardKey.keyJ,
+  LogicalKeyboardKey.keyL,
+  LogicalKeyboardKey.arrowUp,
+  LogicalKeyboardKey.arrowDown,
+  LogicalKeyboardKey.keyM,
+  LogicalKeyboardKey.keyP,
+  LogicalKeyboardKey.keyN,
+];

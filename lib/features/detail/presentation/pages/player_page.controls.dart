@@ -230,6 +230,12 @@ extension _PlayerControls on _PlayerPageState {
       });
       return;
     }
+    // In the corner there is no route of this page's to pop: the page under
+    // the corner player belongs to the viewer, not to the player.
+    if (_docked) {
+      _closeDock();
+      return;
+    }
     if (context.canPop()) {
       context.pop();
     } else {
@@ -386,7 +392,62 @@ extension _PlayerControls on _PlayerPageState {
       !_isEncrypted &&
       TorrentStreamUrl.parse(_videoUrl) == null;
 
+  Widget _buildCompactStatus() {
+    final error = _errorMessage;
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: error == null
+            ? SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 48),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: Colors.white70,
+                        size: 22,
+                      ),
+                      const SizedBox(height: 6),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 260),
+                        child: Text(
+                          error,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
   Widget _buildVideoLayer() {
+    // The small player has no room for the loading card or the error card,
+    // whose buttons alone are taller than the corner box. A spinner, or the
+    // reason in a line or two; Try again and the other sources are one click
+    // away in the full player.
+    if (_compact && (_initializing || _errorMessage != null)) {
+      return _buildCompactStatus();
+    }
     if (_initializing) {
       return ColoredBox(
         color: Colors.black,
@@ -1417,14 +1478,17 @@ extension _PlayerControls on _PlayerPageState {
                         onTap: () => _openPanel(_SidePanel.episodes),
                       ),
                     ],
-                    // The mini window: this player at 426 wide, above every
-                    // other window. It had no button at all — the phone's PiP
+                    // The mini player: a tap docks it in a corner of the app,
+                    // a long press pops the whole window out above every other
+                    // window. It had no button at all — the phone's PiP
                     // control lives in the layout rows, which this row does
                     // not draw — so only the I key could reach it.
                     const SizedBox(width: 4),
                     _IconButton(
                       icon: Icons.picture_in_picture_alt_rounded,
-                      onTap: _toggleDesktopMini,
+                      onTap: _openMiniPlayer,
+                      onLongPress: _toggleDesktopMini,
+                      tooltip: 'player.mini_popout_hint'.tr(),
                     ),
                     const SizedBox(width: 4),
                     _IconButton(
@@ -1886,11 +1950,15 @@ extension _PlayerControls on _PlayerPageState {
       case 'pip':
         // `floating: ^6.0.0` ships an Android plugin and nothing else, and
         // _enterPip swallows the MissingPluginException, so on iOS this was a
-        // tap that did nothing. On the desktop it is the mini window.
+        // tap that did nothing. On the desktop a tap docks the player in a
+        // corner of the app, and a long press pops the window out above the
+        // others.
         if (isDesktopPlatform) {
           return _IconButton(
             icon: Icons.picture_in_picture_alt_rounded,
-            onTap: _toggleDesktopMini,
+            onTap: _openMiniPlayer,
+            onLongPress: _toggleDesktopMini,
+            tooltip: 'player.mini_popout_hint'.tr(),
           );
         }
         if (!isAndroidPlatform && !isIosPlatform) return null;
@@ -2082,7 +2150,9 @@ extension _PlayerControls on _PlayerPageState {
   /// Rebuilt from the controller's own notifier so the buffer and position
   /// rows move; everything else on the panel is steady between loads.
   Widget _buildPlayerInfoOverlay() {
-    if (!_showPlayerInfo) return const SizedBox.shrink();
+    // A panel sized for the full player; in the small one it would cover the
+    // picture.
+    if (!_showPlayerInfo || _compact) return const SizedBox.shrink();
     final c = _controller;
     if (c == null) return const SizedBox.shrink();
     return ValueListenableBuilder<VideoPlayerValue>(
