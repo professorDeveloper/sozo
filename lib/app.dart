@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/localization/app_language.dart';
 import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/core/player/player_dock.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_dock_host.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/app_lock/presentation/widgets/app_lock_overlay.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
@@ -193,10 +195,17 @@ class _MyAppState extends State<MyApp> {
             // keeps the whole navigation stack — a redirect would have thrown
             // away the pages below, and the `extra` arguments pages like the
             // player are opened with.
+            final routed = child ?? const SizedBox.shrink();
             final app = AppLockOverlay(
               child: ProfileGate(
                 child: AchievementCelebrationHost(
-                  child: child ?? const SizedBox.shrink(),
+                  // Desktop: the corner player lives here, above the
+                  // Navigator, so it keeps playing while pages change under
+                  // it. Inside the lock, which covers it too; below the title
+                  // bar, so its corners are the content area's.
+                  child: PlayerDock.supported
+                      ? PlayerDockHost(child: routed)
+                      : routed,
                 ),
               ),
             );

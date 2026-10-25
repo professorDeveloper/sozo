@@ -40,7 +40,7 @@ import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/presentation/pages/actor_page.dart';
 import 'package:soplay/features/detail/presentation/pages/detail_page.dart';
 import 'package:soplay/features/detail/presentation/pages/episodes_page.dart';
-import 'package:soplay/features/detail/presentation/pages/player_page.dart';
+import 'package:soplay/features/detail/presentation/pages/player_route.dart';
 import 'package:soplay/features/download/presentation/pages/downloads_page.dart';
 import 'package:soplay/features/history/presentation/pages/history_page.dart';
 import 'package:soplay/features/home/domain/entities/view_all.dart';
@@ -261,7 +261,9 @@ class AppRouter {
         path: '/player',
         builder: (context, state) {
           final args = state.extra as PlayerArgs;
-          return PlayerPage(args: args);
+          // Through PlayerRoute, which keys the page: on the desktop it may be
+          // the one already playing in the corner, handed back with its state.
+          return PlayerRoute(args: args);
         },
       ),
       GoRoute(

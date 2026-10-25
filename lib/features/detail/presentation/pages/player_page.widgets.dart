@@ -264,9 +264,13 @@ class _IconButton extends StatelessWidget {
     this.onLongPress,
     this.color,
     this.enabled = true,
+    this.tooltip,
   });
   final IconData icon;
   final VoidCallback onTap;
+
+  /// For a button whose long press is not obvious from its icon.
+  final String? tooltip;
 
   /// The long way round, for a control whose tap is a shortcut.
   ///
@@ -312,7 +316,7 @@ class _IconButton extends StatelessWidget {
     // pitch was already 44; the gap simply moves inside the button as
     // transparent padding. Callers therefore drop their SizedBox(width: 6) —
     // keeping both would double the spacing.
-    return _tvRing(
+    final Widget button = _tvRing(
       circle: true,
       SizedBox(
         width: 44,
@@ -337,6 +341,92 @@ class _IconButton extends StatelessWidget {
                   color: tint,
                   size: 20,
                   shadows: _kControlShadow,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final tip = tooltip;
+    return tip == null ? button : Tooltip(message: tip, child: button);
+  }
+}
+
+/// The small player's timeline: thin until the pointer is over it, and a
+/// click or a drag anywhere along it seeks. The full bar's frame preview and
+/// chapter marks have no room here.
+class _MiniSeekBar extends StatefulWidget {
+  const _MiniSeekBar({required this.controller, required this.onSeek});
+
+  final PlayerController controller;
+  final ValueChanged<Duration> onSeek;
+
+  @override
+  State<_MiniSeekBar> createState() => _MiniSeekBarState();
+}
+
+class _MiniSeekBarState extends State<_MiniSeekBar> {
+  bool _hover = false;
+
+  /// Where the pointer holds the bar, 0–1, while it is down.
+  double? _drag;
+
+  void _at(double dx, double width) =>
+      setState(() => _drag = width > 0 ? (dx / width).clamp(0.0, 1.0) : 0.0);
+
+  void _commit() {
+    final f = _drag;
+    final d = widget.controller.value.duration;
+    if (f != null && d > Duration.zero) widget.onSeek(d * f);
+    setState(() => _drag = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          // Claim the click for the bar. Without these the player's own tap
+          // (play/pause) and double tap (back to the full player) would fire
+          // under it as well.
+          onTap: () {},
+          onDoubleTap: () {},
+          // Raw pointer events for the seek itself, so it lands on release
+          // rather than after the double-tap timeout the claim above holds.
+          child: Listener(
+            onPointerDown: (e) => _at(e.localPosition.dx, box.maxWidth),
+            onPointerMove: (e) => _at(e.localPosition.dx, box.maxWidth),
+            onPointerUp: (_) => _commit(),
+            onPointerCancel: (_) => setState(() => _drag = null),
+            child: SizedBox(
+              height: 16,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: ListenableBuilder(
+                  listenable: widget.controller,
+                  builder: (_, _) {
+                    final v = widget.controller.value;
+                    final ms = v.duration.inMilliseconds;
+                    final f =
+                        _drag ??
+                        (ms > 0
+                            ? (v.position.inMilliseconds / ms).clamp(0.0, 1.0)
+                            : 0.0);
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: f,
+                        minHeight: _hover || _drag != null ? 5 : 3,
+                        backgroundColor: Colors.white24,
+                        valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
