@@ -741,6 +741,7 @@ class PreviewDiskCache {
   }
 
   static final Set<String> _pruned = {};
+  static Future<void> _pruning = Future<void>.value();
 
   static Future<void> save(String key, int bucket, Uint8List bytes) async {
     try {
@@ -749,7 +750,12 @@ class PreviewDiskCache {
       if (!await dir.exists()) {
         await dir.create(recursive: true);
         await _touch(dir);
-        if (_pruned.add(key)) unawaited(_prune(root));
+        if (_pruned.add(key)) {
+          // One prune at a time. Run side by side, two of them picked the
+          // same oldest folders; the second delete threw, and the catch
+          // around the loop gave up on the rest, leaving one too many.
+          _pruning = _pruning.then((_) => _prune(root));
+        }
       }
       await File('${dir.path}/$bucket.jpg').writeAsBytes(bytes, flush: false);
     } catch (_) {}
@@ -779,7 +785,11 @@ class PreviewDiskCache {
         for (final d in dirs) (d, await _usedAt(d)),
       ]..sort((a, b) => a.$2.compareTo(b.$2));
       for (final (d, _) in dated.take(dirs.length - maxEpisodes)) {
-        await d.delete(recursive: true);
+        // Each on its own: a folder already gone is no reason to keep the
+        // others.
+        try {
+          await d.delete(recursive: true);
+        } catch (_) {}
       }
     } catch (_) {}
   }
