@@ -1463,7 +1463,8 @@ extension _PlayerMedia on _PlayerPageState {
     // — the single funnel every playback path passes through — means Sozo's own
     // torrent search, a CloudStream plugin that returns a magnet, and a pasted
     // deeplink all behave identically, instead of each growing its own version.
-    final torrent = TorrentLinks.isTorrentLink(url);
+    final torrent =
+        TorrentLinks.isTorrentLink(url) || TorrentStreamUrl.parse(url) != null;
     if (torrent) {
       final handle = await TorrentPlayback.prepareLink(
         context,
@@ -1505,6 +1506,10 @@ extension _PlayerMedia on _PlayerPageState {
     if (!mounted || generation != _mediaGeneration) return;
     final effectiveUrl = proxied?.url ?? url;
     final effectiveHeaders = proxied?.headers ?? headers;
+    _downloadUpstream =
+        proxied != null && MediaSegmentRelay.needsManifestProxy(url)
+        ? (url: url, headers: headers)
+        : null;
 
     final fmt = isHls
         ? 'hls'

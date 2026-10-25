@@ -341,6 +341,31 @@ void main() {
       expect(judge(playing: false, completed: true), NetworkStall.fatal);
     });
 
+    test('is fatal when the cache carried the playhead past it first', () {
+      // Read-ahead kept playing for a minute after the drop, then ran dry.
+      expect(
+        judge(
+          position: const Duration(minutes: 11, seconds: 30),
+          playing: false,
+          completed: true,
+        ),
+        NetworkStall.fatal,
+      );
+    });
+
+    test('is fatal when a stream without a length ends on it', () {
+      expect(
+        judgeNetworkStall(
+          stalledAt: const Duration(minutes: 10),
+          position: const Duration(minutes: 12),
+          playing: false,
+          completed: true,
+          duration: Duration.zero,
+        ),
+        NetworkStall.fatal,
+      );
+    });
+
     test('is nothing at the real end of the file', () {
       expect(
         judge(

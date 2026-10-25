@@ -218,16 +218,19 @@ NetworkStall judgeNetworkStall({
   required bool completed,
   required Duration duration,
 }) {
+  // The end of file first: the cache keeps the playhead moving well past the
+  // stall, so a file the connection cut short has always "moved" by the time
+  // it ends. Without a length (a live stream) any end is the connection's.
+  if (completed) {
+    final early =
+        duration <= Duration.zero ||
+        position < duration - const Duration(seconds: 5);
+    return early ? NetworkStall.fatal : NetworkStall.recovered;
+  }
   // Either way: a viewer who seeked back past the stall and is watching again
   // has a stream that works, even though the playhead is behind where it was.
   if ((position - stalledAt).abs() > const Duration(seconds: 1)) {
     return NetworkStall.recovered;
-  }
-  if (completed) {
-    final early =
-        duration > Duration.zero &&
-        position < duration - const Duration(seconds: 5);
-    return early ? NetworkStall.fatal : NetworkStall.recovered;
   }
   return playing ? NetworkStall.fatal : NetworkStall.undecided;
 }

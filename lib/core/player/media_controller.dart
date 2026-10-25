@@ -667,6 +667,11 @@ class _MediaKitController extends PlayerController {
   /// A `tcp:` error ffmpeg logged that has not (yet) been judged fatal. See
   /// [_holdNetworkError].
   String? _heldNetworkError;
+
+  /// The last `tcp:` error since this stream opened. Judging a stall
+  /// recovered forgets [_heldNetworkError], but the file can still end early
+  /// on it once the cache runs dry.
+  String? _lastNetworkError;
   Duration _stalledAt = Duration.zero;
   Timer? _networkGraceTimer;
   final StreamController<void> _backendSwitches =
@@ -962,6 +967,7 @@ class _MediaKitController extends PlayerController {
   /// reported only if playback is still stuck after [_networkGrace].
   void _holdNetworkError(String e) {
     _heldNetworkError = e;
+    _lastNetworkError = e;
     if (!value.isInitialized) return;
     if (_networkGraceTimer?.isActive ?? false) return;
     _stalledAt = _player.state.position;
@@ -1022,8 +1028,9 @@ class _MediaKitController extends PlayerController {
           // An end of file right after a network error may be the connection
           // ending the file early rather than the episode ending: judge it now
           // instead of after the grace.
-          if (c && _heldNetworkError != null && value.isInitialized) {
-            _judgeNetworkStall();
+          if (c && value.isInitialized) {
+            _heldNetworkError ??= _lastNetworkError;
+            if (_heldNetworkError != null) _judgeNetworkStall();
           }
           _emit(value.copyWith(isCompleted: c));
         }),
@@ -1061,7 +1068,12 @@ class _MediaKitController extends PlayerController {
       )
       ..add(
         _player.stream.error.listen((e) {
-          if (e.startsWith('tcp:')) {
+          // A live stream has no length and no cache to ride out a stall
+          // on: once it plays, a dropped connection is reported at once so
+          // the page reconnects instead of showing a frozen picture.
+          if (e.startsWith('tcp:') &&
+              (!value.isInitialized ||
+                  _player.state.duration > Duration.zero)) {
             _holdNetworkError(e);
             return;
           }
