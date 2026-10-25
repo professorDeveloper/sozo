@@ -557,7 +557,11 @@
     "mini_restore": "Tam pencereye dön",
     "pip_unavailable": "Bu video için resim içinde resim başlatılamadı.",
     "scrub_release_cancel": "İptal için bırak",
-    "auto_quality_desc_mpv": "Yayının sunduğu en iyi kaliteyle başlar"
+    "auto_quality_desc_mpv": "Yayının sunduğu en iyi kaliteyle başlar",
+    "reconnecting": "Bağlantı koptu — yeniden bağlanılıyor…",
+    "all_servers_failed": "Bu içeriğin hiçbir sunucusu oynatamadı. Daha sonra tekrar dene veya başka bir kaynak seç.",
+    "shortcut_pip": "Mini oynatıcı (Shift: diğer uygulamaların üstünde)",
+    "mini_popout_hint": "Mini oynatıcı · diğer uygulamaların üstünde kalması için basılı tut"
   },
   "profile": {
     "title": "Profil",

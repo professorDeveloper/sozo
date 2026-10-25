@@ -557,7 +557,11 @@
     "mini_restore": "Revenir à la fenêtre complète",
     "pip_unavailable": "Impossible de lancer l’image dans l’image pour cette vidéo.",
     "scrub_release_cancel": "Relâchez pour annuler",
-    "auto_quality_desc_mpv": "Commence à la meilleure qualité du flux"
+    "auto_quality_desc_mpv": "Commence à la meilleure qualité du flux",
+    "reconnecting": "Connexion perdue — reconnexion…",
+    "all_servers_failed": "Aucun serveur de ce titre n’a pu le lire. Réessayez plus tard ou choisissez une autre source.",
+    "shortcut_pip": "Mini-lecteur (Maj : au-dessus des autres apps)",
+    "mini_popout_hint": "Mini-lecteur · appui long pour flotter au-dessus des autres apps"
   },
   "profile": {
     "title": "Profil",

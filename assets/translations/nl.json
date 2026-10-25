@@ -557,7 +557,11 @@
     "mini_restore": "Terug naar het volledige venster",
     "pip_unavailable": "Beeld-in-beeld kon voor deze video niet starten.",
     "scrub_release_cancel": "Loslaten om te annuleren",
-    "auto_quality_desc_mpv": "Begint op de beste kwaliteit van de stream"
+    "auto_quality_desc_mpv": "Begint op de beste kwaliteit van de stream",
+    "reconnecting": "Verbinding verbroken — opnieuw verbinden…",
+    "all_servers_failed": "Geen van de servers van deze titel kon hem afspelen. Probeer het later of kies een andere bron.",
+    "shortcut_pip": "Minispeler (Shift: boven andere apps)",
+    "mini_popout_hint": "Minispeler · lang indrukken om boven andere apps te zweven"
   },
   "profile": {
     "title": "Profiel",

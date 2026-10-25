@@ -12,10 +12,13 @@ extension _PlayerHistory on _PlayerPageState {
   /// and the session left no trace at all. Which is exactly the report.
   void _scheduleHistorySave() {
     _historyTimer?.cancel();
-    _historyTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    _historyTimer = Timer.periodic(const Duration(seconds: 5), (t) {
       // Quiet: this tick is for surviving a kill, not for the screens under
       // the player, which catch up from the save on pause and on exit.
-      _saveHistory(notify: false);
+      // Except once a minute while docked in the corner: then the screens
+      // under the player are the ones being looked at, and Continue Watching
+      // should keep up.
+      _saveHistory(notify: _docked && t.tick % 12 == 0);
       _jellyfinProgress();
       // Deliberately not inside _saveHistory: that returns early for a
       // finished episode, a title with no url and a session under ten seconds,

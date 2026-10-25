@@ -557,7 +557,11 @@
     "mini_restore": "Kembali ke jendela penuh",
     "pip_unavailable": "Gambar-dalam-gambar tidak bisa dimulai untuk video ini.",
     "scrub_release_cancel": "Lepas untuk membatalkan",
-    "auto_quality_desc_mpv": "Mulai dari kualitas terbaik yang tersedia"
+    "auto_quality_desc_mpv": "Mulai dari kualitas terbaik yang tersedia",
+    "reconnecting": "Koneksi terputus — menyambungkan ulang…",
+    "all_servers_failed": "Tidak ada server judul ini yang bisa memutarnya. Coba lagi nanti atau pilih sumber lain.",
+    "shortcut_pip": "Pemutar mini (Shift: di atas aplikasi lain)",
+    "mini_popout_hint": "Pemutar mini · tekan lama agar melayang di atas aplikasi lain"
   },
   "profile": {
     "title": "Profil",

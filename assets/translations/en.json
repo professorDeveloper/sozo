@@ -557,7 +557,11 @@
     "mini_restore": "Back to the full window",
     "pip_unavailable": "Picture-in-picture could not start for this video.",
     "scrub_release_cancel": "Release to cancel",
-    "auto_quality_desc_mpv": "Starts at the best quality the stream offers"
+    "auto_quality_desc_mpv": "Starts at the best quality the stream offers",
+    "reconnecting": "Connection lost — reconnecting…",
+    "all_servers_failed": "None of this title's servers would play it. Try again later, or pick another source.",
+    "shortcut_pip": "Mini player (Shift: above other apps)",
+    "mini_popout_hint": "Mini player · long-press to float above other apps"
   },
   "profile": {
     "title": "Profile",

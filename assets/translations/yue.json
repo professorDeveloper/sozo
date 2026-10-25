@@ -557,7 +557,11 @@
     "mini_restore": "返去大視窗",
     "pip_unavailable": "呢條片開唔到子母畫面。",
     "scrub_release_cancel": "鬆手就取消",
-    "auto_quality_desc_mpv": "由串流最好嘅畫質開始"
+    "auto_quality_desc_mpv": "由串流最好嘅畫質開始",
+    "reconnecting": "連線中斷 — 重新連線緊…",
+    "all_servers_failed": "呢個節目冇一個伺服器播到。遲啲再試，或者揀第二個來源。",
+    "shortcut_pip": "迷你播放器（Shift：喺其他 App 上面）",
+    "mini_popout_hint": "迷你播放器 · 長按令佢浮喺其他 App 上面"
   },
   "profile": {
     "title": "個人檔案",

@@ -557,7 +557,11 @@
     "mini_restore": "Zurück zum großen Fenster",
     "pip_unavailable": "Bild-in-Bild konnte für dieses Video nicht gestartet werden.",
     "scrub_release_cancel": "Loslassen zum Abbrechen",
-    "auto_quality_desc_mpv": "Startet mit der besten Qualität des Streams"
+    "auto_quality_desc_mpv": "Startet mit der besten Qualität des Streams",
+    "reconnecting": "Verbindung verloren — neu verbinden…",
+    "all_servers_failed": "Keiner der Server dieses Titels konnte ihn abspielen. Versuch es später oder wähl eine andere Quelle.",
+    "shortcut_pip": "Mini-Player (Umschalt: über anderen Apps)",
+    "mini_popout_hint": "Mini-Player · lange drücken, um über anderen Apps zu schweben"
   },
   "profile": {
     "title": "Profil",

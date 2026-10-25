@@ -557,7 +557,11 @@
     "mini_restore": "Volver a la ventana completa",
     "pip_unavailable": "No se pudo iniciar imagen en imagen para este vídeo.",
     "scrub_release_cancel": "Suelta para cancelar",
-    "auto_quality_desc_mpv": "Empieza con la mejor calidad que ofrece la emisión"
+    "auto_quality_desc_mpv": "Empieza con la mejor calidad que ofrece la emisión",
+    "reconnecting": "Conexión perdida — reconectando…",
+    "all_servers_failed": "Ninguno de los servidores de este título pudo reproducirlo. Inténtalo más tarde o elige otra fuente.",
+    "shortcut_pip": "Minirreproductor (Mayús: sobre otras apps)",
+    "mini_popout_hint": "Minirreproductor · mantén pulsado para que flote sobre otras apps"
   },
   "profile": {
     "title": "Perfil",

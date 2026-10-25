@@ -557,7 +557,11 @@
     "mini_restore": "Vegere pencereya tevahî",
     "pip_unavailable": "Wêne di nav wêneyê de ji bo vê vîdyoyê dest pê nekir.",
     "scrub_release_cancel": "Ji bo betalkirinê berde",
-    "auto_quality_desc_mpv": "Bi kalîteya herî baş a ku weşan pêşkêş dike dest pê dike"
+    "auto_quality_desc_mpv": "Bi kalîteya herî baş a ku weşan pêşkêş dike dest pê dike",
+    "reconnecting": "Girêdan qut bû — ji nû ve tê girêdan…",
+    "all_servers_failed": "Tu serverê vê sernavê nikarî wê bilîze. Paşê dîsa biceribîne an çavkaniyek din hilbijêre.",
+    "shortcut_pip": "Lîstikvana biçûk (Shift: li ser sepanên din)",
+    "mini_popout_hint": "Lîstikvana biçûk · dirêj bitikîne da ku li ser sepanên din bisekine"
   },
   "profile": {
     "title": "Profîl",
