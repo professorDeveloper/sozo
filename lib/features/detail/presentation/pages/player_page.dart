@@ -244,6 +244,12 @@ class _PlayerPageState extends State<PlayerPage>
   String? _currentQuality;
   String? _videoUrl;
 
+  /// The url and headers a download should take while [_videoUrl] is a local
+  /// proxy address that stops answering once the player closes. Only set when
+  /// the upstream needs no rewriting to play (the media-segment relay): a
+  /// signed or transformed CDN refuses it without the proxy.
+  ({String url, Map<String, String> headers})? _downloadUpstream;
+
   /// The url as it was handed to `_initializeWith`, before the WebView sniff
   /// and before the local proxy rewrote it.
   ///

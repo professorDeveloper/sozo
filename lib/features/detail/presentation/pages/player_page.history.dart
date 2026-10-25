@@ -340,6 +340,8 @@ extension _PlayerHistory on _PlayerPageState {
       currentUrl: _videoUrl,
       currentHeaders: _headers.isNotEmpty ? _headers : widget.args.headers,
       hasDirective: _extractorConfig != null,
+      currentUpstreamUrl: _downloadUpstream?.url,
+      currentUpstreamHeaders: _downloadUpstream?.headers ?? const {},
     );
     if (offers.isEmpty) return null;
     if (offers.length == 1) return offers.single;

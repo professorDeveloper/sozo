@@ -133,10 +133,8 @@ class DownloadRequestBuilder {
         headers: pick.headers,
         type: pick.type,
       );
-      if (await _isWebPage(probed)) {
-        return const VideoResolution.failed(DownloadBuildFailure.webPage);
-      }
-      return VideoResolution.resolved(media);
+      if (!await _isWebPage(probed)) return VideoResolution.resolved(media);
+      return _withoutWebPages(media, pick.url);
     }
 
     final candidates = <MediaResolveEntity>[];
@@ -199,6 +197,64 @@ class DownloadRequestBuilder {
       }
     }
     return const VideoResolution.failed(DownloadBuildFailure.needsPlayback);
+  }
+
+  /// The default mirror served a page, but another mirror may not: the
+  /// episode list fails only when every mirror does, and otherwise keeps the
+  /// ones that did not, so neither the quiet pick nor the sheet lands on it.
+  Future<VideoResolution> _withoutWebPages(
+    MediaResolveEntity media,
+    String refused,
+  ) async {
+    final sources = media.videoSources;
+    final pages = await Future.wait([
+      for (final s in sources)
+        s.videoUrl == refused
+            ? Future.value(true)
+            : _isWebPage(
+                MediaResolveEntity(
+                  videoUrl: s.videoUrl,
+                  headers: s.headers.isEmpty ? media.headers : s.headers,
+                  type: s.type,
+                ),
+              ),
+    ]);
+    final kept = [
+      for (var i = 0; i < sources.length; i++)
+        if (!pages[i]) sources[i],
+    ];
+    final top = media.videoUrl;
+    final topIsPage =
+        top == refused ||
+        (!kept.any((s) => s.videoUrl == top) &&
+            (sources.any((s) => s.videoUrl == top) ||
+                await _isWebPage(
+                  MediaResolveEntity(
+                    videoUrl: top,
+                    headers: media.headers,
+                    type: media.type,
+                  ),
+                )));
+    if (topIsPage && kept.isEmpty) {
+      return const VideoResolution.failed(DownloadBuildFailure.webPage);
+    }
+    final first = topIsPage ? kept.first : null;
+    return VideoResolution.resolved(
+      MediaResolveEntity(
+        videoUrl: first?.videoUrl ?? top,
+        type: first != null ? first.type : media.type,
+        headers: first != null && first.headers.isNotEmpty
+            ? first.headers
+            : media.headers,
+        videoSources: kept,
+        languagesAvailable: media.languagesAvailable,
+        activeLang: media.activeLang,
+        subtitles: media.subtitles,
+        thumbnails: media.thumbnails,
+        extractor: media.extractor,
+        live: media.live,
+      ),
+    );
   }
 
   /// A probe that throws is no answer, and no answer never blocks a download.
