@@ -33,6 +33,13 @@ class _PlayerRouteState extends State<PlayerRoute> {
   late final GlobalKey _pageKey;
   bool _ready = true;
 
+  /// Set once the page has gone to the corner. A docked page never comes back
+  /// to the route it left (restoring pushes a new one), so from then on this
+  /// route draws nothing, whatever the dock does during its exit transition:
+  /// restored, replaced or closed meanwhile, building the page again here
+  /// would put the key in two places or pull the page into a dying route.
+  bool _gaveAway = false;
+
   @override
   void initState() {
     super.initState();
@@ -62,9 +69,12 @@ class _PlayerRouteState extends State<PlayerRoute> {
       // as well would be the same GlobalKey in two places. Empty rather than
       // black, so the page underneath shows through the exit transition while
       // the picture shrinks into its corner.
-      builder: (context, _) => _dock.dockedKey == _pageKey
-          ? const SizedBox.expand()
-          : widget.pageBuilder(_pageKey, widget.args),
+      builder: (context, _) {
+        if (_dock.dockedKey == _pageKey) _gaveAway = true;
+        return _gaveAway
+            ? const SizedBox.expand()
+            : widget.pageBuilder(_pageKey, widget.args);
+      },
     );
   }
 }

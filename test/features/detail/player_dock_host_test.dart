@@ -321,6 +321,68 @@ void main() {
     expect(_events, ['init:A']);
   });
 
+  group('acting while the left route still animates away', () {
+    /// Opens "A" and docks it, stopping mid exit transition.
+    Future<void> dockMidway(WidgetTester tester, GoRouter router) async {
+      unawaited(router.push('/player', extra: _args('A')));
+      await tester.pumpAndSettle();
+      _state(tester).dock();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.takeException(), isNull);
+    }
+
+    testWidgets('restoring at once keeps one page', (tester) async {
+      final router = await _pumpApp(tester);
+      await dockMidway(tester, router);
+
+      PlayerDock.instance.expand();
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+
+      expect(_path(router), '/player');
+      expect(find.byType(_Probe), findsOneWidget);
+      expect(_events, ['init:A']);
+    }, variant: TargetPlatformVariant.desktop());
+
+    testWidgets(
+      'closing at once disposes it, and it stays gone',
+      (tester) async {
+        final router = await _pumpApp(tester);
+        await dockMidway(tester, router);
+
+        unawaited(PlayerDock.instance.close());
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(_Probe, skipOffstage: false), findsNothing);
+        expect(_events, ['init:A', 'dispose:A']);
+      },
+      variant: TargetPlatformVariant.desktop(),
+    );
+
+    testWidgets(
+      'another title disposes the docked one before it starts',
+      (tester) async {
+        final router = await _pumpApp(tester);
+        await dockMidway(tester, router);
+
+        unawaited(router.push('/player', extra: _args('B')));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        await tester.pumpAndSettle();
+
+        expect(_events, ['init:A', 'dispose:A', 'init:B']);
+        expect(find.text('probe B 0'), findsOneWidget);
+      },
+      variant: TargetPlatformVariant.desktop(),
+    );
+  });
+
   testWidgets('closing disposes the page', (tester) async {
     final router = await _pumpApp(tester);
     await _openAndDock(tester, router);

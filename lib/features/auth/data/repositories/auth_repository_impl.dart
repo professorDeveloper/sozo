@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:soplay/features/trakt/data/trakt_service.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/player/player_dock.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
 import 'package:soplay/features/stats/data/watch_stats_store.dart';
@@ -275,6 +276,10 @@ class AuthRepositoryImpl implements AuthRepository {
   /// writes to a real third-party list, so a leftover one would file the next
   /// person's viewing under a stranger's AniList or MyAnimeList profile.
   Future<void> _clearAccountScopedData() async {
+    // Before anything is wiped: the corner player saves its history as it
+    // closes, and once the rows below are gone that save would write the
+    // account's title back as nobody's, for the next account to adopt.
+    await PlayerDock.instance.close();
     await _hiveService.clearAuth();
     // First, so everything below clears the default profile's boxes, which
     // are the ones that stay on the device.

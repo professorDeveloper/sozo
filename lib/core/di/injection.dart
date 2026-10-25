@@ -1,3 +1,4 @@
+import 'package:soplay/core/player/player_dock.dart';
 import 'package:soplay/core/player/download_media_probe.dart';
 import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
@@ -410,7 +411,12 @@ Future<void> configureDependencies() async {
     ProfileSession(
       remote: getIt<ProfilesRemoteDataSource>(),
       isLoggedIn: () => getIt<HiveService>().isLoggedIn,
-      beforeSwitch: () => getIt<HistorySyncService>().settle(),
+      // The corner player first: closing it saves its history, which has to
+      // land in the profile it was watched in, before the sync settles.
+      beforeSwitch: () async {
+        await PlayerDock.instance.close();
+        await getIt<HistorySyncService>().settle();
+      },
       onScopeChanged: _onProfileScopeChanged,
     ),
   );
