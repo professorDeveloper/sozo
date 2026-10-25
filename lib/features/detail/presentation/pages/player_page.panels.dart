@@ -281,9 +281,12 @@ extension _PlayerPanels on _PlayerPageState {
     final pinned =
         source.height ?? VideoOptionGroups.resolutionOf(source.quality);
     if (pinned != null) return '${playing ?? pinned}p';
-    return _hasParsedSiblings(source.quality)
-        ? withPlaying
-        : _qualityLabel(source.quality);
+    if (!_hasParsedSiblings(source.quality)) return _qualityLabel(source.quality);
+    // On the platform player Auto is ExoPlayer's own ABR, and video_player
+    // reports only the size it started at. "Auto · 1080p" stayed on screen
+    // while the picture adapted down to the lowest rung, which is how
+    // "1080p looks like 480p" reached support. Plain Auto there.
+    return (c?.supportsVideoTracks ?? false) ? withPlaying : auto;
   }
 
   /// For the icon-only portrait row, where "Auto · 720p" does not fit: the

@@ -46,6 +46,73 @@ abstract final class RetryPolicy {
   /// Consecutive attempts on ONE source before moving on.
   static const int maxAttemptsPerSource = 2;
 
+  /// In-place reconnects after a mid-stream network drop, before the drop is
+  /// handed to the ordinary walk (another mirror, a re-resolve).
+  ///
+  /// A connection that went away — a lift, a tunnel, a cell handover — is not
+  /// a broken server, and the server that was playing a minute ago is the
+  /// likeliest to play again. log_2e4886 is a vidapi episode lost twice to
+  /// exactly this: the stream was fine, the phone's connection was not.
+  static const int maxNetworkReconnects = 3;
+
+  /// Played time after which a stream that dropped and came back has earned
+  /// a fresh [maxNetworkReconnects]. Without it a two-hour film on a patchy
+  /// connection would spend the budget on drops an hour apart.
+  static const Duration networkReconnectsRenewAfter = Duration(seconds: 60);
+
+  /// How long to wait before reconnecting after a network drop, by attempt.
+  ///
+  /// Long enough for a handover to finish, short enough that a viewer who
+  /// sees "reconnecting" is not left wondering whether anything is happening.
+  static Duration networkBackoff(int attempt) {
+    const steps = [2, 4, 8];
+    final i = attempt < 0 ? 0 : attempt;
+    return Duration(seconds: steps[i < steps.length ? i : steps.length - 1]);
+  }
+
+  /// The reconnects already spent, given [playedSinceLast] — the playing time
+  /// since the last one. Back to zero once the stream has run for
+  /// [networkReconnectsRenewAfter].
+  static int networkReconnectsSpent({
+    required int reconnects,
+    required Duration playedSinceLast,
+  }) => playedSinceLast >= networkReconnectsRenewAfter ? 0 : reconnects;
+
+  /// Whether [msg] says the connection went away, rather than that the server
+  /// refused or the file is bad.
+  ///
+  /// libmpv/ffmpeg ("tcp: ffurl_read returned 0xffffff92" — ETIMEDOUT —,
+  /// "Failed to resolve hostname", "Connection timed out"), Dio ("The
+  /// connection errored: Connection reset by peer") and AVFoundation (-1005,
+  /// -1009) each have their own words for it; these are the ones the support
+  /// logs show. ExoPlayer's "Source error" is deliberately absent: it says the
+  /// same for a 403 on an expired token, which reconnecting cannot fix.
+  static bool isNetworkDrop(String msg) {
+    final l = msg.toLowerCase();
+    return l.contains('ffurl_read') ||
+        l.contains('connection reset') ||
+        l.contains('connection timed out') ||
+        l.contains('connection errored') ||
+        l.contains('failed to resolve hostname') ||
+        l.contains('failed host lookup') ||
+        l.contains('network is unreachable') ||
+        l.contains('network connection was lost') ||
+        l.contains('-1005') ||
+        l.contains('-1009');
+  }
+
+  /// Whether a stream that was playing and lost its connection should be
+  /// re-opened where it was, on the same server, rather than walked away from.
+  ///
+  /// Not for live, which has its own reconnect loop, and only while the
+  /// in-place budget lasts; after that the drop is an ordinary recoverable
+  /// error and the ladder takes over.
+  static bool shouldReconnectInPlace({
+    required String message,
+    required bool isLive,
+    required int reconnects,
+  }) => !isLive && reconnects < maxNetworkReconnects && isNetworkDrop(message);
+
   /// How long to wait before reconnecting a dropped channel.
   ///
   /// Fast enough that a blip is invisible, backing off so a channel that is
@@ -103,6 +170,11 @@ abstract final class RetryPolicy {
         l.contains('timeout') ||
         l.contains('-1001') ||
         l.contains('-1005') ||
+        // The connection went away, not the file: another attempt — at the
+        // position the viewer had reached — is the answer. Before this a
+        // "tcp: ffurl_read returned 0xffffff92" a minute into a vidapi episode
+        // went straight to the error screen (log_2e4886).
+        isNetworkDrop(msg) ||
         l.contains('source error') ||
         l.contains('mediacodec') ||
         l.contains('decoder');

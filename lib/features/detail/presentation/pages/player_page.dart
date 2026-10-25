@@ -609,6 +609,16 @@ class _PlayerPageState extends State<PlayerPage>
 
   bool _autoRetrying = false;
 
+  /// Mid-stream network drops re-opened in place, and [_playbackWatch]'s
+  /// reading at the last one. See `_reconnectInPlace`.
+  int _networkReconnects = 0;
+  Duration _networkReconnectWatch = Duration.zero;
+
+  /// The last position the stream reported while playing cleanly. ExoPlayer
+  /// replaces its whole value on an error (position 0:00), so a retry that
+  /// read the controller restarted the episode from the beginning.
+  Duration _lastPlayedPosition = Duration.zero;
+
   /// Stream hosts already asked whether a Cloudflare challenge is what made
   /// them refuse — once each per player, since the answer costs a request.
   final Set<String> _cfChecked = {};

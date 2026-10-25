@@ -99,10 +99,45 @@ class PlaybackFault {
         lower.contains('nodeclaredbrand')) {
       return PlaybackFault(PlaybackFaultKind.sourceBlocked, raw: raw);
     }
-    if (lower.contains('http data source')) {
+    // A connection that dropped or never came up. Said as advice about the
+    // network in the viewer's language, rather than as ffmpeg's or Dio's
+    // English: img_2e4886 is Dio's "The connection errored: Connection reset
+    // by peer This indicates an error which most likely cannot be solved by
+    // the library." on the error screen, wrong about the remedy as well as in
+    // the wrong language.
+    if (lower.contains('http data source') ||
+        lower.contains('ffurl_read') ||
+        lower.contains('connection reset') ||
+        lower.contains('connection timed out') ||
+        lower.contains('connection errored') ||
+        lower.contains('failed to resolve hostname') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('network is unreachable') ||
+        lower.contains('network connection was lost')) {
       return PlaybackFault(PlaybackFaultKind.network, raw: raw);
     }
     return PlaybackFault(PlaybackFaultKind.unknown, raw: raw);
+  }
+
+  /// The key for what the error screen says once nothing is left to try, or
+  /// null to say what [classify] makes of [raw].
+  ///
+  /// The last failure alone is a poor summary of a walk across several
+  /// servers: four mirrors that each failed in their own way ended on the
+  /// fourth one's raw sentence, which reads as though only that one was
+  /// tried. A dropped connection is still named as such — it is the one cause
+  /// the viewer can do something about — and a start that never produced a
+  /// frame says so rather than quoting a Dart TimeoutException.
+  static String? exhaustedKey(
+    String raw, {
+    required bool timedOut,
+    required int serversTried,
+  }) {
+    final fault = classify(raw);
+    if (fault.kind == PlaybackFaultKind.network) return fault.messageKey;
+    if (serversTried > 1) return 'player.all_servers_failed';
+    if (timedOut) return 'player.resolve_timeout';
+    return null;
   }
 
   /// Whether the device cannot play this stream as encoded, so the browser is
