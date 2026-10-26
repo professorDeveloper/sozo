@@ -229,6 +229,11 @@ class _PlayerPageState extends State<PlayerPage>
   /// controls.
   bool _docked = false;
 
+  /// The window floated above the other apps by itself, when the viewer
+  /// switched away from a corner player (see [_floatWhenLeaving]). Leaving
+  /// the floating window puts the picture back in the corner it came from.
+  bool _floatedFromDock = false;
+
   /// Either compact form: the always-on-top window or the corner player.
   bool get _compact => _desktopMini || _docked;
 
@@ -803,6 +808,11 @@ class _PlayerPageState extends State<PlayerPage>
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
+        // Inactive is another app in front. Hidden is Cmd-H or the window
+        // gone entirely, where a floating player is the one thing not wanted.
+        if (isDesktopPlatform && state == AppLifecycleState.inactive) {
+          unawaited(_floatWhenLeaving());
+        }
         if (!isDesktopPlatform &&
             c.value.isInitialized &&
             c.value.isPlaying &&

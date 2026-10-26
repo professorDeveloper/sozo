@@ -189,6 +189,10 @@ extension _PlayerPip on _PlayerPageState {
       });
       _miniHover.value = false;
       await DesktopWindow.exitMini();
+      if (_floatedFromDock) {
+        _floatedFromDock = false;
+        if (mounted) await _dockToCorner();
+      }
       return;
     }
     final size = _controller?.value.size ?? Size.zero;
@@ -205,6 +209,29 @@ extension _PlayerPip on _PlayerPageState {
     });
     _controlsAnimation.reverse();
     await DesktopWindow.enterMini(aspect: aspect);
+  }
+
+  /// Switching to another app with a video playing floats it above that app,
+  /// as Telegram does: the window becomes the small always-on-top player.
+  /// It stays there until the viewer leaves it from its own controls, so a
+  /// click on it to pause does not throw it back to full size. A paused
+  /// video, a television playing it and the floating window itself are left
+  /// alone.
+  Future<void> _floatWhenLeaving() async {
+    if (!isDesktopPlatform || _desktopMini || !mounted) return;
+    if (_cast.isCasting) return;
+    final c = _controller;
+    if (c == null || !c.value.isInitialized || !c.value.isPlaying) return;
+    if (_docked) {
+      // The floating window shows this page; from the corner it is a box in
+      // another screen, so it comes back to its own route first.
+      _expandFromDock();
+      if (_docked) return;
+      _floatedFromDock = true;
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+    }
+    await _toggleDesktopMini();
   }
 
   /// The corner player, Telegram-style. This page leaves the route stack and
