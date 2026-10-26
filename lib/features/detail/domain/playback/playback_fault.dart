@@ -90,6 +90,8 @@ class PlaybackFault {
     if (lower.contains('mediacodec') ||
         lower.contains('could not open codec') ||
         lower.contains('decoder') ||
+        lower.contains('error decoding') ||
+        lower.contains('error while decoding') ||
         lower.contains('renderer')) {
       return PlaybackFault(PlaybackFaultKind.decoder, raw: raw);
     }

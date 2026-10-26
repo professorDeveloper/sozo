@@ -381,4 +381,11 @@ void main() {
       expect(judge(playing: false), NetworkStall.undecided);
     });
   });
+
+  test('a decoder line about one packet is a glitch, a codec that will not open is not', () {
+    expect(isDecodeGlitch('Error decoding audio.'), isTrue);
+    expect(isDecodeGlitch('[ffmpeg/video] h264: Error while decoding frame!'), isTrue);
+    expect(isDecodeGlitch('Could not open codec.'), isFalse);
+    expect(isDecodeGlitch('tcp: ffurl_read returned 0xffffff92'), isFalse);
+  });
 }

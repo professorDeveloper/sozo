@@ -1077,6 +1077,17 @@ class _MediaKitController extends PlayerController {
             _holdNetworkError(e);
             return;
           }
+          // One damaged audio or video packet once playing: mpv drops it and
+          // plays on (ad_lavc / vd_lavc), but media_kit forwards the line as
+          // an error, and reported it put a black card over a film that was
+          // still playing under it. Held like a network stall, it is only
+          // reported if playback really stops on it. Before the first frame
+          // it is reported at once, so a stream that cannot decode at all
+          // still moves on to another mirror.
+          if (value.isInitialized && isDecodeGlitch(e)) {
+            _holdNetworkError(e);
+            return;
+          }
           _reportError(e);
         }),
       );

@@ -234,3 +234,11 @@ NetworkStall judgeNetworkStall({
   }
   return playing ? NetworkStall.fatal : NetworkStall.undecided;
 }
+
+/// A decoder log line about one packet: "Error decoding audio." from mpv's
+/// ad_lavc, "Error while decoding frame" from ffmpeg. The decoder drops that
+/// packet and carries on, so the line alone says nothing about playback.
+bool isDecodeGlitch(String error) {
+  final l = error.toLowerCase();
+  return l.startsWith('error decoding') || l.contains('error while decoding');
+}

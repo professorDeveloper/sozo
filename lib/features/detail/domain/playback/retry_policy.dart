@@ -177,7 +177,8 @@ abstract final class RetryPolicy {
         isNetworkDrop(msg) ||
         l.contains('source error') ||
         l.contains('mediacodec') ||
-        l.contains('decoder');
+        l.contains('decoder') ||
+        l.contains('error decoding');
   }
 
   /// What to do about [message], given what has already been spent.
