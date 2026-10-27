@@ -69,6 +69,7 @@ import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/glass/media_glass.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/mal/data/mal_tracker.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';

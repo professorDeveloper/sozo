@@ -300,9 +300,10 @@ class _IconButton extends StatelessWidget {
     // still needed it: a bar button is a 20pt white glyph against whatever
     // frame is behind it, and on a bright shot 0.35 left it reading as a
     // smudge. Raised for legibility, not because the scrim is absent.
-    final fill = color != null
-        ? color!.withValues(alpha: 0.22)
-        : Colors.black.withValues(alpha: 0.45);
+    //
+    // On an iPhone that disc is clear glass with the same black laid in it
+    // ([MediaGlass]), so it keeps this contrast and gains the glass.
+    final fill = color?.withValues(alpha: 0.22);
     final tint = (color ?? Colors.white).withValues(
       alpha: enabled ? 1.0 : 0.38,
     );
@@ -329,18 +330,20 @@ class _IconButton extends StatelessWidget {
             onLongPress: enabled ? onLongPress : null,
             customBorder: const CircleBorder(),
             child: Center(
-              child: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
-                // 20 inside a 38pt disc. It was 18, which left 10pt of empty
-                // disc a side and read as a small mark in a large circle —
-                // half of why these looked flimsy over video.
-                child: Icon(
-                  icon,
-                  color: tint,
-                  size: 20,
-                  shadows: _kControlShadow,
+              child: MediaGlass(
+                dim: fill,
+                child: SizedBox(
+                  width: 38,
+                  height: 38,
+                  // 20 inside a 38pt disc. It was 18, which left 10pt of empty
+                  // disc a side and read as a small mark in a large circle —
+                  // half of why these looked flimsy over video.
+                  child: Icon(
+                    icon,
+                    color: tint,
+                    size: 20,
+                    shadows: _kControlShadow,
+                  ),
                 ),
               ),
             ),
@@ -501,35 +504,37 @@ class _LangPill extends StatelessWidget {
     // one this pill took D-pad focus with nothing to show for it.
     return _tvRing(
       radius: 20,
-      Material(
-        // The same 0.45 disc its _IconButton neighbours wear; at 0.35 it was
-        // the one washed-out shape in the row.
-        color: Colors.black.withValues(alpha: 0.45),
-        shape: const StadiumBorder(),
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const StadiumBorder(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.translate_rounded,
-                  color: Colors.white,
-                  size: 14,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: const TextStyle(
+      // The same 0.45 disc its _IconButton neighbours wear; at 0.35 it was the
+      // one washed-out shape in the row.
+      MediaGlass(
+        child: Material(
+          type: MaterialType.transparency,
+          shape: const StadiumBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const StadiumBorder(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.translate_rounded,
                     color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
+                    size: 14,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -574,35 +579,37 @@ class _CenterIconButton extends StatelessWidget {
       label: label,
       child: _tvRing(
         circle: true,
-        Material(
-          // These buttons sit at the vertical centre, where the scrim is fully
-          // transparent — 32% black left a white glyph invisible on a bright shot.
-          color: Colors.black.withValues(alpha: 0.45),
-          shape: const CircleBorder(),
-          child: InkWell(
-            onTap: enabled ? onTap : null,
-            focusNode: focusNode,
-            customBorder: const CircleBorder(),
-            child: SizedBox(
-              width: size,
-              height: size,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    color: enabled ? Colors.white : Colors.white38,
-                    size: iconSize,
-                    shadows: _kControlShadow,
-                  ),
-                  if (busy)
-                    const Positioned.fill(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: Colors.white70,
-                      ),
+        // These buttons sit at the vertical centre, where the scrim is fully
+        // transparent — 32% black left a white glyph invisible on a bright shot.
+        MediaGlass(
+          child: Material(
+            type: MaterialType.transparency,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: enabled ? onTap : null,
+              focusNode: focusNode,
+              customBorder: const CircleBorder(),
+              child: SizedBox(
+                width: size,
+                height: size,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      color: enabled ? Colors.white : Colors.white38,
+                      size: iconSize,
+                      shadows: _kControlShadow,
                     ),
-                ],
+                    if (busy)
+                      const Positioned.fill(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white70,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -652,11 +659,8 @@ class _BottomTextButton extends StatelessWidget {
         // exactly the "thin, low quality" the icon buttons beside it had
         // already been given a disc to fix; this is that disc, shaped for a
         // label instead of a glyph, at the same 0.45.
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.45),
-            borderRadius: BorderRadius.circular(10),
-          ),
+        MediaGlass(
+          radius: 10,
           child: InkWell(
             onTap: enabled ? onTap : null,
             borderRadius: BorderRadius.circular(10),
