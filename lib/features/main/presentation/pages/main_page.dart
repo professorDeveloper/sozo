@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../widgets/scroll_compact_navigation.dart';
 import 'dart:ui';
+import 'dart:ui' as ui show TextDirection;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
@@ -652,6 +653,20 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 /// refresh Showcase highlights the whole capsule (Shorts is the central tab),
 /// and double-tap-to-refresh becomes re-tapping the already-active Shorts tab
 /// (see [_MainPageState._handleTabTap]).
+/// The capsule bar on its own, solid so a test needs no shaders.
+@visibleForTesting
+Widget glassCapsuleForTest({
+  required int index,
+  required List<AppTabDef> items,
+  required ValueChanged<int> onTabSelected,
+}) => _SozoGlassCapsule(
+  index: index,
+  items: items,
+  glass: false,
+  shortsShowcaseKey: GlobalKey(),
+  onTabSelected: onTabSelected,
+);
+
 class _SozoGlassCapsule extends StatelessWidget {
   const _SozoGlassCapsule({
     required this.index,
@@ -740,76 +755,89 @@ class _SozoGlassCapsule extends StatelessWidget {
   Widget build(BuildContext context) {
     final density = NavigationDensity.of(context);
     final barHeight = _barHeight - 8 * density;
-    final bar = GlassTabBar.bottom(
-      tabs: [
-        for (final it in items)
-          GlassTab(
-            label: it.labelKey.tr(),
-            icon: Icon(it.icon, size: 24 - 2 * density),
-            activeIcon: Icon(it.activeIcon, size: 24 - 2 * density),
-          ),
-      ],
-      selectedIndex: index,
-      onTabSelected: onTabSelected,
-      // Outer Positioned(left:16,right:16) owns the float inset; the bar expands
-      // to fill it (tabWidth null) and its own padding is zeroed.
-      tabWidth: null,
-      horizontalPadding: 0,
-      verticalPadding: 0,
-      barHeight: barHeight,
-      iconSize: 24 - 2 * density,
-      barBorderRadius: barHeight / 2, // full capsule
-      iconLabelSpacing: 4 - density,
-      magnification: glass
-          ? 1.12 - .10 * density
-          : 1.0, // subtle iOS-26 lens on the selected tab
-      indicatorPinchStrength: glass ? .3 * (1 - density) : 0.0,
-      // The selected pill used to expand 4dp past the top and bottom of the
-      // 62dp capsule on every tap, clipping against the rim.
-      indicatorExpansion: EdgeInsets.symmetric(
-        horizontal: 12 - 6 * density,
-        vertical: 2 * (1 - density),
+    // In Arabic the package's tab Row follows the ambient direction and lays
+    // the tabs out right to left, but its tap, drag and indicator maths always
+    // count from the left edge. So each tap landed on the mirror-image tab:
+    // Home opened Profile, Search opened Downloads. The bar is therefore built
+    // left to right in every locale, and in RTL it is handed the tabs reversed
+    // with the index and the callback mirrored, which puts Home on the right
+    // where Arabic readers expect it. liquid_glass_widgets fixed this the same
+    // way upstream after 0.18.
+    final rtl = Directionality.of(context) == ui.TextDirection.rtl;
+    final last = items.length - 1;
+    final bar = Directionality(
+      textDirection: ui.TextDirection.ltr,
+      child: GlassTabBar.bottom(
+        tabs: [
+          for (final it in rtl ? items.reversed : items)
+            GlassTab(
+              label: it.labelKey.tr(),
+              icon: Icon(it.icon, size: 24 - 2 * density),
+              activeIcon: Icon(it.activeIcon, size: 24 - 2 * density),
+            ),
+        ],
+        selectedIndex: rtl ? last - index : index,
+        onTabSelected: rtl ? (i) => onTabSelected(last - i) : onTabSelected,
+        // Outer Positioned(left:16,right:16) owns the float inset; the bar expands
+        // to fill it (tabWidth null) and its own padding is zeroed.
+        tabWidth: null,
+        horizontalPadding: 0,
+        verticalPadding: 0,
+        barHeight: barHeight,
+        iconSize: 24 - 2 * density,
+        barBorderRadius: barHeight / 2, // full capsule
+        iconLabelSpacing: 4 - density,
+        magnification: glass
+            ? 1.12 - .10 * density
+            : 1.0, // subtle iOS-26 lens on the selected tab
+        indicatorPinchStrength: glass ? .3 * (1 - density) : 0.0,
+        // The selected pill used to expand 4dp past the top and bottom of the
+        // 62dp capsule on every tap, clipping against the rim.
+        indicatorExpansion: EdgeInsets.symmetric(
+          horizontal: 12 - 6 * density,
+          vertical: 2 * (1 - density),
+        ),
+        // Selected-tab pill: a soft, restrained light pill on the dark body —
+        // unless Appearance → "Colour the tab bar" is on, in which case the whole
+        // selected state moves onto the accent. Off by default: the white pill is
+        // a deliberate part of the shipped design, so it changes only when asked.
+        indicatorColor: AppColors.isNavTinted
+            ? AppColors.primary.withValues(alpha: glass ? 0.26 : 0.20)
+            : Color(glass ? 0x22FFFFFF : 0x18FFFFFF),
+        // `standard`, not `null`. Passing null does NOT mean "let the adaptive
+        // scope decide" — the package resolves it against a `premium` fallback,
+        // and the adaptive scope also *starts* at premium and only re-decides
+        // after 270 rastered frames. So every cold start ran the heaviest shader
+        // path, on every device, through the first tab switch and the first
+        // Shorts video — and premium is the tier the package's own source flags
+        // as the Mali/Impeller crash path.
+        //
+        // Standard fixes a second thing for free: `backerColor` (the near-opaque
+        // capsule pad below) is silently dropped on the premium grouped path and
+        // honoured on the lightweight one, so the capsule only now renders the
+        // design that was already written here. It is also the shader
+        // `LiquidGlassWidgets.initialize()` actually pre-warms.
+        quality: glass ? GlassQuality.standard : GlassQuality.minimal,
+        settings: glass ? _glassSettings : _solidSettings,
+        // primaryLight, not primary: a selected icon is a small glyph on a dark
+        // bar, and the lighter variant is the one that reads at that size.
+        selectedIconColor: AppColors.isNavTinted
+            ? AppColors.primaryLight
+            : Colors.white,
+        // #7A7A7A on the capsule body measured 4.14:1 — under the 4.5:1 WCAG AA
+        // floor that a 10.5px label has to clear. #949494 is 5.7:1.
+        unselectedIconColor: const Color(0xFF949494),
+        selectedLabelColor: AppColors.isNavTinted
+            ? AppColors.primaryLight
+            : Colors.white,
+        unselectedLabelColor: const Color(0xFF949494),
+        // Clamped, not raw. The packaged bar shrinks the WHOLE tab — icon
+        // included — to fit its label, and each tab scales independently, so at a
+        // large system text scale the icons ended up different sizes across the
+        // bar. Capping the scale at 1.2 keeps the row even; the label stays
+        // readable because it is a one-word tab name, not body copy.
+        labelFontSize: MediaQuery.textScalerOf(context).scale(12),
       ),
-      // Selected-tab pill: a soft, restrained light pill on the dark body —
-      // unless Appearance → "Colour the tab bar" is on, in which case the whole
-      // selected state moves onto the accent. Off by default: the white pill is
-      // a deliberate part of the shipped design, so it changes only when asked.
-      indicatorColor: AppColors.isNavTinted
-          ? AppColors.primary.withValues(alpha: glass ? 0.26 : 0.20)
-          : Color(glass ? 0x22FFFFFF : 0x18FFFFFF),
-      // `standard`, not `null`. Passing null does NOT mean "let the adaptive
-      // scope decide" — the package resolves it against a `premium` fallback,
-      // and the adaptive scope also *starts* at premium and only re-decides
-      // after 270 rastered frames. So every cold start ran the heaviest shader
-      // path, on every device, through the first tab switch and the first
-      // Shorts video — and premium is the tier the package's own source flags
-      // as the Mali/Impeller crash path.
-      //
-      // Standard fixes a second thing for free: `backerColor` (the near-opaque
-      // capsule pad below) is silently dropped on the premium grouped path and
-      // honoured on the lightweight one, so the capsule only now renders the
-      // design that was already written here. It is also the shader
-      // `LiquidGlassWidgets.initialize()` actually pre-warms.
-      quality: glass ? GlassQuality.standard : GlassQuality.minimal,
-      settings: glass ? _glassSettings : _solidSettings,
-      // primaryLight, not primary: a selected icon is a small glyph on a dark
-      // bar, and the lighter variant is the one that reads at that size.
-      selectedIconColor: AppColors.isNavTinted
-          ? AppColors.primaryLight
-          : Colors.white,
-      // #7A7A7A on the capsule body measured 4.14:1 — under the 4.5:1 WCAG AA
-      // floor that a 10.5px label has to clear. #949494 is 5.7:1.
-      unselectedIconColor: const Color(0xFF949494),
-      selectedLabelColor: AppColors.isNavTinted
-          ? AppColors.primaryLight
-          : Colors.white,
-      unselectedLabelColor: const Color(0xFF949494),
-      // Clamped, not raw. The packaged bar shrinks the WHOLE tab — icon
-      // included — to fit its label, and each tab scales independently, so at a
-      // large system text scale the icons ended up different sizes across the
-      // bar. Capping the scale at 1.2 keeps the row even; the label stays
-      // readable because it is a one-word tab name, not body copy.
-      labelFontSize: MediaQuery.textScalerOf(context).scale(12),
     );
 
     // The package drop shadow is light-mode only, so paint our own soft capsule
