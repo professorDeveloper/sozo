@@ -1012,6 +1012,24 @@ extension _PlayerControls on _PlayerPageState {
     );
   }
 
+  /// Locks the screen against touches until [_unlock]. A firm tap in the
+  /// hand says it took: the controls vanish with it, so nothing on screen
+  /// confirms it otherwise.
+  void _lock() {
+    if (isMobilePlatform) HapticFeedback.mediumImpact();
+    setState(() {
+      _locked = true;
+      _controlsVisible = false;
+      _controlsAnimation.reverse();
+      _hideTimer?.cancel();
+    });
+  }
+
+  void _unlock() {
+    if (isMobilePlatform) HapticFeedback.mediumImpact();
+    setState(() => _locked = false);
+  }
+
   Widget _buildLockOverlay() {
     return Positioned(
       bottom: 0,
@@ -1022,37 +1040,36 @@ extension _PlayerControls on _PlayerPageState {
           padding: const EdgeInsets.only(bottom: 24),
           child: Center(
             child: GestureDetector(
-              onTap: () => setState(() => _locked = false),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.15),
+              onTap: _unlock,
+              // Words on it, so the deeper dimming: white 12pt text keeps
+              // AA over a white frame.
+              child: MediaGlass(
+                radius: 24,
+                dim: Colors.black.withValues(alpha: 0.6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 10,
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.lock_rounded,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'player.tap_to_unlock'.tr(),
-                      style: const TextStyle(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.lock_rounded,
                         color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        size: 16,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Text(
+                        'player.tap_to_unlock'.tr(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1267,16 +1284,23 @@ extension _PlayerControls on _PlayerPageState {
     // indicator is on screen: this, or the ring on the play button.
     Widget? spinner;
     if (isBuffering) {
-      spinner = const IgnorePointer(
+      spinner = IgnorePointer(
         child: Center(
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2.8,
-            ),
-          ),
+          // The system's own spinner on an iPhone, as AVKit draws it over a
+          // stalled video; Material's ring everywhere else.
+          child: defaultTargetPlatform == TargetPlatform.iOS
+              ? const CupertinoActivityIndicator(
+                  radius: 16,
+                  color: Colors.white,
+                )
+              : const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.8,
+                  ),
+                ),
         ),
       );
       if (!isDesktopPlatform) {
@@ -1868,15 +1892,7 @@ extension _PlayerControls on _PlayerPageState {
         // tap target the D-pad cannot reach; the button is landscape-only for
         // that reason, not for room.
         if (_isPortrait) return null;
-        return _IconButton(
-          icon: Icons.lock_rounded,
-          onTap: () => setState(() {
-            _locked = true;
-            _controlsVisible = false;
-            _controlsAnimation.reverse();
-            _hideTimer?.cancel();
-          }),
-        );
+        return _IconButton(icon: Icons.lock_rounded, onTap: _lock);
       case 'stats':
         return _IconButton(
           icon: Icons.info_rounded,
@@ -2003,12 +2019,7 @@ extension _PlayerControls on _PlayerPageState {
           label: 'player.lock'.tr(),
           compact: compact,
           enabled: true,
-          onTap: () => setState(() {
-            _locked = true;
-            _controlsVisible = false;
-            _controlsAnimation.reverse();
-            _hideTimer?.cancel();
-          }),
+          onTap: _lock,
         );
       case 'previous':
         if (!a.hasEpisodes) return null;

@@ -29,6 +29,8 @@ import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:floating/floating.dart';
 import 'package:gal/gal.dart';
+import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
