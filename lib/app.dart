@@ -2,6 +2,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/material.dart';
+import 'package:soplay/core/glass/glass_power.dart';
+import 'package:soplay/core/glass/glass_sense.dart';
 import 'package:soplay/features/profiles/presentation/widgets/profile_gate.dart';
 import 'package:soplay/core/localization/borrowed_localizations.dart';
 import 'package:flutter/services.dart';
@@ -196,16 +198,23 @@ class _MyAppState extends State<MyApp> {
             // away the pages below, and the `extra` arguments pages like the
             // player are opened with.
             final routed = child ?? const SizedBox.shrink();
-            final app = AppLockOverlay(
-              child: ProfileGate(
-                child: AchievementCelebrationHost(
-                  // Desktop: the corner player lives here, above the
-                  // Navigator, so it keeps playing while pages change under
-                  // it. Inside the lock, which covers it too; below the title
-                  // bar, so its corners are the content area's.
-                  child: PlayerDock.supported
-                      ? PlayerDockHost(child: routed)
-                      : routed,
+            // What every glass under it reads: whether an Android phone can
+            // spend the refraction, and whether an iPhone asks for Reduce
+            // Transparency. Both answer nothing elsewhere.
+            final app = GlassPower(
+              child: GlassSense(
+                child: AppLockOverlay(
+                  child: ProfileGate(
+                    child: AchievementCelebrationHost(
+                      // Desktop: the corner player lives here, above the
+                      // Navigator, so it keeps playing while pages change
+                      // under it. Inside the lock, which covers it too; below
+                      // the title bar, so its corners are the content area's.
+                      child: PlayerDock.supported
+                          ? PlayerDockHost(child: routed)
+                          : routed,
+                    ),
+                  ),
                 ),
               ),
             );

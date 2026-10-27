@@ -63,6 +63,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var platformChannel: MethodChannel? = null
     private var downloadChannel: MethodChannel? = null
     private var systemControlsChannel: MethodChannel? = null
+    private var glassPower: GlassPower? = null
     private var deeplinkSettingsChannel: MethodChannel? = null
     private var pipReceiver: BroadcastReceiver? = null
     private var notificationPermissionResult: MethodChannel.Result? = null
@@ -150,6 +151,10 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // Whether this phone draws the glass's refraction or its blur.
+        glassPower = GlassPower(applicationContext).also {
+            it.attach(flutterEngine.dartExecutor.binaryMessenger)
+        }
         // Home screen widgets: the app sends a snapshot to draw, and hears
         // about taps that opened it.
         homeWidgetChannel = MethodChannel(
@@ -1466,6 +1471,8 @@ class MainActivity : FlutterFragmentActivity() {
         // being destroyed does not mean playback is over (PiP, rotation).
         // Only the channel is detached.
         TorrentServerBridge.dispose()
+        glassPower?.detach()
+        glassPower = null
         // Unlike the torrent server, these must go: a decoder and a DRM session
         // left open outlive the texture they were drawing into, and on devices
         // with one secure decoder that is the next playback failing to start.
