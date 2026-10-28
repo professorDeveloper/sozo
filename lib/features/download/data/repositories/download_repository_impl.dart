@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:soplay/features/download/data/subtitle_sidecar.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/network/external_dio.dart';
+import 'package:soplay/core/network/media_request_headers.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/detail/domain/playback/wakelock_holds.dart';
@@ -507,6 +508,26 @@ class DownloadRepositoryImpl implements DownloadRepository {
     await _startInProcess(current);
   }
 
+  /// The headers a video transfer goes out with: the ones the player sends
+  /// for the same url (see [mediaRequestHeaders]), the item's own on top.
+  ///
+  /// The item keeps only what the source declared, and that is usually a
+  /// Referer and nothing else. Sent as it was, the Android service fetched
+  /// under `Dalvik/2.1.0` and the in-process engine under `dart:io`'s agent,
+  /// and a host that answers a bare client with a page instead of a status
+  /// failed the download as "a web page" while the same episode played. Added
+  /// here, at start, so a row queued before this rule gets it on its retry.
+  ///
+  /// Chapters keep their own: their images carry per-page headers, merged by
+  /// the transfer.
+  @visibleForTesting
+  static Map<String, String> transferHeaders(DownloadItem item) {
+    if (item.kind == DownloadKind.manga) return item.headers;
+    final uri = Uri.tryParse(item.sourceUrl);
+    if (uri == null || !uri.hasScheme) return item.headers;
+    return mediaRequestHeaders(uri, item.headers, provider: item.provider);
+  }
+
   Future<void> _startNative(DownloadItem item) async {
     // Asked for, not required. Declining the Android 13 prompt used to stop
     // the download entirely, with nothing on screen saying why.
@@ -518,7 +539,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
       title: item.title,
       url: item.sourceUrl,
       artefactPath: _storage.absoluteOf(item.relativePath),
-      headers: item.headers,
+      headers: transferHeaders(item),
       kind: item.kind.id,
       pageUrls: item.pageUrls,
       imageHeaders: item.imageHeaders,
@@ -555,7 +576,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
         kind: item.kind,
         sourceUrl: item.sourceUrl,
         videoHeight: item.videoHeight,
-        headers: item.headers,
+        headers: transferHeaders(item),
         pageUrls: item.pageUrls,
         chapterHtml: item.chapterHtml,
         imageHeaders: item.imageHeaders,

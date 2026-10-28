@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:soplay/core/network/media_request_headers.dart';
 import 'package:soplay/core/network/web_page_sniff.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 
@@ -49,7 +50,17 @@ class DownloadMediaProbe {
             media.videoUrl,
             cancelToken: cancel,
             options: Options(
-              headers: {...media.headers, 'Range': 'bytes=0-2047'},
+              // What the downloader will send, not what this client adds by
+              // default: a probe that passed under a browser's agent while the
+              // transfer went out under a bare one cleared a url that then
+              // failed in the list as a web page.
+              headers: {
+                ...mediaRequestHeaders(
+                  Uri.parse(media.videoUrl),
+                  media.headers,
+                ),
+                'Range': 'bytes=0-2047',
+              },
               responseType: ResponseType.stream,
               sendTimeout: timeout,
               receiveTimeout: timeout,

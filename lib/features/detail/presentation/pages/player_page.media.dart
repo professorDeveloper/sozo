@@ -2,15 +2,6 @@
 part of 'player_page.dart';
 
 extension _PlayerMedia on _PlayerPageState {
-  String? _defaultRefererFor(String provider) {
-    switch (provider.toLowerCase()) {
-      case 'asilmedia':
-        return 'https://asilmedia.org/';
-      default:
-        return null;
-    }
-  }
-
   bool _isHlsType(String? type) {
     final t = type?.trim().toLowerCase();
     return t == 'hls' || t == 'm3u8';
@@ -29,7 +20,8 @@ extension _PlayerMedia on _PlayerPageState {
   }
 
   /// The headers a network stream is requested with: the app's defaults, then
-  /// whatever the source asked for on top.
+  /// whatever the source asked for on top (see [mediaRequestHeaders], which
+  /// the downloader shares).
   ///
   /// Nothing at all for loopback — the local HLS proxy already carries the
   /// upstream headers, and it is our own server.
@@ -38,16 +30,11 @@ extension _PlayerMedia on _PlayerPageState {
     Map<String, String> sourceHeaders,
   ) {
     if (uri.host == '127.0.0.1' || uri.host == 'localhost') return {};
-    final merged = <String, String>{
-      'User-Agent': kSozoUserAgent,
-      'Accept': '*/*',
-      'Accept-Language': 'uz,ru;q=0.9,en;q=0.8',
-    };
-    final defaultReferer = _defaultRefererFor(widget.args.provider);
-    if (defaultReferer != null) merged['Referer'] = defaultReferer;
-    merged.addAll(sourceHeaders);
-    addFetchMetadata(merged, uri);
-    return merged;
+    return mediaRequestHeaders(
+      uri,
+      sourceHeaders,
+      provider: widget.args.provider,
+    );
   }
 
   /// The same headers, plus any Cloudflare clearance already earned for this
