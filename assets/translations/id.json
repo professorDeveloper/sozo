@@ -1401,6 +1401,8 @@
     "download_batch_body": "Episode {range} akan diantrekan — total {count}. Lewat data seluler ini bisa beberapa gigabita.",
     "relations": "Judul terkait",
     "no_relations": "Tidak ditemukan judul yang terkait dengan yang ini.",
+    "relation_tmdb_collection": "SERI YANG SAMA",
+    "relation_tmdb_recommended": "DIREKOMENDASIKAN",
     "relation_sequel": "SEKUEL",
     "relation_prequel": "PREKUEL",
     "relation_parent": "CERITA UTAMA",

@@ -1401,6 +1401,8 @@
     "download_batch_body": "Afleveringen {range} komen in de wachtrij — {count} in totaal. Via mobiele data kan dit meerdere gigabytes zijn.",
     "relations": "Verwante titels",
     "no_relations": "Er zijn geen verwante titels bij deze gevonden.",
+    "relation_tmdb_collection": "ZELFDE REEKS",
+    "relation_tmdb_recommended": "AANBEVOLEN",
     "relation_sequel": "VERVOLG",
     "relation_prequel": "VOORGESCHIEDENIS",
     "relation_parent": "HOOFDVERHAAL",

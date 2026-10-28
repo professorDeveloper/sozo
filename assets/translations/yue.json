@@ -1401,6 +1401,8 @@
     "download_batch_body": "第 {range} 集會排隊下載 — 一共 {count} 集。用流動數據可能會用幾個 GB。",
     "relations": "相關作品",
     "no_relations": "搵唔到同呢套相關嘅作品。",
+    "relation_tmdb_collection": "同系列",
+    "relation_tmdb_recommended": "推薦",
     "relation_sequel": "續篇",
     "relation_prequel": "前傳",
     "relation_parent": "本篇故事",

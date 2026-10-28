@@ -1401,6 +1401,8 @@
     "download_batch_body": "Die Folgen {range} werden eingereiht — {count} insgesamt. Über mobile Daten können das mehrere Gigabyte sein.",
     "relations": "Verwandte Titel",
     "no_relations": "Zu diesem Titel wurden keine verwandten Titel gefunden.",
+    "relation_tmdb_collection": "GLEICHE REIHE",
+    "relation_tmdb_recommended": "EMPFOHLEN",
     "relation_sequel": "FORTSETZUNG",
     "relation_prequel": "VORGESCHICHTE",
     "relation_parent": "HAUPTGESCHICHTE",

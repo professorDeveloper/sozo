@@ -1401,6 +1401,8 @@
     "download_batch_body": "{range} arası bölümler sıraya alınacak — toplam {count}. Mobil veride bu birkaç gigabayt olabilir.",
     "relations": "İlgili yapımlar",
     "no_relations": "Buna ilgili bir yapım bulunamadı.",
+    "relation_tmdb_collection": "AYNI SERİ",
+    "relation_tmdb_recommended": "ÖNERİLENLER",
     "relation_sequel": "DEVAM",
     "relation_prequel": "ÖNCESİ",
     "relation_parent": "ANA HİKÂYE",

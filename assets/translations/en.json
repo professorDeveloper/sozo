@@ -1401,6 +1401,8 @@
     "download_batch_body": "Episodes {range} will be queued — {count} in all. On mobile data this can be several gigabytes.",
     "relations": "Relations",
     "no_relations": "No related titles found for this one.",
+    "relation_tmdb_collection": "SAME SERIES",
+    "relation_tmdb_recommended": "RECOMMENDED",
     "relation_sequel": "SEQUEL",
     "relation_prequel": "PREQUEL",
     "relation_parent": "PARENT STORY",

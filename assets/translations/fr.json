@@ -1401,6 +1401,8 @@
     "download_batch_body": "Les épisodes {range} seront mis en file — {count} au total. En données mobiles, cela peut représenter plusieurs gigaoctets.",
     "relations": "Titres liés",
     "no_relations": "Aucun titre lié à celui-ci n’a été trouvé.",
+    "relation_tmdb_collection": "MÊME SAGA",
+    "relation_tmdb_recommended": "RECOMMANDÉS",
     "relation_sequel": "SUITE",
     "relation_prequel": "PRÉQUELLE",
     "relation_parent": "HISTOIRE PRINCIPALE",

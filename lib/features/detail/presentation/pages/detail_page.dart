@@ -554,6 +554,10 @@ class _DetailViewState extends State<_DetailView>
             provider: detail.provider,
             contentUrl: detail.contentUrl,
             title: detail.title,
+            year: detail.year,
+            isSerial: detail.isSerial,
+            tmdbId: detail.record?.tmdbId,
+            anilistId: detail.record?.anilistId,
           ),
           'Cast' => DetailCastTab(cast: detail.cast, director: detail.director),
           'Comments' => DetailCommentsTab(

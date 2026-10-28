@@ -1401,6 +1401,8 @@
     "download_batch_body": "ستُضاف الحلقات {range} إلى القائمة — {count} في المجموع. على بيانات الجوال قد يبلغ ذلك عدّة جيجابايت.",
     "relations": "أعمال مرتبطة",
     "no_relations": "لم يُعثر على أعمال مرتبطة بهذا.",
+    "relation_tmdb_collection": "من نفس السلسلة",
+    "relation_tmdb_recommended": "مقترحات",
     "relation_sequel": "التتمة",
     "relation_prequel": "الجزء السابق",
     "relation_parent": "القصة الأصلية",

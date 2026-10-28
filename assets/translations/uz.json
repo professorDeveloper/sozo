@@ -1401,6 +1401,8 @@
     "download_batch_body": "{range} epizodlar navbatga qo‘yiladi — jami {count} ta. Mobil internetda bu bir necha gigabayt bo‘lishi mumkin.",
     "relations": "Bog‘liq",
     "no_relations": "Bunga bog‘liq asar topilmadi.",
+    "relation_tmdb_collection": "SHU TURKUMDAN",
+    "relation_tmdb_recommended": "TAVSIYA ETILADI",
     "relation_sequel": "DAVOMI",
     "relation_prequel": "OLDINGI QISM",
     "relation_parent": "ASOSIY HIKOYA",

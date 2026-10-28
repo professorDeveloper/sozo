@@ -1401,6 +1401,8 @@
     "download_batch_body": "ئەڵقەکانی {range} دەخرێنە ڕیز — بە گشتی {count}. بە داتای مۆبایل ئەمە دەتوانێت چەند گیگابایتێک بێت.",
     "relations": "پەیوەندییەکان",
     "no_relations": "هیچ ناونیشانێکی پەیوەندیدار بۆ ئەمە نەدۆزرایەوە.",
+    "relation_tmdb_collection": "هەمان زنجیرە",
+    "relation_tmdb_recommended": "پێشنیارکراو",
     "relation_sequel": "درێژەپێدەر",
     "relation_prequel": "پێشینە",
     "relation_parent": "چیرۆکی سەرەکی",

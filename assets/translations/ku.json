@@ -1401,6 +1401,8 @@
     "download_batch_body": "Beşên {range} dê bikevin rêzê — bi tevahî {count}. Bi daneyên mobîl ev dikare çend gîgabayt be.",
     "relations": "Têkilî",
     "no_relations": "Ji bo vê tu sernavên têkildar nehatin dîtin.",
+    "relation_tmdb_collection": "HEMAN RÊZE",
+    "relation_tmdb_recommended": "PÊŞNIYARKIRÎ",
     "relation_sequel": "DOMAHÎ",
     "relation_prequel": "BERÎ",
     "relation_parent": "ÇÎROKA SEREKE",

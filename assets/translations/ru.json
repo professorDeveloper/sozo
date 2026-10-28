@@ -1401,6 +1401,8 @@
     "download_batch_body": "В очередь встанут серии {range} — всего {count}. На мобильном интернете это может быть несколько гигабайт.",
     "relations": "Связанное",
     "no_relations": "Связанных тайтлов не найдено.",
+    "relation_tmdb_collection": "ТА ЖЕ СЕРИЯ",
+    "relation_tmdb_recommended": "РЕКОМЕНДУЕМ",
     "relation_sequel": "ПРОДОЛЖЕНИЕ",
     "relation_prequel": "ПРИКВЕЛ",
     "relation_parent": "ОСНОВНАЯ ИСТОРИЯ",
