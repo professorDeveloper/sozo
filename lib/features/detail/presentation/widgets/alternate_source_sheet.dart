@@ -14,6 +14,7 @@ import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/matching/title_match.dart';
 import 'package:soplay/core/network/image_headers.dart';
+import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/detail/data/source_choice_store.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -221,6 +222,12 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// underneath the sheet the viewer was looking at. From the outside it was a
   /// Play button that did nothing at all.
   ({String provider, String message})? _failed;
+
+  /// True while Auto is going down the list looking for one that plays.
+  bool _auto = false;
+
+  /// Auto went through every match and none could be played from here.
+  bool _autoMissed = false;
 
   /// How the run ended, so the empty state can say which kind of empty.
   AlternateSearchOutcome? _outcome;
@@ -444,6 +451,117 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     Navigator.of(context).pop(args);
   }
 
+  /// Auto: the first source, best match first, that can actually be played.
+  ///
+  /// The list asked the viewer to pick a row and press it, and when that
+  /// source had the show but not the episode, to pick the next. Auto does
+  /// that walk itself — corrections first, then the matches it can trust in
+  /// score order, taking each source as it answers rather than waiting for
+  /// the slowest.
+  Future<void> _runAuto() async {
+    if (_auto || _preparing != null) return;
+    setState(() {
+      _auto = true;
+      _autoMissed = false;
+      _failed = null;
+    });
+    final service = getIt<AlternateSourceService>();
+    final tried = <String>{};
+    while (mounted) {
+      _Row? next;
+      for (final r in _rows) {
+        if (tried.contains(r.provider.id)) continue;
+        if (r.chosen || r.source.isTrustworthy) {
+          next = r;
+          break;
+        }
+      }
+      if (next == null) {
+        if (!_searching) break;
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+        continue;
+      }
+      tried.add(next.provider.id);
+      setState(() => _preparing = next!.provider.id);
+      final args = await service.buildArgs(
+        source: next.source,
+        episodeNumber: widget.episodeNumber,
+        seasonEpisode: widget.seasonEpisode,
+        resumeAt: widget.resumeAt,
+      );
+      if (!mounted) return;
+      if (args != null) {
+        Navigator.of(context).pop(args);
+        return;
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _auto = false;
+      _preparing = null;
+      _autoMissed = true;
+    });
+  }
+
+  /// The row that offers [_runAuto], above the matches.
+  Widget _autoTile() {
+    final subtitle = _autoMissed
+        ? 'player.alt_auto_missed'.tr()
+        : _auto && _preparing != null
+        ? 'player.alt_auto_trying'.tr(args: [_nameOf(_preparing!)])
+        : 'player.alt_auto_hint'.tr();
+    return ListTile(
+      onTap: _auto || _preparing != null ? null : _runAuto,
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          Icons.auto_awesome_rounded,
+          color: AppColors.primary,
+          size: 20,
+        ),
+      ),
+      title: Text(
+        'player.alt_auto'.tr(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: _autoMissed ? AppColors.error : Colors.white54,
+          fontSize: 12,
+        ),
+      ),
+      trailing: _auto
+          ? SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primary,
+              ),
+            )
+          : const Icon(Icons.play_arrow_rounded, color: Colors.white70),
+    );
+  }
+
+  String _nameOf(String providerId) {
+    for (final r in _rows) {
+      if (r.provider.id == providerId) return r.provider.name;
+    }
+    return providerId;
+  }
+
   /// Hand the question to the viewer: search this one source, take their pick.
   ///
   /// Remembered before the row is redrawn, so the correction is already on disk
@@ -540,6 +658,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
             child: ListView(
               shrinkWrap: true,
               children: [
+                if (!_reads && (list.isNotEmpty || _searching)) _autoTile(),
                 if (list.isNotEmpty) _matchGrid(list),
                 if (list.isEmpty) _emptyBlock(),
                 if (quiet.isNotEmpty) ..._silentSection(quiet),
