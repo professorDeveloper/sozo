@@ -1066,6 +1066,10 @@
     "forgot_pin": "PIN-kodni unutdingizmi?"
   },
   "my_list": {
+    "sort": "Saralash",
+    "sort_added": "Yaqinda qo‘shilgan",
+    "sort_oldest": "Avval qo‘shilgan",
+    "sort_title": "Nomi A–Z",
     "saved_account": "Akkauntga saqlangan",
     "saved_local": "Faqat shu qurilmada",
     "untitled": "Nomsiz",
@@ -1465,6 +1469,8 @@
     "offline_desc": "Saqlangan ro'yxat ko'rsatilmoqda. Oflayn faqat yuklab olingan qismlar ochiladi.",
     "filter_hint": "Epizod raqami yoki nomi",
     "all_groups": "Barcha guruhlar",
+    "season_n": "{}-mavsum",
+    "specials": "Maxsus qismlar",
     "filter_none": "Bu blokda “{query}” ga mos epizod yo‘q",
     "jump_to": "{n}-epizodga o‘tish",
     "jump_loads": "{range} yuklanadi",

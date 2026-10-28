@@ -816,7 +816,7 @@ class _EpisodeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = episode.label.trim().isEmpty
-        ? 'player.episode_n'.tr(args: ['${episode.episode}'])
+        ? 'player.episode_n'.tr(args: [episode.numberLabel])
         : episode.label;
     return InkWell(
       borderRadius: BorderRadius.circular(12),

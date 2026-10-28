@@ -1066,6 +1066,10 @@
     "forgot_pin": "Forgot PIN?"
   },
   "my_list": {
+    "sort": "Sort",
+    "sort_added": "Recently added",
+    "sort_oldest": "Oldest added",
+    "sort_title": "Title A–Z",
     "saved_account": "Saved to account",
     "saved_local": "On this device",
     "untitled": "Untitled",
@@ -1465,6 +1469,8 @@
     "offline_desc": "Showing the saved list. Only downloaded episodes open offline.",
     "filter_hint": "Episode number or title",
     "all_groups": "All groups",
+    "season_n": "Season {}",
+    "specials": "Specials",
     "filter_none": "No episode matching “{query}” in this block",
     "jump_to": "Go to episode {n}",
     "jump_loads": "Loads {range}",

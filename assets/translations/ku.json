@@ -1066,6 +1066,10 @@
     "forgot_pin": "Te PIN ji bîr kir?"
   },
   "my_list": {
+    "sort": "Rêzkirin",
+    "sort_added": "Nû hatine zêdekirin",
+    "sort_oldest": "Kevntirîn hatine zêdekirin",
+    "sort_title": "Sernav A–Z",
     "saved_account": "Li hesabê hat tomarkirin",
     "saved_local": "Li ser vê cîhazê",
     "untitled": "Bê sernav",
@@ -1465,6 +1469,8 @@
     "offline_desc": "Lîsteya tomarkirî tê nîşandan. Tenê beşên daxistî offline vedibin.",
     "filter_hint": "Hejmar an sernavê beşê",
     "all_groups": "Hemû kom",
+    "season_n": "Demsala {}",
+    "specials": "Taybet",
     "filter_none": "Di vê blokê de tu beş li “{query}” nayê",
     "jump_to": "Biçe beşa {n}",
     "jump_loads": "{range} bar dike",

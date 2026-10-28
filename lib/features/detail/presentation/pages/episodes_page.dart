@@ -18,6 +18,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/data/title_prefs_store.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
+import 'package:soplay/features/detail/domain/episode_seasons.dart';
 import 'package:soplay/features/manga/data/chapter_read_store.dart';
 import 'package:soplay/features/detail/domain/entities/episodes_args.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -203,6 +204,49 @@ class _EpisodesPageState extends State<EpisodesPage> {
     }
   }
 
+  /// The season the list shows, for a source that lists several in one run.
+  /// Null until picked: the season of the episode being watched, else the
+  /// first.
+  int? _season;
+
+  /// The seasons among the loaded episodes, in order, with their counts.
+  List<(int, int)> get _seasons => EpisodeSeasons.of(_episodes);
+
+  /// The season on screen, or null when the run has only one.
+  int? get _activeSeason {
+    final seasons = _seasons;
+    if (seasons.length < 2) return null;
+    final picked = _season;
+    if (picked != null && seasons.any((s) => s.$1 == picked)) return picked;
+    final watching = _indexOfHistoryEpisode();
+    if (watching >= 0) {
+      final s = _episodes[watching].season;
+      if (s != null) return s;
+    }
+    return seasons.first.$1;
+  }
+
+  void _setSeason(int season) {
+    if (season == _activeSeason) return;
+    setState(() {
+      _season = season;
+      _invalidateDerived();
+    });
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  /// Puts the season holding [index] on screen, so a row being flashed or
+  /// played from history is in the list to be seen.
+  void _showSeasonOf(int index) {
+    if (index < 0 || index >= _episodes.length) return;
+    final s = _episodes[index].season;
+    if (s == null || s == _activeSeason) return;
+    setState(() {
+      _season = s;
+      _invalidateDerived();
+    });
+  }
+
   List<EpisodeBlock>? _blocksCache;
 
   /// Which block the reader is looking at, as opposed to where the window
@@ -253,6 +297,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
   Future<void> _focusOn(int number) async {
     final index = _episodes.indexWhere((e) => e.episode == number);
     if (index >= 0) {
+      _showSeasonOf(index);
       _flashRow(index, hold: const Duration(milliseconds: 3200));
       return;
     }
@@ -545,7 +590,12 @@ class _EpisodesPageState extends State<EpisodesPage> {
     final group = _group != null && _groups.any((g) => g.$1 == _group)
         ? _group
         : null;
-    bool inGroup(int i) => group == null || _episodes[i].scanlator == group;
+    // A typed search looks through every season: "Chapter 6" is wherever it
+    // is, not only in the season on screen.
+    final season = _query.isEmpty ? _activeSeason : null;
+    bool inGroup(int i) =>
+        (group == null || _episodes[i].scanlator == group) &&
+        (season == null || _episodes[i].season == season);
     if (_query.isEmpty) {
       return [
         for (var i = 0; i < _episodes.length; i++)
@@ -1242,6 +1292,15 @@ class _EpisodesPageState extends State<EpisodesPage> {
                               activePage: _activePage,
                               busy: _jumping,
                               onPick: _jumpToBlock,
+                            ),
+                          ),
+                        // Seasons, when the source lists them all in one run.
+                        if (_seasons.length > 1)
+                          SliverToBoxAdapter(
+                            child: _SeasonStrip(
+                              seasons: _seasons,
+                              selected: _activeSeason,
+                              onPick: _setSeason,
                             ),
                           ),
                         // Translation groups, when the source lists more than
@@ -2048,7 +2107,8 @@ String episodeRowTitle(EpisodeEntity episode) {
   // it threw during build, which took the whole episode list down rather than
   // one row's title.
   final number = match.group(1) ?? match.group(2);
-  if (number != null && int.tryParse(number) == episode.episode) {
+  if (number != null &&
+      int.tryParse(number) == (episode.numberInSeason ?? episode.episode)) {
     return '';
   }
   return label;
@@ -2148,7 +2208,7 @@ class _EpisodeRow extends StatelessWidget {
                   if (showImage) ...[
                     _EpisodeThumb(
                       image: episode.image,
-                      episode: episode.episode,
+                      episode: episode.numberInSeason ?? episode.episode,
                       headers: headers,
                     ),
                     const SizedBox(width: 12),
@@ -2164,7 +2224,9 @@ class _EpisodeRow extends StatelessWidget {
                     ConstrainedBox(
                       constraints: const BoxConstraints(minWidth: 44),
                       child: Text(
-                        _episodeNumberLabel(episode.episode),
+                        _episodeNumberLabel(
+                          episode.numberInSeason ?? episode.episode,
+                        ),
                         maxLines: 1,
                         style: TextStyle(
                           color: progress != null
@@ -2762,6 +2824,60 @@ class _GroupStrip extends StatelessWidget {
           chip('episodes.all_groups'.tr(), active == null, () => onPick(null)),
           for (final (name, count) in groups)
             chip('$name · $count', active == name, () => onPick(name)),
+        ],
+      ),
+    );
+  }
+}
+
+/// One chip per season, for a source that lists every season in one run.
+class _SeasonStrip extends StatelessWidget {
+  const _SeasonStrip({
+    required this.seasons,
+    required this.selected,
+    required this.onPick,
+  });
+
+  final List<(int, int)> seasons;
+  final int? selected;
+  final ValueChanged<int> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 46,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+        children: [
+          for (final (season, count) in seasons)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 8),
+              child: ChoiceChip(
+                label: Text(
+                  '${season == 0 ? 'episodes.specials'.tr() : 'episodes.season_n'.tr(args: ['$season'])} · $count',
+                  maxLines: 1,
+                ),
+                selected: season == selected,
+                showCheckmark: false,
+                onSelected: (_) => onPick(season),
+                selectedColor: AppColors.primary.withValues(alpha: 0.22),
+                backgroundColor: AppColors.surface,
+                side: BorderSide(
+                  color: season == selected
+                      ? AppColors.primary
+                      : AppColors.border,
+                  width: 0.8,
+                ),
+                labelStyle: TextStyle(
+                  color: season == selected
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                ),
+              ),
+            ),
         ],
       ),
     );

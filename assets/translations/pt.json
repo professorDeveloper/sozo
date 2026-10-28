@@ -1066,6 +1066,10 @@
     "forgot_pin": "Esqueceu o PIN?"
   },
   "my_list": {
+    "sort": "Ordenar",
+    "sort_added": "Adicionados recentemente",
+    "sort_oldest": "Adicionados primeiro",
+    "sort_title": "Título A–Z",
     "saved_account": "Salvo na conta",
     "saved_local": "Neste dispositivo",
     "untitled": "Sem título",
@@ -1465,6 +1469,8 @@
     "offline_desc": "Lista salva. Offline, só os episódios baixados abrem.",
     "filter_hint": "Número ou título do episódio",
     "all_groups": "Todos os grupos",
+    "season_n": "Temporada {}",
+    "specials": "Especiais",
     "filter_none": "Nenhum episódio corresponde a “{query}” neste bloco",
     "jump_to": "Ir para o episódio {n}",
     "jump_loads": "Carrega {range}",

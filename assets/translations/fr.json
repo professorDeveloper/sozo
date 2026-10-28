@@ -1066,6 +1066,10 @@
     "forgot_pin": "Code oublié ?"
   },
   "my_list": {
+    "sort": "Trier",
+    "sort_added": "Ajoutés récemment",
+    "sort_oldest": "Ajoutés en premier",
+    "sort_title": "Titre A–Z",
     "saved_account": "Enregistré sur le compte",
     "saved_local": "Sur cet appareil",
     "untitled": "Sans titre",
@@ -1465,6 +1469,8 @@
     "offline_desc": "Liste enregistrée. Hors ligne, seuls les épisodes téléchargés s’ouvrent.",
     "filter_hint": "Numéro ou titre de l’épisode",
     "all_groups": "Tous les groupes",
+    "season_n": "Saison {}",
+    "specials": "Épisodes spéciaux",
     "filter_none": "Aucun épisode ne correspond à « {query} » dans ce bloc",
     "jump_to": "Aller à l’épisode {n}",
     "jump_loads": "Charge {range}",

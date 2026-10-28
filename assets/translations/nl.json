@@ -1066,6 +1066,10 @@
     "forgot_pin": "Pincode vergeten?"
   },
   "my_list": {
+    "sort": "Sorteren",
+    "sort_added": "Recent toegevoegd",
+    "sort_oldest": "Eerst toegevoegd",
+    "sort_title": "Titel A–Z",
     "saved_account": "Opgeslagen in account",
     "saved_local": "Op dit apparaat",
     "untitled": "Zonder titel",
@@ -1465,6 +1469,8 @@
     "offline_desc": "Bewaarde lijst. Offline openen alleen gedownloade afleveringen.",
     "filter_hint": "Afleveringsnummer of titel",
     "all_groups": "Alle groepen",
+    "season_n": "Seizoen {}",
+    "specials": "Specials",
     "filter_none": "Geen aflevering die past bij “{query}” in dit blok",
     "jump_to": "Naar aflevering {n}",
     "jump_loads": "Laadt {range}",

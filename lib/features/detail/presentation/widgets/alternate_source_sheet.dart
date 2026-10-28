@@ -64,6 +64,7 @@ class AlternateSourceSheet extends StatefulWidget {
     required this.provider,
     required this.category,
     required this.episodeNumber,
+    this.seasonEpisode,
     this.resumeAt = Duration.zero,
   }) : candidates = null,
        choices = null;
@@ -81,6 +82,7 @@ class AlternateSourceSheet extends StatefulWidget {
     required this.provider,
     required this.category,
     required this.episodeNumber,
+    this.seasonEpisode,
     this.resumeAt = Duration.zero,
     required this.candidates,
     required this.choices,
@@ -90,6 +92,10 @@ class AlternateSourceSheet extends StatefulWidget {
   final String provider;
   final String category;
   final int? episodeNumber;
+
+  /// The episode's season and its number in that season, when the source
+  /// playing it lists seasons — see [AlternateSourceService.buildArgs].
+  final SeasonEpisode? seasonEpisode;
 
   /// Where the viewer is now, carried onto the source they pick.
   ///
@@ -110,6 +116,7 @@ class AlternateSourceSheet extends StatefulWidget {
     required String provider,
     required String category,
     required int? episodeNumber,
+    SeasonEpisode? seasonEpisode,
     Duration resumeAt = Duration.zero,
   }) async {
     final picked = await _open(
@@ -118,6 +125,7 @@ class AlternateSourceSheet extends StatefulWidget {
       provider: provider,
       category: category,
       episodeNumber: episodeNumber,
+      seasonEpisode: seasonEpisode,
       resumeAt: resumeAt,
     );
     return picked is PlayerArgs ? picked : null;
@@ -149,6 +157,7 @@ class AlternateSourceSheet extends StatefulWidget {
     required String provider,
     required String category,
     required int? episodeNumber,
+    SeasonEpisode? seasonEpisode,
     Duration resumeAt = Duration.zero,
   }) {
     return showAdaptiveModal<Object>(
@@ -163,6 +172,7 @@ class AlternateSourceSheet extends StatefulWidget {
         provider: provider,
         category: category,
         episodeNumber: episodeNumber,
+        seasonEpisode: seasonEpisode,
         resumeAt: resumeAt,
       ),
     );
@@ -220,8 +230,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// the same list the automatic one used.
   List<ProviderEntity> _candidates = const [];
 
-  late final SourceChoiceStore _choices =
-      widget.choices ?? SourceChoiceStore();
+  late final SourceChoiceStore _choices = widget.choices ?? SourceChoiceStore();
 
   /// The viewer's corrections for this title, by provider id.
   final Map<String, SourceChoice> _corrections = {};
@@ -377,9 +386,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
             (!_reads || p.id.contentMode == widget.provider.contentMode))
           p,
     ];
-    out.sort(
-      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-    );
+    out.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     return out;
   }
 
@@ -416,6 +423,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     final args = await getIt<AlternateSourceService>().buildArgs(
       source: source,
       episodeNumber: widget.episodeNumber,
+      seasonEpisode: widget.seasonEpisode,
       resumeAt: widget.resumeAt,
     );
     if (!mounted) return;
@@ -586,151 +594,150 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     // escape hatch away from exactly the reader most likely to need it.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ColoredBox(
-                      color: const Color(0xFF1C1C1C),
-                      child: poster == null || poster.isEmpty
-                          ? const Icon(
-                              Icons.image_not_supported_outlined,
-                              color: Colors.white24,
-                              size: 22,
-                            )
-                          : CachedNetworkImage(
-                              imageUrl: poster,
-                              httpHeaders: posterImageHeaders(poster),
-                              fit: BoxFit.cover,
-                              fadeInDuration: const Duration(milliseconds: 180),
-                              errorWidget: (_, _, _) => const Icon(
-                                Icons.broken_image_outlined,
-                                color: Colors.white24,
-                                size: 22,
-                              ),
-                            ),
-                    ),
-                    // A scrim under the play mark and the badges, so both stay
-                    // legible on a bright cover as well as a dark one.
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0x99000000), Color(0x00000000)],
-                          stops: [0, 0.55],
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: busy
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white70,
-                              ),
-                            )
-                          : Icon(
-                              // A manga opens to be read, not played.
-                              _reads
-                                  ? Icons.menu_book_rounded
-                                  : Icons.play_circle_fill_rounded,
-                              color: Colors.white70,
-                              size: 34,
-                            ),
-                    ),
-                    Positioned.fill(
-                      child: Material(
-                        color: Colors.transparent,
-                        child: Semantics(
-                          button: true,
-                          label:
-                              '${row.provider.name}, ${row.source.item.title}',
-                          child: InkWell(
-                            onTap: enabled ? () => _pick(row.source) : null,
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ColoredBox(
+                  color: const Color(0xFF1C1C1C),
+                  child: poster == null || poster.isEmpty
+                      ? const Icon(
+                          Icons.image_not_supported_outlined,
+                          color: Colors.white24,
+                          size: 22,
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: poster,
+                          httpHeaders: posterImageHeaders(poster),
+                          fit: BoxFit.cover,
+                          fadeInDuration: const Duration(milliseconds: 180),
+                          errorWidget: (_, _, _) => const Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.white24,
+                            size: 22,
                           ),
                         ),
-                      ),
-                    ),
-                    PositionedDirectional(
-                      top: 4,
-                      start: 4,
-                      child: Wrap(spacing: 4, children: _badge(row)),
-                    ),
-                    // On the tile that failed, over its own poster, where the
-                    // finger already is.
-                    if (failure != null)
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.82),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.error_outline_rounded,
-                                  color: Colors.white70,
-                                  size: 22,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  failure,
-                                  textAlign: TextAlign.center,
-                                  maxLines: 4,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    height: 1.25,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    // The escape hatch keeps its own target in the corner: the
-                    // tile's own tap is still "play this", and a cover that
-                    // opened a search when somebody meant to watch would be a
-                    // worse bug than the one it is here to fix.
-                    PositionedDirectional(
-                      top: 0,
-                      end: 0,
-                      child: _wrongTitleButton(row.provider),
-                    ),
-                  ],
                 ),
-              ),
+                // A scrim under the play mark and the badges, so both stay
+                // legible on a bright cover as well as a dark one.
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x99000000), Color(0x00000000)],
+                      stops: [0, 0.55],
+                    ),
+                  ),
+                ),
+                Center(
+                  child: busy
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white70,
+                          ),
+                        )
+                      : Icon(
+                          // A manga opens to be read, not played.
+                          _reads
+                              ? Icons.menu_book_rounded
+                              : Icons.play_circle_fill_rounded,
+                          color: Colors.white70,
+                          size: 34,
+                        ),
+                ),
+                Positioned.fill(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Semantics(
+                      button: true,
+                      label: '${row.provider.name}, ${row.source.item.title}',
+                      child: InkWell(
+                        onTap: enabled ? () => _pick(row.source) : null,
+                      ),
+                    ),
+                  ),
+                ),
+                PositionedDirectional(
+                  top: 4,
+                  start: 4,
+                  child: Wrap(spacing: 4, children: _badge(row)),
+                ),
+                // On the tile that failed, over its own poster, where the
+                // finger already is.
+                if (failure != null)
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.82),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              color: Colors.white70,
+                              size: 22,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              failure,
+                              textAlign: TextAlign.center,
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                height: 1.25,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                // The escape hatch keeps its own target in the corner: the
+                // tile's own tap is still "play this", and a cover that
+                // opened a search when somebody meant to watch would be a
+                // worse bug than the one it is here to fix.
+                PositionedDirectional(
+                  top: 0,
+                  end: 0,
+                  child: _wrongTitleButton(row.provider),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              row.provider.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            // The source's own title for the show, not ours. Two catalogues
-            // spell the same series differently, and seeing which one this
-            // source means is how the viewer tells a real match from a near
-            // miss before committing.
-            Text(
-              row.source.item.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          row.provider.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        // The source's own title for the show, not ours. Two catalogues
+        // spell the same series differently, and seeing which one this
+        // source means is how the viewer tells a real match from a near
+        // miss before committing.
+        Text(
+          row.source.item.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: Colors.white54, fontSize: 11.5),
         ),
       ],
@@ -789,11 +796,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
             child: const SizedBox(
               width: 48,
               height: 48,
-              child: Icon(
-                Icons.edit_outlined,
-                color: Colors.white70,
-                size: 17,
-              ),
+              child: Icon(Icons.edit_outlined, color: Colors.white70, size: 17),
             ),
           ),
         ),

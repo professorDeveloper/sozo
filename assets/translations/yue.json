@@ -1066,6 +1066,10 @@
     "forgot_pin": "唔記得 PIN？"
   },
   "my_list": {
+    "sort": "排序",
+    "sort_added": "最近加入",
+    "sort_oldest": "最早加入",
+    "sort_title": "標題 A–Z",
     "saved_account": "已存入帳戶",
     "saved_local": "喺呢部裝置",
     "untitled": "冇標題",
@@ -1465,6 +1469,8 @@
     "offline_desc": "顯示緊儲低咗嘅清單。離線時淨係開到已下載嘅集數。",
     "filter_hint": "集數或者標題",
     "all_groups": "所有字幕組",
+    "season_n": "第 {} 季",
+    "specials": "特別篇",
     "filter_none": "呢一段冇符合「{query}」嘅集數",
     "jump_to": "去第 {n} 集",
     "jump_loads": "載入 {range}",

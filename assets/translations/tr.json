@@ -1066,6 +1066,10 @@
     "forgot_pin": "PIN’ini mi unuttun?"
   },
   "my_list": {
+    "sort": "Sırala",
+    "sort_added": "Son eklenenler",
+    "sort_oldest": "İlk eklenenler",
+    "sort_title": "Başlık A–Z",
     "saved_account": "Hesaba kaydedildi",
     "saved_local": "Bu cihazda",
     "untitled": "Başlıksız",
@@ -1465,6 +1469,8 @@
     "offline_desc": "Kayıtlı liste gösteriliyor. Çevrimdışıyken yalnızca indirilen bölümler açılır.",
     "filter_hint": "Bölüm numarası veya adı",
     "all_groups": "Tüm gruplar",
+    "season_n": "{}. Sezon",
+    "specials": "Özel bölümler",
     "filter_none": "Bu blokta “{query}” ile eşleşen bölüm yok",
     "jump_to": "{n}. bölüme git",
     "jump_loads": "{range} yüklenir",

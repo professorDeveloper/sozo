@@ -109,6 +109,7 @@ class AlternateSourceService {
   Stream<AlternateSource> find({
     required String title,
     required String excludeProvider,
+
     /// The provider the title is being read on. Its id, not its category:
     /// the kind is derived from the id because that is the only value that is
     /// unambiguous for catalogues and extensions alike — see [_kindAllows].
@@ -300,6 +301,7 @@ class AlternateSourceService {
   Future<PlayerArgs?> buildArgs({
     required AlternateSource source,
     required int? episodeNumber,
+    SeasonEpisode? seasonEpisode,
     Duration resumeAt = Duration.zero,
   }) async {
     final playback = (await _episodes(
@@ -316,7 +318,12 @@ class AlternateSourceService {
       if (episodes.isEmpty) return null;
       var window = playback;
       var index = 0;
-      if (episodeNumber != null && episodeNumber > 0) {
+      final bySeason = seasonEpisode == null
+          ? -1
+          : indexOfSeasonEpisode(episodes, seasonEpisode);
+      if (bySeason >= 0) {
+        index = bySeason;
+      } else if (episodeNumber != null && episodeNumber > 0) {
         index = episodes.indexWhere((e) => e.episode == episodeNumber);
         if (index < 0) {
           // Only the first page came back — a hundred episodes. Episode 240
@@ -399,4 +406,26 @@ class AlternateSourceService {
     }
     return null;
   }
+}
+
+/// An episode as a season and its number in that season: S2E1.
+typedef SeasonEpisode = ({int season, int number});
+
+/// Where [wanted] is in [episodes], or -1.
+///
+/// The run's own numbering is a position in one source's list — S2E1 is
+/// episode 11 on a source whose first season has ten — so between two
+/// sources that list seasons the season and its number are what agree. A
+/// source that lists no seasons can only be matched on a first season.
+@visibleForTesting
+int indexOfSeasonEpisode(List<EpisodeEntity> episodes, SeasonEpisode wanted) {
+  if (episodes.any((e) => e.season != null)) {
+    return episodes.indexWhere(
+      (e) =>
+          e.season == wanted.season &&
+          (e.numberInSeason ?? e.episode) == wanted.number,
+    );
+  }
+  if (wanted.season != 1) return -1;
+  return episodes.indexWhere((e) => e.episode == wanted.number);
 }

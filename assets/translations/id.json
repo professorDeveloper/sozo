@@ -1066,6 +1066,10 @@
     "forgot_pin": "Lupa PIN?"
   },
   "my_list": {
+    "sort": "Urutkan",
+    "sort_added": "Baru ditambahkan",
+    "sort_oldest": "Terlama ditambahkan",
+    "sort_title": "Judul A–Z",
     "saved_account": "Tersimpan di akun",
     "saved_local": "Di perangkat ini",
     "untitled": "Tanpa judul",
@@ -1465,6 +1469,8 @@
     "offline_desc": "Menampilkan daftar tersimpan. Saat offline hanya episode yang diunduh yang bisa dibuka.",
     "filter_hint": "Nomor atau judul episode",
     "all_groups": "Semua grup",
+    "season_n": "Musim {}",
+    "specials": "Spesial",
     "filter_none": "Tidak ada episode yang cocok dengan “{query}” di blok ini",
     "jump_to": "Ke episode {n}",
     "jump_loads": "Memuat {range}",

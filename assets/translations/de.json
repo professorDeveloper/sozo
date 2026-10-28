@@ -1066,6 +1066,10 @@
     "forgot_pin": "PIN vergessen?"
   },
   "my_list": {
+    "sort": "Sortieren",
+    "sort_added": "Zuletzt hinzugefügt",
+    "sort_oldest": "Zuerst hinzugefügt",
+    "sort_title": "Titel A–Z",
     "saved_account": "Im Konto gespeichert",
     "saved_local": "Auf diesem Gerät",
     "untitled": "Ohne Titel",
@@ -1465,6 +1469,8 @@
     "offline_desc": "Gespeicherte Liste. Offline öffnen sich nur heruntergeladene Folgen.",
     "filter_hint": "Folgennummer oder Titel",
     "all_groups": "Alle Gruppen",
+    "season_n": "Staffel {}",
+    "specials": "Specials",
     "filter_none": "Keine Folge passt zu „{query}“ in diesem Block",
     "jump_to": "Zu Folge {n}",
     "jump_loads": "Lädt {range}",
