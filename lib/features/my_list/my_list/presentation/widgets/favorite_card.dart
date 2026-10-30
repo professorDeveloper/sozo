@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
@@ -13,7 +14,9 @@ class FavoriteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = item.title.trim().isEmpty ? 'Untitled' : item.title.trim();
     final description = item.description.trim();
-    final meta = description.isNotEmpty ? description : item.provider.trim();
+    final meta = description.isNotEmpty
+        ? description
+        : Catalogue.displayName(item.provider.trim());
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
