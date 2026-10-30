@@ -26,14 +26,28 @@ class FramePreviewService {
   static const MethodChannel _ch = MethodChannel('soplay/preview');
   static bool get isSupported => Platform.isAndroid || Platform.isIOS;
 
+  static const Duration openAllowance = Duration(seconds: 15);
+
+  /// The first frame of a stream is a playlist, a whole segment and a decode.
+  /// Lulustream's 12 s segments are 2.3 MB, 9 seconds on a 2 Mbit/s connection,
+  /// and with 6 seconds allowed that stream never showed a picture: each try
+  /// was given up on and the next one paid for a segment again. Must stay above
+  /// the native wait in HlsFramePreview.
+  static const Duration frameAllowance = Duration(seconds: 20);
+
   /// A progressive file reads its index before the first frame, and a slow
   /// host's can take longer than 5 seconds. A timeout discards the retriever
   /// and what it had read, so a short one never got a frame at all.
   static final _native = FramePreviewSession(
     supported: isSupported,
-    invoke: (method, args) => _ch.invokeMethod(method, args),
-    openTimeout: const Duration(seconds: 15),
-    frameTimeout: const Duration(seconds: 6),
+    invoke: Platform.isAndroid
+        ? FallbackDecoder(
+            primary: (method, args) => _ch.invokeMethod(method, args),
+            secondary: _invokeExtractor,
+          ).call
+        : (method, args) => _ch.invokeMethod(method, args),
+    openTimeout: openAllowance,
+    frameTimeout: frameAllowance,
   );
 
   /// HLS frames: a playlist and a segment before the first one, so longer
@@ -41,8 +55,8 @@ class FramePreviewService {
   static final _hls = FramePreviewSession(
     supported: Platform.isAndroid,
     invoke: _invokeHls,
-    openTimeout: const Duration(seconds: 15),
-    frameTimeout: const Duration(seconds: 6),
+    openTimeout: openAllowance,
+    frameTimeout: frameAllowance,
   );
 
   static const int bucketMs = FramePreviewSession.bucketMs;
@@ -140,7 +154,7 @@ class FramePreviewService {
     return out;
   }
 
-  static _Warmer? _warmer;
+  static PreviewGridWarmer? _warmer;
   static bool _scrubbing = false;
 
   /// A drag on the seek bar started or ended. The warmer yields to it: the
@@ -171,8 +185,9 @@ class FramePreviewService {
     // How far "near" reaches follows how sparse the grid is. Fixed at 30 s,
     // a far jump on the seek bar found nothing on a 16-frame metered grid.
     _sessionFor(hls).durationMs = durationMs;
-    _warmer = _Warmer(
+    _warmer = PreviewGridWarmer(
       session: _sessionFor(hls),
+      isScrubbing: () => _scrubbing,
       url: url,
       headers: headers,
       durationMs: durationMs,
@@ -214,6 +229,48 @@ class FramePreviewService {
     return _ch.invokeMethod(method, a);
   }
 
+  /// A stream the retriever could not read, on Media3's extractor. Asked what
+  /// it is rather than told: this path is for what the source mislabelled too.
+  static Future<dynamic> _invokeExtractor(
+    String method,
+    Map<String, dynamic>? args,
+  ) async {
+    final a = <String, dynamic>{...?args, 'hls': true};
+    if (method == 'open') {
+      final url = a['url'] as String? ?? '';
+      final headers =
+          (a['headers'] as Map?)?.cast<String, String>() ?? const {};
+      final playlist = await _isPlaylist(url, headers);
+      a['progressive'] = !playlist;
+      a['url'] = await _proxied(url, headers, playlist: playlist);
+    }
+    return _ch.invokeMethod(method, a);
+  }
+
+  /// Whether [url] answers with an HLS playlist, from its first bytes.
+  static Future<bool> _isPlaylist(
+    String url,
+    Map<String, String> headers,
+  ) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.scheme.startsWith('http')) {
+      return url.toLowerCase().contains('.m3u8');
+    }
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
+    try {
+      final req = await client.getUrl(uri);
+      headers.forEach(req.headers.set);
+      req.headers.set(HttpHeaders.rangeHeader, 'bytes=0-15');
+      final res = await req.close().timeout(const Duration(seconds: 4));
+      final first = await res.first.timeout(const Duration(seconds: 2));
+      return String.fromCharCodes(first.take(7)) == '#EXTM3U';
+    } catch (_) {
+      return false;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
   /// One proxied address per stream, so the native side sees the same URL on
   /// every drag and keeps its extractor instead of rebuilding it.
   ///
@@ -224,40 +281,68 @@ class FramePreviewService {
   static final Map<String, (Future<String>, DateTime)> _proxiedCache = {};
   static const _proxiedTtl = Duration(minutes: 20);
 
-  static Future<String> _proxied(String url, Map<String, String> headers) {
+  static Future<String> _proxied(
+    String url,
+    Map<String, String> headers, {
+    bool playlist = true,
+  }) {
     final keys = headers.keys.toList()..sort();
     final key = '$url\u0000${keys.map((k) => '$k=${headers[k]}').join('&')}';
     if (_proxiedCache.length > 8) _proxiedCache.clear();
     final now = DateTime.now();
     final held = _proxiedCache[key];
     if (held != null && now.difference(held.$2) < _proxiedTtl) return held.$1;
-    final fresh = _proxy(url, headers);
-    _proxiedCache[key] = (fresh, now);
-    return fresh;
+    final fresh = _proxy(url, headers, playlist: playlist);
+    final address = fresh.then((r) => r.$1);
+    _proxiedCache[key] = (address, now);
+    // A failed attempt is not an answer. Held for its 20 minutes, one refused
+    // request left the stream on an address missing its headers, and every
+    // frame of it failed for as long.
+    unawaited(
+      fresh.then((r) {
+        if (!r.$2) _proxiedCache.remove(key);
+      }),
+    );
+    return address;
   }
 
-  /// The lightest variant, behind the local proxy so its headers go along.
-  static Future<String> _proxy(String url, Map<String, String> headers) async {
+  /// The lightest variant, behind the local proxy so its headers go along, and
+  /// whether that all worked. A progressive file has no variants to look for.
+  static Future<(String, bool)> _proxy(
+    String url,
+    Map<String, String> headers, {
+    required bool playlist,
+  }) async {
     final uri = Uri.tryParse(url);
     final local = uri != null && uri.host == '127.0.0.1';
     // The lightest rendition whichever way the stream is reached: a stream
     // already on the local proxy used to open its whole master, and the
     // decoder picked a 720p segment for a 360px thumbnail. Its variants are
     // proxied paths of the same session, so they keep its headers.
-    final target = await _lightestVariant(url, headers) ?? url;
-    if (local || headers.isEmpty) return target;
+    var settled = true;
+    var target = url;
+    if (playlist) {
+      try {
+        target = await _lightestVariant(url, headers) ?? url;
+      } catch (_) {
+        settled = false;
+      }
+    }
+    if (local || headers.isEmpty) return (target, settled);
     try {
-      return await getIt<LocalHlsProxy>().register(
+      final address = await getIt<LocalHlsProxy>().register(
         upstreamUrl: target,
         headers: headers,
         // The player's own headers, Referer included: the CDN checks it.
         keepOriginHeaders: true,
       );
+      return (address, settled);
     } catch (_) {
-      return target;
+      return (target, false);
     }
   }
 
+  /// Null when [url] has no variants; throws when it could not be read.
   static Future<String?> _lightestVariant(
     String url,
     Map<String, String> headers,
@@ -269,14 +354,14 @@ class FramePreviewService {
       final req = await client.getUrl(uri);
       headers.forEach(req.headers.set);
       final res = await req.close().timeout(const Duration(seconds: 8));
-      if (res.statusCode != 200) return null;
+      if (res.statusCode != 200) {
+        throw HttpException('playlist answered ${res.statusCode}');
+      }
       final body = await res
           .transform(utf8.decoder)
           .join()
           .timeout(const Duration(seconds: 8));
       return lightestVariantOf(body, uri);
-    } catch (_) {
-      return null;
     } finally {
       client.close(force: true);
     }
@@ -418,7 +503,7 @@ class FramePreviewSession {
     final identity =
         '$url\u0000${jsonEncode({for (final key in keys) key: headers[key]})}';
     if (_identity == identity) return;
-    if (_identity != null || _running != null) unawaited(endScrub());
+    if (_identity != null || _running != null) unawaited(_release());
     _generation++;
     _cache.clear();
     _grid.clear();
@@ -584,7 +669,7 @@ class FramePreviewSession {
         // A dead host times out rather than answering, and these uncounted
         // left the card on a skeleton that never filled.
         _consecutiveNulls++;
-        await endScrub();
+        await _release();
       }
     } catch (_) {
       if (request.generation == _generation) {
@@ -620,9 +705,21 @@ class FramePreviewSession {
     }
   }
 
-  /// Drop native resources and pending work as soon as the finger lifts. Cache
-  /// remains scoped to the configured source for inexpensive repeated scrubs.
+  /// The finger lifted. What is waiting is dropped, but a frame already being
+  /// fetched is left to land: it has been paid for, and on a slow host a drag is
+  /// shorter than one frame. Thrown away, the next drag paid for the same
+  /// segment and no drag ever showed a picture. Its end schedules the release.
   Future<void> endScrub() async {
+    final queued = _queued;
+    _queued = null;
+    if (queued != null) _finish(queued, null);
+    if (_running != null) return;
+    await _release();
+  }
+
+  /// Drop native resources and pending work. Cache remains scoped to the
+  /// configured source for inexpensive repeated scrubs.
+  Future<void> _release() async {
     _idle?.cancel();
     _idle = null;
     final closedGeneration = ++_generation;
@@ -652,18 +749,101 @@ class FramePreviewSession {
     _consecutiveNulls = 0;
     durationMs = 0;
     _retryOpenAfter = null;
-    await endScrub();
+    await _release();
+  }
+}
+
+/// The platform's retriever first, and Media3's extractor for what it cannot
+/// read: an index it gives up on, a host that ignores its range requests, HLS a
+/// source called something else. Every one of those used to mean no picture for
+/// the whole episode, though the player itself was showing the video.
+class FallbackDecoder {
+  FallbackDecoder({
+    required this.primary,
+    required this.secondary,
+    this.openLimit = const Duration(seconds: 10),
+    this.nullsBeforeSwitch = 2,
+  });
+
+  final PreviewInvoke primary;
+  final PreviewInvoke secondary;
+
+  /// Below the session's open allowance, so the extractor gets a turn in it.
+  final Duration openLimit;
+  final int nullsBeforeSwitch;
+
+  String? _url;
+  Map<String, dynamic>? _openArgs;
+  bool _switched = false;
+  int _nulls = 0;
+
+  Future<dynamic> call(String method, Map<String, dynamic>? args) async {
+    switch (method) {
+      case 'open':
+        return _open(args);
+      case 'frame':
+        return _frame(args);
+      default:
+        final result = await primary(method, args);
+        if (_switched) await secondary(method, args);
+        return result;
+    }
+  }
+
+  Future<dynamic> _open(Map<String, dynamic>? args) async {
+    final url = args?['url'] as String?;
+    if (url != _url) {
+      _url = url;
+      _switched = false;
+      _nulls = 0;
+    }
+    _openArgs = args;
+    if (_switched) return secondary('open', args);
+    Object? opened = false;
+    try {
+      opened = await primary(
+        'open',
+        args,
+      ).timeout(openLimit, onTimeout: () => false);
+    } catch (_) {}
+    if (opened != false) return opened;
+    _switched = true;
+    return secondary('open', args);
+  }
+
+  Future<dynamic> _frame(Map<String, dynamic>? args) async {
+    if (_switched) return secondary('frame', args);
+    final bytes = await primary('frame', args);
+    if (bytes != null) {
+      _nulls = 0;
+      return bytes;
+    }
+    if (++_nulls < nullsBeforeSwitch) return null;
+    _switched = true;
+    final opened = await secondary('open', {
+      ...?_openArgs,
+      'generation': args?['generation'],
+    });
+    return opened == false ? null : secondary('frame', args);
   }
 }
 
 /// Fills a session's grid in the background. See [FramePreviewService.warm].
-class _Warmer {
-  /// Failures in a row that mean the host is not going to answer. Each one is
-  /// a request to it, and two full passes over a dead host are 240 of them.
-  static const int giveUpAfter = 6;
+class PreviewGridWarmer {
+  /// Failures in a row that mean the host is not answering. Each one is a
+  /// request to it, and two full passes over a dead host are 240 of them.
+  static const int restAfter = 6;
 
-  _Warmer({
+  /// How long to leave it, and how many times. A dropped connection or a host
+  /// restarting is back in a minute, and stopping for good left the rest of the
+  /// episode with no grid.
+  static const Duration rest = Duration(seconds: 45);
+  static const int maxRests = 5;
+  int _rests = 0;
+
+  PreviewGridWarmer({
     required this.session,
+    required this.isScrubbing,
     required this.url,
     required this.headers,
     required this.durationMs,
@@ -674,6 +854,7 @@ class _Warmer {
   });
 
   final FramePreviewSession session;
+  final bool Function() isScrubbing;
   final String url;
   final Map<String, String> headers;
   final int durationMs;
@@ -708,12 +889,15 @@ class _Warmer {
         if (session.hasGridFrame(at)) continue;
         while (true) {
           if (_stopped || !session.serves(url)) return;
-          if (!FramePreviewService._scrubbing && await session.gridFrame(at)) {
+          if (!isScrubbing() && await session.gridFrame(at)) {
             break;
           }
           await Future<void>.delayed(const Duration(milliseconds: 300));
         }
-        if (session.consecutiveFailures >= giveUpAfter) return;
+        if (session.consecutiveFailures >= restAfter) {
+          if (++_rests > maxRests) return;
+          await Future<void>.delayed(rest);
+        }
         await Future<void>.delayed(pace);
       }
     }

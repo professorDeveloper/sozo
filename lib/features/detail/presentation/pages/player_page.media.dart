@@ -2630,13 +2630,14 @@ extension _PlayerMedia on _PlayerPageState {
   void _precacheSpriteSheets() {
     final sheets = _vttThumbnails.map((t) => t.imageUrl).toSet().take(2);
     for (final sheet in sheets) {
+      // A sheet that never answers has no error to report, and the card would
+      // sit on its skeleton with a working decoder right there.
       unawaited(
         precacheImage(
           NetworkImage(sheet, headers: _spriteHeaders),
           context,
-          // A sheet that fails here is reported when the card draws it.
-          onError: (_, _) {},
-        ),
+          onError: (_, _) => _onThumbnailFailed(),
+        ).timeout(const Duration(seconds: 8), onTimeout: _onThumbnailFailed),
       );
     }
   }
@@ -2662,7 +2663,7 @@ extension _PlayerMedia on _PlayerPageState {
   /// fighting for bandwidth to fill its buffer, and a scrub that early is
   /// rare. Skipped when the source has a storyboard (its sprites already are
   /// the grid), for live streams, and for anything shorter than a minute.
-  void _schedulePreviewWarm(int generation) {
+  void _schedulePreviewWarm(int generation, {int waits = 0}) {
     _previewWarm?.cancel();
     bool sprites() =>
         (_vttThumbnails.isNotEmpty || _storyboard != null) &&
@@ -2677,7 +2678,14 @@ extension _PlayerMedia on _PlayerPageState {
       if (!_canGeneratePreview || _isLive) return;
       final url = _videoUrl;
       final ms = _controller?.value.duration.inMilliseconds ?? 0;
-      if (url == null || ms < 60000) return;
+      if (url == null) return;
+      // The engine may not know the length yet on a slow stream. Asked once,
+      // that episode went without a grid to the end.
+      if (ms <= 0 && waits < 10) {
+        _schedulePreviewWarm(generation, waits: waits + 1);
+        return;
+      }
+      if (ms < 60000) return;
       // A download costs no data, whatever the phone is connected to.
       var metered = !(url.startsWith('/') || url.startsWith('file:'));
       if (metered) {

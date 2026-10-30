@@ -51,6 +51,41 @@ void main() {
       },
     );
 
+    test('a playlist served as plain text is still rewritten', () async {
+      upstream.respond(
+        path: '/master.txt',
+        contentType: 'text/plain',
+        body: '#EXTM3U\n#EXTINF:5,\n${upstream.origin}/seg.ts\n',
+      );
+      final url = await proxy.register(
+        upstreamUrl: '${upstream.origin}/master.txt',
+        headers: const {'Referer': 'https://embed.test/'},
+        keepOriginHeaders: true,
+      );
+      final body = await _httpGetString(url);
+      expect(
+        body,
+        isNot(contains(upstream.origin)),
+        reason: 'A segment address left as it was goes out with no headers',
+      );
+    });
+
+    test('a segment disguised as a web page passes through whole', () async {
+      upstream.respond(
+        path: '/page-1.html',
+        contentType: 'text/html',
+        body: 'G@-not-a-playlist-${'x' * 5000}',
+      );
+      final url = await proxy.register(
+        upstreamUrl: '${upstream.origin}/page-1.html',
+        headers: const {'Referer': 'https://embed.test/'},
+        keepOriginHeaders: true,
+      );
+      final body = await _httpGetString(url);
+      expect(body.length, 18 + 5000);
+      expect(body, startsWith('G@-not-a-playlist-'));
+    });
+
     test(
       'image-wrapped TS segments use relay but playlists stay on device',
       () async {

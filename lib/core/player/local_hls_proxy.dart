@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
@@ -201,6 +202,21 @@ class LocalHlsProxy {
         return;
       }
 
+      // A playlist at `/playlist` or `/master.txt` served as text says what it
+      // is only in its first bytes. Passed through unread, its absolute segment
+      // addresses went straight to the CDN with none of the session's headers.
+      var stream = body.stream;
+      var manifest = isManifest;
+      if (!isManifest &&
+          !isDash &&
+          !contentType.startsWith('video/') &&
+          !contentType.startsWith('audio/')) {
+        final reader = StreamIterator(stream);
+        final first = await reader.moveNext() ? reader.current : Uint8List(0);
+        manifest = String.fromCharCodes(first.take(7)) == '#EXTM3U';
+        stream = _resumed(first, reader);
+      }
+
       if (isDash) {
         final bytes = <int>[];
         await for (final chunk in body.stream) {
@@ -230,9 +246,9 @@ class LocalHlsProxy {
         return;
       }
 
-      if (isManifest) {
+      if (manifest) {
         final bytes = <int>[];
-        await for (final chunk in body.stream) {
+        await for (final chunk in stream) {
           bytes.addAll(chunk);
         }
         if (origin == sess.origin) {
@@ -276,12 +292,22 @@ class LocalHlsProxy {
         _copyHeader(resp, req, 'cache-control');
         _copyHeader(resp, req, 'etag');
         _copyHeader(resp, req, 'last-modified');
-        await req.response.addStream(body.stream);
+        await req.response.addStream(stream);
       }
       await req.response.close();
     } catch (e) {
       debugPrint('[HLS_PROXY] error: $e');
       await _reject(req, 502);
+    }
+  }
+
+  Stream<Uint8List> _resumed(
+    Uint8List first,
+    StreamIterator<Uint8List> rest,
+  ) async* {
+    yield first;
+    while (await rest.moveNext()) {
+      yield rest.current;
     }
   }
 

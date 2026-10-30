@@ -839,7 +839,8 @@ class MainActivity : FlutterFragmentActivity() {
                     val hls = call.argument<Boolean>("hls") == true
                     cloudstreamScope.launch {
                         val token = call.argument<Number>("generation")?.toLong()
-                        val opened = if (hls) HlsFramePreview.open(applicationContext, url, token ?: 0L)
+                        val progressive = call.argument<Boolean>("progressive") == true
+                        val opened = if (hls) HlsFramePreview.open(applicationContext, url, token ?: 0L, progressive)
                             else if (token != null) FramePreview.open(url, headers, warmMs, token)
                             else FramePreview.open(url, headers, warmMs)
                         withContext(Dispatchers.Main) { result.success(opened) }
