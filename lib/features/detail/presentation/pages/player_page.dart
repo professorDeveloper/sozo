@@ -93,6 +93,7 @@ import 'package:soplay/features/detail/domain/scrub_curve.dart';
 import 'package:soplay/features/trakt/data/trakt_tracker.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/video_option_groups.dart';
+import 'package:soplay/features/detail/domain/vtt_thumbnails.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/detail/data/aniskip_service.dart';
 import 'package:soplay/features/detail/presentation/pages/player_controls_page.dart';
@@ -515,7 +516,7 @@ class _PlayerPageState extends State<PlayerPage>
   SubtitleStyle _subtitleStyle = SubtitleStyle.defaults();
 
   String? _thumbnailsKey;
-  List<_VttThumbnail> _vttThumbnails = const [];
+  List<VttThumbnail> _vttThumbnails = const [];
   ThumbnailsEntity? _storyboard;
 
   /// What the source's thumbnails are fetched with: the sprite sheets sit on

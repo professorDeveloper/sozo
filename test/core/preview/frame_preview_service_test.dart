@@ -318,4 +318,54 @@ audio.m3u8
       'https://cdn.example/a/240.m3u8',
     );
   });
+
+  test(
+    'timeouts and refused opens count as failures, and a frame clears them',
+    () async {
+      var answer = false;
+      final session = FramePreviewSession(
+        supported: true,
+        openTimeout: const Duration(milliseconds: 5),
+        frameTimeout: const Duration(milliseconds: 5),
+        invoke: (method, args) async {
+          if (method == 'close') return true;
+          if (answer) return method == 'frame' ? Uint8List.fromList([1]) : true;
+          return Completer<dynamic>().future; // A host that never answers.
+        },
+      );
+      await session.open('https://media.example/dead.mp4', {});
+      for (var i = 0; i < 3; i++) {
+        expect(await session.frame(i * 20000), isNull);
+      }
+      expect(session.consecutiveFailures, 3);
+      expect(
+        session.failing,
+        isTrue,
+        reason: 'The card stops showing a skeleton',
+      );
+
+      answer = true;
+      expect(await session.frame(100000), [1]);
+      expect(session.consecutiveFailures, 0);
+      expect(session.failing, isFalse);
+      await session.close();
+    },
+  );
+
+  test(
+    'moving a cached frame to the grid keeps the byte count honest',
+    () async {
+      final session = FramePreviewSession(
+        supported: true,
+        invoke: (method, args) async =>
+            method == 'frame' ? Uint8List(1000) : true,
+      );
+      await session.open('https://media.example/video.mp4', {});
+      await session.frame(10000);
+      expect(session.debugCacheBytes, 1000);
+      await session.gridFrame(10000);
+      expect(session.debugCacheBytes, 0);
+      await session.close();
+    },
+  );
 }

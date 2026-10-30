@@ -12,7 +12,8 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * A single, demand-driven seek-preview decoder. Never warms or prefetches frames.
+ * A single seek-preview decoder for progressive files, driven frame by frame by
+ * the Dart side, which also fills the background grid through it.
  * A blocked setDataSource must not create a growing collection of retrievers as
  * the user scrubs. All native work shares one try-lock; close only invalidates
  * the generation and schedules release, so it never waits on a network/codec call.

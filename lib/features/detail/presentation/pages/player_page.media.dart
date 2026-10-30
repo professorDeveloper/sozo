@@ -2616,12 +2616,28 @@ extension _PlayerMedia on _PlayerPageState {
       if (!mounted) return;
       final body = response.data;
       if (body != null && body.isNotEmpty) {
-        _vttThumbnails = _VttThumbnail.parse(body, url);
+        _vttThumbnails = parseVttThumbnails(body, url);
         _plog('loaded ${_vttThumbnails.length} VTT thumbnails');
+        _precacheSpriteSheets();
       }
     } catch (e) {
       _plog('VTT thumbnails load error: $e', level: LogLevel.warn);
       _vttThumbnails = const [];
+    }
+  }
+
+  /// The first sheets, so the opening drag does not wait on the network.
+  void _precacheSpriteSheets() {
+    final sheets = _vttThumbnails.map((t) => t.imageUrl).toSet().take(2);
+    for (final sheet in sheets) {
+      unawaited(
+        precacheImage(
+          NetworkImage(sheet, headers: _spriteHeaders),
+          context,
+          // A sheet that fails here is reported when the card draws it.
+          onError: (_, _) {},
+        ),
+      );
     }
   }
 
@@ -2642,29 +2658,36 @@ extension _PlayerMedia on _PlayerPageState {
 
   /// Starts filling the seek-preview grid once playback has settled.
   ///
-  /// Eight seconds in, not at once: the first seconds are when playback is
+  /// Three seconds in, not at once: the first seconds are when playback is
   /// fighting for bandwidth to fill its buffer, and a scrub that early is
   /// rare. Skipped when the source has a storyboard (its sprites already are
   /// the grid), for live streams, and for anything shorter than a minute.
   void _schedulePreviewWarm(int generation) {
     _previewWarm?.cancel();
-    final hasThumbnails = _vttThumbnails.isNotEmpty || _storyboard != null;
-    if (hasThumbnails && !_thumbnailsFailed) return;
+    bool sprites() =>
+        (_vttThumbnails.isNotEmpty || _storyboard != null) &&
+        !_thumbnailsFailed;
+    if (sprites()) return;
     // Soon after playback settles: most scrubs come in the first minute.
     // On mobile data it waits longer, so the opening segments come first.
     _previewWarm = Timer(const Duration(seconds: 3), () async {
       if (!mounted || generation != _mediaGeneration) return;
+      // A VTT is fetched while this waits; the grid would duplicate it.
+      if (sprites()) return;
       if (!_canGeneratePreview || _isLive) return;
       final url = _videoUrl;
       final ms = _controller?.value.duration.inMilliseconds ?? 0;
       if (url == null || ms < 60000) return;
-      var metered = true;
-      try {
-        final c = await Connectivity().checkConnectivity();
-        metered =
-            !(c.contains(ConnectivityResult.wifi) ||
-                c.contains(ConnectivityResult.ethernet));
-      } catch (_) {}
+      // A download costs no data, whatever the phone is connected to.
+      var metered = !(url.startsWith('/') || url.startsWith('file:'));
+      if (metered) {
+        try {
+          final c = await Connectivity().checkConnectivity();
+          metered =
+              !(c.contains(ConnectivityResult.wifi) ||
+                  c.contains(ConnectivityResult.ethernet));
+        } catch (_) {}
+      }
       if (metered) await Future<void>.delayed(const Duration(seconds: 5));
       if (!mounted || generation != _mediaGeneration) return;
       FramePreviewService.warm(
@@ -2691,7 +2714,7 @@ extension _PlayerMedia on _PlayerPageState {
     return '${widget.args.provider}|$content|$ep|$_currentLang';
   }
 
-  _VttThumbnail? _thumbnailAt(Duration position) {
+  VttThumbnail? _thumbnailAt(Duration position) {
     final sb = _storyboard;
     if (sb != null && sb.isStoryboard) {
       final c = _controller;
@@ -2708,7 +2731,7 @@ extension _PlayerMedia on _PlayerPageState {
       final row = idx ~/ cols;
       final cellW = (sb.width! / cols).round();
       final cellH = (sb.height! / rows).round();
-      return _VttThumbnail(
+      return VttThumbnail(
         start: Duration.zero,
         end: Duration.zero,
         imageUrl: sb.template!,

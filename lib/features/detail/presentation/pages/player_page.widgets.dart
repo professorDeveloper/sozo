@@ -1862,7 +1862,6 @@ class _ScrubPreviewCard extends StatelessWidget {
     required this.frame,
     required this.width,
     required this.time,
-    required this.delta,
     this.segment,
     this.caretX,
   });
@@ -1871,9 +1870,6 @@ class _ScrubPreviewCard extends StatelessWidget {
   final Widget? frame;
   final double width;
   final String time;
-
-  /// "+1:25" / "−0:40" from the current position; empty when negligible.
-  final String delta;
 
   /// "Opening" or "Ending" when the position falls inside one.
   final String? segment;
@@ -1911,48 +1907,41 @@ class _ScrubPreviewCard extends StatelessWidget {
                 ],
               ),
             const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.72),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    time,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  if (frame == null && segment != null) ...[
-                    const SizedBox(width: 6),
+            // "01:12:49 / 02:07:33" at a large system text size is wider than
+            // the card.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      segment!,
+                      time,
                       style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                  if (delta.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      delta,
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
                         fontFeatures: [FontFeature.tabularFigures()],
                       ),
                     ),
+                    if (frame == null && segment != null) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        segment!,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
             if (caretX != null)

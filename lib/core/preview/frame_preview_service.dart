@@ -26,9 +26,14 @@ class FramePreviewService {
   static const MethodChannel _ch = MethodChannel('soplay/preview');
   static bool get isSupported => Platform.isAndroid || Platform.isIOS;
 
+  /// A progressive file reads its index before the first frame, and a slow
+  /// host's can take longer than 5 seconds. A timeout discards the retriever
+  /// and what it had read, so a short one never got a frame at all.
   static final _native = FramePreviewSession(
     supported: isSupported,
     invoke: (method, args) => _ch.invokeMethod(method, args),
+    openTimeout: const Duration(seconds: 15),
+    frameTimeout: const Duration(seconds: 6),
   );
 
   /// HLS frames: a playlist and a segment before the first one, so longer
@@ -299,8 +304,7 @@ class FramePreviewService {
           !RegExp(r'avc|hvc|hev|av01|vp0?9|dvh|mp4v').hasMatch(codecs)) {
         continue;
       }
-      if (!line.contains('RESOLUTION=') &&
-          playlist.contains('RESOLUTION=')) {
+      if (!line.contains('RESOLUTION=') && playlist.contains('RESOLUTION=')) {
         continue;
       }
       final rate =
@@ -392,8 +396,13 @@ class FramePreviewSession {
   /// either, the source cannot be decoded here and the card should say so by
   /// showing no picture rather than a skeleton that never fills.
   int _consecutiveNulls = 0;
-  bool get failing =>
-      _consecutiveNulls >= 3 && _cache.isEmpty && _grid.isEmpty;
+  bool get failing => _consecutiveNulls >= 3 && _cache.isEmpty && _grid.isEmpty;
+
+  @visibleForTesting
+  int get debugCacheBytes => _cacheBytes;
+
+  /// Attempts in a row that produced no frame, for whatever reason.
+  int get consecutiveFailures => _consecutiveNulls;
 
   final _misses = <int, DateTime>{};
   DateTime? _retryOpenAfter;
@@ -471,9 +480,9 @@ class FramePreviewSession {
     if (busy) return false;
     final bucket = _bucketOf(positionMs);
     if (_grid.containsKey(bucket)) return true;
-    final bytes = _cache.remove(bucket) ?? await frame(bucket);
+    final bytes = _uncache(bucket) ?? await frame(bucket);
     if (bytes != null && _grid.length < maxGridFrames) {
-      _cache.remove(bucket);
+      _uncache(bucket);
       _grid[bucket] = bytes;
       FramePreviewService.frames.value++;
       final key = _diskKey;
@@ -481,6 +490,12 @@ class FramePreviewSession {
     }
     // Tried, frame or not; the warmer comes back for the holes at the end.
     return true;
+  }
+
+  Uint8List? _uncache(int bucket) {
+    final bytes = _cache.remove(bucket);
+    if (bytes != null) _cacheBytes -= bytes.length;
+    return bytes;
   }
 
   bool _sameHeaders(Map<String, String> first, Map<String, String> second) =>
@@ -537,6 +552,7 @@ class FramePreviewSession {
         }).timeout(openTimeout);
         if (request.generation != _generation) return;
         if (opened == false) {
+          _consecutiveNulls++;
           _retryOpenAfter = DateTime.now().add(const Duration(seconds: 2));
           return;
         }
@@ -564,9 +580,15 @@ class FramePreviewSession {
         }
       }
     } on TimeoutException {
-      if (request.generation == _generation) await endScrub();
+      if (request.generation == _generation) {
+        // A dead host times out rather than answering, and these uncounted
+        // left the card on a skeleton that never filled.
+        _consecutiveNulls++;
+        await endScrub();
+      }
     } catch (_) {
       if (request.generation == _generation) {
+        _consecutiveNulls++;
         _openedGeneration = null;
         _retryOpenAfter = DateTime.now().add(const Duration(seconds: 2));
       }
@@ -636,6 +658,10 @@ class FramePreviewSession {
 
 /// Fills a session's grid in the background. See [FramePreviewService.warm].
 class _Warmer {
+  /// Failures in a row that mean the host is not going to answer. Each one is
+  /// a request to it, and two full passes over a dead host are 240 of them.
+  static const int giveUpAfter = 6;
+
   _Warmer({
     required this.session,
     required this.url,
@@ -687,6 +713,7 @@ class _Warmer {
           }
           await Future<void>.delayed(const Duration(milliseconds: 300));
         }
+        if (session.consecutiveFailures >= giveUpAfter) return;
         await Future<void>.delayed(pace);
       }
     }

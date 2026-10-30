@@ -359,6 +359,15 @@ extension _PlayerControls on _PlayerPageState {
     }
   }
 
+  /// "Title · Episode 5", for a support request about what is playing.
+  String get _supportContentLabel {
+    final eps = widget.args.episodes;
+    if (_episodeIndex >= 0 && _episodeIndex < eps.length) {
+      return '${widget.args.title} · ${eps[_episodeIndex].label}';
+    }
+    return widget.args.title;
+  }
+
   /// Whether the seek bar can show a frame it made itself.
   ///
   /// Every stream but two: a live broadcast, where there is nothing ahead to
@@ -374,15 +383,6 @@ extension _PlayerControls on _PlayerPageState {
   /// out rather than drawing a skeleton that never fills: HLS on iOS, which
   /// AVAssetImageGenerator cannot read, and DASH anywhere. Downloads are
   /// included: a local file is the cheapest preview there is.
-  /// "Title · Episode 5", for a support request about what is playing.
-  String get _supportContentLabel {
-    final eps = widget.args.episodes;
-    if (_episodeIndex >= 0 && _episodeIndex < eps.length) {
-      return '${widget.args.title} · ${eps[_episodeIndex].label}';
-    }
-    return widget.args.title;
-  }
-
   bool get _canGeneratePreview =>
       FramePreviewService.isSupported &&
       _videoUrl != null &&
@@ -802,7 +802,7 @@ extension _PlayerControls on _PlayerPageState {
   }
 
   Widget _buildThumbnailImage(
-    _VttThumbnail thumb, {
+    VttThumbnail thumb, {
     double displayWidth = 160,
     double displayHeight = 90,
   }) {
@@ -825,6 +825,14 @@ extension _PlayerControls on _PlayerPageState {
                 headers: _spriteHeaders,
                 filterQuality: FilterQuality.low,
                 gaplessPlayback: true,
+                frameBuilder: (_, child, frame, wasSync) =>
+                    frame == null && !wasSync
+                    ? SizedBox(
+                        width: displayWidth / sx,
+                        height: displayHeight / sy,
+                        child: const _PreviewSkeleton(),
+                      )
+                    : child,
                 errorBuilder: (_, _, _) {
                   _onThumbnailFailed();
                   return SizedBox(width: displayWidth, height: displayHeight);
@@ -844,6 +852,13 @@ extension _PlayerControls on _PlayerPageState {
       fit: BoxFit.cover,
       filterQuality: FilterQuality.low,
       gaplessPlayback: true,
+      frameBuilder: (_, child, frame, wasSync) => frame == null && !wasSync
+          ? SizedBox(
+              width: displayWidth,
+              height: displayHeight,
+              child: const _PreviewSkeleton(),
+            )
+          : child,
       errorBuilder: (_, _, _) {
         _onThumbnailFailed();
         return SizedBox(width: displayWidth, height: displayHeight);
@@ -1627,7 +1642,7 @@ extension _PlayerControls on _PlayerPageState {
 
   Widget _buildScrubPreviewCard(
     Duration position, {
-    Duration? current,
+    required Duration total,
     double? caretX,
   }) {
     final w = _previewWidth;
@@ -1635,8 +1650,9 @@ extension _PlayerControls on _PlayerPageState {
     return _ScrubPreviewCard(
       frame: _previewImage(position, w, h),
       width: w,
-      time: _formatDuration(position),
-      delta: current == null ? '' : _signedDelta(position, current),
+      time: total > Duration.zero
+          ? '${_formatDuration(position)} / ${_formatDuration(total)}'
+          : _formatDuration(position),
       segment: _segmentAt(position),
       caretX: caretX,
     );
@@ -1754,7 +1770,7 @@ extension _PlayerControls on _PlayerPageState {
                   bottom: 40,
                   child: _buildScrubPreviewCard(
                     previewPosition,
-                    current: value.position,
+                    total: value.duration,
                     caretX: thumbX - left,
                   ),
                 ),
