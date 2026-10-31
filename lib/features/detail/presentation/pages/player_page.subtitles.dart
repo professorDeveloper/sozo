@@ -1352,8 +1352,10 @@ extension _PlayerSubtitles on _PlayerPageState {
       }
     } catch (e) {
       _plog('subtitle translate error: $e', level: LogLevel.warn);
+      // Past the first slice the track stays, and the rest of the file is still
+      // in the source language, which the viewer should not have to discover.
+      if (mounted) _toast('player.translate_failed'.tr());
       if (mounted && applied == 0) {
-        _toast('player.translate_failed'.tr());
         // The same cleanup the limit branch does, which this one did not.
         //
         // The track is seeded with a COPY OF THE SOURCE so cues can be filled
