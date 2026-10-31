@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+import 'package:soplay/core/player/hls_segment_filter.dart';
 import 'package:soplay/core/player/dash_manifest.dart';
 import 'package:soplay/core/player/hls_variants.dart';
 import 'package:soplay/core/player/media_segment_relay.dart';
@@ -46,6 +47,8 @@ class LocalHlsProxy {
     // the menu was built may be picked long after, and an evicted session
     // answers 410 — the row looked fine and did nothing.
     bool longLived = false,
+    // Segments to leave out of the playlists, see [dropHlsSegments].
+    String? dropSegments,
   }) async {
     await _ensureStarted();
     final id = _randomId();
@@ -66,9 +69,21 @@ class LocalHlsProxy {
       hlsHeight: hlsHeight,
       keepOriginHeaders: keepOriginHeaders,
       longLived: longLived,
+      dropSegments: _ruleFrom(dropSegments),
     );
     final query = parsed.hasQuery ? '?${parsed.query}' : '';
     return 'http://127.0.0.1:$_port/hls/$id${parsed.path}$query';
+  }
+
+  // Comes from the server, so a rule that does not compile plays the stream as
+  // it is rather than failing it.
+  RegExp? _ruleFrom(String? pattern) {
+    if (pattern == null || pattern.isEmpty) return null;
+    try {
+      return RegExp(pattern);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> dispose() async {
@@ -207,6 +222,7 @@ class LocalHlsProxy {
       // addresses went straight to the CDN with none of the session's headers.
       var stream = body.stream;
       var manifest = isManifest;
+      var unwrapped = false;
       if (!isManifest &&
           !isDash &&
           !contentType.startsWith('video/') &&
@@ -215,6 +231,16 @@ class LocalHlsProxy {
         final first = await reader.moveNext() ? reader.current : Uint8List(0);
         manifest = String.fromCharCodes(first.take(7)) == '#EXTM3U';
         stream = _resumed(first, reader);
+        // Both players open a segment with `Range: bytes=0-`, so a 206 from the
+        // top is the whole file too. Further in, the wrapper is not there to find.
+        final fromTop =
+            status == 200 ||
+            (status == 206 &&
+                (resp.headers.value('content-range') ?? '').startsWith(
+                  'bytes 0-',
+                ));
+        unwrapped = fromTop && startsWithPng(first);
+        if (unwrapped) stream = _withoutImage(stream);
       }
 
       if (isDash) {
@@ -257,7 +283,9 @@ class LocalHlsProxy {
             sess.basePath = resolved.substring(0, lastSlash);
           }
         }
-        final text = utf8.decode(bytes, allowMalformed: true);
+        final raw = utf8.decode(bytes, allowMalformed: true);
+        final rule = sess.dropSegments;
+        final text = rule == null ? raw : dropHlsSegments(raw, rule);
         String rewritten;
         try {
           rewritten = _rewriteM3u8(
@@ -281,6 +309,12 @@ class LocalHlsProxy {
           'vnd.apple.mpegurl',
         );
         req.response.add(utf8.encode(rewritten));
+      } else if (unwrapped) {
+        // Shorter than the upstream file, by an amount known only once it is read,
+        // so this cannot be an honest 206.
+        req.response.statusCode = 200;
+        req.response.headers.set(HttpHeaders.contentTypeHeader, 'video/mp2t');
+        await req.response.addStream(stream);
       } else {
         req.response.statusCode = status;
         if (contentType.isNotEmpty) {
@@ -309,6 +343,31 @@ class LocalHlsProxy {
     while (await rest.moveNext()) {
       yield rest.current;
     }
+  }
+
+  /// The stream behind a PNG wrapper, or everything as it came for a real picture.
+  Stream<Uint8List> _withoutImage(Stream<Uint8List> source) async* {
+    final held = BytesBuilder(copy: false);
+    var found = false;
+    await for (final chunk in source) {
+      if (found) {
+        yield chunk;
+        continue;
+      }
+      held.add(chunk);
+      final bytes = held.toBytes();
+      final start = transportStreamStart(bytes);
+      if (start != null) {
+        found = true;
+        held.clear();
+        yield Uint8List.sublistView(bytes, start);
+      } else if (bytes.length > _imageWrapperLimit) {
+        found = true;
+        held.clear();
+        yield bytes;
+      }
+    }
+    if (!found) yield held.takeBytes();
   }
 
   void _forwardIncomingHeader(
@@ -611,6 +670,9 @@ class _RequestTransform {
   }
 }
 
+/// More than any wrapper seen, and past it this is simply a picture.
+const _imageWrapperLimit = 2 * 1024 * 1024;
+
 class _Session {
   _Session({
     required this.origin,
@@ -623,8 +685,10 @@ class _Session {
     this.hlsHeight,
     this.keepOriginHeaders = false,
     this.longLived = false,
+    this.dropSegments,
   });
 
+  final RegExp? dropSegments;
   final String? dashRepresentation;
   final int? hlsHeight;
   final bool keepOriginHeaders;

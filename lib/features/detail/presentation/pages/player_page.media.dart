@@ -844,7 +844,7 @@ extension _PlayerMedia on _PlayerPageState {
     if (_currentSourceIndex >= 0 &&
         _currentSourceIndex < _videoSources.length) {
       final current = _videoSources[_currentSourceIndex];
-      if (current.useLocalProxy) return current;
+      if (current.useLocalProxy || current.dropSegments != null) return current;
     }
     final host = Uri.tryParse(url)?.host;
     if (host == null || host.isEmpty) return null;
@@ -894,7 +894,7 @@ extension _PlayerMedia on _PlayerPageState {
       );
       return null;
     }
-    if (!source.useLocalProxy) {
+    if (!source.useLocalProxy && source.dropSegments == null) {
       // If this fires for a uzmovi source, the backend flag or the
       // localProxy/requestTransform maps were dropped somewhere between resolve
       // and here — the player then hits the protected CDN directly and fails.
@@ -915,6 +915,8 @@ extension _PlayerMedia on _PlayerPageState {
         headers: upstreamHeaders,
         localProxy: source.localProxy,
         requestTransform: source.requestTransform,
+        keepOriginHeaders: source.dropSegments != null,
+        dropSegments: source.dropSegments,
       );
       _plog('routing through local HLS proxy: $proxied');
       return _ProxiedTarget(url: proxied, headers: const {});
@@ -1275,6 +1277,7 @@ extension _PlayerMedia on _PlayerPageState {
               localProxy: parent.localProxy,
               requestTransform: parent.requestTransform,
               longLived: true,
+              dropSegments: parent.dropSegments,
             )
           : v.url;
       rows.add(
@@ -1287,6 +1290,7 @@ extension _PlayerMedia on _PlayerPageState {
           type: 'hls',
           headers: upHeaders,
           useLocalProxy: !separateRenditions && parent.useLocalProxy,
+          dropSegments: parent.dropSegments,
           localProxy: parent.localProxy,
           requestTransform: parent.requestTransform,
           drm: parent.drm,

@@ -711,6 +711,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                   isSerial: widget.args.isSerial,
                   season: _currentSeasonNumber(),
                   episode: _currentEpisodeNumber(),
+                  want: _hive.getSubtitleTranslateLang(),
                 );
                 if (!ctx.mounted) return;
                 setSheet(() {
@@ -1138,6 +1139,12 @@ extension _PlayerSubtitles on _PlayerPageState {
   Future<void> _maybeAutoTranslate() async {
     final target = _hive.getSubtitleTranslateLang();
     if (target.isEmpty || _isLive || _autoTranslateDone) return;
+    // Already in the picture: a second copy would be drawn over the first.
+    final playing =
+        _currentSourceIndex >= 0 && _currentSourceIndex < _videoSources.length
+        ? _videoSources[_currentSourceIndex]
+        : null;
+    if (playing?.hardsub?.toLowerCase() == target.toLowerCase()) return;
     // Already readable. Checked before the network call, not after — the
     // common case must cost nothing.
     if (SubtitleAutoTranslate.anyMatches(
@@ -1199,6 +1206,7 @@ extension _PlayerSubtitles on _PlayerPageState {
         isSerial: widget.args.isSerial,
         season: _currentSeasonNumber(),
         episode: _currentEpisodeNumber(),
+        want: _hive.getSubtitleTranslateLang(),
       );
     } catch (_) {
       if (mounted) _toast('player.translate_failed'.tr());

@@ -60,4 +60,17 @@ void main() {
       hasLength(2),
     );
   });
+
+  test('what the server says about the stream reaches the entity', () {
+    final s = VideoSourceModel.fromJson({
+      ...source('a'),
+      'dropSegments': r'^/v\d+/',
+      'hardsub': 'vi',
+    });
+    expect(s.dropSegments, r'^/v\d+/');
+    expect(s.hardsub, 'vi');
+    final plain = VideoSourceModel.fromJson(source('b'));
+    expect(plain.dropSegments, isNull);
+    expect(plain.hardsub, isNull);
+  });
 }
