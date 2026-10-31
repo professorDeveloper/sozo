@@ -151,6 +151,7 @@ class SupportRepository {
     String message, {
     List<String> attachments = const [],
     String? language,
+    Map<String, String>? diagnostics,
   }) => _guard(() async {
     final token = await _token();
     final res = await _dio.post<Map<String, dynamic>>(
@@ -158,6 +159,8 @@ class SupportRepository {
       data: {
         'message': message,
         if (attachments.isNotEmpty) 'attachments': attachments,
+        if (diagnostics != null && diagnostics.isNotEmpty)
+          'diagnostics': diagnostics,
         'language': ?language,
         'pushToken': ?token,
       },
