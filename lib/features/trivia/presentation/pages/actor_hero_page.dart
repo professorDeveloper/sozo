@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -503,11 +504,11 @@ class _FilmographySection extends StatelessWidget {
             'trivia.filmography'.tr(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w800,
-              height: 1.1,
+              height: lineHeightFor(context, 1.1),
             ),
           ),
         ),

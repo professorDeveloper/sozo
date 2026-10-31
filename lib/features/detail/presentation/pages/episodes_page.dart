@@ -1,3 +1,4 @@
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'dart:async';
 import 'dart:ui';
@@ -1911,11 +1912,11 @@ class _EpisodesAppBar extends StatelessWidget {
           title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            height: 1.1,
+            height: lineHeightFor(context, 1.1),
           ),
         ),
       ),

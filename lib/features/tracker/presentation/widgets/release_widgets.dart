@@ -3,6 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -367,11 +368,11 @@ class NewReleasesRail extends StatelessWidget {
                           'release_notify.home_rail'.tr(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
-                            height: 1.1,
+                            height: lineHeightFor(context, 1.1),
                           ),
                         ),
                       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
@@ -78,11 +79,11 @@ class FavoriteCard extends StatelessWidget {
             title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              height: 1.18,
+              height: lineHeightFor(context, 1.18),
             ),
           ),
           if (meta.isNotEmpty) ...[

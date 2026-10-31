@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
@@ -555,11 +556,11 @@ class _SectionTitle extends StatelessWidget {
     text,
     maxLines: 1,
     overflow: TextOverflow.ellipsis,
-    style: const TextStyle(
+    style: TextStyle(
       color: AppColors.textPrimary,
       fontSize: 18,
       fontWeight: FontWeight.w800,
-      height: 1.15,
+      height: lineHeightFor(context, 1.15),
       // Slightly tight, which is what stops a large weight reading as shouting.
       letterSpacing: -0.3,
     ),

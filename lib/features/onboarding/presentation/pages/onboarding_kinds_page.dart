@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -341,7 +342,7 @@ class _CardFace extends StatelessWidget {
                           color: AppColors.textPrimary,
                           fontSize: OnbType.label + 2,
                           fontWeight: FontWeight.w800,
-                          height: 1.1,
+                          height: lineHeightFor(context, 1.1),
                         ),
                       ),
                     ),
