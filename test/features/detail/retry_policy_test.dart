@@ -77,6 +77,103 @@ void main() {
     });
   });
 
+  group('a dropped connection', () {
+    const drops = [
+      // log_2e4886: libmpv, mid-episode and on the reconnect after it.
+      'tcp: ffurl_read returned 0xffffff92',
+      'tcp: Failed to resolve hostname premiumleadgeneration.site: '
+          'No address associated with hostname',
+      'tcp: Connection to tcp://premiumleadgeneration.site:443 failed: '
+          'Connection timed out',
+      // img_2e4886: Dio, on the re-resolve.
+      'The connection errored: Connection reset by peer',
+      'Network is unreachable',
+    ];
+
+    test('is worth another attempt', () {
+      for (final raw in drops) {
+        expect(RetryPolicy.isNetworkDrop(raw), isTrue, reason: raw);
+        expect(RetryPolicy.isRecoverableError(raw), isTrue, reason: raw);
+      }
+    });
+
+    test('is not a refusal or a bad file', () {
+      for (final raw in const [
+        'HTTP 403 Forbidden',
+        'Source error',
+        'Failed to recognize file format.',
+        'Decoder failed',
+      ]) {
+        expect(RetryPolicy.isNetworkDrop(raw), isFalse, reason: raw);
+      }
+    });
+
+    test('is reconnected in place while the budget lasts, never live', () {
+      const msg = 'tcp: ffurl_read returned 0xffffff92';
+      for (var n = 0; n < RetryPolicy.maxNetworkReconnects; n++) {
+        expect(
+          RetryPolicy.shouldReconnectInPlace(
+            message: msg,
+            isLive: false,
+            reconnects: n,
+          ),
+          isTrue,
+        );
+      }
+      expect(
+        RetryPolicy.shouldReconnectInPlace(
+          message: msg,
+          isLive: false,
+          reconnects: RetryPolicy.maxNetworkReconnects,
+        ),
+        isFalse,
+      );
+      expect(
+        RetryPolicy.shouldReconnectInPlace(
+          message: msg,
+          isLive: true,
+          reconnects: 0,
+        ),
+        isFalse,
+        reason: 'a channel has its own reconnect loop',
+      );
+      expect(
+        RetryPolicy.shouldReconnectInPlace(
+          message: 'HTTP 403 Forbidden',
+          isLive: false,
+          reconnects: 0,
+        ),
+        isFalse,
+        reason: 'a refusal goes to another mirror, not the same one again',
+      );
+    });
+
+    test('earns a fresh budget once the stream has played a while', () {
+      expect(
+        RetryPolicy.networkReconnectsSpent(
+          reconnects: 3,
+          playedSinceLast: const Duration(seconds: 10),
+        ),
+        3,
+      );
+      expect(
+        RetryPolicy.networkReconnectsSpent(
+          reconnects: 3,
+          playedSinceLast: RetryPolicy.networkReconnectsRenewAfter,
+        ),
+        0,
+      );
+    });
+
+    test('backs off, and then holds', () {
+      expect(RetryPolicy.networkBackoff(0), const Duration(seconds: 2));
+      expect(RetryPolicy.networkBackoff(1), const Duration(seconds: 4));
+      expect(RetryPolicy.networkBackoff(2), const Duration(seconds: 8));
+      expect(RetryPolicy.networkBackoff(9), const Duration(seconds: 8));
+      expect(RetryPolicy.networkBackoff(-1), const Duration(seconds: 2));
+    });
+  });
+
   group('live is a different problem', () {
     test('a channel reconnects where a film would give up', () {
       // A film either plays or is broken. A channel drops constantly and the

@@ -1,3 +1,4 @@
+import 'package:soplay/core/player/player_dock.dart';
 import 'package:soplay/core/player/download_media_probe.dart';
 import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
@@ -410,7 +411,12 @@ Future<void> configureDependencies() async {
     ProfileSession(
       remote: getIt<ProfilesRemoteDataSource>(),
       isLoggedIn: () => getIt<HiveService>().isLoggedIn,
-      beforeSwitch: () => getIt<HistorySyncService>().settle(),
+      // The corner player first: closing it saves its history, which has to
+      // land in the profile it was watched in, before the sync settles.
+      beforeSwitch: () async {
+        await PlayerDock.instance.close();
+        await getIt<HistorySyncService>().settle();
+      },
       onScopeChanged: _onProfileScopeChanged,
     ),
   );
@@ -948,11 +954,16 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<GetPagesUseCase>(
     GetPagesUseCase(getIt<DetailRepository>()),
   );
+  // One probe for both questions: is a mirror playable media, and does a
+  // direct file turn out to be a web page (refused at tap time, not minutes
+  // later in the list).
+  final downloadProbe = DownloadMediaProbe(getIt<DartFetch>().dio);
   getIt.registerSingleton<DownloadRequestBuilder>(
     DownloadRequestBuilder(
       resolve: getIt<ResolveMediaUseCase>(),
       getPages: getIt<GetPagesUseCase>(),
-      canDownload: DownloadMediaProbe(getIt<DartFetch>().dio).accepts,
+      canDownload: downloadProbe.accepts,
+      servesWebPage: downloadProbe.servesWebPage,
       resolveEmbed: (media) async {
         final stream = await getIt<WebViewStreamExtractor>().extract(
           pageUrl: media.videoUrl,

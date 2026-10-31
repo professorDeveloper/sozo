@@ -50,6 +50,9 @@ class JsRuntimeService {
   window.dartFetch = function(req) {
     return window.flutter_inappwebview.callHandler('dartFetch', req);
   };
+  // What this build of the player can do that older ones cannot, for the served
+  // scripts to read.
+  window.__sozoCaps = { imageWrappedSegments: true };
   window.__sozoReady = true;
 </script></body></html>
 ''';

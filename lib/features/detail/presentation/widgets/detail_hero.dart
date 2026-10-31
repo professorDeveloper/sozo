@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/network/image_headers.dart';
 import 'package:soplay/core/trailer/trailer_query.dart';
@@ -119,11 +120,11 @@ class DetailHeroBackground extends StatelessWidget {
                   title.trim(),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 26,
                     fontWeight: FontWeight.w900,
-                    height: 1.15,
+                    height: lineHeightFor(context, 1.15),
                     letterSpacing: -0.3,
                     shadows: [
                       Shadow(

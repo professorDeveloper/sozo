@@ -115,17 +115,37 @@ abstract final class DownloadChoices {
     return true;
   }
 
+  /// Whether [url] is the player's own local HLS proxy
+  /// (`http://127.0.0.1:<port>/hls/<id>/…`, see `LocalHlsProxy.register`).
+  ///
+  /// Such a url only answers while that registration lives in this app, and
+  /// a download outlives the player that registered it. The torrent engine's
+  /// `/stream/…` address is a different thing and is not matched.
+  static bool isLocalProxyUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.scheme != 'http') return false;
+    if (uri.host != '127.0.0.1' && uri.host != 'localhost') return false;
+    return uri.path.startsWith('/hls/');
+  }
+
   /// The offers, best first, current stream included.
   ///
   /// [currentUrl] is the RESOLVED url — post-sniff where a sniff happened —
   /// which is why the playing source can always be offered even under a
   /// directive.
+  ///
+  /// [currentUpstreamUrl] and [currentUpstreamHeaders] are the url and headers
+  /// before the local HLS proxy rewrote them. When [currentUrl] is a proxy
+  /// address they are offered instead: the 127.0.0.1 url stops answering when
+  /// the player closes, and the download is still running then.
   static List<DownloadChoice> from({
     required List<VideoSourceEntity> sources,
     required int currentIndex,
     required String? currentUrl,
     required Map<String, String> currentHeaders,
     required bool hasDirective,
+    String? currentUpstreamUrl,
+    Map<String, String> currentUpstreamHeaders = const {},
   }) {
     final offers = <DownloadChoice>[];
     final seen = <String>{};
@@ -157,8 +177,21 @@ abstract final class DownloadChoices {
         ? sources[currentIndex]
         : null;
     if (currentUrl != null) {
-      // The resolved headers, which is what the sniff produced where one ran.
-      add(current, currentUrl, isCurrent: true, headers: currentHeaders);
+      final upstream = currentUpstreamUrl ?? '';
+      if (upstream.isNotEmpty &&
+          !isLocalProxyUrl(upstream) &&
+          isLocalProxyUrl(currentUrl)) {
+        add(
+          current,
+          upstream,
+          isCurrent: true,
+          headers: currentUpstreamHeaders,
+        );
+      } else {
+        // The resolved headers, which is what the sniff produced where one
+        // ran.
+        add(current, currentUrl, isCurrent: true, headers: currentHeaders);
+      }
     }
 
     // Under a directive every other url is an embed page rather than a stream.

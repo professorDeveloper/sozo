@@ -35,6 +35,11 @@ enum DownloadBuildFailure {
 
   /// The chapter's pages could not be listed.
   pagesFailed,
+
+  /// The source answered the url with a web page, not the video: a challenge,
+  /// an error or a home page served as success. Queued, it failed minutes
+  /// later in the list; another server is the way out.
+  webPage,
 }
 
 /// A resolved episode ready for a quality pick, or why there is none.
@@ -68,16 +73,22 @@ class DownloadRequestBuilder {
     required GetPagesUseCase getPages,
     Future<MediaResolveEntity?> Function(MediaResolveEntity)? resolveEmbed,
     Future<bool> Function(MediaResolveEntity)? canDownload,
+    Future<bool> Function(MediaResolveEntity)? servesWebPage,
   }) : _resolve = resolve,
        _getPages = getPages,
        _resolveEmbed = resolveEmbed,
-       _canDownload = canDownload;
+       _canDownload = canDownload,
+       _servesWebPage = servesWebPage;
 
   final ResolveMediaUseCase _resolve;
   final GetPagesUseCase _getPages;
   final Future<MediaResolveEntity?> Function(MediaResolveEntity)? _resolveEmbed;
 
   final Future<bool> Function(MediaResolveEntity)? _canDownload;
+
+  /// True only for a definite web page (see `DownloadMediaProbe`): a probe
+  /// that got no answer says nothing about the file and must not block it.
+  final Future<bool> Function(MediaResolveEntity)? _servesWebPage;
 
   /// The stream URL does not exist until the provider is asked for it, so a
   /// video download always starts with the same resolve the player makes.
@@ -111,7 +122,20 @@ class DownloadRequestBuilder {
             hasDirective: false,
           ),
         );
-    if (!hasEmbeds) return VideoResolution.resolved(media);
+    if (!hasEmbeds) {
+      // A direct url is still only the provider's word. One that answers with
+      // a web page used to be queued anyway and fail minutes later as "a web
+      // page"; 2 KB says so before anything is queued. The mirror asked is
+      // the one a download takes by default, not whatever was listed first.
+      final pick = quietPick(media);
+      final probed = MediaResolveEntity(
+        videoUrl: pick.url,
+        headers: pick.headers,
+        type: pick.type,
+      );
+      if (!await _isWebPage(probed)) return VideoResolution.resolved(media);
+      return _withoutWebPages(media, pick.url);
+    }
 
     final candidates = <MediaResolveEntity>[];
     if (direct(media)) candidates.add(media);
@@ -134,6 +158,10 @@ class DownloadRequestBuilder {
           headers: source.headers.isEmpty ? media.headers : source.headers,
           subtitles: media.subtitles,
           videoSources: [source],
+          // A sibling of unknown shape under a directive is an embed page like
+          // the top-level one. Without the directive it counted as direct, was
+          // probed, found to be HTML and skipped, instead of being sniffed.
+          extractor: source.type == null ? media.extractor : null,
         ),
       );
     }
@@ -169,6 +197,75 @@ class DownloadRequestBuilder {
       }
     }
     return const VideoResolution.failed(DownloadBuildFailure.needsPlayback);
+  }
+
+  /// The default mirror served a page, but another mirror may not: the
+  /// episode list fails only when every mirror does, and otherwise keeps the
+  /// ones that did not, so neither the quiet pick nor the sheet lands on it.
+  Future<VideoResolution> _withoutWebPages(
+    MediaResolveEntity media,
+    String refused,
+  ) async {
+    final sources = media.videoSources;
+    final pages = await Future.wait([
+      for (final s in sources)
+        s.videoUrl == refused
+            ? Future.value(true)
+            : _isWebPage(
+                MediaResolveEntity(
+                  videoUrl: s.videoUrl,
+                  headers: s.headers.isEmpty ? media.headers : s.headers,
+                  type: s.type,
+                ),
+              ),
+    ]);
+    final kept = [
+      for (var i = 0; i < sources.length; i++)
+        if (!pages[i]) sources[i],
+    ];
+    final top = media.videoUrl;
+    final topIsPage =
+        top == refused ||
+        (!kept.any((s) => s.videoUrl == top) &&
+            (sources.any((s) => s.videoUrl == top) ||
+                await _isWebPage(
+                  MediaResolveEntity(
+                    videoUrl: top,
+                    headers: media.headers,
+                    type: media.type,
+                  ),
+                )));
+    if (topIsPage && kept.isEmpty) {
+      return const VideoResolution.failed(DownloadBuildFailure.webPage);
+    }
+    final first = topIsPage ? kept.first : null;
+    return VideoResolution.resolved(
+      MediaResolveEntity(
+        videoUrl: first?.videoUrl ?? top,
+        type: first != null ? first.type : media.type,
+        headers: first != null && first.headers.isNotEmpty
+            ? first.headers
+            : media.headers,
+        videoSources: kept,
+        languagesAvailable: media.languagesAvailable,
+        activeLang: media.activeLang,
+        subtitles: media.subtitles,
+        thumbnails: media.thumbnails,
+        extractor: media.extractor,
+        live: media.live,
+      ),
+    );
+  }
+
+  /// A probe that throws is no answer, and no answer never blocks a download.
+  Future<bool> _isWebPage(MediaResolveEntity media) async {
+    final probe = _servesWebPage;
+    if (probe == null) return false;
+    try {
+      return await probe(media);
+    } catch (_) {
+      return false;
+    }
   }
 
   /// The mirror a download takes when nobody is asked.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -72,11 +73,11 @@ class MovieSection extends StatelessWidget {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 17,
                 fontWeight: FontWeight.w800,
-                height: 1.1,
+                height: lineHeightFor(context, 1.1),
               ),
             ),
           ),

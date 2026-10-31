@@ -2,15 +2,6 @@
 part of 'player_page.dart';
 
 extension _PlayerMedia on _PlayerPageState {
-  String? _defaultRefererFor(String provider) {
-    switch (provider.toLowerCase()) {
-      case 'asilmedia':
-        return 'https://asilmedia.org/';
-      default:
-        return null;
-    }
-  }
-
   bool _isHlsType(String? type) {
     final t = type?.trim().toLowerCase();
     return t == 'hls' || t == 'm3u8';
@@ -29,7 +20,8 @@ extension _PlayerMedia on _PlayerPageState {
   }
 
   /// The headers a network stream is requested with: the app's defaults, then
-  /// whatever the source asked for on top.
+  /// whatever the source asked for on top (see [mediaRequestHeaders], which
+  /// the downloader shares).
   ///
   /// Nothing at all for loopback — the local HLS proxy already carries the
   /// upstream headers, and it is our own server.
@@ -38,16 +30,11 @@ extension _PlayerMedia on _PlayerPageState {
     Map<String, String> sourceHeaders,
   ) {
     if (uri.host == '127.0.0.1' || uri.host == 'localhost') return {};
-    final merged = <String, String>{
-      'User-Agent': kSozoUserAgent,
-      'Accept': '*/*',
-      'Accept-Language': 'uz,ru;q=0.9,en;q=0.8',
-    };
-    final defaultReferer = _defaultRefererFor(widget.args.provider);
-    if (defaultReferer != null) merged['Referer'] = defaultReferer;
-    merged.addAll(sourceHeaders);
-    addFetchMetadata(merged, uri);
-    return merged;
+    return mediaRequestHeaders(
+      uri,
+      sourceHeaders,
+      provider: widget.args.provider,
+    );
   }
 
   /// The same headers, plus any Cloudflare clearance already earned for this
@@ -263,6 +250,7 @@ extension _PlayerMedia on _PlayerPageState {
     if (!keepRetryCount) {
       _retryAttempts = 0;
       _lifetimeRetries = 0;
+      _networkReconnects = 0;
       _resetLadder();
       // A crop tuned for a 2.39:1 film is wrong for the 16:9 episode after it.
       _resetZoom();
@@ -275,6 +263,8 @@ extension _PlayerMedia on _PlayerPageState {
     _countedComplete = false;
     _endHandled = false;
     _videoTrackAppliedFor = null;
+    // The previous episode's playhead is no place to retry this one from.
+    _lastPlayedPosition = Duration.zero;
     // The next episode's first frame is a new "watching now" on Trakt; the
     // start replaces the previous one there, so no pause is needed first.
     _traktPlaying = false;
@@ -354,9 +344,20 @@ extension _PlayerMedia on _PlayerPageState {
       case Success(:final value):
         return (value: value, lang: lang);
       case Failure(:final error):
+        final raw = error.toString().replaceFirst('Exception: ', '');
         setState(() {
           _initializing = false;
-          _errorMessage = error.toString().replaceFirst('Exception: ', '');
+          // img_2e4886 is Dio's own English sentence about a reset connection
+          // ("…This indicates an error which most likely cannot be solved by
+          // the library."), wrong about the remedy as well as in the wrong
+          // language. A dropped connection is said as the network fault in the
+          // viewer's language; a provider's own message (no mirrors, a 422)
+          // keeps its words.
+          final fault = PlaybackFault.classify(raw);
+          _errorMessage = fault.kind == PlaybackFaultKind.network
+              ? fault.messageKey.tr()
+              : raw;
+          _errorRaw = raw;
         });
         return null;
     }
@@ -501,13 +502,15 @@ extension _PlayerMedia on _PlayerPageState {
         );
       }
     }
-    if (pick < 0) pick = subs.indexWhere((s) => s.isDefault);
+    // The viewer's language before the source's default, which is usually
+    // English whatever else is on offer.
     if (pick < 0) {
       final wanted = _hive.getSubtitleTranslateLang().toLowerCase();
       pick = subs.indexWhere(
         (s) => SubtitleAutoTranslate.labelMatchesLanguage(s.label, wanted),
       );
     }
+    if (pick < 0) pick = subs.indexWhere((s) => s.isDefault);
     if (pick >= 0) unawaited(_loadSubtitle(pick, remember: false));
   }
 
@@ -636,6 +639,37 @@ extension _PlayerMedia on _PlayerPageState {
         : _titlePrefs.heightChoiceFor(widget.args.provider, contentUrl);
     return remembered ?? _hive.preferredQuality;
   }
+
+  /// The height to pin out of a parsed master, or Auto to leave the choice to
+  /// the engine. See [QualityPreference.pinFor].
+  ///
+  /// On the platform player the source's own label counts as a pick: a master
+  /// labelled "1080p" played there adaptively, and ExoPlayer starts from a
+  /// bandwidth estimate — on mobile data the bottom rung — so "1080p" on the
+  /// button looked like 480p on the screen. libmpv keeps its own Auto, which
+  /// opens the top rendition anyway (PlayerController.hlsBitrateFor).
+  int get _pinHeight {
+    final idx = _currentSourceIndex;
+    final source = idx >= 0 && idx < _videoSources.length
+        ? _videoSources[idx]
+        : null;
+    return QualityPreference.pinFor(
+      preference: _qualityPreference,
+      labelledHeight: source == null
+          ? null
+          : source.height ?? VideoOptionGroups.resolutionOf(source.quality),
+      adaptiveEngine: _onPlatformPlayer,
+    );
+  }
+
+  /// Whether the next stream opens on the platform player (ExoPlayer,
+  /// AVPlayer) rather than libmpv — the same choice
+  /// `PlayerController.networkUrl` makes. An external player is neither: it
+  /// is handed the url and does its own choosing.
+  bool get _onPlatformPlayer =>
+      _preferPlatformPlayer ||
+      isAndroidEmulator ||
+      resolvePlayerEngine() == PlayerEngine.native;
 
   /// Starts a fresh walk. Called wherever what is playing genuinely changes —
   /// a new episode, a new movie, an explicit pick — never on a retry, which is
@@ -810,7 +844,7 @@ extension _PlayerMedia on _PlayerPageState {
     if (_currentSourceIndex >= 0 &&
         _currentSourceIndex < _videoSources.length) {
       final current = _videoSources[_currentSourceIndex];
-      if (current.useLocalProxy) return current;
+      if (current.useLocalProxy || current.dropSegments != null) return current;
     }
     final host = Uri.tryParse(url)?.host;
     if (host == null || host.isEmpty) return null;
@@ -860,7 +894,7 @@ extension _PlayerMedia on _PlayerPageState {
       );
       return null;
     }
-    if (!source.useLocalProxy) {
+    if (!source.useLocalProxy && source.dropSegments == null) {
       // If this fires for a uzmovi source, the backend flag or the
       // localProxy/requestTransform maps were dropped somewhere between resolve
       // and here — the player then hits the protected CDN directly and fails.
@@ -881,6 +915,8 @@ extension _PlayerMedia on _PlayerPageState {
         headers: upstreamHeaders,
         localProxy: source.localProxy,
         requestTransform: source.requestTransform,
+        keepOriginHeaders: source.dropSegments != null,
+        dropSegments: source.dropSegments,
       );
       _plog('routing through local HLS proxy: $proxied');
       return _ProxiedTarget(url: proxied, headers: const {});
@@ -968,6 +1004,7 @@ extension _PlayerMedia on _PlayerPageState {
     Duration resumeAt = Duration.zero,
     PartyPlayback? party,
     int? intentGeneration,
+    bool reconnect = false,
   }) async {
     final generation = intentGeneration ?? ++_mediaGeneration;
     if (!mounted || generation != _mediaGeneration) return;
@@ -980,6 +1017,7 @@ extension _PlayerMedia on _PlayerPageState {
     var effUrl = url;
     var effHeaders = headers;
     var effType = type;
+    var sniffedStream = false;
 
     // A file the device must sign itself (see UrlSigner): signed here, on
     // every start, so a retry after the token expires asks for a fresh one.
@@ -1036,6 +1074,7 @@ extension _PlayerMedia on _PlayerPageState {
       );
       if (!mounted || generation != _mediaGeneration) return;
       if (sniffed != null) {
+        sniffedStream = true;
         effUrl = sniffed.url;
         // Sniffed headers win: they are the ones the page actually sent, and
         // the CDN gates on exactly those.
@@ -1086,7 +1125,7 @@ extension _PlayerMedia on _PlayerPageState {
       effType,
       generation,
     );
-    final wantsUrlPin = _qualityPreference != QualityPreference.auto;
+    final wantsUrlPin = _pinHeight != QualityPreference.auto;
     VideoSourceEntity? pinned;
     if (wantsUrlPin) {
       pinned = await expansion.timeout(
@@ -1119,6 +1158,8 @@ extension _PlayerMedia on _PlayerPageState {
       type: effType,
       resumeAt: resumeAt,
       party: party,
+      sniffed: sniffedStream,
+      reconnect: reconnect,
     );
   }
 
@@ -1236,6 +1277,7 @@ extension _PlayerMedia on _PlayerPageState {
               localProxy: parent.localProxy,
               requestTransform: parent.requestTransform,
               longLived: true,
+              dropSegments: parent.dropSegments,
             )
           : v.url;
       rows.add(
@@ -1248,6 +1290,7 @@ extension _PlayerMedia on _PlayerPageState {
           type: 'hls',
           headers: upHeaders,
           useLocalProxy: !separateRenditions && parent.useLocalProxy,
+          dropSegments: parent.dropSegments,
           localProxy: parent.localProxy,
           requestTransform: parent.requestTransform,
           drm: parent.drm,
@@ -1360,7 +1403,7 @@ extension _PlayerMedia on _PlayerPageState {
     // this a pick of "Server · 720p" fell back to Auto on every next episode.
     final want = QualityPreference.pick(
       rows.map((r) => r.height ?? 0),
-      _qualityPreference,
+      _pinHeight,
     );
     if (want == null) return null;
     return rows.where((r) => r.height == want).firstOrNull;
@@ -1396,6 +1439,8 @@ extension _PlayerMedia on _PlayerPageState {
     required String? type,
     Duration resumeAt = Duration.zero,
     PartyPlayback? party,
+    bool sniffed = false,
+    bool reconnect = false,
   }) async {
     if (!mounted || generation != _mediaGeneration) return;
     if (url.isEmpty) {
@@ -1411,7 +1456,9 @@ extension _PlayerMedia on _PlayerPageState {
     // — the single funnel every playback path passes through — means Sozo's own
     // torrent search, a CloudStream plugin that returns a magnet, and a pasted
     // deeplink all behave identically, instead of each growing its own version.
-    if (TorrentLinks.isTorrentLink(url)) {
+    final torrent =
+        TorrentLinks.isTorrentLink(url) || TorrentStreamUrl.parse(url) != null;
+    if (torrent) {
       final handle = await TorrentPlayback.prepareLink(
         context,
         url,
@@ -1452,6 +1499,10 @@ extension _PlayerMedia on _PlayerPageState {
     if (!mounted || generation != _mediaGeneration) return;
     final effectiveUrl = proxied?.url ?? url;
     final effectiveHeaders = proxied?.headers ?? headers;
+    _downloadUpstream =
+        proxied != null && MediaSegmentRelay.needsManifestProxy(url)
+        ? (url: url, headers: headers)
+        : null;
 
     final fmt = isHls
         ? 'hls'
@@ -1564,8 +1615,30 @@ extension _PlayerMedia on _PlayerPageState {
       _isLive = true;
     }
 
+    // Bounded: see [startupBudget] for why neither engine can be left to it
+    // and how long each kind of stream gets. A start that runs out lands in
+    // the catch below like any other failure — "timeout" is recoverable, so
+    // the walk moves to the next server under the "Switching to …" notice,
+    // and only an exhausted ladder reaches the error screen. A controller
+    // that hands the stream from libmpv to the platform player mid-start
+    // gives the new engine its own allowance.
+    final budget = startupBudget(
+      local: isLocal,
+      torrent: torrent,
+      sniffed: sniffed,
+      live: _isLive,
+    );
     try {
-      await controller.initialize();
+      final init = controller.initialize();
+      if (budget == null) {
+        await init;
+      } else {
+        await withinStartupBudget(
+          init,
+          budget: budget,
+          restarts: controller.backendSwitches,
+        );
+      }
       _plog('initialize completed in ${stopwatch.elapsedMilliseconds}ms');
       if (!mounted ||
           generation != _mediaGeneration ||
@@ -1723,7 +1796,26 @@ extension _PlayerMedia on _PlayerPageState {
           AnalyticsProp.reason: _isDecoderError(raw) ? 'codec' : 'load',
         },
       );
+      // A reconnect after a dropped connection that met the network still
+      // down: the same server again, after a longer wait, while the in-place
+      // budget lasts. Walking to another mirror here would spend the ladder on
+      // a phone that is simply offline.
+      if (reconnect &&
+          RetryPolicy.shouldReconnectInPlace(
+            message: raw,
+            isLive: _isLive,
+            reconnects: _networkReconnects,
+          )) {
+        _networkReconnects++;
+        _autoRetrying = true;
+        unawaited(_reconnectInPlace());
+        return;
+      }
+      // Not after a start that ran out of time: a challenge answers at once,
+      // and probing a host that is trickling would only add its own wait
+      // before the next server.
       if (code != 'channel-error' &&
+          e is! TimeoutException &&
           !_isDecoderError(raw) &&
           !_isLive &&
           await _solveStreamCloudflare(generation)) {
@@ -1807,9 +1899,7 @@ extension _PlayerMedia on _PlayerPageState {
           _autoRetry();
           return;
         }
-        msg = raw.isEmpty
-            ? PlaybackFaultKind.unknown.messageKey.tr()
-            : _humanizeError(raw);
+        msg = _exhaustedMessage(raw, timedOut: e is TimeoutException);
       }
       setState(() {
         _initializing = false;
@@ -1833,6 +1923,22 @@ extension _PlayerMedia on _PlayerPageState {
 
   String _humanizeError(String raw) =>
       _faultMessage(PlaybackFault.classify(raw));
+
+  /// What the error screen says once nothing is left to try. See
+  /// [PlaybackFault.exhaustedKey]: a dropped connection by name, several
+  /// failed servers as such, a start that never produced a frame as a
+  /// timeout — not the last server's raw sentence or a Dart TimeoutException.
+  String _exhaustedMessage(String raw, {bool timedOut = false}) {
+    final key = PlaybackFault.exhaustedKey(
+      raw,
+      timedOut: timedOut,
+      serversTried: _triedSourceUrls.length,
+    );
+    if (key != null) return key.tr();
+    return raw.isEmpty
+        ? PlaybackFaultKind.unknown.messageKey.tr()
+        : _humanizeError(raw);
+  }
 
   /// Whether the device simply cannot decode this stream.
   ///
@@ -1885,12 +1991,36 @@ extension _PlayerMedia on _PlayerPageState {
     _applyEmbeddedSubtitleChoice();
     _applyPendingAudioChoice();
     _applyRememberedVideoTrack();
+    if (v.isInitialized && !v.hasError && v.position > Duration.zero) {
+      _lastPlayedPosition = v.position;
+    }
 
     if (v.hasError) {
       final msg = v.errorDescription;
       if (msg != null && msg != _lastError && mounted) {
         _lastError = msg;
         _plog('playback error: $msg', level: LogLevel.error);
+        // The connection went away under a stream that was playing: the same
+        // server, where the viewer was, before anything else. Walking to the
+        // next mirror is for a server that failed; this one was fine a moment
+        // ago (log_2e4886: a vidapi episode lost twice to a phone whose
+        // connection dropped, not to vidapi).
+        _networkReconnects = RetryPolicy.networkReconnectsSpent(
+          reconnects: _networkReconnects,
+          playedSinceLast: _playbackWatch.elapsed - _networkReconnectWatch,
+        );
+        if (!_autoRetrying &&
+            RetryPolicy.shouldReconnectInPlace(
+              message: msg,
+              isLive: _isLive,
+              reconnects: _networkReconnects,
+            )) {
+          _networkReconnects++;
+          _networkReconnectWatch = _playbackWatch.elapsed;
+          _autoRetrying = true;
+          unawaited(_reconnectInPlace());
+          return;
+        }
         // A live channel reconnects rather than giving up: a drop mid-broadcast
         // is the normal case, not a broken source. It also reconnects on errors
         // a file would call fatal — a 403 or a 404 on a live edge is usually a
@@ -1933,7 +2063,14 @@ extension _PlayerMedia on _PlayerPageState {
           }
           setState(() => _isCodecError = true);
         }
-        setState(() => _errorMessage = _humanizeError(msg));
+        // A dropped connection that outlasted the reconnects is said in the
+        // viewer's language (PlaybackFault.classify), not as ffmpeg's
+        // "tcp: ffurl_read returned 0xffffff92". The raw line is kept for
+        // the Cloudflare check and the report.
+        setState(() {
+          _errorMessage = _humanizeError(msg);
+          _errorRaw = msg;
+        });
       }
       return;
     }
@@ -2097,9 +2234,7 @@ extension _PlayerMedia on _PlayerPageState {
     // `dispose`'s sync pushed that to every other device. Quality and language
     // switches have always carried the position through; a retry is the same
     // move for a worse reason.
-    final keepPosition = _isLive
-        ? Duration.zero
-        : (_controller?.value.position ?? Duration.zero);
+    final keepPosition = _retryPosition;
 
     // Every remaining mirror, in ladder order — not `+ 1` once and done.
     _markCurrentTried();
@@ -2170,7 +2305,7 @@ extension _PlayerMedia on _PlayerPageState {
         // not the stream. See [_playSourceUrl].
         url: _playSourceUrl ?? _videoUrl!,
         headers: _playSourceUrl != null ? _playSourceHeaders : _headers,
-        type: _mediaType,
+        type: _playSourceType,
         resumeAt: keepPosition,
       );
     } else {
@@ -2179,6 +2314,122 @@ extension _PlayerMedia on _PlayerPageState {
       return;
     }
     if (mounted && generation == _mediaGeneration) _autoRetrying = false;
+  }
+
+  /// Where a retry picks up: the playhead, else the last position the stream
+  /// reported while playing, else where the start was headed.
+  ///
+  /// Reading the controller alone restarted episodes from 0:00. ExoPlayer
+  /// replaces its whole value on an error (video_player's
+  /// `VideoPlayerValue.erroneous`), and a controller that failed to start has
+  /// no position at all — so a drop thirty minutes in, or a second attempt
+  /// after a first one that did not open, began the episode again.
+  Duration get _retryPosition {
+    if (_isLive) return Duration.zero;
+    final v = _controller?.value;
+    if (v != null &&
+        v.isInitialized &&
+        !v.hasError &&
+        v.position > Duration.zero) {
+      return v.position;
+    }
+    if (_lastPlayedPosition > Duration.zero) return _lastPlayedPosition;
+    return _pendingResume;
+  }
+
+  /// The type to re-open [_playSourceUrl] with.
+  ///
+  /// Its source's own when a source carries that url: [_mediaType] is what
+  /// was finally played, so for an embed page it is the type the sniff found
+  /// ("hls"), and re-opening the page with it skipped the sniff and handed
+  /// the page itself to the decoder.
+  String? get _playSourceType {
+    final url = _playSourceUrl;
+    if (url != null) {
+      for (final s in _videoSources) {
+        if (s.videoUrl == url) return _typeOf(s);
+      }
+    }
+    return _mediaType;
+  }
+
+  /// Re-opens the stream that was playing, on the same server and where it
+  /// was, after its connection dropped.
+  ///
+  /// The counterpart of [_liveReconnect] for a file: wait a little longer
+  /// each time ([RetryPolicy.networkBackoff]), and for the device to report a
+  /// network at all, then start the same source again at the same position.
+  /// Bounded by [RetryPolicy.maxNetworkReconnects]; after that a drop goes
+  /// the ordinary way, to another mirror or a fresh resolve.
+  Future<void> _reconnectInPlace() async {
+    if (!mounted) return;
+    final intent = ++_mediaGeneration;
+    final attempt = _networkReconnects;
+    final at = _retryPosition;
+    _plog(
+      'connection dropped at $at — reconnecting in place (attempt $attempt)',
+      level: LogLevel.warn,
+    );
+    setState(() {
+      _initializing = true;
+      _stage = _LoadingStage.loading;
+      _errorMessage = null;
+      _errorRaw = null;
+      _isCodecError = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('player.reconnecting'.tr()),
+        backgroundColor: Colors.black87,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    await Future<void>.delayed(RetryPolicy.networkBackoff(attempt - 1));
+    await _awaitConnectivity(const Duration(seconds: 30));
+    if (!mounted || intent != _mediaGeneration) return;
+
+    final url = _playSourceUrl ?? _videoUrl;
+    if (url == null) {
+      _autoRetrying = false;
+      return;
+    }
+    final headers = _playSourceUrl != null ? _playSourceHeaders : _headers;
+    final type = _playSourceType;
+    final generation = await _disposeController();
+    if (!mounted || generation != _mediaGeneration) return;
+    await _initializeWith(
+      intentGeneration: generation,
+      url: url,
+      headers: headers,
+      type: type,
+      resumeAt: at,
+      reconnect: true,
+    );
+    if (mounted && generation == _mediaGeneration) _autoRetrying = false;
+  }
+
+  /// Waits, up to [limit], for the device to report a network again.
+  ///
+  /// Reconnecting while the phone has none fails at once and spends an
+  /// attempt; waiting for the radio is what a person would do. Best-effort:
+  /// a platform that cannot tell is treated as online.
+  Future<void> _awaitConnectivity(Duration limit) async {
+    bool online(List<ConnectivityResult> r) =>
+        r.any((c) => c != ConnectivityResult.none);
+    final connectivity = Connectivity();
+    try {
+      if (online(await connectivity.checkConnectivity())) return;
+      final back = Completer<void>();
+      final sub = connectivity.onConnectivityChanged.listen((r) {
+        if (online(r) && !back.isCompleted) back.complete();
+      });
+      try {
+        await back.future.timeout(limit, onTimeout: () {});
+      } finally {
+        await sub.cancel();
+      }
+    } catch (_) {}
   }
 
   Future<int> _disposeController() async {
@@ -2306,9 +2557,7 @@ extension _PlayerMedia on _PlayerPageState {
     // retry is nearly always a mid-episode drop-out, and reloading from zero
     // would throw away however far the viewer had got. A live stream has no
     // meaningful position to come back to, so it starts at the edge.
-    final keepPosition = _isLive
-        ? Duration.zero
-        : (_controller?.value.position ?? Duration.zero);
+    final keepPosition = _retryPosition;
     if (widget.args.isSerial) {
       await _loadEpisode(_episodeIndex, resumeAt: keepPosition);
     } else if (_videoUrl != null) {
@@ -2328,7 +2577,7 @@ extension _PlayerMedia on _PlayerPageState {
         // back into the sniffer.
         url: _playSourceUrl ?? _videoUrl!,
         headers: _playSourceUrl != null ? _playSourceHeaders : _headers,
-        type: _mediaType,
+        type: _playSourceType,
         resumeAt: keepPosition,
       );
     }
@@ -2373,12 +2622,29 @@ extension _PlayerMedia on _PlayerPageState {
       if (!mounted) return;
       final body = response.data;
       if (body != null && body.isNotEmpty) {
-        _vttThumbnails = _VttThumbnail.parse(body, url);
+        _vttThumbnails = parseVttThumbnails(body, url);
         _plog('loaded ${_vttThumbnails.length} VTT thumbnails');
+        _precacheSpriteSheets();
       }
     } catch (e) {
       _plog('VTT thumbnails load error: $e', level: LogLevel.warn);
       _vttThumbnails = const [];
+    }
+  }
+
+  /// The first sheets, so the opening drag does not wait on the network.
+  void _precacheSpriteSheets() {
+    final sheets = _vttThumbnails.map((t) => t.imageUrl).toSet().take(2);
+    for (final sheet in sheets) {
+      // A sheet that never answers has no error to report, and the card would
+      // sit on its skeleton with a working decoder right there.
+      unawaited(
+        precacheImage(
+          NetworkImage(sheet, headers: _spriteHeaders),
+          context,
+          onError: (_, _) => _onThumbnailFailed(),
+        ).timeout(const Duration(seconds: 8), onTimeout: _onThumbnailFailed),
+      );
     }
   }
 
@@ -2399,29 +2665,43 @@ extension _PlayerMedia on _PlayerPageState {
 
   /// Starts filling the seek-preview grid once playback has settled.
   ///
-  /// Eight seconds in, not at once: the first seconds are when playback is
+  /// Three seconds in, not at once: the first seconds are when playback is
   /// fighting for bandwidth to fill its buffer, and a scrub that early is
   /// rare. Skipped when the source has a storyboard (its sprites already are
   /// the grid), for live streams, and for anything shorter than a minute.
-  void _schedulePreviewWarm(int generation) {
+  void _schedulePreviewWarm(int generation, {int waits = 0}) {
     _previewWarm?.cancel();
-    final hasThumbnails = _vttThumbnails.isNotEmpty || _storyboard != null;
-    if (hasThumbnails && !_thumbnailsFailed) return;
+    bool sprites() =>
+        (_vttThumbnails.isNotEmpty || _storyboard != null) &&
+        !_thumbnailsFailed;
+    if (sprites()) return;
     // Soon after playback settles: most scrubs come in the first minute.
     // On mobile data it waits longer, so the opening segments come first.
     _previewWarm = Timer(const Duration(seconds: 3), () async {
       if (!mounted || generation != _mediaGeneration) return;
+      // A VTT is fetched while this waits; the grid would duplicate it.
+      if (sprites()) return;
       if (!_canGeneratePreview || _isLive) return;
       final url = _videoUrl;
       final ms = _controller?.value.duration.inMilliseconds ?? 0;
-      if (url == null || ms < 60000) return;
-      var metered = true;
-      try {
-        final c = await Connectivity().checkConnectivity();
-        metered =
-            !(c.contains(ConnectivityResult.wifi) ||
-                c.contains(ConnectivityResult.ethernet));
-      } catch (_) {}
+      if (url == null) return;
+      // The engine may not know the length yet on a slow stream. Asked once,
+      // that episode went without a grid to the end.
+      if (ms <= 0 && waits < 10) {
+        _schedulePreviewWarm(generation, waits: waits + 1);
+        return;
+      }
+      if (ms < 60000) return;
+      // A download costs no data, whatever the phone is connected to.
+      var metered = !(url.startsWith('/') || url.startsWith('file:'));
+      if (metered) {
+        try {
+          final c = await Connectivity().checkConnectivity();
+          metered =
+              !(c.contains(ConnectivityResult.wifi) ||
+                  c.contains(ConnectivityResult.ethernet));
+        } catch (_) {}
+      }
       if (metered) await Future<void>.delayed(const Duration(seconds: 5));
       if (!mounted || generation != _mediaGeneration) return;
       FramePreviewService.warm(
@@ -2448,7 +2728,7 @@ extension _PlayerMedia on _PlayerPageState {
     return '${widget.args.provider}|$content|$ep|$_currentLang';
   }
 
-  _VttThumbnail? _thumbnailAt(Duration position) {
+  VttThumbnail? _thumbnailAt(Duration position) {
     final sb = _storyboard;
     if (sb != null && sb.isStoryboard) {
       final c = _controller;
@@ -2465,7 +2745,7 @@ extension _PlayerMedia on _PlayerPageState {
       final row = idx ~/ cols;
       final cellW = (sb.width! / cols).round();
       final cellH = (sb.height! / rows).round();
-      return _VttThumbnail(
+      return VttThumbnail(
         start: Duration.zero,
         end: Duration.zero,
         imageUrl: sb.template!,

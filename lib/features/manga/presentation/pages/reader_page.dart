@@ -44,6 +44,7 @@ import 'package:soplay/features/manga/data/chapter_read_store.dart';
 import 'package:soplay/features/manga/data/novel_highlight_store.dart';
 import 'package:soplay/features/manga/domain/reading/novel_highlight.dart';
 import 'package:soplay/features/manga/data/page_tiles.dart';
+import 'package:soplay/features/manga/presentation/widgets/pinch_zoom_scroll.dart';
 import 'package:soplay/features/manga/presentation/widgets/tiled_zoom.dart';
 import 'package:soplay/features/manga/domain/reading/chapter_progress.dart';
 import 'package:soplay/features/manga/domain/reading/tts_language.dart';
@@ -1519,22 +1520,26 @@ class _ReaderPageState extends State<ReaderPage> {
   Widget _verticalReader() {
     return GestureDetector(
       onTapUp: _handleTapZone,
-      child: ScrollablePositionedList.builder(
-        key: ValueKey('v_$_chapterIndex'),
-        itemScrollController: _itemScrollController,
-        itemPositionsListener: _itemPositionsListener,
-        initialScrollIndex: _initialIndex.clamp(0, _pageCount),
-        minCacheExtent: 2000,
-        itemCount: _pages.length + 1,
-        itemBuilder: (context, i) {
-          if (i == _pages.length) return _chapterFooter();
-          return _PageImage(
-            key: ValueKey('v_${_chapterIndex}_$i'),
-            page: _pages[i],
-            headers: _headers,
-            zoomable: false,
-          );
-        },
+      child: PinchZoomScroll(
+        key: ValueKey('zoom_$_chapterIndex'),
+        builder: (context, physics) => ScrollablePositionedList.builder(
+          key: ValueKey('v_$_chapterIndex'),
+          physics: physics,
+          itemScrollController: _itemScrollController,
+          itemPositionsListener: _itemPositionsListener,
+          initialScrollIndex: _initialIndex.clamp(0, _pageCount),
+          minCacheExtent: 2000,
+          itemCount: _pages.length + 1,
+          itemBuilder: (context, i) {
+            if (i == _pages.length) return _chapterFooter();
+            return _PageImage(
+              key: ValueKey('v_${_chapterIndex}_$i'),
+              page: _pages[i],
+              headers: _headers,
+              zoomable: false,
+            );
+          },
+        ),
       ),
     );
   }

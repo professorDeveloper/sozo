@@ -14,7 +14,12 @@ extension _PlayerGestures on _PlayerPageState {
     } else if (dx > rightEdge) {
       _seekRelative(step);
       _showSeekRipple(1);
+    } else {
+      return;
     }
+    // The ripple is on the far side of the thumb; the tick is what says the
+    // double tap landed while the eyes stay on the picture.
+    if (isMobilePlatform) HapticFeedback.selectionClick();
   }
 
   /// [initialDeltaPx]: how far the finger has already travelled from where

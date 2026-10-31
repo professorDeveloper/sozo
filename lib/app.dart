@@ -2,12 +2,16 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/material.dart';
+import 'package:soplay/core/glass/glass_power.dart';
+import 'package:soplay/core/glass/glass_sense.dart';
 import 'package:soplay/features/profiles/presentation/widgets/profile_gate.dart';
 import 'package:soplay/core/localization/borrowed_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/localization/app_language.dart';
 import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/core/player/player_dock.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_dock_host.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/app_lock/presentation/widgets/app_lock_overlay.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
@@ -193,10 +197,24 @@ class _MyAppState extends State<MyApp> {
             // keeps the whole navigation stack — a redirect would have thrown
             // away the pages below, and the `extra` arguments pages like the
             // player are opened with.
-            final app = AppLockOverlay(
-              child: ProfileGate(
-                child: AchievementCelebrationHost(
-                  child: child ?? const SizedBox.shrink(),
+            final routed = child ?? const SizedBox.shrink();
+            // What every glass under it reads: whether an Android phone can
+            // spend the refraction, and whether an iPhone asks for Reduce
+            // Transparency. Both answer nothing elsewhere.
+            final app = GlassPower(
+              child: GlassSense(
+                child: AppLockOverlay(
+                  child: ProfileGate(
+                    child: AchievementCelebrationHost(
+                      // Desktop: the corner player lives here, above the
+                      // Navigator, so it keeps playing while pages change
+                      // under it. Inside the lock, which covers it too; below
+                      // the title bar, so its corners are the content area's.
+                      child: PlayerDock.supported
+                          ? PlayerDockHost(child: routed)
+                          : routed,
+                    ),
+                  ),
                 ),
               ),
             );

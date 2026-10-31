@@ -17,6 +17,7 @@ import 'package:soplay/features/detail/data/models/playback_model.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
+import 'package:soplay/features/detail/domain/episode_seasons.dart';
 import 'package:soplay/features/detail/domain/repositories/detail_repository.dart';
 
 class DetailRepositoryImpl implements DetailRepository {
@@ -442,8 +443,10 @@ class DetailRepositoryImpl implements DetailRepository {
     // Copy before sorting: `sort` mutates in place and throws
     // "Cannot modify an unmodifiable list" on a const/fixed-length list, which
     // several of the host adapters can legitimately produce.
-    final eps = model.episodes.toList();
-    if (eps.length < 2) return model;
+    // Numbered by season first: two seasons that both start at 1 would
+    // otherwise sort into each other here.
+    final eps = EpisodeSeasons.number(model.episodes).toList();
+    if (eps.length < 2) return model.copyWithEpisodes(eps);
     final desc = sort.toLowerCase() == 'desc';
     final orig = Map<Object?, int>.identity();
     for (var i = 0; i < eps.length; i++) {

@@ -264,9 +264,13 @@ class _IconButton extends StatelessWidget {
     this.onLongPress,
     this.color,
     this.enabled = true,
+    this.tooltip,
   });
   final IconData icon;
   final VoidCallback onTap;
+
+  /// For a button whose long press is not obvious from its icon.
+  final String? tooltip;
 
   /// The long way round, for a control whose tap is a shortcut.
   ///
@@ -296,9 +300,10 @@ class _IconButton extends StatelessWidget {
     // still needed it: a bar button is a 20pt white glyph against whatever
     // frame is behind it, and on a bright shot 0.35 left it reading as a
     // smudge. Raised for legibility, not because the scrim is absent.
-    final fill = color != null
-        ? color!.withValues(alpha: 0.22)
-        : Colors.black.withValues(alpha: 0.45);
+    //
+    // On an iPhone that disc is clear glass with the same black laid in it
+    // ([MediaGlass]), so it keeps this contrast and gains the glass.
+    final fill = color?.withValues(alpha: 0.22);
     final tint = (color ?? Colors.white).withValues(
       alpha: enabled ? 1.0 : 0.38,
     );
@@ -312,7 +317,7 @@ class _IconButton extends StatelessWidget {
     // pitch was already 44; the gap simply moves inside the button as
     // transparent padding. Callers therefore drop their SizedBox(width: 6) —
     // keeping both would double the spacing.
-    return _tvRing(
+    final Widget button = _tvRing(
       circle: true,
       SizedBox(
         width: 44,
@@ -325,18 +330,106 @@ class _IconButton extends StatelessWidget {
             onLongPress: enabled ? onLongPress : null,
             customBorder: const CircleBorder(),
             child: Center(
-              child: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
-                // 20 inside a 38pt disc. It was 18, which left 10pt of empty
-                // disc a side and read as a small mark in a large circle —
-                // half of why these looked flimsy over video.
-                child: Icon(
-                  icon,
-                  color: tint,
-                  size: 20,
-                  shadows: _kControlShadow,
+              child: MediaGlass(
+                dim: fill,
+                child: SizedBox(
+                  width: 38,
+                  height: 38,
+                  // 20 inside a 38pt disc. It was 18, which left 10pt of empty
+                  // disc a side and read as a small mark in a large circle —
+                  // half of why these looked flimsy over video.
+                  child: Icon(
+                    icon,
+                    color: tint,
+                    size: 20,
+                    shadows: _kControlShadow,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final tip = tooltip;
+    return tip == null ? button : Tooltip(message: tip, child: button);
+  }
+}
+
+/// The small player's timeline: thin until the pointer is over it, and a
+/// click or a drag anywhere along it seeks. The full bar's frame preview and
+/// chapter marks have no room here.
+class _MiniSeekBar extends StatefulWidget {
+  const _MiniSeekBar({required this.controller, required this.onSeek});
+
+  final PlayerController controller;
+  final ValueChanged<Duration> onSeek;
+
+  @override
+  State<_MiniSeekBar> createState() => _MiniSeekBarState();
+}
+
+class _MiniSeekBarState extends State<_MiniSeekBar> {
+  bool _hover = false;
+
+  /// Where the pointer holds the bar, 0–1, while it is down.
+  double? _drag;
+
+  void _at(double dx, double width) =>
+      setState(() => _drag = width > 0 ? (dx / width).clamp(0.0, 1.0) : 0.0);
+
+  void _commit() {
+    final f = _drag;
+    final d = widget.controller.value.duration;
+    if (f != null && d > Duration.zero) widget.onSeek(d * f);
+    setState(() => _drag = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          // Claim the click for the bar. Without these the player's own tap
+          // (play/pause) and double tap (back to the full player) would fire
+          // under it as well.
+          onTap: () {},
+          onDoubleTap: () {},
+          // Raw pointer events for the seek itself, so it lands on release
+          // rather than after the double-tap timeout the claim above holds.
+          child: Listener(
+            onPointerDown: (e) => _at(e.localPosition.dx, box.maxWidth),
+            onPointerMove: (e) => _at(e.localPosition.dx, box.maxWidth),
+            onPointerUp: (_) => _commit(),
+            onPointerCancel: (_) => setState(() => _drag = null),
+            child: SizedBox(
+              height: 16,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: ListenableBuilder(
+                  listenable: widget.controller,
+                  builder: (_, _) {
+                    final v = widget.controller.value;
+                    final ms = v.duration.inMilliseconds;
+                    final f =
+                        _drag ??
+                        (ms > 0
+                            ? (v.position.inMilliseconds / ms).clamp(0.0, 1.0)
+                            : 0.0);
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: f,
+                        minHeight: _hover || _drag != null ? 5 : 3,
+                        backgroundColor: Colors.white24,
+                        valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -411,35 +504,37 @@ class _LangPill extends StatelessWidget {
     // one this pill took D-pad focus with nothing to show for it.
     return _tvRing(
       radius: 20,
-      Material(
-        // The same 0.45 disc its _IconButton neighbours wear; at 0.35 it was
-        // the one washed-out shape in the row.
-        color: Colors.black.withValues(alpha: 0.45),
-        shape: const StadiumBorder(),
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const StadiumBorder(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.translate_rounded,
-                  color: Colors.white,
-                  size: 14,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: const TextStyle(
+      // The same 0.45 disc its _IconButton neighbours wear; at 0.35 it was the
+      // one washed-out shape in the row.
+      MediaGlass(
+        child: Material(
+          type: MaterialType.transparency,
+          shape: const StadiumBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const StadiumBorder(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.translate_rounded,
                     color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
+                    size: 14,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -484,35 +579,37 @@ class _CenterIconButton extends StatelessWidget {
       label: label,
       child: _tvRing(
         circle: true,
-        Material(
-          // These buttons sit at the vertical centre, where the scrim is fully
-          // transparent — 32% black left a white glyph invisible on a bright shot.
-          color: Colors.black.withValues(alpha: 0.45),
-          shape: const CircleBorder(),
-          child: InkWell(
-            onTap: enabled ? onTap : null,
-            focusNode: focusNode,
-            customBorder: const CircleBorder(),
-            child: SizedBox(
-              width: size,
-              height: size,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    color: enabled ? Colors.white : Colors.white38,
-                    size: iconSize,
-                    shadows: _kControlShadow,
-                  ),
-                  if (busy)
-                    const Positioned.fill(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: Colors.white70,
-                      ),
+        // These buttons sit at the vertical centre, where the scrim is fully
+        // transparent — 32% black left a white glyph invisible on a bright shot.
+        MediaGlass(
+          child: Material(
+            type: MaterialType.transparency,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: enabled ? onTap : null,
+              focusNode: focusNode,
+              customBorder: const CircleBorder(),
+              child: SizedBox(
+                width: size,
+                height: size,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      color: enabled ? Colors.white : Colors.white38,
+                      size: iconSize,
+                      shadows: _kControlShadow,
                     ),
-                ],
+                    if (busy)
+                      const Positioned.fill(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white70,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -562,11 +659,8 @@ class _BottomTextButton extends StatelessWidget {
         // exactly the "thin, low quality" the icon buttons beside it had
         // already been given a disc to fix; this is that disc, shaped for a
         // label instead of a glyph, at the same 0.45.
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.45),
-            borderRadius: BorderRadius.circular(10),
-          ),
+        MediaGlass(
+          radius: 10,
           child: InkWell(
             onTap: enabled ? onTap : null,
             borderRadius: BorderRadius.circular(10),
@@ -722,7 +816,7 @@ class _EpisodeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = episode.label.trim().isEmpty
-        ? 'player.episode_n'.tr(args: ['${episode.episode}'])
+        ? 'player.episode_n'.tr(args: [episode.numberLabel])
         : episode.label;
     return InkWell(
       borderRadius: BorderRadius.circular(12),
@@ -1768,7 +1862,6 @@ class _ScrubPreviewCard extends StatelessWidget {
     required this.frame,
     required this.width,
     required this.time,
-    required this.delta,
     this.segment,
     this.caretX,
   });
@@ -1777,9 +1870,6 @@ class _ScrubPreviewCard extends StatelessWidget {
   final Widget? frame;
   final double width;
   final String time;
-
-  /// "+1:25" / "−0:40" from the current position; empty when negligible.
-  final String delta;
 
   /// "Opening" or "Ending" when the position falls inside one.
   final String? segment;
@@ -1817,48 +1907,41 @@ class _ScrubPreviewCard extends StatelessWidget {
                 ],
               ),
             const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.72),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    time,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  if (frame == null && segment != null) ...[
-                    const SizedBox(width: 6),
+            // "01:12:49 / 02:07:33" at a large system text size is wider than
+            // the card.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      segment!,
+                      time,
                       style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                  if (delta.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      delta,
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
                         fontFeatures: [FontFeature.tabularFigures()],
                       ),
                     ),
+                    if (frame == null && segment != null) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        segment!,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
             if (caretX != null)

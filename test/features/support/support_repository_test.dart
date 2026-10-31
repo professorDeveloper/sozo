@@ -239,6 +239,14 @@ void main() {
       },
     );
 
+    test('a follow-up carries a newer report when it is given one', () async {
+      await repo().reply('t1', 'Still not playing', diagnostics: {'log': 'x'});
+      expect((seen.single.body as Map)['diagnostics'], {'log': 'x'});
+      seen.clear();
+      await repo().reply('t1', 'Still not playing');
+      expect((seen.single.body as Map).containsKey('diagnostics'), isFalse);
+    });
+
     test('screenshots on a message read back with their signed URLs', () {
       final m = SupportMessage.fromJson({
         'id': 'm',

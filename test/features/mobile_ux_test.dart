@@ -7,6 +7,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:showcaseview/showcaseview.dart';
 import 'package:soplay/core/localization/language_picker.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/navigation/app_tab.dart';
@@ -97,6 +98,7 @@ void main() {
           Locale('fr'),
           Locale('tr'),
           Locale('id'),
+          Locale('vi'),
         ],
         startLocale: Locale(language),
         fallbackLocale: const Locale('en'),
@@ -427,6 +429,43 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.tap(find.byIcon(kTabRegistry[TabId.downloads]!.icon));
     expect(selected, 5);
+  });
+
+  testWidgets('capsule bar opens the tab under the finger in Arabic', (
+    tester,
+  ) async {
+    final items = [for (final id in kDefaultTabs) kTabRegistry[id]!];
+    // The Shorts slot anchors the main page's coach mark.
+    ShowcaseView.register(scope: 'main-nav');
+    addTearDown(() => ShowcaseView.getNamed('main-nav').unregister());
+    for (final language in ['en', 'ar']) {
+      final opened = <int>[];
+      await pump(
+        tester,
+        Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: glassCapsuleForTest(
+              index: 0,
+              items: items,
+              onTabSelected: opened.add,
+            ),
+          ),
+        ),
+        language: language,
+      );
+      await tester.pumpAndSettle();
+      for (var i = 0; i < items.length; i++) {
+        final label = find.text(items[i].labelKey.tr()).first;
+        await tester.tap(label);
+        await tester.pumpAndSettle();
+        expect(opened.last, i, reason: '$language: ${items[i].id}');
+      }
+      // Home leads: on the left in English, on the right in Arabic.
+      final home = tester.getCenter(find.text(items.first.labelKey.tr()).first);
+      final end = tester.getCenter(find.text(items.last.labelKey.tr()).first);
+      expect(home.dx < end.dx, language == 'en', reason: language);
+    }
   });
 
   testWidgets(

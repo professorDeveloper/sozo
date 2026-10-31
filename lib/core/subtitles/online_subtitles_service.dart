@@ -63,6 +63,8 @@ class OnlineSubtitlesService {
     bool isSerial = false,
     int? season,
     int? episode,
+    // The language the viewer reads: the server looks further for this one.
+    String? want,
   }) async {
     final imdb = await resolveImdbId(title: title, series: isSerial);
     if (imdb == null) return const [];
@@ -76,6 +78,7 @@ class OnlineSubtitlesService {
           // Empty language asks the backend for everything it can find, rather
           // than only English.
           'language': '',
+          if (want != null && want.isNotEmpty) 'want': want,
           if (isSerial && season != null) 'season': season,
           if (isSerial && episode != null) 'episode': episode,
         },

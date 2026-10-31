@@ -32,6 +32,7 @@ const List<(String, String)> kSubtitleTranslateLanguages = [
   ('pl', 'Polski'),
   ('uk', 'Українська'),
   ('id', 'Bahasa Indonesia'),
+  ('vi', 'Tiếng Việt'),
   ('ja', '日本語'),
   ('ko', '한국어'),
   ('zh', '中文'),

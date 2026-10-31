@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:soplay/core/content/content_mode.dart';
@@ -85,6 +86,11 @@ enum Catalogue {
     }
     return null;
   }
+
+  /// [providerId] as a person reads it: a catalogue's id is stored where a
+  /// source's is, and `cat:anilist` is nothing to show anyone.
+  static String displayName(String providerId) =>
+      fromId(providerId)?.labelKey.tr() ?? providerId;
 
   /// The catalogue whose own page [url] is, or null for any other link.
   ///

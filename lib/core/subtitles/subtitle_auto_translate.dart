@@ -137,6 +137,7 @@ abstract final class SubtitleAutoTranslate {
     'dut': 'nl',
     'pol': 'pl',
     'ind': 'id',
+    'vie': 'vi',
     'uzb': 'uz',
   };
 
@@ -158,6 +159,7 @@ abstract final class SubtitleAutoTranslate {
     'pl': ['polski', 'polish'],
     'uk': ['українськ', 'ukrainian'],
     'id': ['indonesia', 'indonesian'],
+    'vi': ['tiếng việt', 'tieng viet', 'vietnamese', 'vietsub'],
     'ja': ['日本語', 'japanese'],
     'ko': ['한국어', 'korean'],
     'zh': ['中文', 'chinese'],

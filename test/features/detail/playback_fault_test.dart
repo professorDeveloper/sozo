@@ -57,6 +57,29 @@ void main() {
       );
     });
 
+    test('a dropped connection is a network fault, whoever reports it', () {
+      // log_2e4886 (libmpv) and img_2e4886 (Dio, on the re-resolve): both
+      // reached the viewer as English library sentences.
+      for (final raw in const [
+        'tcp: ffurl_read returned 0xffffff92',
+        'tcp: Failed to resolve hostname premiumleadgeneration.site: '
+            'No address associated with hostname',
+        'tcp: Connection to tcp://premiumleadgeneration.site:443 failed: '
+            'Connection timed out',
+        'The connection errored: Connection reset by peer This indicates an '
+            'error which most likely cannot be solved by the library.',
+        'SocketException: Failed host lookup: \'cdn.example\'',
+        'Network is unreachable',
+        'The network connection was lost.',
+      ]) {
+        expect(
+          PlaybackFault.classify(raw).kind,
+          PlaybackFaultKind.network,
+          reason: raw,
+        );
+      }
+    });
+
     test('anything unrecognised falls through to unknown', () {
       expect(
         PlaybackFault.classify('something nobody has seen yet').kind,
@@ -100,6 +123,65 @@ void main() {
         const PlaybackFault(PlaybackFaultKind.sourceBlocked).isCodecFault,
         isFalse,
       );
+    });
+  });
+
+  group('once nothing is left to try', () {
+    test('a dropped connection is named, however many servers failed', () {
+      expect(
+        PlaybackFault.exhaustedKey(
+          'tcp: ffurl_read returned 0xffffff92',
+          timedOut: false,
+          serversTried: 4,
+        ),
+        PlaybackFaultKind.network.messageKey,
+      );
+    });
+
+    test('several failed servers are said as such', () {
+      expect(
+        PlaybackFault.exhaustedKey(
+          'Failed to open https://cdn.example/x.mp4.',
+          timedOut: false,
+          serversTried: 3,
+        ),
+        'player.all_servers_failed',
+      );
+      expect(
+        PlaybackFault.exhaustedKey(
+          'TimeoutException after 0:00:25.000000: Playback did not start',
+          timedOut: true,
+          serversTried: 2,
+        ),
+        'player.all_servers_failed',
+      );
+    });
+
+    test('one server that never started says it timed out', () {
+      expect(
+        PlaybackFault.exhaustedKey(
+          'TimeoutException after 0:00:25.000000: Playback did not start',
+          timedOut: true,
+          serversTried: 1,
+        ),
+        'player.resolve_timeout',
+      );
+    });
+
+    test('one server that failed keeps its own message', () {
+      expect(
+        PlaybackFault.exhaustedKey(
+          'Source error',
+          timedOut: false,
+          serversTried: 1,
+        ),
+        isNull,
+      );
+    });
+
+    test('the keys it returns exist in English', () {
+      final en = File('assets/translations/en.json').readAsStringSync();
+      expect(en.contains('"resolve_timeout"'), isTrue);
     });
   });
 

@@ -198,11 +198,11 @@ class _UserContent extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
-                    height: 1.15,
+                    height: lineHeightFor(context, 1.15),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

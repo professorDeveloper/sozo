@@ -1,4 +1,5 @@
 import 'package:soplay/core/player/media_segment_relay.dart';
+import 'package:soplay/core/player/player_dock.dart';
 import 'package:soplay/features/search/data/source_health_store.dart';
 import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'package:share_plus/share_plus.dart';
@@ -16,7 +17,7 @@ import 'package:soplay/features/detail/data/title_prefs_store.dart';
 import 'package:soplay/features/stats/data/watch_stats_store.dart';
 import 'package:soplay/core/network/external_dio.dart';
 import 'package:soplay/core/network/cf_bypass_service.dart';
-import 'package:soplay/core/network/fetch_metadata.dart';
+import 'package:soplay/core/network/media_request_headers.dart';
 import 'package:soplay/core/network/user_agent.dart';
 import 'dart:async';
 import 'dart:io';
@@ -28,6 +29,8 @@ import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:floating/floating.dart';
 import 'package:gal/gal.dart';
+import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -68,11 +71,13 @@ import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/glass/media_glass.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/mal/data/mal_tracker.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver_page.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
+import 'package:soplay/features/detail/domain/services/alternate_source_service.dart' show SeasonEpisode;
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
 import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
@@ -88,6 +93,7 @@ import 'package:soplay/features/detail/domain/scrub_curve.dart';
 import 'package:soplay/features/trakt/data/trakt_tracker.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/video_option_groups.dart';
+import 'package:soplay/features/detail/domain/vtt_thumbnails.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/detail/data/aniskip_service.dart';
 import 'package:soplay/features/detail/presentation/pages/player_controls_page.dart';
@@ -221,6 +227,24 @@ class _PlayerPageState extends State<PlayerPage>
   /// Desktop picture-in-picture: the window is the small always-on-top
   /// player. [_isPip] is set with it, which hides the full controls.
   bool _desktopMini = false;
+
+  /// Desktop picture-in-picture inside the app: this page is the corner
+  /// player over whatever screen the viewer moved on to (see [PlayerDock]).
+  /// [_isPip] is set with it, as for [_desktopMini], which hides the full
+  /// controls.
+  bool _docked = false;
+
+  /// The window floated above the other apps by itself, when the viewer
+  /// switched away from a corner player (see [_floatWhenLeaving]). Leaving
+  /// the floating window puts the picture back in the corner it came from.
+  bool _floatedFromDock = false;
+
+  /// Either compact form: the always-on-top window or the corner player.
+  bool get _compact => _desktopMini || _docked;
+
+  /// The desktop key handler's node, held so docking can let go of the
+  /// keyboard and a click on the corner player can take it back.
+  final FocusNode _keyFocus = FocusNode(debugLabel: 'desktopPlayerKeys');
   final ValueNotifier<bool> _miniHover = ValueNotifier<bool>(false);
   bool _resumeAfterPause = false;
   bool _lastPipPlaying = false;
@@ -229,6 +253,12 @@ class _PlayerPageState extends State<PlayerPage>
   bool _preferPlatformPlayer = false;
   String? _currentQuality;
   String? _videoUrl;
+
+  /// The url and headers a download should take while [_videoUrl] is a local
+  /// proxy address that stops answering once the player closes. Only set when
+  /// the upstream needs no rewriting to play (the media-segment relay): a
+  /// signed or transformed CDN refuses it without the proxy.
+  ({String url, Map<String, String> headers})? _downloadUpstream;
 
   /// The url as it was handed to `_initializeWith`, before the WebView sniff
   /// and before the local proxy rewrote it.
@@ -486,7 +516,7 @@ class _PlayerPageState extends State<PlayerPage>
   SubtitleStyle _subtitleStyle = SubtitleStyle.defaults();
 
   String? _thumbnailsKey;
-  List<_VttThumbnail> _vttThumbnails = const [];
+  List<VttThumbnail> _vttThumbnails = const [];
   ThumbnailsEntity? _storyboard;
 
   /// What the source's thumbnails are fetched with: the sprite sheets sit on
@@ -608,6 +638,16 @@ class _PlayerPageState extends State<PlayerPage>
   int _lifetimeRetries = 0;
 
   bool _autoRetrying = false;
+
+  /// Mid-stream network drops re-opened in place, and [_playbackWatch]'s
+  /// reading at the last one. See `_reconnectInPlace`.
+  int _networkReconnects = 0;
+  Duration _networkReconnectWatch = Duration.zero;
+
+  /// The last position the stream reported while playing cleanly. ExoPlayer
+  /// replaces its whole value on an error (position 0:00), so a retry that
+  /// read the controller restarted the episode from the beginning.
+  Duration _lastPlayedPosition = Duration.zero;
 
   /// Stream hosts already asked whether a Cloudflare challenge is what made
   /// them refuse — once each per player, since the answer costs a request.
@@ -773,6 +813,11 @@ class _PlayerPageState extends State<PlayerPage>
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
+        // Inactive is another app in front. Hidden is Cmd-H or the window
+        // gone entirely, where a floating player is the one thing not wanted.
+        if (isDesktopPlatform && state == AppLifecycleState.inactive) {
+          unawaited(_floatWhenLeaving());
+        }
         if (!isDesktopPlatform &&
             c.value.isInitialized &&
             c.value.isPlaying &&
@@ -788,7 +833,12 @@ class _PlayerPageState extends State<PlayerPage>
         _saveHistory();
         break;
       case AppLifecycleState.resumed:
-        if (_isPip && mounted) {
+        // Back from Android's or iOS's floating window. On the desktop
+        // "resumed" only means the window got focus back — a click on the
+        // always-on-top mini window, or on the app around the corner player —
+        // and clearing _isPip there drew the full control bar into a 426-px
+        // window, under and over the mini controls.
+        if (_isPip && !_compact && mounted) {
           setState(() => _isPip = false);
         }
         if (_resumeAfterPause && c.value.isInitialized) {
@@ -812,6 +862,11 @@ class _PlayerPageState extends State<PlayerPage>
     // Leaving the player from the mini window must not leave the app a
     // thumbnail above everything else.
     if (_desktopMini) unawaited(DesktopWindow.exitMini());
+    // Closed from the corner, or disposed some other way while there: the
+    // dock must not keep pointing at a page that no longer exists.
+    final pageKey = widget.key;
+    if (pageKey is GlobalKey) PlayerDock.instance.forget(pageKey);
+    _keyFocus.dispose();
     _miniHover.dispose();
     // Leaving mid-play is a pause as far as Trakt's "watching now" goes.
     if (_traktPlaying) _syncTraktScrobble(false);
@@ -893,6 +948,7 @@ class _PlayerPageState extends State<PlayerPage>
 
   @override
   Widget build(BuildContext context) {
+    if (_docked) _reportDockAspect();
     return PopScope(
       // BACK is the *only* dismiss affordance on a remote, so on TV the player
       // intercepts it and unwinds one layer at a time (panel -> pending scrub ->
@@ -902,6 +958,9 @@ class _PlayerPageState extends State<PlayerPage>
       canPop: !isTvPlatform || _tvPopAllowed,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || !isTvPlatform) {
+          // Docking pops the route too, but the page plays on in the corner:
+          // its wakelock and window state are still in use.
+          if (_docked) return;
           _restoreSystemUi();
           return;
         }
@@ -943,7 +1002,7 @@ class _PlayerPageState extends State<PlayerPage>
                   behavior: HitTestBehavior.opaque,
                   onTap: _locked
                       ? null
-                      : _desktopMini
+                      : _compact
                       ? _togglePlay
                       : _toggleControls,
                   onDoubleTapDown: _locked || isDesktopPlatform
@@ -951,6 +1010,8 @@ class _PlayerPageState extends State<PlayerPage>
                       : (d) => _onDoubleTapDown(d, constraints),
                   onDoubleTap: _locked
                       ? null
+                      : _docked
+                      ? _expandFromDock
                       : _desktopMini
                       ? _toggleDesktopMini
                       : isDesktopPlatform
@@ -961,20 +1022,19 @@ class _PlayerPageState extends State<PlayerPage>
                   // the old pan handlers — see _onScaleUpdate — so brightness,
                   // volume and swipe-seek behave exactly as before, and two
                   // fingers pinch-zoom the picture.
-                  // In the mini window a drag moves the window instead.
-                  onScaleStart: _locked || _desktopMini
+                  // In the mini window a drag moves the window instead, and
+                  // in the corner player it moves the corner player.
+                  onScaleStart: _locked || _compact
                       ? null
                       : (d) => _onScaleStart(d, constraints),
-                  onScaleUpdate: _locked || _desktopMini
+                  onScaleUpdate: _locked || _compact
                       ? null
                       : (d) => _onScaleUpdate(d, constraints),
-                  onScaleEnd: _locked || _desktopMini ? null : _onScaleEnd,
-                  onLongPressStart: _locked || _desktopMini
+                  onScaleEnd: _locked || _compact ? null : _onScaleEnd,
+                  onLongPressStart: _locked || _compact
                       ? null
                       : _onLongPressStart,
-                  onLongPressEnd: _locked || _desktopMini
-                      ? null
-                      : _onLongPressEnd,
+                  onLongPressEnd: _locked || _compact ? null : _onLongPressEnd,
                   child: Listener(
                     // Seen before any recogniser claims the touch, and in the
                     // order they happen: where the finger went down (the
@@ -983,6 +1043,11 @@ class _PlayerPageState extends State<PlayerPage>
                     onPointerDown: (e) {
                       _pointerDownAt = e.localPosition;
                       _pointerCancelled = false;
+                      // The corner player gave the keyboard to the page under
+                      // it; a click on the player takes it back.
+                      if (_docked && !_keyFocus.hasFocus) {
+                        _keyFocus.requestFocus();
+                      }
                     },
                     onPointerCancel: (_) => _pointerCancelled = true,
                     child: Stack(
@@ -1017,7 +1082,7 @@ class _PlayerPageState extends State<PlayerPage>
                         if (!_locked && _panel != _SidePanel.none)
                           _buildSidePanel(),
                         if (!_locked && _inParty) _buildPartyReactionsLayer(),
-                        if (_desktopMini) _buildDesktopMiniOverlay(),
+                        if (_compact) _buildDesktopMiniOverlay(),
                         // Last, so it covers everything: while a television is
                         // playing this episode the phone is a remote, and leaving the
                         // local controls reachable underneath would let someone
@@ -1050,14 +1115,21 @@ class _PlayerPageState extends State<PlayerPage>
       );
     }
     if (!isDesktopPlatform) return child;
-    return Focus(autofocus: true, onKeyEvent: _onPlayerKey, child: child);
+    return Focus(
+      focusNode: _keyFocus,
+      // Not when the page arrives in the corner: the keyboard stays with the
+      // page the viewer went to.
+      autofocus: !_docked,
+      onKeyEvent: _onPlayerKey,
+      child: child,
+    );
   }
 
   Widget _wrapHover(Widget child) {
     if (!isDesktopPlatform) return child;
     return MouseRegion(
       onHover: (_) => _revealControlsForHover(),
-      cursor: _controlsVisible || _desktopMini
+      cursor: _controlsVisible || _compact
           ? MouseCursor.defer
           : SystemMouseCursors.none,
       child: child,
@@ -1079,6 +1151,18 @@ class _PlayerPageState extends State<PlayerPage>
     if (_desktopMini && k == LogicalKeyboardKey.escape) {
       _toggleDesktopMini();
       return KeyEventResult.handled;
+    }
+    if (_docked) {
+      // In the corner, Esc hands the keyboard back to the page underneath
+      // instead of closing the video — PlayerDockHost takes it from here, as
+      // it knows where that page is — and I opens the full player again.
+      // Nothing that opens a sheet: there is no room for one.
+      if (k == LogicalKeyboardKey.escape) return KeyEventResult.ignored;
+      if (k == LogicalKeyboardKey.keyI) {
+        if (event is! KeyRepeatEvent) _expandFromDock();
+        return KeyEventResult.handled;
+      }
+      if (!_kDockKeys.contains(k)) return KeyEventResult.ignored;
     }
     for (final shortcut in _playerShortcuts) {
       if (!shortcut.keys.contains(k)) continue;
@@ -1230,14 +1314,19 @@ class _PlayerPageState extends State<PlayerPage>
       label: 'player.fullscreen'.tr(),
       onKey: (_) => _toggleFullscreen(),
     ),
-    // The mini window: above other windows, the same player at 426 wide.
+    // I: the corner player, which stays while the rest of the app is used.
+    // Shift+I: the whole window as a small always-on-top player, for watching
+    // over other apps — the only way above them, since a second window would
+    // need a second engine that cannot share this texture.
     // I rather than P, which is already the previous episode.
     _PlayerShortcut(
       keys: const [LogicalKeyboardKey.keyI],
-      hint: 'I',
-      label: 'player.pip'.tr(),
+      hint: 'I  ·  ⇧ I',
+      label: 'player.shortcut_pip'.tr(),
       available: isDesktopPlatform,
-      onKey: (_) => _toggleDesktopMini(),
+      onKey: (_) => _desktopMini || HardwareKeyboard.instance.isShiftPressed
+          ? _toggleDesktopMini()
+          : _openMiniPlayer(),
     ),
     _PlayerShortcut(
       keys: const [LogicalKeyboardKey.keyS],
@@ -1539,3 +1628,21 @@ const _kDecileKeys = <LogicalKeyboardKey>[
 /// (player_page.panels.dart): a key that landed between its rows would leave
 /// the sheet open with nothing selected.
 const _kKeyboardSpeeds = <double>[0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+/// What the keyboard can still do while the player is in the corner: play,
+/// seek, volume, mute and the episode keys. The rest open a sheet or change
+/// the window, and the corner has room for neither.
+const _kDockKeys = <LogicalKeyboardKey>[
+  LogicalKeyboardKey.space,
+  LogicalKeyboardKey.mediaPlayPause,
+  LogicalKeyboardKey.keyK,
+  LogicalKeyboardKey.arrowLeft,
+  LogicalKeyboardKey.arrowRight,
+  LogicalKeyboardKey.keyJ,
+  LogicalKeyboardKey.keyL,
+  LogicalKeyboardKey.arrowUp,
+  LogicalKeyboardKey.arrowDown,
+  LogicalKeyboardKey.keyM,
+  LogicalKeyboardKey.keyP,
+  LogicalKeyboardKey.keyN,
+];

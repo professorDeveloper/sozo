@@ -185,4 +185,74 @@ void main() {
       isTrue,
     );
   });
+
+  group('pinFor', () {
+    test('the viewer\'s preference wins on every engine', () {
+      for (final adaptive in [true, false]) {
+        expect(
+          QualityPreference.pinFor(
+            preference: 720,
+            labelledHeight: 1080,
+            adaptiveEngine: adaptive,
+          ),
+          720,
+        );
+        expect(
+          QualityPreference.pinFor(
+            preference: QualityPreference.dataSaver,
+            labelledHeight: 1080,
+            adaptiveEngine: adaptive,
+          ),
+          QualityPreference.dataSaver,
+        );
+      }
+    });
+
+    test('on an adaptive engine, Auto pins the height the label names', () {
+      // ExoPlayer starting a "1080p" master on its bottom rung is the
+      // "1080p looks like 480p" report.
+      expect(
+        QualityPreference.pinFor(
+          preference: QualityPreference.auto,
+          labelledHeight: 1080,
+          adaptiveEngine: true,
+        ),
+        1080,
+      );
+    });
+
+    test('libmpv keeps its own Auto, which opens the top rendition', () {
+      expect(
+        QualityPreference.pinFor(
+          preference: QualityPreference.auto,
+          labelledHeight: 1080,
+          adaptiveEngine: false,
+        ),
+        QualityPreference.auto,
+      );
+    });
+
+    test('an unlabelled server stays adaptive', () {
+      for (final h in [null, 0]) {
+        expect(
+          QualityPreference.pinFor(
+            preference: QualityPreference.auto,
+            labelledHeight: h,
+            adaptiveEngine: true,
+          ),
+          QualityPreference.auto,
+        );
+      }
+    });
+
+    test('the labelled pin picks the closest rendition at or below it', () {
+      final pin = QualityPreference.pinFor(
+        preference: QualityPreference.auto,
+        labelledHeight: 720,
+        adaptiveEngine: true,
+      );
+      expect(QualityPreference.pick([1080, 720, 480], pin), 720);
+      expect(QualityPreference.pick([1080, 540, 360], pin), 540);
+    });
+  });
 }

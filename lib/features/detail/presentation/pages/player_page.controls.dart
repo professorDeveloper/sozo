@@ -230,6 +230,12 @@ extension _PlayerControls on _PlayerPageState {
       });
       return;
     }
+    // In the corner there is no route of this page's to pop: the page under
+    // the corner player belongs to the viewer, not to the player.
+    if (_docked) {
+      _closeDock();
+      return;
+    }
     if (context.canPop()) {
       context.pop();
     } else {
@@ -353,6 +359,15 @@ extension _PlayerControls on _PlayerPageState {
     }
   }
 
+  /// "Title · Episode 5", for a support request about what is playing.
+  String get _supportContentLabel {
+    final eps = widget.args.episodes;
+    if (_episodeIndex >= 0 && _episodeIndex < eps.length) {
+      return '${widget.args.title} · ${eps[_episodeIndex].label}';
+    }
+    return widget.args.title;
+  }
+
   /// Whether the seek bar can show a frame it made itself.
   ///
   /// Every stream but two: a live broadcast, where there is nothing ahead to
@@ -368,15 +383,6 @@ extension _PlayerControls on _PlayerPageState {
   /// out rather than drawing a skeleton that never fills: HLS on iOS, which
   /// AVAssetImageGenerator cannot read, and DASH anywhere. Downloads are
   /// included: a local file is the cheapest preview there is.
-  /// "Title · Episode 5", for a support request about what is playing.
-  String get _supportContentLabel {
-    final eps = widget.args.episodes;
-    if (_episodeIndex >= 0 && _episodeIndex < eps.length) {
-      return '${widget.args.title} · ${eps[_episodeIndex].label}';
-    }
-    return widget.args.title;
-  }
-
   bool get _canGeneratePreview =>
       FramePreviewService.isSupported &&
       _videoUrl != null &&
@@ -386,7 +392,62 @@ extension _PlayerControls on _PlayerPageState {
       !_isEncrypted &&
       TorrentStreamUrl.parse(_videoUrl) == null;
 
+  Widget _buildCompactStatus() {
+    final error = _errorMessage;
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: error == null
+            ? SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 48),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: Colors.white70,
+                        size: 22,
+                      ),
+                      const SizedBox(height: 6),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 260),
+                        child: Text(
+                          error,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
   Widget _buildVideoLayer() {
+    // The small player has no room for the loading card or the error card,
+    // whose buttons alone are taller than the corner box. A spinner, or the
+    // reason in a line or two; Try again and the other sources are one click
+    // away in the full player.
+    if (_compact && (_initializing || _errorMessage != null)) {
+      return _buildCompactStatus();
+    }
     if (_initializing) {
       return ColoredBox(
         color: Colors.black,
@@ -741,7 +802,7 @@ extension _PlayerControls on _PlayerPageState {
   }
 
   Widget _buildThumbnailImage(
-    _VttThumbnail thumb, {
+    VttThumbnail thumb, {
     double displayWidth = 160,
     double displayHeight = 90,
   }) {
@@ -764,6 +825,14 @@ extension _PlayerControls on _PlayerPageState {
                 headers: _spriteHeaders,
                 filterQuality: FilterQuality.low,
                 gaplessPlayback: true,
+                frameBuilder: (_, child, frame, wasSync) =>
+                    frame == null && !wasSync
+                    ? SizedBox(
+                        width: displayWidth / sx,
+                        height: displayHeight / sy,
+                        child: const _PreviewSkeleton(),
+                      )
+                    : child,
                 errorBuilder: (_, _, _) {
                   _onThumbnailFailed();
                   return SizedBox(width: displayWidth, height: displayHeight);
@@ -783,6 +852,13 @@ extension _PlayerControls on _PlayerPageState {
       fit: BoxFit.cover,
       filterQuality: FilterQuality.low,
       gaplessPlayback: true,
+      frameBuilder: (_, child, frame, wasSync) => frame == null && !wasSync
+          ? SizedBox(
+              width: displayWidth,
+              height: displayHeight,
+              child: const _PreviewSkeleton(),
+            )
+          : child,
       errorBuilder: (_, _, _) {
         _onThumbnailFailed();
         return SizedBox(width: displayWidth, height: displayHeight);
@@ -951,6 +1027,24 @@ extension _PlayerControls on _PlayerPageState {
     );
   }
 
+  /// Locks the screen against touches until [_unlock]. A firm tap in the
+  /// hand says it took: the controls vanish with it, so nothing on screen
+  /// confirms it otherwise.
+  void _lock() {
+    if (isMobilePlatform) HapticFeedback.mediumImpact();
+    setState(() {
+      _locked = true;
+      _controlsVisible = false;
+      _controlsAnimation.reverse();
+      _hideTimer?.cancel();
+    });
+  }
+
+  void _unlock() {
+    if (isMobilePlatform) HapticFeedback.mediumImpact();
+    setState(() => _locked = false);
+  }
+
   Widget _buildLockOverlay() {
     return Positioned(
       bottom: 0,
@@ -961,37 +1055,36 @@ extension _PlayerControls on _PlayerPageState {
           padding: const EdgeInsets.only(bottom: 24),
           child: Center(
             child: GestureDetector(
-              onTap: () => setState(() => _locked = false),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.15),
+              onTap: _unlock,
+              // Words on it, so the deeper dimming: white 12pt text keeps
+              // AA over a white frame.
+              child: MediaGlass(
+                radius: 24,
+                dim: Colors.black.withValues(alpha: 0.6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 10,
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.lock_rounded,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'player.tap_to_unlock'.tr(),
-                      style: const TextStyle(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.lock_rounded,
                         color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        size: 16,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Text(
+                        'player.tap_to_unlock'.tr(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1030,153 +1123,158 @@ extension _PlayerControls on _PlayerPageState {
                     horizontal: 12,
                     vertical: 8,
                   ),
-                  child: Row(
-                    children: [
-                      _IconButton(
-                        icon: Icons.arrow_back_ios_new_rounded,
-                        onTap: _exit,
-                      ),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        flex: 2,
-                        // Text takes the hit but has no gesture, so a tap on
-                        // the title did nothing while the same tap anywhere
-                        // else on the dimmed video hides the controls.
-                        child: IgnorePointer(
-                          child: Text(
-                            _episodeTitle(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              shadows: _kControlShadow,
+                  // One read of the picture for every button along the top,
+                  // not one each (MediaGlass).
+                  child: MediaGlassLayer(
+                    child: Row(
+                      children: [
+                        _IconButton(
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          onTap: _exit,
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          flex: 2,
+                          // Text takes the hit but has no gesture, so a tap on
+                          // the title did nothing while the same tap anywhere
+                          // else on the dimmed video hides the controls.
+                          child: IgnorePointer(
+                            child: Text(
+                              _episodeTitle(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                shadows: _kControlShadow,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      // The action set outgrows a portrait phone. It used to
-                      // take half the bar and scroll the surplus off the left,
-                      // where nobody found it — orientation and Watch Party were
-                      // simply invisible. Now the actions get the larger share
-                      // and scale a few percent if they still do not fit, so
-                      // every one of them is on screen.
-                      Expanded(
-                        flex: 5,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerRight,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // TV and desktop only. A phone draws its bar
-                              // from the viewer's arrangement below, which
-                              // has the language pill in it — adding this one
-                              // as well put two SUB pills side by side.
-                              if (hasLangSwitcher &&
-                                  (isTvPlatform || isDesktopPlatform)) ...[
-                                _LangPill(
-                                  label: (_currentLang ?? _kSubLang)
-                                      .toUpperCase(),
-                                  onTap: _openLangSheet,
-                                ),
-                                const SizedBox(width: 5),
-                              ],
-                              // CloudStream (cs:) sources are excluded from Watch2Gether
-                              // for now (they need an on-device plugin per peer).
-                              //
-                              if ((isTvPlatform || isDesktopPlatform) &&
-                                  (_inParty ||
-                                      !widget.args.provider.startsWith(
-                                        'cs:',
-                                      ))) ...[
-                                _IconButton(
-                                  icon: _inParty
-                                      ? Icons.groups_rounded
-                                      : Icons.groups_2_rounded,
-                                  color: _inParty ? AppColors.primary : null,
-                                  onTap: _openWatchParty,
-                                ),
-                                const SizedBox(width: 2),
-                              ],
-                              // TV drops three phone-only affordances outright rather
-                              // than adapting them: orientation lock is meaningless on
-                              // a fixed landscape panel, PiP semantics differ on
-                              // leanback, and the touch lock swaps in an overlay whose
-                              // only escape is a non-focusable tap target — on a remote
-                              // that is an unrecoverable state.
-                              if (isTvPlatform) ...[
-                                _IconButton(
-                                  icon: Icons.closed_caption_rounded,
-                                  onTap: _openSubtitleSheet,
-                                ),
-                                const SizedBox(width: 2),
-                                if (canDownload) ...[
-                                  _IconButton(
-                                    icon: Icons.download_rounded,
-                                    onTap: _startDownload,
+                        // The action set outgrows a portrait phone. It used to
+                        // take half the bar and scroll the surplus off the left,
+                        // where nobody found it — orientation and Watch Party were
+                        // simply invisible. Now the actions get the larger share
+                        // and scale a few percent if they still do not fit, so
+                        // every one of them is on screen.
+                        Expanded(
+                          flex: 5,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // TV and desktop only. A phone draws its bar
+                                // from the viewer's arrangement below, which
+                                // has the language pill in it — adding this one
+                                // as well put two SUB pills side by side.
+                                if (hasLangSwitcher &&
+                                    (isTvPlatform || isDesktopPlatform)) ...[
+                                  _LangPill(
+                                    label: (_currentLang ?? _kSubLang)
+                                        .toUpperCase(),
+                                    onTap: _openLangSheet,
                                   ),
-                                  const SizedBox(width: 2),
+                                  const SizedBox(width: 5),
                                 ],
-                                _IconButton(
-                                  icon: Icons.settings_rounded,
-                                  onTap: _openSettingsSheet,
-                                ),
-                                if (hasServers) ...[
-                                  const SizedBox(width: 2),
-                                  _IconButton(
-                                    icon: Icons.dns_rounded,
-                                    onTap: _openServerSheet,
-                                  ),
-                                ],
-                                if (hasQualities) ...[
-                                  const SizedBox(width: 2),
-                                  _IconButton(
-                                    icon: Icons.high_quality_rounded,
-                                    onTap: () => _openPanel(_SidePanel.quality),
-                                  ),
-                                ],
-                                if (hasEpisodes) ...[
-                                  const SizedBox(width: 2),
-                                  _IconButton(
-                                    icon: Icons.video_library_rounded,
-                                    onTap: () =>
-                                        _openPanel(_SidePanel.episodes),
-                                  ),
-                                ],
-                              ] else if (!isDesktopPlatform) ...[
-                                // Phone: the viewer's arrangement, in their
-                                // order. Every control stays ON a bar — a
-                                // previous pass filed six of them behind a ⋯
-                                // sheet to buy room and had to undo it, because
-                                // a control one tap away is a control people
-                                // use and one two taps away is a control they
-                                // stop reaching for. What changed is only that
-                                // WHICH controls sit here is now a preference
-                                // instead of an argument about a Row.
+                                // CloudStream (cs:) sources are excluded from Watch2Gether
+                                // for now (they need an on-device plugin per peer).
                                 //
-                                // The capacity that PlayerControlsLayout
-                                // enforces is this bar's: the group is wrapped
-                                // in a FittedBox, so an extra button does not
-                                // wrap or scroll, it shrinks all of them.
-                                ..._controlsFor(
-                                  PlayerControlSlot.topBar,
-                                  topBar: true,
-                                ),
+                                if ((isTvPlatform || isDesktopPlatform) &&
+                                    (_inParty ||
+                                        !widget.args.provider.startsWith(
+                                          'cs:',
+                                        ))) ...[
+                                  _IconButton(
+                                    icon: _inParty
+                                        ? Icons.groups_rounded
+                                        : Icons.groups_2_rounded,
+                                    color: _inParty ? AppColors.primary : null,
+                                    onTap: _openWatchParty,
+                                  ),
+                                  const SizedBox(width: 2),
+                                ],
+                                // TV drops three phone-only affordances outright rather
+                                // than adapting them: orientation lock is meaningless on
+                                // a fixed landscape panel, PiP semantics differ on
+                                // leanback, and the touch lock swaps in an overlay whose
+                                // only escape is a non-focusable tap target — on a remote
+                                // that is an unrecoverable state.
+                                if (isTvPlatform) ...[
+                                  _IconButton(
+                                    icon: Icons.closed_caption_rounded,
+                                    onTap: _openSubtitleSheet,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  if (canDownload) ...[
+                                    _IconButton(
+                                      icon: Icons.download_rounded,
+                                      onTap: _startDownload,
+                                    ),
+                                    const SizedBox(width: 2),
+                                  ],
+                                  _IconButton(
+                                    icon: Icons.settings_rounded,
+                                    onTap: _openSettingsSheet,
+                                  ),
+                                  if (hasServers) ...[
+                                    const SizedBox(width: 2),
+                                    _IconButton(
+                                      icon: Icons.dns_rounded,
+                                      onTap: _openServerSheet,
+                                    ),
+                                  ],
+                                  if (hasQualities) ...[
+                                    const SizedBox(width: 2),
+                                    _IconButton(
+                                      icon: Icons.high_quality_rounded,
+                                      onTap: () =>
+                                          _openPanel(_SidePanel.quality),
+                                    ),
+                                  ],
+                                  if (hasEpisodes) ...[
+                                    const SizedBox(width: 2),
+                                    _IconButton(
+                                      icon: Icons.video_library_rounded,
+                                      onTap: () =>
+                                          _openPanel(_SidePanel.episodes),
+                                    ),
+                                  ],
+                                ] else if (!isDesktopPlatform) ...[
+                                  // Phone: the viewer's arrangement, in their
+                                  // order. Every control stays ON a bar — a
+                                  // previous pass filed six of them behind a ⋯
+                                  // sheet to buy room and had to undo it, because
+                                  // a control one tap away is a control people
+                                  // use and one two taps away is a control they
+                                  // stop reaching for. What changed is only that
+                                  // WHICH controls sit here is now a preference
+                                  // instead of an argument about a Row.
+                                  //
+                                  // The capacity that PlayerControlsLayout
+                                  // enforces is this bar's: the group is wrapped
+                                  // in a FittedBox, so an extra button does not
+                                  // wrap or scroll, it shrinks all of them.
+                                  ..._controlsFor(
+                                    PlayerControlSlot.topBar,
+                                    topBar: true,
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                      if (isDesktopPlatform)
-                        ValueListenableBuilder<bool>(
-                          valueListenable: DesktopWindow.immersive,
-                          builder: (_, imm, _) => imm
-                              ? const WindowButtons()
-                              : const SizedBox.shrink(),
-                        ),
-                    ],
+                        if (isDesktopPlatform)
+                          ValueListenableBuilder<bool>(
+                            valueListenable: DesktopWindow.immersive,
+                            builder: (_, imm, _) => imm
+                                ? const WindowButtons()
+                                : const SizedBox.shrink(),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1201,16 +1299,23 @@ extension _PlayerControls on _PlayerPageState {
     // indicator is on screen: this, or the ring on the play button.
     Widget? spinner;
     if (isBuffering) {
-      spinner = const IgnorePointer(
+      spinner = IgnorePointer(
         child: Center(
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2.8,
-            ),
-          ),
+          // The system's own spinner on an iPhone, as AVKit draws it over a
+          // stalled video; Material's ring everywhere else.
+          child: defaultTargetPlatform == TargetPlatform.iOS
+              ? const CupertinoActivityIndicator(
+                  radius: 16,
+                  color: Colors.white,
+                )
+              : const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.8,
+                  ),
+                ),
         ),
       );
       if (!isDesktopPlatform) {
@@ -1261,38 +1366,40 @@ extension _PlayerControls on _PlayerPageState {
   Widget _buildCenterPlayCluster(PlayerController c) {
     final step = _seekSeconds;
     final centered = _layout.of(PlayerControlSlot.center);
-    return PlayerTransportRow(
-      previous: !_layoutDrivesBars || centered.contains('previous')
-          ? _centerControl('previous')
-          : null,
-      next: !_layoutDrivesBars || centered.contains('next')
-          ? _centerControl('next')
-          : null,
-      rewind: _CenterIconButton(
-        icon: _rewindIconFor(step),
-        onTap: () {
-          _seekRelative(Duration(seconds: -step));
-          _showSeekRipple(-1);
-        },
-      ),
-      playPause: ValueListenableBuilder<VideoPlayerValue>(
-        valueListenable: c,
-        builder: (_, value, _) => _CenterIconButton(
-          icon: value.isPlaying
-              ? Icons.pause_rounded
-              : Icons.play_arrow_rounded,
-          onTap: _togglePlay,
-          large: true,
-          busy: value.isBuffering,
-          focusNode: isTvPlatform ? _tvPlayFocus : null,
+    return MediaGlassLayer(
+      child: PlayerTransportRow(
+        previous: !_layoutDrivesBars || centered.contains('previous')
+            ? _centerControl('previous')
+            : null,
+        next: !_layoutDrivesBars || centered.contains('next')
+            ? _centerControl('next')
+            : null,
+        rewind: _CenterIconButton(
+          icon: _rewindIconFor(step),
+          onTap: () {
+            _seekRelative(Duration(seconds: -step));
+            _showSeekRipple(-1);
+          },
         ),
-      ),
-      forward: _CenterIconButton(
-        icon: _forwardIconFor(step),
-        onTap: () {
-          _seekRelative(Duration(seconds: step));
-          _showSeekRipple(1);
-        },
+        playPause: ValueListenableBuilder<VideoPlayerValue>(
+          valueListenable: c,
+          builder: (_, value, _) => _CenterIconButton(
+            icon: value.isPlaying
+                ? Icons.pause_rounded
+                : Icons.play_arrow_rounded,
+            onTap: _togglePlay,
+            large: true,
+            busy: value.isBuffering,
+            focusNode: isTvPlatform ? _tvPlayFocus : null,
+          ),
+        ),
+        forward: _CenterIconButton(
+          icon: _forwardIconFor(step),
+          onTap: () {
+            _seekRelative(Duration(seconds: step));
+            _showSeekRipple(1);
+          },
+        ),
       ),
     );
   }
@@ -1417,14 +1524,17 @@ extension _PlayerControls on _PlayerPageState {
                         onTap: () => _openPanel(_SidePanel.episodes),
                       ),
                     ],
-                    // The mini window: this player at 426 wide, above every
-                    // other window. It had no button at all — the phone's PiP
+                    // The mini player: a tap docks it in a corner of the app,
+                    // a long press pops the whole window out above every other
+                    // window. It had no button at all — the phone's PiP
                     // control lives in the layout rows, which this row does
                     // not draw — so only the I key could reach it.
                     const SizedBox(width: 4),
                     _IconButton(
                       icon: Icons.picture_in_picture_alt_rounded,
-                      onTap: _toggleDesktopMini,
+                      onTap: _openMiniPlayer,
+                      onLongPress: _toggleDesktopMini,
+                      tooltip: 'player.mini_popout_hint'.tr(),
                     ),
                     const SizedBox(width: 4),
                     _IconButton(
@@ -1532,7 +1642,7 @@ extension _PlayerControls on _PlayerPageState {
 
   Widget _buildScrubPreviewCard(
     Duration position, {
-    Duration? current,
+    required Duration total,
     double? caretX,
   }) {
     final w = _previewWidth;
@@ -1540,8 +1650,9 @@ extension _PlayerControls on _PlayerPageState {
     return _ScrubPreviewCard(
       frame: _previewImage(position, w, h),
       width: w,
-      time: _formatDuration(position),
-      delta: current == null ? '' : _signedDelta(position, current),
+      time: total > Duration.zero
+          ? '${_formatDuration(position)} / ${_formatDuration(total)}'
+          : _formatDuration(position),
       segment: _segmentAt(position),
       caretX: caretX,
     );
@@ -1659,7 +1770,7 @@ extension _PlayerControls on _PlayerPageState {
                   bottom: 40,
                   child: _buildScrubPreviewCard(
                     previewPosition,
-                    current: value.position,
+                    total: value.duration,
                     caretX: thumbX - left,
                   ),
                 ),
@@ -1797,15 +1908,7 @@ extension _PlayerControls on _PlayerPageState {
         // tap target the D-pad cannot reach; the button is landscape-only for
         // that reason, not for room.
         if (_isPortrait) return null;
-        return _IconButton(
-          icon: Icons.lock_rounded,
-          onTap: () => setState(() {
-            _locked = true;
-            _controlsVisible = false;
-            _controlsAnimation.reverse();
-            _hideTimer?.cancel();
-          }),
-        );
+        return _IconButton(icon: Icons.lock_rounded, onTap: _lock);
       case 'stats':
         return _IconButton(
           icon: Icons.info_rounded,
@@ -1886,11 +1989,15 @@ extension _PlayerControls on _PlayerPageState {
       case 'pip':
         // `floating: ^6.0.0` ships an Android plugin and nothing else, and
         // _enterPip swallows the MissingPluginException, so on iOS this was a
-        // tap that did nothing. On the desktop it is the mini window.
+        // tap that did nothing. On the desktop a tap docks the player in a
+        // corner of the app, and a long press pops the window out above the
+        // others.
         if (isDesktopPlatform) {
           return _IconButton(
             icon: Icons.picture_in_picture_alt_rounded,
-            onTap: _toggleDesktopMini,
+            onTap: _openMiniPlayer,
+            onLongPress: _toggleDesktopMini,
+            tooltip: 'player.mini_popout_hint'.tr(),
           );
         }
         if (!isAndroidPlatform && !isIosPlatform) return null;
@@ -1928,12 +2035,7 @@ extension _PlayerControls on _PlayerPageState {
           label: 'player.lock'.tr(),
           compact: compact,
           enabled: true,
-          onTap: () => setState(() {
-            _locked = true;
-            _controlsVisible = false;
-            _controlsAnimation.reverse();
-            _hideTimer?.cancel();
-          }),
+          onTap: _lock,
         );
       case 'previous':
         if (!a.hasEpisodes) return null;
@@ -2082,7 +2184,9 @@ extension _PlayerControls on _PlayerPageState {
   /// Rebuilt from the controller's own notifier so the buffer and position
   /// rows move; everything else on the panel is steady between loads.
   Widget _buildPlayerInfoOverlay() {
-    if (!_showPlayerInfo) return const SizedBox.shrink();
+    // A panel sized for the full player; in the small one it would cover the
+    // picture.
+    if (!_showPlayerInfo || _compact) return const SizedBox.shrink();
     final c = _controller;
     if (c == null) return const SizedBox.shrink();
     return ValueListenableBuilder<VideoPlayerValue>(
@@ -2252,9 +2356,11 @@ extension _PlayerControls on _PlayerPageState {
                                     _fittingControls(box.maxWidth, left.length),
                                   )
                                   .toList();
-                        return PlayerBottomControlRow(
-                          leading: left,
-                          trailing: right,
+                        return MediaGlassLayer(
+                          child: PlayerBottomControlRow(
+                            leading: left,
+                            trailing: right,
+                          ),
                         );
                       },
                     );

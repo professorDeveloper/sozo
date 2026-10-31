@@ -3,6 +3,7 @@ import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_about_tab.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
+import 'package:soplay/features/download/presentation/download_messages.dart';
 import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
@@ -66,7 +67,6 @@ import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
-import 'package:soplay/features/download/presentation/download_messages.dart';
 import 'package:soplay/features/download/presentation/widgets/offline_copy_banner.dart';
 import 'package:showcaseview/showcaseview.dart';
 import 'package:soplay/features/support/presentation/widgets/support_suggestion.dart';
@@ -554,6 +554,10 @@ class _DetailViewState extends State<_DetailView>
             provider: detail.provider,
             contentUrl: detail.contentUrl,
             title: detail.title,
+            year: detail.year,
+            isSerial: detail.isSerial,
+            tmdbId: detail.record?.tmdbId,
+            anilistId: detail.record?.anilistId,
           ),
           'Cast' => DetailCastTab(cast: detail.cast, director: detail.director),
           'Comments' => DetailCommentsTab(
@@ -713,7 +717,7 @@ class _DetailViewState extends State<_DetailView>
         if (!mounted) return;
         final media = prepared.media;
         if (media == null) {
-          _showSnack('detail.download_needs_playback'.tr());
+          _showSnack(downloadBuildFailureMessage(prepared.failure!));
           return;
         }
         url = media.videoUrl;
@@ -748,7 +752,7 @@ class _DetailViewState extends State<_DetailView>
       if (!mounted) return;
       final media = prepared.media;
       if (media == null) {
-        _showSnack('detail.download_needs_playback'.tr());
+        _showSnack(downloadBuildFailureMessage(prepared.failure!));
         return;
       }
       url = media.videoUrl;

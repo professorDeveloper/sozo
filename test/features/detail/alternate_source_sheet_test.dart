@@ -74,6 +74,7 @@ class _Service implements AlternateSourceService {
   Future<PlayerArgs?> buildArgs({
     required AlternateSource source,
     required int? episodeNumber,
+    SeasonEpisode? seasonEpisode,
     Duration resumeAt = Duration.zero,
   }) async => null;
 

@@ -139,6 +139,8 @@ dependencies:
   media_kit_libs_macos_video: ^1.1.4
   media_kit_libs_linux: ^1.2.1
   liquid_glass_widgets: ^0.18.4
+  # Exact pin: a dev release, and lib/core/glass is written against its API.
+  liquid_glass_renderer: 0.2.0-dev.4
   mobile_scanner: ^7.4.0
   # The TV's pairing code, painted rather than pulled in as a widget package.
   qr: ^3.0.2

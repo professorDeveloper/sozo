@@ -711,6 +711,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                   isSerial: widget.args.isSerial,
                   season: _currentSeasonNumber(),
                   episode: _currentEpisodeNumber(),
+                  want: _hive.getSubtitleTranslateLang(),
                 );
                 if (!ctx.mounted) return;
                 setSheet(() {
@@ -1010,6 +1011,7 @@ extension _PlayerSubtitles on _PlayerPageState {
       'de': 'Deutsch',
       'fr': 'Français',
       'es': 'Español',
+      'vi': 'Tiếng Việt',
     };
     return map[code.toLowerCase()] ?? code.toUpperCase();
   }
@@ -1119,6 +1121,7 @@ extension _PlayerSubtitles on _PlayerPageState {
       'dut': 'nl',
       'pol': 'pl',
       'ind': 'id',
+      'vie': 'vi',
     };
     return map[code];
   }
@@ -1136,6 +1139,12 @@ extension _PlayerSubtitles on _PlayerPageState {
   Future<void> _maybeAutoTranslate() async {
     final target = _hive.getSubtitleTranslateLang();
     if (target.isEmpty || _isLive || _autoTranslateDone) return;
+    // Already in the picture: a second copy would be drawn over the first.
+    final playing =
+        _currentSourceIndex >= 0 && _currentSourceIndex < _videoSources.length
+        ? _videoSources[_currentSourceIndex]
+        : null;
+    if (playing?.hardsub?.toLowerCase() == target.toLowerCase()) return;
     // Already readable. Checked before the network call, not after — the
     // common case must cost nothing.
     if (SubtitleAutoTranslate.anyMatches(
@@ -1197,6 +1206,7 @@ extension _PlayerSubtitles on _PlayerPageState {
         isSerial: widget.args.isSerial,
         season: _currentSeasonNumber(),
         episode: _currentEpisodeNumber(),
+        want: _hive.getSubtitleTranslateLang(),
       );
     } catch (_) {
       if (mounted) _toast('player.translate_failed'.tr());
@@ -1206,6 +1216,15 @@ extension _PlayerSubtitles on _PlayerPageState {
     if (results.isEmpty) {
       _toast('player.no_subtitles_found'.tr());
       return;
+    }
+    // Somebody's own subtitle in the wanted language beats a machine's copy of
+    // an English one, and costs no allowance.
+    final target = _hive.getSubtitleTranslateLang();
+    for (final r in results) {
+      if (SubtitleAutoTranslate.labelMatchesLanguage(r.language, target)) {
+        await _applyOnlineSubtitle(r);
+        return;
+      }
     }
     // Prefer an English source — it is what the providers carry most of and
     // what the models translate best.
@@ -1352,8 +1371,10 @@ extension _PlayerSubtitles on _PlayerPageState {
       }
     } catch (e) {
       _plog('subtitle translate error: $e', level: LogLevel.warn);
+      // Past the first slice the track stays, and the rest of the file is still
+      // in the source language, which the viewer should not have to discover.
+      if (mounted) _toast('player.translate_failed'.tr());
       if (mounted && applied == 0) {
-        _toast('player.translate_failed'.tr());
         // The same cleanup the limit branch does, which this one did not.
         //
         // The track is seeded with a COPY OF THE SOURCE so cues can be filled

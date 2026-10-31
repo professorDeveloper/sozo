@@ -6,18 +6,37 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
+/// The order My List is shown in. Remembered on the device.
+enum MyListSort {
+  added('my_list.sort_added'),
+  oldest('my_list.sort_oldest'),
+  title('my_list.sort_title');
+
+  const MyListSort(this.labelKey);
+  final String labelKey;
+
+  static MyListSort parse(Object? raw) => MyListSort.values.firstWhere(
+    (s) => s.name == raw,
+    orElse: () => MyListSort.added,
+  );
+}
+
 class MyListHeader extends StatelessWidget {
   const MyListHeader({
     super.key,
     required this.topPad,
     required this.blurProgress,
     this.onRefresh,
+    this.sort = MyListSort.added,
+    this.onSort,
   });
 
   final double topPad;
   final double blurProgress;
 
   final VoidCallback? onRefresh;
+  final MyListSort sort;
+  final ValueChanged<MyListSort>? onSort;
 
   static const double contentHeight = 58.0;
 
@@ -52,6 +71,24 @@ class MyListHeader extends StatelessWidget {
               ),
             ),
           ),
+          if (onSort != null)
+            PopupMenuButton<MyListSort>(
+              tooltip: 'my_list.sort'.tr(),
+              icon: const Icon(
+                Icons.sort_rounded,
+                color: AppColors.textSecondary,
+              ),
+              initialValue: sort,
+              onSelected: onSort,
+              itemBuilder: (_) => [
+                for (final s in MyListSort.values)
+                  CheckedPopupMenuItem(
+                    value: s,
+                    checked: s == sort,
+                    child: Text(s.labelKey.tr()),
+                  ),
+              ],
+            ),
           // Entry point to the curated lists (Watch Later / Watched). They live
           // on their own page rather than as modes of this one — see
           // UserListsPage — so this is the only way in.

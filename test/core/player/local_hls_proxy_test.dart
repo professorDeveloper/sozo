@@ -51,6 +51,41 @@ void main() {
       },
     );
 
+    test('a playlist served as plain text is still rewritten', () async {
+      upstream.respond(
+        path: '/master.txt',
+        contentType: 'text/plain',
+        body: '#EXTM3U\n#EXTINF:5,\n${upstream.origin}/seg.ts\n',
+      );
+      final url = await proxy.register(
+        upstreamUrl: '${upstream.origin}/master.txt',
+        headers: const {'Referer': 'https://embed.test/'},
+        keepOriginHeaders: true,
+      );
+      final body = await _httpGetString(url);
+      expect(
+        body,
+        isNot(contains(upstream.origin)),
+        reason: 'A segment address left as it was goes out with no headers',
+      );
+    });
+
+    test('a segment disguised as a web page passes through whole', () async {
+      upstream.respond(
+        path: '/page-1.html',
+        contentType: 'text/html',
+        body: 'G@-not-a-playlist-${'x' * 5000}',
+      );
+      final url = await proxy.register(
+        upstreamUrl: '${upstream.origin}/page-1.html',
+        headers: const {'Referer': 'https://embed.test/'},
+        keepOriginHeaders: true,
+      );
+      final body = await _httpGetString(url);
+      expect(body.length, 18 + 5000);
+      expect(body, startsWith('G@-not-a-playlist-'));
+    });
+
     test(
       'image-wrapped TS segments use relay but playlists stay on device',
       () async {
@@ -73,6 +108,110 @@ void main() {
         expect(target.queryParameters['url'], segment);
       },
     );
+
+    test(
+      'a full-screen ad spliced into a playlist never reaches the player',
+      () async {
+        upstream.respond(
+          path: '/v.m3u8',
+          contentType: 'application/vnd.apple.mpegurl',
+          body:
+              '#EXTM3U\n#EXT-X-TARGETDURATION:8\n#EXTINF:4.0,\nfilm1.ts\n'
+              '#EXT-X-DISCONTINUITY\n#EXTINF:3.0,\n/v8/abc/segment_0001.ts\n'
+              '#EXTINF:3.0,\n/v8/abc/segment_0002.ts\n'
+              '#EXT-X-DISCONTINUITY\n#EXTINF:4.0,\nfilm2.ts\n#EXT-X-ENDLIST\n',
+        );
+        final url = await proxy.register(
+          upstreamUrl: '${upstream.origin}/v.m3u8',
+          headers: const {},
+          dropSegments: r'^/v\d+/abc/',
+        );
+        final text = (await dio.get<String>(url)).data!;
+        expect(text, isNot(contains('segment_')));
+        expect(RegExp('#EXTINF').allMatches(text), hasLength(2));
+        expect(RegExp('film[12].ts').allMatches(text), hasLength(2));
+        expect(
+          RegExp('#EXT-X-DISCONTINUITY').allMatches(text),
+          hasLength(1),
+          reason: 'The film still jumps there, once',
+        );
+      },
+    );
+
+    test(
+      'a segment wrapped in an image reaches the player as bare TS',
+      () async {
+        final ts = List<int>.generate(
+          188 * 3,
+          (i) => i % 188 == 0 ? 0x47 : 0x11,
+        );
+        upstream.respondBytes(
+          path: '/file-tiktok_1.png',
+          contentType: 'image/png',
+          body: [..._tinyPng, ...List.filled(37, 0xFF), ...ts],
+        );
+        final url = await proxy.register(
+          upstreamUrl: '${upstream.origin}/v.m3u8',
+          headers: const {},
+        );
+        final res = await dio.get<List<int>>(
+          url.replaceFirst('/v.m3u8', '/file-tiktok_1.png'),
+          options: Options(responseType: ResponseType.bytes),
+        );
+        expect(res.data, ts);
+        expect(res.headers.value('content-type'), 'video/mp2t');
+      },
+    );
+
+    test(
+      'a wrapped segment opened with a Range from the top is unwrapped too',
+      () async {
+        final ts = List<int>.generate(
+          188 * 3,
+          (i) => i % 188 == 0 ? 0x47 : 0x11,
+        );
+        final file = [..._tinyPng, ...List.filled(37, 0xFF), ...ts];
+        upstream.respondBytes(
+          path: '/file-tiktok_2.png',
+          status: 206,
+          contentType: 'image/png',
+          headers: {
+            'content-range': 'bytes 0-${file.length - 1}/${file.length}',
+          },
+          body: file,
+        );
+        final url = await proxy.register(
+          upstreamUrl: '${upstream.origin}/v.m3u8',
+          headers: const {},
+        );
+        final res = await dio.get<List<int>>(
+          url.replaceFirst('/v.m3u8', '/file-tiktok_2.png'),
+          options: Options(
+            responseType: ResponseType.bytes,
+            headers: {'Range': 'bytes=0-'},
+          ),
+        );
+        expect(res.statusCode, 200);
+        expect(res.data, ts);
+      },
+    );
+
+    test('a real picture passes through untouched', () async {
+      upstream.respondBytes(
+        path: '/poster.png',
+        contentType: 'image/png',
+        body: _tinyPng,
+      );
+      final url = await proxy.register(
+        upstreamUrl: '${upstream.origin}/v.m3u8',
+        headers: const {},
+      );
+      final res = await dio.get<List<int>>(
+        url.replaceFirst('/v.m3u8', '/poster.png'),
+        options: Options(responseType: ResponseType.bytes),
+      );
+      expect(res.data, _tinyPng);
+    });
 
     test('does not forward Origin to upstream', () async {
       upstream.respond(
@@ -643,3 +782,9 @@ String _mpd(String base) =>
     </AdaptationSet>
   </Period>
 </MPD>''';
+
+/// The smallest PNG shape the unwrapping looks at: signature, then IEND and its CRC.
+const _tinyPng = <int>[
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
+  0, 0, 0, 0, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+];

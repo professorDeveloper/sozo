@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/features/download/data/datasources/download_transfer_data_source.dart';
+import 'package:soplay/features/download/domain/entities/download_failure.dart';
 import 'package:soplay/features/download/domain/entities/download_kind.dart';
 
 void main() {
@@ -256,6 +257,82 @@ video/360.m3u8
         expect(hits, isNot(contains('/video/1080.m3u8')));
       },
     );
+
+    test('TS segments labelled text/html, as vidapi and anikoto serve them, '
+        'are saved', () async {
+      handle = (r) async {
+        if (r.uri.path.endsWith('.m3u8')) {
+          r.response.write(
+            '#EXTM3U\n#EXTINF:4,\npage-0.html\n#EXTINF:4,\nseg-1-f1.html\n',
+          );
+        } else {
+          r.response.headers.contentType = ContentType(
+            'text',
+            'html',
+            charset: 'UTF-8',
+          );
+          r.response.add([0x47, 0x40, 0x00, 0x30, ...List.filled(184, 0xff)]);
+        }
+        await r.response.close();
+      };
+      final result = await run(DownloadKind.hls, '$base/index.m3u8');
+      expect(result.ok, isTrue, reason: result.detail);
+      expect(File('${dir.path}/seg_0.ts').readAsBytesSync().take(2), [
+        0x47,
+        0x40,
+      ]);
+      expect(File('${dir.path}/seg_1.ts').lengthSync(), 188);
+    });
+
+    test('a segment that is a real web page fails once, not three times, '
+        'whatever its label', () async {
+      handle = (r) async {
+        if (r.uri.path.endsWith('.m3u8')) {
+          r.response.write('#EXTM3U\n#EXTINF:4,\nchallenge.ts\n');
+        } else {
+          r.response.headers.contentType = ContentType('video', 'mp2t');
+          // The markup arrives after a lone newline, in a chunk of its own.
+          r.response.bufferOutput = false;
+          r.response.write('\n');
+          await r.response.flush();
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          r.response.write('<!DOCTYPE html><html>Just a moment</html>');
+        }
+        await r.response.close();
+      };
+      final result = await run(DownloadKind.hls, '$base/index.m3u8');
+      expect(result.ok, isFalse);
+      expect(result.failure, DownloadFailureKind.notMedia);
+      expect(result.detail, startsWith('not media'));
+      expect(result.detail, contains('video/mp2t'));
+      expect(hits.where((h) => h == '/challenge.ts'), hasLength(1));
+      expect(File('${dir.path}/seg_0.ts').existsSync(), isFalse);
+    });
+
+    test('a direct file is judged by its bytes, not its label', () async {
+      final mp4 = [0, 0, 0, 24, ...'ftypmp42'.codeUnits, ...List.filled(500, 7)];
+      handle = (r) async {
+        if (r.uri.path == '/page.mp4') {
+          r.response.headers.contentType = ContentType('video', 'mp4');
+          r.response.write('<html><body>File not found</body></html>');
+        } else {
+          r.response.headers.contentType = ContentType('text', 'plain');
+          r.response.add(mp4);
+        }
+        await r.response.close();
+      };
+      final saved = await run(DownloadKind.video, '$base/film.mp4');
+      expect(saved.ok, isTrue, reason: saved.detail);
+      expect(File(saved.artefactPath).readAsBytesSync(), mp4);
+
+      await dir.delete(recursive: true);
+      await dir.create();
+      final page = await run(DownloadKind.video, '$base/page.mp4');
+      expect(page.failure, DownloadFailureKind.notMedia);
+      expect(hits.where((h) => h == '/page.mp4'), hasLength(1));
+      expect(File('${dir.path}/video.mp4.part').existsSync(), isFalse);
+      expect(File('${dir.path}/video.mp4').existsSync(), isFalse);
+    });
 
     test('a file cut off midway resumes from its bytes', () async {
       final body = Uint8List.fromList(List.generate(40000, (i) => i % 256));

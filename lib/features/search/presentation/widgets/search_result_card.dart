@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_linked_badge.dart';
@@ -242,10 +243,10 @@ class SearchResultCard extends StatelessWidget {
           movie.title,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 12,
-            height: 1.15,
+            height: lineHeightFor(context, 1.15),
             fontWeight: FontWeight.w600,
           ),
         ),

@@ -79,8 +79,12 @@ enum DownloadFailureKind {
         l.contains('network')) {
       return DownloadFailureKind.network;
     }
-    if (l.contains('not media') ||
-        l.contains('html') ||
+    // The engines say "not media" when they mean it. A bare "html" also
+    // matched segment urls inside a network error — vidapi's `page-3.html`,
+    // anikoto's `seg-2-f1-v1-a1.html` — and labelled a dropped connection
+    // "the source sent a web page".
+    if (l.startsWith('not media') ||
+        l.contains('web page') ||
         l.contains('content-type')) {
       return DownloadFailureKind.notMedia;
     }

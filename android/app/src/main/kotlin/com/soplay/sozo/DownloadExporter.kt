@@ -7,6 +7,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.webkit.MimeTypeMap
 import java.io.File
+import java.io.OutputStream
 
 /**
  * Copies a finished download out of the app's private storage and into the
@@ -53,19 +54,31 @@ object DownloadExporter {
         val source = File(sourcePath)
         require(source.exists() && source.isFile) { "The downloaded file is no longer on disk" }
 
-        val safeName = sanitise(displayName.ifBlank { source.name })
+        val wanted = displayName.ifBlank { source.name }
+        // An HLS download is a playlist and its segments, not a file to copy.
+        val hls = if (source.name.endsWith(".m3u8", ignoreCase = true)) HlsFileJoin.plan(source) else null
+        val safeName = sanitise(
+            if (hls == null) wanted else wanted.substringBeforeLast('.') + hls.extension
+        )
         val mime = mimeTypeOf(safeName)
+        val write: (OutputStream) -> Unit = { output ->
+            if (hls != null) {
+                HlsFileJoin.write(hls, output)
+            } else {
+                source.inputStream().use { it.copyTo(output, DEFAULT_BUFFER_SIZE) }
+            }
+        }
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            exportViaMediaStore(context, source, safeName, mime)
+            exportViaMediaStore(context, write, safeName, mime)
         } else {
-            exportViaLegacyPath(source, safeName)
+            exportViaLegacyPath(write, safeName)
         }
     }
 
     private fun exportViaMediaStore(
         context: Context,
-        source: File,
+        write: (OutputStream) -> Unit,
         name: String,
         mime: String
     ): String {
@@ -88,7 +101,7 @@ object DownloadExporter {
         try {
             resolver.openOutputStream(uri).use { output ->
                 requireNotNull(output) { "Could not open Downloads for writing" }
-                source.inputStream().use { it.copyTo(output, DEFAULT_BUFFER_SIZE) }
+                write(output)
             }
         } catch (e: Exception) {
             // A half-written entry in the user's Downloads is worse than none:
@@ -106,7 +119,7 @@ object DownloadExporter {
         return "Downloads/Sozo/$name"
     }
 
-    private fun exportViaLegacyPath(source: File, name: String): String {
+    private fun exportViaLegacyPath(write: (OutputStream) -> Unit, name: String): String {
         val dir = File(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
             "Sozo"
@@ -115,8 +128,11 @@ object DownloadExporter {
             throw IllegalStateException("Could not create the Downloads/Sozo folder")
         }
         val target = uniqueFile(dir, name)
-        source.inputStream().use { input ->
-            target.outputStream().use { output -> input.copyTo(output, DEFAULT_BUFFER_SIZE) }
+        try {
+            target.outputStream().use(write)
+        } catch (e: Exception) {
+            target.delete()
+            throw e
         }
         return "Downloads/Sozo/${target.name}"
     }
@@ -160,6 +176,8 @@ object DownloadExporter {
 
     private fun mimeTypeOf(name: String): String {
         val ext = name.substringAfterLast('.', "").lowercase()
+        // Some Android builds map .ts to Qt's translation files.
+        if (ext == "ts") return "video/mp2t"
         return MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
             // MKV is what most of these downloads actually are, and older
             // Android builds do not map the extension at all — an empty MIME
@@ -167,7 +185,6 @@ object DownloadExporter {
             ?: when (ext) {
                 "mkv" -> "video/x-matroska"
                 "m3u8" -> "application/vnd.apple.mpegurl"
-                "ts" -> "video/mp2t"
                 else -> "application/octet-stream"
             }
     }
