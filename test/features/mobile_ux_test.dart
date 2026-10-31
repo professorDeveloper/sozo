@@ -98,6 +98,7 @@ void main() {
           Locale('fr'),
           Locale('tr'),
           Locale('id'),
+          Locale('vi'),
         ],
         startLocale: Locale(language),
         fallbackLocale: const Locale('en'),

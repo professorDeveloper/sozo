@@ -9,14 +9,13 @@ AutoTranslateAction decide({
   bool alreadyRan = false,
   bool hasTargetTrack = false,
   bool hasReadyTranslation = false,
-}) =>
-    SubtitleAutoTranslate.decide(
-      enabled: enabled,
-      isLive: isLive,
-      alreadyRan: alreadyRan,
-      hasTargetTrack: hasTargetTrack,
-      hasReadyTranslation: hasReadyTranslation,
-    );
+}) => SubtitleAutoTranslate.decide(
+  enabled: enabled,
+  isLive: isLive,
+  alreadyRan: alreadyRan,
+  hasTargetTrack: hasTargetTrack,
+  hasReadyTranslation: hasReadyTranslation,
+);
 
 void main() {
   group('free before paid', () {
@@ -88,7 +87,10 @@ void main() {
       expect(SubtitleAutoTranslate.labelMatchesLanguage('en-US', 'en'), isTrue);
       expect(SubtitleAutoTranslate.labelMatchesLanguage('pt_BR', 'pt'), isTrue);
       expect(
-        SubtitleAutoTranslate.labelMatchesLanguage('Brazilian Portuguese', 'pt'),
+        SubtitleAutoTranslate.labelMatchesLanguage(
+          'Brazilian Portuguese',
+          'pt',
+        ),
         isTrue,
       );
     });
@@ -150,7 +152,10 @@ void main() {
     });
 
     test('an empty code matches nothing', () {
-      expect(SubtitleAutoTranslate.labelMatchesLanguage('English', ''), isFalse);
+      expect(
+        SubtitleAutoTranslate.labelMatchesLanguage('English', ''),
+        isFalse,
+      );
     });
 
     test('anyMatches scans a whole track list', () {
@@ -171,9 +176,31 @@ void main() {
     expect(SubtitleAutoTranslate.languageOf('Klingon · 2'), 'klingon');
   });
 
+  test('Vietnamese is found under every name subtitle sites give it', () {
+    for (final label in [
+      'vi',
+      'vie',
+      'Vietnamese',
+      'Tiếng Việt',
+      'tieng viet',
+      'Vietsub',
+    ]) {
+      expect(
+        SubtitleAutoTranslate.labelMatchesLanguage(label, 'vi'),
+        isTrue,
+        reason: label,
+      );
+    }
+    expect(
+      SubtitleAutoTranslate.labelMatchesLanguage('English', 'vi'),
+      isFalse,
+    );
+  });
+
   test('the core layer stays free of Flutter', () {
-    final source =
-        File('lib/core/subtitles/subtitle_auto_translate.dart').readAsStringSync();
+    final source = File(
+      'lib/core/subtitles/subtitle_auto_translate.dart',
+    ).readAsStringSync();
     expect(source.contains('package:flutter/'), isFalse);
     expect(source.contains('get_it'), isFalse);
   });

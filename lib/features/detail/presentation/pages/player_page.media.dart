@@ -502,13 +502,15 @@ extension _PlayerMedia on _PlayerPageState {
         );
       }
     }
-    if (pick < 0) pick = subs.indexWhere((s) => s.isDefault);
+    // The viewer's language before the source's default, which is usually
+    // English whatever else is on offer.
     if (pick < 0) {
       final wanted = _hive.getSubtitleTranslateLang().toLowerCase();
       pick = subs.indexWhere(
         (s) => SubtitleAutoTranslate.labelMatchesLanguage(s.label, wanted),
       );
     }
+    if (pick < 0) pick = subs.indexWhere((s) => s.isDefault);
     if (pick >= 0) unawaited(_loadSubtitle(pick, remember: false));
   }
 

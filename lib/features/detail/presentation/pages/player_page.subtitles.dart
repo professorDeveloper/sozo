@@ -1010,6 +1010,7 @@ extension _PlayerSubtitles on _PlayerPageState {
       'de': 'Deutsch',
       'fr': 'Français',
       'es': 'Español',
+      'vi': 'Tiếng Việt',
     };
     return map[code.toLowerCase()] ?? code.toUpperCase();
   }
@@ -1119,6 +1120,7 @@ extension _PlayerSubtitles on _PlayerPageState {
       'dut': 'nl',
       'pol': 'pl',
       'ind': 'id',
+      'vie': 'vi',
     };
     return map[code];
   }
@@ -1206,6 +1208,15 @@ extension _PlayerSubtitles on _PlayerPageState {
     if (results.isEmpty) {
       _toast('player.no_subtitles_found'.tr());
       return;
+    }
+    // Somebody's own subtitle in the wanted language beats a machine's copy of
+    // an English one, and costs no allowance.
+    final target = _hive.getSubtitleTranslateLang();
+    for (final r in results) {
+      if (SubtitleAutoTranslate.labelMatchesLanguage(r.language, target)) {
+        await _applyOnlineSubtitle(r);
+        return;
+      }
     }
     // Prefer an English source — it is what the providers carry most of and
     // what the models translate best.
