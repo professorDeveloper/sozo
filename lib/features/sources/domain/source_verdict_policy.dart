@@ -26,8 +26,14 @@ import 'package:soplay/features/sources/domain/source_ecosystem.dart';
 /// Every ecosystem but Sozo's own does: the prefixes are the plugin hosts, and
 /// each resolves through its platform channel without the backend. See
 /// `SourceBrowseRepository.load`, which routes by the same prefixes.
-bool runsOnDevice(String providerId) =>
-    SourceEcosystem.of(providerId) != SourceEcosystem.sozo;
+/// Takes an id or a health key, because callers have both to hand and the
+/// distinction is not visible at the call site: `ProviderEntity.healthKey`
+/// rewrites a CloudStream id as `csp:<internalName>`, which does not start with
+/// the `cs:` prefix [SourceEcosystem] classifies by, so a key would have been
+/// called a Sozo cloud source and handed the datacenter's verdict.
+bool runsOnDevice(String providerIdOrKey) =>
+    providerIdOrKey.startsWith('csp:') ||
+    SourceEcosystem.of(providerIdOrKey) != SourceEcosystem.sozo;
 
 /// Sweep reasons that describe the road between the prober and the site rather
 /// than the site itself.
@@ -69,6 +75,28 @@ RemoteVerdict? shownVerdict(String providerId, RemoteVerdict? verdict) {
 /// kisskh answers the backend exactly that way today.
 bool isProblemVerdict(SourceVerdict verdict) =>
     verdict != SourceVerdict.alive && verdict != SourceVerdict.unknown;
+
+/// The verdict this phone found that deserves a badge of its own, or null.
+///
+/// Two witnesses, and only one of them has a badge. `SourceHealthStore.badgeOf`
+/// can say "Down" and "Cloudflare" and nothing else, so it answers null for an
+/// empty catalogue and says nothing for a source that has merely started
+/// failing. Those rows survive the problems-only filter — [isProblemVerdict]
+/// counts them, and should — and then sat there with no pill and no explanation
+/// of what was wrong with them. kisskh is the live example: it answers the
+/// backend 200 with an empty list, which is the commonest shape of a site that
+/// has shut the prober out.
+///
+/// [shown] is the badge the row already has. When there is one it speaks for
+/// the row and a second pill beside it would only disagree in public; the
+/// device verdict is reached through the row's long-press either way.
+SourceVerdict? deviceBadge(SourceVerdict device, RemoteVerdict? shown) {
+  if (shown != null) return null;
+  return switch (device) {
+    SourceVerdict.empty || SourceVerdict.failing => device,
+    _ => null,
+  };
+}
 
 /// Rows with the down ones last, and the count of the ones hiding removes.
 class DownPartition<T> {

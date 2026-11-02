@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -34,6 +37,97 @@ String checkedAgo(int at) {
   if (d.inHours < 1) return 'sources.min_ago'.tr(args: ['${d.inMinutes}']);
   if (d.inDays < 1) return 'sources.h_ago'.tr(args: ['${d.inHours}']);
   return 'sources.d_ago'.tr(args: ['${d.inDays}']);
+}
+
+/// What an honest pill shows for a verdict this phone reached itself.
+IconData verdictIcon(SourceVerdict v) => switch (v) {
+  SourceVerdict.empty => Icons.inbox_outlined,
+  SourceVerdict.failing => Icons.error_outline_rounded,
+  SourceVerdict.blocked => Icons.shield_outlined,
+  SourceVerdict.outdated => Icons.system_update_alt_rounded,
+  SourceVerdict.dead => Icons.cloud_off_rounded,
+  SourceVerdict.alive || SourceVerdict.unknown => Icons.help_outline_rounded,
+};
+
+/// What the verdict means, for the viewer who tapped the pill to find out.
+/// Null where the verdict is its own explanation.
+String? verdictBody(SourceVerdict v) => switch (v) {
+  SourceVerdict.empty => 'sources.v_empty_body'.tr(),
+  SourceVerdict.failing => 'sources.v_failing_body'.tr(),
+  _ => null,
+};
+
+/// A pill for what THIS phone found, where the server's badge has nothing to
+/// say.
+///
+/// `SourceHealthBadge` takes a `RemoteVerdict`, which can only be "Down" or
+/// "Cloudflare" — an empty catalogue is neither, and dressing it up as one
+/// would be a louder claim than the check supports. So this is its own pill,
+/// in the verdict's own colour, and tapping it opens the same sheet the row's
+/// long-press does: what was found, when, and a button to ask again.
+class DeviceVerdictBadge extends StatelessWidget {
+  const DeviceVerdictBadge({
+    super.key,
+    required this.verdict,
+    required this.sourceId,
+    required this.sourceName,
+  });
+
+  final SourceVerdict verdict;
+  final String sourceId;
+  final String sourceName;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = verdictColor(verdict);
+    final label = verdictLabel(verdict);
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          unawaited(
+            showSourceCheckSheet(
+              context,
+              id: sourceId,
+              name: sourceName,
+              note: verdictBody(verdict),
+            ),
+          );
+        },
+        child: Padding(
+          // A bigger target than the pill itself, without a bigger pill.
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: color.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(verdictIcon(verdict), size: 11, color: color),
+                const SizedBox(width: 3),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// The verdict and what the source said, for the actions sheet.
@@ -343,6 +437,7 @@ Future<void> showSourceCheckSheet(
   BuildContext context, {
   required String id,
   required String name,
+  String? note,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -367,6 +462,20 @@ Future<void> showSourceCheckSheet(
                 fontWeight: FontWeight.w800,
               ),
             ),
+            if (note != null) ...[
+              const SizedBox(height: 8),
+              // What the verdict means. "Empty" on its own is a word, not an
+              // explanation, and this sheet is where somebody who tapped the
+              // pill has come to be told.
+              Text(
+                note,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             CheckNowButton(id: id),
           ],

@@ -20,6 +20,7 @@ import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/home/domain/entities/view_all.dart';
+import 'package:soplay/features/detail/domain/entities/source_notice.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_row.dart';
 import 'package:soplay/features/recap/domain/recap.dart';
 import 'package:soplay/features/recap/presentation/recap_sheet.dart';
@@ -35,6 +36,7 @@ class DetailContentHeader extends StatefulWidget {
     this.resolvingSource = false,
     this.onChangeSource,
     this.onFindSource,
+    this.unplayable,
   });
 
   final DetailEntity detail;
@@ -52,6 +54,14 @@ class DetailContentHeader extends StatefulWidget {
 
   /// For a catalogue title with no source yet: opens the search.
   final VoidCallback? onFindSource;
+
+  /// The source has said this title cannot be played on it.
+  ///
+  /// Play is then replaced rather than disabled. A greyed button says "not
+  /// now"; this situation is "not here, ever" — the source has moved the title
+  /// into its own app or never had a player for it — and the only useful
+  /// control is the one that goes looking elsewhere.
+  final SourceNotice? unplayable;
 
   /// Queues the title for offline viewing, or opens the episode list when
   /// "which episodes" is a question only the user can answer.
@@ -198,6 +208,14 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
                     ),
                   ),
                 ),
+              ),
+            )
+          else if (widget.unplayable != null)
+            ItemAppear(
+              index: 5,
+              child: _UnplayableRow(
+                notice: widget.unplayable!,
+                onFindSource: widget.onFindSource,
               ),
             )
           else
@@ -888,6 +906,76 @@ class _GuessPill extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+
+/// What stands where Play stood, for a title this source will not play.
+///
+/// Deliberately the same shape as the catalogue's "Find a source" button above:
+/// the two say the same thing — nothing here can play this, go and look — and a
+/// second visual language for it would only make the page harder to read.
+class _UnplayableRow extends StatelessWidget {
+  const _UnplayableRow({required this.notice, this.onFindSource});
+
+  final SourceNotice notice;
+  final VoidCallback? onFindSource;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // The reason, in the viewer's language, on the page itself — not only
+        // in the sheet that announced it, which they have already dismissed by
+        // the time they wonder where Play went.
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Icon(
+                Icons.info_outline_rounded,
+                size: 16,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                notice.messageKey.tr(),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.35,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: isDesktopPlatform ? 360 : double.infinity,
+          height: 46,
+          child: OutlinedButton.icon(
+            onPressed: onFindSource,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(kButtonRadius),
+              ),
+            ),
+            icon: const Icon(Icons.travel_explore_rounded, size: 22),
+            label: Text(
+              'detail.find_other_sources'.tr(),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

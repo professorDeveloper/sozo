@@ -331,4 +331,53 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('an empty catalogue says so on the row, and the pill explains '
+      'itself', (tester) async {
+    // A 200 with an empty list is the commonest shape of a site that has shut
+    // the prober out — kisskh answers the backend exactly that way. The row
+    // already survived the problems-only filter; what it lacked was anything
+    // saying why it was in there.
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await Hive.box(AppConstants.settingsBox).put(
+      'search_source_health_remote',
+      {
+        'fetchedAt': now,
+        'checkedAt': now,
+        'down': <String>[],
+        'extCheckedAt': now,
+        'ext': const <String, dynamic>{},
+      },
+    );
+    await SourceCheckStore.shared.put(
+      'mn:3',
+      SourceCheck(verdict: SourceVerdict.empty, at: now, ms: 420),
+    );
+    addTearDown(
+      () => SourceCheckStore.shared.put(
+        'mn:3',
+        SourceCheck(verdict: SourceVerdict.alive, at: now),
+      ),
+    );
+    await pump(tester, const SourcesHubPage());
+
+    expect(find.text('Empty'), findsOneWidget);
+    expect(
+      find.text('Down'),
+      findsNothing,
+      reason: 'an empty answer is not a dead site, and must not claim to be',
+    );
+
+    await tester.tap(find.text('Empty'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('its catalogue came back empty'),
+      findsOneWidget,
+    );
+    // The sheet is the row's own check sheet — the source named, the verdict,
+    // and (with the check service registered, which this harness does not do)
+    // the button to ask again.
+    expect(find.text('Gamma Fine'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -185,10 +185,18 @@ class SourceCheckStore {
   /// its age is then not just wrong but negative, which read as "checked
   /// moments ago" and would have kept a stale "Not working" on the row for as
   /// long as the clock was out by.
-  static bool _expired(int nowMs, SourceCheck check) {
-    final age = nowMs - check.at;
-    return age < 0 || age > staleAfter.inMilliseconds;
-  }
+  static bool _expired(int nowMs, SourceCheck check) =>
+      nowMs - check.at < 0 || _tooOld(nowMs, check);
+
+  /// Whether [check] is old enough to be worth nothing to anybody.
+  ///
+  /// Age only — a future-dated row is not old, it is mis-stamped, and the
+  /// difference matters because this is the test the table is pruned by while
+  /// [_expired] is the test a row is hidden by. A phone whose clock is set
+  /// forward for an hour stamps every check an hour ahead; when the clock is
+  /// corrected those rows are simply current again.
+  static bool _tooOld(int nowMs, SourceCheck check) =>
+      nowMs - check.at > staleAfter.inMilliseconds;
 
   SourceVerdict verdictOf(String id) =>
       of(id)?.verdict ?? SourceVerdict.unknown;
@@ -247,7 +255,14 @@ class SourceCheckStore {
     // keeps the table the size of what was checked this week rather than of
     // every source ever checked on this phone, and stops a seven-month-old row
     // being re-serialised on every run.
-    _all.removeWhere((_, c) => _expired(_now(), c));
+    //
+    // Pruned by age alone, not by [_expired]. A row stamped in the future came
+    // from a clock that was wrong, not from a check that has expired, and
+    // deleting it is permanent: a phone set forward for an app used to lose its
+    // entire check table on the next write — hundreds of verdicts, gone — where
+    // before those rows were merely hidden and came back the moment the clock
+    // was corrected.
+    _all.removeWhere((_, c) => _tooOld(_now(), c));
     try {
       await _box?.put(_checksKey, {
         for (final e in _all.entries) e.key: e.value.toJson(),
