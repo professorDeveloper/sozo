@@ -185,6 +185,12 @@ class _SourcesHubPageState extends State<SourcesHubPage>
 
   bool _isDown(ProviderEntity p) => _badgeFor(p)?.state == RemoteHealth.dead;
 
+  /// The pill for what this phone found, when the server's badge has none.
+  /// Keyed by [ProviderEntity.id] because that is what a check on this device
+  /// is recorded under.
+  SourceVerdict? _deviceBadgeFor(ProviderEntity p) =>
+      deviceBadge(SourceCheckStore.shared.verdictOf(p.id), _badgeFor(p));
+
   /// The rows of [rows] left after the type and problems-only filters.
   List<ProviderEntity> _inScope(List<ProviderEntity> rows, SourceScope scope) =>
       scope.isAll && !_problemsOnly
@@ -1100,6 +1106,7 @@ class _SourcesHubPageState extends State<SourcesHubPage>
               : null,
           source: rows[i],
           health: _badgeFor(rows[i]),
+          deviceVerdict: _deviceBadgeFor(rows[i]),
           current: rows[i].id == state.currentProviderId,
           onTap: () => _use(rows[i]),
           onBrowse: () => setState(() => _open = rows[i]),
@@ -1125,10 +1132,15 @@ class _SourceTile extends StatelessWidget {
     this.onLongPress,
     this.current = false,
     this.health,
+    this.deviceVerdict,
   });
 
   final ProviderEntity source;
   final RemoteVerdict? health;
+
+  /// What a check from this phone found, when it is something the server's
+  /// badge cannot express. See [deviceBadge].
+  final SourceVerdict? deviceVerdict;
 
   /// Whether this is the currently selected source.
   final bool current;
@@ -1204,6 +1216,13 @@ class _SourceTile extends StatelessWidget {
                           verdict: health!,
                           sourceName: source.name,
                           sourceId: source.id,
+                        ),
+                      ] else if (deviceVerdict != null) ...[
+                        const SizedBox(width: 6),
+                        DeviceVerdictBadge(
+                          verdict: deviceVerdict!,
+                          sourceId: source.id,
+                          sourceName: source.name,
                         ),
                       ],
                     ],

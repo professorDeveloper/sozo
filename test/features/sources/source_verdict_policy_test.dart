@@ -185,4 +185,48 @@ void _endToEnd() {
       RemoteHealth.dead,
     );
   });
+
+  group('a verdict this phone reached itself', () {
+    test('an empty catalogue gets a badge of its own, because the server\'s '
+        'cannot say "empty"', () {
+      // kisskh answers the backend 200 with an empty list, which
+      // `isProblemVerdict` counts — so the row survives the problems-only
+      // filter — and which `badgeOf` has no vocabulary for, so the row used to
+      // sit there with nothing on it explaining why.
+      expect(deviceBadge(SourceVerdict.empty, null), SourceVerdict.empty);
+      expect(deviceBadge(SourceVerdict.failing, null), SourceVerdict.failing);
+    });
+
+    test('a working source, and one nobody has asked, get nothing', () {
+      expect(deviceBadge(SourceVerdict.alive, null), isNull);
+      expect(deviceBadge(SourceVerdict.unknown, null), isNull);
+    });
+
+    test('nothing is added beside a badge that already speaks', () {
+      // Dead, outdated and blocked all reach the row as a RemoteVerdict
+      // already; a second pill next to the first could only disagree with it
+      // in public.
+      expect(deviceBadge(SourceVerdict.empty, dead('dns')), isNull);
+      expect(deviceBadge(SourceVerdict.dead, null), isNull);
+      expect(deviceBadge(SourceVerdict.outdated, null), isNull);
+      expect(deviceBadge(SourceVerdict.blocked, null), isNull);
+    });
+  });
+
+  group('id or health key', () {
+    test('a CloudStream health key runs on the device too', () {
+      // `ProviderEntity.healthKey` rewrites `cs:<id>` as `csp:<internalName>`,
+      // which does not start with the prefix SourceEcosystem classifies by. A
+      // key passed here used to be called a Sozo cloud source and handed the
+      // datacenter's verdict on a source that never goes near it.
+      expect(runsOnDevice('csp:nineanime'), isTrue);
+      expect(runsOnDevice('cs:nineanime'), isTrue);
+      expect(runsOnDevice('kisskh'), isFalse);
+      expect(
+        shownVerdict('csp:nineanime', dead('timeout')),
+        isNull,
+        reason: 'the sweep could not reach the site; the phone may well',
+      );
+    });
+  });
 }
