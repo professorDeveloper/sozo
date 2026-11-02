@@ -55,11 +55,51 @@ jobs:
       - name: Analyzer
         run: flutter analyze --no-fatal-infos
 
-      # Runs before the tests on purpose: a missing translation key is the one
-      # failure that reaches users looking like a rendering bug rather than a
-      # crash, and it costs a second to catch.
+      # Stays with the analyzer rather than with the tests, because it is the
+      # same kind of check: it reads the source and compares it against the arb
+      # files. A missing translation key is the one failure that reaches users
+      # looking like a rendering bug rather than a crash, and it costs a second
+      # to catch.
       - name: Translation keys
         run: dart run tool/check_translations.dart
+
+  # The tests used to be the last step of `analyze`, and that was misleading in
+  # a way that cost real time: the check list on a pull request said "analyze",
+  # so "CI is green" was the only thing a reader could conclude, and whether
+  # the suite had run at all was invisible. Worse, an analyzer error ended the
+  # job before `flutter test` was reached, so a red "analyze" could mean the
+  # tests failed, or that they never ran — the same signal for two different
+  # situations.
+  #
+  # A job of its own fixes both: the check is named "test", a green one means
+  # the suite passed, and the tests now run even when the analyzer is unhappy,
+  # so one push gets both verdicts instead of two pushes getting one each.
+  #
+  # THE TRADE, since it is not free: this job pays for its own checkout and its
+  # own `flutter pub get`, roughly a minute and a half of runner time that the
+  # single job did not spend. It is not a second SDK download — flutter-action's
+  # `cache: true` restores the same cache `analyze` populates — and because the
+  # two jobs now run side by side rather than one after the other, the wall
+  # clock a person waits on a pull request goes DOWN by about as much as the
+  # billed minutes go up. Paying ~1.5 runner-minutes to make a test result
+  # legible is the right side of that trade; paying it to re-download Flutter
+  # would not have been, which is why `cache: true` is not optional here.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # The same reason as in `analyze`: `.env` is a declared pubspec asset and
+      # its absence fails the build before a single test runs.
+      - name: Create an empty .env
+        run: touch .env
+
+      - run: flutter pub get
 
       - name: Tests
         run: flutter test --reporter expanded
