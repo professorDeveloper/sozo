@@ -214,6 +214,79 @@ void main() {
     expect(find.text('Down'), findsOneWidget);
   });
 
+  // Before the test below, which leaves a verdict of its own in the shared
+  // check store: this one needs a hub where nothing has been checked on the
+  // device, so the server's sweep is the only witness.
+  testWidgets('a sweep that could not reach a site is no verdict on a source '
+      'that runs here, and the hide count is what hiding removes', (
+    tester,
+  ) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await Hive.box(AppConstants.settingsBox).put(
+      'search_source_health_remote',
+      {
+        'fetchedAt': now,
+        'checkedAt': now,
+        'down': <String>[],
+        'extCheckedAt': now,
+        'ext': {
+          // The domain does not resolve, which it does not resolve from
+          // anywhere: that one stands.
+          'mn:1': {'s': 'dead', 'r': 'dns'},
+          // Never reached from the datacenter. A Manga source talks to its
+          // site from the handset, so this says nothing about this phone.
+          'mn:2': {'s': 'dead', 'r': 'timeout'},
+          // Down, and the one in use: shown, but never hidden.
+          'mn:3': {'s': 'dead', 'r': 'dns'},
+        },
+      },
+    );
+    await pump(tester, const SourcesHubPage());
+
+    expect(find.text('Down'), findsNWidgets(2));
+    expect(find.text('Beta Walled'), findsOneWidget);
+    // Two rows are down and one of them is the source in use, so the switch
+    // can only take one away — and that is the number it offers.
+    expect(find.text('Hide down sources · 1'), findsOneWidget);
+
+    await tester.tap(find.text('Hide down sources · 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('Alpha Dead'), findsNothing);
+    expect(find.text('Beta Walled'), findsOneWidget);
+    expect(find.text('Gamma Fine'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  // Also before that test, for the same reason: this one needs the server to
+  // be the only witness.
+  testWidgets('a server error says so, with the status the sweep recorded', (
+    tester,
+  ) async {
+    // Twenty-two sources in the live report are down with a numbered 5xx —
+    // `http_503`, `http_521`, `http_530` — and the sentence written for them
+    // is keyed by the family. Without the fold they badged "Down" and then
+    // explained themselves with the fallback for a reason nobody knew.
+    await Hive.box(AppConstants.settingsBox).put('search_source_health_remote', {
+      'fetchedAt': DateTime.now().millisecondsSinceEpoch,
+      'checkedAt': DateTime.now().millisecondsSinceEpoch,
+      'down': <String>[],
+      'extCheckedAt': DateTime.now().millisecondsSinceEpoch,
+      'ext': {
+        'mn:1': {'s': 'dead', 'r': 'http_503'},
+      },
+    });
+    await pump(tester, const SourcesHubPage());
+
+    expect(find.text('Down'), findsOneWidget);
+    await tester.tap(find.text('Down'));
+    await tester.pumpAndSettle();
+    expect(find.text('The site is returning server errors'), findsOneWidget);
+    expect(
+      find.text('The last server check found it failing'),
+      findsNothing,
+    );
+  });
+
   testWidgets('a source this phone found dead, in use, badges and explains', (
     tester,
   ) async {
