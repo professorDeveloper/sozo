@@ -133,6 +133,21 @@ class ShaderPreset {
   };
 }
 
+/// The chain as mpv's `glsl-shaders` property wants it.
+///
+/// mpv's path lists are separated by ':' on Unix and by ';' on Windows, where
+/// a ':' is the drive letter's own. Joined with ':' there, a chain of three
+/// files arrives as one impossible filename —
+/// `Cannot open file 'C:\…\Anime4K_Clamp_Highlights.glsl:C:\…_x2_VL.glsl':
+/// Invalid argument` — and mpv brings video output down with it: the episode
+/// is a black screen behind a playback error, on Windows only, and only for
+/// the people who turned Anime4K on (ticket 6ae742f9).
+///
+/// Nothing escapes: these are filenames this app chose, flattened by
+/// [ShaderStore.pathFor], and none contains either separator.
+String shaderChainProperty(List<String> paths, {required bool windows}) =>
+    paths.join(windows ? ';' : ':');
+
 /// How much GPU the chain is allowed to cost.
 enum ShaderTier {
   /// The M networks. Smooth on most phones.

@@ -91,7 +91,22 @@ class SourceHealthBadge extends StatelessWidget {
   }
 }
 
+/// The sentence behind a badge, for the reason the sweep recorded.
+///
+/// The server reports a server error with the status in it — `http_503`,
+/// `http_521`, `http_530` — while this list only ever knew the family,
+/// `http_5xx`. Twenty-two sources in the live report badge "Down" and then
+/// explained themselves with "The last server check found it failing", which
+/// is the fallback for a reason nobody recognised. Folding any `http_5xx`
+/// status onto the family gives them back the sentence that was written for
+/// them.
 String healthReasonText(String? reason) {
+  final code = reason != null && reason.startsWith('http_')
+      ? int.tryParse(reason.substring(5))
+      : null;
+  if (code != null && code >= 500 && code < 600) {
+    return 'sources.health_reason_http_5xx'.tr();
+  }
   const known = {
     'parked',
     'dns',

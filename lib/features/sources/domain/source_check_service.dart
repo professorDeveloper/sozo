@@ -235,10 +235,28 @@ class SourceCheckService {
     if (attempt.succeeded) {
       return SourceCheck(verdict: SourceVerdict.alive, at: now, ms: attempt.ms);
     }
-    if (attempt.empty) {
-      return SourceCheck(verdict: SourceVerdict.empty, at: now, ms: attempt.ms);
+    final failure = attempt.failure;
+    if (failure == null) {
+      // An answer with nothing in it and nothing said about why. Zero items is
+      // not health, so it does not clear what came before it either: a source
+      // that has already failed twice and then hands back an empty catalogue
+      // has not shown it works, and starting its history over would give it
+      // two fresh failures to spend before anything was said about it again.
+      // The verdict stays [SourceVerdict.empty] rather than escalating,
+      // because some sources really do open onto an empty home.
+      final streak = previous != null &&
+              previous.fails > 0 &&
+              previous.verdict != SourceVerdict.alive
+          ? previous
+          : null;
+      return SourceCheck(
+        verdict: SourceVerdict.empty,
+        at: now,
+        ms: attempt.ms,
+        fails: streak?.fails ?? 0,
+        firstFailAt: streak?.firstFailAt ?? streak?.at,
+      );
     }
-    final failure = attempt.failure!;
     final detail = (failure.detail ?? failure.headline);
     final trimmed = detail.length > 200
         ? '${detail.substring(0, 200)}…'
@@ -263,11 +281,15 @@ class SourceCheckService {
       default:
         break;
     }
+    // [SourceVerdict.empty] counts here when it carries a streak: an empty
+    // answer is not a failure of its own, but it does not wipe the ones
+    // already recorded, so the run of them continues through it.
     final wasFailing =
         previous != null &&
         previous.fails > 0 &&
         (previous.verdict == SourceVerdict.failing ||
-            previous.verdict == SourceVerdict.dead);
+            previous.verdict == SourceVerdict.dead ||
+            previous.verdict == SourceVerdict.empty);
     final fails = wasFailing ? previous.fails + 1 : 1;
     final firstFailAt = wasFailing
         ? (previous.firstFailAt ?? previous.at)

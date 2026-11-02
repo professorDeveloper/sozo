@@ -91,12 +91,44 @@ void main() {
       expect(names.toSet().length, names.length);
     });
 
-    test('no filename carries the list separator mpv uses', () {
-      // The chain is handed to mpv joined by ':'. A name containing one would
-      // split into two bogus paths.
+    test('no filename carries either list separator mpv uses', () {
+      // The chain is handed to mpv joined by ':' or, on Windows, ';'. A name
+      // containing one would split into two bogus paths.
       for (final f in ShaderPreset.allFiles) {
-        expect(f.split('/').last.contains(':'), isFalse, reason: f);
+        final name = f.split('/').last;
+        expect(name.contains(':'), isFalse, reason: f);
+        expect(name.contains(';'), isFalse, reason: f);
       }
+    });
+  });
+
+  group('the glsl-shaders property', () {
+    const chain = [
+      r'C:\Users\L\AppData\Roaming\Sozo\Sozo/shaders/Anime4K_Clamp_Highlights.glsl',
+      r'C:\Users\L\AppData\Roaming\Sozo\Sozo/shaders/Anime4K_Upscale_CNN_x2_M.glsl',
+    ];
+
+    test('is separated by ; on Windows, where : is the drive letter', () {
+      // Joined by ':' there, mpv reads the whole chain as one filename and
+      // takes video output down with it (ticket 6ae742f9).
+      final property = shaderChainProperty(chain, windows: true);
+      expect(property, '${chain[0]};${chain[1]}');
+      expect(property.split(';').length, 2);
+    });
+
+    test('is separated by : everywhere else', () {
+      expect(
+        shaderChainProperty(const ['/a/one.glsl', '/a/two.glsl'],
+            windows: false),
+        '/a/one.glsl:/a/two.glsl',
+      );
+    });
+
+    test('one shader is the path itself, on either platform', () {
+      expect(shaderChainProperty(const ['/a/one.glsl'], windows: true),
+          '/a/one.glsl');
+      expect(shaderChainProperty(const ['/a/one.glsl'], windows: false),
+          '/a/one.glsl');
     });
   });
 

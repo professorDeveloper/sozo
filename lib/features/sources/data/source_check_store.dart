@@ -60,8 +60,17 @@ class SourceCheck {
   /// How long the answer took.
   final int? ms;
 
+  /// Whether this is a verdict somebody has to do something about.
+  ///
+  /// [SourceVerdict.empty] is one of them. A catalogue that answered with
+  /// nothing is not a working source: a 200 carrying an empty list is the
+  /// commonest shape of a site that has shut the backend out — kisskh answers
+  /// `/contents/home` exactly that way today — and leaving it out of the list
+  /// a check run hands back meant the run counted it and then never named it.
   bool get isBad =>
-      verdict == SourceVerdict.dead || verdict == SourceVerdict.outdated;
+      verdict == SourceVerdict.dead ||
+      verdict == SourceVerdict.outdated ||
+      verdict == SourceVerdict.empty;
 
   Map<String, dynamic> toJson() => {
     'v': verdict.name,
@@ -97,9 +106,17 @@ class SourceCheck {
 /// box is read once, and every write updates the copy it came from. [revision]
 /// moves on every change, for the widgets that draw a verdict.
 class SourceCheckStore {
-  SourceCheckStore({Box? box}) : _override = box;
+  SourceCheckStore({Box? box, int Function()? now})
+    : _override = box,
+      _now = now ?? (() => DateTime.now().millisecondsSinceEpoch);
 
   final Box? _override;
+
+  /// The clock a verdict's age is measured against. Injectable for the same
+  /// reason as `SourceCheckService`'s: every rule here is about elapsed time,
+  /// and a test that cannot move the clock can only assert what happens within
+  /// one millisecond of now.
+  final int Function() _now;
 
   Box? get _box {
     if (_override != null) return _override;
@@ -157,8 +174,20 @@ class SourceCheckStore {
   SourceCheck? of(String id) {
     final c = _all[id];
     if (c == null) return null;
-    final age = DateTime.now().millisecondsSinceEpoch - c.at;
-    return age > staleAfter.inMilliseconds ? null : c;
+    return _expired(_now(), c) ? null : c;
+  }
+
+  /// Whether [check] has stopped meaning anything by [nowMs].
+  ///
+  /// Older than [staleAfter], or stamped after [nowMs]. A verdict dated in the
+  /// future came from a clock that has since been corrected — a phone set
+  /// forward for an app, or a device that booted before it found the time — and
+  /// its age is then not just wrong but negative, which read as "checked
+  /// moments ago" and would have kept a stale "Not working" on the row for as
+  /// long as the clock was out by.
+  static bool _expired(int nowMs, SourceCheck check) {
+    final age = nowMs - check.at;
+    return age < 0 || age > staleAfter.inMilliseconds;
   }
 
   SourceVerdict verdictOf(String id) =>
@@ -213,6 +242,12 @@ class SourceCheckStore {
   }
 
   Future<void> _flush() async {
+    // A verdict nobody can be shown is a verdict nobody should carry: every
+    // read already hides the expired ones, so dropping them on the way out
+    // keeps the table the size of what was checked this week rather than of
+    // every source ever checked on this phone, and stops a seven-month-old row
+    // being re-serialised on every run.
+    _all.removeWhere((_, c) => _expired(_now(), c));
     try {
       await _box?.put(_checksKey, {
         for (final e in _all.entries) e.key: e.value.toJson(),
