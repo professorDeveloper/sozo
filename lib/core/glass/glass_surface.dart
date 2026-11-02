@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
+import 'dart:ui' show ColorFilter, ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +11,10 @@ import 'app_glass.dart';
 import 'route_arrival.dart' show RouteMotion;
 import 'glass_hold.dart';
 import 'glass_pick.dart';
+// Imported as well as exported: the part file reaches [GlassFrameWatch] to
+// say when a refraction is on the screen, and a part can only see what its
+// own library imports.
+import 'glass_power.dart';
 import 'glass_sense.dart';
 
 export 'glass_hold.dart';
@@ -26,9 +30,11 @@ enum GlassMode {
   liquid,
 
   /// A blur under a tint and a rim drawn by hand: where the shader cannot
-  /// run (Skia, a test), on an Android phone that cannot spend it
-  /// ([GlassPower]: an Android Go phone), and for the frames the
-  /// glass is put down ([GlassHold]).
+  /// run (Skia, a test), on an Android phone the gate kept out or whose own
+  /// frames said it could not keep up ([GlassPower], [GlassFrameWatch]), and
+  /// for the frames the glass is put down ([GlassHold]). The same tint,
+  /// frost, colour lift, rim and geometry as the refraction, without the
+  /// bend: a plainer version of the one design, never a second design.
   blur,
 
   /// No glass at all — an opaque fill: the phone asks for less
@@ -56,8 +62,10 @@ enum GlassMode {
 ///   (pinned 0.2.0-dev.4): the page bends at the glass's rim under a light
 ///   frost, the tint over it all, and a rim drawn by hand;
 /// * otherwise, or while the shell has the glass put down ([GlassHold]) →
-///   a blur (the recipe's `blurFrost`) under a thicker tint, sharing the
-///   screen layer's [BackdropGroup] read, and the same rim.
+///   a blur (the recipe's `blurFrost`) under a thicker tint, with the
+///   recipe's colour lift fused into it ([GlassBlurFilter]) and the same
+///   rim, every shape of the group sharing one read of the screen
+///   ([_shareRead]) as the refracting path does.
 ///
 /// A small shape standing alone ([compact]) — a 44-point bar button —
 /// takes the recipe's small-shape glass: a
@@ -340,7 +348,8 @@ class _GlassGroupState extends State<GlassGroup>
       veil: mode == GlassMode.liquid ? _veil : null,
       child: widget.child,
     );
-    if (!_watching) return scoped;
+    final read = _shareRead(scoped);
+    if (!_watching) return read;
     // One shape of tree whichever way the glass is drawn: the layer with no
     // refracting shape in it is a plain pass-through, and the things
     // standing on the glass — a field being typed in — keep their state
@@ -348,8 +357,34 @@ class _GlassGroupState extends State<GlassGroup>
     return _GlassWatch(
       liquid: mode == GlassMode.liquid,
       onUnder: _onUnder,
-      child: GlassFoldGuard(child: _liquid(context, recipe, shown, scoped)),
+      child: GlassFoldGuard(child: _liquid(context, recipe, shown, read)),
     );
+  }
+
+  /// One read of the screen for every shape of this group drawn as a blur.
+  ///
+  /// The refracting path has always shared its read — one [LiquidGlassLayer]
+  /// per group, `useBackdropGroup` — but the blur path asked
+  /// `BackdropGroup.of(context)` for a key and the app never put a
+  /// [BackdropGroup] anywhere, so the lookup returned null on every frame
+  /// and each shape took a full read of the screen behind its own clip. A
+  /// bar with a pill on it and a lens beside them is three reads where the
+  /// same glass refracting is one — and the blur path is precisely the path
+  /// the phones that cannot afford reads are on.
+  ///
+  /// Shared for the same glass the refraction shares it for, and withheld
+  /// for the same reasons: a lens is held *over* the bar and its pill, and a
+  /// read taken before any of them were drawn would frost the page as it was
+  /// without the bar; clear glass over video stands over a page pushed above
+  /// the shell, and a read shared with the shell's bar would be the shell's
+  /// page. Both are groups of their own and keep their own read.
+  ///
+  /// The shapes of one group never overlap each other — glass is never laid
+  /// on glass — so one snapshot taken as the group is entered is what every
+  /// shape in it would have read for itself.
+  Widget _shareRead(Widget scoped) {
+    if (widget.kind != GlassKind.regular) return scoped;
+    return BackdropGroup(child: scoped);
   }
 
   Widget _liquid(
@@ -518,10 +553,7 @@ class GlassShape extends StatelessWidget {
           GlassMode.blur => ClipPath(
             clipper: ShapeBorderClipper(shape: border),
             child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: recipe.blurFrost * shown,
-                sigmaY: recipe.blurFrost * shown,
-              ),
+              filter: GlassBlurFilter.of(recipe, shown),
               // Put down by switching the blur off, not by taking it out:
               // the tree keeps its shape across a push.
               enabled: !scope!.down,
@@ -561,6 +593,61 @@ class GlassShape extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// What a glass drawn as the blur does to the screen under it: the recipe's
+/// frost, and the recipe's colour lift with it.
+///
+/// A phone that cannot run the shader should get a plainer version of the
+/// same glass, not a different glass — and the colour lift was the one part
+/// of the recipe the blur path dropped. The shader is handed
+/// [GlassRecipe.saturation] and lifts what it bends; the blur read it off no
+/// recipe at all, so the Android bar's glass (`GlassRecipe.androidBar`,
+/// saturation 1.5, the number that makes a poster read as a poster through
+/// it) came out grey on exactly the phones that fall back to it. Here the
+/// same number is a saturation matrix composed under the blur.
+///
+/// It costs nothing extra to read: the lift is fused into the same backdrop
+/// the frost already takes, so a shape that blurs now also saturates within
+/// that one read. It is left off when the recipe asks for no lift, so that
+/// the common glass is still a plain blur and nothing is composed for a
+/// multiplication by one.
+abstract final class GlassBlurFilter {
+  /// The filter for [recipe] at [shown] of itself. As everywhere else in the
+  /// glass, thinning the glass thins each part of it by the same amount: the
+  /// frost's sigma scales, and the lift eases back toward 1 — a capsule
+  /// coming up must not lift colour at full strength through a frost that is
+  /// barely there.
+  static ImageFilter of(GlassRecipe recipe, double shown) {
+    final blur = ImageFilter.blur(
+      sigmaX: recipe.blurFrost * shown,
+      sigmaY: recipe.blurFrost * shown,
+    );
+    final lift = 1 + (recipe.saturation - 1) * shown;
+    if ((lift - 1).abs() < _flat) return blur;
+    // The page's colour is lifted first and frosted after, which is the
+    // order the shader works in; saturation is linear in RGB, so the two
+    // commute and the choice is one of reading rather than of pixels.
+    return ImageFilter.compose(outer: blur, inner: saturate(lift));
+  }
+
+  /// A lift this close to 1 is no lift: not worth a second filter in the
+  /// chain.
+  static const double _flat = 0.01;
+
+  /// A saturation matrix that keeps luminance where it was — the Rec. 709
+  /// weights, as the shader and every other saturation in the app use — so
+  /// the glass lifts the colour of what is under it without lightening or
+  /// darkening it.
+  static ColorFilter saturate(double s) {
+    const r = 0.2126, g = 0.7152, b = 0.0722;
+    return ColorFilter.matrix(<double>[
+      r + s * (1 - r), g * (1 - s), b * (1 - s), 0, 0, //
+      r * (1 - s), g + s * (1 - g), b * (1 - s), 0, 0, //
+      r * (1 - s), g * (1 - s), b + s * (1 - b), 0, 0, //
+      0, 0, 0, 1, 0, //
+    ]);
   }
 }
 
