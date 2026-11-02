@@ -11,6 +11,7 @@ import 'package:soplay/core/player/player_video_track.dart';
 import 'package:soplay/core/player/drm_controller.dart';
 import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/player/playback_readiness.dart';
+import 'package:soplay/core/player/shader_presets.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:video_player/video_player.dart' as vp;
 
@@ -1341,10 +1342,11 @@ class _MediaKitController extends PlayerController {
         await platform.setProperty('glsl-shaders', '');
         return;
       }
-      // Separated by ':', which is what mpv's list properties take on every
-      // platform this runs on. A path containing one would break the list, and
-      // these are filenames this app chose, so none can.
-      await platform.setProperty('glsl-shaders', paths.join(':'));
+      // Separator per platform — see [shaderChainProperty].
+      await platform.setProperty(
+        'glsl-shaders',
+        shaderChainProperty(paths, windows: !kIsWeb && Platform.isWindows),
+      );
     } catch (e) {
       // An enhancement is never worth losing the episode over. A shader that
       // will not compile on this GPU should cost the sharpening, not playback.
