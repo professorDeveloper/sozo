@@ -191,7 +191,12 @@ void main() {
             headers: {'Range': 'bytes=0-'},
           ),
         );
-        expect(res.statusCode, 200);
+        // The open-ended range is answered as a 206 over the unwrapped bytes,
+        // not as a 200 carrying them: a 200 in reply to a Range is what
+        // AVPlayer gives up on, and the length it is given has to be the TS
+        // left after the picture rather than the upstream file's.
+        expect(res.statusCode, 206);
+        expect(res.headers.value('content-range'), 'bytes 0-${ts.length - 1}/${ts.length}');
         expect(res.data, ts);
       },
     );
