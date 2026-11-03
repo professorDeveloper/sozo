@@ -433,7 +433,7 @@ void main() {
 
   group('the blur is the same glass, plainer', () {
     test('it carries the recipe\'s colour lift, as the shader does', () {
-      final bar = GlassRecipe.androidBar;
+      final bar = GlassRecipe.of(GlassKind.regular);
       expect(bar.saturation, greaterThan(1), reason: 'the premise');
       final filter = GlassBlurFilter.of(bar, 1);
       // A composed filter: the blur with the lift fused under it, inside the
@@ -452,7 +452,7 @@ void main() {
       // coming up must not saturate at full strength through a frost that is
       // barely there.
       expect(
-        GlassBlurFilter.of(GlassRecipe.androidBar, 0).toString(),
+        GlassBlurFilter.of(GlassRecipe.of(GlassKind.regular), 0).toString(),
         isNot(contains('compose')),
       );
     });
