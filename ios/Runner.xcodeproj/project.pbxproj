@@ -18,6 +18,7 @@
 		A1B2C3D40000000000000003 /* SystemControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000004 /* SystemControls.swift */; };
 		A1B2C3D40000000000000005 /* NativePip.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000006 /* NativePip.swift */; };
 		A1B2C3D40000000000000007 /* GlassSense.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000008 /* GlassSense.swift */; };
+		A1B2C3D40000000000000009 /* NativeGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000000000000A /* NativeGlass.swift */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
@@ -64,6 +65,7 @@
 		A1B2C3D40000000000000004 /* SystemControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemControls.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000000000006 /* NativePip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePip.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000000000008 /* GlassSense.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSense.swift; sourceTree = "<group>"; };
+		A1B2C3D4000000000000000A /* NativeGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeGlass.swift; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
@@ -152,6 +154,7 @@
 				A1B2C3D40000000000000004 /* SystemControls.swift */,
 				A1B2C3D40000000000000006 /* NativePip.swift */,
 				A1B2C3D40000000000000008 /* GlassSense.swift */,
+				A1B2C3D4000000000000000A /* NativeGlass.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -416,6 +419,7 @@
 				A1B2C3D40000000000000003 /* SystemControls.swift in Sources */,
 				A1B2C3D40000000000000005 /* NativePip.swift in Sources */,
 				A1B2C3D40000000000000007 /* GlassSense.swift in Sources */,
+				A1B2C3D40000000000000009 /* NativeGlass.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

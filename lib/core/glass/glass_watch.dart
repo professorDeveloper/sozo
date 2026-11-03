@@ -70,7 +70,23 @@ class _RenderGlassWatch extends RenderProxyBox {
   set liquid(bool value) {
     if (value == _liquid) return;
     _liquid = value;
+    _count();
     markNeedsPaint();
+  }
+
+  /// Whether this glass is counted among the refracting ones on the screen
+  /// right now ([GlassFrameWatch]).
+  bool _counted = false;
+
+  /// Tells the frame watch whether there is a refraction of ours on the
+  /// screen. It measures frames only while there is: a frame drawn with no
+  /// refracting glass up says nothing about whether this phone can draw one,
+  /// and counting it would let a slow page elsewhere take the glass away.
+  void _count() {
+    final up = attached && _liquid;
+    if (up == _counted) return;
+    _counted = up;
+    GlassFrameWatch.refracting(up);
   }
 
   ValueChanged<bool> onUnder;
@@ -106,12 +122,16 @@ class _RenderGlassWatch extends RenderProxyBox {
   void attach(PipelineOwner owner) {
     super.attach(owner);
     GlassUnderlay._watch(this);
+    _count();
   }
 
   @override
   void detach() {
     GlassUnderlay._unwatch(this);
     super.detach();
+    // After the detach, so that [attached] already reads false: a glass taken
+    // off the screen is one fewer refraction to measure.
+    _count();
   }
 
   /// Said once the frame is through: the group cannot be rebuilt from

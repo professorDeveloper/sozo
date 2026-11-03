@@ -10,6 +10,15 @@ import UIKit
 /// - The switch thrown while the app is in front (the accessibility
 ///   shortcut) is said unasked, as a `reduceTransparency` call with the new
 ///   value, so the glass turns opaque on the same frame.
+/// - `glassCapability` → a map of what the phone's own glass can give
+///   (NativeGlass.swift). It lives on this channel rather than on one of
+///   its own because it answers the same question from the same place —
+///   what this particular iPhone will let the glass be — and a second
+///   channel would be a second thing to keep registered.
+/// - `glassViewsBuilt` → how many hosted glass views UIKit has really
+///   built. Flutter keeps a `UiKitView` in the tree whether or not the
+///   native half of it was ever made, so this is the only way a test on a
+///   device can tell a registered factory from a missing one.
 enum GlassSense {
   private static var channel: FlutterMethodChannel?
 
@@ -28,6 +37,10 @@ enum GlassSense {
       switch call.method {
       case "reduceTransparency":
         result(UIAccessibility.isReduceTransparencyEnabled)
+      case "glassCapability":
+        result(NativeGlass.capability())
+      case "glassViewsBuilt":
+        result(NativeGlassView.built)
       default:
         result(FlutterMethodNotImplemented)
       }
