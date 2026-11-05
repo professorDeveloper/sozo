@@ -1,21 +1,22 @@
-name: 🔌 Manba ishlamayapti
-description: Biror manba (provider/kengaytma) qidirmayapti yoki video ochilmayapti
+name: 🔌 Source not working / Manba ishlamayapti
+description: A source or extension will not search or play / Manba qidirmayapti yoki video ochilmayapti
 title: "[Source] "
 labels: ["source"]
 body:
   - type: markdown
     attributes:
       value: |
-        Manba muammosi Sozo'dagi eng ko'p uchraydigan xabar, va deyarli har doim
-        saytning o'zida bo'ladi — domen almashgan, sahifa tuzilishi o'zgargan
-        yoki fayl o'chirilgan. Quyidagi ma'lumotlarsiz buni tekshirib
-        bo'lmaydi, shuning uchun iltimos hammasini to'ldiring.
+        You can write in English or Uzbek. / Inglizcha yoki o'zbekcha yozishingiz mumkin.
+
+        These problems usually come from the site itself: a new domain, a changed page or a deleted file.
+        We cannot check it without the details below, so please fill in everything.
+        Iltimos, hamma maydonni to'ldiring: ularsiz muammoni tekshirib bo'lmaydi.
 
   - type: input
     id: source
     attributes:
-      label: Qaysi manba?
-      description: Ilovadagi nomi bilan yozing
+      label: Which source? / Qaysi manba?
+      description: The name shown in the app / Ilovadagi nomi bilan yozing
       placeholder: "4khdhub / hdhub4u / Aniyomi — AllAnime / ..."
     validations:
       required: true
@@ -23,24 +24,24 @@ body:
   - type: dropdown
     id: stage
     attributes:
-      label: Qaysi bosqichda uziladi?
+      label: Where does it fail? / Qaysi bosqichda uziladi?
       options:
-        - Qidiruv hech narsa topmayapti
-        - Bosh sahifa bo'sh
-        - Batafsil sahifa ochilmayapti
-        - Epizodlar ro'yxati bo'sh
-        - Sifat variantlari chiqmayapti
-        - Video ochilmayapti / doim yuklanyapti
-        - Video ochiladi, lekin rasm buzuq / ovoz yo'q
-        - Boshqa
+        - Search finds nothing / Qidiruv hech narsa topmayapti
+        - Home page is empty / Bosh sahifa bo'sh
+        - Detail page will not open / Batafsil sahifa ochilmayapti
+        - Episode list is empty / Epizodlar ro'yxati bo'sh
+        - No quality options / Sifat variantlari chiqmayapti
+        - Video will not start or keeps loading / Video ochilmayapti yoki doim yuklanyapti
+        - Video plays with a broken picture or no sound / Rasm buzuq yoki ovoz yo'q
+        - Other / Boshqa
     validations:
       required: true
 
   - type: input
     id: title
     attributes:
-      label: Qaysi kontentda?
-      description: Aniq nom — bir film ishlamasligi bilan butun manba o'lgani ikki xil muammo
+      label: Which title? / Qaysi kontentda?
+      description: One broken title and a dead source are different problems / Aniq nomni yozing
       placeholder: "The Whisper Man (2026)"
     validations:
       required: true
@@ -48,35 +49,36 @@ body:
   - type: textarea
     id: what
     attributes:
-      label: Nima bo'ldi?
-      description: Ekranda chiqqan xatoni aynan ko'chiring. Skrinshot ham bo'lsa juda yaxshi.
+      label: What happened? / Nima bo'ldi?
+      description: Copy the exact error from the screen. A screenshot helps too. / Xatoni aynan ko'chiring, skrinshot ham foydali.
     validations:
       required: true
 
   - type: dropdown
     id: everything
     attributes:
-      label: Boshqa manbalar ishlayaptimi?
-      description: Bitta manba o'lgani bilan tarmoq/ilova muammosi butunlay boshqa narsa
+      label: Do other sources work? / Boshqa manbalar ishlayaptimi?
+      description: This separates a source problem from a network or app problem / Muammo manbadami yoki tarmoqdami, shuni ajratadi
       options:
-        - Ha, boshqalari ishlayapti — faqat shu manba
-        - Yo'q, hech qaysi manba ishlamayapti
-        - Tekshirmadim
+        - Yes, only this source fails / Ha, faqat shu manba ishlamayapti
+        - No, none of them work / Yo'q, hech qaysi manba ishlamayapti
+        - Did not check / Tekshirmadim
     validations:
       required: true
 
   - type: input
     id: version
     attributes:
-      label: Sozo versiyasi
-      description: "Profil → pastda yozilgan (masalan 3.1.0+6)"
+      label: Sozo version / Sozo versiyasi
+      description: Shown at the bottom of the Profile page / Profil sahifasining pastida yozilgan
+      placeholder: "3.2.0+8"
     validations:
       required: true
 
   - type: input
     id: device
     attributes:
-      label: Qurilma va OS
-      placeholder: "Samsung A54, Android 14 / Windows 11 / Android TV boks"
+      label: Device and OS / Qurilma va OS
+      placeholder: "Samsung A54, Android 14 / Windows 11 / Android TV box"
     validations:
       required: true
