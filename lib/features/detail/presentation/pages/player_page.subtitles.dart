@@ -1012,6 +1012,7 @@ extension _PlayerSubtitles on _PlayerPageState {
       'fr': 'Français',
       'es': 'Español',
       'vi': 'Tiếng Việt',
+      'hi': 'हिन्दी',
     };
     return map[code.toLowerCase()] ?? code.toUpperCase();
   }
@@ -1122,6 +1123,7 @@ extension _PlayerSubtitles on _PlayerPageState {
       'pol': 'pl',
       'ind': 'id',
       'vie': 'vi',
+      'hin': 'hi',
     };
     return map[code];
   }

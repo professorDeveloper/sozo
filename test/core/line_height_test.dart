@@ -27,6 +27,12 @@ void main() {
     expect(await heightIn(tester, const Locale('vi'), 1.08), 1.25);
   });
 
+  testWidgets('Hindi gets room for marks above and below the line', (
+    tester,
+  ) async {
+    expect(await heightIn(tester, const Locale('hi'), 1.08), 1.25);
+  });
+
   testWidgets('a roomier design is left alone', (tester) async {
     expect(await heightIn(tester, const Locale('vi'), 1.4), 1.4);
   });

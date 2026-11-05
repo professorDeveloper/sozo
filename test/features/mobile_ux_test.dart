@@ -99,6 +99,7 @@ void main() {
           Locale('tr'),
           Locale('id'),
           Locale('vi'),
+          Locale('hi'),
         ],
         startLocale: Locale(language),
         fallbackLocale: const Locale('en'),

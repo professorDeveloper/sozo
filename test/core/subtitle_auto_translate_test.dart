@@ -197,6 +197,37 @@ void main() {
     );
   });
 
+  test('Hindi is found under its names, but not in a hearing-impaired tag', () {
+    for (final label in [
+      'hi',
+      'hin',
+      'hi-IN',
+      'Hindi',
+      'हिन्दी',
+      'हिंदी',
+      'HI · Filemoon',
+    ]) {
+      expect(
+        SubtitleAutoTranslate.labelMatchesLanguage(label, 'hi'),
+        isTrue,
+        reason: label,
+      );
+    }
+    for (final label in [
+      'English (HI)',
+      'English HI',
+      'en.hi',
+      'Deutsch [HI]',
+    ]) {
+      expect(
+        SubtitleAutoTranslate.labelMatchesLanguage(label, 'hi'),
+        isFalse,
+        reason: label,
+      );
+    }
+    expect(SubtitleAutoTranslate.languageOf('English (HI)'), 'en');
+  });
+
   test('the core layer stays free of Flutter', () {
     final source = File(
       'lib/core/subtitles/subtitle_auto_translate.dart',
