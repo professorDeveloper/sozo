@@ -1,29 +1,31 @@
-name: 🐛 Xato haqida xabar
-description: Ilovada biror narsa noto'g'ri ishlayapti
+name: 🐛 Bug report / Xato haqida xabar
+description: Something in the app is not working / Ilovada biror narsa noto'g'ri ishlayapti
 title: "[Bug] "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Manba/provider muammosi bo'lsa — **🔌 Manba ishlamayapti** shablonidan
-        foydalaning, u aniqroq savollar beradi.
+        You can write in English or Uzbek. / Inglizcha yoki o'zbekcha yozishingiz mumkin.
+
+        If one source is failing, use **🔌 Source not working** instead. It asks more precise questions.
+        Muammo bitta manbada bo'lsa, **🔌 Manba ishlamayapti** shablonidan foydalaning.
 
   - type: textarea
     id: what
     attributes:
-      label: Nima bo'ldi?
-      description: Kutgan narsangiz va aslida bo'lgan narsa
+      label: What happened? / Nima bo'ldi?
+      description: What you expected, and what happened instead / Nima kutgan edingiz va aslida nima bo'ldi
     validations:
       required: true
 
   - type: textarea
     id: steps
     attributes:
-      label: Qanday takrorlash mumkin?
+      label: Steps to reproduce / Qanday takrorlash mumkin?
       placeholder: |
-        1. Bosh sahifani ochdim
-        2. "..." ni bosdim
+        1. Open the home page
+        2. Tap "..."
         3. ...
     validations:
       required: true
@@ -31,29 +33,30 @@ body:
   - type: textarea
     id: media
     attributes:
-      label: Skrinshot yoki video
-      description: Ixtiyoriy, lekin muammoni bir necha marta tez hal qiladi
+      label: Screenshot or video / Skrinshot yoki video
+      description: Optional, but it often makes the fix much faster / Ixtiyoriy, lekin muammoni ancha tez hal qiladi
 
   - type: input
     id: version
     attributes:
-      label: Sozo versiyasi
-      description: "Profil sahifasining pastida yozilgan"
+      label: Sozo version / Sozo versiyasi
+      description: Shown at the bottom of the Profile page / Profil sahifasining pastida yozilgan
+      placeholder: "3.2.0+8"
     validations:
       required: true
 
   - type: dropdown
     id: platform
     attributes:
-      label: Platforma
-      options: [Android, Android TV, iOS, Windows, Linux, macOS]
+      label: Platform / Platforma
+      options: [Android, Android TV, Apple TV, iOS, Windows, Linux, macOS]
     validations:
       required: true
 
   - type: input
     id: device
     attributes:
-      label: Qurilma va OS versiyasi
+      label: Device and OS version / Qurilma va OS versiyasi
       placeholder: "Pixel 7, Android 15"
     validations:
       required: true
@@ -61,6 +64,6 @@ body:
   - type: dropdown
     id: engine
     attributes:
-      label: Pleyer dvigateli (agar pleyerga tegishli bo'lsa)
-      description: "Profil → Pleyer sozlamalari"
-      options: ["Bilmayman / tegishli emas", "Native (standart)", "media_kit"]
+      label: Player engine, if this is about playback / Pleyer dvigateli (agar pleyerga tegishli bo'lsa)
+      description: Profile → Player settings / Profil → Pleyer sozlamalari
+      options: ["Not sure or not relevant / Bilmayman yoki tegishli emas", "Native (default)", "media_kit"]

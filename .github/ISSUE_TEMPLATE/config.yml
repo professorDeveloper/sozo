@@ -1,11 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 💬 Telegram — savol va tez yordam
+  - name: "💬 Telegram: questions and quick help / savol va tez yordam"
     url: https://telegram.me/sozoapp
-    about: "Savol, o'rnatish muammosi yoki shunchaki suhbat — bu yerda tezroq javob olasiz"
-  - name: 🎧 Discord — muhokama va takliflar
+    about: "Questions, install problems or a chat. The fastest way to get an answer. / Eng tez javob shu yerda."
+  - name: "🎧 Discord: discussion and ideas / muhokama va takliflar"
     url: https://discord.gg/n22URhYvMR
-    about: "Kelgusi imkoniyatlar va rivojlanish haqida"
-  - name: 🔐 Xavfsizlik zaifligi
-    url: https://github.com/professorDeveloper/sozo/security/advisories/new
-    about: "Zaiflikni ochiq issue emas, shu yerda xabar qiling"
+    about: "Upcoming features and development. / Kelgusi imkoniyatlar va rivojlanish haqida."

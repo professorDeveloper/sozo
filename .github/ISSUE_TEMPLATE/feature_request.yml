@@ -1,34 +1,51 @@
-name: 💡 Yangi imkoniyat taklifi
-description: Sozo'da nima bo'lishini istardingiz
+name: 💡 Feature request / Yangi imkoniyat taklifi
+description: Something you would like Sozo to do / Sozo'da nima bo'lishini istardingiz
 title: "[Feature] "
 labels: ["enhancement"]
 body:
+  - type: markdown
+    attributes:
+      value: You can write in English or Uzbek. / Inglizcha yoki o'zbekcha yozishingiz mumkin.
+
   - type: textarea
     id: problem
     attributes:
-      label: Qanday muammoni hal qiladi?
+      label: What problem does it solve? / Qanday muammoni hal qiladi?
       description: |
-        Yechimdan oldin muammoni yozing. "X tugmasi kerak" dan ko'ra
-        "Y qilmoqchi bo'lganimda Z ni har safar qaytadan qilishga to'g'ri
-        kelyapti" ancha foydali.
+        Describe the problem before the solution. "Every time I do Y, I have to repeat Z" helps more than "add an X button".
+        Yechimdan oldin muammoni yozing.
     validations:
       required: true
 
   - type: textarea
     id: idea
     attributes:
-      label: Qanday ishlashini tasavvur qilasiz?
+      label: How do you imagine it working? / Qanday ishlashini tasavvur qilasiz?
     validations:
       required: true
 
   - type: textarea
     id: alternatives
     attributes:
-      label: Hozir buni qanday aylanib o'tyapsiz?
+      label: How do you work around it today? / Hozir buni qanday aylanib o'tyapsiz?
 
   - type: dropdown
     id: platform
     attributes:
-      label: Qaysi platformada kerak?
+      label: Which platforms? / Qaysi platformada kerak?
+      description: Includes platforms Sozo does not support yet / Sozo hali ishlamaydigan platformalar ham bor
       multiple: true
-      options: [Android, Android TV, iOS, Windows, Linux, macOS, Hammasi]
+      options:
+        - Android
+        - Android TV
+        - Apple TV
+        - iOS
+        - Windows
+        - Linux
+        - macOS
+        - LG webOS
+        - Samsung Tizen
+        - Other / Boshqa
+        - All / Hammasi
+    validations:
+      required: true
