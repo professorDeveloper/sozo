@@ -439,6 +439,19 @@ class PlayerSubtitleTrack extends PlayerAudioTrack {
 bool _useMediaKit() =>
     !isAndroidEmulator && resolvePlayerEngine() == PlayerEngine.mediaKit;
 
+/// Linux decodes through `auto-copy`, not media_kit's default `auto`.
+///
+/// `auto` hands decoded frames straight to the GPU through an OpenGL interop.
+/// On an NVIDIA laptop that showed a solid blue picture with working audio
+/// (issue #53). `auto-copy` still decodes on the GPU, then copies each frame to
+/// system memory, so no interop is involved. The cost is some extra CPU.
+@visibleForTesting
+mkv.VideoControllerConfiguration mediaKitVideoConfiguration({
+  required bool isLinux,
+}) => isLinux
+    ? const mkv.VideoControllerConfiguration(hwdec: 'auto-copy')
+    : const mkv.VideoControllerConfiguration();
+
 /// media_kit needs its native side initialised exactly once before the first
 /// [mk.Player]. `main()` does this eagerly on desktop; on Android the engine is
 /// opt-in, so it is done by [warmUpPlayerEngine] at startup when the user has
@@ -635,7 +648,10 @@ class _MediaKitController extends PlayerController {
     // A black first frame is an annoyance. A crash is not, so this stays on the
     // library's default until the black frame has a fix that does not touch
     // native lifetimes.
-    _videoController = mkv.VideoController(_player);
+    _videoController = mkv.VideoController(
+      _player,
+      configuration: mediaKitVideoConfiguration(isLinux: Platform.isLinux),
+    );
   }
 
   final _MediaKitSource _src;
