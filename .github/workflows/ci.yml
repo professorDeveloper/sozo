@@ -30,6 +30,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Release notes composer
+        run: python3 tool/compose_release_notes_test.py
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
