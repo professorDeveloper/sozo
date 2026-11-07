@@ -179,7 +179,7 @@ class _Skeleton extends StatelessWidget {
                 Container(
                   width: _avatar,
                   height: _avatar,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.surfaceVariant,
                     shape: BoxShape.circle,
                   ),
