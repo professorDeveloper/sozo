@@ -1293,7 +1293,19 @@
     "highlights": "التظليلات",
     "remove_highlight": "إزالة التظليل",
     "highlight_note": "أضف ملاحظة (اختياري)",
-    "no_highlights": "لا توجد تظليلات بعد. حدّد نصًا واختر «تظليل»."
+    "no_highlights": "لا توجد تظليلات بعد. حدّد نصًا واختر «تظليل».",
+    "translate_page": "ترجمة الصفحة",
+    "translate_preview": "الصفحة المترجمة",
+    "translate_apply": "تطبيق",
+    "translate_show_original": "عرض الأصل",
+    "translate_no_text": "لم يُعثر على نص في هذه الصفحة.",
+    "translate_daily_limit": "لقد استهلكت ترجمات اليوم. حاول مجددًا غدًا.",
+    "translate_offline": "أنت غير متصل. اتصل بالإنترنت لترجمة هذه الصفحة.",
+    "translate_sign_in": "سجّل الدخول لترجمة الصفحات.",
+    "translate_failed": "تعذّرت ترجمة هذه الصفحة. حاول مرة أخرى.",
+    "translate_language": "ترجمة الصفحات إلى",
+    "translate_auto": "ترجمة كل صفحة أثناء القراءة",
+    "translate_auto_desc": "كل صفحة جديدة تستهلك ترجمة واحدة من رصيد اليوم."
   },
   "cloudflare": {
     "title": "تأكيد أنك لست روبوتاً",

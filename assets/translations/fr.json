@@ -1293,7 +1293,19 @@
     "highlights": "Surlignages",
     "remove_highlight": "Retirer le surlignage",
     "highlight_note": "Ajouter une note (facultatif)",
-    "no_highlights": "Aucun surlignage pour l’instant. Sélectionnez du texte et choisissez Surligner."
+    "no_highlights": "Aucun surlignage pour l’instant. Sélectionnez du texte et choisissez Surligner.",
+    "translate_page": "Traduire la page",
+    "translate_preview": "Page traduite",
+    "translate_apply": "Appliquer",
+    "translate_show_original": "Afficher l’original",
+    "translate_no_text": "Aucun texte trouvé sur cette page.",
+    "translate_daily_limit": "Vous avez utilisé toutes les traductions du jour. Réessayez demain.",
+    "translate_offline": "Vous êtes hors ligne. Connectez-vous à Internet pour traduire cette page.",
+    "translate_sign_in": "Connectez-vous pour traduire des pages.",
+    "translate_failed": "Impossible de traduire cette page. Réessayez.",
+    "translate_language": "Traduire les pages en",
+    "translate_auto": "Traduire chaque page pendant la lecture",
+    "translate_auto_desc": "Chaque nouvelle page utilise une des traductions du jour."
   },
   "cloudflare": {
     "title": "Confirme que tu es humain",

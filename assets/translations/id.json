@@ -1293,7 +1293,19 @@
     "highlights": "Sorotan",
     "remove_highlight": "Hapus sorotan",
     "highlight_note": "Tambahkan catatan (opsional)",
-    "no_highlights": "Belum ada sorotan. Pilih teks lalu pilih Sorot."
+    "no_highlights": "Belum ada sorotan. Pilih teks lalu pilih Sorot.",
+    "translate_page": "Terjemahkan halaman",
+    "translate_preview": "Halaman terjemahan",
+    "translate_apply": "Terapkan",
+    "translate_show_original": "Tampilkan asli",
+    "translate_no_text": "Tidak ada teks di halaman ini.",
+    "translate_daily_limit": "Jatah terjemahan hari ini sudah habis. Coba lagi besok.",
+    "translate_offline": "Kamu sedang offline. Sambungkan ke internet untuk menerjemahkan halaman ini.",
+    "translate_sign_in": "Masuk untuk menerjemahkan halaman.",
+    "translate_failed": "Halaman ini tidak dapat diterjemahkan. Coba lagi.",
+    "translate_language": "Terjemahkan halaman ke",
+    "translate_auto": "Terjemahkan setiap halaman saat membaca",
+    "translate_auto_desc": "Setiap halaman baru memakai satu jatah terjemahan hari ini."
   },
   "cloudflare": {
     "title": "Verifikasi bahwa kamu manusia",

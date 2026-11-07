@@ -142,6 +142,9 @@ dependencies:
   # Exact pin: a dev release, and lib/core/glass is written against its API.
   liquid_glass_renderer: 0.2.0-dev.4
   mobile_scanner: ^7.4.0
+  # Reader page translation, Android and iOS only. 0.17+ needs AGP 9 and 1.x
+  # needs Swift Package Manager; the app is on AGP 8 and CocoaPods.
+  google_mlkit_text_recognition: ^0.16.0
   # The TV's pairing code, painted rather than pulled in as a widget package.
   qr: ^3.0.2
   firebase_auth: ^5.7.0

@@ -1293,7 +1293,19 @@
     "highlights": "Vurgular",
     "remove_highlight": "Vurguyu kaldır",
     "highlight_note": "Not ekle (isteğe bağlı)",
-    "no_highlights": "Henüz vurgu yok. Metin seçip Vurgula'yı seçin."
+    "no_highlights": "Henüz vurgu yok. Metin seçip Vurgula'yı seçin.",
+    "translate_page": "Sayfayı çevir",
+    "translate_preview": "Çevrilmiş sayfa",
+    "translate_apply": "Uygula",
+    "translate_show_original": "Orijinali göster",
+    "translate_no_text": "Bu sayfada metin bulunamadı.",
+    "translate_daily_limit": "Bugünkü çeviri hakkın doldu. Yarın tekrar dene.",
+    "translate_offline": "Çevrimdışısın. Bu sayfayı çevirmek için internete bağlan.",
+    "translate_sign_in": "Sayfaları çevirmek için giriş yap.",
+    "translate_failed": "Bu sayfa çevrilemedi. Tekrar dene.",
+    "translate_language": "Sayfaları şu dile çevir",
+    "translate_auto": "Okurken her sayfayı çevir",
+    "translate_auto_desc": "Her yeni sayfa bugünkü çeviri hakkından birini kullanır."
   },
   "cloudflare": {
     "title": "İnsan olduğunu doğrula",
