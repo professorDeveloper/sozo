@@ -96,6 +96,7 @@ import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/tracker/data/tracker_outbox.dart';
 import 'package:soplay/features/detail/data/aniskip_service.dart';
 import 'package:soplay/features/profile/data/backup_service.dart';
+import 'package:soplay/features/profile/data/contributors_service.dart';
 import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
 import 'package:soplay/features/profile/domain/services/provider_probe.dart';
 import 'package:soplay/features/auth/data/services/google_auth_service.dart';
@@ -441,6 +442,9 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<RemoteControlService>(
     () => RemoteControlService(dio: getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<ContributorsService>(
+    () => ContributorsService(dio: getIt<Dio>()),
   );
   getIt.registerSingleton<AnilistLinkStore>(AnilistLinkStore());
   getIt.registerSingleton<AnilistService>(

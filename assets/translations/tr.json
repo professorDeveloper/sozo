@@ -751,7 +751,11 @@
     "library_update": "Yeni bölümleri denetle",
     "library_update_desc": "Takip ettiğin yapımları denetler, yenisi çıkınca haber verir",
     "library_update_every": "{} saatte bir",
-    "library_update_daily": "Günde bir"
+    "library_update_daily": "Günde bir",
+    "contributors": "Katkıda bulunanlar",
+    "contributors_error": "Katkıda bulunanlar yüklenemedi",
+    "become_contributor": "Katkıda bulun",
+    "become_contributor_body": "Sozo açık kaynaklıdır. Kod, çeviri ve hata bildirimleri; hepsi yardımcı olur."
   },
   "appearance": {
     "title": "Görünüm",
@@ -3090,5 +3094,13 @@
     "error_invalid_url": "Yalnızca raw.githubusercontent.com veya gist.githubusercontent.com üzerindeki https bağlantıları eklenebilir.",
     "error_unreachable": "Bu depoya ulaşılamadı. Bağlantıyı ve internet bağlantını kontrol et.",
     "error_invalid_index": "Bu bağlantı geçerli bir Zangetsu index.json dosyasına gitmiyor."
+  },
+  "star": {
+    "title": "Sozo'nun büyümesine yardım etmek ister misin?",
+    "body": "GitHub'da yıldız ver ⭐",
+    "action": "GitHub'da yıldız ver",
+    "later": "Sonra",
+    "never": "Bir daha sorma",
+    "update_button": "Sozo'ya GitHub'da yıldız ver"
   }
 }

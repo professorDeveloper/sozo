@@ -751,7 +751,11 @@
     "library_update": "Kiểm tra tập mới",
     "library_update_desc": "Kiểm tra các phim bạn theo dõi và báo khi có tập mới",
     "library_update_every": "Mỗi {} giờ",
-    "library_update_daily": "Mỗi ngày một lần"
+    "library_update_daily": "Mỗi ngày một lần",
+    "contributors": "Người đóng góp",
+    "contributors_error": "Không tải được danh sách người đóng góp",
+    "become_contributor": "Trở thành người đóng góp",
+    "become_contributor_body": "Sozo là mã nguồn mở. Mã nguồn, bản dịch và báo lỗi đều giúp ích."
   },
   "appearance": {
     "title": "Giao diện",
@@ -3090,5 +3094,13 @@
     "error_invalid_url": "Chỉ có thể thêm liên kết https trên raw.githubusercontent.com hoặc gist.githubusercontent.com.",
     "error_unreachable": "Không truy cập được kho này. Hãy kiểm tra liên kết và kết nối mạng.",
     "error_invalid_index": "Liên kết này không trỏ tới một index.json Zangetsu hợp lệ."
+  },
+  "star": {
+    "title": "Bạn muốn giúp Sozo phát triển?",
+    "body": "Gắn sao trên GitHub ⭐",
+    "action": "Gắn sao trên GitHub",
+    "later": "Để sau",
+    "never": "Không hỏi lại",
+    "update_button": "Gắn sao cho Sozo trên GitHub"
   }
 }

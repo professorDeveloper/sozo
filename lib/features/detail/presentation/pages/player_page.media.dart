@@ -2113,7 +2113,12 @@ extension _PlayerMedia on _PlayerPageState {
         // not add a completion each time they cross it.
         if (!_countedComplete) {
           _countedComplete = true;
-          if (!_hive.isIncognito) unawaited(_watchStats.recordCompleted());
+          if (!_hive.isIncognito) {
+            unawaited(_watchStats.recordCompleted());
+            if (widget.args.provider != 'trailer') {
+              unawaited(StarPrompt.episodeCompleted());
+            }
+          }
         }
       }
 

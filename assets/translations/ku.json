@@ -751,7 +751,11 @@
     "library_update": "Li beşên nû kontrol bike",
     "library_update_desc": "Li sernavên ku tu dişopînî dinêre û dema yekî nû derkeve te agahdar dike",
     "library_update_every": "Her {} saetan",
-    "library_update_daily": "Rojê carekê"
+    "library_update_daily": "Rojê carekê",
+    "contributors": "Beşdar",
+    "contributors_error": "Beşdar nehatin barkirin",
+    "become_contributor": "Bibe beşdar",
+    "become_contributor_body": "Sozo çavkaniya vekirî ye. Kod, werger û raporên çewtiyan hemû alîkar in."
   },
   "appearance": {
     "title": "Xuyang",
@@ -3090,5 +3094,13 @@
     "error_invalid_url": "Tenê girêdanên https li ser raw.githubusercontent.com an gist.githubusercontent.com dikarin werin zêdekirin.",
     "error_unreachable": "Negihîşt vê repoyê. Girêdan û pêwendiya xwe kontrol bike.",
     "error_invalid_index": "Ev girêdan ne index.json-eke derbasdar a Zangetsu ye."
+  },
+  "star": {
+    "title": "Tu dixwazî alîkariya mezinbûna Sozo bikî?",
+    "body": "Li GitHubê stêrkekê bidê ⭐",
+    "action": "Li GitHubê stêrk bide",
+    "later": "Paşê",
+    "never": "Careke din nepirse",
+    "update_button": "Li GitHubê stêrkekê bide Sozo"
   }
 }

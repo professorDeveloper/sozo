@@ -751,7 +751,11 @@
     "library_update": "التحقق من الحلقات الجديدة",
     "library_update_desc": "يتفقد العناوين التي تتابعها ويُعلمك عند صدور جديد",
     "library_update_every": "كل {} ساعات",
-    "library_update_daily": "مرة يوميًا"
+    "library_update_daily": "مرة يوميًا",
+    "contributors": "المساهمون",
+    "contributors_error": "تعذّر تحميل المساهمين",
+    "become_contributor": "كن مساهمًا",
+    "become_contributor_body": "Sozo مفتوح المصدر. الكود والترجمات وتقارير الأخطاء كلها تساعد."
   },
   "appearance": {
     "title": "المظهر",
@@ -3094,5 +3098,13 @@
     "error_invalid_url": "يمكن إضافة روابط https على raw.githubusercontent.com أو gist.githubusercontent.com فقط.",
     "error_unreachable": "تعذّر الوصول إلى هذا المستودع. تحقّق من الرابط ومن اتصالك.",
     "error_invalid_index": "هذا الرابط لا يشير إلى ملف index.json صالح لـ Zangetsu."
+  },
+  "star": {
+    "title": "هل تريد مساعدة Sozo على النمو؟",
+    "body": "أضف له نجمة على GitHub ⭐",
+    "action": "أضف نجمة على GitHub",
+    "later": "لاحقًا",
+    "never": "لا تسألني مجددًا",
+    "update_button": "أضف نجمة لـ Sozo على GitHub"
   }
 }

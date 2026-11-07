@@ -751,7 +751,11 @@
     "library_update": "नए एपिसोड चेक करें",
     "library_update_desc": "आपके फ़ॉलो किए गए टाइटल देखता है और नया एपिसोड आने पर आपको नोटिफ़िकेशन भेजता है",
     "library_update_every": "हर {} घंटे में",
-    "library_update_daily": "दिन में एक बार"
+    "library_update_daily": "दिन में एक बार",
+    "contributors": "योगदानकर्ता",
+    "contributors_error": "योगदानकर्ता लोड नहीं हो सके",
+    "become_contributor": "योगदानकर्ता बनें",
+    "become_contributor_body": "Sozo ओपन सोर्स है। कोड, अनुवाद और बग रिपोर्ट — सब मदद करते हैं।"
   },
   "appearance": {
     "title": "दिखावट",
@@ -3090,5 +3094,13 @@
     "error_invalid_url": "केवल raw.githubusercontent.com या gist.githubusercontent.com के https लिंक जोड़े जा सकते हैं।",
     "error_unreachable": "इस रिपो तक नहीं पहुँच सके। लिंक और अपना कनेक्शन जाँचें।",
     "error_invalid_index": "यह लिंक किसी मान्य Zangetsu index.json की ओर नहीं ले जाता।"
+  },
+  "star": {
+    "title": "क्या आप Sozo को बढ़ने में मदद करना चाहते हैं?",
+    "body": "GitHub पर इसे स्टार दें ⭐",
+    "action": "GitHub पर स्टार दें",
+    "later": "बाद में",
+    "never": "फिर से न पूछें",
+    "update_button": "GitHub पर Sozo को स्टार दें"
   }
 }
