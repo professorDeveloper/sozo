@@ -157,10 +157,31 @@ extension _PlayerPip on _PlayerPageState {
     }
   }
 
-  /// Desktop picture-in-picture: the whole window becomes a small player
-  /// above every other window, and back.
+  /// The PiP button and the I key: the corner player when this page can go
+  /// there, the always-on-top window otherwise.
+  void _openMiniPlayer() {
+    if (_canDock) {
+      unawaited(_dockToCorner());
+    } else {
+      unawaited(_toggleDesktopMini());
+    }
+  }
+
+  /// Whether this page can move into the corner player: on the desktop, when
+  /// it was opened through PlayerRoute (which keys it), and not while a
+  /// television is playing — the corner would only show the "playing on"
+  /// card.
+  bool get _canDock =>
+      PlayerDock.supported && widget.key is GlobalKey && !_cast.isCasting;
+
+  /// Desktop picture-in-picture, the long way round: the whole window becomes
+  /// a small player above every other window, and back. The corner player
+  /// ([_dockToCorner]) cannot float over other apps; this is how to watch
+  /// over them.
   Future<void> _toggleDesktopMini() async {
     if (!isDesktopPlatform) return;
+    // From the corner the way out is the full player first.
+    if (_docked) return;
     if (_desktopMini) {
       setState(() {
         _desktopMini = false;
@@ -168,6 +189,10 @@ extension _PlayerPip on _PlayerPageState {
       });
       _miniHover.value = false;
       await DesktopWindow.exitMini();
+      if (_floatedFromDock) {
+        _floatedFromDock = false;
+        if (mounted) await _dockToCorner();
+      }
       return;
     }
     final size = _controller?.value.size ?? Size.zero;
@@ -186,16 +211,113 @@ extension _PlayerPip on _PlayerPageState {
     await DesktopWindow.enterMini(aspect: aspect);
   }
 
-  /// The mini window's own controls, shown while the pointer is over it:
-  /// play or pause in the middle, back to the full window and a step either
-  /// way at the top, and how far along under it. The rest of the window is a
-  /// handle to move it by.
+  /// Switching to another app with a video playing floats it above that app,
+  /// as Telegram does: the window becomes the small always-on-top player.
+  /// It stays there until the viewer leaves it from its own controls, so a
+  /// click on it to pause does not throw it back to full size. A paused
+  /// video, a television playing it and the floating window itself are left
+  /// alone.
+  Future<void> _floatWhenLeaving() async {
+    if (!isDesktopPlatform || _desktopMini || !mounted) return;
+    if (_cast.isCasting) return;
+    final c = _controller;
+    if (c == null || !c.value.isInitialized || !c.value.isPlaying) return;
+    if (_docked) {
+      // The floating window shows this page; from the corner it is a box in
+      // another screen, so it comes back to its own route first.
+      _expandFromDock();
+      if (_docked) return;
+      _floatedFromDock = true;
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+    }
+    await _toggleDesktopMini();
+  }
+
+  /// The corner player, Telegram-style. This page leaves the route stack and
+  /// carries on, State and all, in a small box over whatever the viewer opens
+  /// next. Nothing is handed over or rebuilt: the GlobalKey PlayerRoute gave
+  /// this page moves it into PlayerDockHost in the same frame, so history
+  /// ticks, auto-advance, subtitles, party sync and retries keep running as
+  /// they were.
+  Future<void> _dockToCorner() async {
+    final key = widget.key;
+    if (!_canDock || _docked || key is! GlobalKey) return;
+    if (_desktopMini) await _toggleDesktopMini();
+    if (!mounted) return;
+    if (_isFullscreen) {
+      _isFullscreen = false;
+      unawaited(DesktopWindow.setFullscreen(false));
+    }
+    _hideTimer?.cancel();
+    setState(() {
+      _docked = true;
+      _isPip = true;
+      _controlsVisible = false;
+      _panel = _SidePanel.none;
+    });
+    _controlsAnimation.reverse();
+    _miniHover.value = false;
+    _keyFocus.unfocus();
+    // A save that notifies, unlike the five-second tick: Continue Watching on
+    // the page under the corner should show this title now, not when it is
+    // paused.
+    _saveHistory();
+    PlayerDock.instance.dock(
+      key: key,
+      args: widget.args,
+      videoSize: _controller?.value.size ?? Size.zero,
+    );
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/main');
+    }
+  }
+
+  /// From the corner back to the full player, the same State again.
+  void _expandFromDock() {
+    if (!_docked || !PlayerDock.instance.expand()) return;
+    setState(() {
+      _docked = false;
+      _isPip = false;
+    });
+    _miniHover.value = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _keyFocus.requestFocus();
+      _revealControlsForHover();
+    });
+  }
+
+  /// Closes the corner player; dispose saves history and stops the stream.
+  void _closeDock() => unawaited(PlayerDock.instance.close());
+
+  /// A new episode or rendition can change the picture's shape, and the
+  /// corner box follows it. After the frame: the dock notifies its host,
+  /// which must not happen during this page's build.
+  void _reportDockAspect() {
+    final size = _controller?.value.size;
+    if (size == null || size.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _docked) PlayerDock.instance.reportVideoSize(size);
+    });
+  }
+
+  /// The small player's own controls, shown while the pointer is over it —
+  /// in the always-on-top window and in the corner player alike. Play or
+  /// pause in the middle with the neighbouring episodes either side, the
+  /// title and the way back to the full player along the top (and, in the
+  /// corner, closing it), and a timeline to click along the bottom. The rest
+  /// is a handle: in the always-on-top window it moves the OS window, in the
+  /// corner it moves the corner player.
   Widget _buildDesktopMiniOverlay() {
     final c = _controller;
+    final inApp = _docked;
     Widget round(
       IconData icon,
       String tip,
-      VoidCallback onTap, {
+      VoidCallback? onTap, {
       double size = 18,
     }) => Tooltip(
       message: tip,
@@ -207,113 +329,211 @@ extension _PlayerPip on _PlayerPageState {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(7),
-            child: Icon(icon, color: Colors.white, size: size),
-          ),
-        ),
-      ),
-    );
-    return Positioned.fill(
-      child: MouseRegion(
-        onEnter: (_) => _miniHover.value = true,
-        onHover: (_) => _miniHover.value = true,
-        onExit: (_) => _miniHover.value = false,
-        child: ValueListenableBuilder<bool>(
-          valueListenable: _miniHover,
-          builder: (context, hover, _) => AnimatedOpacity(
-            opacity: hover ? 1 : 0,
-            duration: const Duration(milliseconds: 160),
-            child: IgnorePointer(
-              ignoring: !hover,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const DragToMoveArea(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Color(0x99000000),
-                            Color(0x22000000),
-                            Color(0x99000000),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        round(
-                          Icons.fast_rewind_rounded,
-                          'player.rewind'.tr(),
-                          () => _seekRelative(-_seekStep),
-                        ),
-                        const SizedBox(width: 14),
-                        if (c != null)
-                          ListenableBuilder(
-                            listenable: c,
-                            builder: (_, _) => round(
-                              c.value.isPlaying
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                              c.value.isPlaying
-                                  ? 'player.pause'.tr()
-                                  : 'player.play'.tr(),
-                              _togglePlay,
-                              size: 30,
-                            ),
-                          ),
-                        const SizedBox(width: 14),
-                        round(
-                          Icons.fast_forward_rounded,
-                          'player.forward'.tr(),
-                          () => _seekRelative(_seekStep),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: round(
-                      Icons.open_in_full_rounded,
-                      'player.mini_restore'.tr(),
-                      _toggleDesktopMini,
-                    ),
-                  ),
-                  if (c != null)
-                    Positioned(
-                      left: 10,
-                      right: 10,
-                      bottom: 8,
-                      child: ListenableBuilder(
-                        listenable: c,
-                        builder: (_, _) {
-                          final d = c.value.duration.inMilliseconds;
-                          final p = c.value.position.inMilliseconds;
-                          return ClipRRect(
-                            borderRadius: BorderRadius.circular(2),
-                            child: LinearProgressIndicator(
-                              value: d > 0 ? (p / d).clamp(0.0, 1.0) : 0,
-                              minHeight: 3,
-                              backgroundColor: Colors.white24,
-                              valueColor: AlwaysStoppedAnimation(
-                                AppColors.primary,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                ],
-              ),
+            child: Icon(
+              icon,
+              // Dimmed rather than absent at either end of a season, so the
+              // row does not shift under the pointer.
+              color: Colors.white.withValues(alpha: onTap == null ? 0.38 : 1),
+              size: size,
             ),
           ),
         ),
       ),
+    );
+    const scrim = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x99000000), Color(0x22000000), Color(0x99000000)],
+        ),
+      ),
+    );
+    final dock = PlayerDock.instance;
+    final controls = MouseRegion(
+      onEnter: (_) => _miniHover.value = true,
+      onHover: (_) => _miniHover.value = true,
+      onExit: (_) => _miniHover.value = false,
+      child: ValueListenableBuilder<bool>(
+        valueListenable: _miniHover,
+        builder: (context, hover, _) {
+          // Loading or failed, the controls stay up: closing or going back to
+          // the full player — where Try again and the other sources are — are
+          // the useful moves then.
+          final show = hover || _initializing || _errorMessage != null;
+          return AnimatedOpacity(
+            opacity: show ? 1 : 0,
+            duration: const Duration(milliseconds: 160),
+            child: IgnorePointer(
+              ignoring: !show,
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  final roomy = box.maxWidth >= 320;
+                  final episodes = _affordances.hasEpisodes;
+                  // Neighbouring episodes outrank the ten-second steps when
+                  // there is room for only one pair; the arrow keys still step.
+                  final steps = !episodes || box.maxWidth >= 360;
+                  final gap = SizedBox(width: roomy ? 14 : 8);
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (inApp)
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onPanStart: (_) => dock.dragStart(),
+                          onPanUpdate: (d) => dock.dragBy(d.delta),
+                          onPanEnd: (d) =>
+                              dock.dragEnd(d.velocity.pixelsPerSecond),
+                          onPanCancel: () {
+                            if (dock.dragging) dock.dragEnd(Offset.zero);
+                          },
+                          child: scrim,
+                        )
+                      else
+                        const DragToMoveArea(child: scrim),
+                      Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (episodes) ...[
+                              round(
+                                Icons.skip_previous_rounded,
+                                'player.previous'.tr(),
+                                _hasPrevEpisode
+                                    ? () => _partyEpisodeNav(_episodeIndex - 1)
+                                    : null,
+                              ),
+                              gap,
+                            ],
+                            if (steps) ...[
+                              round(
+                                Icons.fast_rewind_rounded,
+                                'player.rewind'.tr(),
+                                () => _seekRelative(-_seekStep),
+                              ),
+                              gap,
+                            ],
+                            if (c != null)
+                              ListenableBuilder(
+                                listenable: c,
+                                builder: (_, _) => round(
+                                  c.value.isPlaying
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
+                                  c.value.isPlaying
+                                      ? 'player.pause'.tr()
+                                      : 'player.play'.tr(),
+                                  _togglePlay,
+                                  size: 30,
+                                ),
+                              ),
+                            if (steps) ...[
+                              gap,
+                              round(
+                                Icons.fast_forward_rounded,
+                                'player.forward'.tr(),
+                                () => _seekRelative(_seekStep),
+                              ),
+                            ],
+                            if (episodes) ...[
+                              gap,
+                              round(
+                                Icons.skip_next_rounded,
+                                'player.next_episode'.tr(),
+                                _hasNextEpisode
+                                    ? () => _partyEpisodeNav(_episodeIndex + 1)
+                                    : null,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      if (inApp)
+                        Positioned(
+                          top: 6,
+                          left: 6,
+                          child: round(
+                            Icons.close_rounded,
+                            'general.close'.tr(),
+                            _closeDock,
+                          ),
+                        ),
+                      if (roomy)
+                        Positioned(
+                          left: 48,
+                          right: 48,
+                          top: 14,
+                          child: Text(
+                            _episodeTitle(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              shadows: _kControlShadow,
+                            ),
+                          ),
+                        ),
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: round(
+                          Icons.open_in_full_rounded,
+                          'player.mini_restore'.tr(),
+                          inApp ? _expandFromDock : _toggleDesktopMini,
+                        ),
+                      ),
+                      if (c != null && !_isLive)
+                        Positioned(
+                          left: 10,
+                          right: 10,
+                          bottom: 6,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (roomy)
+                                ListenableBuilder(
+                                  listenable: c,
+                                  builder: (_, _) => Text(
+                                    '${_formatDuration(c.value.position)}'
+                                    ' / ${_formatDuration(c.value.duration)}',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      fontFeatures: [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                      shadows: _kControlShadow,
+                                    ),
+                                  ),
+                                ),
+                              _MiniSeekBar(controller: c, onSeek: _seekTo),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    return Positioned.fill(
+      // In the corner the page's text is scaled down with the box (see
+      // PlayerDockHost); these few labels are the controls' own, and they
+      // stay readable at any size.
+      child: inApp
+          ? MediaQuery.withClampedTextScaling(
+              minScaleFactor: 1,
+              child: controls,
+            )
+          : controls,
     );
   }
 

@@ -28,6 +28,24 @@ class TvKeys {
     LogicalKeyboardKey.arrowRight,
   };
 
+  /// The remote's search and microphone buttons. KEYCODE_SEARCH arrives as
+  /// [LogicalKeyboardKey.browserSearch] and KEYCODE_ASSIST as
+  /// [LogicalKeyboardKey.launchAssistant]; KEYCODE_VOICE_ASSIST (231) has no
+  /// Flutter name and arrives in the Android plane. Many TVs keep the
+  /// assistant keys for the system, so the app sees them only on some remotes.
+  static final Set<LogicalKeyboardKey> voiceSearch = <LogicalKeyboardKey>{
+    LogicalKeyboardKey.browserSearch,
+    LogicalKeyboardKey.launchAssistant,
+    LogicalKeyboardKey.speechInputToggle,
+    const LogicalKeyboardKey(
+      LogicalKeyboardKey.androidPlane | androidKeycodeVoiceAssist,
+    ),
+  };
+
+  static const int androidKeycodeVoiceAssist = 231;
+
+  static bool isVoiceSearch(LogicalKeyboardKey k) => voiceSearch.contains(k);
+
   static bool isActivate(LogicalKeyboardKey k) => activate.contains(k);
 
   static bool isDirectional(LogicalKeyboardKey k) => directional.contains(k);

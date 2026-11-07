@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
+import 'package:soplay/features/watch_party/domain/pending_party_code.dart';
 import 'package:soplay/features/watch_party/presentation/widgets/party_code_sheet.dart';
 
 /// Watch Party is auth-gated on the server (REST + socket). Returns true when a
@@ -14,6 +17,22 @@ Future<bool> _ensurePartyLogin(BuildContext context) async {
   if (getIt<HiveService>().isLoggedIn) return true;
   await context.push('/login');
   return getIt<HiveService>().isLoggedIn;
+}
+
+/// Opens the party invite kept through sign-in or first-run setup, once.
+/// Called wherever a signed-in user lands on Home; concurrent calls (sign-in
+/// and Home's first frame) share one navigation.
+Future<void> openPendingParty(GoRouter router) => _pendingOpen ??=
+    _openPendingParty(router).whenComplete(() => _pendingOpen = null);
+
+Future<void>? _pendingOpen;
+
+Future<void> _openPendingParty(GoRouter router) async {
+  if (!getIt.isRegistered<PendingPartyCode>()) return;
+  if (!getIt<HiveService>().isLoggedIn) return;
+  final code = await getIt<PendingPartyCode>().take();
+  if (code == null) return;
+  unawaited(router.push('/watch-party?code=${Uri.encodeComponent(code)}'));
 }
 
 /// Navigation payload for `/watch-party` (passed via `GoRouter` `state.extra`).

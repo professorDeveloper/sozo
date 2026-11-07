@@ -1,3 +1,4 @@
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -81,7 +82,7 @@ class GenreCard extends StatelessWidget {
                       color: AppColors.textPrimary,
                       fontSize: desktop ? 14 : 12,
                       fontWeight: FontWeight.w700,
-                      height: 1.15,
+                      height: lineHeightFor(context, 1.15),
                       letterSpacing: -0.2,
                       shadows: const [
                         Shadow(color: Colors.black87, blurRadius: 6),

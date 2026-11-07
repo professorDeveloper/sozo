@@ -14,6 +14,7 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.MovieLoadResponse
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.SearchResponseList
 import com.lagradost.cloudstream3.TorrentLoadResponse
 import com.lagradost.cloudstream3.TvSeriesLoadResponse
 import com.lagradost.cloudstream3.plugins.BasePlugin
@@ -26,6 +27,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import kotlin.coroutines.Continuation
 
 /**
  * CloudStream plugin host (Android-only).
@@ -45,6 +47,38 @@ import java.io.File
  * subtitle). Stable id scheme `cs:<MainAPI.name>` + contentUrl=load-url so
  * my-list / continue-watching keep working.
  */
+/**
+ * One page of a plugin's search, asked through the overload it implements.
+ *
+ * Since library 4.8 a plugin may implement only `search(query, page)` —
+ * MovieBox does — and MainAPI's own `search(query)` is then
+ * `throw NotImplementedError()`. Calling the one-argument form, as this host
+ * did, failed every search on such a plugin with "NotImplementedError: An
+ * operation is not implemented." The paged form is safe for every plugin: its
+ * library default calls `search(query)` and reports `hasNext = false`.
+ *
+ * That default ignores the page, though, so for a plugin that only knows
+ * `search(query)` page 2 would be page 1 again. Past the first page such a
+ * plugin answers nothing, as it always did here.
+ */
+internal suspend fun searchPage(api: MainAPI, query: String, page: Int): SearchResponseList? {
+    if (page > 1 && !implementsPagedSearch(api)) return null
+    return api.search(query, page)
+}
+
+/** Whether [api]'s class (or a parent below MainAPI) overrides the paged search. */
+internal fun implementsPagedSearch(api: MainAPI): Boolean = try {
+    api.javaClass.getMethod(
+        "search",
+        String::class.java,
+        Int::class.javaPrimitiveType,
+        Continuation::class.java,
+    ).declaringClass != MainAPI::class.java
+} catch (_: Throwable) {
+    // Unknowable is treated as legacy: the worst case is one page, as before.
+    false
+}
+
 class PluginHost(private val appContext: Context) {
 
     init {
@@ -467,11 +501,12 @@ class PluginHost(private val appContext: Context) {
     suspend fun searchJson(providerName: String, query: String, page: Int = 1): String {
         val api = apiByName(providerName)
         val items = JSONArray()
-        // CloudStream's MainAPI.search(query) has no paging — return the full
-        // result set on page 1 only; never advertise further pages.
         var searchError: String? = null
-        if (api != null && page == 1) {
-            val results = try { api.search(query) } catch (t: Throwable) {
+        var hasNext = false
+        if (api != null) {
+            val results = try {
+                searchPage(api, query, page)?.also { hasNext = it.hasNext }?.items
+            } catch (t: Throwable) {
                 searchError = "${t.javaClass.simpleName}: ${t.message}"
                 Log.e(TAG, "search ${api.name}: ${t.javaClass.simpleName}: ${t.message}"); null
             } ?: emptyList()
@@ -486,7 +521,13 @@ class PluginHost(private val appContext: Context) {
             if (items.length() == 0) {
                 searchError?.let { put("error", "${api?.name ?: providerName}: $it") }
             }
-            put("query", query); put("page", page); put("totalPages", page)
+            // A next page only when the plugin says there is one, and only
+            // after a page that had something on it: a plugin that answers
+            // hasNext = true forever would otherwise be paged past its end.
+            // The legacy default always says false, so a plugin that knows only
+            // search(query) keeps the one-page result it always had.
+            put("query", query); put("page", page)
+            put("totalPages", if (hasNext && items.length() > 0) page + 1 else page)
         }.toString()
     }
 
@@ -604,7 +645,9 @@ class PluginHost(private val appContext: Context) {
             try {
                 val q = resp.name.replace(Regex("\\(.*?\\)"), "").trim()
                 if (q.length >= 2) {
-                    val results = api.search(q) ?: emptyList()
+                    // Through searchPage for the same reason as searchJson: a
+                    // paged-only plugin throws from search(query).
+                    val results = searchPage(api, q, 1)?.items ?: emptyList()
                     for (sr in results) {
                         if (sr.url == resp.url) continue
                         related.put(cardJson(sr, api.name))

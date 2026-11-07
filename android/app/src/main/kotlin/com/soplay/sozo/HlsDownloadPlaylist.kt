@@ -191,6 +191,35 @@ object HlsDownloadPlaylist {
         return out.joinToString("\n")
     }
 
+    /**
+     * Whether the first bytes of a body are a web page rather than media.
+     *
+     * The Content-Type used to decide this, and disguised CDNs label real
+     * MPEG-TS `text/html`: vidapi's `page-N.html`, anikoto's `seg-N-….html`
+     * (checked 2026-10-25, both start `47 40`). Every such episode failed as
+     * "the source sent a web page" while the player, which never reads the
+     * header, played it. Only markup is refused: an AES-128 segment is random
+     * bytes, so "starts like TS" cannot be the test. An SVG or XML prolog is
+     * not refused either, since a comic page can be one. Same rule as
+     * `looksLikeWebPage` in `web_page_sniff.dart` on the Dart side.
+     */
+    fun looksLikeWebPage(head: ByteArray, length: Int = head.size): Boolean {
+        val end = minOf(length, head.size)
+        var i = 0
+        if (end >= 3 && head[0] == 0xEF.toByte() && head[1] == 0xBB.toByte() && head[2] == 0xBF.toByte()) i = 3
+        while (i < end && isMarkupSpace(head[i])) i++
+        val n = minOf(WEB_PAGE_PREFIX_BYTES, end - i)
+        if (n <= 0) return false
+        val text = String(head, i, n, Charsets.ISO_8859_1).lowercase()
+        return WEB_PAGE_STARTS.any { text.startsWith(it) }
+    }
+
+    private fun isMarkupSpace(b: Byte): Boolean =
+        b == 0x20.toByte() || b == 0x09.toByte() || b == 0x0A.toByte() || b == 0x0D.toByte() || b == 0x0C.toByte()
+
+    private const val WEB_PAGE_PREFIX_BYTES = 16
+    private val WEB_PAGE_STARTS = listOf("<!doctype html", "<html", "<head", "<body", "<title", "<script", "<meta")
+
     fun mapExtensionOf(url: String): String {
         val path = try {
             URI(url).path?.lowercase().orEmpty()

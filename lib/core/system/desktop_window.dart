@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 // Where the displays actually SIT. `dart:ui` enumerates displays but reports
 // only their sizes, and a saved window position can only be judged against
@@ -80,6 +81,11 @@ class DesktopWindow {
 
   static const double miniWidth = 426;
 
+  /// The macOS side of floating (macos/Runner/MainFlutterWindow.swift): on
+  /// every Space and beside another app's full-screen window, which
+  /// window_manager's setAlwaysOnTop alone does not do.
+  static const MethodChannel _pipWindow = MethodChannel('sozo/pip_window');
+
   /// Shrinks the window to a [miniWidth]-wide player at [aspect], above
   /// every other window, in the bottom-right corner of the display it is on.
   static Future<void> enterMini({double aspect = 16 / 9}) async {
@@ -100,6 +106,13 @@ class DesktopWindow {
       _beforeMini = before;
       mini.value = true;
       final size = Size(miniWidth, (miniWidth / a).roundToDouble());
+      // Only the video: no caption, no traffic lights, whatever the title-bar
+      // setting is (the native one drew "Sozo" across the top of the mini).
+      await windowManager.setTitleBarStyle(
+        TitleBarStyle.hidden,
+        windowButtonVisibility: false,
+      );
+      await windowManager.setHasShadow(true);
       await windowManager.setMinimumSize(Size(240, (240 / a).roundToDouble()));
       await windowManager.setAlwaysOnTop(true);
       await windowManager.setSize(size);
@@ -116,6 +129,12 @@ class DesktopWindow {
           Offset(area.right - size.width - 24, area.bottom - size.height - 24),
         );
       }
+      // Last: setAlwaysOnTop above sets its own level, which this replaces.
+      if (Platform.isMacOS) {
+        try {
+          await _pipWindow.invokeMethod<void>('enterFloat');
+        } catch (_) {}
+      }
     } catch (_) {}
   }
 
@@ -125,10 +144,23 @@ class DesktopWindow {
     if (!mini.value) return;
     mini.value = false;
     try {
+      // First: the window takes full screen again only once it is a
+      // full-screen-primary window again.
+      if (Platform.isMacOS) {
+        try {
+          await _pipWindow.invokeMethod<void>('exitFloat');
+        } catch (_) {}
+      }
       try {
         await windowManager.setAspectRatio(0);
       } catch (_) {}
       await windowManager.setAlwaysOnTop(false);
+      // The caption as main() set it, not setNativeTitleBar(): that one hides
+      // the macOS traffic lights, which the app always shows.
+      await windowManager.setTitleBarStyle(
+        nativeTitleBar.value ? TitleBarStyle.normal : TitleBarStyle.hidden,
+        windowButtonVisibility: Platform.isMacOS || nativeTitleBar.value,
+      );
       await windowManager.setMinimumSize(minimumSize);
       final before = _beforeMini;
       if (before != null) await windowManager.setBounds(before);
@@ -591,10 +623,12 @@ class WindowTitleBar extends StatelessWidget {
         DesktopWindow.fullscreen,
         DesktopWindow.immersive,
         DesktopWindow.nativeTitleBar,
+        DesktopWindow.mini,
       ]),
       builder: (context, _) {
         if (DesktopWindow.fullscreen.value ||
             DesktopWindow.immersive.value ||
+            DesktopWindow.mini.value ||
             DesktopWindow.nativeTitleBar.value) {
           return const SizedBox.shrink();
         }

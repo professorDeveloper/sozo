@@ -7,6 +7,14 @@ class VideoSourceEntity {
   final bool isDefault;
   final bool accessible;
   final bool useLocalProxy;
+
+  /// A pattern for segments that are not part of the video, such as a spliced-in
+  /// ad. Server-supplied; the stream then goes through the local proxy, which
+  /// leaves them out. See `dropHlsSegments`.
+  final String? dropSegments;
+
+  /// The language burned into the picture, if the source says so. Server-supplied.
+  final String? hardsub;
   final String? type;
   final Map<String, String> headers;
   final Map<String, dynamic> localProxy;
@@ -85,6 +93,8 @@ class VideoSourceEntity {
     this.rawLabel,
     this.warnings = const [],
     this.useLocalProxy = false,
+    this.dropSegments,
+    this.hardsub,
     this.type,
     this.headers = const {},
     this.localProxy = const {},

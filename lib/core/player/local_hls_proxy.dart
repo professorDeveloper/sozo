@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+import 'package:soplay/core/player/hls_segment_filter.dart';
 import 'package:soplay/core/player/dash_manifest.dart';
 import 'package:soplay/core/player/hls_variants.dart';
 import 'package:soplay/core/player/media_segment_relay.dart';
@@ -45,6 +47,8 @@ class LocalHlsProxy {
     // the menu was built may be picked long after, and an evicted session
     // answers 410 — the row looked fine and did nothing.
     bool longLived = false,
+    // Segments to leave out of the playlists, see [dropHlsSegments].
+    String? dropSegments,
   }) async {
     await _ensureStarted();
     final id = _randomId();
@@ -65,9 +69,21 @@ class LocalHlsProxy {
       hlsHeight: hlsHeight,
       keepOriginHeaders: keepOriginHeaders,
       longLived: longLived,
+      dropSegments: _ruleFrom(dropSegments),
     );
     final query = parsed.hasQuery ? '?${parsed.query}' : '';
     return 'http://127.0.0.1:$_port/hls/$id${parsed.path}$query';
+  }
+
+  // Comes from the server, so a rule that does not compile plays the stream as
+  // it is rather than failing it.
+  RegExp? _ruleFrom(String? pattern) {
+    if (pattern == null || pattern.isEmpty) return null;
+    try {
+      return RegExp(pattern);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> dispose() async {
@@ -152,8 +168,24 @@ class LocalHlsProxy {
       }
       upstreamHeaders[k] = v;
     });
-    _forwardIncomingHeader(req, upstreamHeaders, 'range', 'Range');
-    _forwardIncomingHeader(req, upstreamHeaders, 'if-range', 'If-Range');
+    // A playlist is the one thing this proxy cannot pass along as it arrives:
+    // every segment address in it is rewritten to a loopback path, so it has to
+    // be read whole and is answered out of the rewritten bytes by _sendBuffer,
+    // range and all. Forwarding the player's Range would have the upstream hand
+    // back a few bytes of text instead, and a rewrite of those bytes is a
+    // playlist that claims to be the whole file. uzmovi's signed endpoint
+    // happens to ignore Range here, but a static .m3u8 on plain nginx does not.
+    //
+    // A segment hidden inside a picture is the same story for the same reason:
+    // where its transport stream begins differs per file and can only be found
+    // by reading from the top, so a host that honours the player's `bytes=0-1`
+    // probe would hand back two bytes of PNG signature with nowhere to look for
+    // the video. These are answered out of the unwrapped bytes further down,
+    // and a real picture at such a path is sliced here just the same.
+    if (!_mustBeReadWhole(cdnPath) && !_mustBeReadWhole(resolved)) {
+      _forwardIncomingHeader(req, upstreamHeaders, 'range', 'Range');
+      _forwardIncomingHeader(req, upstreamHeaders, 'if-range', 'If-Range');
+    }
     upstreamHeaders.putIfAbsent('Accept-Encoding', () => 'identity');
 
     try {
@@ -164,6 +196,21 @@ class LocalHlsProxy {
       );
       final requestUrl = transformed?.url ?? upstreamUrl;
       final requestHeaders = transformed?.headers ?? upstreamHeaders;
+
+      // AVPlayer — the engine every iOS playback runs on, see
+      // resolvePlayerEngine() — asks for a resource's size with a HEAD before
+      // it reads a byte of it, for the playlist and for each segment. A HEAD
+      // served by fetching the whole body would double the traffic the probe
+      // exists to avoid, so anything that is not a playlist is probed upstream
+      // with a HEAD as well and only its headers come back. A playlist has to
+      // be fetched and rewritten before its length is known, and a CDN that
+      // refuses HEAD outright falls through to the GET below with its body
+      // dropped.
+      final isHead = req.method == 'HEAD';
+      if (isHead && !_looksLikeManifest(resolved)) {
+        if (await _answerHead(req, requestUrl, requestHeaders)) return;
+      }
+
       final resp = await _dio.get<ResponseBody>(
         requestUrl,
         options: Options(
@@ -201,9 +248,60 @@ class LocalHlsProxy {
         return;
       }
 
+      // A playlist at `/playlist` or `/master.txt` served as text says what it
+      // is only in its first bytes. Passed through unread, its absolute segment
+      // addresses went straight to the CDN with none of the session's headers.
+      var stream = body.stream;
+      var manifest = isManifest;
+      var unwrapped = false;
+      if (!isManifest &&
+          !isDash &&
+          !contentType.startsWith('video/') &&
+          !contentType.startsWith('audio/')) {
+        final reader = StreamIterator(stream);
+        final first = await reader.moveNext() ? reader.current : Uint8List(0);
+        manifest = String.fromCharCodes(first.take(7)) == '#EXTM3U';
+        stream = _resumed(first, reader);
+        if (!manifest) {
+          // Both players open a segment with `Range: bytes=0-`, so a 206 from
+          // the top is the whole file too. Further in, the wrapper is not there
+          // to find.
+          final fromTop =
+              status == 200 ||
+              (status == 206 &&
+                  (resp.headers.value('content-range') ?? '').startsWith(
+                    'bytes 0-',
+                  ));
+          unwrapped = fromTop && startsWithPng(first);
+          if (unwrapped) stream = _withoutImage(stream);
+        }
+      }
+
+      // A playlist is answered out of bytes this proxy rewrote, so it has to
+      // hold the whole file before it rewrites anything. The name-based test
+      // above keeps the player's Range away from a `.m3u8` or `.mpd`, but a
+      // playlist served at `/playlist` or `/master.txt` names itself only in
+      // its first bytes — by which time the Range has gone upstream and a
+      // range-honouring host has answered with a slice of the text. Rewriting
+      // that slice would hand the player a manifest cut off mid-segment-list
+      // declaring itself whole, so the slice is dropped and the file asked for
+      // again entire.
+      final upstreamRange = resp.headers.value(HttpHeaders.contentRangeHeader);
+      if ((manifest || isDash) &&
+          status == HttpStatus.partialContent &&
+          !_coversWholeBody(upstreamRange)) {
+        await stream.drain<void>();
+        final whole = await _refetchWithoutRange(requestUrl, requestHeaders);
+        if (whole == null) {
+          await _reject(req, 502);
+          return;
+        }
+        stream = whole;
+      }
+
       if (isDash) {
         final bytes = <int>[];
-        await for (final chunk in body.stream) {
+        await for (final chunk in stream) {
           bytes.addAll(chunk);
         }
         if (origin == sess.origin) {
@@ -225,14 +323,14 @@ class LocalHlsProxy {
           'application',
           'dash+xml',
         );
-        req.response.add(utf8.encode(narrowed));
+        _sendBuffer(req, utf8.encode(narrowed), isHead: isHead);
         await req.response.close();
         return;
       }
 
-      if (isManifest) {
+      if (manifest) {
         final bytes = <int>[];
-        await for (final chunk in body.stream) {
+        await for (final chunk in stream) {
           bytes.addAll(chunk);
         }
         if (origin == sess.origin) {
@@ -241,7 +339,9 @@ class LocalHlsProxy {
             sess.basePath = resolved.substring(0, lastSlash);
           }
         }
-        final text = utf8.decode(bytes, allowMalformed: true);
+        final raw = utf8.decode(bytes, allowMalformed: true);
+        final rule = sess.dropSegments;
+        final text = rule == null ? raw : dropHlsSegments(raw, rule);
         String rewritten;
         try {
           rewritten = _rewriteM3u8(
@@ -264,24 +364,401 @@ class LocalHlsProxy {
           'application',
           'vnd.apple.mpegurl',
         );
-        req.response.add(utf8.encode(rewritten));
+        _sendBuffer(req, utf8.encode(rewritten), isHead: isHead);
+      } else if (unwrapped) {
+        // The payload behind the wrapper is shorter than the upstream file by
+        // an amount known only once the picture has been read past, so neither
+        // the upstream's length nor its Content-Range says anything true about
+        // it. Answering a Range with a 200 carrying everything, and with
+        // byte ranges disclaimed, is the protocol error AVPlayer abandons the
+        // stream over — iOS plays every one of these sources, so the unwrapped
+        // bytes are gathered here and the range is cut from them, exactly as
+        // the rewritten playlists above are served. A segment is the one body
+        // small enough for that: the wrapper search already holds up to
+        // [_imageWrapperLimit] of it in memory before it gives up.
+        final payload = await _collect(stream);
+        req.response.headers.set(HttpHeaders.contentTypeHeader, 'video/mp2t');
+        _sendBuffer(req, payload, isHead: isHead);
       } else {
         req.response.statusCode = status;
         if (contentType.isNotEmpty) {
           req.response.headers.set(HttpHeaders.contentTypeHeader, contentType);
         }
-        _copyHeader(resp, req, 'content-length');
-        _copyHeader(resp, req, 'content-range');
-        _copyHeader(resp, req, 'accept-ranges');
         _copyHeader(resp, req, 'cache-control');
         _copyHeader(resp, req, 'etag');
         _copyHeader(resp, req, 'last-modified');
-        await req.response.addStream(body.stream);
+
+        // Some of the hosts behind this proxy ignore Range and answer the whole
+        // file with a 200 — uzmovi's own srv*.uzdown.space honours it, but the
+        // signed endpoint is one nginx config away from not doing so, and the
+        // extractor sources behind the generic path vary. libmpv and ExoPlayer
+        // shrug a full 200 off and read the body they were given; AVPlayer, the
+        // only engine iOS has, treats a 200 in reply to its own Range as a
+        // protocol error and abandons the stream. Since the upstream told us
+        // the total size, the range it refused can be served from here: slice
+        // the body and answer the 206 it asked for.
+        final wanted = _parseRange(req.headers.value('range'));
+        final total = _intHeader(resp, HttpHeaders.contentLengthHeader);
+        if (wanted != null && status == 200 && total != null) {
+          final start = wanted.start;
+          if (start >= total) {
+            await stream.drain<void>();
+            req.response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
+            req.response.headers.set(
+              HttpHeaders.contentRangeHeader,
+              'bytes */$total',
+            );
+            req.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
+            await req.response.close();
+            return;
+          }
+          final end = wanted.end == null || wanted.end! > total - 1
+              ? total - 1
+              : wanted.end!;
+          final length = end - start + 1;
+          // The slice is gathered before a byte of the response goes out, so
+          // the Content-Length committed here is one that can actually be
+          // delivered. Streaming it straight through meant trusting the
+          // upstream's declared total: a host that announces more bytes than it
+          // sends left the response promised a length it could never reach,
+          // dying mid-flight with the player already reading it instead of
+          // failing cleanly before the headers. Only a range larger than
+          // [_sliceBufferLimit] is still streamed, since nothing the players
+          // ask for here is that big and a whole film must not be held in
+          // memory on the off chance that it is.
+          void commit() {
+            req.response.statusCode = HttpStatus.partialContent;
+            req.response.headers.set(
+              HttpHeaders.contentRangeHeader,
+              'bytes $start-$end/$total',
+            );
+            req.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
+            req.response.headers.contentLength = length;
+          }
+
+          if (length <= _sliceBufferLimit) {
+            final List<int> slice;
+            try {
+              slice = await _collect(_slice(stream, start, end));
+            } catch (e) {
+              debugPrint('[HLS_PROXY] slice failed: $e');
+              await _reject(req, 502);
+              return;
+            }
+            if (slice.length != length) {
+              debugPrint(
+                '[HLS_PROXY] upstream declared $total bytes and sent fewer: '
+                '$requestUrl',
+              );
+              await _reject(req, 502);
+              return;
+            }
+            commit();
+            if (!isHead) req.response.add(slice);
+          } else {
+            commit();
+            final sliced = _slice(stream, start, end);
+            if (isHead) {
+              await sliced.drain<void>();
+            } else {
+              await req.response.addStream(sliced);
+            }
+          }
+          await req.response.close();
+          return;
+        }
+
+        _copyHeader(resp, req, 'content-length');
+        _copyHeader(resp, req, 'content-range');
+        // Claimed even when the upstream stayed quiet about it: with the total
+        // size in hand this proxy can serve a range itself, and a player that
+        // is not told ranges are available will not seek at all.
+        if (resp.headers.value(HttpHeaders.acceptRangesHeader) != null) {
+          _copyHeader(resp, req, 'accept-ranges');
+        } else if (total != null) {
+          req.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
+        }
+        if (isHead) {
+          await stream.drain<void>();
+        } else {
+          await req.response.addStream(stream);
+        }
       }
       await req.response.close();
     } catch (e) {
       debugPrint('[HLS_PROXY] error: $e');
       await _reject(req, 502);
+    }
+  }
+
+  Stream<Uint8List> _resumed(
+    Uint8List first,
+    StreamIterator<Uint8List> rest,
+  ) async* {
+    yield first;
+    while (await rest.moveNext()) {
+      yield rest.current;
+    }
+  }
+
+  /// The stream behind a PNG wrapper, or everything as it came for a real picture.
+  Stream<Uint8List> _withoutImage(Stream<Uint8List> source) async* {
+    final held = BytesBuilder(copy: false);
+    var found = false;
+    await for (final chunk in source) {
+      if (found) {
+        yield chunk;
+        continue;
+      }
+      held.add(chunk);
+      final bytes = held.toBytes();
+      final start = transportStreamStart(bytes);
+      if (start != null) {
+        found = true;
+        held.clear();
+        yield Uint8List.sublistView(bytes, start);
+      } else if (bytes.length > _imageWrapperLimit) {
+        found = true;
+        held.clear();
+        yield bytes;
+      }
+    }
+    if (!found) yield held.takeBytes();
+  }
+
+  /// Writes a manifest this proxy rewrote, which is the one case where the
+  /// exact size is known here.
+  ///
+  /// Stating Content-Length rather than letting the response go out chunked is
+  /// what AVPlayer sizes the resource from, and a HEAD answered without one
+  /// looks to it like an empty manifest. A range is honoured for the same
+  /// reason: AVPlayer probes a resource before it reads it, and a 200 carrying
+  /// the whole body in reply to its Range is a protocol error to it. The
+  /// rewritten manifest is a different length from the upstream one, so this
+  /// has to be answered from the bytes written here and not from the upstream
+  /// headers.
+  void _sendBuffer(HttpRequest req, List<int> payload, {required bool isHead}) {
+    final wanted = _parseRange(req.headers.value('range'));
+    req.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
+    if (wanted == null) {
+      req.response.headers.contentLength = payload.length;
+      if (!isHead) req.response.add(payload);
+      return;
+    }
+    if (wanted.start >= payload.length) {
+      req.response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
+      req.response.headers.set(
+        HttpHeaders.contentRangeHeader,
+        'bytes */${payload.length}',
+      );
+      return;
+    }
+    final end = wanted.end == null || wanted.end! > payload.length - 1
+        ? payload.length - 1
+        : wanted.end!;
+    req.response.statusCode = HttpStatus.partialContent;
+    req.response.headers.set(
+      HttpHeaders.contentRangeHeader,
+      'bytes ${wanted.start}-$end/${payload.length}',
+    );
+    req.response.headers.contentLength = end - wanted.start + 1;
+    if (!isHead) req.response.add(payload.sublist(wanted.start, end + 1));
+  }
+
+  /// Whether [path] is a playlist by its name alone, which is all that is
+  /// known before a body has been read.
+  bool _looksLikeManifest(String path) {
+    final lower = path.toLowerCase();
+    return lower.endsWith('.m3u8') || lower.endsWith('.mpd');
+  }
+
+  /// Whether a body at [path] is one this proxy has to see from its first byte:
+  /// a playlist, whose every address it rewrites, or a picture, which may be a
+  /// segment whose transport stream starts at an offset only the bytes reveal.
+  bool _mustBeReadWhole(String path) {
+    if (_looksLikeManifest(path)) return true;
+    final lower = path.toLowerCase();
+    return lower.endsWith('.png') ||
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.webp');
+  }
+
+  /// Answers a HEAD from the upstream's own HEAD, or reports that it could
+  /// not: a refused HEAD, or one for something that turns out to be a playlist
+  /// after all, has to be served by fetching the body instead.
+  Future<bool> _answerHead(
+    HttpRequest req,
+    String url,
+    Map<String, String> headers,
+  ) async {
+    final Response<void> resp;
+    try {
+      resp = await _dio.head<void>(
+        url,
+        options: Options(
+          headers: headers,
+          followRedirects: true,
+          validateStatus: (_) => true,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[HLS_PROXY] head failed: $e');
+      return false;
+    }
+    final status = resp.statusCode ?? 0;
+    if (status < 200 || status >= 300) {
+      debugPrint('[HLS_PROXY] upstream HEAD $status: $url');
+      return false;
+    }
+    final contentType = (resp.headers.value('content-type') ?? '')
+        .toLowerCase();
+    // Only a body this proxy passes through untouched can have its headers
+    // reported as they came. Anything that might be a playlist is rewritten
+    // here, which changes its length, so its size has to be measured.
+    if (!contentType.startsWith('video/') && !contentType.startsWith('audio/')) {
+      return false;
+    }
+    // Everything this answer needs is checked before the response is touched.
+    // Writing a status and a content type and then reporting failure handed the
+    // caller a response it had already begun, which the branches below only
+    // survive because each of them sets both again — a trap for the next edit.
+    final total = _intHeader(resp, HttpHeaders.contentLengthHeader);
+    if (total == null) {
+      debugPrint('[HLS_PROXY] upstream HEAD without a length: $url');
+      return false;
+    }
+    req.response.statusCode = status;
+    req.response.headers.set(HttpHeaders.contentTypeHeader, contentType);
+    req.response.headers.contentLength = total;
+    _copyHeader(resp, req, 'content-range');
+    _copyHeader(resp, req, 'cache-control');
+    _copyHeader(resp, req, 'etag');
+    _copyHeader(resp, req, 'last-modified');
+    if (resp.headers.value(HttpHeaders.acceptRangesHeader) != null) {
+      _copyHeader(resp, req, 'accept-ranges');
+    } else {
+      req.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
+    }
+    await req.response.close();
+    return true;
+  }
+
+  int? _intHeader(Response<dynamic> resp, String name) {
+    final raw = resp.headers.value(name);
+    if (raw == null) return null;
+    return int.tryParse(raw.trim());
+  }
+
+  /// The single byte range a player asked for, or null for no range and for
+  /// the multi-range and suffix forms, which neither engine sends and which
+  /// are better answered with the whole body than answered wrongly.
+  _ByteRange? _parseRange(String? raw) {
+    if (raw == null) return null;
+    final match = RegExp(r'^bytes=(\d+)-(\d*)$').firstMatch(raw.trim());
+    if (match == null) return null;
+    final start = int.tryParse(match.group(1)!);
+    if (start == null) return null;
+    final endText = match.group(2)!;
+    final end = endText.isEmpty ? null : int.tryParse(endText);
+    if (end != null && end < start) return null;
+    return _ByteRange(start, end);
+  }
+
+  /// Bytes [start]..[end] of [source], counted from the start of the stream.
+  ///
+  /// Fewer bytes come out than were asked for when the source ends early, which
+  /// is how an upstream that declares more than it sends is caught before any
+  /// of it has been promised to the player.
+  Stream<Uint8List> _slice(
+    Stream<Uint8List> source,
+    int start,
+    int end,
+  ) async* {
+    final reader = StreamIterator(source);
+    var offset = 0;
+    final wanted = end + 1;
+    try {
+      while (await reader.moveNext()) {
+        final chunk = reader.current;
+        final chunkStart = offset;
+        offset += chunk.length;
+        if (offset <= start) continue;
+        final from = chunkStart >= start ? 0 : start - chunkStart;
+        final to = offset <= wanted ? chunk.length : wanted - chunkStart;
+        if (to > from) yield Uint8List.sublistView(chunk, from, to);
+        if (offset >= wanted) return;
+      }
+    } finally {
+      // Leaving before the end is the usual case here — the upstream ignored
+      // the range and is still sending the rest of a file nobody wants — so the
+      // subscription is given up explicitly rather than left to whatever
+      // teardown the caller happens to perform on this generator. Measured
+      // against a slow mock, this stops the reading but not the sending: the
+      // connection stays up and the host delivers the rest into a client that
+      // discards it. Taking the connection down needs a handle this layer does
+      // not have, since dio's own CancelToken only aborts a request whose
+      // response has not arrived yet.
+      await reader.cancel();
+    }
+  }
+
+  /// Everything [source] carries, in memory.
+  Future<Uint8List> _collect(Stream<Uint8List> source) async {
+    final builder = BytesBuilder(copy: false);
+    await for (final chunk in source) {
+      builder.add(chunk);
+    }
+    return builder.takeBytes();
+  }
+
+  /// Whether a 206's Content-Range says the slice is the whole file after all,
+  /// which is what the `bytes=0-` both players open a resource with gets back.
+  bool _coversWholeBody(String? contentRange) {
+    if (contentRange == null) return false;
+    final match = RegExp(
+      r'^bytes\s+(\d+)-(\d+)/(\d+)$',
+    ).firstMatch(contentRange.trim());
+    if (match == null) return false;
+    final start = int.parse(match.group(1)!);
+    final end = int.parse(match.group(2)!);
+    final total = int.parse(match.group(3)!);
+    return start == 0 && end == total - 1;
+  }
+
+  /// [url] fetched again with no byte range, for the one body this proxy may
+  /// not serve in slices: a playlist it has to read and rewrite whole.
+  Future<Stream<Uint8List>?> _refetchWithoutRange(
+    String url,
+    Map<String, String> headers,
+  ) async {
+    final whole = <String, String>{};
+    headers.forEach((k, v) {
+      final lower = k.toLowerCase();
+      if (lower == 'range' || lower == 'if-range') return;
+      whole[k] = v;
+    });
+    try {
+      final resp = await _dio.get<ResponseBody>(
+        url,
+        options: Options(
+          headers: whole,
+          responseType: ResponseType.stream,
+          followRedirects: true,
+          validateStatus: (_) => true,
+        ),
+      );
+      final status = resp.statusCode ?? 502;
+      final body = resp.data;
+      if (status >= 400 || body == null) {
+        await body?.stream.drain<void>();
+        debugPrint('[HLS_PROXY] playlist refetch $status: $url');
+        return null;
+      }
+      return body.stream;
+    } catch (e) {
+      debugPrint('[HLS_PROXY] playlist refetch failed: $e');
+      return null;
     }
   }
 
@@ -402,6 +879,15 @@ class LocalHlsProxy {
     final padded = s + '=' * ((4 - s.length % 4) % 4);
     return utf8.decode(base64Url.decode(padded));
   }
+}
+
+/// A single `Range: bytes=start-end` ask, with [end] left open when the player
+/// wants everything from [start] on.
+class _ByteRange {
+  const _ByteRange(this.start, this.end);
+
+  final int start;
+  final int? end;
 }
 
 class _TransformedRequest {
@@ -585,6 +1071,14 @@ class _RequestTransform {
   }
 }
 
+/// More than any wrapper seen, and past it this is simply a picture.
+const _imageWrapperLimit = 2 * 1024 * 1024;
+
+/// The largest range answered from memory rather than streamed. Comfortably
+/// above a segment, which is what a player asks for a range of, and well below
+/// a whole film, which it must never pull into memory even if it asks.
+const _sliceBufferLimit = 24 * 1024 * 1024;
+
 class _Session {
   _Session({
     required this.origin,
@@ -597,8 +1091,10 @@ class _Session {
     this.hlsHeight,
     this.keepOriginHeaders = false,
     this.longLived = false,
+    this.dropSegments,
   });
 
+  final RegExp? dropSegments;
   final String? dashRepresentation;
   final int? hlsHeight;
   final bool keepOriginHeaders;

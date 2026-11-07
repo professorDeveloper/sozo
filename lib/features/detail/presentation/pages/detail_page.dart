@@ -3,6 +3,7 @@ import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_about_tab.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
+import 'package:soplay/features/download/presentation/download_messages.dart';
 import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
@@ -16,6 +17,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/widgets/star_prompt_banner.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
 import 'package:soplay/features/banners/presentation/widgets/banners_carousel.dart';
@@ -46,7 +48,9 @@ import 'package:soplay/features/private_list/presentation/private_unlock.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_relations_tab.dart';
+import 'package:soplay/features/detail/domain/entities/source_notice.dart';
 import 'package:soplay/features/detail/presentation/widgets/alternate_source_sheet.dart';
+import 'package:soplay/features/detail/presentation/widgets/source_notice_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_cast_tab.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_comments_tab.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_hero.dart';
@@ -66,7 +70,6 @@ import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
-import 'package:soplay/features/download/presentation/download_messages.dart';
 import 'package:soplay/features/download/presentation/widgets/offline_copy_banner.dart';
 import 'package:showcaseview/showcaseview.dart';
 import 'package:soplay/features/support/presentation/widgets/support_suggestion.dart';
@@ -147,6 +150,10 @@ class _DetailScaffold extends StatelessWidget {
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: AppColors.background,
+        bottomNavigationBar: const StarPromptBanner(
+          margin: EdgeInsets.fromLTRB(12, 0, 12, 12),
+          safeBottom: true,
+        ),
         body: BlocListener<DetailBloc, DetailState>(
           listenWhen: (prev, curr) {
             if (curr is! DetailLoaded) return false;
@@ -554,6 +561,10 @@ class _DetailViewState extends State<_DetailView>
             provider: detail.provider,
             contentUrl: detail.contentUrl,
             title: detail.title,
+            year: detail.year,
+            isSerial: detail.isSerial,
+            tmdbId: detail.record?.tmdbId,
+            anilistId: detail.record?.anilistId,
           ),
           'Cast' => DetailCastTab(cast: detail.cast, director: detail.director),
           'Comments' => DetailCommentsTab(
@@ -641,6 +652,15 @@ class _DetailViewState extends State<_DetailView>
   /// The last episode list came from the saved copy; the list page says so.
   bool _episodesOffline = false;
 
+  /// What the source said about this title, once it has said anything.
+  ///
+  /// Kept in state because the answer only arrives when the playback payload
+  /// does — after Play has been pressed once — and a Play button that is known
+  /// to lead nowhere should not keep offering itself. Set only for a notice the
+  /// source called unplayable; a serial resolved as a film still plays, through
+  /// its episode list.
+  SourceNotice? _unplayable;
+
   /// Play and download need the same thing first — the provider's playback
   /// payload — and it arrives asynchronously through the bloc. Rather than a
   /// second loader, the intent is remembered and the one result is routed when
@@ -667,6 +687,12 @@ class _DetailViewState extends State<_DetailView>
   /// worse than showing the list where each row has its own button and several
   /// can be picked at once.
   void _handleDownload(PlaybackEntity playback) {
+    // Nothing to download either, for the same reason there is nothing to
+    // play: the source has said it holds no file for this title.
+    if (!playback.playable) {
+      _onSourceNotice(playback.notice ?? SourceNotice.noPlayer, playback);
+      return;
+    }
     if (playback.provider.opensReader || playback.isSerial) {
       if (playback.episodes.isEmpty) {
         _showSnack('detail.no_episodes'.tr());
@@ -713,7 +739,7 @@ class _DetailViewState extends State<_DetailView>
         if (!mounted) return;
         final media = prepared.media;
         if (media == null) {
-          _showSnack('detail.download_needs_playback'.tr());
+          _showSnack(downloadBuildFailureMessage(prepared.failure!));
           return;
         }
         url = media.videoUrl;
@@ -748,7 +774,7 @@ class _DetailViewState extends State<_DetailView>
       if (!mounted) return;
       final media = prepared.media;
       if (media == null) {
-        _showSnack('detail.download_needs_playback'.tr());
+        _showSnack(downloadBuildFailureMessage(prepared.failure!));
         return;
       }
       url = media.videoUrl;
@@ -1100,6 +1126,14 @@ class _DetailViewState extends State<_DetailView>
   }
 
   void _handlePlayback(PlaybackEntity playback) {
+    // The source has declared this title unplayable. Starting a player against
+    // it would spin on nothing, and the episode list behind it is empty by the
+    // same declaration, so the honest move is to say what happened and offer
+    // the one step that can still work.
+    if (!playback.playable) {
+      _onSourceNotice(playback.notice ?? SourceNotice.noPlayer, playback);
+      return;
+    }
     // A reading source ALWAYS goes through the chapter list, even when it
     // reports a single chapter (one-shots, and Mangayomi novels that expose one
     // entry). Falling through to the movie path would hand a chapter url to the
@@ -1140,6 +1174,30 @@ class _DetailViewState extends State<_DetailView>
     }
 
     _playMovieDirect(playback);
+  }
+
+  /// Acts on a reason the source gave for not playing a title.
+  ///
+  /// [playback] is whatever payload is in hand, so the one recoverable case can
+  /// recover: a serial's page resolved as a film has its episodes already, and
+  /// the list is where they play from.
+  void _onSourceNotice(SourceNotice notice, PlaybackEntity? playback) {
+    if (notice == SourceNotice.isSeries &&
+        playback != null &&
+        playback.episodes.isNotEmpty) {
+      _openEpisodes(playback);
+      return;
+    }
+    if (!notice.playable && _unplayable != notice) {
+      setState(() => _unplayable = notice);
+    }
+    unawaited(
+      showSourceNoticeSheet(
+        context,
+        notice: notice,
+        onFindOther: _onFindOtherSources,
+      ),
+    );
   }
 
   void _openEpisodes(PlaybackEntity playback) {
@@ -1320,6 +1378,13 @@ class _DetailViewState extends State<_DetailView>
           ),
         );
       case Failure(:final error):
+        // A resolve that failed for a reason the source named is not an error
+        // to flash past in a snackbar: it is a fact about this title on this
+        // source, and it decides what the page offers from here on.
+        if (error is SourceNoticeException) {
+          _onSourceNotice(error.notice, playback);
+          return;
+        }
         _showSnack(error.toString().replaceFirst('Exception: ', ''));
     }
   }
@@ -1479,6 +1544,7 @@ class _DetailViewState extends State<_DetailView>
                   resolvingSource: widget.resolvingSource,
                   onChangeSource: widget.via == null ? null : _changeSource,
                   onFindSource: _onFindOtherSources,
+                  unplayable: _unplayable,
                 ),
               ),
               if (widget.offline)

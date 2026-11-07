@@ -26,12 +26,41 @@ enum _LoadingStage { resolving, loading }
 /// server, and that it is on its way — not a generic spinner that looks
 /// identical to the failure they were trying to escape.
 class ServerSwitch {
-  const ServerSwitch({required this.from, required this.to});
+  const ServerSwitch({
+    required this.from,
+    required this.to,
+    this.attempt,
+    this.maxAttempts,
+  });
+
+  /// One step of the automatic ladder after a failure, counted against
+  /// [RetryPolicy.maxLifetimeRetries] so the viewer can see the end coming.
+  factory ServerSwitch.automatic({
+    required String? from,
+    required String to,
+    required int attempt,
+  }) {
+    final shown = attempt < 1 ? 1 : attempt;
+    return ServerSwitch(
+      from: from,
+      to: to,
+      attempt: shown,
+      maxAttempts: shown > RetryPolicy.maxLifetimeRetries
+          ? shown
+          : RetryPolicy.maxLifetimeRetries,
+    );
+  }
 
   /// Null when nothing was playing yet, so the overlay shows a destination
   /// rather than a journey.
   final String? from;
   final String to;
+
+  /// Set only for an automatic switch, which the viewer can stop.
+  final int? attempt;
+  final int? maxAttempts;
+
+  bool get automatic => attempt != null;
 }
 
 /// `zoom` carries a scale factor (1.0-3.0), not a 0-1 level like the other
@@ -139,97 +168,6 @@ class _ScrubState {
   bool get cancels =>
       ScrubCurve.cancels(deltaPx) ||
       (previewPosition() - baseline).inSeconds.abs() < 2;
-}
-
-class _VttThumbnail {
-  final Duration start;
-  final Duration end;
-  final String imageUrl;
-  final int x;
-  final int y;
-  final int w;
-  final int h;
-
-  const _VttThumbnail({
-    required this.start,
-    required this.end,
-    required this.imageUrl,
-    this.x = 0,
-    this.y = 0,
-    this.w = 0,
-    this.h = 0,
-  });
-
-  bool get hasSprite => w > 0 && h > 0;
-
-  bool contains(Duration position) => position >= start && position < end;
-
-  static List<_VttThumbnail> parse(String vttBody, String baseUrl) {
-    final lines = vttBody.split('\n').map((l) => l.trim()).toList();
-    final results = <_VttThumbnail>[];
-    final timePattern = RegExp(
-      r'(\d{2}):(\d{2}):(\d{2})[\.,](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[\.,](\d{3})',
-    );
-
-    for (var i = 0; i < lines.length; i++) {
-      final match = timePattern.firstMatch(lines[i]);
-      if (match == null) continue;
-
-      final start = Duration(
-        hours: int.parse(match.group(1)!),
-        minutes: int.parse(match.group(2)!),
-        seconds: int.parse(match.group(3)!),
-        milliseconds: int.parse(match.group(4)!),
-      );
-      final end = Duration(
-        hours: int.parse(match.group(5)!),
-        minutes: int.parse(match.group(6)!),
-        seconds: int.parse(match.group(7)!),
-        milliseconds: int.parse(match.group(8)!),
-      );
-
-      String? imageRef;
-      for (var j = i + 1; j < lines.length; j++) {
-        if (lines[j].isNotEmpty) {
-          imageRef = lines[j];
-          break;
-        }
-      }
-      if (imageRef == null) continue;
-
-      var url = imageRef;
-      var x = 0, y = 0, w = 0, h = 0;
-      final hashIdx = imageRef.indexOf('#xywh=');
-      if (hashIdx >= 0) {
-        url = imageRef.substring(0, hashIdx);
-        final coords = imageRef.substring(hashIdx + 6).split(',');
-        if (coords.length == 4) {
-          x = int.tryParse(coords[0]) ?? 0;
-          y = int.tryParse(coords[1]) ?? 0;
-          w = int.tryParse(coords[2]) ?? 0;
-          h = int.tryParse(coords[3]) ?? 0;
-        }
-      }
-
-      if (!url.startsWith('http')) {
-        final baseUri = Uri.parse(baseUrl);
-        url = baseUri.resolve(url).toString();
-      }
-
-      results.add(
-        _VttThumbnail(
-          start: start,
-          end: end,
-          imageUrl: url,
-          x: x,
-          y: y,
-          w: w,
-          h: h,
-        ),
-      );
-    }
-    return results;
-  }
 }
 
 class _ProxiedTarget {

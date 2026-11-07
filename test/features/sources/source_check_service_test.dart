@@ -33,8 +33,11 @@ void main() {
 
   setUp(() async {
     await box.clear();
-    store = SourceCheckStore(box: box);
     clock = DateTime.now().millisecondsSinceEpoch;
+    // The store reads the same clock the service writes with, so a test that
+    // moves time forward does not leave the store judging the age of a
+    // verdict stamped in its future.
+    store = SourceCheckStore(box: box, now: () => clock);
   });
 
   SourceCheckService service(Map<String, List<SourceAttempt>> script) {
@@ -83,6 +86,44 @@ void main() {
         expect((await s.check('cf')).verdict, SourceVerdict.blocked);
       }
       expect((await s.check('old')).verdict, SourceVerdict.outdated);
+    });
+
+    test('a catalogue with nothing in it is not a working source', () async {
+      // kisskh, measured against the live API: `/contents/home` answers 200
+      // with an empty `sections` and no banner, because the site shut the
+      // backend out and the backend reported what it got. Zero items is not
+      // health, and the check run has to name it.
+      final s = service({
+        'kisskh': [const SourceAttempt(items: 0, ms: 240, empty: true)],
+      });
+      expect((await s.check('kisskh')).verdict, SourceVerdict.empty);
+      expect(store.of('kisskh')!.isBad, isTrue);
+    });
+
+    test('an answer with nothing and no reason given does not throw', () async {
+      // An attempt built without the empty flag used to reach `failure!`.
+      final s = service({
+        'a': [const SourceAttempt(items: 0, ms: 10)],
+      });
+      expect((await s.check('a')).verdict, SourceVerdict.empty);
+    });
+
+    test('an empty answer does not wipe the failures before it', () async {
+      final s = service({
+        'a': [
+          fail('HTTP error 500'),
+          const SourceAttempt(items: 0, ms: 50, empty: true),
+          fail('HTTP error 500'),
+        ],
+      });
+      expect((await s.check('a')).verdict, SourceVerdict.failing);
+      final empty = await s.check('a');
+      expect(empty.verdict, SourceVerdict.empty);
+      expect(empty.fails, 1);
+      clock += const Duration(minutes: 11).inMilliseconds;
+      // Second real failure, eleven minutes after the first: the streak ran
+      // through the empty answer rather than starting over, so this settles it.
+      expect((await s.check('a')).verdict, SourceVerdict.dead);
     });
 
     test('an answer clears the record', () async {
@@ -228,5 +269,39 @@ void main() {
         expect(store.verdictOf('a'), SourceVerdict.alive);
       },
     );
+  });
+  group('how long a verdict lasts', () {
+    test('past the stale window it is not shown, and the table drops it',
+        () async {
+      await store.put('a', SourceCheck(verdict: SourceVerdict.dead, at: clock));
+      expect(store.verdictOf('a'), SourceVerdict.dead);
+      clock += (SourceCheckStore.staleAfter + const Duration(hours: 1))
+          .inMilliseconds;
+      expect(store.of('a'), isNull);
+      expect(store.verdictOf('a'), SourceVerdict.unknown);
+      // And the next write takes it out of the stored table, so it is not
+      // carried and re-serialised for ever.
+      await store.put('b', SourceCheck(verdict: SourceVerdict.alive, at: clock));
+      expect((box.get('source_checks') as Map).keys, ['b']);
+    });
+
+    test('a verdict stamped in the future is not shown either', () async {
+      await store.put(
+        'a',
+        SourceCheck(
+          verdict: SourceVerdict.dead,
+          at: clock + const Duration(days: 2).inMilliseconds,
+        ),
+      );
+      expect(store.of('a'), isNull);
+    });
+
+    test('a stale verdict is re-checked rather than trusted', () async {
+      await store.put('a', SourceCheck(verdict: SourceVerdict.alive, at: clock));
+      clock += (SourceCheckStore.staleAfter + const Duration(hours: 1))
+          .inMilliseconds;
+      final s = service({});
+      expect(s.staleOf(['a']), ['a']);
+    });
   });
 }

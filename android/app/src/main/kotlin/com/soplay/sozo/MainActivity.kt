@@ -63,6 +63,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var platformChannel: MethodChannel? = null
     private var downloadChannel: MethodChannel? = null
     private var systemControlsChannel: MethodChannel? = null
+    private var glassPower: GlassPower? = null
     private var deeplinkSettingsChannel: MethodChannel? = null
     private var pipReceiver: BroadcastReceiver? = null
     private var notificationPermissionResult: MethodChannel.Result? = null
@@ -150,6 +151,10 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // Whether this phone draws the glass's refraction or its blur.
+        glassPower = GlassPower(applicationContext).also {
+            it.attach(flutterEngine.dartExecutor.binaryMessenger)
+        }
         // Home screen widgets: the app sends a snapshot to draw, and hears
         // about taps that opened it.
         homeWidgetChannel = MethodChannel(
@@ -261,6 +266,7 @@ class MainActivity : FlutterFragmentActivity() {
                         )
                 )
                 "openNotificationSettings" -> result.success(openNotificationSettings())
+                "openAppSettings" -> result.success(openAppSettings())
                 "apkPackageName" -> {
                     val path = call.argument<String>("path").orEmpty()
                     val name = try {
@@ -834,7 +840,8 @@ class MainActivity : FlutterFragmentActivity() {
                     val hls = call.argument<Boolean>("hls") == true
                     cloudstreamScope.launch {
                         val token = call.argument<Number>("generation")?.toLong()
-                        val opened = if (hls) HlsFramePreview.open(applicationContext, url, token ?: 0L)
+                        val progressive = call.argument<Boolean>("progressive") == true
+                        val opened = if (hls) HlsFramePreview.open(applicationContext, url, token ?: 0L, progressive)
                             else if (token != null) FramePreview.open(url, headers, warmMs, token)
                             else FramePreview.open(url, headers, warmMs)
                         withContext(Dispatchers.Main) { result.success(opened) }
@@ -1166,6 +1173,20 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    private fun openAppSettings(): Boolean {
+        return try {
+            startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:$packageName")
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun openDefaultLinksSettings(): Boolean {
         val pkgUri = Uri.parse("package:$packageName")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -1466,6 +1487,8 @@ class MainActivity : FlutterFragmentActivity() {
         // being destroyed does not mean playback is over (PiP, rotation).
         // Only the channel is detached.
         TorrentServerBridge.dispose()
+        glassPower?.detach()
+        glassPower = null
         // Unlike the torrent server, these must go: a decoder and a DRM session
         // left open outlive the texture they were drawing into, and on devices
         // with one secure decoder that is the next playback failing to start.

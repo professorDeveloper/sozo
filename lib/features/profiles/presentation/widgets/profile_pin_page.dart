@@ -12,6 +12,7 @@ class ProfilePinPage extends StatefulWidget {
     required this.subtitle,
     this.header,
     this.onSubmit,
+    this.onBiometric,
   });
 
   static const int length = 4;
@@ -24,13 +25,18 @@ class ProfilePinPage extends StatefulWidget {
   /// Checks a PIN; returns an error message, or null when it was accepted.
   final Future<String?> Function(String pin)? onSubmit;
 
-  /// Returns the accepted PIN, or null if the page was closed.
+  /// Unlocks without the PIN; offered on the keypad and tried once on open.
+  final Future<bool> Function()? onBiometric;
+
+  /// Returns the accepted PIN, an empty string when [onBiometric] unlocked
+  /// it, or null if the page was closed.
   static Future<String?> verify(
     BuildContext context, {
     required String title,
     required String subtitle,
     Widget? header,
     required Future<String?> Function(String pin) onSubmit,
+    Future<bool> Function()? onBiometric,
   }) => Navigator.of(context).push<String>(
     MaterialPageRoute(
       fullscreenDialog: true,
@@ -40,6 +46,7 @@ class ProfilePinPage extends StatefulWidget {
         subtitle: subtitle,
         header: header,
         onSubmit: onSubmit,
+        onBiometric: onBiometric,
       ),
     ),
   );
@@ -70,6 +77,24 @@ class _ProfilePinPageState extends State<ProfilePinPage> {
   bool _busy = false;
 
   bool get _confirming => widget.creating && _first != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.onBiometric != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _biometric());
+    }
+  }
+
+  Future<void> _biometric() async {
+    final unlock = widget.onBiometric;
+    if (unlock == null || _busy || !mounted) return;
+    setState(() => _busy = true);
+    final ok = await unlock();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (ok) Navigator.of(context).pop('');
+  }
 
   void _digit(String d) {
     if (_busy || _entered.length >= ProfilePinPage.length) return;
@@ -222,7 +247,13 @@ class _ProfilePinPageState extends State<ProfilePinPage> {
                             ),
                     ),
                     const Spacer(),
-                    PinKeypad(onDigit: _digit, onBackspace: _backspace),
+                    PinKeypad(
+                      onDigit: _digit,
+                      onBackspace: _backspace,
+                      onBiometric: widget.onBiometric == null
+                          ? null
+                          : _biometric,
+                    ),
                     const SizedBox(height: 24),
                   ],
                 ),

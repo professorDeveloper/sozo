@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/profile/presentation/widgets/contributors_section.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -203,6 +204,8 @@ class AboutSection extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 24),
+        const ContributorsSection(),
       ],
     );
   }

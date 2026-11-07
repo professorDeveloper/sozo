@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:soplay/features/home/data/datasources/home_data_source.dart';
 import 'package:soplay/features/sources/domain/source_ecosystem.dart';
 import 'package:soplay/features/sources/domain/source_scope.dart';
+import 'package:soplay/features/sources/domain/source_verdict_policy.dart';
 import 'package:soplay/features/search/data/source_health_store.dart';
 import 'package:soplay/features/sources/presentation/widgets/source_health_badge.dart';
 import 'package:soplay/features/sources/presentation/widgets/source_scope_menu.dart';
@@ -480,18 +481,43 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
     if (mounted) setState(() {});
   }
 
+  /// The badge this row is entitled to, after [shownVerdict] has dropped a
+  /// server verdict that was never about this phone.
+  ///
+  /// The Sources screen asks the same question through the same function. This
+  /// sheet is where somebody goes to get OUT of a broken source, so showing a
+  /// red Down on a source that works here is at its most expensive: it steers
+  /// the reader away from the one that would have played.
+  RemoteVerdict? _badgeFor(ProviderEntity p) =>
+      shownVerdict(p.id, _health.badgeOf(p.id, key: p.healthKey));
+
+  bool _isDown(ProviderEntity p) => _badgeFor(p)?.state == RemoteHealth.dead;
+
   /// Down sources go last, or away when the user hid them; the one in use
   /// always stays.
-  List<ProviderEntity> _arrange(List<ProviderEntity> rows) => _health.sinkDown(
+  ///
+  /// [partitionDown] rather than the store's own sink, so the ordering, the
+  /// hiding and the count below all come from one pass over one list and
+  /// agree with the badges actually drawn.
+  List<ProviderEntity> _arrange(List<ProviderEntity> rows) => partitionDown(
     rows,
-    (p) => p.id,
-    keyOf: (p) => p.healthKey,
-    hide: _health.hideDown,
+    isDown: _isDown,
     keep: (p) => p.id == widget.currentProviderId,
-  );
+    hide: _health.hideDown,
+  ).rows;
 
-  int get _downCount =>
-      widget.all.where((p) => _health.isDown(p.id, key: p.healthKey)).length;
+  /// How many rows hiding would take away — counted over the rows this sheet
+  /// is showing, not over every source installed.
+  ///
+  /// `widget.all` was the wrong list: it includes the other content modes and
+  /// the rows the filter has already removed, so the number promised more than
+  /// hiding could deliver. The source in use is excluded too, because it is
+  /// never hidden.
+  int _downCountOf(List<ProviderEntity> rows) => partitionDown(
+    rows,
+    isDown: _isDown,
+    keep: (p) => p.id == widget.currentProviderId,
+  ).hidable;
 
   @override
   void dispose() {
@@ -639,7 +665,10 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
   Widget _body(BuildContext context, ScrollController controller) {
     final favorites = _arrange(_shownFavorites);
     final items = [...favorites, ..._arrange(_rest)];
-    final downCount = _downCount;
+    // Counted over the rows this sheet is showing, so "Hide down sources · N"
+    // takes away N rows.
+    final downCount =
+        _downCountOf(_shownFavorites) + _downCountOf(_rest);
     final catalogues = Catalogue.forMode(widget.mode);
     final searchExtent = _SearchBarHeader.extentFor(context);
     _alignToCurrent(controller, items);
@@ -844,10 +873,7 @@ class ProviderQuickSwitchSheetState extends State<ProviderQuickSwitchSheet> {
                                       favorite: index < favorites.length,
                                       available: !widget.unavailableIds
                                           .contains(items[index].id),
-                                      health: _health.badgeOf(
-                                        items[index].id,
-                                        key: items[index].healthKey,
-                                      ),
+                                      health: _badgeFor(items[index]),
                                     ),
                                   ),
                                 );

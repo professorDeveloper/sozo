@@ -178,6 +178,16 @@ extension _PlayerAniSkip on _PlayerPageState {
 /// stacking another player on top of it.
 extension _PlayerAlternateSources on _PlayerPageState {
   /// The episode number to look for on the other source, or null for a film.
+  /// The episode playing as S2E1, when this source lists seasons.
+  SeasonEpisode? get _currentSeasonEpisode {
+    if (!widget.args.isSerial) return null;
+    if (_episodeIndex < 0 || _episodeIndex >= _episodes.length) return null;
+    final e = _episodes[_episodeIndex];
+    final season = e.season;
+    if (season == null) return null;
+    return (season: season, number: e.numberInSeason ?? e.episode);
+  }
+
   int? get _currentEpisodeNumber {
     if (!widget.args.isSerial) return null;
     if (_episodeIndex < 0 || _episodeIndex >= _episodes.length) {
@@ -207,6 +217,7 @@ extension _PlayerAlternateSources on _PlayerPageState {
       provider: widget.args.provider,
       category: _hive.providerCategory(widget.args.provider),
       episodeNumber: _currentEpisodeNumber,
+      seasonEpisode: _currentSeasonEpisode,
       resumeAt: resumeAt,
     );
     if (args == null || !mounted) return;

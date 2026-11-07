@@ -74,7 +74,7 @@ class MangayomiBridge {
   List<Map<String, dynamic>> listProviders({bool includeNsfw = false}) {
     final preferred = getIt<HiveService>().getProviderLanguages();
     final picked = <String, MangayomiSource>{};
-    for (final s in store.sources()) {
+    for (final s in store.enabledSources()) {
       if (s.isNsfw && !includeNsfw) continue;
       // Languages the user asked for do not compete for a name — they are all
       // kept, each under its own key, and the picker labels them apart. Only

@@ -64,15 +64,29 @@ class HouseholdProfile {
 }
 
 /// What the profiles endpoints refuse with. [code] is the server's machine
-/// code (`PIN_INVALID`, `PROFILE_LIMIT`, ...); null for network failures.
+/// code (`PIN_INVALID`, `PROFILE_LIMIT`, ...), or one the device checked the
+/// PIN with (`PIN_LOCKED`, `PIN_NOT_ON_DEVICE`); null for network failures.
 class ProfileException implements Exception {
-  const ProfileException(this.message, {this.code, this.status});
+  const ProfileException(
+    this.message, {
+    this.code,
+    this.status,
+    this.retryAt,
+  });
 
   final String message;
   final String? code;
   final int? status;
 
-  bool get isOffline => status == null;
+  /// When the next guess is allowed, after too many wrong ones on the device.
+  final DateTime? retryAt;
+
+  bool get isOffline => status == null && code == null;
+
+  /// The server could not be asked at all, or its gateway said so. A refusal
+  /// (a wrong PIN, a rate limit) is an answer and never counts.
+  bool get isUnreachable =>
+      isOffline || status == 502 || status == 503 || status == 504;
 
   @override
   String toString() => message;

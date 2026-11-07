@@ -36,6 +36,8 @@ abstract final class AppLanguage {
     'fr': 'Français',
     'tr': 'Türkçe',
     'id': 'Bahasa Indonesia',
+    'vi': 'Tiếng Việt',
+    'hi': 'हिन्दी',
     'yue': '廣東話',
     'ku': 'Kurdî (Kurmancî)',
     'ckb': 'کوردی (سۆرانی)',
@@ -55,6 +57,8 @@ abstract final class AppLanguage {
     'fr': '🇫🇷',
     'tr': '🇹🇷',
     'id': '🇮🇩',
+    'vi': '🇻🇳',
+    'hi': '🇮🇳',
     'yue': '🇭🇰',
     // No flag for either Kurdish: Unicode has no Kurdistan emoji, and the
     // flag of a state Kurds live in would be the wrong answer. They get the

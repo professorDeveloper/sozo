@@ -1,24 +1,23 @@
 import 'dart:io' show Platform;
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/search/presentation/widgets/voice_search_dialog.dart';
 
 /// Microphone button for the search field.
 ///
-/// Renders nothing on the platforms with no recogniser to talk to, rather than
-/// showing a button that reports a failure when pressed. On Android the
-/// recogniser is also invisible without the `<queries>` entry in the manifest,
-/// and the failure mode there is silent — the plugin simply says no recogniser
-/// is available — so the check below covers both.
+/// Shown on every platform with a system recogniser. Nothing is initialised
+/// until it is pressed: the dialog does that, so the permission prompt comes
+/// when the user asks to speak, and a refusal or a missing recogniser is
+/// explained there instead of the button quietly disappearing.
 ///
-/// Partial results are reported as they arrive, so the field fills in while the
-/// user is still speaking. That is what makes it feel like dictation rather
-/// than a recording being uploaded, and it lets someone see a misheard word and
-/// stop rather than waiting for a wrong search to run.
+/// Partial results are reported as they arrive, so the field fills in while
+/// the user is still speaking.
 class VoiceSearchButton extends StatefulWidget {
   const VoiceSearchButton({
     super.key,
@@ -35,101 +34,65 @@ class VoiceSearchButton extends StatefulWidget {
 
   final double size;
 
+  static bool get platformSupported =>
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
   @override
-  State<VoiceSearchButton> createState() => _VoiceSearchButtonState();
+  State<VoiceSearchButton> createState() => VoiceSearchButtonState();
 }
 
-class _VoiceSearchButtonState extends State<VoiceSearchButton>
-    with SingleTickerProviderStateMixin {
+class VoiceSearchButtonState extends State<VoiceSearchButton> {
   final SpeechToText _speech = SpeechToText();
+  bool _open = false;
 
-  bool _available = false;
-  bool _listening = false;
-  late final AnimationController _pulse;
-
-  /// Only these have a system recogniser worth offering.
-  static bool get _platformSupported => Platform.isAndroid || Platform.isIOS;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    if (_platformSupported) _init();
-  }
-
-  Future<void> _init() async {
+  /// Opens the listening dialog. Also called by the TV remote's search key.
+  Future<void> start() async {
+    if (_open || !VoiceSearchButton.platformSupported) return;
+    _open = true;
     try {
-      final ok = await _speech.initialize(
-        onStatus: (s) {
-          if (!mounted) return;
-          final listening = s == 'listening';
-          if (listening != _listening) {
-            setState(() => _listening = listening);
-            listening ? _pulse.repeat(reverse: true) : _pulse.stop();
-          }
-        },
-        onError: (_) {
-          if (!mounted) return;
-          setState(() => _listening = false);
-          _pulse.stop();
-        },
+      final result = await VoiceSearchDialog.show(
+        context,
+        speech: _speech,
+        onPartial: widget.onText,
       );
-      if (mounted) setState(() => _available = ok);
-    } catch (_) {
-      // A device with no recogniser, or one that refuses to initialise. The
-      // button simply does not appear.
-      if (mounted) setState(() => _available = false);
+      final words = result?.trim() ?? '';
+      if (words.isEmpty || !mounted) return;
+      widget.onText(words);
+      widget.onSubmit?.call(words);
+    } finally {
+      _open = false;
     }
   }
 
   @override
   void dispose() {
-    _pulse.dispose();
-    // Not awaited: dispose cannot, and an orphaned recogniser session ends on
-    // its own timeout anyway.
-    _speech.cancel();
+    // Not awaited: dispose cannot, and an orphaned session ends on its own.
+    if (_speech.isListening) _speech.cancel();
     super.dispose();
-  }
-
-  /// Open the listening dialog and run whatever it comes back with.
-  ///
-  /// The session itself lives in the dialog, which owns the waveform and needs
-  /// the sound level anyway. This widget stays what it looks like: a button
-  /// that knows whether the device can listen at all.
-  Future<void> _open() async {
-    if (_listening) return;
-    final result = await VoiceSearchDialog.show(
-      context,
-      speech: _speech,
-      onPartial: widget.onText,
-    );
-    final words = result?.trim() ?? '';
-    if (words.isEmpty) return;
-    widget.onText(words);
-    widget.onSubmit?.call(words);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_platformSupported || !_available) return const SizedBox.shrink();
+    if (!VoiceSearchButton.platformSupported) return const SizedBox.shrink();
+    final icon = Icon(
+      Icons.mic_none_rounded,
+      size: widget.size,
+      color: AppColors.textSecondary,
+    );
+    if (isTvPlatform) {
+      return Tooltip(
+        message: 'search.voice'.tr(),
+        child: TvFocusable(
+          onPressed: start,
+          borderRadius: 9,
+          child: icon,
+        ),
+      );
+    }
     return IconButton(
       tooltip: 'search.voice'.tr(),
-      onPressed: _open,
-      icon: AnimatedBuilder(
-        animation: _pulse,
-        builder: (_, child) => Opacity(
-          opacity: _listening ? 0.45 + (_pulse.value * 0.55) : 1,
-          child: child,
-        ),
-        child: Icon(
-          _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
-          size: widget.size,
-          color: _listening ? AppColors.primary : AppColors.textSecondary,
-        ),
-      ),
+      onPressed: start,
+      icon: icon,
     );
   }
 }

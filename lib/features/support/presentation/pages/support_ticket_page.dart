@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/support/data/support_diagnostics.dart';
 import 'package:soplay/features/support/data/support_models.dart';
 import 'package:soplay/features/support/data/support_repository.dart';
 import 'package:soplay/features/support/presentation/support_style.dart';
@@ -85,11 +86,19 @@ class _SupportTicketPageState extends State<SupportTicketPage> {
         for (final f in _shots) await _repo.uploadScreenshot(f),
       ];
       if (!mounted) return;
+      final language = context.locale.languageCode;
+      // "It still does not play" needs the log from after that attempt, not the
+      // one the ticket opened with. Only if diagnostics were attached then: the
+      // switch on the new-ticket screen is the viewer's choice.
+      final diagnostics = _ticket?.hasDiagnostics == true
+          ? await SupportDiagnostics.collect(language: language)
+          : null;
       final t = await _repo.reply(
         widget.id,
         text,
         attachments: keys,
-        language: context.locale.languageCode,
+        language: language,
+        diagnostics: diagnostics,
       );
       if (!mounted) return;
       _reply.clear();

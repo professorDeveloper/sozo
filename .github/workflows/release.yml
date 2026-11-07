@@ -1027,8 +1027,21 @@ jobs:
           V: ${{ needs.version.outputs.name }}
           BUILD: ${{ needs.version.outputs.build }}
           NOTES: ${{ inputs.notes }}
+          SHA: ${{ needs.version.outputs.sha }}
+          TAG: ${{ needs.version.outputs.tag }}
         run: |
           set -euo pipefail
+          # Hand-written notes and screenshots, when this version has them.
+          status=0
+          python3 tool/compose_release_notes.py --version "${V}" --sha "${SHA}" \
+            --repo "${GITHUB_REPOSITORY}" --tag "${TAG}" --assets rel \
+            --out RELEASE_NOTES.md || status=$?
+          if [ "${status}" -eq 0 ]; then
+            echo "── notes ──"; cat RELEASE_NOTES.md
+            exit 0
+          elif [ "${status}" -ne 3 ]; then
+            exit "${status}"
+          fi
           {
             if [ -n "${NOTES}" ]; then
               printf '%s\n\n' "${NOTES}"

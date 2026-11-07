@@ -201,6 +201,8 @@ void main(List<String> args) async {
       Locale('fr'),
       Locale('tr'),
       Locale('id'),
+      Locale('vi'),
+      Locale('hi'),
       // Cantonese, in Traditional characters. `yue` rather than `zh-HK`
       // because the copy is written in Cantonese — 睇, 嘅, 冇 — and not in the
       // Standard Written Chinese a `zh` tag promises; a reader who set their

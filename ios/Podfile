@@ -1,6 +1,6 @@
-# iOS 15: Xcode 27 builds nothing older, and plugins (workmanager_apple)
-# already ask for 14.
-platform :ios, '15.0'
+# iOS 15.5: ML Kit text recognition (reader page translation) asks for it, and
+# Xcode 27 builds nothing older than 15 anyway.
+platform :ios, '15.5'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -43,8 +43,8 @@ post_install do |installer|
     # Pods that still declare an older floor would build below the app's,
     # which Xcode 27 refuses.
     target.build_configurations.each do |config|
-      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.0
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.5
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
       end
     end
   end

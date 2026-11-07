@@ -70,6 +70,7 @@ extension _PlayerParty on _PlayerPageState {
 
   void _stopPartyBinding() {
     _partyBindingActive = false;
+    _party.reportBuffering(false);
     _partyHeartbeat?.cancel();
     _partyHeartbeat = null;
     _partyDrift?.cancel();
@@ -185,8 +186,37 @@ extension _PlayerParty on _PlayerPageState {
   }
 
   void _onDriftTick() {
+    _partyReportBuffering();
     final pb = _lastPartyPlayback;
     if (pb != null && _followsParty) unawaited(_applyRemoteSync(pb));
+    _partyWaitForAllTick();
+  }
+
+  /// Loading a new episode counts as buffering: from the room's side it is the
+  /// same wait. An error or a missing plugin does not, since waiting on it
+  /// would never end.
+  void _partyReportBuffering() {
+    if (!_inParty) return;
+    final c = _controller;
+    final stalled =
+        _errorMessage == null &&
+        _pluginRequired == null &&
+        (c == null || !c.value.isInitialized || c.value.isBuffering);
+    _party.reportBuffering(stalled);
+  }
+
+  /// Host side of "wait for everyone": hold while a guest is stuck, then go
+  /// on. Not routed through [_partyEmit] because it is not a user action.
+  void _partyWaitForAllTick() {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized || _isLive) return;
+    final paused = _party.waitForAllTick(
+      localPlaying: c.value.isPlaying,
+      positionSec: c.value.position.inMilliseconds / 1000.0,
+      pause: () => unawaited(c.pause()),
+      play: () => unawaited(c.play()),
+    );
+    if (paused) _partyToast('watch_party.waiting_for_others');
   }
 
   // ---------------------------------------------------------------------------

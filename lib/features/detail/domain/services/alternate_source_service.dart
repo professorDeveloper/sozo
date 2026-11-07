@@ -109,6 +109,7 @@ class AlternateSourceService {
   Stream<AlternateSource> find({
     required String title,
     required String excludeProvider,
+
     /// The provider the title is being read on. Its id, not its category:
     /// the kind is derived from the id because that is the only value that is
     /// unambiguous for catalogues and extensions alike — see [_kindAllows].
@@ -300,6 +301,20 @@ class AlternateSourceService {
   Future<PlayerArgs?> buildArgs({
     required AlternateSource source,
     required int? episodeNumber,
+    SeasonEpisode? seasonEpisode,
+    Duration resumeAt = Duration.zero,
+  }) async => (await resolveArgs(
+    source: source,
+    episodeNumber: episodeNumber,
+    seasonEpisode: seasonEpisode,
+    resumeAt: resumeAt,
+  )).args;
+
+  /// [buildArgs], with the reason when there is nothing to play.
+  Future<AlternateArgs> resolveArgs({
+    required AlternateSource source,
+    required int? episodeNumber,
+    SeasonEpisode? seasonEpisode,
     Duration resumeAt = Duration.zero,
   }) async {
     final playback = (await _episodes(
@@ -308,27 +323,36 @@ class AlternateSourceService {
     )).getOrNull();
     if (playback == null) {
       debugPrint('$_tag episodes failed for ${source.provider.id}');
-      return null;
+      return const AlternateArgs.failed(AlternateArgsFailure.unreachable);
     }
     final List<EpisodeEntity> episodes = playback.episodes;
 
     if (playback.isSerial || episodes.isNotEmpty) {
-      if (episodes.isEmpty) return null;
+      if (episodes.isEmpty) {
+        return const AlternateArgs.failed(AlternateArgsFailure.noEpisode);
+      }
       var window = playback;
       var index = 0;
-      if (episodeNumber != null && episodeNumber > 0) {
+      final bySeason = seasonEpisode == null
+          ? -1
+          : indexOfSeasonEpisode(episodes, seasonEpisode);
+      if (bySeason >= 0) {
+        index = bySeason;
+      } else if (episodeNumber != null && episodeNumber > 0) {
         index = episodes.indexWhere((e) => e.episode == episodeNumber);
         if (index < 0) {
           // Only the first page came back — a hundred episodes. Episode 240
           // of a long run is on a later one, and "this source does not have
           // it" was the answer every long show got.
           final found = await _findOnLaterPage(source, playback, episodeNumber);
-          if (found == null) return null;
+          if (found == null) {
+            return const AlternateArgs.failed(AlternateArgsFailure.noEpisode);
+          }
           (window, index) = found;
         }
       }
       final size = playback.size > 0 ? playback.size : episodes.length;
-      return PlayerArgs(
+      return AlternateArgs(PlayerArgs(
         title: source.item.title,
         provider: source.provider.id,
         // The NEW provider's headers. The caller used to pass the ones the
@@ -350,11 +374,13 @@ class AlternateSourceService {
         totalEpisodes: playback.total,
         pageSize: size,
         sort: playback.sort,
-      );
+      ));
     }
 
-    if (playback.videoSources.isEmpty) return null;
-    return PlayerArgs(
+    if (playback.videoSources.isEmpty) {
+      return const AlternateArgs.failed(AlternateArgsFailure.nothingPlayable);
+    }
+    return AlternateArgs(PlayerArgs(
       title: source.item.title,
       provider: source.provider.id,
       headers: playback.headers,
@@ -363,7 +389,7 @@ class AlternateSourceService {
       videoSources: List.of(playback.videoSources),
       movieUrl: playback.playerSrc,
       resumePosition: resumeAt,
-    );
+    ));
   }
 
   /// Finds episode [number] on a page past the first.
@@ -399,4 +425,47 @@ class AlternateSourceService {
     }
     return null;
   }
+}
+
+/// Why [AlternateSourceService.resolveArgs] came back empty.
+enum AlternateArgsFailure {
+  /// The source's page for the title could not be loaded.
+  unreachable,
+
+  /// The source has the show but not this episode.
+  noEpisode,
+
+  /// A film page with no stream on it.
+  nothingPlayable,
+}
+
+/// What [AlternateSourceService.resolveArgs] produced: arguments, or why not.
+class AlternateArgs {
+  const AlternateArgs(PlayerArgs this.args) : failure = null;
+  const AlternateArgs.failed(AlternateArgsFailure this.failure) : args = null;
+
+  final PlayerArgs? args;
+  final AlternateArgsFailure? failure;
+}
+
+/// An episode as a season and its number in that season: S2E1.
+typedef SeasonEpisode = ({int season, int number});
+
+/// Where [wanted] is in [episodes], or -1.
+///
+/// The run's own numbering is a position in one source's list — S2E1 is
+/// episode 11 on a source whose first season has ten — so between two
+/// sources that list seasons the season and its number are what agree. A
+/// source that lists no seasons can only be matched on a first season.
+@visibleForTesting
+int indexOfSeasonEpisode(List<EpisodeEntity> episodes, SeasonEpisode wanted) {
+  if (episodes.any((e) => e.season != null)) {
+    return episodes.indexWhere(
+      (e) =>
+          e.season == wanted.season &&
+          (e.numberInSeason ?? e.episode) == wanted.number,
+    );
+  }
+  if (wanted.season != 1) return -1;
+  return episodes.indexWhere((e) => e.episode == wanted.number);
 }

@@ -20,6 +20,7 @@ import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/profiles/data/profile_session.dart';
 import 'package:soplay/features/profiles/domain/household_profile.dart';
+import 'package:soplay/features/watch_party/presentation/party_entry.dart';
 
 OnboardingController get _controller => getIt<OnboardingController>();
 
@@ -146,6 +147,7 @@ Future<void> _goAfterAuth(BuildContext context) async {
   final c = _controller;
   if (!c.active || c.flow != OnboardingFlow.firstRun) {
     router.go('/main');
+    await openPendingParty(router);
     return;
   }
   const beforeAuth = {OnboardingStep.welcome, OnboardingStep.account};

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -9,7 +7,8 @@ import 'package:soplay/features/watch_party/data/watch_party_service.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_chat_message.dart';
 
 /// Live chat for a watch party: a scrolling message list fed by
-/// `service.chat`, plus a composer wired to `service.sendChat`.
+/// `service.chatLog` (history first, then live lines), plus a composer wired
+/// to `service.sendChat`.
 class PartyChatPanel extends StatefulWidget {
   const PartyChatPanel({super.key, required this.service, this.myUserId});
 
@@ -21,38 +20,34 @@ class PartyChatPanel extends StatefulWidget {
 }
 
 class _PartyChatPanelState extends State<PartyChatPanel> {
-  static const int _maxMessages = 200;
-
-  final List<PartyChatMessage> _messages = [];
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focus = FocusNode();
   final ScrollController _scroll = ScrollController();
-  StreamSubscription<PartyChatMessage>? _sub;
 
   @override
   void initState() {
     super.initState();
-    _sub = widget.service.chat.listen(_onMessage);
+    widget.service.chatLog.addListener(_onLog);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToEnd());
   }
 
   @override
   void dispose() {
-    _sub?.cancel();
+    widget.service.chatLog.removeListener(_onLog);
     _controller.dispose();
     _focus.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
-  void _onMessage(PartyChatMessage msg) {
+  void _onLog() {
     if (!mounted) return;
-    setState(() {
-      _messages.add(msg);
-      if (_messages.length > _maxMessages) {
-        _messages.removeRange(0, _messages.length - _maxMessages);
-      }
-    });
+    setState(() {});
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
+  }
+
+  void _jumpToEnd() {
+    if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
   }
 
   void _scrollToEnd() {
@@ -73,17 +68,25 @@ class _PartyChatPanelState extends State<PartyChatPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final messages = widget.service.chatLog.value;
     return Column(
       children: [
         Expanded(
-          child: _messages.isEmpty
+          child: messages.isEmpty
               ? _EmptyChat()
               : ListView.builder(
                   controller: _scroll,
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: _messages.length,
+                  itemCount: messages.length,
                   itemBuilder: (_, i) {
-                    final m = _messages[i];
+                    final m = messages[i];
+                    if (m.isSystem) {
+                      return _SystemRow(
+                        message: m,
+                        isMe: widget.myUserId != null &&
+                            m.userId == widget.myUserId,
+                      );
+                    }
                     return _ChatRow(
                       message: m,
                       isMe: widget.myUserId != null &&
@@ -121,6 +124,41 @@ class _EmptyChat extends StatelessWidget {
             style: const TextStyle(color: AppColors.textHint, fontSize: 12.5),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SystemRow extends StatelessWidget {
+  const _SystemRow({required this.message, required this.isMe});
+
+  final PartyChatMessage message;
+  final bool isMe;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = isMe
+        ? 'watch_party.you'.tr()
+        : (message.username ?? '').trim().isNotEmpty
+            ? message.username!.trim()
+            : '—';
+    final text = switch (message.system) {
+      PartySystemKind.joined => 'watch_party.sys_joined'.tr(args: [name]),
+      PartySystemKind.left => 'watch_party.sys_left'.tr(args: [name]),
+      PartySystemKind.host => 'watch_party.sys_host'.tr(args: [name]),
+      PartySystemKind.removed => 'watch_party.sys_removed'.tr(args: [name]),
+      null => '',
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: AppColors.textHint,
+          fontSize: 11.5,
+          fontStyle: FontStyle.italic,
+        ),
       ),
     );
   }
@@ -247,19 +285,22 @@ class _Composer extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            Material(
-              color: AppColors.primary,
-              shape: const CircleBorder(),
-              child: InkWell(
-                onTap: onSend,
-                customBorder: const CircleBorder(),
-                child: const SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: Icon(
-                    Icons.send_rounded,
-                    color: Colors.white,
-                    size: 16,
+            Tooltip(
+              message: 'support.send'.tr(),
+              child: Material(
+                color: AppColors.primary,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  onTap: onSend,
+                  customBorder: const CircleBorder(),
+                  child: const SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Icon(
+                      Icons.send_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ),
                 ),
               ),

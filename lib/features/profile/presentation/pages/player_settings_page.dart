@@ -17,6 +17,7 @@ import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/subtitle_size_control.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
+import 'package:soplay/features/comments/data/social_playback_prefs.dart';
 
 /// Settings → Player. Every control here seeds a knob that already exists
 /// inside the fullscreen player.
@@ -61,6 +62,9 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
   late bool _keepScreenOn;
   late bool _incognito;
   late bool _autoSkipIntro;
+  final SocialPlaybackPrefs _social = const SocialPlaybackPrefs();
+  late bool _reactionsOverlay;
+  late bool _hideSpoilers;
   late SubtitleStyle _subtitle;
   late bool _autoTranslate;
   late String _translateLang;
@@ -96,6 +100,8 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
     _startPaused = _hive.startPaused;
     _incognito = _hive.isIncognito;
     _autoSkipIntro = _hive.autoSkipIntro;
+    _reactionsOverlay = _social.reactionsOverlay;
+    _hideSpoilers = _social.hideUnwatchedSpoilers;
     _seekSeconds = _hive.getDoubleTapSeekSeconds();
     _boost = _hive.getLongPressBoost();
     _brightnessGesture = _hive.brightnessGestureEnabled;
@@ -289,6 +295,28 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
                 onChanged: (v) {
                   setState(() => _autoSkipIntro = v);
                   _hive.setAutoSkipIntro(v);
+                },
+              ),
+              const SettingsDivider(),
+              SettingsSwitchTile(
+                icon: Icons.add_reaction_outlined,
+                title: 'profile.reactions_overlay'.tr(),
+                subtitle: 'profile.reactions_overlay_desc'.tr(),
+                value: _reactionsOverlay,
+                onChanged: (v) {
+                  setState(() => _reactionsOverlay = v);
+                  _social.setReactionsOverlay(v);
+                },
+              ),
+              const SettingsDivider(),
+              SettingsSwitchTile(
+                icon: Icons.speaker_notes_off_outlined,
+                title: 'profile.hide_spoilers'.tr(),
+                subtitle: 'profile.hide_spoilers_desc'.tr(),
+                value: _hideSpoilers,
+                onChanged: (v) {
+                  setState(() => _hideSpoilers = v);
+                  _social.setHideUnwatchedSpoilers(v);
                 },
               ),
               const SettingsDivider(),

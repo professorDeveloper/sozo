@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/stats/presentation/watch_stats_page.dart';
@@ -49,6 +50,9 @@ import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/features/social/data/social_service.dart';
 import 'package:soplay/features/social/domain/social_models.dart';
 import 'package:soplay/features/achievements/presentation/widgets/achievements_entry_card.dart';
+import 'package:soplay/features/progress/data/progress_service.dart';
+import 'package:soplay/features/progress/domain/progress.dart';
+import 'package:soplay/features/progress/presentation/widgets/user_badge_line.dart';
 
 // Split into parts the way player_page.dart is: the page was 2721 lines
 // across nine sections, which is past the point where anyone can find

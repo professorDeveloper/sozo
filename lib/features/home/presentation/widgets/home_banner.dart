@@ -6,6 +6,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/system/platform_utils.dart';
@@ -371,11 +372,11 @@ class _MovieInfo extends StatelessWidget {
           movieTitle(movie),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 26,
             fontWeight: FontWeight.w900,
-            height: 1.08,
+            height: lineHeightFor(context, 1.08),
             letterSpacing: -0.3,
             shadows: [
               Shadow(
@@ -392,11 +393,11 @@ class _MovieInfo extends StatelessWidget {
             description,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              height: 1.08,
+              height: lineHeightFor(context, 1.08),
               letterSpacing: -0.3,
             ),
           ),
@@ -420,11 +421,11 @@ class _BannerInfo extends StatelessWidget {
           banner.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 26,
             fontWeight: FontWeight.w900,
-            height: 1.08,
+            height: lineHeightFor(context, 1.08),
             letterSpacing: -0.3,
             shadows: [
               Shadow(
@@ -441,11 +442,11 @@ class _BannerInfo extends StatelessWidget {
             banner.subtitle!,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              height: 1.08,
+              height: lineHeightFor(context, 1.08),
               letterSpacing: -0.3,
             ),
           ),
@@ -788,11 +789,11 @@ class _DesktopSlideState extends State<_DesktopSlide>
               movieTitle(movie),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 34,
                 fontWeight: FontWeight.w900,
-                height: 1.12,
+                height: lineHeightFor(context, 1.12),
                 letterSpacing: -0.5,
                 shadows: [
                   Shadow(
@@ -845,11 +846,11 @@ class _DesktopSlideState extends State<_DesktopSlide>
               banner.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 34,
                 fontWeight: FontWeight.w900,
-                height: 1.12,
+                height: lineHeightFor(context, 1.12),
                 letterSpacing: -0.5,
                 shadows: [
                   Shadow(

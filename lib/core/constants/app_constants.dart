@@ -266,6 +266,8 @@ class AppConstants {
   static const String subtitleStyleKey = 'subtitle_style';
   static const String subtitleAutoTranslateKey = 'subtitle_auto_translate';
   static const String subtitleTranslateLangKey = 'subtitle_translate_lang';
+  static const String mangaTranslateLangKey = 'manga_translate_lang';
+  static const String mangaAutoTranslateKey = 'manga_auto_translate';
 
   /// Ask which engine to use every time playback starts, instead of silently
   /// using [playerEngineKey]. Absent ⇒ off, so an existing install keeps the
@@ -325,6 +327,14 @@ class AppConstants {
 
   /// Feature ids the viewer has already opened.
   static const String whatsNewSeenKey = 'whats_new_seen';
+
+  /// Completed-episode counter and answers for the GitHub star prompt.
+  static const String starPromptKey = 'star_prompt';
+
+  /// Last contributor list from the backend, for the About page offline.
+  static const String contributorsCacheKey = 'contributors_cache';
+
+  static const String sozoRepoUrl = 'https://github.com/professorDeveloper/sozo';
 
   static const String streakBox = 'streak_box';
   static const String streakStateKey = 'streak_state';

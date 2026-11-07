@@ -33,6 +33,7 @@ import 'package:soplay/features/sources/presentation/widgets/source_verdict.dart
 import 'package:soplay/features/sources/domain/source_check_service.dart';
 import 'package:soplay/features/sources/data/source_check_store.dart';
 import 'package:soplay/features/sources/domain/source_scope.dart';
+import 'package:soplay/features/sources/domain/source_verdict_policy.dart';
 import 'package:soplay/features/sources/presentation/widgets/source_health_badge.dart';
 import 'package:soplay/features/sources/presentation/widgets/source_scope_menu.dart';
 import 'package:soplay/features/sources/domain/source_failure.dart';
@@ -170,9 +171,53 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   /// search, scope and language — "check what I am looking at".
   List<String> _shownIds = const [];
 
+  /// The badge this row is entitled to, after [shownVerdict] has thrown out a
+  /// server verdict that was never about this phone.
+  RemoteVerdict? _badgeFor(ProviderEntity p) =>
+      shownVerdict(p.id, sourceHealth().badgeOf(p.id, key: p.healthKey));
+
   bool _isProblem(ProviderEntity p) {
-    if (sourceHealth().badgeOf(p.id, key: p.healthKey) != null) return true;
-    return SourceCheckStore.shared.verdictOf(p.id) == SourceVerdict.failing;
+    if (_badgeFor(p) != null) return true;
+    // Anything this phone found that is not "it answered with titles" — an
+    // empty catalogue included, which is the one a badge says nothing about.
+    return isProblemVerdict(SourceCheckStore.shared.verdictOf(p.id));
+  }
+
+  bool _isDown(ProviderEntity p) => _badgeFor(p)?.state == RemoteHealth.dead;
+
+  /// The pill for what this phone found, when the server's badge has none.
+  /// Keyed by [ProviderEntity.id] because that is what a check on this device
+  /// is recorded under.
+  SourceVerdict? _deviceBadgeFor(ProviderEntity p) =>
+      deviceBadge(SourceCheckStore.shared.verdictOf(p.id), _badgeFor(p));
+
+  /// The rows of [rows] left after the type and problems-only filters.
+  List<ProviderEntity> _inScope(List<ProviderEntity> rows, SourceScope scope) =>
+      scope.isAll && !_problemsOnly
+      ? rows
+      : [
+          for (final p in rows)
+            if (scope.matches(p) && (!_problemsOnly || _isProblem(p))) p,
+        ];
+
+  /// What the "Hide down sources" switch does to one tab's lists.
+  ///
+  /// The same call the lists themselves make, over the same narrowed rows, so
+  /// the number on the chip is the number of rows it takes away. Hiding is
+  /// suspended while only problems are shown — that list is asked to contain
+  /// the down ones — and the count is then zero because nothing is hidden.
+  DownPartition<ProviderEntity> _down(
+    List<ProviderEntity> rows,
+    SourceScope scope,
+    String currentProviderId,
+  ) {
+    final health = sourceHealth();
+    return partitionDown(
+      _inScope(rows, scope),
+      isDown: _isDown,
+      keep: (p) => p.id == currentProviderId,
+      hide: health.hideDown && !_problemsOnly,
+    );
   }
 
   /// Every installed source of the tab that is showing.
@@ -732,11 +777,11 @@ class _SourcesHubPageState extends State<SourcesHubPage>
         final tab = _tabFor(state, mode, needle);
         final counts = tab.counts;
         final scope = _liveScope(counts);
-        final health = sourceHealth();
-        final downCount = [
-          ...tab.matched,
-          ...tab.unstated,
-        ].where((p) => health.isDown(p.id, key: p.healthKey)).length;
+        final current = state.currentProviderId;
+        final downCount = _problemsOnly
+            ? 0
+            : _down(tab.matched, scope, current).hidable +
+                  _down(tab.unstated, scope, current).hidable;
 
         return LayoutBuilder(
           builder: (context, constraints) {
@@ -848,7 +893,10 @@ class _SourcesHubPageState extends State<SourcesHubPage>
                   scope: scope,
                   onPick: (picked) => setState(() => _scope = picked),
                 ),
-                if (downCount > 0 || health.hideDown)
+                // Nothing to offer while problems-only is on: the lists are
+                // meant to hold the down sources then, so a switch that
+                // promises to take them away has nothing to take.
+                if (!_problemsOnly && (downCount > 0 || health.hideDown))
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                     child: Align(
@@ -955,26 +1003,10 @@ class _SourcesHubPageState extends State<SourcesHubPage>
   Widget _tabList(ProviderLoaded state, ContentMode mode, String needle) {
     final tab = _tabFor(state, mode, needle);
     final scope = _liveScope(tab.counts);
-    List<ProviderEntity> narrow(List<ProviderEntity> rows) =>
-        scope.isAll && !_problemsOnly
-        ? rows
-        : [
-            for (final p in rows)
-              if (scope.matches(p) && (!_problemsOnly || _isProblem(p))) p,
-          ];
     // Down sources sink rather than vanish unless the user asked: a sweep
     // from a datacenter is not the last word on what works from a phone.
-    final health = sourceHealth();
-    List<ProviderEntity> arrange(List<ProviderEntity> rows) => health.sinkDown(
-      rows,
-      (p) => p.id,
-      keyOf: (p) => p.healthKey,
-      // Asking to see the problems is asking to see the down ones too.
-      hide: health.hideDown && !_problemsOnly,
-      keep: (p) => p.id == state.currentProviderId,
-    );
-    final matched = arrange(narrow(tab.matched));
-    final unstated = arrange(narrow(tab.unstated));
+    final matched = _down(tab.matched, scope, state.currentProviderId).rows;
+    final unstated = _down(tab.unstated, scope, state.currentProviderId).rows;
     _shownIds = [
       for (final p in [...matched, ...unstated])
         if (state.isUsable(p) && !Catalogue.isId(p.id)) p.id,
@@ -1073,7 +1105,8 @@ class _SourcesHubPageState extends State<SourcesHubPage>
               ? _currentRows[mode]
               : null,
           source: rows[i],
-          health: sourceHealth().badgeOf(rows[i].id, key: rows[i].healthKey),
+          health: _badgeFor(rows[i]),
+          deviceVerdict: _deviceBadgeFor(rows[i]),
           current: rows[i].id == state.currentProviderId,
           onTap: () => _use(rows[i]),
           onBrowse: () => setState(() => _open = rows[i]),
@@ -1099,10 +1132,15 @@ class _SourceTile extends StatelessWidget {
     this.onLongPress,
     this.current = false,
     this.health,
+    this.deviceVerdict,
   });
 
   final ProviderEntity source;
   final RemoteVerdict? health;
+
+  /// What a check from this phone found, when it is something the server's
+  /// badge cannot express. See [deviceBadge].
+  final SourceVerdict? deviceVerdict;
 
   /// Whether this is the currently selected source.
   final bool current;
@@ -1178,6 +1216,13 @@ class _SourceTile extends StatelessWidget {
                           verdict: health!,
                           sourceName: source.name,
                           sourceId: source.id,
+                        ),
+                      ] else if (deviceVerdict != null) ...[
+                        const SizedBox(width: 6),
+                        DeviceVerdictBadge(
+                          verdict: deviceVerdict!,
+                          sourceId: source.id,
+                          sourceName: source.name,
                         ),
                       ],
                     ],

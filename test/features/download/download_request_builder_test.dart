@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
+import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
@@ -273,6 +274,142 @@ void main() {
     expect(r.pageUrls, ['https://img/1.jpg', 'https://img/2.jpg']);
     expect(r.imageHeaders.first, {'X': 'y', 'Cookie': 'cf=1'});
     expect(r.imageHeaders.last, isEmpty);
+  });
+
+  group('a plain direct result is probed at tap time', () {
+    DownloadRequestBuilder probed(
+      MediaResolveEntity media,
+      Future<bool> Function(MediaResolveEntity) servesWebPage,
+    ) => DownloadRequestBuilder(
+      resolve: _Resolve(Success(media)),
+      getPages: _Pages(Failure(Exception('unused'))),
+      servesWebPage: servesWebPage,
+    );
+
+    const film = MediaResolveEntity(
+      videoUrl: 'https://files.test/film.mp4',
+      headers: {},
+      type: 'mp4',
+    );
+
+    test('a web page fails as webPage before anything is queued', () async {
+      final asked = <String>[];
+      final built = await probed(film, (m) async {
+        asked.add(m.videoUrl);
+        return true;
+      }).quietVideo(_title, _ep);
+      expect(built.request, isNull);
+      expect(built.failure, DownloadBuildFailure.webPage);
+      expect(asked, ['https://files.test/film.mp4']);
+    });
+
+    test('the mirror asked is the one a download takes by default', () async {
+      final asked = <String>[];
+      final built = await probed(
+        MediaResolveEntity(
+          videoUrl: 'https://cdn/first.m3u8',
+          headers: const {},
+          type: 'hls',
+          videoSources: [_source('360p', 360), _source('1080p', 1080)],
+        ),
+        (m) async {
+          asked.add('${m.videoUrl} ${m.headers['Referer']}');
+          return false;
+        },
+      ).quietVideo(_title, _ep);
+      expect(asked, ['https://cdn/1080.m3u8 r1080']);
+      expect(built.request!.sourceUrl, 'https://cdn/1080.m3u8');
+    });
+
+    test(
+      'a page on the default mirror falls back to one that is not',
+      () async {
+        final built = await probed(
+          MediaResolveEntity(
+            videoUrl: 'https://cdn/first.m3u8',
+            headers: const {},
+            type: 'hls',
+            videoSources: [_source('360p', 360), _source('1080p', 1080)],
+          ),
+          (m) async => m.videoUrl.contains('1080'),
+        ).quietVideo(_title, _ep);
+        expect(built.failure, isNull);
+        expect(built.request!.sourceUrl, 'https://cdn/360.m3u8');
+      },
+    );
+
+    test('the list fails only when every mirror is a page', () async {
+      final result = await probed(
+        MediaResolveEntity(
+          videoUrl: 'https://cdn/first.m3u8',
+          headers: const {},
+          type: 'hls',
+          videoSources: [_source('360p', 360), _source('1080p', 1080)],
+        ),
+        (_) async => true,
+      ).resolveVideo(_ep, provider: 'p');
+      expect(result.failure, DownloadBuildFailure.webPage);
+    });
+
+    test('anything short of a page queues as before', () async {
+      final built = await probed(
+        film,
+        (_) async => false,
+      ).quietVideo(_title, _ep);
+      expect(built.request!.sourceUrl, 'https://files.test/film.mp4');
+    });
+
+    test('a probe that throws is no answer, and does not block', () async {
+      final built = await probed(
+        film,
+        (_) async => throw Exception('socket closed'),
+      ).quietVideo(_title, _ep);
+      expect(built.request!.sourceUrl, 'https://files.test/film.mp4');
+    });
+  });
+
+  test('a sibling of unknown shape under a directive is sniffed, not taken as '
+      'direct', () async {
+    const directive = ExtractorConfigEntity(
+      hostPattern: 'embed.test',
+      urlPatterns: ['.m3u8'],
+    );
+    final sniffed = <String>[];
+    final builder = DownloadRequestBuilder(
+      resolve: _Resolve(Failure(Exception('unused'))),
+      getPages: _Pages(Failure(Exception('unused'))),
+      canDownload: (m) async => true,
+      resolveEmbed: (m) async {
+        sniffed.add(m.videoUrl);
+        expect(m.extractor, same(directive));
+        // The default page finds nothing; the sibling is the way in.
+        if (m.videoUrl.endsWith('/1')) return null;
+        return const MediaResolveEntity(
+          videoUrl: 'https://cdn.test/sniffed.m3u8',
+          headers: {},
+          type: 'hls',
+        );
+      },
+    );
+    final result = await builder.prepareVideo(
+      const MediaResolveEntity(
+        videoUrl: 'https://embed.test/e/1',
+        headers: {},
+        type: 'iframe',
+        extractor: directive,
+        videoSources: [
+          VideoSourceEntity(
+            quality: 'mirror 2',
+            videoUrl: 'https://embed.test/e/2',
+            isDefault: false,
+            accessible: true,
+          ),
+        ],
+      ),
+    );
+    // It used to be handed to the downloader as the video itself.
+    expect(sniffed, ['https://embed.test/e/1', 'https://embed.test/e/2']);
+    expect(result.media!.videoUrl, 'https://cdn.test/sniffed.m3u8');
   });
 
   test('a chapter whose pages fail is pagesFailed', () async {

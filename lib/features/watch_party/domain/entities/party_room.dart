@@ -8,7 +8,12 @@ class PartyRoom {
   final String code;
   final String? hostUserId;
   final bool onlyHostControls;
+  final bool locked;
+  final bool waitForAll;
   final int maxMembers;
+
+  /// The largest size the host may pick, from the server's hard cap.
+  final int maxMembersLimit;
   final List<PartyMember> members;
   final PartyContent? content;
   final PartyPlayback playback;
@@ -17,7 +22,10 @@ class PartyRoom {
     required this.code,
     this.hostUserId,
     this.onlyHostControls = true,
+    this.locked = false,
+    this.waitForAll = false,
     this.maxMembers = 2,
+    this.maxMembersLimit = 10,
     this.members = const <PartyMember>[],
     this.content,
     required this.playback,
@@ -31,6 +39,11 @@ class PartyRoom {
     }
     return true;
   }
+
+  static bool _flag(dynamic settings, String key) =>
+      settings is Map && settings[key] == true;
+
+  static int _limit(dynamic raw) => (raw as num?)?.toInt() ?? 10;
 
   static PartyContent? _content(dynamic raw) =>
       raw is Map ? PartyContent.fromJson(Map<String, dynamic>.from(raw)) : null;
@@ -47,7 +60,10 @@ class PartyRoom {
         code: j['code'] as String? ?? '',
         hostUserId: j['hostUserId'] as String?,
         onlyHostControls: _onlyHostControls(j['settings']),
+        locked: _flag(j['settings'], 'locked'),
+        waitForAll: _flag(j['settings'], 'waitForAll'),
         maxMembers: (j['maxMembers'] as num?)?.toInt() ?? 2,
+        maxMembersLimit: _limit(j['maxMembersLimit']),
         members: PartyMember.listFrom(j['members']),
         content: _content(j['content']),
         playback: _playback(j['playback']),
@@ -62,7 +78,10 @@ class PartyRoom {
       code: j['code'] as String? ?? '',
       hostUserId: (j['hostUserId'] as String?) ?? host?['userId'] as String?,
       onlyHostControls: _onlyHostControls(j['settings']),
+      locked: _flag(j['settings'], 'locked') || j['locked'] == true,
+      waitForAll: _flag(j['settings'], 'waitForAll'),
       maxMembers: (j['maxMembers'] as num?)?.toInt() ?? 2,
+      maxMembersLimit: _limit(j['maxMembersLimit']),
       members: PartyMember.listFrom(j['members']),
       content: _content(j['content']),
       playback: _playback(j['playback']),
@@ -73,7 +92,10 @@ class PartyRoom {
     String? code,
     String? hostUserId,
     bool? onlyHostControls,
+    bool? locked,
+    bool? waitForAll,
     int? maxMembers,
+    int? maxMembersLimit,
     List<PartyMember>? members,
     PartyContent? content,
     PartyPlayback? playback,
@@ -82,7 +104,10 @@ class PartyRoom {
         code: code ?? this.code,
         hostUserId: hostUserId ?? this.hostUserId,
         onlyHostControls: onlyHostControls ?? this.onlyHostControls,
+        locked: locked ?? this.locked,
+        waitForAll: waitForAll ?? this.waitForAll,
         maxMembers: maxMembers ?? this.maxMembers,
+        maxMembersLimit: maxMembersLimit ?? this.maxMembersLimit,
         members: members ?? this.members,
         content: content ?? this.content,
         playback: playback ?? this.playback,

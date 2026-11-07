@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/comments/domain/entities/comment_entity.dart';
+import 'package:soplay/features/progress/presentation/widgets/user_badge_line.dart';
 import 'package:soplay/features/reports/domain/entities/report_payload.dart';
 import 'package:soplay/features/reports/presentation/widgets/report_sheet.dart';
 import 'comment_avatar.dart';
@@ -61,7 +62,14 @@ class CommentCard extends StatelessWidget {
                     '/u/${Uri.encodeComponent(comment.user.username)}',
                   )
                 : null,
-            child: CommentAvatar(author: comment.user, size: compact ? 30 : 36),
+            child: FramedAvatar(
+              size: compact ? 30 : 36,
+              frame: comment.user.decoration?.frame,
+              child: CommentAvatar(
+                author: comment.user,
+                size: compact ? 30 : 36,
+              ),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -71,10 +79,9 @@ class CommentCard extends StatelessWidget {
                 Row(
                   children: [
                     Flexible(
-                      child: Text(
-                        comment.user.nameOrUsername,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: UserBadgeLine(
+                        name: comment.user.nameOrUsername,
+                        decoration: comment.user.decoration,
                         style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 13,
