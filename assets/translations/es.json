@@ -565,7 +565,15 @@
     "reconnecting": "Conexión perdida — reconectando…",
     "all_servers_failed": "Ninguno de los servidores de este título pudo reproducirlo. Inténtalo más tarde o elige otra fuente.",
     "shortcut_pip": "Minirreproductor (Mayús: sobre otras apps)",
-    "mini_popout_hint": "Minirreproductor · mantén pulsado para que flote sobre otras apps"
+    "mini_popout_hint": "Minirreproductor · mantén pulsado para que flote sobre otras apps",
+    "react": "Reaccionar",
+    "comments": "Comentarios",
+    "episode_comments": "Comentarios del episodio {}",
+    "reaction_text": "Escribir una reacción",
+    "reaction_text_hint": "Di algo breve…",
+    "reaction_wait": "Espera unos segundos antes de volver a reaccionar",
+    "reaction_limit": "Has alcanzado el límite de reacciones de este episodio",
+    "reaction_failed": "No se pudo enviar la reacción"
   },
   "profile": {
     "title": "Perfil",
@@ -751,7 +759,11 @@
     "library_update": "Buscar episodios nuevos",
     "library_update_desc": "Revisa los títulos que sigues y te avisa cuando sale uno nuevo",
     "library_update_every": "Cada {} horas",
-    "library_update_daily": "Una vez al día"
+    "library_update_daily": "Una vez al día",
+    "reactions_overlay": "Reacciones de espectadores",
+    "reactions_overlay_desc": "Mostrar las reacciones de otros espectadores en el momento en que se enviaron y dónde se agrupan en la barra de progreso",
+    "hide_spoilers": "Ocultar spoilers de episodios que no he visto",
+    "hide_spoilers_desc": "Los comentarios sobre un episodio que no has terminado se ven borrosos hasta que los tocas"
   },
   "appearance": {
     "title": "Apariencia",
@@ -1525,7 +1537,10 @@
     "show_more": "Ver más",
     "delete_confirm_title": "¿Eliminar este comentario?",
     "delete_confirm_body": "Esta acción no se puede deshacer.",
-    "sign_in_prompt": "Inicia sesión para dejar un comentario"
+    "sign_in_prompt": "Inicia sesión para dejar un comentario",
+    "spoiler": "Spoiler",
+    "spoiler_hidden": "Spoiler · toca para ver",
+    "unwatched_hidden": "Aún no lo has visto · toca para ver"
   },
   "downloads": {
     "view_titles": "Títulos",

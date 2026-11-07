@@ -1759,6 +1759,7 @@ extension _PlayerControls on _PlayerPageState {
           clipBehavior: Clip.none,
           children: [
             bar,
+            _buildReactionHeatmap(inset),
             if (showPreview)
               ValueListenableBuilder<bool>(
                 valueListenable: _seekBarDragging,

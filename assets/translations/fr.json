@@ -565,7 +565,15 @@
     "reconnecting": "Connexion perdue — reconnexion…",
     "all_servers_failed": "Aucun serveur de ce titre n’a pu le lire. Réessayez plus tard ou choisissez une autre source.",
     "shortcut_pip": "Mini-lecteur (Maj : au-dessus des autres apps)",
-    "mini_popout_hint": "Mini-lecteur · appui long pour flotter au-dessus des autres apps"
+    "mini_popout_hint": "Mini-lecteur · appui long pour flotter au-dessus des autres apps",
+    "react": "Réagir",
+    "comments": "Commentaires",
+    "episode_comments": "Commentaires de l'épisode {}",
+    "reaction_text": "Écrire une réaction",
+    "reaction_text_hint": "Un mot rapide…",
+    "reaction_wait": "Attendez quelques secondes avant de réagir à nouveau",
+    "reaction_limit": "Vous avez atteint la limite de réactions pour cet épisode",
+    "reaction_failed": "Impossible d'envoyer la réaction"
   },
   "profile": {
     "title": "Profil",
@@ -751,7 +759,11 @@
     "library_update": "Vérifier les nouveaux épisodes",
     "library_update_desc": "Vérifie les titres suivis et vous prévient à chaque nouveauté",
     "library_update_every": "Toutes les {} heures",
-    "library_update_daily": "Une fois par jour"
+    "library_update_daily": "Une fois par jour",
+    "reactions_overlay": "Réactions des spectateurs",
+    "reactions_overlay_desc": "Afficher les réactions des autres spectateurs au moment où elles ont été envoyées, et où elles se concentrent sur la barre de lecture",
+    "hide_spoilers": "Masquer les spoilers des épisodes que je n'ai pas vus",
+    "hide_spoilers_desc": "Les commentaires sur un épisode que vous n'avez pas terminé restent floutés jusqu'à ce que vous les touchiez"
   },
   "appearance": {
     "title": "Apparence",
@@ -1525,7 +1537,10 @@
     "show_more": "Afficher plus",
     "delete_confirm_title": "Supprimer ce commentaire ?",
     "delete_confirm_body": "Cette action est irréversible.",
-    "sign_in_prompt": "Connecte-toi pour laisser un commentaire"
+    "sign_in_prompt": "Connecte-toi pour laisser un commentaire",
+    "spoiler": "Spoiler",
+    "spoiler_hidden": "Spoiler · touchez pour afficher",
+    "unwatched_hidden": "Pas encore vu · touchez pour afficher"
   },
   "downloads": {
     "view_titles": "Titres",

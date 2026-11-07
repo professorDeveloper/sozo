@@ -565,7 +565,15 @@
     "reconnecting": "Connection lost — reconnecting…",
     "all_servers_failed": "None of this title's servers would play it. Try again later, or pick another source.",
     "shortcut_pip": "Mini player (Shift: above other apps)",
-    "mini_popout_hint": "Mini player · long-press to float above other apps"
+    "mini_popout_hint": "Mini player · long-press to float above other apps",
+    "react": "React",
+    "comments": "Comments",
+    "episode_comments": "Episode {} comments",
+    "reaction_text": "Write a reaction",
+    "reaction_text_hint": "Say something short…",
+    "reaction_wait": "Wait a few seconds before reacting again",
+    "reaction_limit": "You've reached the reaction limit for this episode",
+    "reaction_failed": "Couldn't send the reaction"
   },
   "profile": {
     "title": "Profile",
@@ -751,7 +759,11 @@
     "library_update": "Check for new episodes",
     "library_update_desc": "Looks at the titles you follow and notifies you when a new one is out",
     "library_update_every": "Every {} hours",
-    "library_update_daily": "Once a day"
+    "library_update_daily": "Once a day",
+    "reactions_overlay": "Viewer reactions",
+    "reactions_overlay_desc": "Show other viewers' reactions at the moment they were sent, and where they cluster on the seek bar",
+    "hide_spoilers": "Hide spoilers for episodes I haven't watched",
+    "hide_spoilers_desc": "Comments about an episode you haven't finished stay blurred until you tap them"
   },
   "appearance": {
     "title": "Appearance",
@@ -1525,7 +1537,10 @@
     "show_more": "Show more",
     "delete_confirm_title": "Delete this comment?",
     "delete_confirm_body": "This action cannot be undone.",
-    "sign_in_prompt": "Sign in to leave a comment"
+    "sign_in_prompt": "Sign in to leave a comment",
+    "spoiler": "Spoiler",
+    "spoiler_hidden": "Spoiler · tap to reveal",
+    "unwatched_hidden": "Not watched yet · tap to reveal"
   },
   "downloads": {
     "view_titles": "Titles",

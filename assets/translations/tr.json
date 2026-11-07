@@ -565,7 +565,15 @@
     "reconnecting": "Bağlantı koptu — yeniden bağlanılıyor…",
     "all_servers_failed": "Bu içeriğin hiçbir sunucusu oynatamadı. Daha sonra tekrar dene veya başka bir kaynak seç.",
     "shortcut_pip": "Mini oynatıcı (Shift: diğer uygulamaların üstünde)",
-    "mini_popout_hint": "Mini oynatıcı · diğer uygulamaların üstünde kalması için basılı tut"
+    "mini_popout_hint": "Mini oynatıcı · diğer uygulamaların üstünde kalması için basılı tut",
+    "react": "Tepki ver",
+    "comments": "Yorumlar",
+    "episode_comments": "{}. bölüm yorumları",
+    "reaction_text": "Tepki yaz",
+    "reaction_text_hint": "Kısa bir şey yaz…",
+    "reaction_wait": "Tekrar tepki vermeden önce birkaç saniye bekle",
+    "reaction_limit": "Bu bölüm için tepki sınırına ulaştın",
+    "reaction_failed": "Tepki gönderilemedi"
   },
   "profile": {
     "title": "Profil",
@@ -751,7 +759,11 @@
     "library_update": "Yeni bölümleri denetle",
     "library_update_desc": "Takip ettiğin yapımları denetler, yenisi çıkınca haber verir",
     "library_update_every": "{} saatte bir",
-    "library_update_daily": "Günde bir"
+    "library_update_daily": "Günde bir",
+    "reactions_overlay": "İzleyici tepkileri",
+    "reactions_overlay_desc": "Diğer izleyicilerin tepkilerini gönderildikleri anda ve ilerleme çubuğunda yoğunlaştıkları yerleri göster",
+    "hide_spoilers": "İzlemediğim bölümlerin spoilerlarını gizle",
+    "hide_spoilers_desc": "Bitirmediğin bir bölümle ilgili yorumlar sen dokunana kadar bulanık kalır"
   },
   "appearance": {
     "title": "Görünüm",
@@ -1525,7 +1537,10 @@
     "show_more": "Daha fazla göster",
     "delete_confirm_title": "Bu yorum silinsin mi?",
     "delete_confirm_body": "Bu işlem geri alınamaz.",
-    "sign_in_prompt": "Yorum bırakmak için giriş yap"
+    "sign_in_prompt": "Yorum bırakmak için giriş yap",
+    "spoiler": "Spoiler",
+    "spoiler_hidden": "Spoiler · görmek için dokun",
+    "unwatched_hidden": "Henüz izlemedin · görmek için dokun"
   },
   "downloads": {
     "view_titles": "Başlıklar",

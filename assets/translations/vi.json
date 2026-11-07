@@ -565,7 +565,15 @@
     "reconnecting": "Mất kết nối — đang kết nối lại…",
     "all_servers_failed": "Không máy chủ nào của phim này phát được. Hãy thử lại sau hoặc chọn nguồn khác.",
     "shortcut_pip": "Trình phát mini (Shift: nổi trên ứng dụng khác)",
-    "mini_popout_hint": "Trình phát mini · nhấn giữ để nổi trên ứng dụng khác"
+    "mini_popout_hint": "Trình phát mini · nhấn giữ để nổi trên ứng dụng khác",
+    "react": "Bày tỏ cảm xúc",
+    "comments": "Bình luận",
+    "episode_comments": "Bình luận tập {}",
+    "reaction_text": "Viết cảm xúc",
+    "reaction_text_hint": "Viết ngắn thôi…",
+    "reaction_wait": "Chờ vài giây trước khi bày tỏ tiếp",
+    "reaction_limit": "Bạn đã đạt giới hạn cảm xúc cho tập này",
+    "reaction_failed": "Không gửi được cảm xúc"
   },
   "profile": {
     "title": "Hồ sơ",
@@ -751,7 +759,11 @@
     "library_update": "Kiểm tra tập mới",
     "library_update_desc": "Kiểm tra các phim bạn theo dõi và báo khi có tập mới",
     "library_update_every": "Mỗi {} giờ",
-    "library_update_daily": "Mỗi ngày một lần"
+    "library_update_daily": "Mỗi ngày một lần",
+    "reactions_overlay": "Cảm xúc người xem",
+    "reactions_overlay_desc": "Hiện cảm xúc của người xem khác đúng lúc họ gửi, và chỗ tập trung nhiều trên thanh tua",
+    "hide_spoilers": "Ẩn tiết lộ của các tập tôi chưa xem",
+    "hide_spoilers_desc": "Bình luận về tập bạn chưa xem hết sẽ bị làm mờ cho đến khi bạn chạm vào"
   },
   "appearance": {
     "title": "Giao diện",
@@ -1525,7 +1537,10 @@
     "show_more": "Xem thêm",
     "delete_confirm_title": "Xóa bình luận này?",
     "delete_confirm_body": "Không thể hoàn tác thao tác này.",
-    "sign_in_prompt": "Đăng nhập để bình luận"
+    "sign_in_prompt": "Đăng nhập để bình luận",
+    "spoiler": "Tiết lộ",
+    "spoiler_hidden": "Tiết lộ nội dung · chạm để xem",
+    "unwatched_hidden": "Chưa xem · chạm để xem"
   },
   "downloads": {
     "view_titles": "Theo phim",

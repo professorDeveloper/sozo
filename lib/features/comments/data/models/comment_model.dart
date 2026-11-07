@@ -15,6 +15,9 @@ class CommentModel extends CommentEntity {
     required super.replyCount,
     required super.createdAt,
     required super.updatedAt,
+    super.episodeKey,
+    super.spoiler,
+    super.atSec,
   });
 
   factory CommentModel.fromJson(Map<String, dynamic> json) {
@@ -40,6 +43,9 @@ class CommentModel extends CommentEntity {
       replyCount: (json['replyCount'] as num?)?.toInt() ?? 0,
       createdAt: parse(json['createdAt']),
       updatedAt: parse(json['updatedAt'] ?? json['createdAt']),
+      episodeKey: json['episodeKey'] as String?,
+      spoiler: json['spoiler'] as bool? ?? false,
+      atSec: (json['atSec'] as num?)?.toInt(),
     );
   }
 }

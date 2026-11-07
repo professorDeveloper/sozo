@@ -565,7 +565,15 @@
     "reconnecting": "Koneksi terputus — menyambungkan ulang…",
     "all_servers_failed": "Tidak ada server judul ini yang bisa memutarnya. Coba lagi nanti atau pilih sumber lain.",
     "shortcut_pip": "Pemutar mini (Shift: di atas aplikasi lain)",
-    "mini_popout_hint": "Pemutar mini · tekan lama agar melayang di atas aplikasi lain"
+    "mini_popout_hint": "Pemutar mini · tekan lama agar melayang di atas aplikasi lain",
+    "react": "Bereaksi",
+    "comments": "Komentar",
+    "episode_comments": "Komentar episode {}",
+    "reaction_text": "Tulis reaksi",
+    "reaction_text_hint": "Tulis sesuatu yang singkat…",
+    "reaction_wait": "Tunggu beberapa detik sebelum bereaksi lagi",
+    "reaction_limit": "Kamu sudah mencapai batas reaksi untuk episode ini",
+    "reaction_failed": "Gagal mengirim reaksi"
   },
   "profile": {
     "title": "Profil",
@@ -751,7 +759,11 @@
     "library_update": "Periksa episode baru",
     "library_update_desc": "Memeriksa judul yang kamu ikuti dan memberi tahu saat ada yang baru",
     "library_update_every": "Setiap {} jam",
-    "library_update_daily": "Sekali sehari"
+    "library_update_daily": "Sekali sehari",
+    "reactions_overlay": "Reaksi penonton",
+    "reactions_overlay_desc": "Tampilkan reaksi penonton lain pada saat dikirim, dan di mana reaksi itu berkumpul di bilah waktu",
+    "hide_spoilers": "Sembunyikan spoiler untuk episode yang belum kutonton",
+    "hide_spoilers_desc": "Komentar tentang episode yang belum selesai kamu tonton tetap buram sampai kamu mengetuknya"
   },
   "appearance": {
     "title": "Tampilan",
@@ -1525,7 +1537,10 @@
     "show_more": "Tampilkan lebih banyak",
     "delete_confirm_title": "Hapus komentar ini?",
     "delete_confirm_body": "Tindakan ini tidak bisa dibatalkan.",
-    "sign_in_prompt": "Masuk untuk meninggalkan komentar"
+    "sign_in_prompt": "Masuk untuk meninggalkan komentar",
+    "spoiler": "Spoiler",
+    "spoiler_hidden": "Spoiler · ketuk untuk melihat",
+    "unwatched_hidden": "Belum ditonton · ketuk untuk melihat"
   },
   "downloads": {
     "view_titles": "Judul",

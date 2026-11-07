@@ -565,7 +565,15 @@
     "reconnecting": "Verbinding verbroken — opnieuw verbinden…",
     "all_servers_failed": "Geen van de servers van deze titel kon hem afspelen. Probeer het later of kies een andere bron.",
     "shortcut_pip": "Minispeler (Shift: boven andere apps)",
-    "mini_popout_hint": "Minispeler · lang indrukken om boven andere apps te zweven"
+    "mini_popout_hint": "Minispeler · lang indrukken om boven andere apps te zweven",
+    "react": "Reageren",
+    "comments": "Reacties",
+    "episode_comments": "Reacties op aflevering {}",
+    "reaction_text": "Reactie typen",
+    "reaction_text_hint": "Iets korts…",
+    "reaction_wait": "Wacht een paar seconden voordat je opnieuw reageert",
+    "reaction_limit": "Je hebt het reactielimiet voor deze aflevering bereikt",
+    "reaction_failed": "Kon de reactie niet versturen"
   },
   "profile": {
     "title": "Profiel",
@@ -751,7 +759,11 @@
     "library_update": "Zoeken naar nieuwe afleveringen",
     "library_update_desc": "Controleert de titels die je volgt en meldt nieuwe afleveringen",
     "library_update_every": "Elke {} uur",
-    "library_update_daily": "Eén keer per dag"
+    "library_update_daily": "Eén keer per dag",
+    "reactions_overlay": "Reacties van kijkers",
+    "reactions_overlay_desc": "Reacties van andere kijkers tonen op het moment dat ze zijn verstuurd, en waar ze zich op de tijdbalk ophopen",
+    "hide_spoilers": "Spoilers verbergen voor afleveringen die ik niet heb gezien",
+    "hide_spoilers_desc": "Reacties over een aflevering die je nog niet hebt uitgekeken blijven wazig tot je erop tikt"
   },
   "appearance": {
     "title": "Weergave",
@@ -1525,7 +1537,10 @@
     "show_more": "Meer tonen",
     "delete_confirm_title": "Deze reactie verwijderen?",
     "delete_confirm_body": "Dit kan niet ongedaan worden gemaakt.",
-    "sign_in_prompt": "Log in om een reactie te plaatsen"
+    "sign_in_prompt": "Log in om een reactie te plaatsen",
+    "spoiler": "Spoiler",
+    "spoiler_hidden": "Spoiler · tik om te tonen",
+    "unwatched_hidden": "Nog niet gezien · tik om te tonen"
   },
   "downloads": {
     "view_titles": "Titels",
