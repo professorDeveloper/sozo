@@ -20,45 +20,56 @@ class LevelRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: fraction),
-        duration: const Duration(milliseconds: 700),
-        curve: Curves.easeOutCubic,
-        builder: (_, t, child) => CustomPaint(
-          painter: _RingPainter(
-            fraction: t,
-            color: AppColors.primary,
-            track: Colors.white.withValues(alpha: 0.08),
-            stroke: size * 0.075,
+    final still = MediaQuery.disableAnimationsOf(context);
+    return Semantics(
+      label: 'progress.level_short'.tr(args: ['$level']),
+      excludeSemantics: true,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: still ? fraction : 0, end: fraction),
+          duration: still ? Duration.zero : const Duration(milliseconds: 700),
+          curve: Curves.easeOutCubic,
+          builder: (_, t, child) => CustomPaint(
+            painter: _RingPainter(
+              fraction: t,
+              color: AppColors.primary,
+              track: Colors.white.withValues(alpha: 0.08),
+              stroke: size * 0.075,
+            ),
+            child: child,
           ),
-          child: child,
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'progress.level'.tr().toUpperCase(),
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: size * 0.09,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                ),
+          // Scales down rather than spilling out of the ring at large text
+          // sizes.
+          child: Padding(
+            padding: EdgeInsets.all(size * 0.14),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'progress.level'.tr().toUpperCase(),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: size * 0.09,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  Text(
+                    '$level',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: size * 0.32,
+                      fontWeight: FontWeight.w900,
+                      height: 1.05,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                '$level',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: size * 0.32,
-                  fontWeight: FontWeight.w900,
-                  height: 1.05,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

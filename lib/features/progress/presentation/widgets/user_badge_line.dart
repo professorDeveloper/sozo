@@ -68,6 +68,10 @@ class Cosmetics {
 
 /// An avatar inside the frame its owner equipped; the avatar alone without
 /// one.
+///
+/// The frame is painted outside the avatar's box rather than added to it, so a
+/// framed avatar takes the same space as a plain one and a list of names stays
+/// aligned whoever has a frame.
 class FramedAvatar extends StatelessWidget {
   const FramedAvatar({
     super.key,
@@ -96,20 +100,32 @@ class FramedAvatar extends StatelessWidget {
     final shape = radius == null
         ? const BoxDecoration(shape: BoxShape.circle)
         : BoxDecoration(borderRadius: BorderRadius.circular(radius! + ring));
-    return Container(
-      width: size + ring * 2,
-      height: size + ring * 2,
-      padding: EdgeInsets.all(ring),
-      decoration: shape.copyWith(
-        gradient: SweepGradient(colors: [...colors, colors.first]),
-        boxShadow: [
-          BoxShadow(
-            color: colors.last.withValues(alpha: 0.35),
-            blurRadius: ring * 2.5,
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: -ring,
+            top: -ring,
+            right: -ring,
+            bottom: -ring,
+            child: DecoratedBox(
+              decoration: shape.copyWith(
+                gradient: SweepGradient(colors: [...colors, colors.first]),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.last.withValues(alpha: 0.35),
+                    blurRadius: ring * 2.5,
+                  ),
+                ],
+              ),
+            ),
           ),
+          Positioned.fill(child: child),
         ],
       ),
-      child: child,
     );
   }
 }

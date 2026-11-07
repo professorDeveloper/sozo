@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/widgets/app_buttons.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/watch_party/data/watch_party_service.dart';
@@ -420,13 +421,10 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
                 if (s.isHost) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => showPartyInviteSheet(context),
-                        icon: const Icon(Icons.person_add_alt_1_rounded),
-                        label: Text('watch_party.invite_friends'.tr()),
-                      ),
+                    child: AppSecondaryButton(
+                      onPressed: () => showPartyInviteSheet(context),
+                      icon: Icons.person_add_alt_1_rounded,
+                      label: 'watch_party.invite_friends'.tr(),
                     ),
                   ),
                   PartyHostSettings(room: room, service: _service),

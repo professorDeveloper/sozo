@@ -1,4 +1,4 @@
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -38,6 +38,9 @@ Future<void> showEpisodeComments(
       builder: (_) => SizedBox(height: size.height * 0.75, child: panel),
     );
   }
+  // The panel sits on the end edge: it slides in from there, and the inset on
+  // its inner edge is not its concern.
+  final rtl = Directionality.of(context) == TextDirection.rtl;
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -51,12 +54,12 @@ Future<void> showEpisodeComments(
         height: double.infinity,
         child: Material(
           color: AppColors.background,
-          child: SafeArea(left: false, child: panel),
+          child: SafeArea(left: rtl, right: !rtl, child: panel),
         ),
       ),
     ),
     transitionBuilder: (context, animation, _, child) => SlideTransition(
-      position: Tween(begin: const Offset(1, 0), end: Offset.zero).animate(
+      position: Tween(begin: Offset(rtl ? -1 : 1, 0), end: Offset.zero).animate(
         CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
       ),
       child: child,

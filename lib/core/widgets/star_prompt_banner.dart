@@ -130,7 +130,7 @@ class _StarPromptBannerState extends State<StarPromptBanner> {
                 children: [
                   const Icon(
                     Icons.star_rounded,
-                    color: Color(0xFFFFC83D),
+                    color: AppColors.rating,
                     size: 22,
                   ),
                   const SizedBox(width: 10),

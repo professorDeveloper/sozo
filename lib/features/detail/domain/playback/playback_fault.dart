@@ -95,7 +95,11 @@ class PlaybackFault {
         lower.contains('renderer')) {
       return PlaybackFault(PlaybackFaultKind.decoder, raw: raw);
     }
+    // libmpv's "Failed to open <url>": the host answered with a refusal
+    // (often a 403 without the Referer it expects) or not at all. The raw
+    // line, with its long address, read as the whole message on screen.
     if (lower.contains('source error') ||
+        lower.contains('failed to open http') ||
         lower.contains('failed to recognize file format') ||
         lower.contains('unrecognizedinputformat') ||
         lower.contains('nodeclaredbrand')) {

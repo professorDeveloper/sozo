@@ -310,7 +310,7 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
               ),
               const SettingsDivider(),
               SettingsSwitchTile(
-                icon: Icons.visibility_off_rounded,
+                icon: Icons.speaker_notes_off_outlined,
                 title: 'profile.hide_spoilers'.tr(),
                 subtitle: 'profile.hide_spoilers_desc'.tr(),
                 value: _hideSpoilers,

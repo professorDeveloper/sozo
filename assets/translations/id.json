@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "Periksa koneksi internetmu lalu coba lagi.",
     "settings_title": "Pengaturan ruang",
     "room_size": "Ukuran ruang",
+    "room_size_less": "Lebih sedikit orang",
+    "room_size_more": "Lebih banyak orang",
     "only_host_setting": "Hanya host yang mengontrol pemutaran",
     "lock_room": "Kunci ruang",
     "lock_room_hint": "Tidak ada orang baru yang bisa bergabung",
@@ -3134,7 +3136,9 @@
     "error_attachment_type": "Hanya gambar jpg, png, atau webp.",
     "error_attachment_size": "Setiap gambar maksimal 5 MB.",
     "error_attachment_count": "Maksimal 5 tangkapan layar per pesan.",
-    "suggest": "Terus terjadi? Hubungi dukungan"
+    "suggest": "Terus terjadi? Hubungi dukungan",
+    "error_offline": "Kamu sedang offline atau koneksi terputus. Periksa internet lalu coba lagi.",
+    "not_sent": "Tidak terkirim: {}"
   },
   "zangetsu": {
     "title": "Sumber Zangetsu",

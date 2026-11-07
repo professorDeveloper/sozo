@@ -213,6 +213,14 @@ void main() {
     });
   });
 
+  test("mpv's Failed to open is a blocked source, not the raw address", () {
+    final fault = PlaybackFault.classify(
+      'Bad state: Failed to open https://fetch.example/anime/a/b/master.m3u8.',
+    );
+    expect(fault.kind, PlaybackFaultKind.sourceBlocked);
+    expect(fault.raw, contains('master.m3u8'));
+  });
+
   test('the domain layer stays free of Flutter', () {
     // If this file ever imports material.dart the fault can no longer be
     // classified in a plain Dart test, which is most of why it exists.

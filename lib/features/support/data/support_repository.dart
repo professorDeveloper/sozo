@@ -57,7 +57,12 @@ class SupportRepository {
     if (type == null) {
       throw SupportException('support.error_attachment_type'.tr());
     }
-    final size = await file.length();
+    final int size;
+    try {
+      size = await file.length();
+    } on FileSystemException {
+      throw SupportException('support.error_attachment'.tr());
+    }
     if (size > maxAttachmentBytes) {
       throw SupportException('support.error_attachment_size'.tr());
     }
@@ -86,7 +91,11 @@ class SupportRepository {
           },
         ),
       );
-    } on DioException {
+    } on DioException catch (e) {
+      throw SupportException(
+        _offline(e) ? 'support.error_offline'.tr() : 'support.error_attachment'.tr(),
+      );
+    } on FileSystemException {
       throw SupportException('support.error_attachment'.tr());
     }
     return key;
@@ -192,6 +201,7 @@ class SupportRepository {
       final body = e.response?.data;
       final code = body is Map ? body['code']?.toString() : null;
       final key = switch ((e.response?.statusCode, code)) {
+        _ when _offline(e) => 'support.error_offline',
         (429, _) => 'support.error_too_many',
         (_, 'SUPPORT_MESSAGE') => 'support.error_short',
         (_, 'SUPPORT_THREAD_FULL') => 'support.error_thread_full',
@@ -203,6 +213,20 @@ class SupportRepository {
         _ => 'support.error_generic',
       };
       throw SupportException(key.tr(), code: code);
+    } on SupportException {
+      rethrow;
+    } catch (_) {
+      // Anything else (a reply this app cannot read, a file that went
+      // away) still has to end the spinner with a message.
+      throw SupportException('support.error_generic'.tr());
     }
   }
+
+  static bool _offline(DioException e) => switch (e.type) {
+    DioExceptionType.connectionError ||
+    DioExceptionType.connectionTimeout ||
+    DioExceptionType.sendTimeout ||
+    DioExceptionType.receiveTimeout => true,
+    _ => false,
+  };
 }

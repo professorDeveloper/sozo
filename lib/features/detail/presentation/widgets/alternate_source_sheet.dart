@@ -15,6 +15,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/matching/title_match.dart';
 import 'package:soplay/core/network/image_headers.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/detail/data/source_choice_store.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -554,6 +555,9 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
           ),
           const SizedBox(width: 4),
           TextButton(
+            // The row it replaces stops being focusable once Auto runs, so a
+            // remote would otherwise be left with nothing focused.
+            autofocus: isTvPlatform,
             onPressed: _stopAuto,
             style: TextButton.styleFrom(foregroundColor: Colors.white),
             child: Text('player.alt_auto_stop'.tr()),
@@ -562,6 +566,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
       );
     } else if (ended) {
       trailing = TextButton.icon(
+        autofocus: isTvPlatform,
         onPressed: _preparing != null ? null : _runAuto,
         style: TextButton.styleFrom(foregroundColor: AppColors.primary),
         icon: const Icon(Icons.refresh_rounded, size: 18),

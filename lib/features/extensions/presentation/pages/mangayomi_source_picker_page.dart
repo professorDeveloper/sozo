@@ -153,17 +153,29 @@ class _MangayomiSourcePickerPageState extends State<MangayomiSourcePickerPage> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
-                TextButton(
-                  onPressed: () => _setAll(visible, true),
-                  child: Text('ext.select_all'.tr()),
+                Flexible(
+                  child: TextButton(
+                    onPressed: () => _setAll(visible, true),
+                    child: Text(
+                      'ext.select_all'.tr(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
-                TextButton(
-                  onPressed: () => _setAll(visible, false),
-                  child: Text('ext.select_none'.tr()),
+                Flexible(
+                  child: TextButton(
+                    onPressed: () => _setAll(visible, false),
+                    child: Text(
+                      'ext.select_none'.tr(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
                 const Spacer(),
                 Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsetsDirectional.only(end: 8),
                   child: Text(
                     '${visible.length}',
                     style: const TextStyle(color: AppColors.textHint),

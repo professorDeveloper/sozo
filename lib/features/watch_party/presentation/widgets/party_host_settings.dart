@@ -27,7 +27,7 @@ class PartyHostSettings extends StatelessWidget {
     final size = room.maxMembers.clamp(minMembers, limit);
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      padding: const EdgeInsets.fromLTRB(14, 10, 6, 6),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 6, 6),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
@@ -58,6 +58,7 @@ class PartyHostSettings extends StatelessWidget {
                 ),
               ),
               IconButton(
+                tooltip: 'watch_party.room_size_less'.tr(),
                 icon: const Icon(Icons.remove_rounded),
                 onPressed: size > minMembers
                     ? () => service.updateSettings(maxMembers: size - 1)
@@ -76,6 +77,7 @@ class PartyHostSettings extends StatelessWidget {
                 ),
               ),
               IconButton(
+                tooltip: 'watch_party.room_size_more'.tr(),
                 icon: const Icon(Icons.add_rounded),
                 onPressed: size < limit
                     ? () => service.updateSettings(maxMembers: size + 1)
@@ -123,10 +125,12 @@ class _Toggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return SwitchListTile(
       dense: true,
-      contentPadding: const EdgeInsets.only(right: 4),
+      contentPadding: const EdgeInsetsDirectional.only(end: 4),
       value: value,
       onChanged: onChanged,
-      activeThumbColor: AppColors.primary,
+      // Same as the settings switches: a white thumb on an accent track.
+      activeThumbColor: Colors.white,
+      activeTrackColor: AppColors.primary,
       title: Text(
         title,
         style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),

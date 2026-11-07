@@ -48,52 +48,56 @@ class SourceFilterChipRow extends StatelessWidget {
   }
 
   Widget _chip(BuildContext context, SourceFilterOption o) {
-    return TvFocusable(
-      onPressed: o.onTap,
-      borderRadius: 17,
-      ensureVisibleAlignment: 0.5,
-      child: AnimatedContainer(
-        duration: Duration(
-          milliseconds: MediaQuery.disableAnimationsOf(context) ? 0 : 120,
-        ),
-        curve: Curves.easeOutCubic,
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: o.active ? AppColors.primary : AppColors.surface,
-          borderRadius: BorderRadius.circular(17),
-          border: Border.all(
-            color: o.active
-                ? AppColors.primary.withValues(alpha: 0.55)
-                : Colors.white.withValues(alpha: 0.07),
+    return Semantics(
+      button: true,
+      selected: o.active,
+      child: TvFocusable(
+        onPressed: o.onTap,
+        borderRadius: 17,
+        ensureVisibleAlignment: 0.5,
+        child: AnimatedContainer(
+          duration: Duration(
+            milliseconds: MediaQuery.disableAnimationsOf(context) ? 0 : 120,
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              o.label,
-              style: TextStyle(
-                color: o.active ? Colors.white : AppColors.textSecondary,
-                fontSize: 12.5,
-                fontWeight: o.active ? FontWeight.w700 : FontWeight.w600,
-              ),
+          curve: Curves.easeOutCubic,
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: o.active ? AppColors.primary : AppColors.surface,
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(
+              color: o.active
+                  ? AppColors.primary.withValues(alpha: 0.55)
+                  : Colors.white.withValues(alpha: 0.07),
             ),
-            if (o.count != null) ...[
-              const SizedBox(width: 5),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Text(
-                '${o.count}',
+                o.label,
                 style: TextStyle(
-                  color: o.active
-                      ? AppColors.primaryLight.withValues(alpha: 0.75)
-                      : AppColors.textHint,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  color: o.active ? Colors.white : AppColors.textSecondary,
+                  fontSize: 12.5,
+                  fontWeight: o.active ? FontWeight.w700 : FontWeight.w600,
                 ),
               ),
+              if (o.count != null) ...[
+                const SizedBox(width: 5),
+                Text(
+                  '${o.count}',
+                  style: TextStyle(
+                    color: o.active
+                        ? AppColors.primaryLight.withValues(alpha: 0.75)
+                        : AppColors.textHint,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

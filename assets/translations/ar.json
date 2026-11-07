@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "تحقّق من اتصالك بالإنترنت وحاول مرة أخرى.",
     "settings_title": "إعدادات الغرفة",
     "room_size": "حجم الغرفة",
+    "room_size_less": "عدد أقل من الأشخاص",
+    "room_size_more": "عدد أكبر من الأشخاص",
     "only_host_setting": "المضيف وحده يتحكم في التشغيل",
     "lock_room": "قفل الغرفة",
     "lock_room_hint": "لا يمكن لأحد جديد الانضمام",
@@ -3138,7 +3140,9 @@
     "error_attachment_type": "صور jpg أو png أو webp فقط.",
     "error_attachment_size": "يجب ألا يتجاوز حجم كل صورة 5 ميغابايت.",
     "error_attachment_count": "5 لقطات شاشة كحد أقصى في الرسالة.",
-    "suggest": "تتكرر المشكلة؟ راسل الدعم"
+    "suggest": "تتكرر المشكلة؟ راسل الدعم",
+    "error_offline": "أنت غير متصل أو انقطع الاتصال. تحقق من الإنترنت ثم حاول مرة أخرى.",
+    "not_sent": "لم يُرسل: {}"
   },
   "zangetsu": {
     "title": "مصادر Zangetsu",

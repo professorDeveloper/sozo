@@ -171,7 +171,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(
               'ext.remove'.tr(),
-              style: const TextStyle(color: Colors.redAccent),
+              style: const TextStyle(color: AppColors.error),
             ),
           ),
         ],
@@ -284,9 +284,21 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
   Widget build(BuildContext context) {
     if (!MangayomiRuntime.isSupported) {
       return Scaffold(
-        appBar: AppBar(title: Text('ext.mangayomi_title'.tr())),
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.background,
+          surfaceTintColor: Colors.transparent,
+          title: Text('ext.mangayomi_title'.tr()),
+        ),
         body: Center(
-          child: Text('ext.needs_webview'.tr()),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text(
+              'ext.needs_webview'.tr(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
         ),
       );
     }
@@ -418,9 +430,9 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                 errorBuilder: (_, _, _) => Container(
                       width: 44,
                       height: 44,
-                      color: Colors.white10,
+                      color: AppColors.surfaceVariant,
                       child: const Icon(Icons.javascript_outlined,
-                          color: Colors.white54),
+                          color: AppColors.textHint),
                     )),
           ),
           const SizedBox(width: 12),
@@ -493,7 +505,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
       );
 
   Widget _statusBanner() {
-    final color = _statusError ? Colors.redAccent : Colors.green;
+    final color = _statusError ? AppColors.error : AppColors.success;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -567,13 +579,13 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                 IconButton(
                   tooltip: 'ext.add_sources'.tr(),
                   icon: const Icon(Icons.playlist_add_rounded,
-                      color: Colors.white70),
+                      color: AppColors.textSecondary),
                   onPressed: _busy ? null : () => _install([url]),
                 ),
                 IconButton(
                   tooltip: 'ext.remove'.tr(),
                   icon: const Icon(Icons.delete_outline,
-                      color: Colors.redAccent),
+                      color: AppColors.error),
                   onPressed: _busy ? null : () => _remove(url),
                 ),
               ],
@@ -583,7 +595,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
       );
 
   Widget _updatesBanner(int count) => Container(
-        padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+        padding: const EdgeInsetsDirectional.fromSTEB(12, 6, 6, 6),
         decoration: BoxDecoration(
           color: _accent.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
@@ -640,9 +652,9 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                           errorBuilder: (_, _, _) => Container(
                             width: 26,
                             height: 26,
-                            color: Colors.white10,
+                            color: AppColors.surfaceVariant,
                             child: const Icon(Icons.public,
-                                size: 14, color: Colors.white54),
+                                size: 14, color: AppColors.textHint),
                           ),
                         ),
                       ),
@@ -666,12 +678,12 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 5, vertical: 1),
                                     decoration: BoxDecoration(
-                                      color: Colors.redAccent.withValues(alpha: 0.15),
+                                      color: AppColors.error.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: const Text('18+',
                                         style: TextStyle(
-                                            color: Colors.redAccent,
+                                            color: AppColors.error,
                                             fontSize: 9,
                                             fontWeight: FontWeight.w700)),
                                   ),
@@ -714,13 +726,13 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                 tooltip: 'ext.settings'.tr(),
                 visualDensity: VisualDensity.compact,
                 icon: const Icon(Icons.tune_rounded,
-                    size: 19, color: Colors.white70),
+                    size: 19, color: AppColors.textSecondary),
                 onPressed: () => SourceSettingsSheet.show(context, s),
               ),
               PopupMenuButton<_SourceAction>(
                 enabled: !_busy,
                 icon: const Icon(Icons.more_vert_rounded,
-                    size: 19, color: Colors.white70),
+                    size: 19, color: AppColors.textSecondary),
                 color: AppColors.surface,
                 onSelected: (a) => switch (a) {
                   _SourceAction.toggle => _setEnabled(s, !enabled),
@@ -736,7 +748,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                   PopupMenuItem(
                     value: _SourceAction.remove,
                     child: Text('ext.remove_source'.tr(),
-                        style: const TextStyle(color: Colors.redAccent)),
+                        style: const TextStyle(color: AppColors.error)),
                   ),
                 ],
               ),

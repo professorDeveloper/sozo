@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "Prüfe deine Internetverbindung und versuche es erneut.",
     "settings_title": "Raumeinstellungen",
     "room_size": "Raumgröße",
+    "room_size_less": "Weniger Personen",
+    "room_size_more": "Mehr Personen",
     "only_host_setting": "Nur der Host steuert die Wiedergabe",
     "lock_room": "Raum sperren",
     "lock_room_hint": "Niemand Neues kann beitreten",
@@ -3134,7 +3136,9 @@
     "error_attachment_type": "Nur jpg-, png- oder webp-Bilder.",
     "error_attachment_size": "Jedes Bild darf höchstens 5 MB groß sein.",
     "error_attachment_count": "Höchstens 5 Screenshots pro Nachricht.",
-    "suggest": "Passiert das öfter? Schreib dem Support"
+    "suggest": "Passiert das öfter? Schreib dem Support",
+    "error_offline": "Du bist offline oder die Verbindung ist abgebrochen. Prüfe dein Internet und versuche es erneut.",
+    "not_sent": "Nicht gesendet: {}"
   },
   "zangetsu": {
     "title": "Zangetsu-Quellen",

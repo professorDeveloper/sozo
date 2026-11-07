@@ -123,6 +123,7 @@ class _ReactionPickerState extends State<_ReactionPicker> {
             ),
           ),
           _RoundButton(
+            tooltip: 'support.send'.tr(),
             onTap: _sendText,
             child: Icon(Icons.send_rounded, color: AppColors.primary, size: 20),
           ),
@@ -152,7 +153,7 @@ class _RoundButton extends StatelessWidget {
       autofocus: autofocus,
       customBorder: const CircleBorder(),
       focusColor: Colors.white24,
-      child: SizedBox(width: 44, height: 44, child: Center(child: child)),
+      child: SizedBox(width: 48, height: 48, child: Center(child: child)),
     );
     return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
   }
