@@ -14,6 +14,7 @@ import 'package:soplay/core/player/color_profile.dart';
 import 'package:soplay/core/player/shader_presets.dart';
 import 'package:soplay/core/player/shader_store.dart';
 import 'package:soplay/features/detail/data/title_prefs_store.dart';
+import 'package:soplay/features/progress/data/watch_time_uploader.dart';
 import 'package:soplay/features/stats/data/watch_stats_store.dart';
 import 'package:soplay/core/network/external_dio.dart';
 import 'package:soplay/core/network/cf_bypass_service.dart';

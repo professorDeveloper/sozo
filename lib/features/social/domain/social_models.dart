@@ -4,6 +4,7 @@
 library;
 
 import 'package:soplay/features/achievements/domain/achievements.dart';
+import 'package:soplay/features/progress/domain/progress.dart';
 
 enum SocialRelation {
   self,
@@ -65,12 +66,16 @@ class SocialUser {
     required this.username,
     this.displayName,
     this.photoURL,
+    this.decoration,
   });
 
   final String id;
   final String username;
   final String? displayName;
   final String? photoURL;
+
+  /// Level and cosmetics; null from a server that sends none.
+  final UserDecoration? decoration;
 
   String get name => (displayName?.trim().isNotEmpty ?? false)
       ? displayName!.trim()
@@ -81,6 +86,7 @@ class SocialUser {
     username: _str(json['username']) ?? '',
     displayName: _str(json['displayName']),
     photoURL: _str(json['photoURL']),
+    decoration: UserDecoration.fromJson(json),
   );
 }
 
