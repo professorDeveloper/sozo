@@ -1108,183 +1108,191 @@ extension _PlayerControls on _PlayerPageState {
     final canDownload = a.canDownload;
     final isBuffering = c != null && c.value.isBuffering;
 
+    // While the controls fade, their glass is held to its tint: an opacity
+    // over refracting glass composites the glass and the picture under it on
+    // every frame of the fade. The group gives the refraction back once the
+    // fade has settled.
     final overlay = FadeTransition(
       opacity: _controlsAnimation,
-      child: IgnorePointer(
-        ignoring: !_controlsVisible,
-        child: Stack(
-          children: [
-            const Positioned.fill(child: _ControlsScrim()),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  // One read of the picture for every button along the top,
-                  // not one each (MediaGlass).
-                  child: MediaGlassLayer(
-                    child: Row(
-                      children: [
-                        _IconButton(
-                          icon: Icons.arrow_back_ios_new_rounded,
-                          onTap: _exit,
-                        ),
-                        const SizedBox(width: 3),
-                        Expanded(
-                          flex: 2,
-                          // Text takes the hit but has no gesture, so a tap on
-                          // the title did nothing while the same tap anywhere
-                          // else on the dimmed video hides the controls.
-                          child: IgnorePointer(
-                            child: Text(
-                              _episodeTitle(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                shadows: _kControlShadow,
+      child: GlassHoldWhile(
+        source: _controlsAnimation,
+        moving: () => _controlsAnimation.isAnimating,
+        child: IgnorePointer(
+          ignoring: !_controlsVisible,
+          child: Stack(
+            children: [
+              const Positioned.fill(child: _ControlsScrim()),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    // One read of the picture for every button along the top,
+                    // not one each (MediaGlass).
+                    child: MediaGlassLayer(
+                      child: Row(
+                        children: [
+                          _IconButton(
+                            icon: Icons.arrow_back_ios_new_rounded,
+                            onTap: _exit,
+                          ),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            flex: 2,
+                            // Text takes the hit but has no gesture, so a tap on
+                            // the title did nothing while the same tap anywhere
+                            // else on the dimmed video hides the controls.
+                            child: IgnorePointer(
+                              child: Text(
+                                _episodeTitle(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  shadows: _kControlShadow,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        // The action set outgrows a portrait phone. It used to
-                        // take half the bar and scroll the surplus off the left,
-                        // where nobody found it — orientation and Watch Party were
-                        // simply invisible. Now the actions get the larger share
-                        // and scale a few percent if they still do not fit, so
-                        // every one of them is on screen.
-                        Expanded(
-                          flex: 5,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerRight,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // TV and desktop only. A phone draws its bar
-                                // from the viewer's arrangement below, which
-                                // has the language pill in it — adding this one
-                                // as well put two SUB pills side by side.
-                                if (hasLangSwitcher &&
-                                    (isTvPlatform || isDesktopPlatform)) ...[
-                                  _LangPill(
-                                    label: (_currentLang ?? _kSubLang)
-                                        .toUpperCase(),
-                                    onTap: _openLangSheet,
-                                  ),
-                                  const SizedBox(width: 5),
-                                ],
-                                // CloudStream (cs:) sources are excluded from Watch2Gether
-                                // for now (they need an on-device plugin per peer).
-                                //
-                                if ((isTvPlatform || isDesktopPlatform) &&
-                                    (_inParty ||
-                                        !widget.args.provider.startsWith(
-                                          'cs:',
-                                        ))) ...[
-                                  _IconButton(
-                                    icon: _inParty
-                                        ? Icons.groups_rounded
-                                        : Icons.groups_2_rounded,
-                                    color: _inParty ? AppColors.primary : null,
-                                    onTap: _openWatchParty,
-                                  ),
-                                  const SizedBox(width: 2),
-                                ],
-                                // TV drops three phone-only affordances outright rather
-                                // than adapting them: orientation lock is meaningless on
-                                // a fixed landscape panel, PiP semantics differ on
-                                // leanback, and the touch lock swaps in an overlay whose
-                                // only escape is a non-focusable tap target — on a remote
-                                // that is an unrecoverable state.
-                                if (isTvPlatform) ...[
-                                  _IconButton(
-                                    icon: Icons.closed_caption_rounded,
-                                    onTap: _openSubtitleSheet,
-                                  ),
-                                  const SizedBox(width: 2),
-                                  if (canDownload) ...[
-                                    _IconButton(
-                                      icon: Icons.download_rounded,
-                                      onTap: _startDownload,
+                          // The action set outgrows a portrait phone. It used to
+                          // take half the bar and scroll the surplus off the left,
+                          // where nobody found it — orientation and Watch Party were
+                          // simply invisible. Now the actions get the larger share
+                          // and scale a few percent if they still do not fit, so
+                          // every one of them is on screen.
+                          Expanded(
+                            flex: 5,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // TV and desktop only. A phone draws its bar
+                                  // from the viewer's arrangement below, which
+                                  // has the language pill in it — adding this one
+                                  // as well put two SUB pills side by side.
+                                  if (hasLangSwitcher &&
+                                      (isTvPlatform || isDesktopPlatform)) ...[
+                                    _LangPill(
+                                      label: (_currentLang ?? _kSubLang)
+                                          .toUpperCase(),
+                                      onTap: _openLangSheet,
                                     ),
-                                    const SizedBox(width: 2),
+                                    const SizedBox(width: 5),
                                   ],
-                                  _IconButton(
-                                    icon: Icons.settings_rounded,
-                                    onTap: _openSettingsSheet,
-                                  ),
-                                  if (hasServers) ...[
-                                    const SizedBox(width: 2),
-                                    _IconButton(
-                                      icon: Icons.dns_rounded,
-                                      onTap: _openServerSheet,
-                                    ),
-                                  ],
-                                  if (hasQualities) ...[
-                                    const SizedBox(width: 2),
-                                    _IconButton(
-                                      icon: Icons.high_quality_rounded,
-                                      onTap: () =>
-                                          _openPanel(_SidePanel.quality),
-                                    ),
-                                  ],
-                                  if (hasEpisodes) ...[
-                                    const SizedBox(width: 2),
-                                    _IconButton(
-                                      icon: Icons.video_library_rounded,
-                                      onTap: () =>
-                                          _openPanel(_SidePanel.episodes),
-                                    ),
-                                  ],
-                                ] else if (!isDesktopPlatform) ...[
-                                  // Phone: the viewer's arrangement, in their
-                                  // order. Every control stays ON a bar — a
-                                  // previous pass filed six of them behind a ⋯
-                                  // sheet to buy room and had to undo it, because
-                                  // a control one tap away is a control people
-                                  // use and one two taps away is a control they
-                                  // stop reaching for. What changed is only that
-                                  // WHICH controls sit here is now a preference
-                                  // instead of an argument about a Row.
+                                  // CloudStream (cs:) sources are excluded from Watch2Gether
+                                  // for now (they need an on-device plugin per peer).
                                   //
-                                  // The capacity that PlayerControlsLayout
-                                  // enforces is this bar's: the group is wrapped
-                                  // in a FittedBox, so an extra button does not
-                                  // wrap or scroll, it shrinks all of them.
-                                  ..._controlsFor(
-                                    PlayerControlSlot.topBar,
-                                    topBar: true,
-                                  ),
+                                  if ((isTvPlatform || isDesktopPlatform) &&
+                                      (_inParty ||
+                                          !widget.args.provider.startsWith(
+                                            'cs:',
+                                          ))) ...[
+                                    _IconButton(
+                                      icon: _inParty
+                                          ? Icons.groups_rounded
+                                          : Icons.groups_2_rounded,
+                                      color: _inParty ? AppColors.primary : null,
+                                      onTap: _openWatchParty,
+                                    ),
+                                    const SizedBox(width: 2),
+                                  ],
+                                  // TV drops three phone-only affordances outright rather
+                                  // than adapting them: orientation lock is meaningless on
+                                  // a fixed landscape panel, PiP semantics differ on
+                                  // leanback, and the touch lock swaps in an overlay whose
+                                  // only escape is a non-focusable tap target — on a remote
+                                  // that is an unrecoverable state.
+                                  if (isTvPlatform) ...[
+                                    _IconButton(
+                                      icon: Icons.closed_caption_rounded,
+                                      onTap: _openSubtitleSheet,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    if (canDownload) ...[
+                                      _IconButton(
+                                        icon: Icons.download_rounded,
+                                        onTap: _startDownload,
+                                      ),
+                                      const SizedBox(width: 2),
+                                    ],
+                                    _IconButton(
+                                      icon: Icons.settings_rounded,
+                                      onTap: _openSettingsSheet,
+                                    ),
+                                    if (hasServers) ...[
+                                      const SizedBox(width: 2),
+                                      _IconButton(
+                                        icon: Icons.dns_rounded,
+                                        onTap: _openServerSheet,
+                                      ),
+                                    ],
+                                    if (hasQualities) ...[
+                                      const SizedBox(width: 2),
+                                      _IconButton(
+                                        icon: Icons.high_quality_rounded,
+                                        onTap: () =>
+                                            _openPanel(_SidePanel.quality),
+                                      ),
+                                    ],
+                                    if (hasEpisodes) ...[
+                                      const SizedBox(width: 2),
+                                      _IconButton(
+                                        icon: Icons.video_library_rounded,
+                                        onTap: () =>
+                                            _openPanel(_SidePanel.episodes),
+                                      ),
+                                    ],
+                                  ] else if (!isDesktopPlatform) ...[
+                                    // Phone: the viewer's arrangement, in their
+                                    // order. Every control stays ON a bar — a
+                                    // previous pass filed six of them behind a ⋯
+                                    // sheet to buy room and had to undo it, because
+                                    // a control one tap away is a control people
+                                    // use and one two taps away is a control they
+                                    // stop reaching for. What changed is only that
+                                    // WHICH controls sit here is now a preference
+                                    // instead of an argument about a Row.
+                                    //
+                                    // The capacity that PlayerControlsLayout
+                                    // enforces is this bar's: the group is wrapped
+                                    // in a FittedBox, so an extra button does not
+                                    // wrap or scroll, it shrinks all of them.
+                                    ..._controlsFor(
+                                      PlayerControlSlot.topBar,
+                                      topBar: true,
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
-                        ),
-                        if (isDesktopPlatform)
-                          ValueListenableBuilder<bool>(
-                            valueListenable: DesktopWindow.immersive,
-                            builder: (_, imm, _) => imm
-                                ? const WindowButtons()
-                                : const SizedBox.shrink(),
-                          ),
-                      ],
+                          if (isDesktopPlatform)
+                            ValueListenableBuilder<bool>(
+                              valueListenable: DesktopWindow.immersive,
+                              builder: (_, imm, _) => imm
+                                  ? const WindowButtons()
+                                  : const SizedBox.shrink(),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            if (initialized && !isDesktopPlatform) _buildCenterPlayCluster(c),
-            if (initialized)
-              _buildBottomBar(c, hasEpisodes, hasServers, hasQualities),
-          ],
+              if (initialized && !isDesktopPlatform) _buildCenterPlayCluster(c),
+              if (initialized)
+                _buildBottomBar(c, hasEpisodes, hasServers, hasQualities),
+            ],
+          ),
         ),
       ),
     );
