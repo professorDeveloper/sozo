@@ -751,7 +751,11 @@
     "library_update": "Li beşên nû kontrol bike",
     "library_update_desc": "Li sernavên ku tu dişopînî dinêre û dema yekî nû derkeve te agahdar dike",
     "library_update_every": "Her {} saetan",
-    "library_update_daily": "Rojê carekê"
+    "library_update_daily": "Rojê carekê",
+    "contributors": "Beşdar",
+    "contributors_error": "Beşdar nehatin barkirin",
+    "become_contributor": "Bibe beşdar",
+    "become_contributor_body": "Sozo çavkaniya vekirî ye. Kod, werger û raporên çewtiyan hemû alîkar in."
   },
   "appearance": {
     "title": "Xuyang",
@@ -3027,5 +3031,13 @@
     "error_attachment_size": "Divê her wêne herî zêde 5 MB be.",
     "error_attachment_count": "Di peyamekê de herî zêde 5 dîmenên ekranê.",
     "suggest": "Dubare dibe? Ji piştgiriyê re binivîse"
+  },
+  "star": {
+    "title": "Tu dixwazî alîkariya mezinbûna Sozo bikî?",
+    "body": "Li GitHubê stêrkekê bidê ⭐",
+    "action": "Li GitHubê stêrk bide",
+    "later": "Paşê",
+    "never": "Careke din nepirse",
+    "update_button": "Li GitHubê stêrkekê bide Sozo"
   }
 }

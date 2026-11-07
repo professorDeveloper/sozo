@@ -751,7 +751,11 @@
     "library_update": "檢查新集數",
     "library_update_desc": "檢查你追緊嘅作品，有新集就通知你",
     "library_update_every": "每 {} 小時",
-    "library_update_daily": "每日一次"
+    "library_update_daily": "每日一次",
+    "contributors": "貢獻者",
+    "contributors_error": "載入唔到貢獻者",
+    "become_contributor": "成為貢獻者",
+    "become_contributor_body": "Sozo 係開源項目。寫 code、翻譯、報 bug 都幫到手。"
   },
   "appearance": {
     "title": "外觀",
@@ -3027,5 +3031,13 @@
     "error_attachment_size": "每張圖唔可以大過 5 MB。",
     "error_attachment_count": "每條訊息最多 5 張截圖。",
     "suggest": "成日都係咁？搵支援"
+  },
+  "star": {
+    "title": "想幫 Sozo 發展？",
+    "body": "喺 GitHub 畀粒星佢 ⭐",
+    "action": "喺 GitHub 畀星",
+    "later": "遲啲先",
+    "never": "唔使再問",
+    "update_button": "喺 GitHub 畀 Sozo 粒星"
   }
 }

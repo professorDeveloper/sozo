@@ -751,7 +751,11 @@
     "library_update": "Periksa episode baru",
     "library_update_desc": "Memeriksa judul yang kamu ikuti dan memberi tahu saat ada yang baru",
     "library_update_every": "Setiap {} jam",
-    "library_update_daily": "Sekali sehari"
+    "library_update_daily": "Sekali sehari",
+    "contributors": "Kontributor",
+    "contributors_error": "Gagal memuat kontributor",
+    "become_contributor": "Jadi kontributor",
+    "become_contributor_body": "Sozo bersifat open source. Kode, terjemahan, dan laporan bug semuanya membantu."
   },
   "appearance": {
     "title": "Tampilan",
@@ -3027,5 +3031,13 @@
     "error_attachment_size": "Setiap gambar maksimal 5 MB.",
     "error_attachment_count": "Maksimal 5 tangkapan layar per pesan.",
     "suggest": "Terus terjadi? Hubungi dukungan"
+  },
+  "star": {
+    "title": "Ingin membantu Sozo berkembang?",
+    "body": "Beri bintang di GitHub ⭐",
+    "action": "Beri bintang di GitHub",
+    "later": "Nanti",
+    "never": "Jangan tanya lagi",
+    "update_button": "Beri bintang Sozo di GitHub"
   }
 }

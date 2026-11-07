@@ -751,7 +751,11 @@
     "library_update": "Yeni bölümleri denetle",
     "library_update_desc": "Takip ettiğin yapımları denetler, yenisi çıkınca haber verir",
     "library_update_every": "{} saatte bir",
-    "library_update_daily": "Günde bir"
+    "library_update_daily": "Günde bir",
+    "contributors": "Katkıda bulunanlar",
+    "contributors_error": "Katkıda bulunanlar yüklenemedi",
+    "become_contributor": "Katkıda bulun",
+    "become_contributor_body": "Sozo açık kaynaklıdır. Kod, çeviri ve hata bildirimleri; hepsi yardımcı olur."
   },
   "appearance": {
     "title": "Görünüm",
@@ -3027,5 +3031,13 @@
     "error_attachment_size": "Her görsel en fazla 5 MB olmalı.",
     "error_attachment_count": "Mesaj başına en fazla 5 ekran görüntüsü.",
     "suggest": "Tekrarlıyor mu? Desteğe yaz"
+  },
+  "star": {
+    "title": "Sozo'nun büyümesine yardım etmek ister misin?",
+    "body": "GitHub'da yıldız ver ⭐",
+    "action": "GitHub'da yıldız ver",
+    "later": "Sonra",
+    "never": "Bir daha sorma",
+    "update_button": "Sozo'ya GitHub'da yıldız ver"
   }
 }

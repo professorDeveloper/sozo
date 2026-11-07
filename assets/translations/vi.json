@@ -751,7 +751,11 @@
     "library_update": "Kiểm tra tập mới",
     "library_update_desc": "Kiểm tra các phim bạn theo dõi và báo khi có tập mới",
     "library_update_every": "Mỗi {} giờ",
-    "library_update_daily": "Mỗi ngày một lần"
+    "library_update_daily": "Mỗi ngày một lần",
+    "contributors": "Người đóng góp",
+    "contributors_error": "Không tải được danh sách người đóng góp",
+    "become_contributor": "Trở thành người đóng góp",
+    "become_contributor_body": "Sozo là mã nguồn mở. Mã nguồn, bản dịch và báo lỗi đều giúp ích."
   },
   "appearance": {
     "title": "Giao diện",
@@ -3027,5 +3031,13 @@
     "error_attachment_size": "Mỗi ảnh tối đa 5 MB.",
     "error_attachment_count": "Tối đa 5 ảnh mỗi tin nhắn.",
     "suggest": "Vẫn tiếp diễn? Hãy viết cho bộ phận hỗ trợ"
+  },
+  "star": {
+    "title": "Bạn muốn giúp Sozo phát triển?",
+    "body": "Gắn sao trên GitHub ⭐",
+    "action": "Gắn sao trên GitHub",
+    "later": "Để sau",
+    "never": "Không hỏi lại",
+    "update_button": "Gắn sao cho Sozo trên GitHub"
   }
 }

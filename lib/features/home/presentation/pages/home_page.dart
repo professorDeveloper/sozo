@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/navigation/app_tab.dart';
+import 'package:soplay/core/widgets/star_prompt_banner.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/features/home/domain/catalogue_status.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
@@ -103,6 +105,7 @@ class _HomePageState extends State<HomePage> {
                 // Collapses to nothing while the backend is healthy, so the bar
                 // keeps its exact previous geometry in the normal case.
                 const BackendOutageBanner(),
+                const StarPromptBanner(tab: TabId.home),
               ],
             ),
           ),

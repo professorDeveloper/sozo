@@ -751,7 +751,11 @@
     "library_update": "Vérifier les nouveaux épisodes",
     "library_update_desc": "Vérifie les titres suivis et vous prévient à chaque nouveauté",
     "library_update_every": "Toutes les {} heures",
-    "library_update_daily": "Une fois par jour"
+    "library_update_daily": "Une fois par jour",
+    "contributors": "Contributeurs",
+    "contributors_error": "Impossible de charger les contributeurs",
+    "become_contributor": "Devenir contributeur",
+    "become_contributor_body": "Sozo est open source. Le code, les traductions et les signalements de bugs, tout aide."
   },
   "appearance": {
     "title": "Apparence",
@@ -3027,5 +3031,13 @@
     "error_attachment_size": "Chaque image doit faire 5 Mo maximum.",
     "error_attachment_count": "5 captures maximum par message.",
     "suggest": "Ça se reproduit ? Écris au support"
+  },
+  "star": {
+    "title": "Envie d'aider Sozo à grandir ?",
+    "body": "Mettez-lui une étoile sur GitHub ⭐",
+    "action": "Étoile sur GitHub",
+    "later": "Plus tard",
+    "never": "Ne plus demander",
+    "update_button": "Mettre une étoile à Sozo sur GitHub"
   }
 }

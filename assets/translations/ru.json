@@ -751,7 +751,11 @@
     "library_update": "Проверять новые серии",
     "library_update_desc": "Проверяет отслеживаемые тайтлы и сообщает о новых сериях",
     "library_update_every": "Каждые {} ч",
-    "library_update_daily": "Раз в день"
+    "library_update_daily": "Раз в день",
+    "contributors": "Участники",
+    "contributors_error": "Не удалось загрузить участников",
+    "become_contributor": "Стать участником",
+    "become_contributor_body": "Sozo — проект с открытым исходным кодом. Помогает всё: код, переводы и сообщения об ошибках."
   },
   "appearance": {
     "title": "Внешний вид",
@@ -3028,5 +3032,13 @@
     "error_attachment_size": "Каждое изображение — не больше 5 МБ.",
     "error_attachment_count": "Не больше 5 скриншотов в сообщении.",
     "suggest": "Повторяется? Напишите в поддержку"
+  },
+  "star": {
+    "title": "Хотите помочь Sozo расти?",
+    "body": "Поставьте звезду на GitHub ⭐",
+    "action": "Поставить звезду на GitHub",
+    "later": "Позже",
+    "never": "Больше не спрашивать",
+    "update_button": "Поставить Sozo звезду на GitHub"
   }
 }

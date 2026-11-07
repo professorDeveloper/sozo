@@ -751,7 +751,11 @@
     "library_update": "پشکنین بۆ ئەڵقە نوێکان",
     "library_update_desc": "سەیری ئەو ناونیشانانە دەکات کە بەدوایاندا دەچیت و کاتێک نوێیەک دەرچوو ئاگادارت دەکاتەوە",
     "library_update_every": "هەر {} کاتژمێر جارێک",
-    "library_update_daily": "ڕۆژی یەک جار"
+    "library_update_daily": "ڕۆژی یەک جار",
+    "contributors": "بەشداربووان",
+    "contributors_error": "نەتوانرا بەشداربووان باربکرێن",
+    "become_contributor": "ببە بە بەشداربوو",
+    "become_contributor_body": "Sozo سەرچاوە-کراوەیە. کۆد، وەرگێڕان و ڕاپۆرتی هەڵەکان هەموویان یارمەتیدەرن."
   },
   "appearance": {
     "title": "ڕووکار",
@@ -3027,5 +3031,13 @@
     "error_attachment_size": "هەر وێنەیەک دەبێت 5 MB یان کەمتر بێت.",
     "error_attachment_count": "لە هەر نامەیەکدا زۆرترین 5 وێنەی شاشە.",
     "suggest": "دووبارە دەبێتەوە؟ بۆ پشتگیری بنووسە"
+  },
+  "star": {
+    "title": "دەتەوێت یارمەتی گەشەکردنی Sozo بدەیت؟",
+    "body": "لە GitHub ئەستێرەیەکی پێ بدە ⭐",
+    "action": "ئەستێرە بدە لە GitHub",
+    "later": "دواتر",
+    "never": "جارێکی تر مەپرسە",
+    "update_button": "ئەستێرە بدە بە Sozo لە GitHub"
   }
 }

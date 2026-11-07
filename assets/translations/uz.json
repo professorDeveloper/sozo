@@ -751,7 +751,11 @@
     "library_update": "Yangi qismlarni tekshirish",
     "library_update_desc": "Kuzatayotgan titullaringizni tekshirib, yangi qism chiqsa xabar beradi",
     "library_update_every": "Har {} soatda",
-    "library_update_daily": "Kuniga bir marta"
+    "library_update_daily": "Kuniga bir marta",
+    "contributors": "Hissa qo'shganlar",
+    "contributors_error": "Hissa qo'shganlarni yuklab bo'lmadi",
+    "become_contributor": "Hissa qo'shing",
+    "become_contributor_body": "Sozo ochiq kodli loyiha. Kod, tarjima va xatolar haqida xabarlar — hammasi yordam beradi."
   },
   "appearance": {
     "title": "Ko'rinish",
@@ -3027,5 +3031,13 @@
     "error_attachment_size": "Har bir rasm 5 MB dan oshmasin.",
     "error_attachment_count": "Bitta xabarga ko‘pi bilan 5 ta skrinshot.",
     "suggest": "Takrorlanyaptimi? Support’ga yozing"
+  },
+  "star": {
+    "title": "Sozo rivojlanishiga yordam berishni xohlaysizmi?",
+    "body": "GitHub'da yulduzcha qo'ying ⭐",
+    "action": "GitHub'da yulduzcha qo'yish",
+    "later": "Keyinroq",
+    "never": "Boshqa so'ramang",
+    "update_button": "GitHub'da Sozo'ga yulduzcha qo'ying"
   }
 }
