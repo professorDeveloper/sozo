@@ -121,6 +121,7 @@ import 'package:soplay/features/banners/data/repositories/banners_repository_imp
 import 'package:soplay/features/banners/domain/repositories/banners_repository.dart';
 import 'package:soplay/features/banners/presentation/bloc/banners_bloc.dart';
 import 'package:soplay/features/comments/data/datasources/comments_data_source.dart';
+import 'package:soplay/features/comments/data/datasources/timed_reactions_data_source.dart';
 import 'package:soplay/features/comments/data/repositories/comments_repository_impl.dart';
 import 'package:soplay/features/comments/domain/repositories/comments_repository.dart';
 import 'package:soplay/features/comments/presentation/blocs/comments_bloc/comments_bloc.dart';
@@ -788,6 +789,9 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<CommentsDataSource>(
     CommentsDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<TimedReactionsDataSource>(
+    TimedReactionsDataSource(dio: getIt<Dio>()),
   );
   getIt.registerSingleton<ShortsRemoteDataSource>(
     ShortsRemoteDataSource(dio: getIt<Dio>()),

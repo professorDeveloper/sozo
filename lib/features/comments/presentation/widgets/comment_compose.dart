@@ -12,6 +12,7 @@ class CommentCompose extends StatefulWidget {
     this.editTarget,
     this.initialText = '',
     this.onCancel,
+    this.spoiler,
   });
 
   final Future<void> Function(String text) onSubmit;
@@ -21,6 +22,9 @@ class CommentCompose extends StatefulWidget {
   final String? editTarget;
   final String initialText;
   final VoidCallback? onCancel;
+
+  /// When set, a Spoiler toggle sits beside Send and drives this.
+  final ValueNotifier<bool>? spoiler;
 
   @override
   State<CommentCompose> createState() => _CommentComposeState();
@@ -167,6 +171,13 @@ class _CommentComposeState extends State<CommentCompose> {
                     ),
                   ),
                   const SizedBox(width: 4),
+                  if (widget.spoiler != null) ...[
+                    _SpoilerToggle(
+                      value: widget.spoiler!,
+                      enabled: widget.enabled && !widget.submitting,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                   Material(
                     color: widget.enabled && !widget.submitting
                         ? AppColors.primary
@@ -202,6 +213,63 @@ class _CommentComposeState extends State<CommentCompose> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SpoilerToggle extends StatelessWidget {
+  const _SpoilerToggle({required this.value, required this.enabled});
+
+  final ValueNotifier<bool> value;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: value,
+      builder: (context, on, _) {
+        final color = on ? AppColors.primary : AppColors.textHint;
+        return Semantics(
+          toggled: on,
+          button: true,
+          child: InkWell(
+            onTap: enabled ? () => value.value = !on : null,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              height: 28,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: on
+                    ? AppColors.primary.withValues(alpha: 0.15)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: color, width: 0.8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    on
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_outlined,
+                    size: 13,
+                    color: color,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'comments.spoiler'.tr(),
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

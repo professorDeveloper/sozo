@@ -577,7 +577,15 @@
     "reconnecting": "Aloqa uzildi — qayta ulanmoqda…",
     "all_servers_failed": "Bu kontentning birorta serveri ochilmadi. Keyinroq urinib ko‘ring yoki boshqa manbani tanlang.",
     "shortcut_pip": "Mini pleer (Shift: boshqa ilovalar ustida)",
-    "mini_popout_hint": "Mini pleer · boshqa ilovalar ustida suzishi uchun bosib turing"
+    "mini_popout_hint": "Mini pleer · boshqa ilovalar ustida suzishi uchun bosib turing",
+    "react": "Reaksiya",
+    "comments": "Izohlar",
+    "episode_comments": "{}-qism izohlari",
+    "reaction_text": "Reaksiya yozish",
+    "reaction_text_hint": "Qisqa yozing…",
+    "reaction_wait": "Qayta reaksiya bildirishdan oldin bir necha soniya kuting",
+    "reaction_limit": "Bu qism uchun reaksiyalar limiti tugadi",
+    "reaction_failed": "Reaksiyani yuborib bo'lmadi"
   },
   "profile": {
     "title": "Profil",
@@ -767,7 +775,11 @@
     "contributors": "Hissa qo'shganlar",
     "contributors_error": "Hissa qo'shganlarni yuklab bo'lmadi",
     "become_contributor": "Hissa qo'shing",
-    "become_contributor_body": "Sozo ochiq kodli loyiha. Kod, tarjima va xatolar haqida xabarlar — hammasi yordam beradi."
+    "become_contributor_body": "Sozo ochiq kodli loyiha. Kod, tarjima va xatolar haqida xabarlar — hammasi yordam beradi.",
+    "reactions_overlay": "Tomoshabinlar reaksiyalari",
+    "reactions_overlay_desc": "Boshqa tomoshabinlar reaksiyalarini yuborilgan lahzada va ular to'plangan joylarni vaqt chizig'ida ko'rsatish",
+    "hide_spoilers": "Ko'rmagan qismlarim uchun spoylerlarni yashirish",
+    "hide_spoilers_desc": "Tugatmagan qismingiz haqidagi izohlar siz bosmaguningizcha xira turadi"
   },
   "appearance": {
     "title": "Ko'rinish",
@@ -1565,7 +1577,10 @@
     "show_more": "Ko'proq ko'rsatish",
     "delete_confirm_title": "Bu izoh o'chirilsinmi?",
     "delete_confirm_body": "Bu amalni bekor qilib bo'lmaydi.",
-    "sign_in_prompt": "Izoh qoldirish uchun tizimga kiring"
+    "sign_in_prompt": "Izoh qoldirish uchun tizimga kiring",
+    "spoiler": "Spoyler",
+    "spoiler_hidden": "Spoyler · ochish uchun bosing",
+    "unwatched_hidden": "Hali ko'rilmagan · ochish uchun bosing"
   },
   "downloads": {
     "view_titles": "Nomlar",

@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/comments/domain/entities/comment_entity.dart';
+import 'package:soplay/features/comments/domain/entities/comment_list.dart';
+import 'package:soplay/features/comments/domain/repositories/episode_comments_repository.dart';
 import 'package:soplay/features/comments/domain/repositories/comments_repository.dart';
 
 part 'comments_event.dart';
@@ -14,6 +16,7 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
 
   String _provider = '';
   String _contentUrl = '';
+  String? _episodeKey;
 
   CommentsBloc({required this.repository, required this.hiveService})
       : super(const CommentsState.initial()) {
@@ -30,12 +33,14 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
 
   String? get currentUserId => hiveService.getUser()?.id;
   bool get isLoggedIn => hiveService.isLoggedIn;
+  String? get episodeKey => _episodeKey;
 
   Future<void> _onInit(CommentsInit event, Emitter<CommentsState> emit) async {
     _provider = event.provider;
     _contentUrl = event.contentUrl;
+    _episodeKey = event.episodeKey;
     emit(state.copyWith(loading: true, error: null, items: const []));
-    final result = await repository.getComments(
+    final result = await _getComments(
       provider: _provider,
       contentUrl: _contentUrl,
       page: 1,
@@ -63,7 +68,7 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
     Emitter<CommentsState> emit,
   ) async {
     emit(state.copyWith(refreshing: true, error: null));
-    final result = await repository.getComments(
+    final result = await _getComments(
       provider: _provider,
       contentUrl: _contentUrl,
       page: 1,
@@ -89,7 +94,7 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
   ) async {
     if (state.loadingMore || state.page >= state.totalPages) return;
     emit(state.copyWith(loadingMore: true));
-    final result = await repository.getComments(
+    final result = await _getComments(
       provider: _provider,
       contentUrl: _contentUrl,
       page: state.page + 1,
@@ -160,12 +165,7 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
       return;
     }
     emit(state.copyWith(submitting: true, error: null));
-    final result = await repository.create(
-      provider: _provider,
-      contentUrl: _contentUrl,
-      text: event.text,
-      parentId: event.parentId,
-    );
+    final result = await _create(event);
     switch (result) {
       case Success(:final value):
         if (event.parentId == null) {
@@ -216,7 +216,7 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
     // the panel knows an edit has LANDED, so it can stop holding on to the
     // text it would otherwise have to put back.
     emit(state.copyWith(submitting: true, error: null));
-    final result = await repository.edit(id: event.id, text: event.text);
+    final result = await _edit(event);
     switch (result) {
       case Success(:final value):
         emit(_replaceComment(state, value).copyWith(submitting: false));
@@ -258,6 +258,68 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
         // wrong count and the next tap toggles from a bad baseline.
         emit(before.copyWith(error: _msg(error)));
     }
+  }
+
+  /// The repository's episode and spoiler support, when it has any.
+  EpisodeCommentsRepository? get _scoped => switch (repository) {
+    final EpisodeCommentsRepository r => r,
+    _ => null,
+  };
+
+  Future<Result<CommentList>> _getComments({
+    required String provider,
+    required String contentUrl,
+    required int page,
+  }) {
+    final scoped = _scoped;
+    if (_episodeKey != null && scoped != null) {
+      return scoped.getScopedComments(
+        provider: provider,
+        contentUrl: contentUrl,
+        episodeKey: _episodeKey,
+        page: page,
+      );
+    }
+    return repository.getComments(
+      provider: provider,
+      contentUrl: contentUrl,
+      page: page,
+    );
+  }
+
+  Future<Result<CommentEntity>> _create(CommentsCreate event) {
+    final scoped = _scoped;
+    final needsScope =
+        _episodeKey != null || event.spoiler || event.atSec != null;
+    if (needsScope && scoped != null) {
+      return scoped.createScoped(
+        provider: _provider,
+        contentUrl: _contentUrl,
+        text: event.text,
+        parentId: event.parentId,
+        episodeKey: _episodeKey,
+        spoiler: event.spoiler,
+        atSec: event.atSec,
+      );
+    }
+    return repository.create(
+      provider: _provider,
+      contentUrl: _contentUrl,
+      text: event.text,
+      parentId: event.parentId,
+    );
+  }
+
+  Future<Result<CommentEntity>> _edit(CommentsEdit event) {
+    final scoped = _scoped;
+    if (event.spoiler != null && scoped != null) {
+      return scoped.editScoped(
+        id: event.id,
+        text: event.text,
+        spoiler: event.spoiler,
+      );
+    }
+    return repository.edit(id: event.id, text: event.text);
   }
 
   CommentsState _replaceComment(CommentsState s, CommentEntity replaced) {

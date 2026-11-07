@@ -577,7 +577,15 @@
     "reconnecting": "連線中斷 — 重新連線緊…",
     "all_servers_failed": "呢個節目冇一個伺服器播到。遲啲再試，或者揀第二個來源。",
     "shortcut_pip": "迷你播放器（Shift：喺其他 App 上面）",
-    "mini_popout_hint": "迷你播放器 · 長按令佢浮喺其他 App 上面"
+    "mini_popout_hint": "迷你播放器 · 長按令佢浮喺其他 App 上面",
+    "react": "反應",
+    "comments": "留言",
+    "episode_comments": "第 {} 集留言",
+    "reaction_text": "寫個反應",
+    "reaction_text_hint": "講句簡短嘅…",
+    "reaction_wait": "等幾秒先再反應",
+    "reaction_limit": "呢集嘅反應已經到上限",
+    "reaction_failed": "送唔到個反應"
   },
   "profile": {
     "title": "個人檔案",
@@ -767,7 +775,11 @@
     "contributors": "貢獻者",
     "contributors_error": "載入唔到貢獻者",
     "become_contributor": "成為貢獻者",
-    "become_contributor_body": "Sozo 係開源項目。寫 code、翻譯、報 bug 都幫到手。"
+    "become_contributor_body": "Sozo 係開源項目。寫 code、翻譯、報 bug 都幫到手。",
+    "reactions_overlay": "觀眾反應",
+    "reactions_overlay_desc": "喺觀眾送出反應嗰刻顯示，同埋喺進度條標出反應集中嘅位置",
+    "hide_spoilers": "隱藏未睇集數嘅劇透",
+    "hide_spoilers_desc": "未睇完嗰集嘅留言會保持模糊，撳一下先顯示"
   },
   "appearance": {
     "title": "外觀",
@@ -1565,7 +1577,10 @@
     "show_more": "顯示更多",
     "delete_confirm_title": "刪除呢則留言？",
     "delete_confirm_body": "呢個動作冇得還原。",
-    "sign_in_prompt": "登入嚟留言"
+    "sign_in_prompt": "登入嚟留言",
+    "spoiler": "劇透",
+    "spoiler_hidden": "劇透 · 撳一下顯示",
+    "unwatched_hidden": "未睇 · 撳一下顯示"
   },
   "downloads": {
     "view_titles": "作品",

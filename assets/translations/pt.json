@@ -577,7 +577,15 @@
     "reconnecting": "Conexão perdida — reconectando…",
     "all_servers_failed": "Nenhum servidor deste título conseguiu reproduzi-lo. Tente mais tarde ou escolha outra fonte.",
     "shortcut_pip": "Miniplayer (Shift: acima de outros apps)",
-    "mini_popout_hint": "Miniplayer · toque e segure para flutuar acima de outros apps"
+    "mini_popout_hint": "Miniplayer · toque e segure para flutuar acima de outros apps",
+    "react": "Reagir",
+    "comments": "Comentários",
+    "episode_comments": "Comentários do episódio {}",
+    "reaction_text": "Escrever uma reação",
+    "reaction_text_hint": "Diga algo curto…",
+    "reaction_wait": "Espere alguns segundos antes de reagir de novo",
+    "reaction_limit": "Você atingiu o limite de reações deste episódio",
+    "reaction_failed": "Não foi possível enviar a reação"
   },
   "profile": {
     "title": "Perfil",
@@ -767,7 +775,11 @@
     "contributors": "Colaboradores",
     "contributors_error": "Não foi possível carregar os colaboradores",
     "become_contributor": "Torne-se colaborador",
-    "become_contributor_body": "O Sozo é de código aberto. Código, traduções e relatos de bugs, tudo ajuda."
+    "become_contributor_body": "O Sozo é de código aberto. Código, traduções e relatos de bugs, tudo ajuda.",
+    "reactions_overlay": "Reações dos espectadores",
+    "reactions_overlay_desc": "Mostrar as reações de outros espectadores no momento em que foram enviadas e onde se concentram na barra de progresso",
+    "hide_spoilers": "Ocultar spoilers de episódios que não assisti",
+    "hide_spoilers_desc": "Comentários sobre um episódio que você não terminou ficam desfocados até você tocar neles"
   },
   "appearance": {
     "title": "Aparência",
@@ -1565,7 +1577,10 @@
     "show_more": "Ver mais",
     "delete_confirm_title": "Excluir este comentário?",
     "delete_confirm_body": "Esta ação não pode ser desfeita.",
-    "sign_in_prompt": "Entre para deixar um comentário"
+    "sign_in_prompt": "Entre para deixar um comentário",
+    "spoiler": "Spoiler",
+    "spoiler_hidden": "Spoiler · toque para ver",
+    "unwatched_hidden": "Ainda não assistido · toque para ver"
   },
   "downloads": {
     "view_titles": "Títulos",

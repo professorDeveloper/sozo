@@ -577,7 +577,15 @@
     "reconnecting": "Girêdan qut bû — ji nû ve tê girêdan…",
     "all_servers_failed": "Tu serverê vê sernavê nikarî wê bilîze. Paşê dîsa biceribîne an çavkaniyek din hilbijêre.",
     "shortcut_pip": "Lîstikvana biçûk (Shift: li ser sepanên din)",
-    "mini_popout_hint": "Lîstikvana biçûk · dirêj bitikîne da ku li ser sepanên din bisekine"
+    "mini_popout_hint": "Lîstikvana biçûk · dirêj bitikîne da ku li ser sepanên din bisekine",
+    "react": "Bertek",
+    "comments": "Şîrove",
+    "episode_comments": "Şîroveyên beşa {}",
+    "reaction_text": "Bertekek binivîse",
+    "reaction_text_hint": "Tiştekî kurt binivîse…",
+    "reaction_wait": "Berî ku dîsa bertek bidî çend saniyan bisekine",
+    "reaction_limit": "Te sînorê berteka vê beşê tije kir",
+    "reaction_failed": "Bertek nehat şandin"
   },
   "profile": {
     "title": "Profîl",
@@ -767,7 +775,11 @@
     "contributors": "Beşdar",
     "contributors_error": "Beşdar nehatin barkirin",
     "become_contributor": "Bibe beşdar",
-    "become_contributor_body": "Sozo çavkaniya vekirî ye. Kod, werger û raporên çewtiyan hemû alîkar in."
+    "become_contributor_body": "Sozo çavkaniya vekirî ye. Kod, werger û raporên çewtiyan hemû alîkar in.",
+    "reactions_overlay": "Bertekên temaşevanan",
+    "reactions_overlay_desc": "Bertekên temaşevanên din di wê kêliyê de ku hatine şandin nîşan bide, û cihê ku li ser darika demê kom dibin",
+    "hide_spoilers": "Spoilerên beşên ku min temaşe nekirine veşêre",
+    "hide_spoilers_desc": "Şîroveyên li ser beşeke ku te neqedandiye heta ku tu wan bitikînî şêlû dimînin"
   },
   "appearance": {
     "title": "Xuyang",
@@ -1565,7 +1577,10 @@
     "show_more": "Bêtir nîşan bide",
     "delete_confirm_title": "Vê şîroveyê jê bibî?",
     "delete_confirm_body": "Ev çalakî nayê vegerandin.",
-    "sign_in_prompt": "Ji bo şîroveyekê têkeve"
+    "sign_in_prompt": "Ji bo şîroveyekê têkeve",
+    "spoiler": "Spoiler",
+    "spoiler_hidden": "Spoiler · ji bo dîtinê bitikîne",
+    "unwatched_hidden": "Hîn nehatiye temaşekirin · ji bo dîtinê bitikîne"
   },
   "downloads": {
     "view_titles": "Sernav",

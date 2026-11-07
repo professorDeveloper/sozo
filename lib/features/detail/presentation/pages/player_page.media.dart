@@ -258,6 +258,7 @@ extension _PlayerMedia on _PlayerPageState {
     // The previous episode's opening/ending times do not apply to this one,
     // and leaving them would offer a skip at the wrong minute.
     _resetSkipTimes();
+    _resetEpisodeSocial();
     // A new episode is a new thing to finish. Without this, watching six in a
     // row would count as one.
     _countedComplete = false;
@@ -1779,6 +1780,7 @@ extension _PlayerMedia on _PlayerPageState {
       // submissions timed against a different cut. Unawaited because a skip
       // offer is an extra — playback must never wait on a third-party lookup.
       unawaited(_loadSkipTimes());
+      unawaited(_loadEpisodeSocial());
       // After the provider's own tracks have been set, so it can see whether
       // one of them already reads in the viewer's language. Unawaited and
       // silent unless it finds something: playback must never wait on it.
@@ -2123,6 +2125,7 @@ extension _PlayerMedia on _PlayerPageState {
       }
 
       _updateActiveSkip(v.position);
+      _tickEpisodeSocial(v.position);
       _maybePrefetchNext(v.position, v.duration);
 
       final remaining = v.duration - v.position;
