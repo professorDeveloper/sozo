@@ -270,6 +270,13 @@ extension _PlayerTv on _PlayerPageState {
       return KeyEventResult.handled;
     }
 
+    // The loading screen's Stop, while the ladder walks on its own. The
+    // handler below would otherwise read OK as play/pause.
+    if (_isTvSelect(k) && _tvStopSwitchFocus.hasPrimaryFocus) {
+      unawaited(_stopAutoSwitch());
+      return KeyEventResult.handled;
+    }
+
     if (_locked) {
       // The lock affordance is not built on TV (see _buildControlsOverlay), so
       // this is only reachable if the state leaks in. Any key unlocks rather

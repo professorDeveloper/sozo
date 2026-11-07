@@ -455,6 +455,8 @@ extension _PlayerControls on _PlayerPageState {
           stage: _stage,
           title: _episodeTitle(),
           serverSwitch: _serverSwitch,
+          onStopSwitch: _stopAutoSwitch,
+          stopFocus: _tvStopSwitchFocus,
         ),
       );
     }

@@ -720,6 +720,7 @@ class _PlayerPageState extends State<PlayerPage>
     debugLabel: 'tvPlayerPanel',
   );
   final FocusNode _tvPlayFocus = FocusNode(debugLabel: 'tvPlayerPlay');
+  final FocusNode _tvStopSwitchFocus = FocusNode(debugLabel: 'tvStopSwitch');
   final FocusNode _tvSeekFocus = FocusNode(debugLabel: 'tvPlayerSeek');
 
   /// Debounce that turns a burst of left/right presses into a single seek.
@@ -921,6 +922,7 @@ class _PlayerPageState extends State<PlayerPage>
     _tvRootFocus.dispose();
     _tvPanelFocus.dispose();
     _tvPlayFocus.dispose();
+    _tvStopSwitchFocus.dispose();
     _tvSeekFocus.dispose();
     _tvPanelScroll?.dispose();
     _controlsAnimation.dispose();

@@ -29,7 +29,11 @@ class _Service implements AlternateSourceService {
     this.sources = const [],
     this.outcome = const AlternateSearchOutcome(asked: 2),
     this.results = const {},
+    this.resolve,
   });
+
+  /// What Auto gets for each source it tries. Null: none has the episode.
+  final Future<AlternateArgs> Function(AlternateSource source)? resolve;
 
   /// What the automatic fan-out "found", in the order it finds it.
   final List<AlternateSource> sources;
@@ -77,6 +81,16 @@ class _Service implements AlternateSourceService {
     SeasonEpisode? seasonEpisode,
     Duration resumeAt = Duration.zero,
   }) async => null;
+
+  @override
+  Future<AlternateArgs> resolveArgs({
+    required AlternateSource source,
+    required int? episodeNumber,
+    SeasonEpisode? seasonEpisode,
+    Duration resumeAt = Duration.zero,
+  }) =>
+      resolve?.call(source) ??
+      Future.value(const AlternateArgs.failed(AlternateArgsFailure.noEpisode));
 
   /// Anything else is a call these tests did not expect the sheet to make, and
   /// a thrown NoSuchMethodError names it.
@@ -518,6 +532,61 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('player.alt_no_answer'), findsOneWidget);
+    });
+  });
+
+  group('Auto', () {
+    final sources = [
+      _source('an:one', 'AniOne', _title),
+      _source('an:two', 'AniTwo', 'Return of the Blade'),
+    ];
+    final providers = [
+      _provider('an:one', 'AniOne'),
+      _provider('an:two', 'AniTwo'),
+    ];
+
+    testWidgets('lists what it moved past and offers to try again', (
+      tester,
+    ) async {
+      await pump(tester, _Service(sources: sources), candidates: providers);
+      await tester.tap(find.text('player.alt_auto'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('player.alt_auto_missed'), findsOneWidget);
+      expect(find.text('player.alt_auto_tried'), findsOneWidget);
+      expect(
+        find.text('AniOne — player.alt_skip_no_episode'),
+        findsOneWidget,
+      );
+      // The weak match is never tried, but the list still says why.
+      expect(find.text('AniTwo — player.alt_skip_no_match'), findsOneWidget);
+      expect(find.text('general.try_again'), findsOneWidget);
+    });
+
+    testWidgets('Stop ends the run while a source is still answering', (
+      tester,
+    ) async {
+      final pending = Completer<AlternateArgs>();
+      await pump(
+        tester,
+        _Service(sources: sources, resolve: (_) => pending.future),
+        candidates: providers,
+      );
+      await tester.tap(find.text('player.alt_auto'));
+      await tester.pump();
+      expect(find.text('player.alt_auto_checking'), findsOneWidget);
+
+      await tester.tap(find.text('player.alt_auto_stop'));
+      await tester.pumpAndSettle();
+      expect(find.text('player.alt_auto_stopped'), findsOneWidget);
+      expect(find.text('general.try_again'), findsOneWidget);
+
+      // The answer that arrives afterwards does not close the sheet.
+      pending.complete(
+        const AlternateArgs.failed(AlternateArgsFailure.unreachable),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('player.alt_auto_stopped'), findsOneWidget);
     });
   });
 
