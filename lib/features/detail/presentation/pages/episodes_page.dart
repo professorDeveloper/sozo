@@ -116,8 +116,11 @@ class _EpisodesPageState extends State<EpisodesPage> {
       return;
     }
     if (!getIt.isRegistered<CommentsRepository>()) return;
-    final repo = getIt<CommentsRepository>();
-    if (repo is! EpisodeCommentsRepository) return;
+    final repo = switch (getIt<CommentsRepository>()) {
+      final EpisodeCommentsRepository r => r,
+      _ => null,
+    };
+    if (repo == null) return;
     final result = await repo.episodeCounts(
       provider: widget.args.provider,
       contentUrl: widget.args.contentUrl,

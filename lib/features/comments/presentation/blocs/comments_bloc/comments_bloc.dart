@@ -260,14 +260,20 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
     }
   }
 
+  /// The repository's episode and spoiler support, when it has any.
+  EpisodeCommentsRepository? get _scoped => switch (repository) {
+    final EpisodeCommentsRepository r => r,
+    _ => null,
+  };
+
   Future<Result<CommentList>> _getComments({
     required String provider,
     required String contentUrl,
     required int page,
   }) {
-    final repo = repository;
-    if (_episodeKey != null && repo is EpisodeCommentsRepository) {
-      return repo.getScopedComments(
+    final scoped = _scoped;
+    if (_episodeKey != null && scoped != null) {
+      return scoped.getScopedComments(
         provider: provider,
         contentUrl: contentUrl,
         episodeKey: _episodeKey,
@@ -282,11 +288,11 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
   }
 
   Future<Result<CommentEntity>> _create(CommentsCreate event) {
-    final repo = repository;
-    final scoped =
+    final scoped = _scoped;
+    final needsScope =
         _episodeKey != null || event.spoiler || event.atSec != null;
-    if (scoped && repo is EpisodeCommentsRepository) {
-      return repo.createScoped(
+    if (needsScope && scoped != null) {
+      return scoped.createScoped(
         provider: _provider,
         contentUrl: _contentUrl,
         text: event.text,
@@ -305,9 +311,9 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
   }
 
   Future<Result<CommentEntity>> _edit(CommentsEdit event) {
-    final repo = repository;
-    if (event.spoiler != null && repo is EpisodeCommentsRepository) {
-      return repo.editScoped(
+    final scoped = _scoped;
+    if (event.spoiler != null && scoped != null) {
+      return scoped.editScoped(
         id: event.id,
         text: event.text,
         spoiler: event.spoiler,
