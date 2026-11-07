@@ -3027,5 +3027,27 @@
     "error_attachment_size": "每張圖唔可以大過 5 MB。",
     "error_attachment_count": "每條訊息最多 5 張截圖。",
     "suggest": "成日都係咁？搵支援"
+  },
+  "zangetsu": {
+    "title": "Zangetsu 來源",
+    "row_subtitle": "嚟自外部 repo 嘅 JavaScript 來源，喺你部機度運行",
+    "desc": "加一個 Zangetsu repo 嚟安裝更多動畫同電影來源。佢哋喺你部機度運行。Sozo 本身已經有嘅來源會標示為「內置」，繼續用 Sozo 自己嘅版本。",
+    "loading_repo": "載入緊 repo…",
+    "repo_added": "已加入 repo · {} 個來源。",
+    "checking": "檢查緊 repo 有冇更新…",
+    "updates_available": "有 {} 個更新。",
+    "installed_one": "已安裝 {}。",
+    "removed_one": "已移除 {}。",
+    "updated": "已更新 {} 個來源。",
+    "update_all": "全部更新（{}）",
+    "update_to": "更新到 v{}",
+    "built_in": "內置",
+    "search": "搜尋來源…",
+    "all_types": "全部",
+    "type_movies": "電影",
+    "all_languages": "所有語言",
+    "error_invalid_url": "只可以加 raw.githubusercontent.com 或者 gist.githubusercontent.com 上面嘅 https 連結。",
+    "error_unreachable": "連唔到呢個 repo。請檢查連結同網絡連線。",
+    "error_invalid_index": "呢個連結唔係指向有效嘅 Zangetsu index.json。"
   }
 }

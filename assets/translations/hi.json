@@ -3027,5 +3027,27 @@
     "error_attachment_size": "हर इमेज 5 MB या उससे छोटी होनी चाहिए।",
     "error_attachment_count": "एक मैसेज में ज़्यादा से ज़्यादा 5 स्क्रीनशॉट।",
     "suggest": "बार-बार हो रहा है? सपोर्ट को लिखें"
+  },
+  "zangetsu": {
+    "title": "Zangetsu स्रोत",
+    "row_subtitle": "बाहरी रिपो से JavaScript स्रोत, आपके डिवाइस पर चलते हैं",
+    "desc": "अतिरिक्त ऐनिमे और फ़िल्म स्रोत इंस्टॉल करने के लिए Zangetsu रिपो जोड़ें। ये आपके डिवाइस पर चलते हैं। जो स्रोत Sozo में पहले से हैं, उन्हें «बिल्ट-इन» दिखाया जाता है और उनका Sozo वाला संस्करण ही इस्तेमाल होता है।",
+    "loading_repo": "रिपो लोड हो रहा है…",
+    "repo_added": "रिपो जोड़ा गया · {} स्रोत।",
+    "checking": "रिपो के अपडेट जाँचे जा रहे हैं…",
+    "updates_available": "{} अपडेट उपलब्ध हैं।",
+    "installed_one": "{} इंस्टॉल हुआ।",
+    "removed_one": "{} हटाया गया।",
+    "updated": "{} स्रोत अपडेट हुए।",
+    "update_all": "सभी अपडेट करें ({})",
+    "update_to": "v{} पर अपडेट करें",
+    "built_in": "बिल्ट-इन",
+    "search": "स्रोत खोजें…",
+    "all_types": "सभी",
+    "type_movies": "फ़िल्में",
+    "all_languages": "सभी भाषाएँ",
+    "error_invalid_url": "केवल raw.githubusercontent.com या gist.githubusercontent.com के https लिंक जोड़े जा सकते हैं।",
+    "error_unreachable": "इस रिपो तक नहीं पहुँच सके। लिंक और अपना कनेक्शन जाँचें।",
+    "error_invalid_index": "यह लिंक किसी मान्य Zangetsu index.json की ओर नहीं ले जाता।"
   }
 }

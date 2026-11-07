@@ -135,6 +135,7 @@ import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/features/jellyfin/data/jellyfin_reporter.dart';
 import 'package:soplay/features/jellyfin/data/jellyfin_server_store.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
+import 'package:soplay/features/extensions/data/zangetsu_repo_store.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
 import 'package:soplay/features/sources/data/source_check_store.dart';
 import 'package:soplay/features/sources/domain/source_check_service.dart';
@@ -531,7 +532,13 @@ Future<void> configureDependencies() async {
     ProviderDataSource(dio: getIt<Dio>()),
   );
   getIt.registerSingleton<ProviderRegistry>(
-    ProviderRegistry(source: getIt<ProviderDataSource>()),
+    ProviderRegistry(
+      source: getIt<ProviderDataSource>(),
+      external: (id) => getIt<ZangetsuRepoStore>().providerById(
+        id,
+        allowAdult: getIt<HiveService>().showAdultContent,
+      ),
+    ),
   );
   getIt.registerSingleton<ExtractorRemote>(ExtractorRemote(dio: getIt<Dio>()));
   getIt.registerSingleton<ExtractorCache>(ExtractorCache());
@@ -598,6 +605,9 @@ Future<void> configureDependencies() async {
   // exist here (iOS/macOS/Windows extension support).
   getIt.registerLazySingleton<MangayomiRepoStore>(
     () => MangayomiRepoStore(dio: getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<ZangetsuRepoStore>(
+    () => ZangetsuRepoStore(dio: getIt<Dio>(), cache: getIt<ExtractorCache>()),
   );
   getIt.registerLazySingleton<MangayomiRuntime>(
     () => MangayomiRuntime(

@@ -3027,5 +3027,27 @@
     "error_attachment_size": "هەر وێنەیەک دەبێت 5 MB یان کەمتر بێت.",
     "error_attachment_count": "لە هەر نامەیەکدا زۆرترین 5 وێنەی شاشە.",
     "suggest": "دووبارە دەبێتەوە؟ بۆ پشتگیری بنووسە"
+  },
+  "zangetsu": {
+    "title": "سەرچاوەکانی Zangetsu",
+    "row_subtitle": "سەرچاوەی JavaScript لە ڕیپۆی دەرەکییەوە، لەسەر ئامێرەکەت کار دەکەن",
+    "desc": "ڕیپۆیەکی Zangetsu زیاد بکە بۆ دامەزراندنی سەرچاوەی زیاتری ئەنیمێ و فیلم. لەسەر ئامێرەکەت کار دەکەن. ئەو سەرچاوانەی Sozo پێشتر هەیەتی بە «ناوخۆیی» نیشان دەکرێن و وەشانی خودی Sozo بەکاردێت.",
+    "loading_repo": "ڕیپۆ بار دەکرێت…",
+    "repo_added": "ڕیپۆ زیاد کرا · {} سەرچاوە.",
+    "checking": "پشکنینی نوێکردنەوەی ڕیپۆکان…",
+    "updates_available": "{} نوێکردنەوە بەردەستە.",
+    "installed_one": "{} دامەزرا.",
+    "removed_one": "{} لابرا.",
+    "updated": "{} سەرچاوە نوێکرانەوە.",
+    "update_all": "هەمووی نوێ بکەرەوە ({})",
+    "update_to": "نوێکردنەوە بۆ v{}",
+    "built_in": "ناوخۆیی",
+    "search": "گەڕان لە سەرچاوەکان…",
+    "all_types": "هەموو",
+    "type_movies": "فیلمەکان",
+    "all_languages": "هەموو زمانەکان",
+    "error_invalid_url": "تەنها بەستەری https لەسەر raw.githubusercontent.com یان gist.githubusercontent.com زیاد دەکرێت.",
+    "error_unreachable": "نەتوانرا بگەیتە ئەم ڕیپۆیە. بەستەرەکە و پەیوەندییەکەت بپشکنە.",
+    "error_invalid_index": "ئەم بەستەرە ئاماژە بە index.json ـێکی دروستی Zangetsu ناکات."
   }
 }

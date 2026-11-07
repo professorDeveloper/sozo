@@ -62,6 +62,8 @@ Future<int> installCatalogSource(
     case ExtensionRepoKind.mangayomi:
       result = await store.addRepo(url);
       countKey = 'total';
+    case ExtensionRepoKind.zangetsu:
+      throw UnsupportedError('Zangetsu sources install from their own page');
   }
   if (result['error'] case final String error when error.isNotEmpty) {
     throw StateError(error);

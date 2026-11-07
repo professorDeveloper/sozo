@@ -3027,5 +3027,27 @@
     "error_attachment_size": "Har bir rasm 5 MB dan oshmasin.",
     "error_attachment_count": "Bitta xabarga ko‘pi bilan 5 ta skrinshot.",
     "suggest": "Takrorlanyaptimi? Support’ga yozing"
+  },
+  "zangetsu": {
+    "title": "Zangetsu manbalari",
+    "row_subtitle": "Tashqi repolardagi JavaScript manbalar, qurilmangizda ishlaydi",
+    "desc": "Qo'shimcha anime va film manbalarini o'rnatish uchun Zangetsu reposini qo'shing. Ular qurilmangizda ishlaydi. Sozo'da allaqachon bor manbalar \"Ichki\" deb belgilanadi va Sozo'ning o'z versiyasi ishlatiladi.",
+    "loading_repo": "Repo yuklanmoqda…",
+    "repo_added": "Repo qo'shildi · {} ta manba.",
+    "checking": "Repolar yangilanishga tekshirilmoqda…",
+    "updates_available": "{} ta yangilanish mavjud.",
+    "installed_one": "{} o'rnatildi.",
+    "removed_one": "{} o'chirildi.",
+    "updated": "{} ta manba yangilandi.",
+    "update_all": "Hammasini yangilash ({})",
+    "update_to": "v{} ga yangilash",
+    "built_in": "Ichki",
+    "search": "Manbalarni qidirish…",
+    "all_types": "Hammasi",
+    "type_movies": "Filmlar",
+    "all_languages": "Barcha tillar",
+    "error_invalid_url": "Faqat raw.githubusercontent.com yoki gist.githubusercontent.com dagi https havolalarni qo'shish mumkin.",
+    "error_unreachable": "Repoga ulanib bo'lmadi. Havolani va internet aloqasini tekshiring.",
+    "error_invalid_index": "Bu havola to'g'ri Zangetsu index.json fayliga olib bormaydi."
   }
 }

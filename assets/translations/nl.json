@@ -3027,5 +3027,27 @@
     "error_attachment_size": "Elke afbeelding mag maximaal 5 MB zijn.",
     "error_attachment_count": "Maximaal 5 screenshots per bericht.",
     "suggest": "Blijft het gebeuren? Schrijf support"
+  },
+  "zangetsu": {
+    "title": "Zangetsu-bronnen",
+    "row_subtitle": "JavaScript-bronnen uit externe repo's, draaien op je apparaat",
+    "desc": "Voeg een Zangetsu-repo toe om extra anime- en filmbronnen te installeren. Ze draaien op je apparaat. Bronnen die Sozo al meelevert, zijn gemarkeerd als ‘Ingebouwd’ en blijven Sozo's eigen versie gebruiken.",
+    "loading_repo": "Repo laden…",
+    "repo_added": "Repo toegevoegd · {} bronnen.",
+    "checking": "Repo's controleren op updates…",
+    "updates_available": "{} update(s) beschikbaar.",
+    "installed_one": "{} geïnstalleerd.",
+    "removed_one": "{} verwijderd.",
+    "updated": "{} bron(nen) bijgewerkt.",
+    "update_all": "Alles bijwerken ({})",
+    "update_to": "Bijwerken naar v{}",
+    "built_in": "Ingebouwd",
+    "search": "Bronnen zoeken…",
+    "all_types": "Alles",
+    "type_movies": "Films",
+    "all_languages": "Alle talen",
+    "error_invalid_url": "Alleen https-links op raw.githubusercontent.com of gist.githubusercontent.com kunnen worden toegevoegd.",
+    "error_unreachable": "Deze repo is niet bereikbaar. Controleer de link en je verbinding.",
+    "error_invalid_index": "Deze link verwijst niet naar een geldige Zangetsu-index.json."
   }
 }

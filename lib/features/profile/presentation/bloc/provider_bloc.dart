@@ -7,8 +7,10 @@ import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:soplay/features/extensions/data/zangetsu_repo_store.dart';
 import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/core/extractor/provider_manager.dart';
+import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/profile/data/models/provider_model.dart';
@@ -90,7 +92,11 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
             Success(
               ProvidersSnapshot(
                 providers: previous.providers
-                    .where((p) => !p.isServerIndependent)
+                    .where(
+                      (p) =>
+                          !p.isServerIndependent &&
+                          !ZangetsuRepoStore.isExternalId(p.id),
+                    )
                     .toList(),
                 fromCache: previous.offline,
                 cachedAt: previous.cachedAt,
@@ -134,6 +140,13 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
       ..addAll(localManga)
       ..addAll(localMangayomi)
       ..addAll(localJellyfin);
+    final withZangetsu = ZangetsuRepoStore.merge(
+      providers,
+      _zangetsuProviders(),
+    );
+    providers
+      ..clear()
+      ..addAll(withZangetsu);
 
     if (providers.isEmpty) {
       if (previous is! ProviderLoaded) {
@@ -351,6 +364,20 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         );
       }
     } catch (_) {}
+  }
+
+  /// Sources installed from external Zangetsu repos. They run in the same
+  /// WebView runtime as Sozo's own device extractors, whose bundles the backend
+  /// composes, so they are not server-independent.
+  List<ProviderEntity> _zangetsuProviders() {
+    if (!JsRuntimeService.isSupported) return const [];
+    try {
+      return getIt<ZangetsuRepoStore>().providers(
+        allowAdult: hiveService.showAdultContent,
+      );
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// Signed-in Jellyfin servers, one source each. Read from the local store,

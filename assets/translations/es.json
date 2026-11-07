@@ -3027,5 +3027,27 @@
     "error_attachment_size": "Cada imagen debe pesar 5 MB o menos.",
     "error_attachment_count": "Como máximo 5 capturas por mensaje.",
     "suggest": "¿Sigue pasando? Escribe a soporte"
+  },
+  "zangetsu": {
+    "title": "Fuentes de Zangetsu",
+    "row_subtitle": "Fuentes JavaScript de repos externos, se ejecutan en tu dispositivo",
+    "desc": "Añade un repo de Zangetsu para instalar más fuentes de anime y películas. Se ejecutan en tu dispositivo. Las fuentes que Sozo ya incluye aparecen como «Integrada» y siguen usando la versión propia de Sozo.",
+    "loading_repo": "Cargando repo…",
+    "repo_added": "Repo añadido · {} fuentes.",
+    "checking": "Buscando actualizaciones de los repos…",
+    "updates_available": "{} actualización(es) disponible(s).",
+    "installed_one": "{} instalada.",
+    "removed_one": "{} eliminada.",
+    "updated": "{} fuente(s) actualizada(s).",
+    "update_all": "Actualizar todo ({})",
+    "update_to": "Actualizar a v{}",
+    "built_in": "Integrada",
+    "search": "Buscar fuentes…",
+    "all_types": "Todo",
+    "type_movies": "Películas",
+    "all_languages": "Todos los idiomas",
+    "error_invalid_url": "Solo se pueden añadir enlaces https de raw.githubusercontent.com o gist.githubusercontent.com.",
+    "error_unreachable": "No se pudo acceder a este repo. Revisa el enlace y tu conexión.",
+    "error_invalid_index": "Este enlace no apunta a un index.json de Zangetsu válido."
   }
 }

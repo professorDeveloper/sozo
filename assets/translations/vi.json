@@ -3027,5 +3027,27 @@
     "error_attachment_size": "Mỗi ảnh tối đa 5 MB.",
     "error_attachment_count": "Tối đa 5 ảnh mỗi tin nhắn.",
     "suggest": "Vẫn tiếp diễn? Hãy viết cho bộ phận hỗ trợ"
+  },
+  "zangetsu": {
+    "title": "Nguồn Zangetsu",
+    "row_subtitle": "Nguồn JavaScript từ kho bên ngoài, chạy trên thiết bị của bạn",
+    "desc": "Thêm một kho Zangetsu để cài thêm nguồn anime và phim. Chúng chạy trên thiết bị của bạn. Những nguồn Sozo đã có sẵn được đánh dấu «Tích hợp» và vẫn dùng phiên bản của chính Sozo.",
+    "loading_repo": "Đang tải kho…",
+    "repo_added": "Đã thêm kho · {} nguồn.",
+    "checking": "Đang kiểm tra cập nhật cho các kho…",
+    "updates_available": "Có {} bản cập nhật.",
+    "installed_one": "Đã cài {}.",
+    "removed_one": "Đã gỡ {}.",
+    "updated": "Đã cập nhật {} nguồn.",
+    "update_all": "Cập nhật tất cả ({})",
+    "update_to": "Cập nhật lên v{}",
+    "built_in": "Tích hợp",
+    "search": "Tìm nguồn…",
+    "all_types": "Tất cả",
+    "type_movies": "Phim",
+    "all_languages": "Mọi ngôn ngữ",
+    "error_invalid_url": "Chỉ có thể thêm liên kết https trên raw.githubusercontent.com hoặc gist.githubusercontent.com.",
+    "error_unreachable": "Không truy cập được kho này. Hãy kiểm tra liên kết và kết nối mạng.",
+    "error_invalid_index": "Liên kết này không trỏ tới một index.json Zangetsu hợp lệ."
   }
 }

@@ -6,7 +6,10 @@ class ProviderRegistry {
   List<ProviderModel>? _cache;
   Future<List<ProviderModel>>? _loading;
 
-  ProviderRegistry({required this.source});
+  ProviderRegistry({required this.source, this.external});
+
+  /// Providers installed on the device that the backend list does not carry.
+  final ProviderModel? Function(String id)? external;
 
   Future<ProviderModel?> getById(String id) async {
     if (id.isEmpty) return null;
@@ -14,7 +17,7 @@ class ProviderRegistry {
     for (final p in list) {
       if (p.id == id) return p;
     }
-    return null;
+    return external?.call(id);
   }
 
   Future<void> preload() async {

@@ -3027,5 +3027,27 @@
     "error_attachment_size": "Divê her wêne herî zêde 5 MB be.",
     "error_attachment_count": "Di peyamekê de herî zêde 5 dîmenên ekranê.",
     "suggest": "Dubare dibe? Ji piştgiriyê re binivîse"
+  },
+  "zangetsu": {
+    "title": "Çavkaniyên Zangetsu",
+    "row_subtitle": "Çavkaniyên JavaScript ji repoyên derveyî, li ser cîhaza te dixebitin",
+    "desc": "Repoyeke Zangetsu lê zêde bike da ku çavkaniyên anime û fîlman ên zêdetir saz bikî. Ew li ser cîhaza te dixebitin. Çavkaniyên ku Sozo jixwe heye wekî «Navxweyî» têne nîşankirin û guhertoya Sozo bi xwe tê bikaranîn.",
+    "loading_repo": "Repo tê barkirin…",
+    "repo_added": "Repo hat zêdekirin · {} çavkanî.",
+    "checking": "Nûvekirinên repoyan têne kontrolkirin…",
+    "updates_available": "{} nûvekirin hene.",
+    "installed_one": "{} hat sazkirin.",
+    "removed_one": "{} hat rakirin.",
+    "updated": "{} çavkanî hatin nûvekirin.",
+    "update_all": "Hemûyan nû bike ({})",
+    "update_to": "Nû bike bo v{}",
+    "built_in": "Navxweyî",
+    "search": "Li çavkaniyan bigere…",
+    "all_types": "Hemû",
+    "type_movies": "Fîlm",
+    "all_languages": "Hemû ziman",
+    "error_invalid_url": "Tenê girêdanên https li ser raw.githubusercontent.com an gist.githubusercontent.com dikarin werin zêdekirin.",
+    "error_unreachable": "Negihîşt vê repoyê. Girêdan û pêwendiya xwe kontrol bike.",
+    "error_invalid_index": "Ev girêdan ne index.json-eke derbasdar a Zangetsu ye."
   }
 }

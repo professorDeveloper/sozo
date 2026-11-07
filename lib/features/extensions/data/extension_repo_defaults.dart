@@ -26,6 +26,17 @@ class ExtensionRepoDefaults {
   const ExtensionRepoDefaults._();
 
   static const List<ExtensionRepoEntity> all = [
+    // --- Zangetsu ---------------------------------------------------------
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.zangetsu,
+      name: 'Zangetsu Sources',
+      description: 'Anime, movies and live TV · 90 sources',
+      url:
+          'https://raw.githubusercontent.com/Spyhell/zangetsu-experiment-repo/main/index.json',
+      badge: '90',
+      order: 0,
+    ),
+
     // --- CloudStream ------------------------------------------------------
     // CloudStream's own, and the only entry marked `verified` in the project's
     // repo database (recloudstream/cs-repos). Small — five providers — but

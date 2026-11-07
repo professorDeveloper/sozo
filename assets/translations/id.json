@@ -3027,5 +3027,27 @@
     "error_attachment_size": "Setiap gambar maksimal 5 MB.",
     "error_attachment_count": "Maksimal 5 tangkapan layar per pesan.",
     "suggest": "Terus terjadi? Hubungi dukungan"
+  },
+  "zangetsu": {
+    "title": "Sumber Zangetsu",
+    "row_subtitle": "Sumber JavaScript dari repo eksternal, berjalan di perangkatmu",
+    "desc": "Tambahkan repo Zangetsu untuk memasang sumber anime dan film tambahan. Sumber ini berjalan di perangkatmu. Sumber yang sudah ada di Sozo ditandai «Bawaan» dan tetap memakai versi Sozo sendiri.",
+    "loading_repo": "Memuat repo…",
+    "repo_added": "Repo ditambahkan · {} sumber.",
+    "checking": "Memeriksa pembaruan repo…",
+    "updates_available": "{} pembaruan tersedia.",
+    "installed_one": "{} terpasang.",
+    "removed_one": "{} dihapus.",
+    "updated": "{} sumber diperbarui.",
+    "update_all": "Perbarui semua ({})",
+    "update_to": "Perbarui ke v{}",
+    "built_in": "Bawaan",
+    "search": "Cari sumber…",
+    "all_types": "Semua",
+    "type_movies": "Film",
+    "all_languages": "Semua bahasa",
+    "error_invalid_url": "Hanya tautan https di raw.githubusercontent.com atau gist.githubusercontent.com yang bisa ditambahkan.",
+    "error_unreachable": "Repo ini tidak dapat dijangkau. Periksa tautan dan koneksimu.",
+    "error_invalid_index": "Tautan ini tidak mengarah ke index.json Zangetsu yang valid."
   }
 }

@@ -3027,5 +3027,27 @@
     "error_attachment_size": "Chaque image doit faire 5 Mo maximum.",
     "error_attachment_count": "5 captures maximum par message.",
     "suggest": "Ça se reproduit ? Écris au support"
+  },
+  "zangetsu": {
+    "title": "Sources Zangetsu",
+    "row_subtitle": "Sources JavaScript de dépôts externes, exécutées sur votre appareil",
+    "desc": "Ajoutez un dépôt Zangetsu pour installer d'autres sources d'anime et de films. Elles s'exécutent sur votre appareil. Les sources déjà fournies par Sozo sont marquées « Intégrée » et continuent d'utiliser la version de Sozo.",
+    "loading_repo": "Chargement du dépôt…",
+    "repo_added": "Dépôt ajouté · {} sources.",
+    "checking": "Recherche de mises à jour des dépôts…",
+    "updates_available": "{} mise(s) à jour disponible(s).",
+    "installed_one": "{} installée.",
+    "removed_one": "{} supprimée.",
+    "updated": "{} source(s) mise(s) à jour.",
+    "update_all": "Tout mettre à jour ({})",
+    "update_to": "Mettre à jour vers v{}",
+    "built_in": "Intégrée",
+    "search": "Rechercher des sources…",
+    "all_types": "Tout",
+    "type_movies": "Films",
+    "all_languages": "Toutes les langues",
+    "error_invalid_url": "Seuls les liens https vers raw.githubusercontent.com ou gist.githubusercontent.com peuvent être ajoutés.",
+    "error_unreachable": "Impossible de joindre ce dépôt. Vérifiez le lien et votre connexion.",
+    "error_invalid_index": "Ce lien ne mène pas à un index.json Zangetsu valide."
   }
 }

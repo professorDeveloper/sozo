@@ -3031,5 +3031,27 @@
     "error_attachment_size": "يجب ألا يتجاوز حجم كل صورة 5 ميغابايت.",
     "error_attachment_count": "5 لقطات شاشة كحد أقصى في الرسالة.",
     "suggest": "تتكرر المشكلة؟ راسل الدعم"
+  },
+  "zangetsu": {
+    "title": "مصادر Zangetsu",
+    "row_subtitle": "مصادر JavaScript من مستودعات خارجية، تعمل على جهازك",
+    "desc": "أضف مستودع Zangetsu لتثبيت مصادر إضافية للأنمي والأفلام. تعمل على جهازك. المصادر الموجودة في Sozo بالفعل تظهر بعلامة «مدمج» ويُستخدم إصدار Sozo الخاص بها.",
+    "loading_repo": "جارٍ تحميل المستودع…",
+    "repo_added": "تمت إضافة المستودع · {} مصدر.",
+    "checking": "جارٍ التحقق من تحديثات المستودعات…",
+    "updates_available": "{} تحديث متاح.",
+    "installed_one": "تم تثبيت {}.",
+    "removed_one": "تمت إزالة {}.",
+    "updated": "تم تحديث {} مصدر.",
+    "update_all": "تحديث الكل ({})",
+    "update_to": "التحديث إلى v{}",
+    "built_in": "مدمج",
+    "search": "ابحث في المصادر…",
+    "all_types": "الكل",
+    "type_movies": "أفلام",
+    "all_languages": "كل اللغات",
+    "error_invalid_url": "يمكن إضافة روابط https على raw.githubusercontent.com أو gist.githubusercontent.com فقط.",
+    "error_unreachable": "تعذّر الوصول إلى هذا المستودع. تحقّق من الرابط ومن اتصالك.",
+    "error_invalid_index": "هذا الرابط لا يشير إلى ملف index.json صالح لـ Zangetsu."
   }
 }

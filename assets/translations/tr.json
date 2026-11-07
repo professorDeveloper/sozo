@@ -3027,5 +3027,27 @@
     "error_attachment_size": "Her görsel en fazla 5 MB olmalı.",
     "error_attachment_count": "Mesaj başına en fazla 5 ekran görüntüsü.",
     "suggest": "Tekrarlıyor mu? Desteğe yaz"
+  },
+  "zangetsu": {
+    "title": "Zangetsu Kaynakları",
+    "row_subtitle": "Harici depolardan JavaScript kaynakları, cihazında çalışır",
+    "desc": "Ek anime ve film kaynakları yüklemek için bir Zangetsu deposu ekle. Bunlar cihazında çalışır. Sozo'da zaten olan kaynaklar «Yerleşik» olarak işaretlenir ve Sozo'nun kendi sürümü kullanılmaya devam eder.",
+    "loading_repo": "Depo yükleniyor…",
+    "repo_added": "Depo eklendi · {} kaynak.",
+    "checking": "Depolarda güncelleme aranıyor…",
+    "updates_available": "{} güncelleme mevcut.",
+    "installed_one": "{} yüklendi.",
+    "removed_one": "{} kaldırıldı.",
+    "updated": "{} kaynak güncellendi.",
+    "update_all": "Tümünü güncelle ({})",
+    "update_to": "v{} sürümüne güncelle",
+    "built_in": "Yerleşik",
+    "search": "Kaynak ara…",
+    "all_types": "Tümü",
+    "type_movies": "Filmler",
+    "all_languages": "Tüm diller",
+    "error_invalid_url": "Yalnızca raw.githubusercontent.com veya gist.githubusercontent.com üzerindeki https bağlantıları eklenebilir.",
+    "error_unreachable": "Bu depoya ulaşılamadı. Bağlantıyı ve internet bağlantını kontrol et.",
+    "error_invalid_index": "Bu bağlantı geçerli bir Zangetsu index.json dosyasına gitmiyor."
   }
 }

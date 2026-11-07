@@ -60,9 +60,14 @@ class ExtractorRemote {
     return (code: response.data ?? '', version: _versionHeader(response));
   }
 
-  Future<({String code, int version})> fetchExtractor(String name) async {
+  /// [path] overrides `/extractors/<name>` for an extractor the manifest does
+  /// not list, such as a source from an external Zangetsu repo.
+  Future<({String code, int version})> fetchExtractor(
+    String name, {
+    String? path,
+  }) async {
     final response = await dio.get<String>(
-      '/extractors/$name',
+      path ?? '/extractors/$name',
       options: Options(
         responseType: ResponseType.plain,
         extra: const {'skipAuthInterceptor': true},
