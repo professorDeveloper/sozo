@@ -27,7 +27,7 @@ void main() {
       ..load(ReactionTimeline([_b(10, [('🔥', 1)])]));
     expect(_play(s, 0, 9), isEmpty);
     expect(s.at(_s(10)).single.value, '🔥');
-    expect(s.at(_s(13)), hasLength(1));
+    expect(_play(s, 11, 13), hasLength(1));
     expect(s.at(_s(14)), isEmpty);
   });
 
