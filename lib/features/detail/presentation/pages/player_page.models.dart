@@ -26,12 +26,41 @@ enum _LoadingStage { resolving, loading }
 /// server, and that it is on its way — not a generic spinner that looks
 /// identical to the failure they were trying to escape.
 class ServerSwitch {
-  const ServerSwitch({required this.from, required this.to});
+  const ServerSwitch({
+    required this.from,
+    required this.to,
+    this.attempt,
+    this.maxAttempts,
+  });
+
+  /// One step of the automatic ladder after a failure, counted against
+  /// [RetryPolicy.maxLifetimeRetries] so the viewer can see the end coming.
+  factory ServerSwitch.automatic({
+    required String? from,
+    required String to,
+    required int attempt,
+  }) {
+    final shown = attempt < 1 ? 1 : attempt;
+    return ServerSwitch(
+      from: from,
+      to: to,
+      attempt: shown,
+      maxAttempts: shown > RetryPolicy.maxLifetimeRetries
+          ? shown
+          : RetryPolicy.maxLifetimeRetries,
+    );
+  }
 
   /// Null when nothing was playing yet, so the overlay shows a destination
   /// rather than a journey.
   final String? from;
   final String to;
+
+  /// Set only for an automatic switch, which the viewer can stop.
+  final int? attempt;
+  final int? maxAttempts;
+
+  bool get automatic => attempt != null;
 }
 
 /// `zoom` carries a scale factor (1.0-3.0), not a 0-1 level like the other
