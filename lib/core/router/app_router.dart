@@ -110,6 +110,7 @@ import '../../features/home/presentation/pages/home_view_all_page.dart';
 import '../../features/home/presentation/pages/genres_page.dart';
 import '../../features/search/domain/entities/genre_entity.dart';
 import 'package:soplay/features/achievements/presentation/pages/achievements_page.dart';
+import 'package:soplay/features/progress/presentation/pages/progress_page.dart';
 
 /// The arrival every "opening a thing" route shares.
 ///
@@ -443,6 +444,10 @@ class AppRouter {
         builder: (context, state) => const NotificationsPage(),
       ),
       GoRoute(path: '/streak', builder: (context, state) => const StreakPage()),
+      GoRoute(
+        path: '/progress',
+        builder: (context, state) => const ProgressPage(),
+      ),
       GoRoute(
         path: '/achievements',
         builder: (context, state) => const AchievementsPage(),

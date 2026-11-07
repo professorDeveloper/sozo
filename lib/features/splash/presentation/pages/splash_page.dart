@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -18,18 +19,15 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage> {
-  /// Where to go, decided while the animation is still finishing.
+  /// Where to go, decided while the animation plays.
   ///
-  /// The lock check reads a file and the onboarding check reads Hive. Starting
-  /// both when the letter lands rather than when the animation ends overlaps
-  /// them with the last 800ms, so the handover is a fade into a screen that is
-  /// already resolved instead of a fade into a wait.
-  Future<String>? _target;
-
-  void _onSettled() => _target ??= _resolveRoute();
+  /// Started with the splash: once it is known, the splash hurries to its
+  /// fade instead of playing the full three seconds over an app that is
+  /// already waiting.
+  late final Future<String> _target = _resolveRoute();
 
   Future<void> _onDone() async {
-    final target = await (_target ??= _resolveRoute());
+    final target = await _target;
     if (!mounted) return;
     context.go(target);
   }
@@ -58,12 +56,13 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   /// The cached list decides when there is one; otherwise the account is
-  /// asked, but only briefly — a slow network must not hold the splash.
+  /// asked, but only briefly — a slow network must not hold the splash, and
+  /// no network is not waited for at all.
   Future<bool> _profilesDue() async {
     final session = getIt<ProfileSession>();
     if (!getIt<HiveService>().isLoggedIn) return false;
     final refreshed = session.refresh();
-    if (session.profiles.isEmpty) {
+    if (session.profiles.isEmpty && !await _offline()) {
       await refreshed.timeout(
         const Duration(milliseconds: 1500),
         onTimeout: () => false,
@@ -72,11 +71,26 @@ class _SplashPageState extends State<SplashPage> {
     return session.shouldPick;
   }
 
+  Future<bool> _offline() async {
+    try {
+      final kinds = await Connectivity().checkConnectivity().timeout(
+        const Duration(milliseconds: 300),
+      );
+      return isOffline(kinds);
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SozoSplash(onSettled: _onSettled, onDone: _onDone);
+    return SozoSplash(onDone: _onDone, ready: _target);
   }
 }
+
+/// No connection of any kind. An empty answer is not taken as offline.
+bool isOffline(List<ConnectivityResult> kinds) =>
+    kinds.isNotEmpty && kinds.every((k) => k == ConnectivityResult.none);
 
 /// The setup a launch should open, or null for the app itself.
 ///

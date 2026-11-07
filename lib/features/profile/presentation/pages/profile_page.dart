@@ -50,6 +50,9 @@ import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/features/social/data/social_service.dart';
 import 'package:soplay/features/social/domain/social_models.dart';
 import 'package:soplay/features/achievements/presentation/widgets/achievements_entry_card.dart';
+import 'package:soplay/features/progress/data/progress_service.dart';
+import 'package:soplay/features/progress/domain/progress.dart';
+import 'package:soplay/features/progress/presentation/widgets/user_badge_line.dart';
 
 // Split into parts the way player_page.dart is: the page was 2721 lines
 // across nine sections, which is past the point where anyone can find

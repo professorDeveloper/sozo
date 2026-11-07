@@ -14,6 +14,7 @@ import 'package:soplay/core/player/color_profile.dart';
 import 'package:soplay/core/player/shader_presets.dart';
 import 'package:soplay/core/player/shader_store.dart';
 import 'package:soplay/features/detail/data/title_prefs_store.dart';
+import 'package:soplay/features/progress/data/watch_time_uploader.dart';
 import 'package:soplay/features/stats/data/watch_stats_store.dart';
 import 'package:soplay/core/network/external_dio.dart';
 import 'package:soplay/core/network/cf_bypass_service.dart';
@@ -70,6 +71,7 @@ import 'package:soplay/core/widgets/server_badge.dart';
 import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
+import 'package:soplay/core/system/star_prompt.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/glass/media_glass.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
@@ -132,6 +134,14 @@ import 'package:soplay/features/jellyfin/data/jellyfin_reporter.dart';
 import 'package:soplay/features/automation/data/auto_download_service.dart';
 import 'package:soplay/features/automation/data/automation_settings.dart';
 import 'package:soplay/features/automation/domain/prefetch_slot.dart';
+import 'package:soplay/features/comments/data/datasources/timed_reactions_data_source.dart';
+import 'package:soplay/features/comments/data/social_playback_prefs.dart';
+import 'package:soplay/features/comments/domain/episode_key.dart';
+import 'package:soplay/features/comments/domain/timed_reactions.dart';
+import 'package:soplay/features/comments/presentation/widgets/episode_comments_sheet.dart';
+import 'package:soplay/features/comments/presentation/widgets/reaction_heatmap.dart';
+import 'package:soplay/features/comments/presentation/widgets/reaction_lane.dart';
+import 'package:soplay/features/comments/presentation/widgets/reaction_picker.dart';
 
 part 'player_page.models.dart';
 part 'player_page.widgets.dart';
@@ -149,6 +159,7 @@ part 'player_page.party.dart';
 part 'player_page.tv.dart';
 part 'player_page.jellyfin.dart';
 part 'player_page.upnext.dart';
+part 'player_page.reactions.dart';
 
 /// Hard ceiling on auto-retries per episode — see [_PlayerPageState._lifetimeRetries].
 const int _kMaxLifetimeRetries = RetryPolicy.maxLifetimeRetries;
@@ -623,6 +634,8 @@ class _PlayerPageState extends State<PlayerPage>
   Timer? _historyTimer;
   late final AnimationController _controlsAnimation;
 
+  final _EpisodeSocial _social = _EpisodeSocial();
+
   late final AnimationController _seekRippleController;
   Timer? _seekRippleTimer;
   int _seekRippleDirection = 0;
@@ -720,6 +733,7 @@ class _PlayerPageState extends State<PlayerPage>
     debugLabel: 'tvPlayerPanel',
   );
   final FocusNode _tvPlayFocus = FocusNode(debugLabel: 'tvPlayerPlay');
+  final FocusNode _tvStopSwitchFocus = FocusNode(debugLabel: 'tvStopSwitch');
   final FocusNode _tvSeekFocus = FocusNode(debugLabel: 'tvPlayerSeek');
 
   /// Debounce that turns a burst of left/right presses into a single seek.
@@ -921,9 +935,11 @@ class _PlayerPageState extends State<PlayerPage>
     _tvRootFocus.dispose();
     _tvPanelFocus.dispose();
     _tvPlayFocus.dispose();
+    _tvStopSwitchFocus.dispose();
     _tvSeekFocus.dispose();
     _tvPanelScroll?.dispose();
     _controlsAnimation.dispose();
+    _social.dispose();
     _seekRippleController.dispose();
     _scrub.dispose();
     _seekBarDragging.dispose();
@@ -1055,6 +1071,7 @@ class _PlayerPageState extends State<PlayerPage>
                       children: [
                         _buildVideoLayer(),
                         _buildSubtitleOverlay(),
+                        if (!_locked) _buildReactionLane(),
                         if (!_locked) _buildSeekRipple(),
                         if (_locked)
                           _buildLockOverlay()
@@ -1079,6 +1096,7 @@ class _PlayerPageState extends State<PlayerPage>
                         if (!_locked) _buildPlayerInfoOverlay(),
                         if (!_locked) _buildSkipButton(),
                         if (!_locked) _buildUpNextPrompt(),
+                        if (!_locked) _buildEpisodeSocialRail(),
                         if (!_locked && _panel != _SidePanel.none)
                           _buildSidePanel(),
                         if (!_locked && _inParty) _buildPartyReactionsLayer(),

@@ -455,6 +455,8 @@ extension _PlayerControls on _PlayerPageState {
           stage: _stage,
           title: _episodeTitle(),
           serverSwitch: _serverSwitch,
+          onStopSwitch: _stopAutoSwitch,
+          stopFocus: _tvStopSwitchFocus,
         ),
       );
     }
@@ -1759,6 +1761,7 @@ extension _PlayerControls on _PlayerPageState {
           clipBehavior: Clip.none,
           children: [
             bar,
+            _buildReactionHeatmap(inset),
             if (showPreview)
               ValueListenableBuilder<bool>(
                 valueListenable: _seekBarDragging,

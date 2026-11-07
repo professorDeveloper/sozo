@@ -258,6 +258,7 @@ extension _PlayerMedia on _PlayerPageState {
     // The previous episode's opening/ending times do not apply to this one,
     // and leaving them would offer a skip at the wrong minute.
     _resetSkipTimes();
+    _resetEpisodeSocial();
     // A new episode is a new thing to finish. Without this, watching six in a
     // row would count as one.
     _countedComplete = false;
@@ -1779,6 +1780,7 @@ extension _PlayerMedia on _PlayerPageState {
       // submissions timed against a different cut. Unawaited because a skip
       // offer is an extra — playback must never wait on a third-party lookup.
       unawaited(_loadSkipTimes());
+      unawaited(_loadEpisodeSocial());
       // After the provider's own tracks have been set, so it can see whether
       // one of them already reads in the viewer's language. Unawaited and
       // silent unless it finds something: playback must never wait on it.
@@ -2113,11 +2115,17 @@ extension _PlayerMedia on _PlayerPageState {
         // not add a completion each time they cross it.
         if (!_countedComplete) {
           _countedComplete = true;
-          if (!_hive.isIncognito) unawaited(_watchStats.recordCompleted());
+          if (!_hive.isIncognito) {
+            unawaited(_watchStats.recordCompleted());
+            if (widget.args.provider != 'trailer') {
+              unawaited(StarPrompt.episodeCompleted());
+            }
+          }
         }
       }
 
       _updateActiveSkip(v.position);
+      _tickEpisodeSocial(v.position);
       _maybePrefetchNext(v.position, v.duration);
 
       final remaining = v.duration - v.position;
@@ -2244,6 +2252,13 @@ extension _PlayerMedia on _PlayerPageState {
     ).next();
     if (nextIdx != null) {
       final next = _videoSources[nextIdx];
+      // The same from -> to screen a manual pick gets, with the attempt count
+      // and a way out. Read before _currentQuality moves to the new row.
+      final step = ServerSwitch.automatic(
+        from: _currentServer,
+        to: VideoOptionGroups.serverOf(next.quality),
+        attempt: _lifetimeRetries,
+      );
       setState(() {
         _initializing = true;
         _stage = _LoadingStage.loading;
@@ -2252,28 +2267,26 @@ extension _PlayerMedia on _PlayerPageState {
         _isCodecError = false;
         _currentSourceIndex = nextIdx;
         _currentQuality = next.quality;
+        _serverSwitch = step;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('player.switching_to'.tr(args: [next.quality])),
-            backgroundColor: Colors.black87,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-          ),
+      try {
+        final generation = await _disposeController();
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+        if (!mounted || generation != _mediaGeneration) return;
+        await _initializeWith(
+          intentGeneration: generation,
+          url: next.videoUrl,
+          headers: next.headers.isNotEmpty ? next.headers : _resolveHeaders,
+          type: _typeOf(next),
+          resumeAt: keepPosition,
         );
+        if (mounted && generation == _mediaGeneration) _autoRetrying = false;
+      } finally {
+        // Not a later step's overlay, which a failure here may have set up.
+        if (mounted && identical(_serverSwitch, step)) {
+          setState(() => _serverSwitch = null);
+        }
       }
-      final generation = await _disposeController();
-      await Future<void>.delayed(const Duration(milliseconds: 350));
-      if (!mounted || generation != _mediaGeneration) return;
-      await _initializeWith(
-        intentGeneration: generation,
-        url: next.videoUrl,
-        headers: next.headers.isNotEmpty ? next.headers : _resolveHeaders,
-        type: _typeOf(next),
-        resumeAt: keepPosition,
-      );
-      if (mounted && generation == _mediaGeneration) _autoRetrying = false;
       return;
     }
 
@@ -2314,6 +2327,26 @@ extension _PlayerMedia on _PlayerPageState {
       return;
     }
     if (mounted && generation == _mediaGeneration) _autoRetrying = false;
+  }
+
+  /// The viewer's Stop on an automatic server switch.
+  ///
+  /// Drops the stream being opened and shows the error screen, which already
+  /// offers Try again, the server list and other sources.
+  Future<void> _stopAutoSwitch() async {
+    if (!mounted || _serverSwitch?.automatic != true) return;
+    _plog('automatic server switch stopped by the viewer');
+    setState(() {
+      _serverSwitch = null;
+      _initializing = false;
+      _autoRetrying = false;
+      _isCodecError = false;
+      _errorMessage = 'player.auto_switch_stopped'.tr();
+      _errorRaw = null;
+    });
+    // Bumps the generation, so the start in flight bails at its next check
+    // and disposes whatever it had opened.
+    await _disposeController();
   }
 
   /// Where a retry picks up: the playhead, else the last position the stream

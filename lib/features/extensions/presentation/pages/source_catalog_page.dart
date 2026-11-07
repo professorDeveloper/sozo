@@ -93,6 +93,7 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
     ExtensionRepoKind.manga => MangaChannel.isSupported,
     ExtensionRepoKind.mangayomi =>
       source.jsRuntime && MangayomiRuntime.isSupported,
+    ExtensionRepoKind.zangetsu => false,
   };
 
   ProviderEntity? _installed(CatalogSourceEntity source) {
@@ -103,6 +104,7 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
       ExtensionRepoKind.aniyomi => 'an:',
       ExtensionRepoKind.manga => 'mn:',
       ExtensionRepoKind.mangayomi => 'my:',
+      ExtensionRepoKind.zangetsu => 'zx-',
     };
     for (final provider in state.providers) {
       if (!provider.id.startsWith(prefix)) continue;

@@ -12,13 +12,18 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/watch_party/data/watch_party_service.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
+import 'package:soplay/features/watch_party/domain/entities/party_member.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_room.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_state.dart';
 import 'package:soplay/features/watch_party/domain/party_resolve_gate.dart';
+import 'package:soplay/features/watch_party/domain/pending_party_code.dart';
 import 'package:soplay/features/watch_party/presentation/widgets/party_chat_panel.dart';
 import 'package:soplay/features/watch_party/presentation/widgets/party_code_sheet.dart';
 import 'package:soplay/features/watch_party/presentation/widgets/party_error_views.dart';
+import 'package:soplay/features/watch_party/presentation/widgets/party_host_settings.dart';
+import 'package:soplay/features/watch_party/presentation/widgets/party_invite_sheet.dart';
 import 'package:soplay/features/watch_party/presentation/widgets/party_member_bar.dart';
 import 'package:soplay/features/watch_party/presentation/widgets/party_plugin_required_view.dart';
 import 'package:soplay/features/watch_party/presentation/widgets/party_reactions_bar.dart';
@@ -123,6 +128,23 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
     final current = _service.state.value;
     if (current.inParty && current.code == code) return;
 
+    // Signed out (often a fresh install opened from an invite link): keep the
+    // code through sign-in or sign-up. A successful sign-in re-opens the room
+    // from the pending code; this page is replaced by then.
+    if (!getIt<HiveService>().isLoggedIn) {
+      final pending = getIt<PendingPartyCode>();
+      await pending.remember(code);
+      if (!mounted) return;
+      await context.push('/login');
+      if (!mounted) return;
+      if (!getIt<HiveService>().isLoggedIn) {
+        await pending.clear();
+        if (mounted) setState(() => _joinErrorCode = 'unauthorized');
+        return;
+      }
+      await pending.clear();
+    }
+
     setState(() {
       _joining = true;
       _joinErrorCode = null;
@@ -147,6 +169,42 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  Future<void> _onMemberAction(
+    PartyMember member,
+    PartyMemberAction action,
+  ) async {
+    switch (action) {
+      case PartyMemberAction.makeHost:
+        _service.transferHost(member.userId);
+      case PartyMemberAction.remove:
+        final name = (member.username ?? '').trim().isNotEmpty
+            ? member.username!.trim()
+            : '—';
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColors.surface,
+            content: Text('watch_party.remove_confirm'.tr(args: [name])),
+            actions: [
+              TextButton(
+                autofocus: true,
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text('general.cancel'.tr()),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(
+                  'general.remove'.tr(),
+                  style: const TextStyle(color: AppColors.error),
+                ),
+              ),
+            ],
+          ),
+        );
+        if (ok == true) _service.kick(member.userId);
+    }
   }
 
   Future<void> _copyCode(String code) async {
@@ -311,7 +369,7 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
         return PartyErrorView(
           code: code,
           actionLabel: 'general.try_again'.tr(),
-          onAction: _retryConnect,
+          onAction: code == 'unauthorized' ? _bootstrap : _retryConnect,
         );
       }
       // A failed connection, or a join that never lands, must NOT sit forever
@@ -352,8 +410,27 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
                 _ContentCard(content: content),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: PartyMemberBar(room: room, myUserId: s.myUserId),
+                  child: PartyMemberBar(
+                    room: room,
+                    myUserId: s.myUserId,
+                    isHost: s.isHost,
+                    onAction: _onMemberAction,
+                  ),
                 ),
+                if (s.isHost) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => showPartyInviteSheet(context),
+                        icon: const Icon(Icons.person_add_alt_1_rounded),
+                        label: Text('watch_party.invite_friends'.tr()),
+                      ),
+                    ),
+                  ),
+                  PartyHostSettings(room: room, service: _service),
+                ],
                 const SizedBox(height: 8),
                 _BottomActions(
                   isHost: s.isHost,

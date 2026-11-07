@@ -176,11 +176,11 @@ class _SearchField extends StatelessWidget {
         suffixIcon: ValueListenableBuilder<TextEditingValue>(
           valueListenable: controller,
           builder: (context, value, _) {
-            // Microphone while there is nothing to clear, clear button once
-            // there is. They never both apply, so the two share one slot rather
-            // than crowding the field with a second icon.
+            // The microphone stays reachable with text in the field, so a
+            // misheard query can be spoken again without clearing it first.
+            final voice = voiceButton;
             if (value.text.isEmpty) {
-              return voiceButton ?? const SizedBox.shrink();
+              return voice ?? const SizedBox.shrink();
             }
             const icon = Icon(
               Icons.close_rounded,
@@ -189,17 +189,21 @@ class _SearchField extends StatelessWidget {
             );
             // Android TV: the clear (X) is the only way to drop a query
             // without a hardware keyboard, so it needs to be a focus stop.
-            if (isTvPlatform) {
-              return TvFocusable(
-                onPressed: onClear,
-                borderRadius: 9,
-                child: icon,
-              );
-            }
-            return IconButton(
-              tooltip: 'general.clear'.tr(),
-              onPressed: onClear,
-              icon: icon,
+            final Widget clear = isTvPlatform
+                ? TvFocusable(
+                    onPressed: onClear,
+                    borderRadius: 9,
+                    child: icon,
+                  )
+                : IconButton(
+                    tooltip: 'general.clear'.tr(),
+                    onPressed: onClear,
+                    icon: icon,
+                  );
+            if (voice == null) return clear;
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [clear, voice],
             );
           },
         ),

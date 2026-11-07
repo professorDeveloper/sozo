@@ -19,6 +19,7 @@ import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/detail/data/source_choice_store.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
+import 'package:soplay/features/detail/domain/services/auto_resolve_walk.dart';
 import 'package:soplay/features/detail/presentation/widgets/source_search_sheet.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
@@ -223,11 +224,14 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// Play button that did nothing at all.
   ({String provider, String message})? _failed;
 
-  /// True while Auto is going down the list looking for one that plays.
-  bool _auto = false;
+  /// Non-null while Auto is going down the list looking for one that plays.
+  AutoResolveWalk<_Row, PlayerArgs>? _walk;
 
-  /// Auto went through every match and none could be played from here.
-  bool _autoMissed = false;
+  /// How the last Auto run ended, when it ended without playing anything.
+  AutoWalkEnd? _autoEnd;
+
+  /// What the current or last Auto run moved past, and why.
+  List<AutoSkip<_Row>> _autoSkipped = const [];
 
   /// How the run ended, so the empty state can say which kind of empty.
   AlternateSearchOutcome? _outcome;
@@ -318,6 +322,9 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
 
   @override
   void dispose() {
+    final walk = _walk;
+    _walk = null;
+    walk?.stop();
     _sub?.cancel();
     super.dispose();
   }
@@ -418,7 +425,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   bool get _reads => widget.provider.contentMode != ContentMode.video;
 
   Future<void> _pick(AlternateSource source) async {
-    if (_preparing != null) return;
+    if (_preparing != null || _walk != null) return;
     if (_reads) {
       Navigator.of(context).pop(source);
       return;
@@ -457,110 +464,193 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// source had the show but not the episode, to pick the next. Auto does
   /// that walk itself — corrections first, then the matches it can trust in
   /// score order, taking each source as it answers rather than waiting for
-  /// the slowest.
+  /// the slowest. [AutoResolveWalk] holds the cap and the stop.
   Future<void> _runAuto() async {
-    if (_auto || _preparing != null) return;
+    if (_walk != null || _preparing != null) return;
+    final service = getIt<AlternateSourceService>();
+    late final AutoResolveWalk<_Row, PlayerArgs> walk;
+    walk = AutoResolveWalk<_Row, PlayerArgs>(
+      candidates: () => _rows,
+      searching: () => _searching,
+      idOf: (r) => r.provider.id,
+      isEligible: (r) => r.chosen || r.source.isTrustworthy,
+      attempt: (r) async {
+        final result = await service.resolveArgs(
+          source: r.source,
+          episodeNumber: widget.episodeNumber,
+          seasonEpisode: widget.seasonEpisode,
+          resumeAt: widget.resumeAt,
+        );
+        final args = result.args;
+        if (args != null) return AutoAttempt.found(args);
+        return AutoAttempt.skipped(
+          result.failure == AlternateArgsFailure.noEpisode
+              ? AutoSkipReason.noEpisode
+              : AutoSkipReason.error,
+        );
+      },
+      onChange: () {
+        if (mounted && identical(_walk, walk)) setState(() {});
+      },
+    );
     setState(() {
-      _auto = true;
-      _autoMissed = false;
+      _walk = walk;
+      _autoEnd = null;
+      _autoSkipped = const [];
       _failed = null;
     });
-    final service = getIt<AlternateSourceService>();
-    final tried = <String>{};
-    while (mounted) {
-      _Row? next;
-      for (final r in _rows) {
-        if (tried.contains(r.provider.id)) continue;
-        if (r.chosen || r.source.isTrustworthy) {
-          next = r;
-          break;
-        }
-      }
-      if (next == null) {
-        if (!_searching) break;
-        await Future<void>.delayed(const Duration(milliseconds: 250));
-        continue;
-      }
-      tried.add(next.provider.id);
-      setState(() => _preparing = next!.provider.id);
-      final args = await service.buildArgs(
-        source: next.source,
-        episodeNumber: widget.episodeNumber,
-        seasonEpisode: widget.seasonEpisode,
-        resumeAt: widget.resumeAt,
-      );
-      if (!mounted) return;
-      if (args != null) {
-        Navigator.of(context).pop(args);
-        return;
-      }
-    }
+    final result = await walk.run();
     if (!mounted) return;
+    if (result.end == AutoWalkEnd.found) {
+      Navigator.of(context).pop(result.value);
+      return;
+    }
     setState(() {
-      _auto = false;
-      _preparing = null;
-      _autoMissed = true;
+      _walk = null;
+      _autoEnd = result.end;
+      _autoSkipped = walk.skipped;
     });
+  }
+
+  void _stopAuto() => _walk?.stop();
+
+  String _autoSubtitle() {
+    final walk = _walk;
+    if (walk != null) {
+      final current = walk.current;
+      if (current == null) return 'player.alt_auto_waiting'.tr();
+      return 'player.alt_auto_checking'.tr(
+        args: [current.provider.name, '${walk.index}', '${walk.total}'],
+      );
+    }
+    return switch (_autoEnd) {
+      AutoWalkEnd.exhausted => 'player.alt_auto_missed'.tr(),
+      AutoWalkEnd.capped => 'player.alt_auto_capped'.tr(
+        args: ['${AutoResolveWalk.maxCandidates}'],
+      ),
+      AutoWalkEnd.stopped => 'player.alt_auto_stopped'.tr(),
+      _ => 'player.alt_auto_hint'.tr(),
+    };
   }
 
   /// The row that offers [_runAuto], above the matches.
   Widget _autoTile() {
-    final subtitle = _autoMissed
-        ? 'player.alt_auto_missed'.tr()
-        : _auto && _preparing != null
-        ? 'player.alt_auto_trying'.tr(args: [_nameOf(_preparing!)])
-        : 'player.alt_auto_hint'.tr();
-    return ListTile(
-      onTap: _auto || _preparing != null ? null : _runAuto,
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(10),
+    final running = _walk != null;
+    final ended = _autoEnd != null;
+    final missed =
+        _autoEnd == AutoWalkEnd.exhausted || _autoEnd == AutoWalkEnd.capped;
+    final Widget trailing;
+    if (running) {
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 4),
+          TextButton(
+            onPressed: _stopAuto,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            child: Text('player.alt_auto_stop'.tr()),
+          ),
+        ],
+      );
+    } else if (ended) {
+      trailing = TextButton.icon(
+        onPressed: _preparing != null ? null : _runAuto,
+        style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+        icon: const Icon(Icons.refresh_rounded, size: 18),
+        label: Text('general.try_again'.tr()),
+      );
+    } else {
+      trailing = const Icon(Icons.play_arrow_rounded, color: Colors.white70);
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          onTap: running || _preparing != null ? null : _runAuto,
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.auto_awesome_rounded,
+              color: AppColors.primary,
+              size: 20,
+            ),
+          ),
+          title: Text(
+            'player.alt_auto'.tr(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          subtitle: Text(
+            _autoSubtitle(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: missed ? AppColors.error : Colors.white54,
+              fontSize: 12,
+            ),
+          ),
+          trailing: trailing,
         ),
-        child: Icon(
-          Icons.auto_awesome_rounded,
-          color: AppColors.primary,
-          size: 20,
-        ),
-      ),
-      title: Text(
-        'player.alt_auto'.tr(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14.5,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: _autoMissed ? AppColors.error : Colors.white54,
-          fontSize: 12,
-        ),
-      ),
-      trailing: _auto
-          ? SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.primary,
-              ),
-            )
-          : const Icon(Icons.play_arrow_rounded, color: Colors.white70),
+        if ((running ? _walk!.skipped : _autoSkipped).isNotEmpty)
+          _autoSkippedList(running ? _walk!.skipped : _autoSkipped),
+      ],
     );
   }
 
-  String _nameOf(String providerId) {
-    for (final r in _rows) {
-      if (r.provider.id == providerId) return r.provider.name;
-    }
-    return providerId;
+  /// What Auto already moved past, one short line each.
+  Widget _autoSkippedList(List<AutoSkip<_Row>> skipped) {
+    const shown = 8;
+    const style = TextStyle(color: Colors.white54, fontSize: 11.5);
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(72, 0, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'player.alt_auto_tried'.tr(),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          for (final s in skipped.take(shown))
+            Text(
+              '${s.candidate.provider.name} — ${_skipLabel(s.reason)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
+          if (skipped.length > shown)
+            Text('+${skipped.length - shown}', style: style),
+        ],
+      ),
+    );
   }
+
+  static String _skipLabel(AutoSkipReason reason) => switch (reason) {
+    AutoSkipReason.noMatch => 'player.alt_skip_no_match'.tr(),
+    AutoSkipReason.noEpisode => 'player.alt_skip_no_episode'.tr(),
+    AutoSkipReason.error => 'player.alt_skip_error'.tr(),
+  };
 
   /// Hand the question to the viewer: search this one source, take their pick.
   ///
@@ -701,8 +791,9 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   );
 
   Widget _matchTile(_Row row) {
-    final busy = _preparing == row.provider.id;
-    final enabled = _preparing == null;
+    final busy =
+        (_preparing ?? _walk?.current?.provider.id) == row.provider.id;
+    final enabled = _preparing == null && _walk == null;
     final failure = _failed?.provider == row.provider.id
         ? _failed!.message
         : null;
@@ -910,7 +1001,9 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
         label: label,
         child: ExcludeSemantics(
           child: InkWell(
-            onTap: _preparing == null ? () => _correct(provider) : null,
+            onTap: _preparing == null && _walk == null
+                ? () => _correct(provider)
+                : null,
             customBorder: const CircleBorder(),
             child: const SizedBox(
               width: 48,
@@ -971,7 +1064,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
         for (final p in quiet)
           ListTile(
             dense: true,
-            enabled: _preparing == null,
+            enabled: _preparing == null && _walk == null,
             onTap: () => _correct(ProviderRef.fromEntity(p)),
             leading: const Icon(
               Icons.search_off_rounded,

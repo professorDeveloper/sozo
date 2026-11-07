@@ -6,6 +6,8 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/router/app_router.dart';
 import 'package:soplay/features/achievements/data/achievements_service.dart';
 import 'package:soplay/features/achievements/presentation/dialogs/achievement_unlocked_dialog.dart';
+import 'package:soplay/features/progress/data/progress_service.dart';
+import 'package:soplay/features/progress/presentation/dialogs/level_up_dialog.dart';
 
 /// Shows badges as they are earned — but never over something being watched
 /// or read.
@@ -37,12 +39,17 @@ class AchievementCelebrationHost extends StatefulWidget {
 class _AchievementCelebrationHostState
     extends State<AchievementCelebrationHost> {
   AchievementsService? _service;
+  ProgressService? _progress;
   bool _showing = false;
   Timer? _settle;
 
   @override
   void initState() {
     super.initState();
+    if (getIt.isRegistered<ProgressService>()) {
+      _progress = getIt<ProgressService>()
+        ..pendingLevelUp.addListener(_schedule);
+    }
     if (!getIt.isRegistered<AchievementsService>()) return;
     _service = getIt<AchievementsService>()..pending.addListener(_schedule);
     AppRouter.router.routerDelegate.addListener(_schedule);
@@ -52,6 +59,7 @@ class _AchievementCelebrationHostState
   void dispose() {
     _settle?.cancel();
     _service?.pending.removeListener(_schedule);
+    _progress?.pendingLevelUp.removeListener(_schedule);
     AppRouter.router.routerDelegate.removeListener(_schedule);
     super.dispose();
   }
@@ -66,7 +74,8 @@ class _AchievementCelebrationHostState
   Future<void> _maybeShow() async {
     final service = _service;
     if (service == null || _showing || !mounted) return;
-    if (service.pending.value.isEmpty) return;
+    final levelUp = _progress?.pendingLevelUp.value;
+    if (service.pending.value.isEmpty && levelUp == null) return;
     final path = AppRouter.router.routerDelegate.currentConfiguration.uri.path;
     if (AchievementCelebrationHost.quietPaths.contains(path)) return;
     final context = AppRouter.router.routerDelegate.navigatorKey.currentContext;
@@ -82,17 +91,31 @@ class _AchievementCelebrationHostState
       );
       if (!context.mounted) return;
       final unlocks = service.takePending();
-      if (unlocks.isEmpty) return;
-      await AchievementUnlockedDialog.show(
-        context,
-        unlocks,
-        view: service.state.value,
-        onSeeAll: () => AppRouter.router.push('/achievements'),
-      );
+      if (unlocks.isNotEmpty) {
+        await AchievementUnlockedDialog.show(
+          context,
+          unlocks,
+          view: service.state.value,
+          onSeeAll: () => AppRouter.router.push('/achievements'),
+        );
+      }
+      // A badge often brings the level with it; one after the other.
+      final up = _progress?.takeLevelUp();
+      if (up != null && context.mounted) {
+        await LevelUpDialog.show(
+          context,
+          up,
+          onOpen: () => AppRouter.router.push('/progress'),
+        );
+      }
     } finally {
       _showing = false;
     }
-    if (mounted && service.pending.value.isNotEmpty) _schedule();
+    if (mounted &&
+        (service.pending.value.isNotEmpty ||
+            _progress?.pendingLevelUp.value != null)) {
+      _schedule();
+    }
   }
 
   @override

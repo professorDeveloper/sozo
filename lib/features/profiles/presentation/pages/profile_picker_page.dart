@@ -101,7 +101,7 @@ class _ProfilePickerPageState extends State<ProfilePickerPage> {
 
   Future<void> _open(HouseholdProfile profile) async {
     if (_opening != null) return;
-    if (profile.hasPin) {
+    if (_session.needsPin(profile)) {
       final pin = await askProfilePin(context, _session, profile);
       if (pin == null || !mounted) return;
     }

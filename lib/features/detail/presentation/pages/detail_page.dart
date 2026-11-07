@@ -17,6 +17,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/widgets/star_prompt_banner.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
 import 'package:soplay/features/banners/presentation/widgets/banners_carousel.dart';
@@ -149,6 +150,10 @@ class _DetailScaffold extends StatelessWidget {
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: AppColors.background,
+        bottomNavigationBar: const StarPromptBanner(
+          margin: EdgeInsets.fromLTRB(12, 0, 12, 12),
+          safeBottom: true,
+        ),
         body: BlocListener<DetailBloc, DetailState>(
           listenWhen: (prev, curr) {
             if (curr is! DetailLoaded) return false;

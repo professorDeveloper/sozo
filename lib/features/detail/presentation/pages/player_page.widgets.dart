@@ -149,6 +149,8 @@ class _LoadingOverlay extends StatelessWidget {
     required this.stage,
     required this.title,
     this.serverSwitch,
+    this.onStopSwitch,
+    this.stopFocus,
   });
 
   final _LoadingStage stage;
@@ -156,6 +158,10 @@ class _LoadingOverlay extends StatelessWidget {
 
   /// Non-null only while moving between mirrors, which gets its own screen.
   final ServerSwitch? serverSwitch;
+
+  /// Stops an automatic switch; see [_ServerSwitchOverlay.onStop].
+  final VoidCallback? onStopSwitch;
+  final FocusNode? stopFocus;
 
   String get _label {
     switch (stage) {
@@ -187,7 +193,13 @@ class _LoadingOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final switching = serverSwitch;
-    if (switching != null) return _ServerSwitchOverlay(switch_: switching);
+    if (switching != null) {
+      return _ServerSwitchOverlay(
+        switch_: switching,
+        onStop: switching.automatic ? onStopSwitch : null,
+        stopFocus: stopFocus,
+      );
+    }
 
     return SafeArea(
       child: Padding(
@@ -2005,13 +2017,23 @@ class _CaretPainter extends CustomPainter {
 }
 
 class _ServerSwitchOverlay extends StatelessWidget {
-  const _ServerSwitchOverlay({required this.switch_});
+  const _ServerSwitchOverlay({
+    required this.switch_,
+    this.onStop,
+    this.stopFocus,
+  });
 
   final ServerSwitch switch_;
+
+  /// Ends the automatic walk and leaves the player on its error screen.
+  final VoidCallback? onStop;
+  final FocusNode? stopFocus;
 
   @override
   Widget build(BuildContext context) {
     final from = switch_.from;
+    final attempt = switch_.attempt;
+    final stop = onStop;
 
     return SafeArea(
       child: Center(
@@ -2056,6 +2078,19 @@ class _ServerSwitchOverlay extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
+              if (attempt != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'player.auto_switch_attempt'.tr(
+                    args: ['$attempt', '${switch_.maxAttempts ?? attempt}'],
+                  ),
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
               const SizedBox(height: 22),
               SizedBox(
                 width: 148,
@@ -2072,6 +2107,25 @@ class _ServerSwitchOverlay extends StatelessWidget {
                   ),
                 ),
               ),
+              if (stop != null) ...[
+                const SizedBox(height: 18),
+                _tvRing(
+                  OutlinedButton.icon(
+                    onPressed: stop,
+                    focusNode: stopFocus,
+                    // The only control on this screen; a remote needs it
+                    // focused to reach it at all.
+                    autofocus: isTvPlatform,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white38),
+                    ),
+                    icon: const Icon(Icons.stop_rounded, size: 18),
+                    label: Text('player.auto_switch_stop'.tr()),
+                  ),
+                  radius: 20,
+                ),
+              ],
             ],
           ),
         ),

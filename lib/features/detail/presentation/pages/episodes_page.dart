@@ -37,6 +37,10 @@ import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.d
 import 'package:soplay/features/download/presentation/download_messages.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
+import 'package:soplay/features/comments/domain/episode_key.dart';
+import 'package:soplay/features/comments/domain/repositories/comments_repository.dart';
+import 'package:soplay/features/comments/domain/repositories/episode_comments_repository.dart';
+import 'package:soplay/features/comments/presentation/widgets/episode_comments_sheet.dart';
 
 /// Focus highlight for the full-width rows on this page.
 ///
@@ -103,6 +107,48 @@ class _EpisodesPageState extends State<EpisodesPage> {
   late final bool _showImages;
 
   HistoryItem? _historyItem;
+
+  /// Top-level comments per episode key; empty until (and unless) it loads.
+  Map<String, int> _commentCounts = const {};
+
+  Future<void> _loadCommentCounts() async {
+    if (_isManga || widget.args.offline || widget.args.contentUrl.isEmpty) {
+      return;
+    }
+    if (!getIt.isRegistered<CommentsRepository>()) return;
+    final repo = switch (getIt<CommentsRepository>()) {
+      final EpisodeCommentsRepository r => r,
+      _ => null,
+    };
+    if (repo == null) return;
+    final result = await repo.episodeCounts(
+      provider: widget.args.provider,
+      contentUrl: widget.args.contentUrl,
+    );
+    if (!mounted) return;
+    if (result case Success(:final value) when value.isNotEmpty) {
+      setState(() => _commentCounts = value);
+    }
+  }
+
+  int _commentCountFor(int i) =>
+      _commentCounts[EpisodeKey.of(
+            isSerial: true,
+            episodeNumber: _episodes[i].episode,
+          )] ??
+      0;
+
+  Future<void> _openEpisodeComments(int i) async {
+    final episode = _episodes[i];
+    await showEpisodeComments(
+      context,
+      provider: widget.args.provider,
+      contentUrl: widget.args.contentUrl,
+      episodeKey: EpisodeKey.of(isSerial: true, episodeNumber: episode.episode),
+      title: 'player.episode_comments'.tr(args: [episode.numberLabel]),
+    );
+    if (mounted) unawaited(_loadCommentCounts());
+  }
 
   /// Indices picked in multi-select. Empty means normal browsing.
   ///
@@ -282,6 +328,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
     _refreshHistory();
     _refreshRead();
     _maybeAutoFill();
+    unawaited(_loadCommentCounts());
     if (widget.args.resumeFromHistory) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_resumeFromHistory());
@@ -1402,6 +1449,10 @@ class _EpisodesPageState extends State<EpisodesPage> {
                               read:
                                   _isManga &&
                                   _read.contains(_episodes[i].episode),
+                              commentCount: _commentCountFor(i),
+                              onComments: _isManga || widget.args.offline
+                                  ? null
+                                  : () => _openEpisodeComments(i),
                             );
                             if (!widget.args.offline || _isDownloaded(i)) {
                               return row;
@@ -2132,6 +2183,8 @@ class _EpisodeRow extends StatelessWidget {
     this.progress,
     this.onDownload,
     this.read = false,
+    this.commentCount = 0,
+    this.onComments,
   });
 
   final EpisodeEntity episode;
@@ -2174,6 +2227,10 @@ class _EpisodeRow extends StatelessWidget {
   /// a single visible edge; a tick on every finished row makes four hundred
   /// ticks. The row stays fully tappable — re-reading is normal.
   final bool read;
+
+  /// Shown as a small chip when there is at least one; a tap opens the thread.
+  final int commentCount;
+  final VoidCallback? onComments;
 
   @override
   Widget build(BuildContext context) {
@@ -2281,6 +2338,8 @@ class _EpisodeRow extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (commentCount > 0 && onComments != null && !selecting)
+                    _CommentCountChip(count: commentCount, onTap: onComments!),
                   if (hasSub) const _LangChip(label: 'SUB', primary: true),
                   if (hasSub && hasDub) const SizedBox(width: 4),
                   if (hasDub) const _LangChip(label: 'DUB', primary: false),
@@ -2361,6 +2420,47 @@ class _EpisodeRow extends StatelessWidget {
     if (air != null && air.isNotEmpty) parts.add(air);
     if (run != null && run.isNotEmpty) parts.add(run);
     return parts.join(' · ');
+  }
+}
+
+class _CommentCountChip extends StatelessWidget {
+  const _CommentCountChip({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(end: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        focusColor: _kTvRowFocusFill,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 13,
+                color: AppColors.textHint,
+              ),
+              const SizedBox(width: 3),
+              Text(
+                count > 999 ? '999+' : '$count',
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -73,6 +73,84 @@ class CommentsDataSource {
     return (body['cascadeDeleted'] as num?)?.toInt() ?? 0;
   }
 
+  Future<CommentListModel> getScopedComments({
+    required String provider,
+    required String contentUrl,
+    String? episodeKey,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final res = await dio.get(
+      '/comments',
+      queryParameters: {
+        'provider': provider,
+        'contentUrl': contentUrl,
+        'episodeKey': ?episodeKey,
+        'page': page,
+        'limit': limit,
+      },
+    );
+    return CommentListModel.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<CommentModel> createScoped({
+    required String provider,
+    required String contentUrl,
+    required String text,
+    String? parentId,
+    String? episodeKey,
+    bool spoiler = false,
+    int? atSec,
+  }) async {
+    final res = await dio.post(
+      '/comments',
+      data: {
+        'provider': provider,
+        'contentUrl': contentUrl,
+        'text': text,
+        'parentId': ?parentId,
+        'episodeKey': ?episodeKey,
+        if (spoiler) 'spoiler': true,
+        'atSec': ?atSec,
+      },
+    );
+    final body = res.data as Map<String, dynamic>;
+    return CommentModel.fromJson(
+      (body['item'] as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<CommentModel> editScoped({
+    required String id,
+    required String text,
+    bool? spoiler,
+  }) async {
+    final res = await dio.put(
+      '/comments/$id',
+      data: {'text': text, 'spoiler': ?spoiler},
+    );
+    final body = res.data as Map<String, dynamic>;
+    return CommentModel.fromJson(
+      (body['item'] as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<Map<String, int>> episodeCounts({
+    required String provider,
+    required String contentUrl,
+  }) async {
+    final res = await dio.get(
+      '/comments/episode-counts',
+      queryParameters: {'provider': provider, 'contentUrl': contentUrl},
+    );
+    final counts = (res.data as Map?)?['counts'];
+    if (counts is! Map) return const {};
+    return {
+      for (final e in counts.entries)
+        if (e.value is num) e.key.toString(): (e.value as num).toInt(),
+    };
+  }
+
   Future<LikeResult> toggleLike(String id) async {
     final res = await dio.post('/comments/$id/like');
     final body = res.data as Map<String, dynamic>;

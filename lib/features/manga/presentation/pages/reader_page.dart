@@ -44,6 +44,10 @@ import 'package:soplay/features/manga/data/chapter_read_store.dart';
 import 'package:soplay/features/manga/data/novel_highlight_store.dart';
 import 'package:soplay/features/manga/domain/reading/novel_highlight.dart';
 import 'package:soplay/features/manga/data/page_tiles.dart';
+import 'package:soplay/features/manga/data/page_translator.dart';
+import 'package:soplay/features/manga/domain/translate/page_translation.dart';
+import 'package:soplay/features/manga/presentation/widgets/page_translation_overlay.dart';
+import 'package:soplay/core/subtitles/subtitle_languages.dart';
 import 'package:soplay/features/manga/presentation/widgets/pinch_zoom_scroll.dart';
 import 'package:soplay/features/manga/presentation/widgets/tiled_zoom.dart';
 import 'package:soplay/features/manga/domain/reading/chapter_progress.dart';
@@ -239,6 +243,23 @@ class _ReaderPageState extends State<ReaderPage> {
   /// read off a chapter in this file went unchecked.
   List<EpisodeEntity> get _chapters => widget.args.chapters;
 
+  /// Page translation: recognised on the device, translated by the backend.
+  /// Nothing here is touched where [PageTranslator.isSupported] is false.
+  final PageOverlays _overlays = PageOverlays();
+  PageTranslator? _translator;
+  final Set<String> _translating = {};
+  bool _autoTranslate = false;
+  Timer? _autoTranslateTimer;
+
+  bool get _canTranslate =>
+      PageTranslator.isSupported && _html == null && _pages.isNotEmpty;
+
+  PageOverlays? get _pageOverlays =>
+      PageTranslator.isSupported ? _overlays : null;
+
+  String _overlayKey(int page) =>
+      PageOverlays.keyFor(_chapters[_chapterIndex].mediaRef, page);
+
   @override
   void initState() {
     super.initState();
@@ -259,6 +280,10 @@ class _ReaderPageState extends State<ReaderPage> {
     _novelMargin = _hive.getNovelMargin();
     _itemPositionsListener.itemPositions.addListener(_onItemPositions);
     _page.addListener(_maybePrefetchNextChapter);
+    if (PageTranslator.isSupported) {
+      _autoTranslate = _hive.mangaAutoTranslate;
+      _page.addListener(_scheduleAutoTranslate);
+    }
     _novelProgress.addListener(_maybePrefetchNextChapter);
     _novelScrollController.addListener(_onNovelScroll);
     if (!isDesktopPlatform) {
@@ -331,6 +356,9 @@ class _ReaderPageState extends State<ReaderPage> {
     // Reading stops with the reader: nothing else on screen shows what is
     // being read or offers a way to stop it.
     _ttsLifecycle?.dispose();
+    _autoTranslateTimer?.cancel();
+    _overlays.dispose();
+    unawaited(_translator?.dispose());
     _tts?.removeListener(_onTtsChanged);
     _tts?.dispose();
     _spreadController.dispose();
@@ -424,6 +452,7 @@ class _ReaderPageState extends State<ReaderPage> {
         _loading = false;
       });
       _scheduleSave();
+      _scheduleAutoTranslate();
       return;
     }
     _localChapter = false;
@@ -453,6 +482,7 @@ class _ReaderPageState extends State<ReaderPage> {
         });
         if (isText) _afterTextLoaded();
         _scheduleSave();
+        _scheduleAutoTranslate();
       case Failure(:final error):
         _pendingJump = null;
         setState(() {
@@ -1537,6 +1567,8 @@ class _ReaderPageState extends State<ReaderPage> {
               page: _pages[i],
               headers: _headers,
               zoomable: false,
+              overlays: _pageOverlays,
+              overlayKey: _overlayKey(i),
             );
           },
         ),
@@ -1588,6 +1620,8 @@ class _ReaderPageState extends State<ReaderPage> {
               page: _pages[i],
               headers: _headers,
               zoomable: true,
+              overlays: _pageOverlays,
+              overlayKey: _overlayKey(i),
             ),
           ),
         ),
@@ -1638,6 +1672,8 @@ class _ReaderPageState extends State<ReaderPage> {
                       // Not zoomable in a spread: a pinch would zoom one half
                       // out from under the other.
                       zoomable: false,
+                      overlays: _pageOverlays,
+                      overlayKey: _overlayKey(i),
                     ),
                   ),
               ],
@@ -2164,6 +2200,7 @@ class _ReaderPageState extends State<ReaderPage> {
                     ? () => _tts!.stop()
                     : _startTts,
               ),
+            if (_canTranslate) _translateButton(),
             _downloadButton(ch),
             // Only when there is somewhere to go. A provider with no web page
             // for this chapter gets no button rather than a button that
@@ -2202,6 +2239,183 @@ class _ReaderPageState extends State<ReaderPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _translateButton() => ListenableBuilder(
+    listenable: Listenable.merge([_page, _overlays]),
+    builder: (context, _) {
+      final key = _overlayKey(_currentPage);
+      if (_translating.contains(key)) {
+        return const Padding(
+          padding: EdgeInsets.all(14),
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          ),
+        );
+      }
+      final shown = _overlays.visible(key) != null;
+      return IconButton(
+        tooltip: 'manga.translate_page'.tr(),
+        icon: Icon(
+          Icons.translate_rounded,
+          color: shown ? _accent : Colors.white,
+        ),
+        onPressed: () => _translatePage(_currentPage),
+      );
+    },
+  );
+
+  void _scheduleAutoTranslate() {
+    _autoTranslateTimer?.cancel();
+    if (!_autoTranslate) return;
+    // Only a page that stays on screen: flicking past ten pages should not
+    // spend ten translations.
+    _autoTranslateTimer = Timer(const Duration(milliseconds: 700), () {
+      if (!mounted || !_autoTranslate || !_canTranslate || _loading) return;
+      final page = _currentPage;
+      if (_overlays.entry(_overlayKey(page)) != null) return;
+      _translatePage(page, auto: true);
+    });
+  }
+
+  /// Translates [page] and offers it in a preview, or, for [auto], lays it
+  /// straight over the page.
+  Future<void> _translatePage(int page, {bool auto = false}) async {
+    if (page < 0 || page >= _pages.length) return;
+    final chapterUrl = _chapters[_chapterIndex].mediaRef;
+    final key = _overlayKey(page);
+    final lang = _hive.getMangaTranslateLang();
+    var translation = _overlays.translationFor(key, lang);
+    if (translation == null) {
+      if (_translating.contains(key)) return;
+      setState(() => _translating.add(key));
+      final translator = _translator ??= PageTranslator();
+      try {
+        translation =
+            await translator.cached(
+              chapterUrl: chapterUrl,
+              pageIndex: page,
+              targetLang: lang,
+            ) ??
+            await translator.translate(
+              page: _pages[page],
+              headers: _headers,
+              chapterUrl: chapterUrl,
+              pageIndex: page,
+              targetLang: lang,
+            );
+        _overlays.store(key, translation);
+      } on PageTranslateException catch (e) {
+        if (!mounted) return;
+        if (auto) {
+          if (e.reason == PageTranslateFailure.noText) return;
+          // One message, not one per page turned while the problem lasts.
+          _autoTranslate = false;
+        }
+        _translateSnack(e.reason);
+        return;
+      } finally {
+        if (mounted) setState(() => _translating.remove(key));
+      }
+    }
+    if (!mounted) return;
+    if (auto) {
+      _overlays.apply(key);
+      return;
+    }
+    final ready = translation;
+    final result = await Navigator.of(context).push<PageTranslatePreviewResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => PageTranslatePreview(
+          image: _imageProviderFor(_pages[page]),
+          translation: ready,
+          showOriginal: _overlays.entry(key)?.showOriginal ?? false,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    _overlays.apply(key, showOriginal: result.showOriginal);
+  }
+
+  ImageProvider _imageProviderFor(MangaPageEntity page) {
+    final url = page.imageUrl;
+    if (!url.startsWith('http')) return FileImage(File(url));
+    final cookie = page.cookie;
+    return CachedNetworkImageProvider(
+      url,
+      cacheKey: page.cacheKey,
+      headers: mergeHttpHeaders([
+        _headers,
+        page.headers,
+        if (cookie != null && cookie.isNotEmpty) {'Cookie': cookie},
+      ]),
+    );
+  }
+
+  void _translateSnack(PageTranslateFailure reason) {
+    final message = switch (reason) {
+      PageTranslateFailure.noText => 'manga.translate_no_text'.tr(),
+      PageTranslateFailure.dailyLimit => 'manga.translate_daily_limit'.tr(),
+      PageTranslateFailure.offline => 'manga.translate_offline'.tr(),
+      PageTranslateFailure.signIn => 'manga.translate_sign_in'.tr(),
+      PageTranslateFailure.failed => 'manga.translate_failed'.tr(),
+    };
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
+    );
+  }
+
+  Widget _translateSettings(StateSetter setSheet) {
+    final lang = _hive.getMangaTranslateLang();
+    final known = kSubtitleTranslateLanguages.any((l) => l.$1 == lang);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sheetLabel('manga.translate_language'),
+        const SizedBox(height: 4),
+        DropdownButton<String>(
+          value: known ? lang : null,
+          isExpanded: true,
+          dropdownColor: const Color(0xFF1E1E1E),
+          style: const TextStyle(color: Colors.white, fontSize: 13.5),
+          underline: const SizedBox.shrink(),
+          items: [
+            for (final l in kSubtitleTranslateLanguages)
+              DropdownMenuItem(value: l.$1, child: Text(l.$2)),
+          ],
+          onChanged: (v) {
+            if (v == null) return;
+            _hive.setMangaTranslateLang(v);
+            setSheet(() {});
+          },
+        ),
+        SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          activeTrackColor: _accent,
+          value: _autoTranslate,
+          title: Text(
+            'manga.translate_auto'.tr(),
+            style: const TextStyle(color: Colors.white, fontSize: 13.5),
+          ),
+          subtitle: Text(
+            'manga.translate_auto_desc'.tr(),
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+          onChanged: (v) {
+            _hive.setMangaAutoTranslate(v);
+            setState(() => _autoTranslate = v);
+            setSheet(() {});
+            if (v) _scheduleAutoTranslate();
+          },
+        ),
+      ],
     );
   }
 
@@ -2792,6 +3006,10 @@ class _ReaderPageState extends State<ReaderPage> {
                       setSheet(() {});
                     },
                   ),
+                  if (_canTranslate) ...[
+                    const SizedBox(height: 18),
+                    _translateSettings(setSheet),
+                  ],
                 ],
                 if (!isDesktopPlatform) ...[
                   const SizedBox(height: 18),
@@ -3089,11 +3307,17 @@ class _PageImage extends StatefulWidget {
     required this.page,
     required this.headers,
     required this.zoomable,
+    this.overlays,
+    this.overlayKey = '',
   });
 
   final MangaPageEntity page;
   final Map<String, String> headers;
   final bool zoomable;
+
+  /// Translated lettering to lay over this page, under [overlayKey].
+  final PageOverlays? overlays;
+  final String overlayKey;
 
   @override
   State<_PageImage> createState() => _PageImageState();
@@ -3208,7 +3432,27 @@ class _PageImageState extends State<_PageImage> {
               errorWidget: (_, _, _) => _errorTile(width),
             );
 
-      if (!widget.zoomable) return img;
+      final overlays = widget.overlays;
+      final Widget drawn = overlays == null
+          ? img
+          : Stack(
+              children: [
+                img,
+                Positioned.fill(
+                  child: ListenableBuilder(
+                    listenable: overlays,
+                    builder: (_, _) {
+                      final t = overlays.visible(widget.overlayKey);
+                      return t == null
+                          ? const SizedBox.shrink()
+                          : PageTranslationOverlay(translation: t);
+                    },
+                  ),
+                ),
+              ],
+            );
+
+      if (!widget.zoomable) return drawn;
       // Zoomed, the image above is a bitmap decoded at column width being
       // magnified — which is exactly when a dense page or small lettering turns
       // to mush. [TiledZoom] re-reads the part that is on screen from the file
@@ -3217,7 +3461,7 @@ class _PageImageState extends State<_PageImage> {
       return TiledZoom(
         sourcePath: _sourcePath,
         maxScale: 4,
-        child: SizedBox(width: width, child: img),
+        child: SizedBox(width: width, child: drawn),
       );
     },
   );

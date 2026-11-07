@@ -14,6 +14,8 @@ import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_sourc
 import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
 import 'package:soplay/features/extensions/presentation/pages/source_catalog_page.dart';
+import 'package:soplay/features/extensions/presentation/pages/zangetsu_sources_page.dart';
+import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/features/jellyfin/presentation/pages/jellyfin_servers_page.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_sources_page.dart';
@@ -87,6 +89,15 @@ class SourcesPage extends StatelessWidget {
         title: 'profile.mangayomi_sources'.tr(),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const MangayomiSourcesPage()),
+        ),
+      ),
+    if (JsRuntimeService.isSupported)
+      SettingsNavTile(
+        icon: Icons.bolt_rounded,
+        title: 'zangetsu.title'.tr(),
+        subtitle: 'zangetsu.row_subtitle'.tr(),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ZangetsuSourcesPage()),
         ),
       ),
     // Talks to the server directly, so it works on every platform.

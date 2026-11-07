@@ -7,7 +7,14 @@ abstract class CommentsEvent {
 class CommentsInit extends CommentsEvent {
   final String provider;
   final String contentUrl;
-  const CommentsInit({required this.provider, required this.contentUrl});
+
+  /// Null keeps the title-level thread.
+  final String? episodeKey;
+  const CommentsInit({
+    required this.provider,
+    required this.contentUrl,
+    this.episodeKey,
+  });
 }
 
 class CommentsRefresh extends CommentsEvent {
@@ -31,13 +38,23 @@ class CommentsLoadReplies extends CommentsEvent {
 class CommentsCreate extends CommentsEvent {
   final String text;
   final String? parentId;
-  const CommentsCreate({required this.text, this.parentId});
+  final bool spoiler;
+  final int? atSec;
+  const CommentsCreate({
+    required this.text,
+    this.parentId,
+    this.spoiler = false,
+    this.atSec,
+  });
 }
 
 class CommentsEdit extends CommentsEvent {
   final String id;
   final String text;
-  const CommentsEdit({required this.id, required this.text});
+
+  /// Null leaves the flag as it was.
+  final bool? spoiler;
+  const CommentsEdit({required this.id, required this.text, this.spoiler});
 }
 
 class CommentsDelete extends CommentsEvent {

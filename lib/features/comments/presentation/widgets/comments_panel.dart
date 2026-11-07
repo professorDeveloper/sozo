@@ -5,33 +5,63 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
+import 'package:soplay/features/comments/data/social_playback_prefs.dart';
 import 'package:soplay/features/comments/domain/entities/comment_entity.dart';
+import 'package:soplay/features/comments/domain/spoiler_rules.dart';
+import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/comments/presentation/blocs/comments_bloc/comments_bloc.dart';
 import 'package:soplay/features/comments/presentation/widgets/comment_card.dart';
 import 'package:soplay/features/comments/presentation/widgets/comment_compose.dart';
+import 'package:soplay/features/comments/presentation/widgets/spoiler_gate.dart';
 
 class CommentsPanel extends StatelessWidget {
   const CommentsPanel({
     super.key,
     required this.provider,
     required this.contentUrl,
+    this.episodeKey,
+    this.playheadSec,
   });
 
   final String provider;
   final String contentUrl;
 
+  /// Null for the title's thread; an [EpisodeKey] for one episode's.
+  final String? episodeKey;
+
+  /// The player's current second, when the panel is open over playback.
+  /// New comments are stamped with it, and comments about later moments stay
+  /// hidden until the viewer gets there.
+  final int? Function()? playheadSec;
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<CommentsBloc>(
       create: (_) => getIt<CommentsBloc>()
-        ..add(CommentsInit(provider: provider, contentUrl: contentUrl)),
-      child: const _CommentsView(),
+        ..add(CommentsInit(
+          provider: provider,
+          contentUrl: contentUrl,
+          episodeKey: episodeKey,
+        )),
+      child: _CommentsView(
+        contentUrl: contentUrl,
+        episodeKey: episodeKey,
+        playheadSec: playheadSec,
+      ),
     );
   }
 }
 
 class _CommentsView extends StatefulWidget {
-  const _CommentsView();
+  const _CommentsView({
+    required this.contentUrl,
+    this.episodeKey,
+    this.playheadSec,
+  });
+
+  final String contentUrl;
+  final String? episodeKey;
+  final int? Function()? playheadSec;
 
   @override
   State<_CommentsView> createState() => _CommentsViewState();
@@ -53,6 +83,42 @@ class _CommentsViewState extends State<_CommentsView> {
   /// did not.
   _PendingWrite? _pending;
 
+  final ValueNotifier<bool> _spoiler = ValueNotifier<bool>(false);
+  final Set<String> _revealed = <String>{};
+  late final bool _hideUnwatched = const SocialPlaybackPrefs()
+      .hideUnwatchedSpoilers;
+  late final bool _episodeFinished = widget.episodeKey == null ||
+      !getIt.isRegistered<HistoryService>() ||
+      SpoilerRules.episodeFinished(
+        widget.episodeKey,
+        widget.contentUrl,
+        getIt<HistoryService>().getAll(),
+      );
+
+  @override
+  void dispose() {
+    _spoiler.dispose();
+    super.dispose();
+  }
+
+  Widget _gate(CommentEntity c, String? currentUserId, Widget card) {
+    final visibility = SpoilerRules.visibility(
+      spoiler: c.spoiler,
+      isOwn: currentUserId != null && currentUserId == c.user.id,
+      revealed: _revealed.contains(c.id),
+      hideUnwatched: _hideUnwatched,
+      episodeKey: c.episodeKey,
+      episodeFinished: _episodeFinished,
+      atSec: c.atSec,
+      playheadSec: widget.playheadSec?.call(),
+    );
+    return SpoilerGate(
+      visibility: visibility,
+      onReveal: () => setState(() => _revealed.add(c.id)),
+      child: card,
+    );
+  }
+
   void _startReply(CommentEntity c) {
     setState(() {
       _replyTo = c.id;
@@ -66,6 +132,7 @@ class _CommentsViewState extends State<_CommentsView> {
     setState(() {
       _editId = c.id;
       _initialText = c.text;
+      _spoiler.value = c.spoiler;
       _replyTo = null;
       _replyToName = null;
     });
@@ -78,6 +145,7 @@ class _CommentsViewState extends State<_CommentsView> {
       _editId = null;
       _initialText = '';
     });
+    _spoiler.value = false;
   }
 
   Future<void> _submit(String text) async {
@@ -91,11 +159,17 @@ class _CommentsViewState extends State<_CommentsView> {
       editId: _editId,
       replyTo: _replyTo,
       replyToName: _replyToName,
+      spoiler: _spoiler.value,
     );
     if (_editId != null) {
-      bloc.add(CommentsEdit(id: _editId!, text: text));
+      bloc.add(CommentsEdit(id: _editId!, text: text, spoiler: _spoiler.value));
     } else {
-      bloc.add(CommentsCreate(text: text, parentId: _replyTo));
+      bloc.add(CommentsCreate(
+        text: text,
+        parentId: _replyTo,
+        spoiler: _spoiler.value,
+        atSec: widget.playheadSec?.call(),
+      ));
     }
     _cancel();
   }
@@ -111,6 +185,7 @@ class _CommentsViewState extends State<_CommentsView> {
       _replyTo = pending.replyTo;
       _replyToName = pending.replyToName;
     });
+    _spoiler.value = pending.spoiler;
   }
 
   Widget _buildList(
@@ -233,6 +308,7 @@ class _CommentsViewState extends State<_CommentsView> {
           onReplyLike: (id) => bloc.add(CommentsToggleLike(id)),
           onReplyEdit: _startEdit,
           onReplyDelete: _confirmDelete,
+          gate: (comment, card) => _gate(comment, currentUserId, card),
         );
       },
     );
@@ -321,6 +397,7 @@ class _CommentsViewState extends State<_CommentsView> {
                   editTarget: _editId,
                   initialText: _initialText,
                   onCancel: _cancel,
+                  spoiler: _spoiler,
                 ),
               ),
           ],
@@ -395,6 +472,7 @@ class _CommentTree extends StatelessWidget {
     required this.onReplyLike,
     required this.onReplyEdit,
     required this.onReplyDelete,
+    this.gate,
   });
 
   final CommentEntity comment;
@@ -411,12 +489,15 @@ class _CommentTree extends StatelessWidget {
   final void Function(String id) onReplyLike;
   final void Function(CommentEntity c) onReplyEdit;
   final void Function(CommentEntity c) onReplyDelete;
+  final Widget Function(CommentEntity c, Widget card)? gate;
+
+  Widget _gated(CommentEntity c, Widget card) => gate?.call(c, card) ?? card;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        CommentCard(
+        _gated(comment, CommentCard(
           comment: comment,
           isOwner: currentUserId != null && currentUserId == comment.user.id,
           canInteract: canInteract,
@@ -426,7 +507,7 @@ class _CommentTree extends StatelessWidget {
           onDelete: onDelete,
           onToggleReplies: onToggle,
           repliesExpanded: expanded,
-        ),
+        )),
         if (expanded)
           Padding(
             padding: const EdgeInsetsDirectional.only(start: 46),
@@ -445,7 +526,7 @@ class _CommentTree extends StatelessWidget {
                     ),
                   ),
                 for (final r in replies)
-                  CommentCard(
+                  _gated(r, CommentCard(
                     comment: r,
                     compact: true,
                     isOwner:
@@ -457,7 +538,7 @@ class _CommentTree extends StatelessWidget {
                     onDelete: () => onReplyDelete(r),
                     onToggleReplies: () {},
                     repliesExpanded: false,
-                  ),
+                  )),
               ],
             ),
           ),
@@ -473,10 +554,12 @@ class _PendingWrite {
     required this.editId,
     required this.replyTo,
     required this.replyToName,
+    this.spoiler = false,
   });
 
   final String text;
   final String? editId;
   final String? replyTo;
   final String? replyToName;
+  final bool spoiler;
 }

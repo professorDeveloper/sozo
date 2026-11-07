@@ -186,11 +186,23 @@ class _UserContent extends StatelessWidget {
       if (user.authProvider != 'local') 'Google',
     ].join(' · ');
 
-    return Padding(
+    return ValueListenableBuilder<ProgressView?>(
+      valueListenable: getIt.isRegistered<ProgressService>()
+          ? getIt<ProgressService>().state
+          : _noProgress,
+      builder: (context, progress, _) => Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          _Avatar(user: user),
+          GestureDetector(
+            onTap: progress == null ? null : () => context.push('/progress'),
+            child: FramedAvatar(
+              size: 72,
+              radius: 20,
+              frame: progress?.frame,
+              child: _Avatar(user: user),
+            ),
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -199,7 +211,9 @@ class _UserContent extends StatelessWidget {
                 Text(
                   name,
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color:
+                        Cosmetics.nameColor(progress?.nameColor) ??
+                        AppColors.textPrimary,
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                     height: lineHeightFor(context, 1.15),
@@ -229,12 +243,62 @@ class _UserContent extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
+                if (progress != null) ...[
+                  const SizedBox(height: 8),
+                  _LevelLink(view: progress),
+                ],
               ],
             ),
           ),
           const SizedBox(width: 8),
           _EditProfileButton(user: user),
         ],
+      ),
+    ),
+    );
+  }
+}
+
+final ValueNotifier<ProgressView?> _noProgress = ValueNotifier(null);
+
+/// The level under the name; the way into the progress page.
+class _LevelLink extends StatelessWidget {
+  const _LevelLink({required this.view});
+
+  final ProgressView view;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = view.progress;
+    final title = Cosmetics.titleText(view.title);
+    return InkWell(
+      onTap: () => context.push('/progress'),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            LevelChip(level: p.level, fontSize: 11),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                title ?? 'progress.to_next_short'.tr(args: ['${p.toNext}']),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 16,
+              color: AppColors.textHint,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -5,6 +5,7 @@ class PartyMember {
   final String? photoURL;
   final String role; // 'host' | 'member'
   final bool online;
+  final bool buffering;
 
   const PartyMember({
     required this.userId,
@@ -12,7 +13,17 @@ class PartyMember {
     this.photoURL,
     this.role = 'member',
     this.online = false,
+    this.buffering = false,
   });
+
+  PartyMember copyWith({bool? buffering}) => PartyMember(
+        userId: userId,
+        username: username,
+        photoURL: photoURL,
+        role: role,
+        online: online,
+        buffering: buffering ?? this.buffering,
+      );
 
   bool get isHost => role == 'host';
 
@@ -22,6 +33,7 @@ class PartyMember {
         photoURL: j['photoURL'] as String?,
         role: j['role'] as String? ?? 'member',
         online: j['online'] as bool? ?? false,
+        buffering: j['buffering'] as bool? ?? false,
       );
 
   /// Defensively parse a `members` array from a socket/REST payload.
