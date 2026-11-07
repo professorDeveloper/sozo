@@ -320,7 +320,7 @@ class _VoiceSearchDialogState extends State<VoiceSearchDialog>
     return Dialog(
       backgroundColor: AppColors.surface,
       insetPadding: const EdgeInsets.symmetric(horizontal: 32),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
@@ -389,6 +389,9 @@ class _VoiceSearchDialogState extends State<VoiceSearchDialog>
                 spacing: 4,
                 children: [
                   TextButton(
+                    // While listening there is nothing else to focus: Done
+                    // stays disabled until a word is heard.
+                    autofocus: isTvPlatform && active,
                     onPressed: _cancel,
                     child: Text('general.cancel'.tr()),
                   ),

@@ -9,6 +9,7 @@ import 'package:soplay/features/extensions/data/zangetsu_repo_store.dart';
 import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
 import 'package:soplay/features/extensions/domain/entities/zangetsu_source.dart';
 import 'package:soplay/features/extensions/presentation/widgets/recommended_repos_section.dart';
+import 'package:soplay/features/extensions/presentation/widgets/source_filter_chips.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/sources/domain/source_scope.dart';
@@ -369,7 +370,7 @@ class _ZangetsuSourcesPageState extends State<ZangetsuSourcesPage> {
   );
 
   Widget _statusBanner() {
-    final color = _statusError ? Colors.redAccent : Colors.green;
+    final color = _statusError ? AppColors.error : AppColors.success;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -452,7 +453,7 @@ class _ZangetsuSourcesPageState extends State<ZangetsuSourcesPage> {
         ),
         trailing: IconButton(
           tooltip: 'general.remove'.tr(),
-          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+          icon: const Icon(Icons.delete_outline, color: AppColors.error),
           onPressed: _busy ? null : () => _removeRepo(url),
         ),
       ),
@@ -472,36 +473,37 @@ class _ZangetsuSourcesPageState extends State<ZangetsuSourcesPage> {
           prefix: const Icon(Icons.search, color: AppColors.textHint),
         ),
       ),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: [
+      const SizedBox(height: 4),
+      // The same chip rows as the Mangayomi page and the catalog.
+      SourceFilterChipRow(
+        padding: EdgeInsets.zero,
+        options: [
           for (final (value, label) in [
             ('all', 'zangetsu.all_types'.tr()),
             ('anime', 'ext.type_anime'.tr()),
             ('movies', 'zangetsu.type_movies'.tr()),
           ])
-            ChoiceChip(
-              label: Text(label),
-              selected: _type == value,
-              selectedColor: _accent.withValues(alpha: 0.25),
-              onSelected: (_) => setState(() => _type = value),
+            SourceFilterOption(
+              label: label,
+              active: _type == value,
+              onTap: () => setState(() => _type = value),
             ),
-          if (langs.length > 1)
-            for (final lang in ['all', ...langs])
-              ChoiceChip(
-                label: Text(
-                  lang == 'all'
-                      ? 'zangetsu.all_languages'.tr()
-                      : lang.toUpperCase(),
-                ),
-                selected: _lang == lang,
-                selectedColor: _accent.withValues(alpha: 0.25),
-                onSelected: (_) => setState(() => _lang = lang),
-              ),
         ],
       ),
+      if (langs.length > 1)
+        SourceFilterChipRow(
+          padding: EdgeInsets.zero,
+          options: [
+            for (final lang in ['all', ...langs])
+              SourceFilterOption(
+                label: lang == 'all'
+                    ? 'zangetsu.all_languages'.tr()
+                    : lang.toUpperCase(),
+                active: _lang == lang,
+                onTap: () => setState(() => _lang = lang),
+              ),
+          ],
+        ),
     ],
   );
 
@@ -539,7 +541,7 @@ class _ZangetsuSourcesPageState extends State<ZangetsuSourcesPage> {
                       ),
                       if (s.nsfw) ...[
                         const SizedBox(width: 6),
-                        const _Badge(text: '18+', color: Colors.redAccent),
+                        const _Badge(text: '18+', color: AppColors.error),
                       ],
                     ],
                   ),
@@ -547,6 +549,8 @@ class _ZangetsuSourcesPageState extends State<ZangetsuSourcesPage> {
                     '${s.lang.toUpperCase()} · '
                     '${s.isAnime ? 'ext.type_anime'.tr() : 'zangetsu.type_movies'.tr()}'
                     ' · v${shown.version}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: AppColors.textHint,
                       fontSize: 10.5,
@@ -568,7 +572,7 @@ class _ZangetsuSourcesPageState extends State<ZangetsuSourcesPage> {
     ZangetsuSource? update,
   ) {
     if (s.builtIn) {
-      return [_Badge(text: 'zangetsu.built_in'.tr(), color: Colors.green)];
+      return [_Badge(text: 'zangetsu.built_in'.tr(), color: AppColors.success)];
     }
     if (installed == null) {
       return [
@@ -588,13 +592,14 @@ class _ZangetsuSourcesPageState extends State<ZangetsuSourcesPage> {
         ),
       Switch(
         value: installed.enabled,
-        activeThumbColor: _accent,
+        activeThumbColor: Colors.white,
+        activeTrackColor: _accent,
         onChanged: _busy ? null : (v) => _toggle(installed, v),
       ),
       IconButton(
         tooltip: 'general.remove'.tr(),
         visualDensity: VisualDensity.compact,
-        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+        icon: const Icon(Icons.delete_outline, color: AppColors.error),
         onPressed: _busy ? null : () => _remove(installed),
       ),
     ];
@@ -604,8 +609,8 @@ class _ZangetsuSourcesPageState extends State<ZangetsuSourcesPage> {
     final fallback = Container(
       width: 26,
       height: 26,
-      color: Colors.white10,
-      child: const Icon(Icons.bolt_rounded, size: 14, color: Colors.white54),
+      color: AppColors.surfaceVariant,
+      child: const Icon(Icons.bolt_rounded, size: 14, color: AppColors.textHint),
     );
     return ClipRRect(
       borderRadius: BorderRadius.circular(7),

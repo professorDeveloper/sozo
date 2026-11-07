@@ -271,11 +271,12 @@ class _LevelLink extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = view.progress;
     final title = Cosmetics.titleText(view.title);
-    return InkWell(
+    return HoverTap(
       onTap: () => context.push('/progress'),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: 8,
+      scale: 1.02,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

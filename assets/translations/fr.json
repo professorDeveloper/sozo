@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "Vérifie ta connexion internet et réessaie.",
     "settings_title": "Paramètres du salon",
     "room_size": "Taille du salon",
+    "room_size_less": "Moins de personnes",
+    "room_size_more": "Plus de personnes",
     "only_host_setting": "Seul l'hôte contrôle la lecture",
     "lock_room": "Verrouiller le salon",
     "lock_room_hint": "Personne de nouveau ne peut rejoindre",

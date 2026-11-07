@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "अपना इंटरनेट कनेक्शन जाँचें और फिर से कोशिश करें।",
     "settings_title": "रूम सेटिंग्स",
     "room_size": "रूम का आकार",
+    "room_size_less": "कम लोग",
+    "room_size_more": "ज़्यादा लोग",
     "only_host_setting": "सिर्फ़ होस्ट प्लेबैक नियंत्रित करता है",
     "lock_room": "रूम लॉक करें",
     "lock_room_hint": "कोई नया शामिल नहीं हो सकता",

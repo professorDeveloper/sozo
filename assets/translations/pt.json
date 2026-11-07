@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "Verifique sua conexão com a internet e tente de novo.",
     "settings_title": "Configurações da sala",
     "room_size": "Tamanho da sala",
+    "room_size_less": "Menos pessoas",
+    "room_size_more": "Mais pessoas",
     "only_host_setting": "Só o anfitrião controla a reprodução",
     "lock_room": "Trancar sala",
     "lock_room_hint": "Ninguém novo pode entrar",

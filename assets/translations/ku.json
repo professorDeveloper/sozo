@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "Girêdana înternetê kontrol bike û dîsa biceribîne.",
     "settings_title": "Mîhengên odeyê",
     "room_size": "Mezinahiya odeyê",
+    "room_size_less": "Kesên kêmtir",
+    "room_size_more": "Kesên zêdetir",
     "only_host_setting": "Tenê mazûvan lêdanê kontrol dike",
     "lock_room": "Odeyê kilît bike",
     "lock_room_hint": "Kesekî nû nikare tevlî bibe",

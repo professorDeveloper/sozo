@@ -58,7 +58,7 @@ class _ContributorsSectionState extends State<ContributorsSection> {
                       : ValueListenableBuilder<bool>(
                           valueListenable: _service.failed,
                           builder: (_, failed, _) => failed
-                              ? const _QuietError()
+                              ? _QuietError(onRetry: _service.refresh)
                               : const _Skeleton(),
                         ),
                 ),
@@ -99,8 +99,8 @@ class _Grid extends StatelessWidget {
             borderRadius: 12,
             onTap: () => onOpen(c.htmlUrl),
             child: Semantics(
-              button: true,
               label: c.login,
+              excludeSemantics: true,
               child: SizedBox(
                 width: _cell,
                 child: Column(
@@ -202,7 +202,9 @@ class _Skeleton extends StatelessWidget {
 }
 
 class _QuietError extends StatelessWidget {
-  const _QuietError();
+  const _QuietError({required this.onRetry});
+
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -216,6 +218,7 @@ class _QuietError extends StatelessWidget {
             style: const TextStyle(color: AppColors.textHint, fontSize: 12),
           ),
         ),
+        TextButton(onPressed: onRetry, child: Text('general.retry'.tr())),
       ],
     );
   }

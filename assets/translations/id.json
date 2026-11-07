@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "Periksa koneksi internetmu lalu coba lagi.",
     "settings_title": "Pengaturan ruang",
     "room_size": "Ukuran ruang",
+    "room_size_less": "Lebih sedikit orang",
+    "room_size_more": "Lebih banyak orang",
     "only_host_setting": "Hanya host yang mengontrol pemutaran",
     "lock_room": "Kunci ruang",
     "lock_room_hint": "Tidak ada orang baru yang bisa bergabung",

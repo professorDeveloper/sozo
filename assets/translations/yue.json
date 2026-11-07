@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "檢查下你嘅網絡連線再試一次。",
     "settings_title": "房間設定",
     "room_size": "房間人數",
+    "room_size_less": "少啲人",
+    "room_size_more": "多啲人",
     "only_host_setting": "淨係房主可以控制播放",
     "lock_room": "鎖住房間",
     "lock_room_hint": "新人唔可以加入",

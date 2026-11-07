@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "Hãy kiểm tra kết nối mạng và thử lại.",
     "settings_title": "Cài đặt phòng",
     "room_size": "Kích thước phòng",
+    "room_size_less": "Ít người hơn",
+    "room_size_more": "Nhiều người hơn",
     "only_host_setting": "Chỉ chủ phòng điều khiển phát",
     "lock_room": "Khóa phòng",
     "lock_room_hint": "Không ai mới có thể tham gia",

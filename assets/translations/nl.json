@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "Controleer je internetverbinding en probeer het opnieuw.",
     "settings_title": "Kamerinstellingen",
     "room_size": "Kamergrootte",
+    "room_size_less": "Minder mensen",
+    "room_size_more": "Meer mensen",
     "only_host_setting": "Alleen de host bedient het afspelen",
     "lock_room": "Kamer vergrendelen",
     "lock_room_hint": "Niemand nieuw kan meedoen",

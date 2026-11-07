@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/achievements/domain/achievements.dart';
 import 'package:soplay/features/progress/data/progress_service.dart';
@@ -31,6 +32,12 @@ class _ProgressPageState extends State<ProgressPage> {
     _service.refresh().whenComplete(() {
       if (mounted) setState(() => _loading = false);
     });
+  }
+
+  Future<void> _retry() async {
+    setState(() => _loading = true);
+    await _service.refresh();
+    if (mounted) setState(() => _loading = false);
   }
 
   void _onChange() {
@@ -78,10 +85,31 @@ class _ProgressPageState extends State<ProgressPage> {
                   ? const CircularProgressIndicator()
                   : Padding(
                       padding: const EdgeInsets.all(32),
-                      child: Text(
-                        'progress.unavailable'.tr(),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.textSecondary),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.cloud_off_rounded,
+                            size: 40,
+                            color: AppColors.textHint,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'progress.unavailable'.tr(),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextButton(
+                            autofocus: true,
+                            onPressed: _retry,
+                            child: Text('general.retry'.tr()),
+                          ),
+                        ],
                       ),
                     ),
             )
@@ -336,7 +364,7 @@ class _Recent extends StatelessWidget {
                   ),
                   if (g.at != null)
                     Padding(
-                      padding: const EdgeInsets.only(right: 10),
+                      padding: const EdgeInsetsDirectional.only(end: 10),
                       child: Text(
                         DateFormat.MMMd(
                           context.locale.toString(),
@@ -465,10 +493,14 @@ class _LockerItem extends StatelessWidget {
         return FramedAvatar(
           size: 34,
           frame: item.id,
-          child: const CircleAvatar(
+          child: CircleAvatar(
             radius: 17,
-            backgroundColor: Color(0xFF2A2A2A),
-            child: Icon(Icons.person_rounded, size: 20, color: Colors.white54),
+            backgroundColor: AppColors.surfaceVariant,
+            child: const Icon(
+              Icons.person_rounded,
+              size: 20,
+              color: AppColors.textHint,
+            ),
           ),
         );
       case CosmeticSlot.nameColor:
@@ -495,85 +527,89 @@ class _LockerItem extends StatelessWidget {
     final label = Cosmetics.label(item.slot, item.id);
     return Tooltip(
       message: locked ? unlockHint(item) : label,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 100,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-          decoration: BoxDecoration(
-            color: equipped
-                ? AppColors.primary.withValues(alpha: 0.14)
-                : Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
+      child: Semantics(
+        selected: equipped,
+        child: HoverTap(
+          onTap: onTap,
+          borderRadius: 12,
+          scale: 1.03,
+          child: Container(
+            width: 100,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            decoration: BoxDecoration(
               color: equipped
-                  ? AppColors.primary.withValues(alpha: 0.6)
-                  : Colors.white.withValues(alpha: 0.06),
+                  ? AppColors.primary.withValues(alpha: 0.14)
+                  : Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: equipped
+                    ? AppColors.primary.withValues(alpha: 0.6)
+                    : Colors.white.withValues(alpha: 0.06),
+              ),
             ),
-          ),
-          child: Opacity(
-            opacity: locked ? 0.5 : 1,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  height: 44,
-                  child: Center(
-                    child: busy
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : _preview(),
+            child: Opacity(
+              opacity: locked ? 0.5 : 1,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: 44,
+                    child: Center(
+                      child: busy
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : _preview(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: item.slot == CosmeticSlot.nameColor
-                        ? Cosmetics.nameColor(item.id)
-                        : AppColors.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 6),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: item.slot == CosmeticSlot.nameColor
+                          ? Cosmetics.nameColor(item.id)
+                          : AppColors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (locked) ...[
-                      const Icon(
-                        Icons.lock_outline_rounded,
-                        size: 11,
-                        color: AppColors.textHint,
-                      ),
-                      const SizedBox(width: 3),
-                    ],
-                    Flexible(
-                      child: Text(
-                        locked
-                            ? unlockHint(item)
-                            : equipped
-                            ? 'progress.equipped'.tr()
-                            : 'progress.equip'.tr(),
-                        maxLines: 2,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (locked) ...[
+                        const Icon(
+                          Icons.lock_outline_rounded,
+                          size: 11,
                           color: AppColors.textHint,
-                          fontSize: 10.5,
+                        ),
+                        const SizedBox(width: 3),
+                      ],
+                      Flexible(
+                        child: Text(
+                          locked
+                              ? unlockHint(item)
+                              : equipped
+                              ? 'progress.equipped'.tr()
+                              : 'progress.equip'.tr(),
+                          maxLines: 2,
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textHint,
+                            fontSize: 10.5,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

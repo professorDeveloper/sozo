@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "İnternet bağlantını kontrol edip tekrar dene.",
     "settings_title": "Oda ayarları",
     "room_size": "Oda boyutu",
+    "room_size_less": "Daha az kişi",
+    "room_size_more": "Daha fazla kişi",
     "only_host_setting": "Oynatmayı yalnızca host kontrol eder",
     "lock_room": "Odayı kilitle",
     "lock_room_hint": "Yeni kimse katılamaz",

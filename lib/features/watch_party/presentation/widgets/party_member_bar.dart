@@ -139,8 +139,8 @@ class PartyMemberBar extends StatelessWidget {
                   isHost && onAction != null && !isMe && !m.isHost;
               final tile = _MemberTile(member: m, isMe: isMe);
               if (!actionable) return tile;
-              return InkWell(
-                borderRadius: BorderRadius.circular(12),
+              return HoverTap(
+                borderRadius: 12,
                 onTap: () => _openMenu(context, m),
                 onLongPress: () => _openMenu(context, m),
                 child: tile,

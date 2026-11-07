@@ -285,19 +285,22 @@ class _Composer extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            Material(
-              color: AppColors.primary,
-              shape: const CircleBorder(),
-              child: InkWell(
-                onTap: onSend,
-                customBorder: const CircleBorder(),
-                child: const SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: Icon(
-                    Icons.send_rounded,
-                    color: Colors.white,
-                    size: 16,
+            Tooltip(
+              message: 'support.send'.tr(),
+              child: Material(
+                color: AppColors.primary,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  onTap: onSend,
+                  customBorder: const CircleBorder(),
+                  child: const SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Icon(
+                      Icons.send_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ),
                 ),
               ),

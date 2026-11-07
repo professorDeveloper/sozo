@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "Check your internet connection and try again.",
     "settings_title": "Room settings",
     "room_size": "Room size",
+    "room_size_less": "Fewer people",
+    "room_size_more": "More people",
     "only_host_setting": "Only host controls playback",
     "lock_room": "Lock room",
     "lock_room_hint": "No one new can join",

@@ -1215,6 +1215,8 @@
     "connect_failed_msg": "Internet aloqangizni tekshirib, qayta urinib ko'ring.",
     "settings_title": "Xona sozlamalari",
     "room_size": "Xona hajmi",
+    "room_size_less": "Kamroq odam",
+    "room_size_more": "Ko‘proq odam",
     "only_host_setting": "Ijroni faqat host boshqaradi",
     "lock_room": "Xonani qulflash",
     "lock_room_hint": "Yangi hech kim qo'shila olmaydi",

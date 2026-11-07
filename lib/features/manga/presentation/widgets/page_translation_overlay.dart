@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/manga/domain/translate/page_translation.dart';
 
@@ -196,31 +197,44 @@ class _PageTranslatePreviewState extends State<PageTranslatePreview> {
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: Row(
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      'general.cancel'.tr(),
-                      style: const TextStyle(color: Colors.white70),
+              // Wraps rather than overflows when the labels are long and the
+              // phone is narrow.
+              child: SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  runSpacing: 4,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(
+                        'general.cancel'.tr(),
+                        style: const TextStyle(color: AppColors.textSecondary),
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  FilterChip(
-                    selected: _original,
-                    onSelected: (v) => setState(() => _original = v),
-                    label: Text('manga.translate_show_original'.tr()),
-                    selectedColor: accent.withValues(alpha: 0.3),
-                  ),
-                  const SizedBox(width: 10),
-                  FilledButton(
-                    style: FilledButton.styleFrom(backgroundColor: accent),
-                    onPressed: () => Navigator.of(context).pop(
-                      PageTranslatePreviewResult(showOriginal: _original),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FilterChip(
+                          selected: _original,
+                          onSelected: (v) => setState(() => _original = v),
+                          label: Text('manga.translate_show_original'.tr()),
+                          selectedColor: accent.withValues(alpha: 0.3),
+                        ),
+                        const SizedBox(width: 10),
+                        FilledButton(
+                          autofocus: isTvPlatform,
+                          style: FilledButton.styleFrom(backgroundColor: accent),
+                          onPressed: () => Navigator.of(context).pop(
+                            PageTranslatePreviewResult(showOriginal: _original),
+                          ),
+                          child: Text('manga.translate_apply'.tr()),
+                        ),
+                      ],
                     ),
-                    child: Text('manga.translate_apply'.tr()),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
