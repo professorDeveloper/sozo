@@ -1309,7 +1309,19 @@
     "highlights": "Belgilanganlar",
     "remove_highlight": "Belgini olib tashlash",
     "highlight_note": "Izoh qo'shing (ixtiyoriy)",
-    "no_highlights": "Hali belgilanganlar yo'q. Matnni tanlang va «Belgilash»ni bosing."
+    "no_highlights": "Hali belgilanganlar yo'q. Matnni tanlang va «Belgilash»ni bosing.",
+    "translate_page": "Sahifani tarjima qilish",
+    "translate_preview": "Tarjima qilingan sahifa",
+    "translate_apply": "Qo'llash",
+    "translate_show_original": "Asl matnni ko'rsatish",
+    "translate_no_text": "Bu sahifada matn topilmadi.",
+    "translate_daily_limit": "Bugungi tarjimalaringiz tugadi. Ertaga qayta urinib ko'ring.",
+    "translate_offline": "Internet yo'q. Sahifani tarjima qilish uchun internetga ulaning.",
+    "translate_sign_in": "Sahifalarni tarjima qilish uchun hisobingizga kiring.",
+    "translate_failed": "Sahifani tarjima qilib bo'lmadi. Qayta urinib ko'ring.",
+    "translate_language": "Sahifalarni qaysi tilga tarjima qilish",
+    "translate_auto": "O'qiyotganimda har bir sahifani tarjima qilish",
+    "translate_auto_desc": "Har bir yangi sahifa bugungi tarjimalardan bittasini sarflaydi."
   },
   "cloudflare": {
     "title": "Siz odam ekanligingizni tasdiqlang",

@@ -1309,7 +1309,19 @@
     "highlights": "Markierungen",
     "remove_highlight": "Markierung entfernen",
     "highlight_note": "Notiz hinzufügen (optional)",
-    "no_highlights": "Noch keine Markierungen. Text auswählen und „Markieren“ wählen."
+    "no_highlights": "Noch keine Markierungen. Text auswählen und „Markieren“ wählen.",
+    "translate_page": "Seite übersetzen",
+    "translate_preview": "Übersetzte Seite",
+    "translate_apply": "Übernehmen",
+    "translate_show_original": "Original anzeigen",
+    "translate_no_text": "Auf dieser Seite wurde kein Text gefunden.",
+    "translate_daily_limit": "Du hast die Übersetzungen für heute aufgebraucht. Versuch es morgen wieder.",
+    "translate_offline": "Du bist offline. Verbinde dich mit dem Internet, um diese Seite zu übersetzen.",
+    "translate_sign_in": "Melde dich an, um Seiten zu übersetzen.",
+    "translate_failed": "Diese Seite konnte nicht übersetzt werden. Versuch es noch einmal.",
+    "translate_language": "Seiten übersetzen in",
+    "translate_auto": "Jede Seite beim Lesen übersetzen",
+    "translate_auto_desc": "Jede neue Seite verbraucht eine der heutigen Übersetzungen."
   },
   "cloudflare": {
     "title": "Bestätige, dass du ein Mensch bist",

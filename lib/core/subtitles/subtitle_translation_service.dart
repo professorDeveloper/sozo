@@ -55,6 +55,16 @@ class SubtitleDailyLimitReached implements Exception {
   String toString() => message;
 }
 
+/// Thrown when the translation request never reached the server.
+class TranslationOffline implements Exception {
+  const TranslationOffline();
+}
+
+/// Thrown when translating needs an account and there is none signed in.
+class TranslationNeedsSignIn implements Exception {
+  const TranslationNeedsSignIn();
+}
+
 /// Asks the backend to translate a subtitle the source has none of in the
 /// target language.
 ///
@@ -171,7 +181,12 @@ class SubtitleTranslationService {
       }
       return out;
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout) {
+        throw const TranslationOffline();
+      }
       final status = e.response?.statusCode;
+      if (status == 401) throw const TranslationNeedsSignIn();
       final message = _messageFrom(e);
       if (status == 429) throw SubtitleDailyLimitReached(message);
       throw Exception(message);

@@ -266,6 +266,8 @@ class AppConstants {
   static const String subtitleStyleKey = 'subtitle_style';
   static const String subtitleAutoTranslateKey = 'subtitle_auto_translate';
   static const String subtitleTranslateLangKey = 'subtitle_translate_lang';
+  static const String mangaTranslateLangKey = 'manga_translate_lang';
+  static const String mangaAutoTranslateKey = 'manga_auto_translate';
 
   /// Ask which engine to use every time playback starts, instead of silently
   /// using [playerEngineKey]. Absent ⇒ off, so an existing install keeps the

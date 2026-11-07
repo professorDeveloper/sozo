@@ -1309,7 +1309,19 @@
     "highlights": "Markeringen",
     "remove_highlight": "Markering verwijderen",
     "highlight_note": "Notitie toevoegen (optioneel)",
-    "no_highlights": "Nog geen markeringen. Selecteer tekst en kies Markeren."
+    "no_highlights": "Nog geen markeringen. Selecteer tekst en kies Markeren.",
+    "translate_page": "Pagina vertalen",
+    "translate_preview": "Vertaalde pagina",
+    "translate_apply": "Toepassen",
+    "translate_show_original": "Origineel tonen",
+    "translate_no_text": "Geen tekst gevonden op deze pagina.",
+    "translate_daily_limit": "Je hebt de vertalingen van vandaag opgebruikt. Probeer het morgen opnieuw.",
+    "translate_offline": "Je bent offline. Maak verbinding met internet om deze pagina te vertalen.",
+    "translate_sign_in": "Log in om pagina's te vertalen.",
+    "translate_failed": "Deze pagina kon niet worden vertaald. Probeer het opnieuw.",
+    "translate_language": "Pagina's vertalen naar",
+    "translate_auto": "Elke pagina vertalen tijdens het lezen",
+    "translate_auto_desc": "Elke nieuwe pagina gebruikt een van de vertalingen van vandaag."
   },
   "cloudflare": {
     "title": "Bevestig dat je een mens bent",

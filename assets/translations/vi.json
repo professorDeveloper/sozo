@@ -1309,7 +1309,19 @@
     "highlights": "Đoạn đánh dấu",
     "remove_highlight": "Bỏ đánh dấu",
     "highlight_note": "Thêm ghi chú (tùy chọn)",
-    "no_highlights": "Chưa có đoạn đánh dấu. Hãy chọn đoạn văn rồi chọn Đánh dấu."
+    "no_highlights": "Chưa có đoạn đánh dấu. Hãy chọn đoạn văn rồi chọn Đánh dấu.",
+    "translate_page": "Dịch trang",
+    "translate_preview": "Trang đã dịch",
+    "translate_apply": "Áp dụng",
+    "translate_show_original": "Hiện bản gốc",
+    "translate_no_text": "Không tìm thấy chữ trên trang này.",
+    "translate_daily_limit": "Bạn đã dùng hết lượt dịch hôm nay. Hãy thử lại vào ngày mai.",
+    "translate_offline": "Bạn đang ngoại tuyến. Hãy kết nối internet để dịch trang này.",
+    "translate_sign_in": "Đăng nhập để dịch trang.",
+    "translate_failed": "Không dịch được trang này. Hãy thử lại.",
+    "translate_language": "Dịch trang sang",
+    "translate_auto": "Dịch từng trang khi đang đọc",
+    "translate_auto_desc": "Mỗi trang mới dùng một lượt dịch của hôm nay."
   },
   "cloudflare": {
     "title": "Xác minh bạn là người",

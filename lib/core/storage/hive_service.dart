@@ -1446,6 +1446,31 @@ class HiveService {
     await _settingsBox.put(AppConstants.subtitleTranslateLangKey, lang.trim());
   }
 
+  /// Target language for manga page translation. Follows the subtitle one
+  /// until chosen.
+  String getMangaTranslateLang() {
+    final saved = _settingsBox.get(AppConstants.mangaTranslateLangKey);
+    if (saved is String && saved.isNotEmpty) return saved;
+    return getSubtitleTranslateLang();
+  }
+
+  Future<void> setMangaTranslateLang(String lang) async {
+    await _settingsBox.put(AppConstants.mangaTranslateLangKey, lang.trim());
+  }
+
+  /// Translate each manga page as it comes on screen. Off by default: every
+  /// new page spends one of the day's translations.
+  bool get mangaAutoTranslate =>
+      _settingsBox.get(
+        AppConstants.mangaAutoTranslateKey,
+        defaultValue: false,
+      ) ==
+      true;
+
+  Future<void> setMangaAutoTranslate(bool value) async {
+    await _settingsBox.put(AppConstants.mangaAutoTranslateKey, value);
+  }
+
   SubtitleStyle getSubtitleStyle() {
     final raw = _settingsBox.get(AppConstants.subtitleStyleKey);
     if (raw is String && raw.isNotEmpty) {

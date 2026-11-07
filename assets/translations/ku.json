@@ -1309,7 +1309,19 @@
     "highlights": "Ronîkirin",
     "remove_highlight": "Ronîkirinê rake",
     "highlight_note": "Notekê zêde bike (bijarte)",
-    "no_highlights": "Hîn ronîkirin tune. Hinek nivîsê hilbijêre û Ronî bike bitikîne."
+    "no_highlights": "Hîn ronîkirin tune. Hinek nivîsê hilbijêre û Ronî bike bitikîne.",
+    "translate_page": "Rûpelê wergerîne",
+    "translate_preview": "Rûpela wergerandî",
+    "translate_apply": "Bisepîne",
+    "translate_show_original": "Orîjînalê nîşan bide",
+    "translate_no_text": "Di vê rûpelê de tu nivîs nehat dîtin.",
+    "translate_daily_limit": "Wergerên te yên îro qediyan. Sibê dîsa biceribîne.",
+    "translate_offline": "Tu ne girêdayî yî. Ji bo wergerandina vê rûpelê bi înternetê ve girê bide.",
+    "translate_sign_in": "Ji bo wergerandina rûpelan têkeve.",
+    "translate_failed": "Ev rûpel nehat wergerandin. Dîsa biceribîne.",
+    "translate_language": "Rûpelan wergerîne bo",
+    "translate_auto": "Dema dixwînim her rûpelê wergerîne",
+    "translate_auto_desc": "Her rûpela nû yek ji wergerên îro bi kar tîne."
   },
   "cloudflare": {
     "title": "Piştrast bike ku tu mirov î",

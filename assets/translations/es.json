@@ -1309,7 +1309,19 @@
     "highlights": "Resaltados",
     "remove_highlight": "Quitar resaltado",
     "highlight_note": "Añade una nota (opcional)",
-    "no_highlights": "Aún no hay resaltados. Selecciona texto y elige Resaltar."
+    "no_highlights": "Aún no hay resaltados. Selecciona texto y elige Resaltar.",
+    "translate_page": "Traducir página",
+    "translate_preview": "Página traducida",
+    "translate_apply": "Aplicar",
+    "translate_show_original": "Mostrar original",
+    "translate_no_text": "No se encontró texto en esta página.",
+    "translate_daily_limit": "Ya usaste las traducciones de hoy. Vuelve a intentarlo mañana.",
+    "translate_offline": "Estás sin conexión. Conéctate a internet para traducir esta página.",
+    "translate_sign_in": "Inicia sesión para traducir páginas.",
+    "translate_failed": "No se pudo traducir esta página. Inténtalo de nuevo.",
+    "translate_language": "Traducir páginas al",
+    "translate_auto": "Traducir cada página mientras leo",
+    "translate_auto_desc": "Cada página nueva usa una de las traducciones de hoy."
   },
   "cloudflare": {
     "title": "Verifica que eres humano",

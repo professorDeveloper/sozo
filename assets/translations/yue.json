@@ -1309,7 +1309,19 @@
     "highlights": "標記清單",
     "remove_highlight": "移除標記",
     "highlight_note": "加個備註（可選）",
-    "no_highlights": "仲未有標記。揀選一段文字，再撳「標記」。"
+    "no_highlights": "仲未有標記。揀選一段文字，再撳「標記」。",
+    "translate_page": "翻譯呢版",
+    "translate_preview": "已翻譯嘅版",
+    "translate_apply": "套用",
+    "translate_show_original": "睇返原文",
+    "translate_no_text": "呢版搵唔到文字。",
+    "translate_daily_limit": "你今日嘅翻譯次數用晒喇，聽日再試啦。",
+    "translate_offline": "你而家離線。連上網先可以翻譯呢版。",
+    "translate_sign_in": "登入之後先可以翻譯漫畫版面。",
+    "translate_failed": "翻譯唔到呢版，請再試一次。",
+    "translate_language": "將版面翻譯成",
+    "translate_auto": "睇嘅時候自動翻譯每一版",
+    "translate_auto_desc": "每翻譯一版新嘅會用一次今日嘅翻譯次數。"
   },
   "cloudflare": {
     "title": "驗證你係真人",
