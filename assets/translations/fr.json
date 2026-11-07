@@ -3134,7 +3134,9 @@
     "error_attachment_type": "Images jpg, png ou webp uniquement.",
     "error_attachment_size": "Chaque image doit faire 5 Mo maximum.",
     "error_attachment_count": "5 captures maximum par message.",
-    "suggest": "Ça se reproduit ? Écris au support"
+    "suggest": "Ça se reproduit ? Écris au support",
+    "error_offline": "Vous êtes hors ligne ou la connexion a été coupée. Vérifiez votre connexion et réessayez.",
+    "not_sent": "Non envoyé : {}"
   },
   "zangetsu": {
     "title": "Sources Zangetsu",

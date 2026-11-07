@@ -122,14 +122,21 @@ class _SupportNewPageState extends State<SupportNewPage> {
         context,
       ).showSnackBar(SnackBar(content: Text('support.sent'.tr())));
       context.pushReplacement('/support/${ticket.id}');
-    } on SupportException catch (e) {
-      if (mounted) {
-        setState(() {
-          _sending = false;
-          _progress = null;
-          _error = e.message;
-        });
-      }
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is SupportException
+          ? e.message
+          : 'support.error_generic'.tr();
+      setState(() {
+        _sending = false;
+        _progress = null;
+        _error = message;
+      });
+      // The inline line can sit below the keyboard or the fold; say it
+      // where it is seen too, so nobody wonders whether it went.
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('support.not_sent'.tr(args: [message]))));
     }
   }
 

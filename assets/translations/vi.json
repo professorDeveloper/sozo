@@ -3134,7 +3134,9 @@
     "error_attachment_type": "Chỉ nhận ảnh jpg, png hoặc webp.",
     "error_attachment_size": "Mỗi ảnh tối đa 5 MB.",
     "error_attachment_count": "Tối đa 5 ảnh mỗi tin nhắn.",
-    "suggest": "Vẫn tiếp diễn? Hãy viết cho bộ phận hỗ trợ"
+    "suggest": "Vẫn tiếp diễn? Hãy viết cho bộ phận hỗ trợ",
+    "error_offline": "Bạn đang ngoại tuyến hoặc kết nối bị ngắt. Hãy kiểm tra internet rồi thử lại.",
+    "not_sent": "Chưa gửi được: {}"
   },
   "zangetsu": {
     "title": "Nguồn Zangetsu",

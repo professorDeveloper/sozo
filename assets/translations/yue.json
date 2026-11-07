@@ -3134,7 +3134,9 @@
     "error_attachment_type": "只接受 jpg、png 或 webp 圖片。",
     "error_attachment_size": "每張圖唔可以大過 5 MB。",
     "error_attachment_count": "每條訊息最多 5 張截圖。",
-    "suggest": "成日都係咁？搵支援"
+    "suggest": "成日都係咁？搵支援",
+    "error_offline": "你而家離線，或者連線斷咗。請檢查網絡再試。",
+    "not_sent": "未送出：{}"
   },
   "zangetsu": {
     "title": "Zangetsu 來源",

@@ -3134,7 +3134,9 @@
     "error_attachment_type": "Yalnızca jpg, png veya webp görseller.",
     "error_attachment_size": "Her görsel en fazla 5 MB olmalı.",
     "error_attachment_count": "Mesaj başına en fazla 5 ekran görüntüsü.",
-    "suggest": "Tekrarlıyor mu? Desteğe yaz"
+    "suggest": "Tekrarlıyor mu? Desteğe yaz",
+    "error_offline": "Çevrimdışısın veya bağlantı koptu. İnternetini kontrol edip tekrar dene.",
+    "not_sent": "Gönderilmedi: {}"
   },
   "zangetsu": {
     "title": "Zangetsu Kaynakları",

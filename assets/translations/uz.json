@@ -3134,7 +3134,9 @@
     "error_attachment_type": "Faqat jpg, png yoki webp rasm.",
     "error_attachment_size": "Har bir rasm 5 MB dan oshmasin.",
     "error_attachment_count": "Bitta xabarga ko‘pi bilan 5 ta skrinshot.",
-    "suggest": "Takrorlanyaptimi? Support’ga yozing"
+    "suggest": "Takrorlanyaptimi? Support’ga yozing",
+    "error_offline": "Internet yo'q yoki aloqa uzildi. Internetni tekshirib, qayta urinib ko'ring.",
+    "not_sent": "Yuborilmadi: {}"
   },
   "zangetsu": {
     "title": "Zangetsu manbalari",

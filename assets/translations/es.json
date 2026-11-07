@@ -3134,7 +3134,9 @@
     "error_attachment_type": "Solo imágenes jpg, png o webp.",
     "error_attachment_size": "Cada imagen debe pesar 5 MB o menos.",
     "error_attachment_count": "Como máximo 5 capturas por mensaje.",
-    "suggest": "¿Sigue pasando? Escribe a soporte"
+    "suggest": "¿Sigue pasando? Escribe a soporte",
+    "error_offline": "No tienes conexión o se cortó. Revisa tu internet e inténtalo de nuevo.",
+    "not_sent": "No se envió: {}"
   },
   "zangetsu": {
     "title": "Fuentes de Zangetsu",
