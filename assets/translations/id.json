@@ -2549,7 +2549,18 @@
     "card_single": "Tambahkan profil untuk orang yang berbagi akun ini denganmu",
     "load_failed": "Gagal memuat profil",
     "offline": "Periksa koneksimu lalu coba lagi.",
-    "error_generic": "Terjadi kesalahan. Silakan coba lagi."
+    "error_generic": "Terjadi kesalahan. Silakan coba lagi.",
+    "on_this_device": "Di perangkat ini",
+    "ask_on_launch": "Tanya siapa yang menonton saat dibuka",
+    "ask_on_launch_desc": "Jika nonaktif, Sozo membuka profil terakhir yang dipakai. Profil dengan PIN tetap akan meminta PIN.",
+    "pin_locked_until": "Terlalu banyak percobaan. Coba lagi setelah {}.",
+    "pin_not_on_device": "Kamu sedang offline, dan PIN profil ini belum pernah dimasukkan di perangkat ini. Sambungkan ke internet sekali untuk membukanya.",
+    "biometric_reason": "Buka {}",
+    "biometric_offer_title": "Pakai sidik jari / Face ID?",
+    "biometric_offer_body": "Pakai sidik jari / Face ID untuk {} di perangkat ini. PIN tetap berfungsi.",
+    "biometric_offer_yes": "Pakai",
+    "biometric_offer_no": "Nanti saja",
+    "biometric_toggle": "Sidik jari / Face ID untuk {}"
   },
   "jellyfin": {
     "connect_server": "Hubungkan server media (Jellyfin)",

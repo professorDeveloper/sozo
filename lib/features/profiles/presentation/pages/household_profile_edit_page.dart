@@ -137,6 +137,7 @@ class _HouseholdProfileEditPageState extends State<HouseholdProfileEditPage> {
     original,
     title: 'profiles.pin_current_title'.tr(),
     subtitle: 'profiles.pin_current_subtitle'.tr(),
+    allowBiometric: false,
   );
 
   Future<void> _save() async {

@@ -2549,7 +2549,18 @@
     "card_single": "Füge Profile für die Personen hinzu, mit denen du dieses Konto teilst",
     "load_failed": "Profile konnten nicht geladen werden",
     "offline": "Prüfe deine Verbindung und versuch es erneut.",
-    "error_generic": "Etwas ist schiefgelaufen. Bitte versuch es erneut."
+    "error_generic": "Etwas ist schiefgelaufen. Bitte versuch es erneut.",
+    "on_this_device": "Auf diesem Gerät",
+    "ask_on_launch": "Beim Start fragen, wer zuschaut",
+    "ask_on_launch_desc": "Wenn aus, öffnet Sozo das zuletzt genutzte Profil. Profile mit PIN fragen trotzdem.",
+    "pin_locked_until": "Zu viele Versuche. Versuche es nach {} erneut.",
+    "pin_not_on_device": "Du bist offline, und die PIN dieses Profils wurde auf diesem Gerät noch nie eingegeben. Verbinde dich einmal mit dem Internet, um es zu entsperren.",
+    "biometric_reason": "{} entsperren",
+    "biometric_offer_title": "Fingerabdruck / Face ID verwenden?",
+    "biometric_offer_body": "Fingerabdruck / Face ID für {} auf diesem Gerät verwenden. Die PIN funktioniert weiterhin.",
+    "biometric_offer_yes": "Verwenden",
+    "biometric_offer_no": "Nicht jetzt",
+    "biometric_toggle": "Fingerabdruck / Face ID für {}"
   },
   "jellyfin": {
     "connect_server": "Medienserver verbinden (Jellyfin)",

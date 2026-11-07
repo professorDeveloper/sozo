@@ -2549,7 +2549,18 @@
     "card_single": "Voeg profielen toe voor de mensen met wie je dit account deelt",
     "load_failed": "Profielen konden niet worden geladen",
     "offline": "Controleer je verbinding en probeer het opnieuw.",
-    "error_generic": "Er ging iets mis. Probeer het opnieuw."
+    "error_generic": "Er ging iets mis. Probeer het opnieuw.",
+    "on_this_device": "Op dit apparaat",
+    "ask_on_launch": "Bij het starten vragen wie er kijkt",
+    "ask_on_launch_desc": "Uit opent Sozo het laatst gebruikte profiel. Profielen met een pincode vragen er nog steeds om.",
+    "pin_locked_until": "Te veel pogingen. Probeer het opnieuw na {}.",
+    "pin_not_on_device": "Je bent offline en de pincode van dit profiel is op dit apparaat nog niet ingevoerd. Maak één keer verbinding met internet om het te ontgrendelen.",
+    "biometric_reason": "{} ontgrendelen",
+    "biometric_offer_title": "Vingerafdruk / Face ID gebruiken?",
+    "biometric_offer_body": "Gebruik vingerafdruk / Face ID voor {} op dit apparaat. De pincode blijft ook werken.",
+    "biometric_offer_yes": "Gebruiken",
+    "biometric_offer_no": "Niet nu",
+    "biometric_toggle": "Vingerafdruk / Face ID voor {}"
   },
   "jellyfin": {
     "connect_server": "Mediaserver koppelen (Jellyfin)",

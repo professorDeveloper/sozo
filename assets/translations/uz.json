@@ -2549,7 +2549,18 @@
     "card_single": "Hisobingizdan birga foydalanadiganlar uchun profil qo'shing",
     "load_failed": "Profillarni yuklab bo'lmadi",
     "offline": "Internet aloqasini tekshirib, qayta urinib ko'ring.",
-    "error_generic": "Xatolik yuz berdi. Qayta urinib ko'ring."
+    "error_generic": "Xatolik yuz berdi. Qayta urinib ko'ring.",
+    "on_this_device": "Shu qurilmada",
+    "ask_on_launch": "Ishga tushganda kim ko'rayotganini so'rash",
+    "ask_on_launch_desc": "O'chirilsa, Sozo oxirgi ishlatilgan profilni ochadi. PIN-kodli profillar baribir so'raladi.",
+    "pin_locked_until": "Urinishlar juda ko'p. {} dan keyin qayta urinib ko'ring.",
+    "pin_not_on_device": "Internet yo'q, bu profilning PIN-kodi esa shu qurilmada hali kiritilmagan. Ochish uchun bir marta internetga ulaning.",
+    "biometric_reason": "{} profilini ochish",
+    "biometric_offer_title": "Barmoq izi / Face ID ishlatilsinmi?",
+    "biometric_offer_body": "Shu qurilmada {} uchun barmoq izi / Face ID ishlatilsin. PIN-kod ham ishlashda davom etadi.",
+    "biometric_offer_yes": "Ishlatish",
+    "biometric_offer_no": "Hozir emas",
+    "biometric_toggle": "{} uchun barmoq izi / Face ID"
   },
   "jellyfin": {
     "connect_server": "Media serverni ulash (Jellyfin)",

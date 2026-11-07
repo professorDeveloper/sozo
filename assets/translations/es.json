@@ -2549,7 +2549,18 @@
     "card_single": "Añade perfiles para las personas con las que compartes esta cuenta",
     "load_failed": "No se pudieron cargar los perfiles",
     "offline": "Comprueba tu conexión e inténtalo de nuevo.",
-    "error_generic": "Algo salió mal. Inténtalo de nuevo."
+    "error_generic": "Algo salió mal. Inténtalo de nuevo.",
+    "on_this_device": "En este dispositivo",
+    "ask_on_launch": "Preguntar quién está viendo al iniciar",
+    "ask_on_launch_desc": "Si está desactivado, Sozo abre el último perfil usado. Los perfiles con PIN lo seguirán pidiendo.",
+    "pin_locked_until": "Demasiados intentos. Inténtalo de nuevo después de las {}.",
+    "pin_not_on_device": "No tienes conexión y el PIN de este perfil aún no se ha introducido en este dispositivo. Conéctate a internet una vez para desbloquearlo.",
+    "biometric_reason": "Desbloquear {}",
+    "biometric_offer_title": "¿Usar huella / Face ID?",
+    "biometric_offer_body": "Usa huella / Face ID para {} en este dispositivo. El PIN seguirá funcionando.",
+    "biometric_offer_yes": "Usar",
+    "biometric_offer_no": "Ahora no",
+    "biometric_toggle": "Huella / Face ID para {}"
   },
   "jellyfin": {
     "connect_server": "Conectar un servidor multimedia (Jellyfin)",

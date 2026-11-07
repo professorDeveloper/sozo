@@ -2549,7 +2549,18 @@
     "card_single": "Thêm hồ sơ cho những người dùng chung tài khoản này",
     "load_failed": "Không tải được hồ sơ",
     "offline": "Hãy kiểm tra kết nối và thử lại.",
-    "error_generic": "Đã xảy ra lỗi. Vui lòng thử lại."
+    "error_generic": "Đã xảy ra lỗi. Vui lòng thử lại.",
+    "on_this_device": "Trên thiết bị này",
+    "ask_on_launch": "Hỏi ai đang xem khi mở ứng dụng",
+    "ask_on_launch_desc": "Khi tắt, Sozo mở hồ sơ dùng gần nhất. Hồ sơ có mã PIN vẫn sẽ hỏi.",
+    "pin_locked_until": "Thử quá nhiều lần. Hãy thử lại sau {}.",
+    "pin_not_on_device": "Bạn đang ngoại tuyến và mã PIN của hồ sơ này chưa từng được nhập trên thiết bị này. Hãy kết nối Internet một lần để mở khóa.",
+    "biometric_reason": "Mở khóa {}",
+    "biometric_offer_title": "Dùng vân tay / Face ID?",
+    "biometric_offer_body": "Dùng vân tay / Face ID cho {} trên thiết bị này. Mã PIN vẫn dùng được.",
+    "biometric_offer_yes": "Dùng",
+    "biometric_offer_no": "Để sau",
+    "biometric_toggle": "Vân tay / Face ID cho {}"
   },
   "jellyfin": {
     "connect_server": "Kết nối máy chủ media (Jellyfin)",

@@ -2553,7 +2553,18 @@
     "card_single": "أضف ملفات شخصية لمن تشاركهم هذا الحساب",
     "load_failed": "تعذّر تحميل الملفات الشخصية",
     "offline": "تحقق من اتصالك وحاول مرة أخرى.",
-    "error_generic": "حدث خطأ ما. حاول مرة أخرى."
+    "error_generic": "حدث خطأ ما. حاول مرة أخرى.",
+    "on_this_device": "على هذا الجهاز",
+    "ask_on_launch": "اسأل من يشاهد عند التشغيل",
+    "ask_on_launch_desc": "عند الإيقاف، يفتح Sozo آخر ملف شخصي مستخدم. الملفات المحمية برمز PIN ستطلبه دائمًا.",
+    "pin_locked_until": "محاولات كثيرة جدًا. حاول مجددًا بعد {}.",
+    "pin_not_on_device": "أنت غير متصل، ولم يُدخل رمز PIN لهذا الملف على هذا الجهاز بعد. اتصل بالإنترنت مرة واحدة لفتحه.",
+    "biometric_reason": "فتح {}",
+    "biometric_offer_title": "استخدام البصمة / Face ID؟",
+    "biometric_offer_body": "استخدم البصمة / Face ID لـ {} على هذا الجهاز. سيبقى رمز PIN يعمل أيضًا.",
+    "biometric_offer_yes": "استخدامها",
+    "biometric_offer_no": "ليس الآن",
+    "biometric_toggle": "البصمة / Face ID لـ {}"
   },
   "jellyfin": {
     "connect_server": "ربط خادم وسائط (Jellyfin)",
