@@ -2579,7 +2579,18 @@
     "card_single": "Add profiles for the people you share this account with",
     "load_failed": "Couldn't load profiles",
     "offline": "Check your connection and try again.",
-    "error_generic": "Something went wrong. Please try again."
+    "error_generic": "Something went wrong. Please try again.",
+    "on_this_device": "On this device",
+    "ask_on_launch": "Ask who's watching on launch",
+    "ask_on_launch_desc": "When off, Sozo opens the last profile used. Profiles with a PIN still ask.",
+    "pin_locked_until": "Too many attempts. Try again after {}.",
+    "pin_not_on_device": "You're offline, and this profile's PIN hasn't been entered on this device yet. Connect to the internet once to unlock it.",
+    "biometric_reason": "Unlock {}",
+    "biometric_offer_title": "Use fingerprint / Face ID?",
+    "biometric_offer_body": "Use fingerprint / Face ID for {} on this device. The PIN keeps working too.",
+    "biometric_offer_yes": "Use it",
+    "biometric_offer_no": "Not now",
+    "biometric_toggle": "Fingerprint / Face ID for {}"
   },
   "jellyfin": {
     "connect_server": "Connect a media server (Jellyfin)",

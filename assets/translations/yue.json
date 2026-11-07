@@ -2579,7 +2579,18 @@
     "card_single": "幫同你共用呢個帳戶嘅人加個人檔案",
     "load_failed": "載入唔到個人檔案",
     "offline": "檢查吓網絡連線再試。",
-    "error_generic": "出咗問題，請再試。"
+    "error_generic": "出咗問題，請再試。",
+    "on_this_device": "喺呢部裝置",
+    "ask_on_launch": "開App時問邊個睇緊",
+    "ask_on_launch_desc": "關咗嘅話，Sozo會直接開返上次用嘅個人檔案。有PIN碼嘅個人檔案照樣會問。",
+    "pin_locked_until": "試得太多次。請喺{}之後再試。",
+    "pin_not_on_device": "你而家離線，而呢個個人檔案嘅PIN碼未喺呢部裝置輸入過。請連一次網嚟解鎖。",
+    "biometric_reason": "解鎖{}",
+    "biometric_offer_title": "用指紋 / Face ID？",
+    "biometric_offer_body": "喺呢部裝置用指紋 / Face ID開{}。PIN碼都照用得。",
+    "biometric_offer_yes": "用",
+    "biometric_offer_no": "遲啲先",
+    "biometric_toggle": "{}嘅指紋 / Face ID"
   },
   "jellyfin": {
     "connect_server": "連接媒體伺服器（Jellyfin）",

@@ -84,6 +84,7 @@ import 'package:soplay/features/history/data/history_sync_remote_data_source.dar
 import 'package:soplay/features/history/data/history_sync_service.dart';
 import 'package:soplay/core/network/profile_interceptor.dart';
 import 'package:soplay/core/storage/profile_storage.dart';
+import 'package:soplay/features/profiles/data/profile_pin_store.dart';
 import 'package:soplay/features/profiles/data/profile_session.dart';
 import 'package:soplay/features/profiles/data/profiles_remote_data_source.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
@@ -106,6 +107,7 @@ import 'package:soplay/features/auth/domain/usecases/verify_otp_usecase.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/app_lock/data/datasources/app_lock_local_data_source.dart';
+import 'package:soplay/features/app_lock/data/pin_secrets.dart';
 import 'package:soplay/features/app_lock/data/repositories/app_lock_repository_impl.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/app_lock/presentation/app_lock_gate.dart';
@@ -408,10 +410,13 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<ProfilesRemoteDataSource>(
     ProfilesRemoteDataSource(dio: getIt<Dio>()),
   );
+  getIt.registerSingleton<DeviceBiometrics>(DeviceBiometrics());
   getIt.registerSingleton<ProfileSession>(
     ProfileSession(
       remote: getIt<ProfilesRemoteDataSource>(),
       isLoggedIn: () => getIt<HiveService>().isLoggedIn,
+      pins: ProfilePinStore(biometrics: getIt<DeviceBiometrics>()),
+      accountId: () => getIt<HiveService>().getUser()?.id,
       // The corner player first: closing it saves its history, which has to
       // land in the profile it was watched in, before the sync settles.
       beforeSwitch: () async {
@@ -1227,7 +1232,10 @@ Future<void> configureDependencies() async {
   );
 
   getIt.registerSingleton<AppLockLocalDataSource>(
-    AppLockLocalDataSource(hiveService: getIt<HiveService>()),
+    AppLockLocalDataSource(
+      hiveService: getIt<HiveService>(),
+      biometrics: getIt<DeviceBiometrics>(),
+    ),
   );
   getIt.registerSingleton<AppLockRepository>(
     AppLockRepositoryImpl(

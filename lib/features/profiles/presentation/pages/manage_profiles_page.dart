@@ -7,6 +7,7 @@ import 'package:soplay/core/widgets/app_buttons.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
 import 'package:soplay/features/profiles/data/profile_session.dart';
 import 'package:soplay/features/profiles/domain/household_profile.dart';
+import 'package:soplay/features/profiles/presentation/profile_flows.dart';
 import 'package:soplay/features/profiles/presentation/widgets/profile_avatar.dart';
 
 class ManageProfilesPage extends StatefulWidget {
@@ -23,6 +24,10 @@ class _ManageProfilesPageState extends State<ManageProfilesPage> {
       widget.session ?? getIt<ProfileSession>();
   bool _loading = false;
   bool _failed = false;
+
+  /// Profiles whose PIN this device knows, and whether each opens with
+  /// biometrics. Empty where biometrics aren't available.
+  Map<String, bool> _biometric = const {};
 
   @override
   void initState() {
@@ -52,6 +57,37 @@ class _ManageProfilesPageState extends State<ManageProfilesPage> {
       _loading = false;
       _failed = !ok;
     });
+    await _loadBiometric();
+  }
+
+  Future<void> _loadBiometric() async {
+    final out = <String, bool>{};
+    if (await _session.biometricsAvailable()) {
+      for (final p in _session.profiles) {
+        if (p.hasPin && await _session.hasLocalPin(p.id)) {
+          out[p.id] = await _session.biometricEnabled(p.id);
+        }
+      }
+    }
+    if (mounted) setState(() => _biometric = out);
+  }
+
+  Future<void> _toggleBiometric(HouseholdProfile p, bool on) async {
+    if (on) {
+      final pin = await askProfilePin(
+        context,
+        _session,
+        p,
+        allowBiometric: false,
+      );
+      if (pin == null || !mounted) return;
+    }
+    await _session.setBiometric(
+      p.id,
+      on,
+      reason: 'app_lock.biometric_enable_reason'.tr(),
+    );
+    await _loadBiometric();
   }
 
   String? _tags(HouseholdProfile p) {
@@ -120,6 +156,29 @@ class _ManageProfilesPageState extends State<ManageProfilesPage> {
             ],
           ),
           SettingsFootnote('profiles.limit'.tr(args: ['${_session.max}'])),
+          const SizedBox(height: 20),
+          SettingsLabel('profiles.on_this_device'.tr()),
+          SettingsCard(
+            children: [
+              SettingsSwitchTile(
+                icon: Icons.switch_account_rounded,
+                title: 'profiles.ask_on_launch'.tr(),
+                subtitle: 'profiles.ask_on_launch_desc'.tr(),
+                value: _session.askOnLaunch,
+                onChanged: _session.setAskOnLaunch,
+              ),
+              for (final p in profiles)
+                if (_biometric.containsKey(p.id)) ...[
+                  const SettingsDivider(),
+                  SettingsSwitchTile(
+                    icon: Icons.fingerprint_rounded,
+                    title: 'profiles.biometric_toggle'.tr(args: [p.name]),
+                    value: _biometric[p.id]!,
+                    onChanged: (on) => _toggleBiometric(p, on),
+                  ),
+                ],
+            ],
+          ),
         ],
       ],
     );

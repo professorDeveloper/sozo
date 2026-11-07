@@ -2579,7 +2579,18 @@
     "card_single": "Bu hesabı paylaştığın kişiler için profil ekle",
     "load_failed": "Profiller yüklenemedi",
     "offline": "Bağlantını kontrol edip tekrar dene.",
-    "error_generic": "Bir sorun oluştu. Lütfen tekrar deneyin."
+    "error_generic": "Bir sorun oluştu. Lütfen tekrar deneyin.",
+    "on_this_device": "Bu cihazda",
+    "ask_on_launch": "Açılışta kimin izlediğini sor",
+    "ask_on_launch_desc": "Kapalıyken Sozo son kullanılan profili açar. PIN'li profiller yine de sorar.",
+    "pin_locked_until": "Çok fazla deneme. {} sonrasında tekrar dene.",
+    "pin_not_on_device": "Çevrimdışısın ve bu profilin PIN'i bu cihazda henüz girilmedi. Kilidi açmak için bir kez internete bağlan.",
+    "biometric_reason": "{} kilidini aç",
+    "biometric_offer_title": "Parmak izi / Face ID kullanılsın mı?",
+    "biometric_offer_body": "Bu cihazda {} için parmak izi / Face ID kullan. PIN de çalışmaya devam eder.",
+    "biometric_offer_yes": "Kullan",
+    "biometric_offer_no": "Şimdi değil",
+    "biometric_toggle": "{} için parmak izi / Face ID"
   },
   "jellyfin": {
     "connect_server": "Medya sunucusu bağla (Jellyfin)",

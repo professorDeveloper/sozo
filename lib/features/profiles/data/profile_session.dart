@@ -6,6 +6,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/core/storage/profile_storage.dart';
+import 'package:soplay/features/app_lock/domain/entities/pin_check.dart';
+import 'package:soplay/features/profiles/data/profile_pin_store.dart';
 import 'package:soplay/features/profiles/data/profiles_remote_data_source.dart';
 import 'package:soplay/features/profiles/domain/household_profile.dart';
 
@@ -21,8 +23,12 @@ class ProfileSession extends ChangeNotifier {
     Future<void> Function()? beforeSwitch,
     Future<void> Function({required bool resync})? onScopeChanged,
     Box? settings,
+    ProfilePinStore? pins,
+    String? Function()? accountId,
   }) : _remote = remote,
        _isLoggedIn = isLoggedIn,
+       _pins = pins,
+       _accountId = accountId,
        _beforeSwitch = beforeSwitch,
        _onScopeChanged = onScopeChanged,
        _settingsOverride = settings {
@@ -31,12 +37,17 @@ class ProfileSession extends ChangeNotifier {
 
   static const String cacheKey = 'household_profiles';
   static const String activeKey = 'household_active';
+  static const String askOnLaunchKey = 'household_ask_on_launch';
 
   final ProfilesRemoteDataSource _remote;
   final bool Function() _isLoggedIn;
   final Future<void> Function()? _beforeSwitch;
   final Future<void> Function({required bool resync})? _onScopeChanged;
   final Box? _settingsOverride;
+  final ProfilePinStore? _pins;
+  final String? Function()? _accountId;
+
+  String get _account => _accountId?.call() ?? '';
 
   Box get _settings => _settingsOverride ?? Hive.box(AppConstants.settingsBox);
 
@@ -45,6 +56,13 @@ class ProfileSession extends ChangeNotifier {
   int _max = 4;
   bool _chosenThisRun = false;
   bool _loaded = false;
+
+  /// The active profile came from the previous run rather than from a choice
+  /// or a sign-in in this one.
+  bool _restored = false;
+
+  /// Profiles whose PIN was entered (or biometrics passed) in this run.
+  final Set<String> _unlocked = {};
 
   /// Bumped when the app should show the picker without being asked: the
   /// active profile was deleted elsewhere, or a sign-in found several.
@@ -68,7 +86,35 @@ class ProfileSession extends ChangeNotifier {
   bool get signedIn => _isLoggedIn();
 
   bool get shouldPick =>
-      _isLoggedIn() && _profiles.length > 1 && !_chosenThisRun;
+      _isLoggedIn() &&
+      _profiles.length > 1 &&
+      !_chosenThisRun &&
+      !opensLastProfile(
+        askOnLaunch: askOnLaunch,
+        restored: _restored ? _active : null,
+      );
+
+  /// "Ask who's watching on launch". Off, a launch goes straight into the
+  /// profile the previous run ended in.
+  bool get askOnLaunch => _settings.get(askOnLaunchKey) != false;
+
+  Future<void> setAskOnLaunch(bool value) async {
+    await _settings.put(askOnLaunchKey, value);
+    notifyListeners();
+  }
+
+  /// Whether a launch skips the picker for the profile the last run ended in.
+  /// Never for one with a PIN: the picker is where that PIN is asked.
+  static bool opensLastProfile({
+    required bool askOnLaunch,
+    required HouseholdProfile? restored,
+  }) => !askOnLaunch && restored != null && !restored.hasPin;
+
+  /// Whether opening [profile] has to ask for its PIN. Not for the active
+  /// profile once it has been unlocked in this run.
+  bool needsPin(HouseholdProfile profile) =>
+      profile.hasPin &&
+      !(profile.id == _active?.id && _unlocked.contains(profile.id));
 
   HouseholdProfile? get defaultProfile {
     for (final p in _profiles) {
@@ -122,6 +168,7 @@ class ProfileSession extends ChangeNotifier {
       _active = active != null && active.id == ProfileScope.remoteId
           ? active
           : null;
+      _restored = _active != null;
     } catch (_) {
       _profiles = const [];
       _active = null;
@@ -186,10 +233,16 @@ class ProfileSession extends ChangeNotifier {
     } else if (fresh == null || listing.activeProfileId == null) {
       await _switchTo(defaultProfile, resync: true);
       _chosenThisRun = false;
+      _restored = false;
       if (shouldPick) pickRequests.value++;
     } else if (fresh != current) {
       await _adopt(fresh);
     }
+    _unlocked.removeWhere((id) => !(byId(id)?.hasPin ?? false));
+    await _pins?.retain(_account, {
+      for (final p in _profiles)
+        if (p.hasPin) p.id,
+    });
     await _persist();
     notifyListeners();
     return true;
@@ -239,8 +292,84 @@ class ProfileSession extends ChangeNotifier {
     if (kidsChanged) await _onScopeChanged?.call(resync: false);
   }
 
-  Future<HouseholdProfile> verifyPin(String id, String pin) =>
-      _remote.verifyPin(id, pin);
+  /// Checks [pin] with the server, or, only when the server can't be
+  /// reached, with what this device kept from the last time it was accepted.
+  Future<HouseholdProfile> verifyPin(String id, String pin) async {
+    try {
+      final profile = await _remote.verifyPin(id, pin);
+      _unlocked.add(id);
+      await _remember(id, pin);
+      return profile;
+    } on ProfileException catch (e) {
+      final pins = _pins;
+      final known = byId(id);
+      if (!e.isUnreachable || pins == null || known == null) rethrow;
+      final result = await pins.check(_account, id, pin);
+      switch (result.outcome) {
+        case PinCheck.ok:
+          _unlocked.add(id);
+          return known;
+        case PinCheck.wrong:
+          throw const ProfileException('Wrong PIN', code: 'PIN_INVALID');
+        case PinCheck.lockedOut:
+          throw ProfileException(
+            'Too many attempts',
+            code: 'PIN_LOCKED',
+            retryAt: result.retryAt,
+          );
+        case PinCheck.unavailable:
+          throw const ProfileException(
+            'PIN not known offline',
+            code: 'PIN_NOT_ON_DEVICE',
+          );
+      }
+    }
+  }
+
+  Future<void> _remember(String id, String pin) async {
+    try {
+      await _pins?.remember(_account, id, pin);
+    } catch (_) {}
+  }
+
+  /// Whether [id] can be opened with a fingerprint or face on this device.
+  Future<bool> canUnlockWithBiometric(String id) async =>
+      await _pins?.canUnlockWithBiometric(_account, id) ?? false;
+
+  Future<bool> unlockWithBiometric(String id, String reason) async {
+    final ok =
+        await _pins?.unlockWithBiometric(_account, id, reason) ?? false;
+    if (ok) _unlocked.add(id);
+    return ok;
+  }
+
+  Future<bool> shouldOfferBiometric(String id) async =>
+      await _pins?.shouldOfferBiometric(_account, id) ?? false;
+
+  Future<void> markBiometricOffered(String id) async {
+    await _pins?.markBiometricOffered(_account, id);
+  }
+
+  /// Whether [id]'s PIN has been accepted here, so biometrics can stand in.
+  Future<bool> hasLocalPin(String id) async =>
+      await _pins?.has(_account, id) ?? false;
+
+  Future<bool> biometricEnabled(String id) async =>
+      await _pins?.biometricEnabled(_account, id) ?? false;
+
+  Future<bool> biometricsAvailable() async =>
+      await _pins?.biometricsAvailable() ?? false;
+
+  /// Turning it on asks for a fingerprint or face first, so it is the person
+  /// holding the device who is enrolled. Returns whether it is now on.
+  Future<bool> setBiometric(String id, bool on, {String? reason}) async {
+    final pins = _pins;
+    if (pins == null) return false;
+    if (on && !await pins.authenticate(reason ?? '')) return false;
+    await pins.setBiometric(_account, id, on);
+    notifyListeners();
+    return on;
+  }
 
   Future<HouseholdProfile> create({
     required String name,
@@ -256,6 +385,7 @@ class ProfileSession extends ChangeNotifier {
       isKids: isKids,
       pin: pin,
     );
+    if (pin != null) await _remember(created.id, pin);
     _profiles = List.unmodifiable([..._profiles, created]);
     await _persist();
     notifyListeners();
@@ -268,6 +398,15 @@ class ProfileSession extends ChangeNotifier {
     String? currentPin,
   }) async {
     final updated = await _remote.update(id, changes, currentPin: currentPin);
+    if (changes.containsKey('pin')) {
+      final pin = changes['pin'];
+      if (pin is String) {
+        await _remember(id, pin);
+      } else {
+        _unlocked.remove(id);
+        await _pins?.forget(_account, id);
+      }
+    }
     _profiles = List.unmodifiable([
       for (final p in _profiles) p.id == id ? updated : p,
     ]);
@@ -280,9 +419,12 @@ class ProfileSession extends ChangeNotifier {
   Future<void> delete(String id, {String? currentPin}) async {
     final target = byId(id);
     await _remote.delete(id, currentPin: currentPin);
+    _unlocked.remove(id);
+    await _pins?.forget(_account, id);
     if (_active?.id == id) {
       await _switchTo(defaultProfile, resync: true);
       _chosenThisRun = false;
+      _restored = false;
     }
     _profiles = List.unmodifiable(_profiles.where((p) => p.id != id));
     final ns = target?.namespace ?? id;
@@ -304,6 +446,9 @@ class ProfileSession extends ChangeNotifier {
     _active = null;
     _chosenThisRun = false;
     _loaded = false;
+    _restored = false;
+    _unlocked.clear();
+    await _pins?.clear();
     await ProfileStorage.deleteAll(_settings, known: known);
     await _settings.delete(cacheKey);
     await _settings.delete(activeKey);

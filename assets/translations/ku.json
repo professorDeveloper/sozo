@@ -2579,7 +2579,18 @@
     "card_single": "Ji bo kesên ku tu vî hesabî bi wan re parve dikî profîlan zêde bike",
     "load_failed": "Profîl nehatin barkirin",
     "offline": "Girêdana xwe kontrol bike û dîsa biceribîne.",
-    "error_generic": "Tiştek xelet çû. Ji kerema xwe dîsa biceribîne."
+    "error_generic": "Tiştek xelet çû. Ji kerema xwe dîsa biceribîne.",
+    "on_this_device": "Li ser vê cîhazê",
+    "ask_on_launch": "Di destpêkê de bipirse kî temaşe dike",
+    "ask_on_launch_desc": "Dema girtî be, Sozo profîla dawî ya hatî bikaranîn vedike. Profîlên bi PIN dîsa dipirsin.",
+    "pin_locked_until": "Gelek hewl. Piştî {} dîsa biceribîne.",
+    "pin_not_on_device": "Tu offline yî, û PIN-a vê profîlê hê li ser vê cîhazê nehatiye nivîsandin. Ji bo vekirinê carekê bi înternetê ve girê bide.",
+    "biometric_reason": "{} veke",
+    "biometric_offer_title": "Şopa tilîyê / Face ID bi kar bîne?",
+    "biometric_offer_body": "Ji bo {} li ser vê cîhazê şopa tilîyê / Face ID bi kar bîne. PIN jî dê bixebite.",
+    "biometric_offer_yes": "Bi kar bîne",
+    "biometric_offer_no": "Ne niha",
+    "biometric_toggle": "Şopa tilîyê / Face ID ji bo {}"
   },
   "jellyfin": {
     "connect_server": "Serverekî medyayê girê bide (Jellyfin)",
