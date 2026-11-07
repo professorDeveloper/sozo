@@ -60,7 +60,19 @@ Future<int> installCatalogSource(
       result = await MangaChannel.addRepo(url);
       countKey = 'sourceCount';
     case ExtensionRepoKind.mangayomi:
-      result = await store.addRepo(url);
+      // A catalog row names one source; only rows without an identity (the
+      // recommended repos) install the whole index.
+      if (source.externalId.isEmpty) {
+        result = await store.addRepo(url);
+      } else {
+        final index = await store.fetchIndex(url);
+        final ids = index.sources
+            .where((s) => mangayomiCatalogMatch(s.id, source.externalId))
+            .map((s) => s.id)
+            .toSet();
+        if (ids.isEmpty) throw StateError('Source not found in repository');
+        result = await store.installSources(index, ids);
+      }
       countKey = 'total';
   }
   if (result['error'] case final String error when error.isNotEmpty) {
@@ -68,3 +80,8 @@ Future<int> installCatalogSource(
   }
   return (result[countKey] as num?)?.toInt() ?? 0;
 }
+
+/// The catalog stores the index's own id; LNReader plugins are prefixed with
+/// `ln.` once installed so they cannot collide with a Mangayomi id.
+bool mangayomiCatalogMatch(String installedId, String externalId) =>
+    installedId == externalId || installedId == 'ln.$externalId';

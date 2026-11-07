@@ -9,7 +9,10 @@ import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
 import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
 import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
+import 'package:soplay/features/extensions/domain/mangayomi_source_filter.dart';
+import 'package:soplay/features/extensions/presentation/pages/mangayomi_source_picker_page.dart';
 import 'package:soplay/features/extensions/presentation/widgets/recommended_repos_section.dart';
+import 'package:soplay/features/extensions/presentation/widgets/source_filter_chips.dart';
 import 'package:soplay/features/extensions/presentation/widgets/source_settings_sheet.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
@@ -39,22 +42,15 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
   bool _busy = false;
   String? _status;
   bool _statusError = false;
+  MangayomiItemType? _type;
+  List<String> _languages = const [];
 
   List<String> get _repos => _store.repos();
 
-  List<MangayomiSource> get _sources {
-    // `.toList()` on BOTH branches. `store.sources()` returns a const empty
-    // list when nothing is installed, and `List.sort` on an unmodifiable list
-    // throws "Cannot modify an unmodifiable list" regardless of length — so
-    // sorting the branch that passed the original list straight through blew up
-    // the whole page for any user with adult sources enabled and no sources yet.
-    final all = _store.sources();
-    final visible = _hive.showAdultContent
-        ? all.toList()
-        : all.where((s) => !s.isNsfw).toList();
-    visible.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    return visible;
-  }
+  /// Installed sources the user may see, before the type and language filters.
+  List<MangayomiSource> get _installed =>
+      MangayomiSourceFilter(includeNsfw: _hive.showAdultContent)
+          .apply(_store.sources());
 
   @override
   void dispose() {
@@ -70,7 +66,8 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
 
   Future<void> _add() => _install([_controller.text.trim()]);
 
-  /// Installs one or more sibling indexes (manga / anime / novel) as one unit.
+  /// Fetches one or more sibling indexes (manga / anime / novel), lets the
+  /// user pick sources from them, and installs only those.
   Future<void> _install(List<String> urls) async {
     final list = urls.where((u) => u.trim().isNotEmpty).toList();
     if (list.isEmpty || _busy) return;
@@ -78,22 +75,62 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
     setState(() {
       _busy = true;
       _statusError = false;
-      _status = 'ext.installing_extensions'.tr();
+      _status = 'ext.loading_repo'.tr();
     });
 
-    var added = 0;
-    var skippedDart = 0;
+    final indexes = <MangayomiRepoIndex>[];
     final failures = <String>[];
     for (final url in list) {
       try {
-        final res = await _store.addRepo(url);
-        added += res['added'] ?? 0;
-        skippedDart += res['skippedDart'] ?? 0;
+        indexes.add(await _store.fetchIndex(url));
       } catch (e) {
         // A repo publishing only some of the three sibling indexes is normal —
         // record the miss and keep going rather than failing the whole install.
         failures.add('${url.split('/').last}: $e');
       }
+    }
+    if (!mounted) return;
+
+    final skippedDart = indexes.fold<int>(0, (n, i) => n + i.skippedDart);
+    if (indexes.every((i) => i.sources.isEmpty)) {
+      setState(() {
+        _busy = false;
+        _statusError = true;
+        _status = indexes.isEmpty && failures.isNotEmpty
+            ? 'ext.could_not_install'.tr(args: [failures.first])
+            : _withDartNote('ext.none_found_js'.tr(), skippedDart);
+      });
+      return;
+    }
+
+    setState(() {
+      _busy = false;
+      _status = null;
+    });
+    final chosen = await MangayomiSourcePickerPage.show(
+      context,
+      indexes: indexes,
+      installedIds: _store.sources().map((s) => s.id).toSet(),
+      initialLanguages: _hive.getProviderLanguages(),
+      includeNsfw: _hive.showAdultContent,
+    );
+    if (!mounted || chosen == null || chosen.isEmpty) return;
+
+    setState(() {
+      _busy = true;
+      _status = 'ext.installing_extensions'.tr();
+    });
+    var added = 0;
+    String? error;
+    try {
+      for (final index in indexes) {
+        final ids = chosen[index.url];
+        if (ids == null || ids.isEmpty) continue;
+        final res = await _store.installSources(index, ids);
+        added += res['added'] ?? 0;
+      }
+    } catch (e) {
+      error = '$e';
     }
 
     if (!mounted) return;
@@ -103,29 +140,77 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
     }
     setState(() {
       _busy = false;
-      _statusError = added == 0;
-      if (added == 0) {
-        _status = failures.isEmpty
-            ? 'ext.none_found_js'.tr()
-            : 'ext.could_not_install'.tr(args: [failures.first]);
-      } else {
-        _status = 'ext.added_sources'.tr(args: ['$added']);
-        if (skippedDart > 0) {
-          _status = '$_status '
-              '${'ext.skipped_dart'.tr(args: ['$skippedDart'])}';
-        }
-      }
+      _statusError = error != null;
+      _status = error != null
+          ? 'ext.could_not_install'.tr(args: [error])
+          : _withDartNote(
+              'ext.added_sources'.tr(args: ['$added']),
+              skippedDart,
+            );
     });
   }
 
+  static String _withDartNote(String status, int skippedDart) =>
+      skippedDart > 0
+      ? '$status ${'ext.skipped_dart'.tr(args: ['$skippedDart'])}'
+      : status;
+
+  Future<bool> _confirm(String message) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        content: Text(message),
+        actions: [
+          TextButton(
+            autofocus: true,
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('general.cancel'.tr()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'ext.remove'.tr(),
+              style: const TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   Future<void> _remove(String url) async {
+    if (!await _confirm('ext.remove_repo_confirm'.tr())) return;
     await _store.removeRepo(url);
+    getIt<MangayomiRuntime>().invalidate();
     if (!mounted) return;
     _reloadProviders();
     setState(() {
       _statusError = false;
       _status = 'ext.repo_removed'.tr();
     });
+  }
+
+  Future<void> _removeSource(MangayomiSource s) async {
+    if (!await _confirm('ext.remove_source_confirm'.tr(args: [s.name]))) {
+      return;
+    }
+    await _store.removeSource(s.id);
+    getIt<MangayomiRuntime>().invalidate(s.id);
+    if (!mounted) return;
+    _reloadProviders();
+    setState(() {
+      _statusError = false;
+      _status = 'ext.source_removed'.tr();
+    });
+  }
+
+  Future<void> _setEnabled(MangayomiSource s, bool enabled) async {
+    await _store.setEnabled(s.id, enabled);
+    if (!mounted) return;
+    _reloadProviders();
+    setState(() {});
   }
 
   Future<void> _checkUpdates() async {
@@ -136,17 +221,53 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
       _status = 'ext.checking_extension_updates'.tr();
     });
     try {
-      final count = await _store.checkUpdates();
-      // Extension code is cached per version; a bump invalidates it, but the
-      // runtime also holds one loaded in memory.
-      getIt<MangayomiRuntime>().invalidate();
+      final result = await _store.checkUpdates();
       if (!mounted) return;
-      if (count > 0) _reloadProviders();
+      if (result.added > 0) _reloadProviders();
+      final lines = <String>[
+        if (result.updates.isNotEmpty)
+          'ext.updates_available'.tr(args: ['${result.updates.length}'])
+        else if (result.failures.isEmpty)
+          'ext.all_up_to_date'.tr(),
+        if (result.added > 0) 'ext.added_sources'.tr(args: ['${result.added}']),
+        for (final e in result.failures.entries)
+          'ext.repo_check_failed'.tr(args: [e.key.split('/').last, e.value]),
+      ];
       setState(() {
-        _statusError = false;
-        _status = count == 0
-            ? 'ext.all_up_to_date'.tr()
-            : 'ext.updated_count'.tr(args: ['$count']);
+        _statusError = result.failures.isNotEmpty;
+        _status = lines.join('\n');
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _statusError = true;
+        _status = 'ext.update_check_failed'.tr(args: ['$e']);
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Applies pending updates for [ids], or every pending one when null.
+  Future<void> _applyUpdates([List<String>? ids]) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _statusError = false;
+      _status = 'ext.installing_extensions'.tr();
+    });
+    try {
+      final applied = await _store.applyUpdates(ids);
+      // Extension code is cached per version, but the runtime also holds the
+      // compiled instance in memory.
+      final runtime = getIt<MangayomiRuntime>();
+      for (final id in applied) {
+        runtime.invalidate(id);
+      }
+      if (!mounted) return;
+      if (applied.isNotEmpty) _reloadProviders();
+      setState(() {
+        _status = 'ext.updated_count'.tr(args: ['${applied.length}']);
       });
     } catch (e) {
       if (!mounted) return;
@@ -169,7 +290,14 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
         ),
       );
     }
-    final sources = _sources;
+    final installed = _installed;
+    final byType = MangayomiSourceFilter(type: _type).apply(installed);
+    final sources = MangayomiSourceFilter(
+      type: _type,
+      languages: _languages,
+    ).apply(installed);
+    final updates = _store.availableUpdates();
+    final disabled = _store.disabledIds();
     final repos = _repos;
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -221,7 +349,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
           ),
           const SizedBox(height: 8),
           if (repos.isEmpty) _empty() else ...repos.map(_repoTile),
-          if (sources.isNotEmpty) ...[
+          if (installed.isNotEmpty) ...[
             const SizedBox(height: 24),
             Row(
               children: [
@@ -231,12 +359,47 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: AppColors.textHint, letterSpacing: 1)),
                 const Spacer(),
-                Text('${sources.length}',
+                Text(
+                    sources.length == installed.length
+                        ? '${installed.length}'
+                        : '${sources.length} / ${installed.length}',
                     style: const TextStyle(color: AppColors.textHint)),
               ],
             ),
+            if (updates.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _updatesBanner(updates.length),
+            ],
+            const SizedBox(height: 4),
+            MangayomiTypeFilterRow(
+              padding: EdgeInsets.zero,
+              selected: _type,
+              onSelected: (t) => setState(() => _type = t),
+            ),
+            MangayomiLanguageFilterRow(
+              padding: EdgeInsets.zero,
+              counts: MangayomiSourceFilter.languageCounts(byType),
+              selected: _languages,
+              onToggle: (code) => setState(
+                () => _languages =
+                    MangayomiSourceFilter.toggleLanguage(_languages, code),
+              ),
+            ),
             const SizedBox(height: 8),
-            ...sources.map(_sourceTile),
+            if (sources.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Text('ext.no_matches'.tr(),
+                      style: const TextStyle(color: AppColors.textHint)),
+                ),
+              )
+            else
+              ...sources.map((s) => _sourceTile(
+                    s,
+                    update: updates[s.id],
+                    enabled: !disabled.contains(s.id),
+                  )),
           ],
         ],
       ),
@@ -398,15 +561,60 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                 overflow: TextOverflow.ellipsis,
                 style:
                     const TextStyle(color: AppColors.textHint, fontSize: 11)),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-              onPressed: _busy ? null : () => _remove(url),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'ext.add_sources'.tr(),
+                  icon: const Icon(Icons.playlist_add_rounded,
+                      color: Colors.white70),
+                  onPressed: _busy ? null : () => _install([url]),
+                ),
+                IconButton(
+                  tooltip: 'ext.remove'.tr(),
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.redAccent),
+                  onPressed: _busy ? null : () => _remove(url),
+                ),
+              ],
             ),
           ),
         ),
       );
 
-  Widget _sourceTile(MangayomiSource s) => Padding(
+  Widget _updatesBanner(int count) => Container(
+        padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+        decoration: BoxDecoration(
+          color: _accent.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _accent.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.system_update_alt_rounded,
+                size: 16, color: _accent),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'ext.updates_available'.tr(args: ['$count']),
+                style: const TextStyle(color: Colors.white, fontSize: 12.5),
+              ),
+            ),
+            TextButton(
+              onPressed: _busy ? null : () => _applyUpdates(),
+              child: Text('ext.update_all'.tr(),
+                  style: const TextStyle(color: _accent)),
+            ),
+          ],
+        ),
+      );
+
+  Widget _sourceTile(
+    MangayomiSource s, {
+    MangayomiSource? update,
+    bool enabled = true,
+  }) =>
+      Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Container(
           decoration: BoxDecoration(
@@ -416,63 +624,90 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(7),
-                child: Image.network(
-                  s.iconUrl.isEmpty ? _logo : s.iconUrl,
-                  width: 26,
-                  height: 26,
-                  cacheWidth: 78,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    width: 26,
-                    height: 26,
-                    color: Colors.white10,
-                    child: const Icon(Icons.public,
-                        size: 14, color: Colors.white54),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(s.name,
+                child: Opacity(
+                  opacity: enabled ? 1 : 0.45,
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(7),
+                        child: Image.network(
+                          s.iconUrl.isEmpty ? _logo : s.iconUrl,
+                          width: 26,
+                          height: 26,
+                          cacheWidth: 78,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            width: 26,
+                            height: 26,
+                            color: Colors.white10,
+                            child: const Icon(Icons.public,
+                                size: 14, color: Colors.white54),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(s.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          color: Colors.white, fontSize: 13)),
+                                ),
+                                if (s.isNsfw) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: Colors.redAccent.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text('18+',
+                                        style: TextStyle(
+                                            color: Colors.redAccent,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w700)),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            Text(
+                              [
+                                s.lang.toUpperCase(),
+                                _typeLabel(s.itemType),
+                                update == null
+                                    ? 'v${s.version}'
+                                    : 'v${s.version} → v${update.version}',
+                                if (!enabled) 'ext.source_disabled'.tr(),
+                              ].join(' · '),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                  color: Colors.white, fontSize: 13)),
-                        ),
-                        if (s.isNsfw) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
+                                  color: AppColors.textHint, fontSize: 10.5),
                             ),
-                            child: const Text('18+',
-                                style: TextStyle(
-                                    color: Colors.redAccent,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700)),
-                          ),
-                        ],
-                      ],
-                    ),
-                    Text(
-                      '${s.lang.toUpperCase()} · ${_typeLabel(s.itemType)} · v${s.version}',
-                      style: const TextStyle(
-                          color: AppColors.textHint, fontSize: 10.5),
-                    ),
-                  ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              if (update != null)
+                TextButton(
+                  onPressed: _busy ? null : () => _applyUpdates([s.id]),
+                  style: TextButton.styleFrom(
+                    foregroundColor: _accent,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: Text('ext.update'.tr()),
+                ),
               // The source's own settings — its domain, preferred quality,
               // what it hides.
               IconButton(
@@ -481,6 +716,29 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                 icon: const Icon(Icons.tune_rounded,
                     size: 19, color: Colors.white70),
                 onPressed: () => SourceSettingsSheet.show(context, s),
+              ),
+              PopupMenuButton<_SourceAction>(
+                enabled: !_busy,
+                icon: const Icon(Icons.more_vert_rounded,
+                    size: 19, color: Colors.white70),
+                color: AppColors.surface,
+                onSelected: (a) => switch (a) {
+                  _SourceAction.toggle => _setEnabled(s, !enabled),
+                  _SourceAction.remove => _removeSource(s),
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: _SourceAction.toggle,
+                    child: Text(enabled
+                        ? 'ext.disable_source'.tr()
+                        : 'ext.enable_source'.tr()),
+                  ),
+                  PopupMenuItem(
+                    value: _SourceAction.remove,
+                    child: Text('ext.remove_source'.tr(),
+                        style: const TextStyle(color: Colors.redAccent)),
+                  ),
+                ],
               ),
             ],
           ),
@@ -493,3 +751,5 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
         MangayomiItemType.manga => 'ext.type_manga'.tr(),
       };
 }
+
+enum _SourceAction { toggle, remove }
