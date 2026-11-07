@@ -12,6 +12,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:soplay/core/deeplink/deeplink_opt_in.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -27,6 +28,7 @@ import 'package:soplay/features/home/presentation/bloc/home/home_state.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
+import 'package:soplay/features/watch_party/presentation/party_entry.dart';
 import 'package:showcaseview/showcaseview.dart';
 
 import '../../../../core/navigation/app_tab.dart';
@@ -118,6 +120,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      unawaited(openPendingParty(GoRouter.of(context)));
       if (!isDesktopPlatform) {
         // An update is never held back — only queued, so nothing stacks on it.
         StartupPrompts.run(

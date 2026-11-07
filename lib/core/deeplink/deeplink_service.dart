@@ -10,6 +10,7 @@ import 'package:soplay/features/anilist/data/anilist_constants.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/mal/data/mal_constants.dart';
 import 'package:soplay/features/mal/data/mal_service.dart';
+import 'package:soplay/features/watch_party/domain/pending_party_code.dart';
 
 class DeeplinkService {
   DeeplinkService({AppLinks? appLinks}) : _appLinks = appLinks ?? AppLinks();
@@ -131,6 +132,12 @@ class DeeplinkService {
         // Code lives in the PATH segment: /party/<CODE> — not a query param.
         final code = segments.length > 1 ? segments[1].trim() : '';
         if (code.isEmpty) return null;
+        // A signed-out or first-run user is sent through sign-in or setup
+        // before the room can open; the code waits for them.
+        if (!getIt<HiveService>().isLoggedIn &&
+            getIt.isRegistered<PendingPartyCode>()) {
+          unawaited(getIt<PendingPartyCode>().remember(code));
+        }
         return '/watch-party?code=${Uri.encodeComponent(code)}';
       default:
         return null;

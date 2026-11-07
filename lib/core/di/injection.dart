@@ -58,6 +58,9 @@ import 'package:soplay/features/streak/data/streak_remote_data_source.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/watch_party/data/watch_party_remote_data_source.dart';
 import 'package:soplay/features/watch_party/data/watch_party_service.dart';
+import 'package:soplay/features/watch_party/domain/pending_party_code.dart';
+import 'package:hive_flutter/hive_flutter.dart' show Hive;
+import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/features/download/data/datasources/download_local_data_source.dart';
 import 'package:soplay/features/download/data/datasources/download_native_data_source.dart';
 import 'package:soplay/features/download/data/datasources/download_transfer_data_source.dart';
@@ -605,6 +608,14 @@ Future<void> configureDependencies() async {
       tokenRefresher: getIt<TokenRefresher>(),
     ),
   );
+  getIt.registerLazySingleton<PendingPartyCode>(() {
+    const key = 'pending_party_code';
+    final box = Hive.box(AppConstants.settingsBox);
+    return PendingPartyCode(
+      read: () => box.get(key) as String?,
+      write: (v) => v == null ? box.delete(key) : box.put(key, v),
+    );
+  });
   getIt.registerLazySingleton<WatchServicesDataSource>(
     () => WatchServicesDataSource(dio: getIt<Dio>()),
   );
