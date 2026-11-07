@@ -9,6 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
 import 'package:soplay/features/search/presentation/widgets/voice_search_button.dart';
 import 'package:soplay/features/search/presentation/widgets/search_filter_sheet.dart';
@@ -34,6 +35,7 @@ class _SearchViewState extends State<_SearchView> {
   final _focus = FocusNode();
   final _scrollController = ScrollController();
   final _blurProgress = ValueNotifier<double>(0);
+  final _voiceKey = GlobalKey<VoiceSearchButtonState>();
 
   @override
   void initState() {
@@ -197,7 +199,7 @@ class _SearchViewState extends State<_SearchView> {
     final topPad = MediaQuery.paddingOf(context).top;
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
-    return Scaffold(
+    final page = Scaffold(
       backgroundColor: AppColors.background,
       body: BlocConsumer<SearchBloc, SearchState>(
         listener: (context, state) => _maybeAutoFill(state),
@@ -233,6 +235,7 @@ class _SearchViewState extends State<_SearchView> {
                           context.read<SearchBloc>().add(SearchSubmitted(q)),
                       onClear: _clearSearch,
                       voiceButton: VoiceSearchButton(
+                        key: _voiceKey,
                         // Partial results land in the field as they are heard; only
                         // the final transcript runs a search, so a half-heard title
                         // never fires a query of its own.
@@ -331,6 +334,21 @@ class _SearchViewState extends State<_SearchView> {
           ),
         ),
       ),
+    );
+    if (!isTvPlatform) return page;
+    // The remote's search or voice key starts voice search from anywhere on
+    // this page, the text field included.
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: (_, event) {
+        if (event is! KeyDownEvent || !TvKeys.isVoiceSearch(event.logicalKey)) {
+          return KeyEventResult.ignored;
+        }
+        _voiceKey.currentState?.start();
+        return KeyEventResult.handled;
+      },
+      child: page,
     );
   }
 }

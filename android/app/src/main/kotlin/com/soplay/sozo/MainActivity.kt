@@ -266,6 +266,7 @@ class MainActivity : FlutterFragmentActivity() {
                         )
                 )
                 "openNotificationSettings" -> result.success(openNotificationSettings())
+                "openAppSettings" -> result.success(openAppSettings())
                 "apkPackageName" -> {
                     val path = call.argument<String>("path").orEmpty()
                     val name = try {
@@ -1166,6 +1167,20 @@ class MainActivity : FlutterFragmentActivity() {
                 )
             }
             startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun openAppSettings(): Boolean {
+        return try {
+            startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:$packageName")
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
             true
         } catch (_: Exception) {
             false
