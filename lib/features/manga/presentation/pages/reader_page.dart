@@ -2324,7 +2324,7 @@ class _ReaderPageState extends State<ReaderPage> {
         if (mounted) setState(() => _translating.remove(key));
       }
     }
-    if (!mounted || translation == null) return;
+    if (!mounted) return;
     if (auto) {
       _overlays.apply(key);
       return;

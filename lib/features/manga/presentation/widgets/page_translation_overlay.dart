@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/manga/domain/translate/page_translation.dart';
