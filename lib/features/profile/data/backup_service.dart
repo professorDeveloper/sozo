@@ -107,6 +107,9 @@ class BackupService {
     // Which household profile this device acts as; the account decides that.
     ProfileSession.cacheKey,
     ProfileSession.activeKey,
+    // Names this device to the XP counter; a copy on a second device would
+    // make the two share one watch-time total.
+    'progress_device_id',
   };
 
   /// The file always holds one person's data under the plain names, so it

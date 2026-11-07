@@ -161,7 +161,13 @@ extension _PlayerHistory on _PlayerPageState {
     if (elapsed <= 0) return;
     if (_hive.isIncognito) return;
     unawaited(
-      _watchStats.record(seconds: elapsed, provider: widget.args.provider),
+      _watchStats
+          .record(seconds: elapsed, provider: widget.args.provider)
+          .then((_) {
+            if (getIt.isRegistered<WatchTimeUploader>()) {
+              getIt<WatchTimeUploader>().onWatched();
+            }
+          }),
     );
   }
 

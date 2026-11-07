@@ -246,6 +246,9 @@ import 'package:soplay/features/social/data/social_service.dart';
 import 'package:soplay/features/achievements/data/achievements_remote_data_source.dart';
 import 'package:soplay/features/achievements/data/achievements_service.dart';
 import 'package:soplay/features/achievements/domain/achievements.dart';
+import 'package:soplay/features/progress/data/progress_remote_data_source.dart';
+import 'package:soplay/features/progress/data/progress_service.dart';
+import 'package:soplay/features/progress/data/watch_time_uploader.dart';
 import 'package:soplay/features/home_widget/home_widget_sync.dart';
 
 final getIt = GetIt.instance;
@@ -397,6 +400,17 @@ Future<void> configureDependencies() async {
       hive: getIt<HiveService>(),
     ),
   );
+  final progressRemote = ProgressRemoteDataSource(dio: getIt<Dio>());
+  getIt.registerSingleton<ProgressService>(
+    ProgressService(remote: progressRemote, hive: getIt<HiveService>()),
+  );
+  getIt.registerSingleton<WatchTimeUploader>(
+    WatchTimeUploader(
+      remote: progressRemote,
+      hive: getIt<HiveService>(),
+      progress: getIt<ProgressService>(),
+    )..start(),
+  );
   getIt.registerSingleton<HistorySyncService>(
     HistorySyncService(
       remote: getIt<HistorySyncRemoteDataSource>(),
@@ -415,6 +429,7 @@ Future<void> configureDependencies() async {
       // land in the profile it was watched in, before the sync settles.
       beforeSwitch: () async {
         await PlayerDock.instance.close();
+        await getIt<WatchTimeUploader>().flush();
         await getIt<HistorySyncService>().settle();
       },
       onScopeChanged: _onProfileScopeChanged,
@@ -1251,6 +1266,7 @@ Future<void> _onProfileScopeChanged({required bool resync}) async {
   getIt<FollowService>().revision.value++;
   getIt<ReleaseWatch>().onProfileChanged();
   getIt<AchievementsService>().reload();
+  getIt<ProgressService>().reload();
   if (!resync || !hive.isLoggedIn) return;
   // Push goes to whichever profile registered last, so every switch
   // re-registers under the new X-Sozo-Profile.

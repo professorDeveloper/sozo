@@ -8,6 +8,8 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/player/player_dock.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
+import 'package:soplay/features/progress/data/progress_service.dart';
+import 'package:soplay/features/progress/data/watch_time_uploader.dart';
 import 'package:soplay/features/stats/data/watch_stats_store.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/auth/data/models/user_model.dart';
@@ -324,6 +326,12 @@ class AuthRepositoryImpl implements AuthRepository {
     }
     if (getIt.isRegistered<StreakService>()) {
       getIt<StreakService>().reset();
+    }
+    if (getIt.isRegistered<ProgressService>()) {
+      await getIt<ProgressService>().reset();
+    }
+    if (getIt.isRegistered<WatchTimeUploader>()) {
+      await getIt<WatchTimeUploader>().reset();
     }
     // Not server-backed, and cleared for exactly that reason: nothing would
     // ever remove it otherwise, and a watch-time total is as personal as the
