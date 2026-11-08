@@ -53,6 +53,7 @@ import 'package:soplay/features/detail/presentation/widgets/alternate_source_she
 import 'package:soplay/features/detail/presentation/widgets/source_notice_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_cast_tab.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_comments_tab.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_tab_panes.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_hero.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_info.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_more_menu.dart';
@@ -437,9 +438,10 @@ class _DetailViewState extends State<_DetailView>
     unawaited(getIt<HiveService>().markPrivateShowcaseSeen());
   }
 
+  /// No setState: [DetailTabPanes] listens to the controller itself, and
+  /// rebuilding this page rebuilt the header and both bars on every switch.
   void _onTabChanged() {
     if (!_tabController.indexIsChanging) return;
-    if (mounted) setState(() {});
     _settleOnTabs();
   }
 
@@ -538,47 +540,26 @@ class _DetailViewState extends State<_DetailView>
     _ => tab,
   };
 
-  Widget _buildTabContent(DetailEntity detail) {
-    final tab = _tabs[_tabController.index];
-    // Tabs used to cut over on the frame the index changed, which on a page
-    // this dense reads as a flicker rather than a change of view. Aligned to
-    // the top so the outgoing and incoming panes do not slide against each
-    // other while they cross-fade.
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 160),
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
-      layoutBuilder: (current, previous) => Stack(
-        alignment: Alignment.topCenter,
-        children: [...previous, ?current],
-      ),
-      child: KeyedSubtree(
-        key: ValueKey('detail-tab-$tab'),
-        child: switch (tab) {
-          'About' => DetailAboutTab(record: detail.record!),
-          'Similar' => DetailRelatedSection(related: detail.related),
-          'Relations' => DetailRelationsTab(
-            provider: detail.provider,
-            contentUrl: detail.contentUrl,
-            title: detail.title,
-            year: detail.year,
-            isSerial: detail.isSerial,
-            tmdbId: detail.record?.tmdbId,
-            anilistId: detail.record?.anilistId,
-          ),
-          'Cast' => DetailCastTab(cast: detail.cast, director: detail.director),
-          'Comments' => DetailCommentsTab(
-            provider: detail.provider,
-            contentUrl: detail.contentUrl,
-          ),
-          'Screenshots' => DetailScreenshotsSection(
-            screenshots: detail.screenshots,
-          ),
-          _ => const SizedBox.shrink(),
-        },
-      ),
-    );
-  }
+  Widget _buildTabPane(DetailEntity detail, String tab) => switch (tab) {
+    'About' => DetailAboutTab(record: detail.record!),
+    'Similar' => DetailRelatedSection(related: detail.related),
+    'Relations' => DetailRelationsTab(
+      provider: detail.provider,
+      contentUrl: detail.contentUrl,
+      title: detail.title,
+      year: detail.year,
+      isSerial: detail.isSerial,
+      tmdbId: detail.record?.tmdbId,
+      anilistId: detail.record?.anilistId,
+    ),
+    'Cast' => DetailCastTab(cast: detail.cast, director: detail.director),
+    'Comments' => DetailCommentsTab(
+      provider: detail.provider,
+      contentUrl: detail.contentUrl,
+    ),
+    'Screenshots' => DetailScreenshotsSection(screenshots: detail.screenshots),
+    _ => const SizedBox.shrink(),
+  };
 
   void _goBack() {
     if (context.canPop()) {
@@ -1612,7 +1593,11 @@ class _DetailViewState extends State<_DetailView>
                                     36)
                                 .clamp(0.0, double.infinity),
                       ),
-                      child: _buildTabContent(detail),
+                      child: DetailTabPanes(
+                        controller: _tabController,
+                        tabs: _tabs,
+                        paneBuilder: (_, tab) => _buildTabPane(detail, tab),
+                      ),
                     ),
                   ),
                 ),
