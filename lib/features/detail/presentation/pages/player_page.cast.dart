@@ -42,7 +42,7 @@ extension _PlayerCast on _PlayerPageState {
         : const <SubtitleEntity>[];
     final subtitles = [
       for (final s in active)
-        if (CastHandoff.isSendable(s.file))
+        if (CastHandoff.isSendable(s.file) && s.cipher == null)
           CastSubtitle(
             url: s.file,
             label: s.label,

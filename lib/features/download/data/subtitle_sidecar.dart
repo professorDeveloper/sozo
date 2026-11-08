@@ -79,8 +79,12 @@ class SubtitleSidecar {
         if (bytes == null || bytes.isEmpty || bytes.length > maxBytes) {
           continue;
         }
+        // Kept decrypted: the manifest does not carry the key.
+        final cipher = t.cipher;
+        if (cipher != null) bytes = await cipher.decryptBytes(bytes);
         if (!await dir.exists()) await dir.create(recursive: true);
-        final name = '${kept.length}.${_extensionOf(t.file)}';
+        final ext = t.cipher != null ? 'srt' : _extensionOf(t.file);
+        final name = '${kept.length}.$ext';
         await File('${dir.path}/$name').writeAsBytes(bytes, flush: true);
         kept.add({'label': t.label, 'file': name});
       } catch (e) {

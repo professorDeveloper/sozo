@@ -158,8 +158,12 @@ extension _PlayerSubtitles on _PlayerPageState {
         _toast('player.subtitle_failed_download'.tr());
         return null;
       }
+      var bytes = response.data ?? const <int>[];
+      final cipher = sub.cipher;
+      if (cipher != null) bytes = await cipher.decryptBytes(bytes);
+      if (!mounted) return null;
       result = parseSubtitleBytes(
-        response.data ?? const <int>[],
+        bytes,
         url: sub.file,
         declaredFormat: declaredFormat,
       );
