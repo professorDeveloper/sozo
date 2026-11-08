@@ -818,6 +818,7 @@ extension _PlayerPanels on _PlayerPageState {
           if (j != _activeSubtitleIndex) j,
       ])
         if (_subtitles[i].file.startsWith('http') &&
+            _subtitles[i].cipher == null &&
             ExternalPlayer.gatingHeaders(_subtitles[i].headers).isEmpty)
           (url: _subtitles[i].file, label: _subtitles[i].label),
     ];

@@ -81,6 +81,7 @@ dependencies:
 
   # Security
   crypto: ^3.0.6
+  cryptography: ^2.9.0
   local_auth: ^2.3.0
 
   # Localization
