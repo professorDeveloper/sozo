@@ -185,6 +185,9 @@ class JsRuntimeService {
       // cross-search legs can be in flight at once and their network waits
       // overlap instead of queueing — which is what made searching several
       // sources feel frozen.
+      //
+      // The answer comes back as JSON text so iOS reads it as Android does:
+      // WebKit's own conversion hands over Map<Object?, Object?> and doubles.
       var result = await _controller!
           .callAsyncJavaScript(
             functionBody: r'''
@@ -198,7 +201,7 @@ class JsRuntimeService {
               throw new Error('Provider.' + fnName + ' is not implemented');
             }
             const __r = await __fn.apply(__p, fnArgs);
-            return __r === undefined ? null : __r;
+            return __r === undefined ? null : JSON.stringify(__r);
           ''',
             arguments: {
               'providerName': extractor.name,
@@ -236,7 +239,7 @@ class JsRuntimeService {
                   throw new Error('Provider.' + fnName + ' is not implemented');
                 }
                 const __r = await __fn.apply(__p, fnArgs);
-                return __r === undefined ? null : __r;
+                return __r === undefined ? null : JSON.stringify(__r);
               ''',
                 arguments: {
                   'providerName': extractor.name,
