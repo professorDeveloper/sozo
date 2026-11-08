@@ -2941,6 +2941,8 @@
     "priming_title": "Không bỏ lỡ tập mới nào",
     "priming_body": "Sozo báo ngay khi nội dung bạn theo dõi có tập hoặc chương mới — và không gửi gì bạn chưa yêu cầu.",
     "priming_body_title": "Nhận thông báo ngay khi {} có tập mới — và không gửi gì bạn chưa yêu cầu.",
+    "priming_download_title": "Biết khi nào tải xuống hoàn tất",
+    "priming_download_body": "Sozo hiển thị tiến trình tải xuống trong thông báo và báo cho bạn khi có thể xem ngoại tuyến. Sozo cũng có thể báo tập mới của những gì bạn theo dõi.",
     "priming_point_releases": "Tập mới, kèm áp phích",
     "priming_point_quiet": "Giờ yên tĩnh",
     "priming_point_control": "Tắt tiếng từng phim",

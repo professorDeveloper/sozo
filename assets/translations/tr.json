@@ -2941,6 +2941,8 @@
     "priming_title": "Hiçbir yeni bölümü kaçırma",
     "priming_body": "Takip ettiğin bir şeye yeni bölüm ya da kısım gelir gelmez Sozo haber verir — istemediğin hiçbir şey gelmez.",
     "priming_body_title": "“{}” yeni bölüm alır almaz haberin olsun — istemediğin hiçbir şey gelmez.",
+    "priming_download_title": "İndirmenin bittiğini öğren",
+    "priming_download_body": "Sozo indirme ilerlemesini bildirimlerde gösterir ve çevrimdışı izlemeye hazır olduğunda haber verir. Takip ettiklerinin yeni bölümlerini de bildirebilir.",
     "priming_point_releases": "Afişiyle yeni bölümler",
     "priming_point_quiet": "Sessiz saatler",
     "priming_point_control": "İstediğin yapımı sessize al",

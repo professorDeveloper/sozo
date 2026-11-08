@@ -2941,6 +2941,8 @@
     "priming_title": "Never miss a new episode",
     "priming_body": "Sozo tells you the moment something you follow gets a new episode or chapter — and nothing you haven't asked for.",
     "priming_body_title": "Get a heads-up the moment {} gets a new episode — and nothing you haven't asked for.",
+    "priming_download_title": "Know when your download is done",
+    "priming_download_body": "Sozo shows download progress in your notifications and tells you when it's ready to watch offline. It can also tell you about new episodes of what you follow.",
     "priming_point_releases": "New episodes, with the poster",
     "priming_point_quiet": "Quiet hours",
     "priming_point_control": "Mute any title",

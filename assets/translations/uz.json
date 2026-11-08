@@ -2941,6 +2941,8 @@
     "priming_title": "Yangi qismni o‘tkazib yubormang",
     "priming_body": "Kuzatayotgan asaringizda yangi qism yoki bob chiqishi bilan Sozo xabar beradi — so‘ramagan narsangiz bilan bezovta qilmaydi.",
     "priming_body_title": "«{}»ning yangi qismi chiqishi bilan xabar oling — ortiqcha hech narsa yo‘q.",
+    "priming_download_title": "Yuklab olish tugaganini biling",
+    "priming_download_body": "Sozo yuklab olish jarayonini bildirishnomalarda ko‘rsatadi va oflayn ko‘rishga tayyor bo‘lganda xabar beradi. Kuzatayotganlaringizning yangi qismlari haqida ham aytib turadi.",
     "priming_point_releases": "Yangi qismlar, posteri bilan",
     "priming_point_quiet": "Sokin soatlar",
     "priming_point_control": "Istalgan asarni ovozsiz qilish",

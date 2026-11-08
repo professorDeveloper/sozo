@@ -1552,4 +1552,11 @@ class HiveService {
     }
     await _settingsBox.put('sub_rate::$key', rate);
   }
+
+  /// Whether the first download has offered notification permission.
+  bool get downloadPrimingShown =>
+      _settingsBox.get('download_priming_shown', defaultValue: false) == true;
+
+  Future<void> markDownloadPrimingShown() =>
+      _settingsBox.put('download_priming_shown', true);
 }

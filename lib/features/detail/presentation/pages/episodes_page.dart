@@ -11,6 +11,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/features/notifications/presentation/widgets/notification_priming.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/domain/episode_blocks.dart';
 import 'package:soplay/core/error/result.dart';
@@ -133,9 +134,9 @@ class _EpisodesPageState extends State<EpisodesPage> {
 
   int _commentCountFor(int i) =>
       _commentCounts[EpisodeKey.of(
-            isSerial: true,
-            episodeNumber: _episodes[i].episode,
-          )] ??
+        isSerial: true,
+        episodeNumber: _episodes[i].episode,
+      )] ??
       0;
 
   Future<void> _openEpisodeComments(int i) async {
@@ -329,7 +330,11 @@ class _EpisodesPageState extends State<EpisodesPage> {
     _refreshRead();
     _maybeAutoFill();
     unawaited(_loadCommentCounts());
-    if (widget.args.resumeFromHistory) {
+    if (widget.args.playEpisode != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_playLinkedEpisode(widget.args.playEpisode!));
+      });
+    } else if (widget.args.resumeFromHistory) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_resumeFromHistory());
       });
@@ -384,6 +389,29 @@ class _EpisodesPageState extends State<EpisodesPage> {
       if (index < 0) return;
     }
     await _playFrom(index);
+  }
+
+  /// Plays the episode a `/play` link named, at the link's position. A number
+  /// the run does not have leaves the list on screen.
+  Future<void> _playLinkedEpisode(int number) async {
+    var index = _episodes.indexWhere((e) => e.episode == number);
+    if (index < 0) {
+      final block = blockContaining(
+        number,
+        total: _total,
+        size: _size,
+        descending: _sort == 'desc',
+        firstNumber: _firstNumber,
+      );
+      if (block == null || !await _jumpToBlock(block) || !mounted) return;
+      index = _episodes.indexWhere((e) => e.episode == number);
+      if (index < 0) return;
+    }
+    final ms = widget.args.startPositionMs;
+    await _playFrom(
+      index,
+      start: ms == null ? null : Duration(milliseconds: ms),
+    );
   }
 
   int _indexOfHistoryEpisode() {
@@ -910,7 +938,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
     }
   }
 
-  Future<void> _playFrom(int index) async {
+  Future<void> _playFrom(int index, {Duration? start}) async {
     if (widget.args.offline) {
       await _playOffline(index);
       return;
@@ -934,7 +962,9 @@ class _EpisodesPageState extends State<EpisodesPage> {
       return;
     }
 
-    final resumeMs = isHistoryEntry ? _historyItem!.positionMs : 0;
+    final resumeMs =
+        start?.inMilliseconds ??
+        (isHistoryEntry ? _historyItem!.positionMs : 0);
     // The engine question belongs before the player exists — see
     // confirmPlayerEngine.
     if (!await confirmPlayerEngine(context) || !mounted) return;
@@ -1083,6 +1113,14 @@ class _EpisodesPageState extends State<EpisodesPage> {
       ),
     );
 
+    if (outcome == EnqueueOutcome.started && mounted) {
+      unawaited(
+        primeNotificationsForFirstDownload(
+          context,
+          titleHint: widget.args.title,
+        ),
+      );
+    }
     if (outcome != EnqueueOutcome.started && !quiet && mounted) {
       _toast(downloadOutcomeMessage(outcome));
     }

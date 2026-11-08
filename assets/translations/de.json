@@ -2941,6 +2941,8 @@
     "priming_title": "Keine neue Folge mehr verpassen",
     "priming_body": "Sozo sagt dir Bescheid, sobald etwas, dem du folgst, eine neue Folge oder ein neues Kapitel bekommt – und sonst nichts, worum du nicht gebeten hast.",
     "priming_body_title": "Erfahre sofort, wenn „{}“ eine neue Folge bekommt – und sonst nichts, worum du nicht gebeten hast.",
+    "priming_download_title": "Erfahre, wann dein Download fertig ist",
+    "priming_download_body": "Sozo zeigt den Download-Fortschritt in deinen Benachrichtigungen und sagt dir, wann du offline schauen kannst. Auf Wunsch auch, wenn Titel, denen du folgst, neue Folgen bekommen.",
     "priming_point_releases": "Neue Folgen mit Poster",
     "priming_point_quiet": "Ruhezeit",
     "priming_point_control": "Jeden Titel stummschalten",

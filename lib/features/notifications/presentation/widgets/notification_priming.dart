@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/widgets/app_buttons.dart';
@@ -29,6 +30,7 @@ import 'package:soplay/features/tracker/data/follow_service.dart';
 Future<bool> showNotificationPriming(
   BuildContext context, {
   String? titleHint,
+  bool forDownloads = false,
 }) async {
   if (!Platform.isAndroid && !Platform.isIOS) return false;
   final service = getIt<NotificationService>();
@@ -44,11 +46,37 @@ Future<bool> showNotificationPriming(
       titleHint: titleHint?.trim().isEmpty ?? true ? null : titleHint!.trim(),
       blocked: blocked,
       service: service,
+      forDownloads: forDownloads,
     ),
   );
   if (result == true) return true;
   if (result == null) await service.cooldown.declined();
   return service.permissionGranted;
+}
+
+bool _downloadPrimingAsked = false;
+
+/// Once, on the first download started on Android without notification
+/// permission: the progress and "done" notices need it from Android 13 on.
+Future<void> primeNotificationsForFirstDownload(
+  BuildContext context, {
+  String? titleHint,
+}) async {
+  if (!Platform.isAndroid || _downloadPrimingAsked) return;
+  final hive = getIt<HiveService>();
+  if (hive.downloadPrimingShown) return;
+  _downloadPrimingAsked = true;
+  if (await getIt<NotificationService>().permissionGranted) {
+    _downloadPrimingAsked = false;
+    return;
+  }
+  await hive.markDownloadPrimingShown();
+  if (!context.mounted) return;
+  await showNotificationPriming(
+    context,
+    titleHint: titleHint,
+    forDownloads: true,
+  );
 }
 
 enum _Phase { ask, blocked, done }
@@ -58,11 +86,13 @@ class _PrimingSheet extends StatefulWidget {
     required this.titleHint,
     required this.blocked,
     required this.service,
+    this.forDownloads = false,
   });
 
   final String? titleHint;
   final bool blocked;
   final NotificationService service;
+  final bool forDownloads;
 
   @override
   State<_PrimingSheet> createState() => _PrimingSheetState();
@@ -178,9 +208,13 @@ class _PrimingSheetState extends State<_PrimingSheet>
         ? 'release_notify.priming_enabled'.tr()
         : blocked
         ? 'release_notify.priming_blocked_title'.tr()
+        : widget.forDownloads
+        ? 'release_notify.priming_download_title'.tr()
         : 'release_notify.priming_title'.tr();
     final body = blocked
         ? 'release_notify.priming_blocked_body'.tr()
+        : widget.forDownloads
+        ? 'release_notify.priming_download_body'.tr()
         : hint != null
         ? 'release_notify.priming_body_title'.tr(args: [hint])
         : 'release_notify.priming_body'.tr();
@@ -394,7 +428,11 @@ class _Illustration extends StatelessWidget {
                 ],
               ),
               child: done
-                  ? const Icon(Icons.check_rounded, color: Colors.white, size: 32)
+                  ? const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    )
                   : AnimatedBell(
                       state: BellState.on,
                       color: AppColors.onPrimary,
@@ -529,11 +567,15 @@ class _MockCard extends StatelessWidget {
                   Row(
                     children: [
                       Flexible(
-                        child: _MockAction(label: 'release_notify.action_watch'.tr()),
+                        child: _MockAction(
+                          label: 'release_notify.action_watch'.tr(),
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Flexible(
-                        child: _MockAction(label: 'release_notify.action_seen'.tr()),
+                        child: _MockAction(
+                          label: 'release_notify.action_seen'.tr(),
+                        ),
                       ),
                     ],
                   ),
@@ -552,8 +594,10 @@ class _MockCard extends StatelessWidget {
                   : CachedNetworkImage(
                       imageUrl: poster!,
                       fit: BoxFit.cover,
-                      errorWidget: (_, _, _) => _PosterPlaceholder(compact: compact),
-                      placeholder: (_, _) => _PosterPlaceholder(compact: compact),
+                      errorWidget: (_, _, _) =>
+                          _PosterPlaceholder(compact: compact),
+                      placeholder: (_, _) =>
+                          _PosterPlaceholder(compact: compact),
                     ),
             ),
           ),
@@ -593,7 +637,10 @@ class _PosterPlaceholder extends StatelessWidget {
       gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [AppColors.primary.withValues(alpha: 0.85), AppColors.primaryDark],
+        colors: [
+          AppColors.primary.withValues(alpha: 0.85),
+          AppColors.primaryDark,
+        ],
       ),
     ),
     child: Center(

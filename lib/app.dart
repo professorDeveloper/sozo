@@ -240,7 +240,17 @@ class _MyAppState extends State<MyApp> {
                 const SingleActivator(LogicalKeyboardKey.escape):
                     AppRouter.dismissTopmost,
               },
-              child: Focus(autofocus: true, child: shell),
+              // The mouse's back button does what Escape does.
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (event) {
+                  if (event.kind == PointerDeviceKind.mouse &&
+                      event.buttons & kBackMouseButton != 0) {
+                    AppRouter.dismissTopmost();
+                  }
+                },
+                child: Focus(autofocus: true, child: shell),
+              ),
             );
           },
           // First: Cantonese and Kurdish are the locales Flutter itself does
