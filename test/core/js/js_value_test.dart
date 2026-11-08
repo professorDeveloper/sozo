@@ -32,10 +32,11 @@ void main() {
       (home['sections'] as List).first,
       isNot(isA<Map<String, dynamic>>()),
     );
-    // What the app used to do with it: a shallow cast, then the model.
+    // A shallow cast used to throw on the first card; the model now converts
+    // nested maps itself.
     expect(
-      () => HomeDataModel.fromJson(home.cast<String, dynamic>()),
-      throwsA(isA<TypeError>()),
+      HomeDataModel.fromJson(home.cast<String, dynamic>()).sections,
+      hasLength(1),
     );
   });
 

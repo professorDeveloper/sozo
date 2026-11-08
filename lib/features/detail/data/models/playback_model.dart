@@ -1,3 +1,4 @@
+import 'package:soplay/core/js/js_value.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
 import 'package:soplay/features/detail/domain/entities/source_notice.dart';
@@ -26,13 +27,13 @@ class PlaybackModel extends PlaybackEntity {
   });
 
   factory PlaybackModel.fromJson(Map<String, dynamic> json) {
-    final episodes = (json['episodes'] as List? ?? [])
-        .map((e) => EpisodeModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final episodes = jsonMaps(
+      json['episodes'],
+    ).map(EpisodeModel.fromJson).toList();
 
-    final videoSources = (json['videoSources'] as List? ?? [])
-        .map((e) => VideoSourceModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final videoSources = jsonMaps(
+      json['videoSources'],
+    ).map(VideoSourceModel.fromJson).toList();
 
     final src = json['playerSrc'] as String?;
     final typeRaw = json['type'] as String?;

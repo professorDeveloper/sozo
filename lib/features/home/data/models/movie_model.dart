@@ -1,3 +1,4 @@
+import 'package:soplay/core/js/js_value.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 
 class MovieModel extends MovieEntity {
@@ -27,11 +28,12 @@ class MovieModel extends MovieEntity {
       provider: json['provider'] as String? ?? '',
       thumbnail: json['thumbnail'] as String?,
       banner: json['banner'] as String?,
-      year: (json['year'] as num?)?.toInt(),
-      rating: (json['rating'] as num?)?.toInt(),
-      qualities: json['qualities'] != null
-          ? List<String>.from(json['qualities'] as List)
-          : null,
+      year: jsonInt(json['year']),
+      rating: jsonInt(json['rating']),
+      qualities: switch (json['qualities']) {
+        final List q => [for (final e in q) ?jsonText(e)],
+        _ => null,
+      },
       category: json['category'] as String? ?? '',
       altTitles: [
         for (final n in (json['altTitles'] as List?) ?? const [])

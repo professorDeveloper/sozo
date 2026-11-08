@@ -1,3 +1,4 @@
+import 'package:soplay/core/js/js_value.dart';
 import 'package:soplay/features/home/data/models/movie_model.dart';
 
 import '../../domain/entities/view_all_paging_entity.dart';
@@ -12,12 +13,10 @@ class ViewAllPagingModel extends ViewAllPagingEntity {
 
   factory ViewAllPagingModel.fromJson(Map<String, dynamic> json) {
     return ViewAllPagingModel(
-      page: json['page'],
-      totalPages: json['totalPages'],
-      provider: json['provider'],
-      items: (json['items'] as List)
-          .map((e) => MovieModel.fromJson(e))
-          .toList(),
+      page: jsonInt(json['page']) ?? 1,
+      totalPages: jsonInt(json['totalPages']) ?? 1,
+      provider: jsonText(json['provider']) ?? '',
+      items: jsonMaps(json['items']).map(MovieModel.fromJson).toList(),
     );
   }
 }
