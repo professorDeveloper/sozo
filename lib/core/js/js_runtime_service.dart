@@ -11,6 +11,7 @@ import 'dart_fetch.dart';
 import 'extractor_cache.dart';
 import 'extractor_remote.dart';
 import 'js_log.dart';
+import 'js_value.dart';
 import 'js_timeouts.dart';
 import 'provider_registry.dart';
 
@@ -264,7 +265,7 @@ class JsRuntimeService {
         );
         throw Exception(blocked ?? error);
       }
-      final map = _coerceMap(result.value);
+      final map = jsObjectFrom(result.value);
       JsLog.res(
         tag,
         fn,
@@ -276,19 +277,6 @@ class JsRuntimeService {
       JsLog.err(tag, '$fn — $e');
       rethrow;
     }
-  }
-
-  Map<String, dynamic>? _coerceMap(dynamic value) {
-    if (value == null) return null;
-    if (value is Map) return value.cast<String, dynamic>();
-    if (value is String) {
-      if (value.isEmpty || value == 'null') return null;
-      try {
-        final decoded = jsonDecode(value);
-        if (decoded is Map) return decoded.cast<String, dynamic>();
-      } catch (_) {}
-    }
-    return null;
   }
 
   String _summarizeArgs(List<Object?> args) {

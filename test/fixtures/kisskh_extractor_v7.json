@@ -1,0 +1,234 @@
+{
+  "home": {
+    "provider": "kisskh",
+    "banner": [
+      {
+        "provider": "kisskh",
+        "externalId": "9987",
+        "title": "Ang Mutya ng Section E - The Muse of Section E",
+        "slug": "9987",
+        "contentUrl": "https://kisskh.co/Drama/Ang%20Mutya%20ng%20Section%20E%20-%20The%20Muse%20of%20Section%20E?id=9987",
+        "thumbnail": "https://serveproxy.com/?url=https://fragrancecdn1.site/c0d73a81-d05b-4873-83a7-a838d8aff09a.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": null
+      }
+    ],
+    "bannerViewAll": {
+      "type": "category",
+      "slug": "latest"
+    },
+    "sections": [
+      {
+        "key": "latest",
+        "label": "Latest",
+        "viewAll": {
+          "type": "category",
+          "slug": "latest"
+        },
+        "items": [
+          {
+            "provider": "kisskh",
+            "externalId": "14107",
+            "title": "Sunshine through the Rain (2026)",
+            "slug": "14107",
+            "contentUrl": "https://kisskh.co/Drama/Sunshine%20through%20the%20Rain%20(2026)?id=14107",
+            "thumbnail": "https://media.themoviedb.org/t/p/w1000_and_h563_face/hQwmwOFLg0V8X2oVt7rScalP3rZ.jpg",
+            "year": null,
+            "rating": 0,
+            "qualities": [],
+            "genres": [],
+            "category": null
+          },
+          {
+            "provider": "kisskh",
+            "externalId": "12262",
+            "title": "When I Meet the Moon",
+            "slug": "12262",
+            "contentUrl": "https://kisskh.co/Drama/When%20I%20Meet%20the%20Moon?id=12262",
+            "thumbnail": "http://wsrv.nl/?url=pic1.iqiyipic.com/image/20261102/4b/6c/a_100671428_m_601_en_m2_720_405.jpg",
+            "year": null,
+            "rating": 0,
+            "qualities": [],
+            "genres": [],
+            "category": null
+          }
+        ]
+      }
+    ]
+  },
+  "search": {
+    "provider": "kisskh",
+    "items": [
+      {
+        "provider": "kisskh",
+        "externalId": "10826",
+        "title": "Revenged Love",
+        "slug": "10826",
+        "contentUrl": "https://kisskh.co/Drama/Revenged%20Love?id=10826",
+        "thumbnail": "https://media.themoviedb.org/t/p/w1000_and_h563_face/ganlWcWXWaJTzR3PSl7Er6yOhxM.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": null
+      },
+      {
+        "provider": "kisskh",
+        "externalId": "10387",
+        "title": "Game of True Love - Crazy Love Game",
+        "slug": "10387",
+        "contentUrl": "https://kisskh.co/Drama/Game%20of%20True%20Love%20-%20Crazy%20Love%20Game?id=10387",
+        "thumbnail": "https://m.ykimg.com/0535000067DA376E20039613B8385D8E",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": null
+      }
+    ],
+    "page": 1,
+    "totalPages": 1,
+    "query": "revenged love"
+  },
+  "detail": {
+    "provider": "kisskh",
+    "contentId": "10826",
+    "contentUrl": "https://kisskh.co/Drama/Revenged%20Love?id=10826",
+    "title": "Revenged Love",
+    "description": "After being dumped for a wealthy man, Wu Suo Wei sets out for revenge—by seducing his ex-girlfriend's new boyfriend, Chi Cheng. But when Chi Cheng unexpectedly falls for him, their game of manipulation turns into something neither of them saw coming: real feelings.\r\n",
+    "thumbnail": "https://media.themoviedb.org/t/p/w1000_and_h563_face/ganlWcWXWaJTzR3PSl7Er6yOhxM.jpg",
+    "banner": null,
+    "year": 2025,
+    "duration": null,
+    "country": "China",
+    "director": null,
+    "genres": [
+      "TVSeries",
+      "Completed",
+      "China"
+    ],
+    "cast": [],
+    "likes": 0,
+    "dislikes": 0,
+    "isSerial": true,
+    "screenshots": [],
+    "related": [
+      {
+        "provider": "kisskh",
+        "externalId": "8316",
+        "title": "The First Frost",
+        "slug": "8316",
+        "contentUrl": "https://kisskh.co/Drama/The%20First%20Frost?id=8316",
+        "thumbnail": "https://media.themoviedb.org/t/p/w1000_and_h563_face/aL3J5pi3bbqHPicpELZ0f5r6X34.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": null
+      }
+    ],
+    "extra": {
+      "status": "Completed",
+      "type": "TVSeries",
+      "episodesCount": 24,
+      "videoAvailable": true
+    }
+  },
+  "episodes": {
+    "provider": "kisskh",
+    "contentUrl": "https://kisskh.co/Drama/Revenged%20Love?id=10826",
+    "isSerial": true,
+    "episodes": [
+      {
+        "episode": 1,
+        "label": "Episode 1",
+        "mediaRef": "kisskh:10826:185459"
+      },
+      {
+        "episode": 2,
+        "label": "Episode 2",
+        "mediaRef": "kisskh:10826:185460"
+      }
+    ]
+  },
+  "media": {
+    "videoUrl": "https://hls.cdnvideo11.shop/hls07/10826/Ep1_index.m3u8",
+    "type": "hls",
+    "headers": {
+      "Referer": "https://kisskh.co/",
+      "Origin": "https://kisskh.co"
+    },
+    "videoSources": [
+      {
+        "quality": "Auto",
+        "videoUrl": "https://hls.cdnvideo11.shop/hls07/10826/Ep1_index.m3u8",
+        "isDefault": true,
+        "accessible": true,
+        "type": "hls"
+      }
+    ],
+    "subtitles": [
+      {
+        "label": "English",
+        "src": "https://sub.cdnvideo11.shop/Revenged-Love.2025.Ep1.en.srt.txt1?v=imat3tjzsl5",
+        "lang": "English",
+        "cipher": {
+          "alg": "aes-128-cbc",
+          "key": "AmSmZVcH93UQUezi",
+          "iv": "ReBKWW8cqdjPEnF6",
+          "scope": "cue-text",
+          "encoding": "base64"
+        }
+      },
+      {
+        "label": "Indonesia",
+        "src": "https://sub.cdnvideo11.shop/Revenged-Love.2025.Ep1.id.srt.txt1?v=wec2f5dyzkt",
+        "lang": "Indonesia",
+        "cipher": {
+          "alg": "aes-128-cbc",
+          "key": "AmSmZVcH93UQUezi",
+          "iv": "ReBKWW8cqdjPEnF6",
+          "scope": "cue-text",
+          "encoding": "base64"
+        }
+      }
+    ]
+  },
+  "category": {
+    "provider": "kisskh",
+    "items": [
+      {
+        "provider": "kisskh",
+        "externalId": "14107",
+        "title": "Sunshine through the Rain (2026)",
+        "slug": "14107",
+        "contentUrl": "https://kisskh.co/Drama/Sunshine%20through%20the%20Rain%20(2026)?id=14107",
+        "thumbnail": "https://media.themoviedb.org/t/p/w1000_and_h563_face/hQwmwOFLg0V8X2oVt7rScalP3rZ.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": null
+      },
+      {
+        "provider": "kisskh",
+        "externalId": "12262",
+        "title": "When I Meet the Moon",
+        "slug": "12262",
+        "contentUrl": "https://kisskh.co/Drama/When%20I%20Meet%20the%20Moon?id=12262",
+        "thumbnail": "http://wsrv.nl/?url=pic1.iqiyipic.com/image/20261102/4b/6c/a_100671428_m_601_en_m2_720_405.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": null
+      }
+    ],
+    "page": 1,
+    "totalPages": 1384,
+    "category": "latest"
+  }
+}
