@@ -603,8 +603,8 @@
     "ok_to_skip": "撳 OK 跳過",
     "quality_lowered": "已降低畫質",
     "undo": "復原",
-    "crash_log": "當機記錄",
-    "crash_log_empty": "冇當機記錄"
+    "crash_log": "當機紀錄",
+    "crash_log_empty": "冇當機紀錄"
   },
   "profile": {
     "title": "個人檔案",
@@ -3172,7 +3172,7 @@
     "suggest": "成日都係咁？搵支援",
     "error_offline": "你而家離線，或者連線斷咗。請檢查網絡再試。",
     "not_sent": "未送出：{}",
-    "diag_crash_log": "睇當機記錄"
+    "diag_crash_log": "睇當機紀錄"
   },
   "zangetsu": {
     "title": "Zangetsu 來源",
