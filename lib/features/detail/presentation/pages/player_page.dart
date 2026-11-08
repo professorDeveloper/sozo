@@ -55,6 +55,11 @@ import 'package:soplay/core/player/source_ladder.dart';
 import 'package:soplay/features/detail/domain/download_choices.dart';
 import 'package:soplay/features/detail/domain/player_affordances.dart';
 import 'package:soplay/features/detail/domain/playback/episode_window.dart';
+import 'package:soplay/features/detail/domain/playback/desktop_volume.dart';
+import 'package:soplay/features/detail/domain/playback/end_of_stream.dart';
+import 'package:soplay/features/detail/domain/playback/lock_pill.dart';
+import 'package:soplay/features/detail/domain/playback/tap_seek.dart';
+import 'package:soplay/core/player/mpv_auto_quality.dart';
 import 'package:soplay/features/detail/domain/playback/playback_fault.dart';
 import 'package:soplay/features/detail/domain/playback/retry_policy.dart';
 import 'package:soplay/features/detail/domain/playback/skip_offers.dart';
@@ -177,6 +182,7 @@ part 'player_page.menus.dart';
 part 'player_page.sheets.dart';
 part 'player_page.native_offer.dart';
 part 'player_page.system.dart';
+part 'player_page.toast.dart';
 
 /// Hard ceiling on auto-retries per episode — see [_PlayerPageState._lifetimeRetries].
 const int _kMaxLifetimeRetries = RetryPolicy.maxLifetimeRetries;
@@ -798,6 +804,46 @@ class _PlayerPageState extends State<PlayerPage>
   /// guard that protects against accidental BACK.
   bool _tvPopAllowed = false;
 
+  /// Monotonic time for the tap, lock and end-of-stream state machines.
+  final Stopwatch _clock = Stopwatch()..start();
+  Duration get _now => _clock.elapsed;
+
+  final TapSeekTracker _tapSeek = TapSeekTracker();
+  Timer? _tapTimer;
+
+  final LockPill _lockPill = LockPill();
+  Timer? _lockPillTimer;
+
+  final EndOfStreamDetector _endOfStream = EndOfStreamDetector();
+  Timer? _endWatch;
+
+  /// mpv Auto: stalls counted for a step down, and the `hls-bitrate` in force
+  /// after one (null = the start choice). [_autoBitrateBefore] is for Undo.
+  final StallWatchdog _stallWatch = StallWatchdog();
+  String? _autoBitrate;
+  String? _autoBitrateBefore;
+
+  /// "Try with the mpv engine" after a codec fault on the native engine. For
+  /// this player only; the engine setting is untouched.
+  bool _mpvForSession = false;
+
+  /// mpv failed mid-playback once and was reopened with `hwdec=no`.
+  bool _mpvSoftwareRetried = false;
+
+  /// The orientation was turned to portrait for a vertical clip, so a
+  /// landscape episode after it turns it back.
+  bool _autoPortrait = false;
+  PlayerController? _orientedFor;
+
+  DesktopVolume _desktopVolume = const DesktopVolume();
+
+  final ValueNotifier<_PlayerToast?> _toastNote = ValueNotifier(null);
+  Timer? _toastTimer;
+  bool _errorDetailsOpen = false;
+
+  final FocusNode _tvUpNextFocus = FocusNode(debugLabel: 'tvUpNext');
+  bool _upNextShown = false;
+
   @override
   void initState() {
     super.initState();
@@ -819,6 +865,12 @@ class _PlayerPageState extends State<PlayerPage>
     _brightnessGestureEnabled = _hive.brightnessGestureEnabled;
     _volumeGestureEnabled = _hive.volumeGestureEnabled;
     _autoPipSetting = _hive.autoPipEnabled;
+    if (isDesktopPlatform) {
+      final stored = _hive.getDesktopVolume();
+      _desktopVolume = DesktopVolume.restore(stored.level, stored.muted);
+      _volume = _desktopVolume.applied;
+    }
+    _endWatch = Timer.periodic(const Duration(seconds: 1), (_) => _checkEnd());
     _window = _window.at(
       widget.args.initialEpisodeIndex.clamp(
         0,
@@ -986,6 +1038,13 @@ class _PlayerPageState extends State<PlayerPage>
     _hideTimer?.cancel();
     _historyTimer?.cancel();
     _seekRippleTimer?.cancel();
+    _tapTimer?.cancel();
+    _lockPillTimer?.cancel();
+    _endWatch?.cancel();
+    _toastTimer?.cancel();
+    _toastNote.dispose();
+    _tvUpNextFocus.dispose();
+    PlayerController.mpvHwdec = null;
     _systemLevelTimer?.cancel();
     _tvSeekCommit?.cancel();
     _tvRootFocus.dispose();
@@ -1040,8 +1099,13 @@ class _PlayerPageState extends State<PlayerPage>
       // controls -> exit) rather than dumping the viewer out mid-episode.
       // _exit() latches _tvPopAllowed when the exit is genuinely intended.
       // Phone and desktop keep the unconditional pop they ship today.
-      canPop: !isTvPlatform || _tvPopAllowed,
+      // Locked, a phone's BACK only brings the unlock pill back.
+      canPop: (!isTvPlatform && !_locked) || _tvPopAllowed,
       onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _locked && !isTvPlatform) {
+          _showLockPill();
+          return;
+        }
         if (didPop || !isTvPlatform) {
           // Docking pops the route too, but the page plays on in the corner:
           // its wakelock and window state are still in use.
@@ -1085,23 +1149,27 @@ class _PlayerPageState extends State<PlayerPage>
                   // As an ancestor these recognisers are in the hit-test path for
                   // every touch, whatever is drawn on top.
                   behavior: HitTestBehavior.opaque,
-                  onTap: _locked
+                  // Touch screens resolve taps themselves (_onVideoTap), so a
+                  // single tap waits only when a double tap could follow.
+                  onTap: _tapTap
                       ? null
+                      : _locked
+                      ? _showLockPill
                       : _compact
                       ? _togglePlay
                       : _toggleControls,
-                  onDoubleTapDown: _locked || isDesktopPlatform
-                      ? null
-                      : (d) => _onDoubleTapDown(d, constraints),
-                  onDoubleTap: _locked
+                  onTapUp: _tapTap
+                      ? (d) => _locked
+                            ? _showLockPill()
+                            : _onVideoTap(d.localPosition, constraints)
+                      : null,
+                  onDoubleTap: _locked || _tapTap
                       ? null
                       : _docked
                       ? _expandFromDock
                       : _desktopMini
                       ? _toggleDesktopMini
-                      : isDesktopPlatform
-                      ? _toggleFullscreen
-                      : () {},
+                      : _toggleFullscreen,
                   // Scale, not pan: Flutter asserts if both are registered, since
                   // scale is a superset. One finger is routed straight back into
                   // the old pan handlers — see _onScaleUpdate — so brightness,
@@ -1174,6 +1242,7 @@ class _PlayerPageState extends State<PlayerPage>
                               _buildSidePanel(),
                             if (!_locked && _inParty) _buildPartyReactionsLayer(),
                             if (_compact) _buildDesktopMiniOverlay(),
+                            if (!_compact) _buildPlayerToast(),
                             // Last, so it covers everything: while a television is
                             // playing this episode the phone is a remote, and leaving the
                             // local controls reachable underneath would let someone

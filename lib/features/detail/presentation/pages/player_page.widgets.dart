@@ -269,6 +269,144 @@ class _LoadingOverlay extends StatelessWidget {
   }
 }
 
+/// The player's own button: glass, radius 14, the primary colour for the one
+/// thing to do next. Used on the error screen.
+class _PlayerGlassButton extends StatelessWidget {
+  const _PlayerGlassButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+    this.primary = false,
+    this.autofocus = false,
+  });
+
+  final VoidCallback onPressed;
+  final IconData icon;
+  final String label;
+  final bool primary;
+  final bool autofocus;
+
+  static const double radius = 14;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: primary ? Colors.white : AppColors.primaryLight,
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return _tvRing(
+      radius: radius,
+      Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(radius),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          autofocus: autofocus,
+          borderRadius: BorderRadius.circular(radius),
+          child: primary
+              ? DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(radius),
+                  ),
+                  child: content,
+                )
+              : MediaGlass(
+                  radius: radius,
+                  dim: Colors.white.withValues(alpha: 0.10),
+                  child: content,
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The player's notices: a glass toast at the top centre, clear of the seek
+/// bar and the bottom controls. One at a time.
+class _PlayerToastView extends StatelessWidget {
+  const _PlayerToastView({required this.toast, this.onAction});
+
+  final _PlayerToast toast;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final action = toast.action;
+    return Semantics(
+      liveRegion: true,
+      child: MediaGlass(
+        radius: 14,
+        dim: Colors.black.withValues(alpha: 0.62),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(14, 10, action == null ? 16 : 6, 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(toast.icon, size: 18, color: AppColors.primaryLight),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  toast.message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (action != null) ...[
+                const SizedBox(width: 6),
+                _tvRing(
+                  radius: 10,
+                  TextButton(
+                    onPressed: onAction,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primaryLight,
+                      visualDensity: VisualDensity.compact,
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    child: Text(action),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _IconButton extends StatelessWidget {
   const _IconButton({
     required this.icon,
@@ -457,9 +595,13 @@ class _DesktopVolumeControl extends StatelessWidget {
     required this.volume,
     required this.onChanged,
     required this.onToggleMute,
+    this.max = 1.0,
   });
 
   final double volume;
+
+  /// 1.5 where the engine amplifies past 100%.
+  final double max;
   final ValueChanged<double> onChanged;
   final VoidCallback onToggleMute;
 
@@ -475,7 +617,7 @@ class _DesktopVolumeControl extends StatelessWidget {
       onPointerSignal: (e) {
         if (e is PointerScrollEvent) {
           final step = e.scrollDelta.dy < 0 ? 0.05 : -0.05;
-          onChanged((volume + step).clamp(0.0, 1.0));
+          onChanged((volume + step).clamp(0.0, max));
         }
       },
       child: Row(
@@ -494,7 +636,8 @@ class _DesktopVolumeControl extends StatelessWidget {
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
               ),
               child: Slider(
-                value: volume.clamp(0.0, 1.0),
+                value: volume.clamp(0.0, max),
+                max: max,
                 onChanged: onChanged,
               ),
             ),
@@ -2074,7 +2217,7 @@ class _ServerSwitchOverlay extends StatelessWidget {
                   // The one being left is dimmed rather than hidden: the
                   // journey is the information, and "from nothing to X" is
                   // what a first load looks like.
-                  if (from != null) ...[
+                  if (from != null && !switch_.sameServer) ...[
                     Opacity(
                       opacity: 0.35,
                       child: ServerBadge(name: from, size: 44),
@@ -2097,14 +2240,16 @@ class _ServerSwitchOverlay extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'player.switching_server'.tr(),
+                switch_.sameServer
+                    ? 'player.trying_again'.tr(args: ['${attempt ?? 1}'])
+                    : 'player.switching_server'.tr(),
                 style: const TextStyle(
                   color: Colors.white60,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              if (attempt != null) ...[
+              if (attempt != null && !switch_.sameServer) ...[
                 const SizedBox(height: 4),
                 Text(
                   'player.auto_switch_attempt'.tr(

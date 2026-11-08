@@ -306,7 +306,11 @@
       "no_source": "Bu qism uchun manba topilmadi.",
       "empty_url": "Bu manba video manzilini qaytarmadi.",
       "engine_unavailable": "Pleyer ishga tushmadi. Ilovani butunlay qayta ishga tushiring.",
-      "unknown": "Videoni yuklab bo‘lmadi."
+      "unknown": "Videoni yuklab bo‘lmadi.",
+      "not_found": "Bu video endi ushbu serverda yo‘q. Boshqa serverni tanlang.",
+      "server_error": "Video serverida muammo bor. Birozdan so‘ng qayta urinib ko‘ring yoki boshqa serverni tanlang.",
+      "resolve_failed": "Bu manbadan video havolasini olib bo‘lmadi.",
+      "details": "Tafsilotlar"
     },
     "play": "O'ynash",
     "pause": "To'xtatish",
@@ -591,7 +595,12 @@
     "native_offer_title": "Yangi pleyerni sinab ko‘rasizmi?",
     "native_offer_body": "Apple’ning Liquid Glass tugmalari va menyulari. Buni istalgan vaqt Sozlamalar → Pleyer bo‘limida o‘zgartirishingiz mumkin.",
     "native_offer_try": "Sinab ko‘rish",
-    "native_offer_not_now": "Hozir emas"
+    "native_offer_not_now": "Hozir emas",
+    "trying_again": "Qayta urinilmoqda ({}-urinish)",
+    "try_mpv": "mpv dvigateli bilan sinash",
+    "ok_to_skip": "O‘tkazish uchun OK",
+    "quality_lowered": "Sifat pasaytirildi",
+    "undo": "Bekor qilish"
   },
   "profile": {
     "title": "Profil",

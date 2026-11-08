@@ -35,6 +35,12 @@ enum PlaybackFaultKind {
   /// The stream could not be fetched. The connection is the first suspect.
   network('player.fault.network'),
 
+  /// The server answered 404 or 410: the file is gone from this mirror.
+  notFound('player.fault.not_found'),
+
+  /// The server answered 5xx or 429: its problem, not the device's.
+  serverError('player.fault.server_error'),
+
   /// The resolve produced no playable source for this episode.
   noSourceForEpisode('player.fault.no_source'),
 
@@ -95,6 +101,19 @@ class PlaybackFault {
         lower.contains('renderer')) {
       return PlaybackFault(PlaybackFaultKind.decoder, raw: raw);
     }
+    final status = httpStatusOf(lower);
+    if (status != null) {
+      if (status == 404 || status == 410) {
+        return PlaybackFault(PlaybackFaultKind.notFound, raw: raw);
+      }
+      if (status >= 500 || status == 429) {
+        return PlaybackFault(PlaybackFaultKind.serverError, raw: raw);
+      }
+      return PlaybackFault(PlaybackFaultKind.sourceBlocked, raw: raw);
+    }
+    if (lower.contains('5xx server error')) {
+      return PlaybackFault(PlaybackFaultKind.serverError, raw: raw);
+    }
     // libmpv's "Failed to open <url>": the host answered with a refusal
     // (often a 403 without the Referer it expects) or not at all. The raw
     // line, with its long address, read as the whole message on screen.
@@ -116,6 +135,8 @@ class PlaybackFault {
         lower.contains('connection reset') ||
         lower.contains('connection timed out') ||
         lower.contains('connection errored') ||
+        // Dio's timeouts: "The request connection took longer than 0:00:15…".
+        lower.contains('took longer than') ||
         lower.contains('failed to resolve hostname') ||
         lower.contains('failed host lookup') ||
         lower.contains('network is unreachable') ||
@@ -123,6 +144,28 @@ class PlaybackFault {
       return PlaybackFault(PlaybackFaultKind.network, raw: raw);
     }
     return PlaybackFault(PlaybackFaultKind.unknown, raw: raw);
+  }
+
+  static final RegExp _statusAfterLabel = RegExp(
+    r'(?:status code(?: of)?|response code|http error|server returned|'
+    r'statuscode|http/\d(?:\.\d)?)[:=\s]*(\d{3})\b',
+  );
+  static final RegExp _statusBeforeReason = RegExp(
+    r'\b([45]\d{2})\s*[-:]?\s*(?:forbidden|not found|gone|unauthorized|'
+    r'bad request|too many requests|internal server error|bad gateway|'
+    r'service unavailable|gateway time-?out)',
+  );
+
+  /// The HTTP status a failure names, from Dio, ExoPlayer, ffmpeg or an error
+  /// page's body, or null. Only 4xx and 5xx; a bare number is not enough.
+  static int? httpStatusOf(String lower) {
+    for (final re in [_statusAfterLabel, _statusBeforeReason]) {
+      for (final m in re.allMatches(lower)) {
+        final code = int.tryParse(m.group(1)!);
+        if (code != null && code >= 400 && code < 600) return code;
+      }
+    }
+    return null;
   }
 
   /// The key for what the error screen says once nothing is left to try, or

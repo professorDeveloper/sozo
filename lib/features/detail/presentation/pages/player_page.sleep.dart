@@ -120,12 +120,10 @@ extension _PlayerSleepTimer on _PlayerPageState {
       setState(() => _controlsVisible = true);
       _controlsAnimation.forward();
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('player.sleep_fired'.tr()),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-      ),
+    _toast(
+      'player.sleep_fired'.tr(),
+      icon: Icons.bedtime_rounded,
+      duration: const Duration(seconds: 4),
     );
   }
 

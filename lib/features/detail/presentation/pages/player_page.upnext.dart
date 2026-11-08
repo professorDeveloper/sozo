@@ -70,6 +70,22 @@ extension _PlayerUpNext on _PlayerPageState {
     if (mounted) setState(() => _upNextDismissed = true);
   }
 
+  /// On TV the card takes focus as it appears, so OK plays now and BACK
+  /// cancels; focus goes back to the player when it leaves.
+  void _noteUpNextShown(bool shown) {
+    if (shown == _upNextShown) return;
+    _upNextShown = shown;
+    if (!isTvPlatform) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (shown && _tvUpNextFocus.context != null) {
+        _tvUpNextFocus.requestFocus();
+      } else if (!shown && _tvUpNextFocus.hasFocus) {
+        _tvHandOffFocusToRoot();
+      }
+    });
+  }
+
   Widget _buildUpNextPrompt() {
     final controller = _controller;
     final countdown = _automation?.upNextSeconds ?? 0;
@@ -77,21 +93,23 @@ extension _PlayerUpNext on _PlayerPageState {
         countdown <= 0 ||
         _initializing ||
         _isPip ||
-        isTvPlatform ||
         !_willAutoAdvance ||
         !_window.contains(_episodeIndex + 1)) {
+      _noteUpNextShown(false);
       return const SizedBox.shrink();
     }
     final next = _episodes[_episodeIndex + 1];
     return ValueListenableBuilder<VideoPlayerValue>(
       valueListenable: controller,
       builder: (context, value, _) {
-        if (!value.isInitialized) return const SizedBox.shrink();
-        final left = NextUp.promptSecondsLeft(
-          position: value.position,
-          duration: value.duration,
-          countdownSeconds: countdown,
-        );
+        final left = value.isInitialized
+            ? NextUp.promptSecondsLeft(
+                position: value.position,
+                duration: value.duration,
+                countdownSeconds: countdown,
+              )
+            : null;
+        _noteUpNextShown(left != null);
         if (left == null) return const SizedBox.shrink();
         final base = _controlsVisible ? 92.0 : 28.0;
         return Positioned(
@@ -105,6 +123,7 @@ extension _PlayerUpNext on _PlayerPageState {
             countdown: countdown,
             onPlayNow: _playNextNow,
             onCancel: _dismissUpNext,
+            playFocus: _tvUpNextFocus,
           ),
         );
       },
@@ -127,6 +146,7 @@ class _UpNextCard extends StatelessWidget {
     required this.countdown,
     required this.onPlayNow,
     required this.onCancel,
+    this.playFocus,
   });
 
   final String label;
@@ -134,6 +154,7 @@ class _UpNextCard extends StatelessWidget {
   final int countdown;
   final VoidCallback onPlayNow;
   final VoidCallback onCancel;
+  final FocusNode? playFocus;
 
   @override
   Widget build(BuildContext context) {
@@ -219,15 +240,19 @@ class _UpNextCard extends StatelessWidget {
                   child: Text('general.cancel'.tr()),
                 ),
                 const SizedBox(width: 6),
-                FilledButton.icon(
-                  onPressed: onPlayNow,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    visualDensity: VisualDensity.compact,
+                _tvRing(
+                  radius: 20,
+                  FilledButton.icon(
+                    onPressed: onPlayNow,
+                    focusNode: playFocus,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: const Icon(Icons.skip_next_rounded, size: 18),
+                    label: Text('automation.play_now'.tr()),
                   ),
-                  icon: const Icon(Icons.skip_next_rounded, size: 18),
-                  label: Text('automation.play_now'.tr()),
                 ),
               ],
             ),

@@ -306,7 +306,11 @@
       "no_source": "Geen bron voor deze aflevering.",
       "empty_url": "Deze bron gaf geen videoadres terug.",
       "engine_unavailable": "De speler is niet gestart. Start de app volledig opnieuw op.",
-      "unknown": "Video kon niet worden geladen."
+      "unknown": "Video kon niet worden geladen.",
+      "not_found": "Deze video staat niet meer op deze server. Probeer een andere server.",
+      "server_error": "De videoserver heeft problemen. Probeer het zo opnieuw of kies een andere server.",
+      "resolve_failed": "Kon geen videolink van deze bron krijgen.",
+      "details": "Details"
     },
     "play": "Afspelen",
     "pause": "Pauze",
@@ -591,7 +595,12 @@
     "native_offer_title": "De nieuwe speler proberen?",
     "native_offer_body": "De Liquid Glass-bediening en -menu’s van Apple. Je kunt dit altijd wijzigen via Instellingen → Speler.",
     "native_offer_try": "Proberen",
-    "native_offer_not_now": "Niet nu"
+    "native_offer_not_now": "Niet nu",
+    "trying_again": "Opnieuw proberen (poging {})",
+    "try_mpv": "Proberen met de mpv-engine",
+    "ok_to_skip": "OK om over te slaan",
+    "quality_lowered": "Kwaliteit verlaagd",
+    "undo": "Ongedaan maken"
   },
   "profile": {
     "title": "Profiel",

@@ -2,24 +2,53 @@
 part of 'player_page.dart';
 
 extension _PlayerGestures on _PlayerPageState {
-  void _onDoubleTapDown(TapDownDetails details, BoxConstraints constraints) {
-    final dx = details.localPosition.dx;
-    final width = constraints.maxWidth;
-    final leftEdge = width * 0.3;
-    final rightEdge = width * 0.7;
-    final step = _seekStep;
-    if (dx < leftEdge) {
-      _seekRelative(-step);
-      _showSeekRipple(-1);
-    } else if (dx > rightEdge) {
-      _seekRelative(step);
-      _showSeekRipple(1);
-    } else {
+  /// Phones and tablets: taps are resolved here rather than by a double-tap
+  /// recogniser, which held every single tap back by 300 ms.
+  bool get _tapTap => !isDesktopPlatform && !_compact;
+
+  void _onVideoTap(Offset at, BoxConstraints constraints) {
+    final c = _controller;
+    final ready =
+        c != null &&
+        c.value.isInitialized &&
+        !_initializing &&
+        _errorMessage == null;
+    final action = _tapSeek.onTap(
+      TapSeekTracker.zoneOf(at.dx, constraints.maxWidth),
+      _now,
+      canSeek: ready && !_isLive && _panel == _SidePanel.none,
+      centreTogglesPlay: ready && _panel == _SidePanel.none,
+    );
+    _tapTimer?.cancel();
+    if (action == TapAction.pending) {
+      _tapTimer = Timer(_tapSeek.doubleTapWindow, () {
+        if (!mounted) return;
+        final late = _tapSeek.flush(_now);
+        if (late != null) _runTapAction(late);
+      });
       return;
     }
-    // The ripple is on the far side of the thumb; the tick is what says the
-    // double tap landed while the eyes stay on the picture.
-    if (isMobilePlatform) HapticFeedback.selectionClick();
+    _runTapAction(action);
+  }
+
+  void _runTapAction(TapAction action) {
+    switch (action) {
+      case TapAction.pending:
+        return;
+      case TapAction.toggleControls:
+        _toggleControls();
+      case TapAction.togglePlay:
+        _togglePlay();
+        if (isMobilePlatform) HapticFeedback.selectionClick();
+      case TapAction.seekBack:
+      case TapAction.seekForward:
+        final dir = action == TapAction.seekBack ? -1 : 1;
+        _seekRelative(_seekStep * dir);
+        _showSeekRipple(dir);
+        // The ripple is on the far side of the thumb; the tick is what says
+        // the tap landed while the eyes stay on the picture.
+        if (isMobilePlatform) HapticFeedback.selectionClick();
+    }
   }
 
   /// [initialDeltaPx]: how far the finger has already travelled from where
@@ -127,7 +156,7 @@ extension _PlayerGestures on _PlayerPageState {
     setState(() => _seekRippleDirection = direction);
     _seekRippleController.forward(from: 0);
     _seekRippleTimer?.cancel();
-    _seekRippleTimer = Timer(const Duration(milliseconds: 700), () {
+    _seekRippleTimer = Timer(_tapSeek.rippleWindow, () {
       if (!mounted) return;
       setState(() {
         _seekRippleDirection = 0;
@@ -229,6 +258,19 @@ extension _PlayerGestures on _PlayerPageState {
   }
 
   void _onPanStart(DragStartDetails d, BoxConstraints constraints) {
+    // A swipe from the system's own gesture edges (back, home, the shade)
+    // belongs to the system, not to brightness, volume or the scrub.
+    final from = _pointerDownAt ?? d.localPosition;
+    if (startsInSystemGestureArea(
+      from,
+      constraints.biggest,
+      MediaQuery.of(context).systemGestureInsets,
+    )) {
+      _dragStart = null;
+      _dragIsHorizontal = null;
+      _dragSwipeType = null;
+      return;
+    }
     _dragStart = d.localPosition;
     _dragIsHorizontal = null;
     _dragSwipeType = null;
@@ -354,3 +396,10 @@ extension _PlayerGestures on _PlayerPageState {
     _dragSwipeType = null;
   }
 }
+
+/// Whether [at] lies in the strips the system keeps for its own gestures.
+bool startsInSystemGestureArea(Offset at, Size size, EdgeInsets insets) =>
+    at.dx < insets.left ||
+    at.dx > size.width - insets.right ||
+    at.dy < insets.top ||
+    at.dy > size.height - insets.bottom;

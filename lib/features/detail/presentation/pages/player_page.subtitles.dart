@@ -488,37 +488,6 @@ extension _PlayerSubtitles on _PlayerPageState {
     );
   }
 
-  void _toast(String message, {IconData icon = Icons.info_outline_rounded}) {
-    if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.clearSnackBars();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, size: 18, color: AppColors.primaryLight),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(fontSize: 13, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF1C1C1E),
-        behavior: SnackBarBehavior.floating,
-        elevation: 8,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   /// TMDB id + type parsed from the content url, for finding and publishing
   /// translations by the media they belong to.
   ({String id, String type})? _tmdbRef() {

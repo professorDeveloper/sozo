@@ -291,6 +291,8 @@ class AppConstants {
   static const String nativeControlsOfferedKey = 'native_controls_offered';
   static const String doubleTapSeekSecondsKey = 'double_tap_seek_seconds';
   static const String longPressBoostKey = 'long_press_boost';
+  static const String desktopVolumeKey = 'desktop_player_volume';
+  static const String desktopMutedKey = 'desktop_player_muted';
   static const String brightnessGestureKey = 'brightness_gesture';
 
   /// Whether the detail header plays a title's trailer by itself.

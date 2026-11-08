@@ -306,7 +306,11 @@
       "no_source": "Keine Quelle für diese Folge.",
       "empty_url": "Diese Quelle hat keine Videoadresse geliefert.",
       "engine_unavailable": "Der Player ist nicht gestartet. Bitte starte die App vollständig neu.",
-      "unknown": "Video konnte nicht geladen werden."
+      "unknown": "Video konnte nicht geladen werden.",
+      "not_found": "Dieses Video ist auf diesem Server nicht mehr verfügbar. Versuche einen anderen Server.",
+      "server_error": "Der Videoserver hat Probleme. Versuche es gleich noch einmal oder wähle einen anderen Server.",
+      "resolve_failed": "Von dieser Quelle konnte kein Videolink abgerufen werden.",
+      "details": "Details"
     },
     "play": "Abspielen",
     "pause": "Pause",
@@ -591,7 +595,12 @@
     "native_offer_title": "Den neuen Player ausprobieren?",
     "native_offer_body": "Apples Liquid-Glass-Bedienelemente und -Menüs. Du kannst das jederzeit unter Einstellungen → Player ändern.",
     "native_offer_try": "Ausprobieren",
-    "native_offer_not_now": "Nicht jetzt"
+    "native_offer_not_now": "Nicht jetzt",
+    "trying_again": "Neuer Versuch (Versuch {})",
+    "try_mpv": "Mit der mpv-Engine versuchen",
+    "ok_to_skip": "OK zum Überspringen",
+    "quality_lowered": "Qualität reduziert",
+    "undo": "Rückgängig"
   },
   "profile": {
     "title": "Profil",

@@ -539,13 +539,7 @@ extension _PlayerPanels on _PlayerPageState {
                         _hive.setIncognito(false);
                         if (!mounted) return;
                         setState(() {});
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('profile.incognito_off'.tr()),
-                            behavior: SnackBarBehavior.floating,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
+                        _toast('profile.incognito_off'.tr());
                       },
                     ),
                   // Hidden rather than disabled when the stream cannot be cast — a
@@ -829,9 +823,7 @@ extension _PlayerPanels on _PlayerPageState {
       subtitles: handed,
     );
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('player.external_player_none'.tr())),
-      );
+      _toast('player.external_player_none'.tr());
     }
   }
 

@@ -92,7 +92,14 @@ extension _PlayerAniSkip on _PlayerPageState {
     if (identical(active, _activeSkip)) return;
     if (active == null && _activeSkip == null) return;
 
-    if (active != null && _hive.autoSkipIntro) {
+    // A guest who may not seek waits for the host's skip to arrive.
+    if (active != null &&
+        _hive.autoSkipIntro &&
+        !PartyRules.blocksLocalControl(
+          inParty: _inParty,
+          canControl: _canPartyControl,
+          applyingRemote: _applyingRemote,
+        )) {
       _takeSkip(active);
       return;
     }
@@ -107,12 +114,8 @@ extension _PlayerAniSkip on _PlayerPageState {
   Future<void> _takeSkip(SkipInterval interval) async {
     _skips.take(interval);
     if (mounted) setState(() => _activeSkip = null);
-    try {
-      await _controller?.seekTo(_skips.targetFor(interval));
-    } catch (_) {
-      // A failed seek leaves playback where it was, which is survivable; the
-      // offer stays retired so it does not loop.
-    }
+    // Through _seekTo, so a party host's skip reaches the room.
+    _seekTo(_skips.targetFor(interval));
   }
 
   /// The floating "Skip opening / Skip ending" button, or nothing.
@@ -124,38 +127,62 @@ extension _PlayerAniSkip on _PlayerPageState {
     final label = active.type == 'ed'
         ? 'player.skip_ending'.tr()
         : 'player.skip_opening'.tr();
+    // A remote with the controls hidden: OK takes it (see _onTvPlayerKey).
+    final okHint = isTvPlatform && !_controlsVisible;
     return Positioned(
       right: 20,
       bottom: _controlsVisible ? 92 : 28,
-      child: AnimatedOpacity(
-        opacity: 1,
-        duration: const Duration(milliseconds: 150),
-        child: Material(
-          color: Colors.black.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(8),
+      child: _tvRing(
+        radius: 14,
+        Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(14),
             onTap: () => _takeSkip(active),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+            child: MediaGlass(
+              radius: 14,
+              dim: Colors.black.withValues(alpha: 0.6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (okHint)
+                          Text(
+                            'player.ok_to_skip'.tr(),
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(
-                    Icons.fast_forward_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.fast_forward_rounded,
+                      color: AppColors.primaryLight,
+                      size: 18,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

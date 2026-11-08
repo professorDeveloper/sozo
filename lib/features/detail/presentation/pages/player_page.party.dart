@@ -290,14 +290,7 @@ extension _PlayerParty on _PlayerPageState {
 
   void _partyToast(String key) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(key.tr()),
-        backgroundColor: Colors.black87,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    _toast(key.tr(), icon: Icons.groups_rounded);
   }
 
   // ---------------------------------------------------------------------------
@@ -438,9 +431,11 @@ extension _PlayerParty on _PlayerPageState {
           if (defaultIdx >= 0) _loadSubtitle(defaultIdx, remember: false);
         }
       case Failure(:final error):
+        final raw = error.toString().replaceFirst('Exception: ', '');
         setState(() {
           _initializing = false;
-          _errorMessage = error.toString().replaceFirst('Exception: ', '');
+          _errorMessage = _resolveFailureMessage(raw);
+          _errorRaw = raw;
         });
     }
   }

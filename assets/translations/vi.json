@@ -306,7 +306,11 @@
       "no_source": "Tập này không có nguồn.",
       "empty_url": "Nguồn này không trả về địa chỉ video.",
       "engine_unavailable": "Trình phát không khởi động được. Vui lòng khởi động lại hẳn ứng dụng.",
-      "unknown": "Không tải được video."
+      "unknown": "Không tải được video.",
+      "not_found": "Video này không còn trên máy chủ này. Hãy thử máy chủ khác.",
+      "server_error": "Máy chủ video đang gặp sự cố. Hãy thử lại sau giây lát hoặc chọn máy chủ khác.",
+      "resolve_failed": "Không lấy được liên kết video từ nguồn này.",
+      "details": "Chi tiết"
     },
     "play": "Phát",
     "pause": "Tạm dừng",
@@ -591,7 +595,12 @@
     "native_offer_title": "Dùng thử trình phát mới?",
     "native_offer_body": "Nút điều khiển và menu Liquid Glass của Apple. Bạn có thể thay đổi bất cứ lúc nào trong Cài đặt → Trình phát.",
     "native_offer_try": "Dùng thử",
-    "native_offer_not_now": "Để sau"
+    "native_offer_not_now": "Để sau",
+    "trying_again": "Đang thử lại (lần {})",
+    "try_mpv": "Thử với trình phát mpv",
+    "ok_to_skip": "Nhấn OK để bỏ qua",
+    "quality_lowered": "Đã giảm chất lượng",
+    "undo": "Hoàn tác"
   },
   "profile": {
     "title": "Hồ sơ",
