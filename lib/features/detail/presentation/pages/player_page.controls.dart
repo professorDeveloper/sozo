@@ -1056,36 +1056,38 @@ extension _PlayerControls on _PlayerPageState {
         child: Padding(
           padding: const EdgeInsets.only(bottom: 24),
           child: Center(
-            child: GestureDetector(
-              onTap: _unlock,
-              // Words on it, so the deeper dimming: white 12pt text keeps
-              // AA over a white frame.
-              child: MediaGlass(
-                radius: 24,
-                dim: Colors.black.withValues(alpha: 0.6),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.lock_rounded,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'player.tap_to_unlock'.tr(),
-                        style: const TextStyle(
+            child: _unlockPill(
+              GestureDetector(
+                onTap: _unlock,
+                // Words on it, so the deeper dimming: white 12pt text keeps
+                // AA over a white frame.
+                child: MediaGlass(
+                  radius: 24,
+                  dim: Colors.black.withValues(alpha: 0.6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.lock_rounded,
                           color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          size: 16,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Text(
+                          'player.tap_to_unlock'.tr(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1112,190 +1114,201 @@ extension _PlayerControls on _PlayerPageState {
     // over refracting glass composites the glass and the picture under it on
     // every frame of the fade. The group gives the refraction back once the
     // fade has settled.
-    final overlay = FadeTransition(
-      opacity: _controlsAnimation,
-      child: GlassHoldWhile(
-        source: _controlsAnimation,
-        moving: () => _controlsAnimation.isAnimating,
-        child: IgnorePointer(
-          ignoring: !_controlsVisible,
-          child: Stack(
-            children: [
-              const Positioned.fill(child: _ControlsScrim()),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    // One read of the picture for every button along the top,
-                    // not one each (MediaGlass).
-                    child: MediaGlassLayer(
-                      child: Row(
-                        children: [
-                          _IconButton(
-                            icon: Icons.arrow_back_ios_new_rounded,
-                            onTap: _exit,
-                          ),
-                          const SizedBox(width: 3),
-                          Expanded(
-                            flex: 2,
-                            // Text takes the hit but has no gesture, so a tap on
-                            // the title did nothing while the same tap anywhere
-                            // else on the dimmed video hides the controls.
-                            child: IgnorePointer(
-                              child: Text(
-                                _episodeTitle(),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  shadows: _kControlShadow,
-                                ),
+    //
+    // The native bars fade themselves, in UIKit: an opacity over a hosted
+    // view is a per-frame composite of it. So on that path the overlay is
+    // held at full, and only what Flutter draws fades ([_fadeFlutter]).
+    final native = _nativeBars;
+    final body = IgnorePointer(
+      ignoring: !_controlsVisible,
+      child: Stack(
+        children: [
+          Positioned.fill(child: _fadeFlutter(const _ControlsScrim())),
+          if (native)
+            _buildNativeTopBar()
+          else
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  // One read of the picture for every button along the top,
+                  // not one each (MediaGlass).
+                  child: MediaGlassLayer(
+                    child: Row(
+                      children: [
+                        _IconButton(
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          onTap: _exit,
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          flex: 2,
+                          // Text takes the hit but has no gesture, so a tap on
+                          // the title did nothing while the same tap anywhere
+                          // else on the dimmed video hides the controls.
+                          child: IgnorePointer(
+                            child: Text(
+                              _episodeTitle(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                shadows: _kControlShadow,
                               ),
                             ),
                           ),
-                          // The action set outgrows a portrait phone. It used to
-                          // take half the bar and scroll the surplus off the left,
-                          // where nobody found it — orientation and Watch Party were
-                          // simply invisible. Now the actions get the larger share
-                          // and scale a few percent if they still do not fit, so
-                          // every one of them is on screen.
-                          Expanded(
-                            flex: 5,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerRight,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // TV and desktop only. A phone draws its bar
-                                  // from the viewer's arrangement below, which
-                                  // has the language pill in it — adding this one
-                                  // as well put two SUB pills side by side.
-                                  if (hasLangSwitcher &&
-                                      (isTvPlatform || isDesktopPlatform)) ...[
-                                    _LangPill(
-                                      label: (_currentLang ?? _kSubLang)
-                                          .toUpperCase(),
-                                      onTap: _openLangSheet,
-                                    ),
-                                    const SizedBox(width: 5),
-                                  ],
-                                  // CloudStream (cs:) sources are excluded from Watch2Gether
-                                  // for now (they need an on-device plugin per peer).
-                                  //
-                                  if ((isTvPlatform || isDesktopPlatform) &&
-                                      (_inParty ||
-                                          !widget.args.provider.startsWith(
-                                            'cs:',
-                                          ))) ...[
-                                    _IconButton(
-                                      icon: _inParty
-                                          ? Icons.groups_rounded
-                                          : Icons.groups_2_rounded,
-                                      color: _inParty ? AppColors.primary : null,
-                                      onTap: _openWatchParty,
-                                    ),
-                                    const SizedBox(width: 2),
-                                  ],
-                                  // TV drops three phone-only affordances outright rather
-                                  // than adapting them: orientation lock is meaningless on
-                                  // a fixed landscape panel, PiP semantics differ on
-                                  // leanback, and the touch lock swaps in an overlay whose
-                                  // only escape is a non-focusable tap target — on a remote
-                                  // that is an unrecoverable state.
-                                  if (isTvPlatform) ...[
-                                    _IconButton(
-                                      icon: Icons.closed_caption_rounded,
-                                      onTap: _openSubtitleSheet,
-                                    ),
-                                    const SizedBox(width: 2),
-                                    if (canDownload) ...[
-                                      _IconButton(
-                                        icon: Icons.download_rounded,
-                                        onTap: _startDownload,
-                                      ),
-                                      const SizedBox(width: 2),
-                                    ],
-                                    _IconButton(
-                                      icon: Icons.settings_rounded,
-                                      onTap: _openSettingsSheet,
-                                    ),
-                                    if (hasServers) ...[
-                                      const SizedBox(width: 2),
-                                      _IconButton(
-                                        icon: Icons.dns_rounded,
-                                        onTap: _openServerSheet,
-                                      ),
-                                    ],
-                                    if (hasQualities) ...[
-                                      const SizedBox(width: 2),
-                                      _IconButton(
-                                        icon: Icons.high_quality_rounded,
-                                        onTap: () =>
-                                            _openPanel(_SidePanel.quality),
-                                      ),
-                                    ],
-                                    if (hasEpisodes) ...[
-                                      const SizedBox(width: 2),
-                                      _IconButton(
-                                        icon: Icons.video_library_rounded,
-                                        onTap: () =>
-                                            _openPanel(_SidePanel.episodes),
-                                      ),
-                                    ],
-                                  ] else if (!isDesktopPlatform) ...[
-                                    // Phone: the viewer's arrangement, in their
-                                    // order. Every control stays ON a bar — a
-                                    // previous pass filed six of them behind a ⋯
-                                    // sheet to buy room and had to undo it, because
-                                    // a control one tap away is a control people
-                                    // use and one two taps away is a control they
-                                    // stop reaching for. What changed is only that
-                                    // WHICH controls sit here is now a preference
-                                    // instead of an argument about a Row.
-                                    //
-                                    // The capacity that PlayerControlsLayout
-                                    // enforces is this bar's: the group is wrapped
-                                    // in a FittedBox, so an extra button does not
-                                    // wrap or scroll, it shrinks all of them.
-                                    ..._controlsFor(
-                                      PlayerControlSlot.topBar,
-                                      topBar: true,
-                                    ),
-                                  ],
+                        ),
+                        // The action set outgrows a portrait phone. It used to
+                        // take half the bar and scroll the surplus off the left,
+                        // where nobody found it — orientation and Watch Party were
+                        // simply invisible. Now the actions get the larger share
+                        // and scale a few percent if they still do not fit, so
+                        // every one of them is on screen.
+                        Expanded(
+                          flex: 5,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // TV and desktop only. A phone draws its bar
+                                // from the viewer's arrangement below, which
+                                // has the language pill in it — adding this one
+                                // as well put two SUB pills side by side.
+                                if (hasLangSwitcher &&
+                                    (isTvPlatform || isDesktopPlatform)) ...[
+                                  _LangPill(
+                                    label: (_currentLang ?? _kSubLang)
+                                        .toUpperCase(),
+                                    onTap: _openLangSheet,
+                                  ),
+                                  const SizedBox(width: 5),
                                 ],
-                              ),
+                                // CloudStream (cs:) sources are excluded from Watch2Gether
+                                // for now (they need an on-device plugin per peer).
+                                //
+                                if ((isTvPlatform || isDesktopPlatform) &&
+                                    (_inParty ||
+                                        !widget.args.provider.startsWith(
+                                          'cs:',
+                                        ))) ...[
+                                  _IconButton(
+                                    icon: _inParty
+                                        ? Icons.groups_rounded
+                                        : Icons.groups_2_rounded,
+                                    color: _inParty ? AppColors.primary : null,
+                                    onTap: _openWatchParty,
+                                  ),
+                                  const SizedBox(width: 2),
+                                ],
+                                // TV drops three phone-only affordances outright rather
+                                // than adapting them: orientation lock is meaningless on
+                                // a fixed landscape panel, PiP semantics differ on
+                                // leanback, and the touch lock swaps in an overlay whose
+                                // only escape is a non-focusable tap target — on a remote
+                                // that is an unrecoverable state.
+                                if (isTvPlatform) ...[
+                                  _IconButton(
+                                    icon: Icons.closed_caption_rounded,
+                                    onTap: _openSubtitleSheet,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  if (canDownload) ...[
+                                    _IconButton(
+                                      icon: Icons.download_rounded,
+                                      onTap: _startDownload,
+                                    ),
+                                    const SizedBox(width: 2),
+                                  ],
+                                  _IconButton(
+                                    icon: Icons.settings_rounded,
+                                    onTap: _openSettingsSheet,
+                                  ),
+                                  if (hasServers) ...[
+                                    const SizedBox(width: 2),
+                                    _IconButton(
+                                      icon: Icons.dns_rounded,
+                                      onTap: _openServerSheet,
+                                    ),
+                                  ],
+                                  if (hasQualities) ...[
+                                    const SizedBox(width: 2),
+                                    _IconButton(
+                                      icon: Icons.high_quality_rounded,
+                                      onTap: () =>
+                                          _openPanel(_SidePanel.quality),
+                                    ),
+                                  ],
+                                  if (hasEpisodes) ...[
+                                    const SizedBox(width: 2),
+                                    _IconButton(
+                                      icon: Icons.video_library_rounded,
+                                      onTap: () =>
+                                          _openPanel(_SidePanel.episodes),
+                                    ),
+                                  ],
+                                ] else if (!isDesktopPlatform) ...[
+                                  // Phone: the viewer's arrangement, in their
+                                  // order. Every control stays ON a bar — a
+                                  // previous pass filed six of them behind a ⋯
+                                  // sheet to buy room and had to undo it, because
+                                  // a control one tap away is a control people
+                                  // use and one two taps away is a control they
+                                  // stop reaching for. What changed is only that
+                                  // WHICH controls sit here is now a preference
+                                  // instead of an argument about a Row.
+                                  //
+                                  // The capacity that PlayerControlsLayout
+                                  // enforces is this bar's: the group is wrapped
+                                  // in a FittedBox, so an extra button does not
+                                  // wrap or scroll, it shrinks all of them.
+                                  ..._controlsFor(
+                                    PlayerControlSlot.topBar,
+                                    topBar: true,
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                          if (isDesktopPlatform)
-                            ValueListenableBuilder<bool>(
-                              valueListenable: DesktopWindow.immersive,
-                              builder: (_, imm, _) => imm
-                                  ? const WindowButtons()
-                                  : const SizedBox.shrink(),
-                            ),
-                        ],
-                      ),
+                        ),
+                        if (isDesktopPlatform)
+                          ValueListenableBuilder<bool>(
+                            valueListenable: DesktopWindow.immersive,
+                            builder: (_, imm, _) => imm
+                                ? const WindowButtons()
+                                : const SizedBox.shrink(),
+                          ),
+                      ],
                     ),
                   ),
                 ),
               ),
-              if (initialized && !isDesktopPlatform) _buildCenterPlayCluster(c),
-              if (initialized)
-                _buildBottomBar(c, hasEpisodes, hasServers, hasQualities),
-            ],
-          ),
-        ),
+            ),
+          if (initialized && !isDesktopPlatform) _buildCenterPlayCluster(c),
+          if (initialized)
+            _buildBottomBar(c, hasEpisodes, hasServers, hasQualities),
+        ],
       ),
     );
+    final overlay = native
+        ? FadeTransition(opacity: kAlwaysCompleteAnimation, child: body)
+        : FadeTransition(
+            opacity: _controlsAnimation,
+            child: GlassHoldWhile(
+              source: _controlsAnimation,
+              moving: () => _controlsAnimation.isAnimating,
+              child: body,
+            ),
+          );
 
     // IgnorePointer stops taps but leaves every button focusable, so on a
     // D-pad an invisible control would still take focus and fire on OK.
@@ -1376,21 +1389,27 @@ extension _PlayerControls on _PlayerPageState {
   Widget _buildCenterPlayCluster(PlayerController c) {
     final step = _seekSeconds;
     final centered = _layout.of(PlayerControlSlot.center);
-    return MediaGlassLayer(
+    final previous = !_layoutDrivesBars || centered.contains('previous')
+        ? _centerControl('previous')
+        : null;
+    final next = !_layoutDrivesBars || centered.contains('next')
+        ? _centerControl('next')
+        : null;
+    void rewind() {
+      _seekRelative(Duration(seconds: -step));
+      _showSeekRipple(-1);
+    }
+
+    void forward() {
+      _seekRelative(Duration(seconds: step));
+      _showSeekRipple(1);
+    }
+
+    final flutter = MediaGlassLayer(
       child: PlayerTransportRow(
-        previous: !_layoutDrivesBars || centered.contains('previous')
-            ? _centerControl('previous')
-            : null,
-        next: !_layoutDrivesBars || centered.contains('next')
-            ? _centerControl('next')
-            : null,
-        rewind: _CenterIconButton(
-          icon: _rewindIconFor(step),
-          onTap: () {
-            _seekRelative(Duration(seconds: -step));
-            _showSeekRipple(-1);
-          },
-        ),
+        previous: previous,
+        next: next,
+        rewind: _CenterIconButton(icon: _rewindIconFor(step), onTap: rewind),
         playPause: ValueListenableBuilder<VideoPlayerValue>(
           valueListenable: c,
           builder: (_, value, _) => _CenterIconButton(
@@ -1403,16 +1422,204 @@ extension _PlayerControls on _PlayerPageState {
             focusNode: isTvPlatform ? _tvPlayFocus : null,
           ),
         ),
-        forward: _CenterIconButton(
-          icon: _forwardIconFor(step),
-          onTap: () {
-            _seekRelative(Duration(seconds: step));
-            _showSeekRipple(1);
-          },
+        forward: _CenterIconButton(icon: _forwardIconFor(step), onTap: forward),
+      ),
+    );
+    if (!_nativeBars) return flutter;
+
+    final episodes = previous != null || next != null;
+    NativeBarItem episode(String id, Widget? shown, bool enabled, int to) =>
+        NativeBarItem(
+          id: id,
+          symbol: playerSymbol(id),
+          semanticLabel: _controlName(id),
+          hidden: shown == null,
+          enabled: enabled,
+          extent: 52,
+          glyph: 22,
+          onPressed: () => _partyEpisodeNav(to),
+        );
+    return _Selected<(bool, bool)>(
+      listenable: c,
+      select: () => (c.value.isPlaying, c.value.isBuffering),
+      builder: (context, state) => Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: episodes ? 420 : 280),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: NativeGlassBar(
+              look: NativeBarLook.cluster,
+              // Transport has physical direction even in an RTL interface.
+              direction: TextDirection.ltr,
+              spread: BarSpread.even,
+              shown: _controlsVisible,
+              accent: AppColors.primary,
+              items: [
+                if (episodes)
+                  episode(
+                    'previous',
+                    previous,
+                    _hasPrevEpisode,
+                    _episodeIndex - 1,
+                  ),
+                NativeBarItem(
+                  id: 'rewind',
+                  symbol: rewindSymbol(step),
+                  semanticLabel: 'player.rewind'.tr(),
+                  extent: 52,
+                  glyph: 24,
+                  onPressed: rewind,
+                ),
+                NativeBarItem(
+                  id: 'play',
+                  symbol: playerSymbol(state.$1 ? 'pause' : 'play'),
+                  semanticLabel: (state.$1 ? 'player.pause' : 'player.play')
+                      .tr(),
+                  extent: 72,
+                  glyph: 32,
+                  prominent: true,
+                  busy: state.$2,
+                  onPressed: _togglePlay,
+                ),
+                NativeBarItem(
+                  id: 'forward',
+                  symbol: forwardSymbol(step),
+                  semanticLabel: 'player.forward'.tr(),
+                  extent: 52,
+                  glyph: 24,
+                  onPressed: forward,
+                ),
+                if (episodes)
+                  episode('next', next, _hasNextEpisode, _episodeIndex + 1),
+              ],
+              fallback: (_) => _fadeFlutter(flutter),
+            ),
+          ),
         ),
       ),
     );
   }
+
+  /// What Flutter draws on the native path fades on its own; elsewhere the
+  /// whole overlay fades and this is a no-op.
+  Widget _fadeFlutter(Widget child) => _nativeBars
+      ? FadeTransition(opacity: _controlsAnimation, child: child)
+      : child;
+
+  /// A native menu holds the controls up while it is open.
+  void _nativeMenuOpened() => _hideTimer?.cancel();
+
+  void _nativeMenuClosed() => _scheduleHide();
+
+  /// The phone's top bar on the native path: back and the actions as two
+  /// glass bars, the title between them in Flutter. No FittedBox: a scale
+  /// over a hosted view does not reach UIKit, so a bar that does not fit
+  /// draws its Flutter fallback instead.
+  Widget _buildNativeTopBar() {
+    final faces = _facesFor(PlayerControlSlot.topBar, topBar: true);
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              NativeGlassBar(
+                look: NativeBarLook.cluster,
+                shown: _controlsVisible,
+                items: [
+                  NativeBarItem(
+                    id: 'back',
+                    symbol: playerSymbol('back'),
+                    semanticLabel: 'general.back'.tr(),
+                    extent: 44,
+                    size: 38,
+                    onPressed: _exit,
+                  ),
+                ],
+                fallback: (_) => _fadeFlutter(
+                  MediaGlassLayer(
+                    child: _IconButton(
+                      icon: Icons.arrow_back_ios_new_rounded,
+                      onTap: _exit,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 3),
+              Expanded(
+                flex: 2,
+                child: _fadeFlutter(
+                  IgnorePointer(
+                    child: Text(
+                      _episodeTitle(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        shadows: _kControlShadow,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 5,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: faces.isEmpty
+                      ? const SizedBox.shrink()
+                      : NativeGlassBar(
+                          look: NativeBarLook.capsule,
+                          shown: _controlsVisible,
+                          accent: AppColors.primary,
+                          onMenuOpen: _nativeMenuOpened,
+                          onMenuClose: _nativeMenuClosed,
+                          items: [for (final f in faces) f.toNative()],
+                          fallback: (_) => _fadeFlutter(
+                            MediaGlassLayer(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerRight,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    for (final f in faces) _flutterIcon(f),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The unlock pill: the one control while the screen is locked, up
+  /// whatever the controls' fade is doing.
+  Widget _unlockPill(Widget flutter) => NativeGlassBar(
+    look: NativeBarLook.capsule,
+    items: [
+      NativeBarItem(
+        id: 'unlock',
+        symbol: playerSymbol('unlock'),
+        title: 'player.tap_to_unlock'.tr(),
+        semanticLabel: 'player.tap_to_unlock'.tr(),
+        glyph: 16,
+        onPressed: _unlock,
+      ),
+    ],
+    fallback: (_) => flutter,
+  );
 
   Widget _buildDesktopControlRow(
     PlayerController c,
@@ -1882,36 +2089,133 @@ extension _PlayerControls on _PlayerPageState {
     return out;
   }
 
+  /// The viewer-facing name of [id], for VoiceOver on the native bars.
+  String _controlName(String id) =>
+      PlayerControlCatalogue.byId(id)?.labelKey.tr() ?? id;
+
   /// One control as it appears on the TOP bar: a bare icon, no label.
   Widget? _topBarControl(String id) {
+    final face = _topBarFace(id);
+    return face == null ? null : _flutterIcon(face);
+  }
+
+  /// [face] as the Flutter top-bar button it has always been.
+  Widget _flutterIcon(PlayerControlFace face) {
+    if (face.pill) {
+      // Its own gap: every other control on this bar is an _IconButton, whose
+      // 44pt tap target already carries 3pt of transparent padding a side.
+      // The pill has none, so without this it sits flush against its
+      // neighbour.
+      return Padding(
+        padding: const EdgeInsets.only(right: 5),
+        child: _LangPill(label: face.label!, onTap: face.onTap!),
+      );
+    }
+    return _IconButton(
+      icon: face.icon,
+      enabled: face.enabled,
+      color: face.active ? AppColors.primary : null,
+      onTap: face.onTap!,
+      onLongPress: face.onLongPress,
+      tooltip: face.tooltip,
+    );
+  }
+
+  /// The speed presets as a native menu, the current one checked.
+  List<NativeMenuRow> get _speedRows => [
+    for (final s in _PlayerPanels._speedPresets)
+      NativeMenuRow(
+        title: _speedLabel(s),
+        checked: (s - _playbackSpeed).abs() < 0.01,
+        key: s,
+      ),
+  ];
+
+  void _pickSpeed(int i) => _setSpeed(_PlayerPanels._speedPresets[i]);
+
+  List<NativeMenuRow> get _fitRows => [
+    for (final f in _PlayerFit.values)
+      NativeMenuRow(title: _fitLabel(f), checked: f == _fit, key: f),
+  ];
+
+  void _pickFit(int i) => _setFit(_PlayerFit.values[i]);
+
+  /// What the sleep button's hold offers: everything its sheet does.
+  List<(NativeMenuRow, VoidCallback)> get _sleepChoices => [
+    if (_sleepArmed)
+      (NativeMenuRow(title: 'general.off'.tr(), key: 'off'), _cancelSleepTimer),
+    for (final d in _PlayerSleepTimer._presets)
+      (
+        NativeMenuRow(
+          title: d.inMinutes < 60
+              ? 'player.sleep_minutes'.tr(args: ['${d.inMinutes}'])
+              : 'player.sleep_hours'.tr(args: ['${d.inHours}']),
+          breakBefore: _sleepArmed && d == _PlayerSleepTimer._presets.first,
+          key: d,
+        ),
+        () => _armSleepDuration(d),
+      ),
+    if (widget.args.isSerial)
+      (
+        NativeMenuRow(
+          title: 'player.sleep_episode_end'.tr(),
+          checked: _sleepAtEpisodeEnd,
+          breakBefore: true,
+          key: 'episode',
+        ),
+        _armSleepAtEpisodeEnd,
+      ),
+  ];
+
+  PlayerControlFace _sleepFace({String? label}) {
+    final choices = _sleepChoices;
+    return PlayerControlFace(
+      id: 'sleep',
+      icon: Icons.bedtime_rounded,
+      semanticLabel: _controlName('sleep'),
+      label: label,
+      // Filled while armed, but not tinted: the Flutter button never was.
+      symbol: _sleepArmed ? 'moon.zzz.fill' : 'moon.zzz',
+      onTap: _openSleepSheet,
+      menu: [for (final c in choices) c.$1],
+      onMenu: (i) => choices[i].$2(),
+    );
+  }
+
+  /// One control as the top bar shows it, or null when it cannot exist now.
+  PlayerControlFace? _topBarFace(String id) {
     final a = _affordances;
+    final name = _controlName(id);
     switch (id) {
       case 'language':
         if (!a.hasLangs) return null;
-        // Its own gap: every other control on this bar is an _IconButton, whose
-        // 44pt tap target already carries 3pt of transparent padding a side.
-        // The pill has none, so without this it sits flush against its
-        // neighbour.
-        return Padding(
-          padding: const EdgeInsets.only(right: 5),
-          child: _LangPill(
-            label: (_currentLang ?? _kSubLang).toUpperCase(),
-            onTap: _openLangSheet,
-          ),
+        return PlayerControlFace(
+          id: id,
+          icon: Icons.translate_rounded,
+          semanticLabel: name,
+          pill: true,
+          label: (_currentLang ?? _kSubLang).toUpperCase(),
+          onTap: _openLangSheet,
         );
       case 'subtitles':
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.closed_caption_rounded,
+          semanticLabel: name,
           onTap: _openSubtitleSheet,
         );
       case 'settings':
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.settings_rounded,
+          semanticLabel: name,
           onTap: _openSettingsSheet,
         );
       case 'orientation':
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.screen_rotation_rounded,
+          semanticLabel: name,
           onTap: _toggleOrientation,
         );
       case 'lock':
@@ -1919,82 +2223,117 @@ extension _PlayerControls on _PlayerPageState {
         // tap target the D-pad cannot reach; the button is landscape-only for
         // that reason, not for room.
         if (_isPortrait) return null;
-        return _IconButton(icon: Icons.lock_rounded, onTap: _lock);
+        return PlayerControlFace(
+          id: id,
+          icon: Icons.lock_rounded,
+          semanticLabel: name,
+          onTap: _lock,
+        );
       case 'stats':
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.info_rounded,
-          color: _showPlayerInfo ? AppColors.primary : null,
+          semanticLabel: name,
+          active: _showPlayerInfo,
           onTap: () => setState(() => _showPlayerInfo = !_showPlayerInfo),
         );
       case 'speed':
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.speed_rounded,
+          semanticLabel: name,
           onTap: _cycleSpeed,
           onLongPress: _openSpeedSheet,
+          menu: _speedRows,
+          onMenu: _pickSpeed,
         );
       case 'server':
         if (!a.hasServers) return null;
-        return _IconButton(icon: Icons.dns_rounded, onTap: _openServerSheet);
+        return PlayerControlFace(
+          id: id,
+          icon: Icons.dns_rounded,
+          semanticLabel: name,
+          onTap: _openServerSheet,
+        );
       case 'quality':
         if (!a.hasQualities) return null;
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.high_quality_rounded,
+          semanticLabel: name,
           onTap: () => _openPanel(_SidePanel.quality),
         );
       case 'episodes':
         if (!a.hasEpisodes) return null;
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.video_library_rounded,
+          semanticLabel: name,
           onTap: () => _openPanel(_SidePanel.episodes),
         );
       case 'previous':
         if (!a.hasEpisodes) return null;
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.skip_previous_rounded,
+          semanticLabel: name,
           enabled: _hasPrevEpisode,
           onTap: () => _partyEpisodeNav(_episodeIndex - 1),
         );
       case 'next':
         if (!a.hasEpisodes) return null;
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.skip_next_rounded,
+          semanticLabel: name,
           enabled: _hasNextEpisode,
           onTap: () => _partyEpisodeNav(_episodeIndex + 1),
         );
       case 'shader':
         if (!(_controller?.supportsShaders ?? false)) return null;
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.auto_awesome_rounded,
-          color: _shaderPreset.isOff ? null : AppColors.primary,
+          semanticLabel: name,
+          active: !_shaderPreset.isOff,
           onTap: _openShaderSheet,
         );
       case 'fit':
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: _fitIcon(_fit),
+          semanticLabel: name,
           // Forward on a tap, back on a hold. Three modes and a glyph that
           // names the current one leaves nothing for a dialog to add — and a
           // hold that steps backwards is worth more than one that opens a list
-          // of what the taps already walk through.
+          // of what the taps already walk through. The native button's hold
+          // opens all three instead, with the current one checked.
           onTap: _cycleFit,
           onLongPress: () => _cycleFit(step: -1),
+          menu: _fitRows,
+          onMenu: _pickFit,
         );
       case 'sleep':
         if (_isLive) return null;
-        return _IconButton(icon: Icons.bedtime_rounded, onTap: _openSleepSheet);
+        return _sleepFace();
       case 'cast':
         if (!_canCast) return null;
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.cast_rounded,
-          color: _cast.isCasting ? AppColors.primary : null,
+          semanticLabel: name,
+          active: _cast.isCasting,
           onTap: _openCastSheet,
         );
       case 'party':
         // CloudStream sources need an on-device plugin per peer, so they are
         // out of Watch2Gether until every peer can resolve them.
         if (!_inParty && widget.args.provider.startsWith('cs:')) return null;
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: _inParty ? Icons.groups_rounded : Icons.groups_2_rounded,
-          color: _inParty ? AppColors.primary : null,
+          semanticLabel: name,
+          active: _inParty,
           onTap: _openWatchParty,
         );
       case 'pip':
@@ -2004,34 +2343,57 @@ extension _PlayerControls on _PlayerPageState {
         // corner of the app, and a long press pops the window out above the
         // others.
         if (isDesktopPlatform) {
-          return _IconButton(
+          return PlayerControlFace(
+            id: id,
             icon: Icons.picture_in_picture_alt_rounded,
             onTap: _openMiniPlayer,
             onLongPress: _toggleDesktopMini,
+            semanticLabel: name,
             tooltip: 'player.mini_popout_hint'.tr(),
           );
         }
         if (!isAndroidPlatform && !isIosPlatform) return null;
-        return _IconButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.picture_in_picture_rounded,
+          semanticLabel: name,
           onTap: _enterPip,
         );
       case 'download':
         if (!a.canDownload) return null;
-        return _IconButton(icon: Icons.download_rounded, onTap: _startDownload);
+        return PlayerControlFace(
+          id: id,
+          icon: Icons.download_rounded,
+          semanticLabel: name,
+          onTap: _startDownload,
+        );
     }
     return null;
   }
 
-  /// One control as it appears on the BOTTOM row.
+  /// [face] as the Flutter bottom-row button it has always been.
+  Widget _flutterBottom(PlayerControlFace face) {
+    if (!face.labelled) return _flutterIcon(face);
+    return _BottomTextButton(
+      icon: face.icon,
+      label: face.label!,
+      compactLabel: face.compactLabel,
+      compact: face.compact,
+      enabled: face.enabled,
+      onTap: face.onTap!,
+    );
+  }
+
+  /// One control as the bottom row shows it.
   ///
   /// Labelled where the label carries live state the icon cannot — the current
   /// server, the resolved quality, the speed, the sleep countdown. Everything
   /// else falls back to the same icon the top bar uses, so a control keeps its
   /// identity wherever the viewer puts it.
-  Widget? _bottomControl(String id) {
+  PlayerControlFace? _bottomFace(String id) {
     final a = _affordances;
     final compact = _compactBottomBar;
+    final name = _controlName(id);
     switch (id) {
       case 'lock':
         // Portrait has exactly one way out of the lock overlay and it is a tap
@@ -2041,17 +2403,20 @@ extension _PlayerControls on _PlayerPageState {
         // no room — and it still has to render, or the viewer would simply
         // lose the control.
         if (isTvPlatform || _isPortrait) return null;
-        return _BottomTextButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.lock_rounded,
+          semanticLabel: name,
           label: 'player.lock'.tr(),
           compact: compact,
-          enabled: true,
           onTap: _lock,
         );
       case 'previous':
         if (!a.hasEpisodes) return null;
-        return _BottomTextButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.skip_previous_rounded,
+          semanticLabel: name,
           label: 'player.previous'.tr(),
           compact: compact,
           enabled: _hasPrevEpisode,
@@ -2059,86 +2424,95 @@ extension _PlayerControls on _PlayerPageState {
         );
       case 'next':
         if (!a.hasEpisodes) return null;
-        return _BottomTextButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.skip_next_rounded,
+          semanticLabel: name,
           label: 'general.next'.tr(),
           compact: compact,
           enabled: _hasNextEpisode,
           onTap: () => _partyEpisodeNav(_episodeIndex + 1),
         );
       case 'speed':
-        return _BottomTextButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.speed_rounded,
+          semanticLabel: name,
           label:
               '${_playbackSpeed.toStringAsFixed(_playbackSpeed == _playbackSpeed.roundToDouble() ? 0 : 2)}x',
           compact: compact,
-          enabled: true,
           onTap: _openSpeedSheet,
+          onLongPress: _openSpeedSheet,
+          menu: _speedRows,
+          onMenu: _pickSpeed,
         );
       case 'server':
         if (isTvPlatform || !a.hasServers) return null;
-        return _BottomTextButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.dns_rounded,
+          semanticLabel: name,
           label: _currentServer ?? '—',
           compact: compact,
-          enabled: true,
           onTap: _openServerSheet,
         );
       case 'quality':
         if (isTvPlatform || !a.hasQualities) return null;
-        return _BottomTextButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.high_quality_rounded,
+          semanticLabel: name,
           label: _qualityChipLabel,
           // The height is the point of this button, so it stays readable
           // even where every other label is dropped.
           compactLabel: _qualityChipShort,
           compact: compact,
-          enabled: true,
           onTap: () => _openPanel(_SidePanel.quality),
         );
       case 'episodes':
         if (isTvPlatform || !a.hasEpisodes) return null;
-        return _BottomTextButton(
+        return PlayerControlFace(
           // The same glyph the top bar draws. A control that changes its face
           // when the viewer moves it stops being the control they moved.
+          id: id,
           icon: Icons.video_library_rounded,
+          semanticLabel: name,
           label: 'player.episodes'.tr(),
           compact: compact,
-          enabled: true,
           onTap: () => _openPanel(_SidePanel.episodes),
         );
       case 'shader':
         if (!_roomForExtras) return null;
         if (!(_controller?.supportsShaders ?? false)) return null;
-        return _BottomTextButton(
+        return PlayerControlFace(
+          id: id,
           icon: Icons.auto_awesome_rounded,
+          semanticLabel: name,
           label: _shaderPreset.isOff
               ? 'general.off'.tr()
               : _shaderPreset.labelKey.tr(),
-          enabled: true,
+          active: !_shaderPreset.isOff,
           onTap: _openShaderSheet,
         );
       case 'fit':
         if (!_roomForExtras) return null;
-        return _BottomTextButton(
+        return PlayerControlFace(
+          id: id,
           icon: _fitIcon(_fit),
+          semanticLabel: name,
           label: _fitLabel(_fit),
-          enabled: true,
           // Cycles. There are three fits, the button is already showing which
           // one is on, and it changes under the finger — so a sheet listing
           // three radio buttons was a modal over the video to answer a question
           // the button itself answers. No toast either: the label IS the
           // feedback, and a snackbar repeating it is one message too many.
           onTap: () => _cycleFit(toast: false),
+          menu: _fitRows,
+          onMenu: _pickFit,
         );
       case 'sleep':
         if (!_roomForExtras || _isLive) return null;
-        return _BottomTextButton(
-          icon: Icons.bedtime_rounded,
-          label: _sleepValueLabel,
-          enabled: true,
-          onTap: _openSleepSheet,
-        );
+        return _sleepFace(label: _sleepValueLabel);
       case 'party':
       case 'pip':
       case 'download':
@@ -2146,17 +2520,25 @@ extension _PlayerControls on _PlayerPageState {
         // top bar, and rendering them here as well is the duplication the
         // `&& !isTvPlatform` guards used to prevent.
         if (isTvPlatform || isDesktopPlatform) return null;
-        return _topBarControl(id);
+        return _topBarFace(id);
       default:
         // No live value to print, so the icon form is the honest one and the
         // top bar already builds it.
-        return _topBarControl(id);
+        return _topBarFace(id);
     }
   }
 
   /// The controls for [slot], in the viewer's order, minus the ones that cannot
   /// exist right now.
-  List<Widget> _controlsFor(PlayerControlSlot slot, {required bool topBar}) {
+  List<Widget> _controlsFor(PlayerControlSlot slot, {required bool topBar}) => [
+    for (final face in _facesFor(slot, topBar: topBar))
+      topBar ? _flutterIcon(face) : _flutterBottom(face),
+  ];
+
+  List<PlayerControlFace> _facesFor(
+    PlayerControlSlot slot, {
+    required bool topBar,
+  }) {
     // A television's top bar is where the D-pad lands first and a desktop
     // window has its own row; the editor is a phone screen and must not govern
     // either. They render the shipped arrangement instead — which is also why
@@ -2173,12 +2555,9 @@ extension _PlayerControls on _PlayerPageState {
         if (topBar || !lifted.contains(id)) id,
       if (topBar && slot == PlayerControlSlot.topBar) ...lifted,
     ];
-    final out = <Widget>[];
-    for (final id in ids) {
-      final w = topBar ? _topBarControl(id) : _bottomControl(id);
-      if (w != null) out.add(w);
-    }
-    return out;
+    return [
+      for (final id in ids) ?(topBar ? _topBarFace(id) : _bottomFace(id)),
+    ];
   }
 
   /// A landscape phone has room the portrait one does not, so it shows more.
@@ -2259,68 +2638,69 @@ extension _PlayerControls on _PlayerPageState {
               // every drag event (120 Hz on a Samsung S22), and without a
               // boundary each of those repainted the whole controls overlay —
               // scrim, title, every icon and its text shadow — not the bar.
-              RepaintBoundary(
-                child: ValueListenableBuilder<double?>(
-                  valueListenable: _sliderDragValue,
-                  builder: (_, dragVal, _) {
-                    return ValueListenableBuilder<VideoPlayerValue>(
-                      valueListenable: c,
-                      builder: (_, value, _) {
-                        if (_isLive) return _buildLiveBar();
-                        final duration = value.duration.inMilliseconds == 0
-                            ? Duration.zero
-                            : value.duration;
-                        final maxMs = duration.inMilliseconds.toDouble().clamp(
-                          1.0,
-                          double.infinity,
-                        );
-                        final sliderVal =
-                            dragVal ??
-                            (duration.inMilliseconds == 0
-                                ? 0.0
-                                : value.position.inMilliseconds
-                                      .clamp(0, duration.inMilliseconds)
-                                      .toDouble());
-                        final displayPos = dragVal != null
-                            ? Duration(milliseconds: dragVal.toInt())
-                            : value.position;
+              _fadeFlutter(
+                RepaintBoundary(
+                  child: ValueListenableBuilder<double?>(
+                    valueListenable: _sliderDragValue,
+                    builder: (_, dragVal, _) {
+                      return ValueListenableBuilder<VideoPlayerValue>(
+                        valueListenable: c,
+                        builder: (_, value, _) {
+                          if (_isLive) return _buildLiveBar();
+                          final duration = value.duration.inMilliseconds == 0
+                              ? Duration.zero
+                              : value.duration;
+                          final maxMs = duration.inMilliseconds
+                              .toDouble()
+                              .clamp(1.0, double.infinity);
+                          final sliderVal =
+                              dragVal ??
+                              (duration.inMilliseconds == 0
+                                  ? 0.0
+                                  : value.position.inMilliseconds
+                                        .clamp(0, duration.inMilliseconds)
+                                        .toDouble());
+                          final displayPos = dragVal != null
+                              ? Duration(milliseconds: dragVal.toInt())
+                              : value.position;
 
-                        return Row(
-                          children: [
-                            IgnorePointer(
-                              child: Text(
-                                _positionLabel(displayPos, duration),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  shadows: _kControlShadow,
+                          return Row(
+                            children: [
+                              IgnorePointer(
+                                child: Text(
+                                  _positionLabel(displayPos, duration),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    shadows: _kControlShadow,
+                                  ),
                                 ),
                               ),
-                            ),
-                            Expanded(
-                              child: _buildSeekBar(
-                                value: value,
-                                sliderVal: sliderVal.clamp(0.0, maxMs),
-                                maxMs: maxMs,
-                                scrubbing: dragVal != null,
-                                previewPosition: displayPos,
-                              ),
-                            ),
-                            IgnorePointer(
-                              child: Text(
-                                _formatDuration(duration),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  shadows: _kControlShadow,
+                              Expanded(
+                                child: _buildSeekBar(
+                                  value: value,
+                                  sliderVal: sliderVal.clamp(0.0, maxMs),
+                                  maxMs: maxMs,
+                                  scrubbing: dragVal != null,
+                                  previewPosition: displayPos,
                                 ),
                               ),
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
+                              IgnorePointer(
+                                child: Text(
+                                  _formatDuration(duration),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    shadows: _kControlShadow,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 4),
@@ -2342,11 +2722,11 @@ extension _PlayerControls on _PlayerPageState {
                 // and the corners are what the viewer is complaining about now.
                 Builder(
                   builder: (context) {
-                    final left = _controlsFor(
+                    final left = _facesFor(
                       PlayerControlSlot.bottomLeft,
                       topBar: false,
                     );
-                    final rightAll = _controlsFor(
+                    final rightAll = _facesFor(
                       PlayerControlSlot.bottomRight,
                       topBar: false,
                     );
@@ -2367,10 +2747,33 @@ extension _PlayerControls on _PlayerPageState {
                                     _fittingControls(box.maxWidth, left.length),
                                   )
                                   .toList();
-                        return MediaGlassLayer(
+                        final flutter = MediaGlassLayer(
                           child: PlayerBottomControlRow(
-                            leading: left,
-                            trailing: right,
+                            leading: [for (final f in left) _flutterBottom(f)],
+                            trailing: [
+                              for (final f in right) _flutterBottom(f),
+                            ],
+                          ),
+                        );
+                        if (!_nativeBars || left.length + right.length == 0) {
+                          return _fadeFlutter(flutter);
+                        }
+                        final trailingGroup = left.isEmpty ? 0 : 1;
+                        return Center(
+                          child: NativeGlassBar(
+                            look: NativeBarLook.capsule,
+                            shown: _controlsVisible,
+                            accent: AppColors.primary,
+                            onMenuOpen: _nativeMenuOpened,
+                            onMenuClose: _nativeMenuClosed,
+                            items: [
+                              for (final f in left) f.toNative(),
+                              for (final f in right)
+                                f.toNative(group: trailingGroup),
+                            ],
+                            // Too long even tightened: the Flutter row,
+                            // which scrolls.
+                            fallback: (_) => _fadeFlutter(flutter),
                           ),
                         );
                       },

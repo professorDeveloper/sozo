@@ -41,6 +41,8 @@ enum GlassSense {
         result(NativeGlass.capability())
       case "glassViewsBuilt":
         result(NativeGlassView.built)
+      case "glassControlsBuilt":
+        result(NativePlayerBar.built)
       default:
         result(FlutterMethodNotImplemented)
       }

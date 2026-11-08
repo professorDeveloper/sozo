@@ -924,8 +924,11 @@ extension _PlayerPanels on _PlayerPageState {
     }
   }
 
+  /// The speeds the sheet lists, and the native speed button's menu.
+  static const List<double> _speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
   void _openSpeedSheet() {
-    const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+    const speeds = _speedPresets;
     showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF111111),

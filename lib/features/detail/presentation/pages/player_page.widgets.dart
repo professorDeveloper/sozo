@@ -2191,3 +2191,55 @@ class _SwitchArrowState extends State<_SwitchArrow>
     );
   }
 }
+
+/// Rebuilds [builder] only when [select] reads something new off
+/// [listenable]: the native play button wants playing and buffering, not
+/// every position tick the controller sends.
+class _Selected<T> extends StatefulWidget {
+  const _Selected({
+    required this.listenable,
+    required this.select,
+    required this.builder,
+  });
+
+  final Listenable listenable;
+  final T Function() select;
+  final Widget Function(BuildContext context, T value) builder;
+
+  @override
+  State<_Selected<T>> createState() => _SelectedState<T>();
+}
+
+class _SelectedState<T> extends State<_Selected<T>> {
+  late T _value = widget.select();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.listenable.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(_Selected<T> old) {
+    super.didUpdateWidget(old);
+    if (old.listenable != widget.listenable) {
+      old.listenable.removeListener(_changed);
+      widget.listenable.addListener(_changed);
+    }
+    _value = widget.select();
+  }
+
+  @override
+  void dispose() {
+    widget.listenable.removeListener(_changed);
+    super.dispose();
+  }
+
+  void _changed() {
+    final value = widget.select();
+    if (value != _value) setState(() => _value = value);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _value);
+}

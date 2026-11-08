@@ -27,7 +27,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:dio/dio.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:floating/floating.dart';
 import 'package:gal/gal.dart';
 import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
@@ -75,6 +75,12 @@ import 'package:soplay/core/system/star_prompt.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/glass/glass_hold.dart';
 import 'package:soplay/core/glass/media_glass.dart';
+import 'package:soplay/core/glass/glass_sense.dart';
+import 'package:soplay/core/native/native_bar_layout.dart' show BarSpread;
+import 'package:soplay/core/native/native_controls_gate.dart';
+import 'package:soplay/core/native/native_glass_bar.dart';
+import 'package:soplay/core/native/sf_symbols.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_control_face.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/mal/data/mal_tracker.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
@@ -487,6 +493,16 @@ class _PlayerPageState extends State<PlayerPage>
   bool get _hasPrevEpisode => _window.hasPrev;
   bool _controlsVisible = true;
   bool _locked = false;
+
+  /// Whether the controls are the phone's own glass buttons (iOS 26+),
+  /// decided once on the first build so Flutter and UIKit never swap under
+  /// the viewer — again only when Reduce Transparency is thrown.
+  bool _nativeControls = false;
+  bool? _nativeDecidedUnder;
+
+  /// The small players draw no native bars: the corner player is moved and
+  /// clipped as a whole, which a hosted view cannot follow.
+  bool get _nativeBars => _nativeControls && !_compact;
   _SidePanel _panel = _SidePanel.none;
 
   String? _currentLang;
@@ -964,6 +980,16 @@ class _PlayerPageState extends State<PlayerPage>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final rt = GlassSense.reduceTransparencyOf(context);
+    if (_nativeDecidedUnder != rt) {
+      _nativeDecidedUnder = rt;
+      _nativeControls = NativeControls.decide(context);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_docked) _reportDockAspect();
     return PopScope(
@@ -1067,47 +1093,50 @@ class _PlayerPageState extends State<PlayerPage>
                       }
                     },
                     onPointerCancel: (_) => _pointerCancelled = true,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        _buildVideoLayer(),
-                        _buildSubtitleOverlay(),
-                        if (!_locked) _buildReactionLane(),
-                        if (!_locked) _buildSeekRipple(),
-                        if (_locked)
-                          _buildLockOverlay()
-                        else
-                          _buildControlsOverlay(),
-                        if (!_locked) _buildScrubOverlay(),
-                        if (!_locked) _buildSpeedBoostBadge(),
-                        if (!_locked) _buildSwipeIndicator(),
-                        // Renders nothing unless the URL is a local torrent stream,
-                        // so it is safe to hand it every playback unconditionally.
-                        // It keeps showing while the controls are hidden if the
-                        // pre-buffer is still filling — that is precisely when the
-                        // picture is frozen and the user needs to know why.
-                        TorrentStatsOverlay(
-                          videoUrl: _videoUrl,
-                          visible: _controlsVisible && !_locked,
-                        ),
-                        // Above the controls layer so it is reachable while they are
-                        // hidden — the offer is at its most useful to a viewer who has
-                        // not touched the screen. Renders nothing when no interval is
-                        // active, so it costs nothing on non-anime playback.
-                        if (!_locked) _buildPlayerInfoOverlay(),
-                        if (!_locked) _buildSkipButton(),
-                        if (!_locked) _buildUpNextPrompt(),
-                        if (!_locked) _buildEpisodeSocialRail(),
-                        if (!_locked && _panel != _SidePanel.none)
-                          _buildSidePanel(),
-                        if (!_locked && _inParty) _buildPartyReactionsLayer(),
-                        if (_compact) _buildDesktopMiniOverlay(),
-                        // Last, so it covers everything: while a television is
-                        // playing this episode the phone is a remote, and leaving the
-                        // local controls reachable underneath would let someone
-                        // scrub a surface nobody is watching.
-                        _buildCastOverlay(),
-                      ],
+                    child: NativeControlsScope(
+                      native: _nativeBars,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _buildVideoLayer(),
+                          _buildSubtitleOverlay(),
+                          if (!_locked) _buildReactionLane(),
+                          if (!_locked) _buildSeekRipple(),
+                          if (_locked)
+                            _buildLockOverlay()
+                          else
+                            _buildControlsOverlay(),
+                          if (!_locked) _buildScrubOverlay(),
+                          if (!_locked) _buildSpeedBoostBadge(),
+                          if (!_locked) _buildSwipeIndicator(),
+                          // Renders nothing unless the URL is a local torrent stream,
+                          // so it is safe to hand it every playback unconditionally.
+                          // It keeps showing while the controls are hidden if the
+                          // pre-buffer is still filling — that is precisely when the
+                          // picture is frozen and the user needs to know why.
+                          TorrentStatsOverlay(
+                            videoUrl: _videoUrl,
+                            visible: _controlsVisible && !_locked,
+                          ),
+                          // Above the controls layer so it is reachable while they are
+                          // hidden — the offer is at its most useful to a viewer who has
+                          // not touched the screen. Renders nothing when no interval is
+                          // active, so it costs nothing on non-anime playback.
+                          if (!_locked) _buildPlayerInfoOverlay(),
+                          if (!_locked) _buildSkipButton(),
+                          if (!_locked) _buildUpNextPrompt(),
+                          if (!_locked) _buildEpisodeSocialRail(),
+                          if (!_locked && _panel != _SidePanel.none)
+                            _buildSidePanel(),
+                          if (!_locked && _inParty) _buildPartyReactionsLayer(),
+                          if (_compact) _buildDesktopMiniOverlay(),
+                          // Last, so it covers everything: while a television is
+                          // playing this episode the phone is a remote, and leaving the
+                          // local controls reachable underneath would let someone
+                          // scrub a surface nobody is watching.
+                          _buildCastOverlay(),
+                        ],
+                      ),
                     ),
                   ),
                 ),

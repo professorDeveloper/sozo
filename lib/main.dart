@@ -17,6 +17,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:soplay/core/native/native_controls_gate.dart';
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/extensions/extension_bridge.dart';
 import 'package:soplay/core/storage/box_recovery.dart';
@@ -246,6 +247,9 @@ void main(List<String> args) async {
   // launch per install — the cold one everybody's first impression is made
   // of — would fall back to a flat logo.
   await brand;
+  // The player decides once, on its first build, whether its controls are
+  // the phone's own glass; asked here so the answer is in by then.
+  await NativeControls.warm();
 
   runApp(root);
 

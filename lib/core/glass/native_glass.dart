@@ -294,6 +294,7 @@ final class NativeGlassCapability {
     required this.styles,
     required this.materials,
     required this.reduceTransparency,
+    this.glassControls = false,
   });
 
   /// No hosted glass of any kind: not an iPhone, or a phone that did not
@@ -325,6 +326,7 @@ final class NativeGlassCapability {
       styles: names(said['glassStyles']),
       materials: names(said['materials']),
       reduceTransparency: said['reduceTransparency'] as bool? ?? false,
+      glassControls: said['glassControls'] as bool? ?? false,
     );
   }
 
@@ -350,6 +352,11 @@ final class NativeGlassCapability {
   /// [GlassSense] for the live answer, not this.
   final bool reduceTransparency;
 
+  /// Whether the player's controls can be the phone's own glass buttons
+  /// (ios/Runner/NativePlayerBar.swift): iOS 26+, with the factory
+  /// registered.
+  final bool glassControls;
+
   /// Compared by what it says and not by which object said it, because
   /// [NativeGlassScope.updateShouldNotify] asks this question and two
   /// probes of the same phone are the same answer — without this, a scope
@@ -361,6 +368,7 @@ final class NativeGlassCapability {
       other.majorVersion == majorVersion &&
       other.systemGlass == systemGlass &&
       other.reduceTransparency == reduceTransparency &&
+      other.glassControls == glassControls &&
       setEquals(other.styles, styles) &&
       setEquals(other.materials, materials);
 
@@ -370,6 +378,7 @@ final class NativeGlassCapability {
     majorVersion,
     systemGlass,
     reduceTransparency,
+    glassControls,
     Object.hashAllUnordered(styles),
     Object.hashAllUnordered(materials),
   );
