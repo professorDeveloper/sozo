@@ -15,7 +15,6 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/matching/title_match.dart';
 import 'package:soplay/core/network/image_headers.dart';
 import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/detail/data/source_choice_store.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
