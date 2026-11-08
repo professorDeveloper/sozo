@@ -714,6 +714,8 @@
     "brightness_gesture_desc": "Auf der linken Seite hoch und runter wischen",
     "volume_gesture": "Lautstärke wischen",
     "volume_gesture_desc": "Auf der rechten Seite hoch und runter wischen",
+    "auto_pip": "Automatisches Bild-im-Bild",
+    "auto_pip_desc": "Wenn du während eines Videos zum Startbildschirm wechselst, läuft es in einem kleinen Fenster weiter",
     "seconds_short": "{} s",
     "subtitle_style_note": "Das gilt für jedes Video. Das Untertitel-Timing bleibt pro Folge und wird im Player eingestellt.",
     "searching_all_sources": "alle Quellen werden durchsucht",

@@ -932,6 +932,13 @@ class HiveService {
     await _settingsBox.put(AppConstants.volumeGestureKey, value);
   }
 
+  /// Android: Home while a video plays shrinks it into picture-in-picture.
+  bool get autoPipEnabled =>
+      _settingsBox.get(AppConstants.autoPipKey, defaultValue: true) == true;
+
+  Future<void> setAutoPipEnabled(bool value) =>
+      _settingsBox.put(AppConstants.autoPipKey, value);
+
   /// Explicit on/off answers for the player info overlay, or null when the
   /// viewer has never opened the picker.
   ///

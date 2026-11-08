@@ -714,6 +714,8 @@
     "brightness_gesture_desc": "Desliza arriba y abajo en el lado izquierdo",
     "volume_gesture": "Deslizar para el volumen",
     "volume_gesture_desc": "Desliza arriba y abajo en el lado derecho",
+    "auto_pip": "Imagen en imagen automática",
+    "auto_pip_desc": "Al pulsar Inicio mientras se reproduce un vídeo, sigue en una ventana pequeña",
     "seconds_short": "{} s",
     "subtitle_style_note": "Esto vale para todos los vídeos. La sincronía de subtítulos se guarda por episodio y se ajusta dentro del reproductor.",
     "searching_all_sources": "buscando en todas las fuentes",

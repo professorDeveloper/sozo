@@ -14,6 +14,10 @@ extension _PlayerPip on _PlayerPageState {
   }
 
   Future<void> _onPipMethodCall(MethodCall call) async {
+    if (call.method == 'onPipModeChanged') {
+      if (mounted) _onAndroidPipMode((call.arguments as Map?) ?? const {});
+      return;
+    }
     if (call.method != 'onPipAction') return;
     final action = call.arguments;
     if (action is! String) return;
@@ -42,27 +46,23 @@ extension _PlayerPip on _PlayerPageState {
   }
 
   Future<void> _refreshPipActions() async {
+    if (!isAndroidPlatform) return;
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
-    final isPlaying = c.value.isPlaying;
-    final hasPrev = _hasPrevEpisode;
-    final hasNext = _hasNextEpisode;
-    if (isPlaying == _lastPipPlaying) {
-      try {
-        await _pipChannel.invokeMethod('updatePiPActions', {
-          'isPlaying': isPlaying,
-          'hasPrev': hasPrev,
-          'hasNext': hasNext,
-        });
-      } catch (_) {}
-      return;
-    }
-    _lastPipPlaying = isPlaying;
     try {
       await _pipChannel.invokeMethod('updatePiPActions', {
-        'isPlaying': isPlaying,
-        'hasPrev': hasPrev,
-        'hasNext': hasNext,
+        'isPlaying': c.value.isPlaying,
+        'hasPrev': widget.args.isSerial && _hasPrevEpisode,
+        'hasNext': widget.args.isSerial && _hasNextEpisode,
+        'seekSeconds': _seekSeconds,
+        'labels': {
+          'play': 'player.play'.tr(),
+          'pause': 'player.pause'.tr(),
+          'rewind': 'player.rewind_by'.tr(args: ['$_seekSeconds']),
+          'forward': 'player.forward_by'.tr(args: ['$_seekSeconds']),
+          'prev': 'player.previous'.tr(),
+          'next': 'player.next_episode'.tr(),
+        },
       });
     } catch (_) {}
   }
@@ -74,21 +74,17 @@ extension _PlayerPip on _PlayerPageState {
     try {
       final available = await _floating.isPipAvailable;
       if (!available) return;
-      final size = c.value.size;
-      Rational ratio = const Rational.landscape();
-      if (size.width > 0 && size.height > 0) {
-        final w = size.width.round();
-        final h = size.height.round();
-        if (w > 0 && h > 0) {
-          final candidate = Rational(w, h);
-          final aspect = candidate.aspectRatio;
-          if (aspect >= 1 / 2.39 && aspect <= 2.39) {
-            ratio = candidate;
-          }
-        }
-      }
-      final result = await _floating.enable(ImmediatePiP(aspectRatio: ratio));
-      if (result == PiPStatus.enabled && mounted) {
+      final (w, h) = pipAspect(c.value.size);
+      await _refreshPipActions();
+      // Marked before asking, so the lifecycle callbacks fired while the
+      // window shrinks do not read as leaving the app and pause it.
+      _pipTracker.beginEnter();
+      _isPip = true;
+      final result = await _floating.enable(
+        ImmediatePiP(aspectRatio: Rational(w, h)),
+      );
+      if (result == PiPStatus.enabled) {
+        if (!mounted) return;
         setState(() {
           _isPip = true;
           _controlsVisible = false;
@@ -96,10 +92,18 @@ extension _PlayerPip on _PlayerPageState {
           _panel = _SidePanel.none;
         });
         _controlsAnimation.reverse();
-        _lastPipPlaying = !c.value.isPlaying;
-        _refreshPipActions();
+      } else {
+        _rollBackPipEntry();
       }
-    } catch (_) {}
+    } catch (_) {
+      _rollBackPipEntry();
+    }
+  }
+
+  void _rollBackPipEntry() {
+    _pipTracker.enterFailed();
+    if (!mounted) return;
+    setState(() => _isPip = false);
   }
 
   /// iOS: the episode goes to a native player the system can float — the
@@ -408,7 +412,7 @@ extension _PlayerPip on _PlayerPageState {
                             if (steps) ...[
                               round(
                                 Icons.fast_rewind_rounded,
-                                'player.rewind'.tr(),
+                                'player.rewind_by'.tr(args: ['$_seekSeconds']),
                                 () => _seekRelative(-_seekStep),
                               ),
                               gap,
@@ -431,7 +435,7 @@ extension _PlayerPip on _PlayerPageState {
                               gap,
                               round(
                                 Icons.fast_forward_rounded,
-                                'player.forward'.tr(),
+                                'player.forward_by'.tr(args: ['$_seekSeconds']),
                                 () => _seekRelative(_seekStep),
                               ),
                             ],
@@ -600,6 +604,8 @@ extension _PlayerPip on _PlayerPageState {
       await WakelockHolds.release(this);
       return;
     }
+    _brightnessKeeper.onExit();
+    unawaited(SystemControls.resetBrightness());
     try {
       await SystemChrome.setEnabledSystemUIMode(
         SystemUiMode.manual,
@@ -637,6 +643,7 @@ extension _PlayerPip on _PlayerPageState {
   }
 
   Future<void> _setSystemBrightness(double value) async {
+    _brightnessKeeper.userSet(value);
     try {
       await _systemControlsChannel.invokeMethod<double>('setBrightness', {
         'value': value,

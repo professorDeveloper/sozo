@@ -716,6 +716,8 @@
     "brightness_gesture_desc": "Swipe up and down on the left side",
     "volume_gesture": "Volume swipe",
     "volume_gesture_desc": "Swipe up and down on the right side",
+    "auto_pip": "Auto picture-in-picture",
+    "auto_pip_desc": "Pressing Home while a video plays keeps it playing in a small window",
     "seconds_short": "{}s",
     "subtitle_style_note": "These apply to every video. Subtitle timing stays per episode and is set inside the player.",
     "searching_all_sources": "searching all sources",

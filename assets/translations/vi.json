@@ -716,6 +716,8 @@
     "brightness_gesture_desc": "Vuốt lên xuống ở bên trái",
     "volume_gesture": "Vuốt chỉnh âm lượng",
     "volume_gesture_desc": "Vuốt lên xuống ở bên phải",
+    "auto_pip": "Tự động hình trong hình",
+    "auto_pip_desc": "Nhấn Màn hình chính khi đang phát video sẽ tiếp tục phát trong cửa sổ nhỏ",
     "seconds_short": "{} giây",
     "subtitle_style_note": "Áp dụng cho mọi video. Thời gian phụ đề được đặt riêng cho từng tập ngay trong trình phát.",
     "searching_all_sources": "đang tìm mọi nguồn",

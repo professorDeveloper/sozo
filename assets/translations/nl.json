@@ -714,6 +714,8 @@
     "brightness_gesture_desc": "Veeg omhoog en omlaag aan de linkerkant",
     "volume_gesture": "Volume vegen",
     "volume_gesture_desc": "Veeg omhoog en omlaag aan de rechterkant",
+    "auto_pip": "Automatisch beeld-in-beeld",
+    "auto_pip_desc": "Als je tijdens een video op Home drukt, speelt hij verder in een klein venster",
     "seconds_short": "{} s",
     "subtitle_style_note": "Dit geldt voor elke video. De ondertiteltiming blijft per aflevering en wordt in de speler ingesteld.",
     "searching_all_sources": "alle bronnen doorzoeken",

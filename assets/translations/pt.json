@@ -714,6 +714,8 @@
     "brightness_gesture_desc": "Deslize para cima e para baixo no lado esquerdo",
     "volume_gesture": "Deslizar para o volume",
     "volume_gesture_desc": "Deslize para cima e para baixo no lado direito",
+    "auto_pip": "Picture-in-picture automático",
+    "auto_pip_desc": "Ao tocar em Início durante um vídeo, ele continua numa janela pequena",
     "seconds_short": "{} s",
     "subtitle_style_note": "Isso vale para todos os vídeos. A sincronia da legenda é por episódio e se ajusta dentro do player.",
     "searching_all_sources": "buscando em todas as fontes",

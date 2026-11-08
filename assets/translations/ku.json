@@ -716,6 +716,8 @@
     "brightness_gesture_desc": "Li aliyê çepê ber bi jor û jêr bişemitîne",
     "volume_gesture": "Şemitandina deng",
     "volume_gesture_desc": "Li aliyê rastê ber bi jor û jêr bişemitîne",
+    "auto_pip": "Wêne di nav wêneyê de bixweber",
+    "auto_pip_desc": "Dema vîdyo dilîze û tu Destpêkê bitikînî, ew di pencereyeke biçûk de didome",
     "seconds_short": "{}s",
     "subtitle_style_note": "Ev ji bo her vîdyoyê derbasdar in. Demkirina binnivîsê ji bo her beşê cuda dimîne û di nav lêdarê de tê sazkirin.",
     "searching_all_sources": "li hemû çavkaniyan tê gerîn",

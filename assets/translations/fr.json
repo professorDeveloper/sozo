@@ -714,6 +714,8 @@
     "brightness_gesture_desc": "Glisse de haut en bas sur le côté gauche",
     "volume_gesture": "Glisser pour le volume",
     "volume_gesture_desc": "Glisse de haut en bas sur le côté droit",
+    "auto_pip": "Image dans l’image automatique",
+    "auto_pip_desc": "Appuyer sur Accueil pendant une vidéo la poursuit dans une petite fenêtre",
     "seconds_short": "{} s",
     "subtitle_style_note": "Cela vaut pour toutes les vidéos. Le calage des sous-titres reste propre à chaque épisode et se règle dans le lecteur.",
     "searching_all_sources": "recherche dans toutes les sources",

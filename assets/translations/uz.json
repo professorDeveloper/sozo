@@ -716,6 +716,8 @@
     "brightness_gesture_desc": "Chap tomonda yuqoriga-pastga surish",
     "volume_gesture": "Ovoz surish",
     "volume_gesture_desc": "O‘ng tomonda yuqoriga-pastga surish",
+    "auto_pip": "Avtomatik «rasm ichida rasm»",
+    "auto_pip_desc": "Video ijro etilayotganda Home tugmasi bosilsa, u kichik oynada davom etadi",
     "seconds_short": "{} s",
     "subtitle_style_note": "Bular barcha videolarga tegishli. Subtitr vaqti esa har bir qism uchun alohida va pleyer ichida sozlanadi.",
     "searching_all_sources": "barcha manbalar bo‘yicha qidirilmoqda",

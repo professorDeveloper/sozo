@@ -143,6 +143,10 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
 
   bool get letterboxesInternally;
 
+  /// Whether the engine takes and gives up Android audio focus itself.
+  /// Requesting it on top of one that does steals focus from it.
+  bool get handlesAudioFocus => false;
+
   /// Whether this backend can enumerate and switch audio tracks at all.
   ///
   /// False for `video_player`: ExoPlayer has track selection internally but the
@@ -576,6 +580,10 @@ class _NativeController extends PlayerController {
 
   @override
   bool get letterboxesInternally => false;
+
+  /// video_player's ExoPlayer is built with handleAudioFocus on.
+  @override
+  bool get handlesAudioFocus => true;
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) => vp.VideoPlayer(_inner);
@@ -1274,6 +1282,9 @@ class _MediaKitController extends PlayerController {
 
   @override
   Future<void> play() => _fallback?.play() ?? _player.play();
+
+  @override
+  bool get handlesAudioFocus => _fallback?.handlesAudioFocus ?? false;
 
   @override
   Future<void> pause() => _fallback?.pause() ?? _player.pause();

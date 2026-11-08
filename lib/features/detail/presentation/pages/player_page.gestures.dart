@@ -265,6 +265,7 @@ extension _PlayerGestures on _PlayerPageState {
       } else {
         final isLeft = start.dx < constraints.maxWidth * 0.5;
         _dragSwipeType = isLeft ? _SwipeType.brightness : _SwipeType.volume;
+        if (!isDesktopPlatform) unawaited(_rebaseSwipeLevel(_dragSwipeType!));
       }
     }
 
@@ -281,16 +282,49 @@ extension _PlayerGestures on _PlayerPageState {
       final delta = -(d.delta.dy) / (constraints.maxHeight * 0.7);
       if (_dragSwipeType == _SwipeType.brightness) {
         _brightness = (_brightness + delta).clamp(0.0, 1.0).toDouble();
-        _pushSystemLevels(brightness: true);
+        if (_swipeLevelReady) _pushSystemLevels(brightness: true);
         _swipeIndicator.value = _SwipeIndicator(
           _SwipeType.brightness,
           _brightness,
         );
       } else {
         _volume = (_volume + delta).clamp(0.0, 1.0).toDouble();
-        _pushSystemLevels(volume: true);
+        if (_swipeLevelReady) _pushSystemLevels(volume: true);
         _swipeIndicator.value = _SwipeIndicator(_SwipeType.volume, _volume);
       }
+    }
+  }
+
+  /// The level a swipe starts from, read fresh: the volume keys and
+  /// auto-brightness move them while the player is open. Movement made while
+  /// the read is in flight is kept and added on top.
+  Future<void> _rebaseSwipeLevel(_SwipeType type) async {
+    final token = ++_swipeToken;
+    final brightness = type == _SwipeType.brightness;
+    final startLevel = brightness ? _brightness : _volume;
+    _swipeLevelReady = false;
+    double? fresh;
+    try {
+      fresh = await _systemControlsChannel.invokeMethod<double>(
+        brightness ? 'getBrightness' : 'getVolume',
+      );
+    } catch (_) {}
+    if (!mounted || token != _swipeToken) return;
+    _swipeLevelReady = true;
+    final moved = (brightness ? _brightness : _volume) - startLevel;
+    if (fresh != null) {
+      final level = (fresh + moved).clamp(0.0, 1.0).toDouble();
+      if (brightness) {
+        _brightness = level;
+      } else {
+        _volume = level;
+      }
+      if (_dragSwipeType == type) {
+        _swipeIndicator.value = _SwipeIndicator(type, level);
+      }
+    }
+    if (moved != 0) {
+      _pushSystemLevels(brightness: brightness, volume: !brightness);
     }
   }
 

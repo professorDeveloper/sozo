@@ -59,6 +59,8 @@ import 'package:soplay/features/detail/domain/playback/playback_fault.dart';
 import 'package:soplay/features/detail/domain/playback/retry_policy.dart';
 import 'package:soplay/features/detail/domain/playback/skip_offers.dart';
 import 'package:soplay/features/detail/domain/playback/wakelock_holds.dart';
+import 'package:soplay/features/detail/domain/playback/player_system_policy.dart';
+import 'package:soplay/core/system/system_controls.dart';
 import 'package:soplay/features/detail/domain/playback/watch_progress.dart';
 import 'package:soplay/features/detail/domain/player_controls_layout.dart';
 import 'package:soplay/features/detail/domain/playback/party_rules.dart';
@@ -174,6 +176,7 @@ part 'player_page.reactions.dart';
 part 'player_page.menus.dart';
 part 'player_page.sheets.dart';
 part 'player_page.native_offer.dart';
+part 'player_page.system.dart';
 
 /// Hard ceiling on auto-retries per episode — see [_PlayerPageState._lifetimeRetries].
 const int _kMaxLifetimeRetries = RetryPolicy.maxLifetimeRetries;
@@ -272,7 +275,18 @@ class _PlayerPageState extends State<PlayerPage>
   final FocusNode _keyFocus = FocusNode(debugLabel: 'desktopPlayerKeys');
   final ValueNotifier<bool> _miniHover = ValueNotifier<bool>(false);
   bool _resumeAfterPause = false;
-  bool _lastPipPlaying = false;
+
+  /// Android PiP, audio focus, media session and brightness bookkeeping.
+  /// See player_page.system.dart.
+  final AndroidPipTracker _pipTracker = AndroidPipTracker();
+  final AudioFocusPolicy _audioFocusPolicy = AudioFocusPolicy();
+  final BrightnessKeeper _brightnessKeeper = BrightnessKeeper();
+  final MediaSessionGate _mediaGate = MediaSessionGate();
+  bool _systemPlaying = false;
+  bool _autoPipArmed = false;
+  late final bool _autoPipSetting;
+  String? _mediaMetaKey;
+  bool _brightnessHandedBack = false;
 
   PlayerController? _controller;
   bool _preferPlatformPlayer = false;
@@ -629,6 +643,10 @@ class _PlayerPageState extends State<PlayerPage>
   /// See _pushSystemLevels in player_page.pip.dart.
   bool _brightnessDirty = false;
   bool _volumeDirty = false;
+
+  /// A swipe's starting level is being read; see _rebaseSwipeLevel.
+  bool _swipeLevelReady = true;
+  int _swipeToken = 0;
   Timer? _systemLevelTimer;
   final ValueNotifier<_SwipeIndicator?> _swipeIndicator =
       ValueNotifier<_SwipeIndicator?>(null);
@@ -800,6 +818,7 @@ class _PlayerPageState extends State<PlayerPage>
     _longPressBoost = _hive.getLongPressBoost();
     _brightnessGestureEnabled = _hive.brightnessGestureEnabled;
     _volumeGestureEnabled = _hive.volumeGestureEnabled;
+    _autoPipSetting = _hive.autoPipEnabled;
     _window = _window.at(
       widget.args.initialEpisodeIndex.clamp(
         0,
@@ -830,6 +849,7 @@ class _PlayerPageState extends State<PlayerPage>
     WidgetsBinding.instance.addObserver(this);
     _pipChannel.setMethodCallHandler(_onPipMethodCall);
     if (isIosPlatform) _iosPipChannel.setMethodCallHandler(_onIosPipCall);
+    _attachPlayerSystem();
     unawaited(_loadSystemControlValues());
     PlayerLog.instance
       ..clear()
@@ -862,13 +882,16 @@ class _PlayerPageState extends State<PlayerPage>
         if (isDesktopPlatform && state == AppLifecycleState.inactive) {
           unawaited(_floatWhenLeaving());
         }
-        if (!isDesktopPlatform &&
-            c.value.isInitialized &&
-            c.value.isPlaying &&
-            !_isPip) {
+        final leaving = pausesOnLifecycle(
+          state,
+          desktop: isDesktopPlatform,
+          inPip: _isPip || _pipTracker.active,
+        );
+        if (leaving && c.value.isInitialized && c.value.isPlaying) {
           _resumeAfterPause = true;
           c.pause();
         }
+        if (leaving) _handBackBrightness();
         // Backgrounded is the last callback Android reliably delivers before
         // it is free to kill the process, and `dispose` is not delivered at
         // all when it does. Keeping playing in PiP or on the desktop does not
@@ -882,9 +905,11 @@ class _PlayerPageState extends State<PlayerPage>
         // always-on-top mini window, or on the app around the corner player —
         // and clearing _isPip there drew the full control bar into a 426-px
         // window, under and over the mini controls.
+        _pipTracker.onResumed();
         if (_isPip && !_compact && mounted) {
           setState(() => _isPip = false);
         }
+        _reapplyBrightness();
         if (_resumeAfterPause && c.value.isInitialized) {
           c.play();
         }
@@ -951,6 +976,7 @@ class _PlayerPageState extends State<PlayerPage>
     _partyDispose();
     WidgetsBinding.instance.removeObserver(this);
     _pipChannel.setMethodCallHandler(null);
+    _detachPlayerSystem();
     if (isIosPlatform) {
       _iosPipChannel.setMethodCallHandler(null);
       // Leaving the player while the floating window is up: it goes too.
@@ -1178,6 +1204,18 @@ class _PlayerPageState extends State<PlayerPage>
       return FocusScope(
         node: _tvRootFocus,
         onKeyEvent: _onTvPlayerKey,
+        child: child,
+      );
+    }
+    if (isAndroidPlatform) {
+      // A phone or tablet with a hardware keyboard: Space and the arrows.
+      return Focus(
+        focusNode: _keyFocus,
+        autofocus: true,
+        onKeyEvent: (node, event) =>
+            node.hasPrimaryFocus && _kAndroidPlayerKeys.contains(event.logicalKey)
+            ? _onPlayerKey(node, event)
+            : KeyEventResult.ignored,
         child: child,
       );
     }
@@ -1712,4 +1750,14 @@ const _kDockKeys = <LogicalKeyboardKey>[
   LogicalKeyboardKey.keyM,
   LogicalKeyboardKey.keyP,
   LogicalKeyboardKey.keyN,
+];
+
+/// The keys a hardware keyboard drives on an Android phone or tablet.
+/// Media keys are left to the media session.
+const _kAndroidPlayerKeys = <LogicalKeyboardKey>[
+  LogicalKeyboardKey.space,
+  LogicalKeyboardKey.arrowLeft,
+  LogicalKeyboardKey.arrowRight,
+  LogicalKeyboardKey.arrowUp,
+  LogicalKeyboardKey.arrowDown,
 ];

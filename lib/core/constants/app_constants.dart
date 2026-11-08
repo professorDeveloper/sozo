@@ -307,6 +307,7 @@ class AppConstants {
   /// in the app that makes something private visible to other people.
   static const String discordPresenceKey = 'discord_presence_enabled';
   static const String volumeGestureKey = 'volume_gesture';
+  static const String autoPipKey = 'auto_pip';
 
   /// Explicit on/off per player-info row, as `{fieldId: bool}`. Explicit rather
   /// than a list of enabled ids so a row added in a later release can be told
