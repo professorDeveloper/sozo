@@ -757,6 +757,17 @@ class HiveService {
     await _settingsBox.put(AppConstants.longPressBoostKey, rate);
   }
 
+  /// The desktop player's own volume (1.0 = 100%, up to 1.5 on mpv) and mute.
+  ({Object? level, Object? muted}) getDesktopVolume() => (
+    level: _settingsBox.get(AppConstants.desktopVolumeKey),
+    muted: _settingsBox.get(AppConstants.desktopMutedKey),
+  );
+
+  Future<void> saveDesktopVolume(double level, bool muted) async {
+    await _settingsBox.put(AppConstants.desktopVolumeKey, level);
+    await _settingsBox.put(AppConstants.desktopMutedKey, muted);
+  }
+
   /// Whether to remind before an episode on the AniList list airs.
   bool get airingRemindersEnabled =>
       _settingsBox.get(AppConstants.airingRemindersKey, defaultValue: false) ==

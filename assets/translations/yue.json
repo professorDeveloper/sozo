@@ -306,7 +306,11 @@
       "no_source": "呢一集冇來源。",
       "empty_url": "呢個來源冇畀到影片地址。",
       "engine_unavailable": "播放器啟動唔到。請完全重開個 app。",
-      "unknown": "載入唔到影片。"
+      "unknown": "載入唔到影片。",
+      "not_found": "呢個伺服器已經冇咗呢段影片，試吓第二個伺服器。",
+      "server_error": "影片伺服器出咗問題，等陣再試或者揀第二個伺服器。",
+      "resolve_failed": "喺呢個來源攞唔到影片連結。",
+      "details": "詳情"
     },
     "play": "播放",
     "pause": "暫停",
@@ -591,7 +595,12 @@
     "native_offer_title": "試吓新播放器？",
     "native_offer_body": "Apple 嘅 Liquid Glass 控制同選單。你隨時可以喺 設定 → 播放器 度改返。",
     "native_offer_try": "試吓",
-    "native_offer_not_now": "遲啲先"
+    "native_offer_not_now": "遲啲先",
+    "trying_again": "再試緊（第 {} 次）",
+    "try_mpv": "用 mpv 引擎試吓",
+    "ok_to_skip": "撳 OK 跳過",
+    "quality_lowered": "已降低畫質",
+    "undo": "復原"
   },
   "profile": {
     "title": "個人檔案",

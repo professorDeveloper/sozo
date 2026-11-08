@@ -31,6 +31,7 @@ class ServerSwitch {
     required this.to,
     this.attempt,
     this.maxAttempts,
+    this.sameServer = false,
   });
 
   /// One step of the automatic ladder after a failure, counted against
@@ -51,6 +52,19 @@ class ServerSwitch {
     );
   }
 
+  /// The same source again (re-resolved or reopened) after the ladder ran out
+  /// of other servers. Still automatic, so the viewer can stop it.
+  factory ServerSwitch.retrySame({required String to, required int attempt}) {
+    final step = ServerSwitch.automatic(from: to, to: to, attempt: attempt);
+    return ServerSwitch(
+      from: null,
+      to: to,
+      attempt: step.attempt,
+      maxAttempts: step.maxAttempts,
+      sameServer: true,
+    );
+  }
+
   /// Null when nothing was playing yet, so the overlay shows a destination
   /// rather than a journey.
   final String? from;
@@ -60,7 +74,26 @@ class ServerSwitch {
   final int? attempt;
   final int? maxAttempts;
 
+  /// Set by [ServerSwitch.retrySame]: "Trying again", not "Switching".
+  final bool sameServer;
+
   bool get automatic => attempt != null;
+}
+
+/// The player's one notice at a time: a glass toast at the top centre, with an
+/// optional action (Undo).
+class _PlayerToast {
+  const _PlayerToast(
+    this.message, {
+    required this.icon,
+    this.action,
+    this.onAction,
+  });
+
+  final String message;
+  final IconData icon;
+  final String? action;
+  final VoidCallback? onAction;
 }
 
 /// `zoom` carries a scale factor (1.0-3.0), not a 0-1 level like the other

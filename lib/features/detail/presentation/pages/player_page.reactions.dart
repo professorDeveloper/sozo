@@ -105,9 +105,7 @@ extension _PlayerEpisodeSocial on _PlayerPageState {
 
   void _socialSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-    );
+    _toast(message);
   }
 
   Future<void> _openReactionPicker() async {

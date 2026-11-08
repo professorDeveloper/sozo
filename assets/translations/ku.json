@@ -306,7 +306,11 @@
       "no_source": "Ji bo vê beşê çavkanî tune.",
       "empty_url": "Vê çavkaniyê tu navnîşana vîdyoyê neda.",
       "engine_unavailable": "Lêdar dest pê nekir. Ji kerema xwe sepanê bi tevahî ji nû ve bide destpêkirin.",
-      "unknown": "Vîdyo nehat barkirin."
+      "unknown": "Vîdyo nehat barkirin.",
+      "not_found": "Ev vîdyo êdî li ser vê serverê nîne. Serverek din biceribîne.",
+      "server_error": "Servera vîdyoyê pirsgirêk heye. Piştî demekê dîsa biceribîne an serverek din hilbijêre.",
+      "resolve_failed": "Ji vê çavkaniyê girêdana vîdyoyê nehat wergirtin.",
+      "details": "Hûrgilî"
     },
     "play": "Lê bide",
     "pause": "Rawestîne",
@@ -591,7 +595,12 @@
     "native_offer_title": "Lêdara nû biceribînî?",
     "native_offer_body": "Bişkok û menuyên Liquid Glass ên Apple. Tu dikarî vê her dem di Mîheng → Lêdar de biguherînî.",
     "native_offer_try": "Biceribîne",
-    "native_offer_not_now": "Ne niha"
+    "native_offer_not_now": "Ne niha",
+    "trying_again": "Dîsa tê ceribandin (ceribandina {})",
+    "try_mpv": "Bi motora mpv biceribîne",
+    "ok_to_skip": "Ji bo derbaskirinê OK",
+    "quality_lowered": "Kalîte hat kêmkirin",
+    "undo": "Paşve vegerîne"
   },
   "profile": {
     "title": "Profîl",

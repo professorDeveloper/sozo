@@ -306,7 +306,11 @@
       "no_source": "Bu bölüm için kaynak yok.",
       "empty_url": "Bu kaynak hiçbir video adresi döndürmedi.",
       "engine_unavailable": "Oynatıcı başlamadı. Lütfen uygulamayı tamamen yeniden başlat.",
-      "unknown": "Video yüklenemedi."
+      "unknown": "Video yüklenemedi.",
+      "not_found": "Bu video artık bu sunucuda yok. Başka bir sunucu deneyin.",
+      "server_error": "Video sunucusunda sorun var. Birazdan tekrar deneyin veya başka bir sunucu seçin.",
+      "resolve_failed": "Bu kaynaktan video bağlantısı alınamadı.",
+      "details": "Ayrıntılar"
     },
     "play": "Oynat",
     "pause": "Duraklat",
@@ -591,7 +595,12 @@
     "native_offer_title": "Yeni oynatıcıyı denemek ister misiniz?",
     "native_offer_body": "Apple’ın Liquid Glass kontrolleri ve menüleri. Bunu istediğiniz zaman Ayarlar → Oynatıcı bölümünden değiştirebilirsiniz.",
     "native_offer_try": "Dene",
-    "native_offer_not_now": "Şimdi değil"
+    "native_offer_not_now": "Şimdi değil",
+    "trying_again": "Yeniden deneniyor ({}. deneme)",
+    "try_mpv": "mpv motoruyla dene",
+    "ok_to_skip": "Atlamak için OK",
+    "quality_lowered": "Kalite düşürüldü",
+    "undo": "Geri al"
   },
   "profile": {
     "title": "Profil",

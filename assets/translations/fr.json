@@ -306,7 +306,11 @@
       "no_source": "Aucune source pour cet épisode.",
       "empty_url": "Cette source n’a renvoyé aucune adresse vidéo.",
       "engine_unavailable": "Le lecteur n’a pas démarré. Redémarre complètement l’appli.",
-      "unknown": "Impossible de charger la vidéo."
+      "unknown": "Impossible de charger la vidéo.",
+      "not_found": "Cette vidéo n'est plus sur ce serveur. Essayez un autre serveur.",
+      "server_error": "Le serveur vidéo rencontre des problèmes. Réessayez dans un instant ou choisissez un autre serveur.",
+      "resolve_failed": "Impossible d'obtenir un lien vidéo depuis cette source.",
+      "details": "Détails"
     },
     "play": "Lire",
     "pause": "Pause",
@@ -591,7 +595,12 @@
     "native_offer_title": "Essayer le nouveau lecteur ?",
     "native_offer_body": "Les commandes et menus Liquid Glass d’Apple. Vous pouvez changer cela à tout moment dans Réglages → Lecteur.",
     "native_offer_try": "Essayer",
-    "native_offer_not_now": "Plus tard"
+    "native_offer_not_now": "Plus tard",
+    "trying_again": "Nouvel essai (tentative {})",
+    "try_mpv": "Essayer avec le moteur mpv",
+    "ok_to_skip": "OK pour passer",
+    "quality_lowered": "Qualité réduite",
+    "undo": "Annuler"
   },
   "profile": {
     "title": "Profil",

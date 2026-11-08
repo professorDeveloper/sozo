@@ -306,7 +306,11 @@
       "no_source": "Tidak ada sumber untuk episode ini.",
       "empty_url": "Sumber ini tidak mengembalikan alamat video.",
       "engine_unavailable": "Pemutar tidak jalan. Mulai ulang aplikasi sepenuhnya.",
-      "unknown": "Video tidak bisa dimuat."
+      "unknown": "Video tidak bisa dimuat.",
+      "not_found": "Video ini sudah tidak ada di server ini. Coba server lain.",
+      "server_error": "Server video sedang bermasalah. Coba lagi sebentar lagi atau pilih server lain.",
+      "resolve_failed": "Tidak bisa mendapatkan tautan video dari sumber ini.",
+      "details": "Detail"
     },
     "play": "Putar",
     "pause": "Jeda",
@@ -591,7 +595,12 @@
     "native_offer_title": "Coba pemutar baru?",
     "native_offer_body": "Kontrol dan menu Liquid Glass dari Apple. Anda bisa mengubahnya kapan saja di Pengaturan → Pemutar.",
     "native_offer_try": "Coba",
-    "native_offer_not_now": "Nanti saja"
+    "native_offer_not_now": "Nanti saja",
+    "trying_again": "Mencoba lagi (percobaan {})",
+    "try_mpv": "Coba dengan mesin mpv",
+    "ok_to_skip": "OK untuk melewati",
+    "quality_lowered": "Kualitas diturunkan",
+    "undo": "Urungkan"
   },
   "profile": {
     "title": "Profil",

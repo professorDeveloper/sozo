@@ -306,7 +306,11 @@
       "no_source": "Nenhuma fonte para este episódio.",
       "empty_url": "Esta fonte não devolveu nenhum endereço de vídeo.",
       "engine_unavailable": "O player não iniciou. Reinicie o app por completo.",
-      "unknown": "Não foi possível carregar o vídeo."
+      "unknown": "Não foi possível carregar o vídeo.",
+      "not_found": "Este vídeo não está mais neste servidor. Tente outro servidor.",
+      "server_error": "O servidor de vídeo está com problemas. Tente novamente em instantes ou escolha outro servidor.",
+      "resolve_failed": "Não foi possível obter um link de vídeo desta fonte.",
+      "details": "Detalhes"
     },
     "play": "Reproduzir",
     "pause": "Pausar",
@@ -591,7 +595,12 @@
     "native_offer_title": "Experimentar o novo player?",
     "native_offer_body": "Os controles e menus Liquid Glass da Apple. Você pode mudar isso a qualquer momento em Configurações → Player.",
     "native_offer_try": "Experimentar",
-    "native_offer_not_now": "Agora não"
+    "native_offer_not_now": "Agora não",
+    "trying_again": "Tentando novamente (tentativa {})",
+    "try_mpv": "Tentar com o motor mpv",
+    "ok_to_skip": "OK para pular",
+    "quality_lowered": "Qualidade reduzida",
+    "undo": "Desfazer"
   },
   "profile": {
     "title": "Perfil",

@@ -306,7 +306,11 @@
       "no_source": "No source for this episode.",
       "empty_url": "This source returned no video address.",
       "engine_unavailable": "The player did not start. Please fully restart the app.",
-      "unknown": "Could not load video."
+      "unknown": "Could not load video.",
+      "not_found": "This video is no longer on this server. Try another server.",
+      "server_error": "The video server is having problems. Try again in a moment, or pick another server.",
+      "resolve_failed": "Couldn't get a video link from this source.",
+      "details": "Details"
     },
     "play": "Play",
     "pause": "Pause",
@@ -591,7 +595,12 @@
     "native_offer_title": "Try the new player?",
     "native_offer_body": "Apple's Liquid Glass controls and menus. You can change this anytime in Settings → Player.",
     "native_offer_try": "Try it",
-    "native_offer_not_now": "Not now"
+    "native_offer_not_now": "Not now",
+    "trying_again": "Trying again (attempt {})",
+    "try_mpv": "Try with the mpv engine",
+    "ok_to_skip": "OK to skip",
+    "quality_lowered": "Lowered quality",
+    "undo": "Undo"
   },
   "profile": {
     "title": "Profile",

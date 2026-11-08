@@ -123,24 +123,43 @@ extension _PlayerControls on _PlayerPageState {
     );
   }
 
+  /// The loudest the desktop slider goes: 150% on mpv, 100% otherwise.
+  double get _maxVolume =>
+      isDesktopPlatform ? (_controller?.maxVolume ?? 1.0) : 1.0;
+
   void _setPlayerVolume(double v) {
+    if (isDesktopPlatform) {
+      _setDesktopVolume(_desktopVolume.withLevel(v, max: _maxVolume));
+      return;
+    }
     final clamped = v.clamp(0.0, 1.0);
     setState(() => _volume = clamped);
-    if (isDesktopPlatform) {
-      _controller?.setVolume(clamped);
-    } else {
-      unawaited(_setSystemVolume(clamped));
-    }
+    unawaited(_setSystemVolume(clamped));
     _scheduleHide();
   }
 
   void _toggleMute() {
+    if (isDesktopPlatform) {
+      _setDesktopVolume(_desktopVolume.toggleMute());
+      return;
+    }
     if (_volume > 0.001) {
       _volumeBeforeMute = _volume;
       _setPlayerVolume(0);
     } else {
       _setPlayerVolume(_volumeBeforeMute <= 0.001 ? 1.0 : _volumeBeforeMute);
     }
+  }
+
+  void _setDesktopVolume(DesktopVolume next) {
+    setState(() {
+      _desktopVolume = next;
+      _volume = next.applied;
+    });
+    final c = _controller;
+    if (c != null) unawaited(next.applyTo(c.setVolume, max: c.maxVolume));
+    unawaited(_hive.saveDesktopVolume(next.level, next.muted));
+    _scheduleHide();
   }
 
   void _seekRelative(Duration delta) {
@@ -158,6 +177,7 @@ extension _PlayerControls on _PlayerPageState {
         : next > c.value.duration
         ? c.value.duration
         : next;
+    _stallWatch.noteSeek(_now);
     c.seekTo(clamped);
     _scheduleHide();
     if (!_isLive) {
@@ -172,6 +192,7 @@ extension _PlayerControls on _PlayerPageState {
     // `Go live` is the one seek a broadcast accepts, and it asks for the very
     // end; anything else is a scrub bar that should not have been reachable.
     if (_isLive && position < c.value.duration) return;
+    _stallWatch.noteSeek(_now);
     c.seekTo(position);
     _scheduleHide();
     if (!_isLive) {
@@ -448,6 +469,216 @@ extension _PlayerControls on _PlayerPageState {
     );
   }
 
+  /// The raw failure, when it says more than the headline.
+  String? get _errorDetail {
+    final raw = _errorRaw?.trim();
+    if (raw == null || raw.isEmpty || raw == _errorMessage) return null;
+    return raw;
+  }
+
+  /// Offered once the native engine on Android could not decode the stream.
+  bool get _canTryMpv =>
+      _isCodecError &&
+      defaultTargetPlatform == TargetPlatform.android &&
+      !isAndroidEmulator &&
+      !_mpvForSession &&
+      _onPlatformPlayer &&
+      !_isDash &&
+      (_playSourceUrl ?? _videoUrl) != null;
+
+  Widget _buildErrorView() {
+    final guest = _inParty && !_isPartyHost;
+    final detail = _errorDetail;
+    final buttons = <Widget>[
+      _PlayerGlassButton(
+        onPressed: _retry,
+        // Without this the error screen opens with nothing focused, so the
+        // remote has no landing spot and reads as frozen.
+        autofocus: isTvPlatform,
+        primary: true,
+        icon: Icons.refresh_rounded,
+        label: 'general.try_again'.tr(),
+      ),
+      if (_canTryMpv)
+        _PlayerGlassButton(
+          onPressed: _tryWithMpv,
+          icon: Icons.memory_rounded,
+          label: 'player.try_mpv'.tr(),
+        ),
+      if (_isCodecError && _videoUrl != null)
+        _PlayerGlassButton(
+          onPressed: () => launchUrl(
+            Uri.parse(_videoUrl!),
+            mode: LaunchMode.externalApplication,
+          ),
+          icon: Icons.open_in_browser_rounded,
+          label: 'player.play_in_browser'.tr(),
+        ),
+      // The mirrors this source already has come before other sources: a
+      // title on four servers where only one failed needs a server, not a
+      // search across every provider.
+      if (_affordances.hasServers && !guest)
+        _PlayerGlassButton(
+          onPressed: _openServerSheet,
+          icon: Icons.dns_rounded,
+          label: 'player.change_server'.tr(),
+        ),
+      if (!_isLive && !guest)
+        _PlayerGlassButton(
+          onPressed: _openAlternateSources,
+          icon: Icons.swap_horiz_rounded,
+          label: 'player.alt_sources'.tr(),
+        ),
+      // Tested against the RAW failure, not the translated one.
+      if (_cfWall != null || isCloudflareError(_errorRaw ?? _errorMessage))
+        _PlayerGlassButton(
+          onPressed: () async {
+            final ok = _cfWall != null
+                ? await _solveStreamWall()
+                : await requestCloudflareSolve(context, widget.args.provider);
+            if (ok && mounted) _retry();
+          },
+          icon: Icons.shield_outlined,
+          label: 'cloudflare.solve'.tr(),
+        ),
+    ];
+    final links = <Widget>[
+      TextButton.icon(
+        onPressed: () => context.push(
+          '/support/new',
+          extra: SupportRequestArgs(
+            category: SupportCategory.playback,
+            provider: widget.args.provider,
+            content: _supportContentLabel,
+            screen: 'player',
+          ),
+        ),
+        style: TextButton.styleFrom(foregroundColor: Colors.white60),
+        icon: const Icon(Icons.support_agent_rounded, size: 18),
+        label: Text('support.contact_support'.tr()),
+      ),
+      TextButton.icon(
+        onPressed: () => LogViewerSheet.show(context),
+        style: TextButton.styleFrom(foregroundColor: Colors.white60),
+        icon: const Icon(Icons.bug_report_outlined, size: 18),
+        label: Text('player.view_logs'.tr()),
+      ),
+    ];
+    return ColoredBox(
+      color: Colors.black,
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final compact = box.maxHeight < 420;
+            final headline = Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.error_outline_rounded,
+                  color: Colors.white70,
+                  size: compact ? 32 : 48,
+                ),
+                SizedBox(height: compact ? 8 : 12),
+                Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (detail != null) _buildErrorDetails(detail),
+              ],
+            );
+            final Widget body;
+            if (compact) {
+              body = Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: headline),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [...buttons, ...links],
+                    ),
+                  ),
+                ],
+              );
+            } else {
+              body = Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  headline,
+                  const SizedBox(height: 16),
+                  for (final b in buttons) ...[b, const SizedBox(height: 10)],
+                  ...links,
+                ],
+              );
+            }
+            return SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 24 : 32,
+                vertical: 16,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: box.maxHeight - 32),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: compact ? 760 : 420),
+                    child: body,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorDetails(String detail) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextButton(
+            onPressed: () =>
+                setState(() => _errorDetailsOpen = !_errorDetailsOpen),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white54,
+              visualDensity: VisualDensity.compact,
+              textStyle: const TextStyle(fontSize: 12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('player.fault.details'.tr()),
+                Icon(
+                  _errorDetailsOpen
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+          if (_errorDetailsOpen)
+            SelectableText(
+              detail,
+              textAlign: TextAlign.center,
+              maxLines: 6,
+              style: const TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildVideoLayer() {
     // The small player has no room for the loading card or the error card,
     // whose buttons alone are taller than the corner box. A spinner, or the
@@ -482,151 +713,7 @@ extension _PlayerControls on _PlayerPageState {
         ),
       );
     }
-    if (_errorMessage != null) {
-      return ColoredBox(
-        color: Colors.black,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.error_outline_rounded,
-                  color: Colors.white70,
-                  size: 48,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: _retry,
-                  // Without this the error screen opens with nothing focused,
-                  // so the remote has no landing spot and reads as frozen.
-                  autofocus: isTvPlatform,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                  ),
-                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: Text('general.try_again'.tr()),
-                ),
-                if (_isCodecError && _videoUrl != null) ...[
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      launchUrl(
-                        Uri.parse(_videoUrl!),
-                        mode: LaunchMode.externalApplication,
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      side: const BorderSide(color: Colors.white24),
-                    ),
-                    icon: const Icon(Icons.open_in_browser_rounded, size: 18),
-                    label: Text('player.play_in_browser'.tr()),
-                  ),
-                ],
-                // Offered on every playback failure, not only on the ones we
-                // can name. A source that has moved domain, minted a token the
-                // CDN now refuses, or simply lost the episode fails in a dozen
-                // different ways, and from the viewer's chair they are one
-                // problem: this show will not play here. The answer is the same
-                // in all of them.
-                // The mirrors this source already has, BEFORE offering to go
-                // looking at other sources.
-                //
-                // The screen jumped straight to "Try another source", which
-                // searches every other provider in the app — a slow, uncertain
-                // thing to do when the title in front of you is carried on
-                // four servers and only the one that was tried has failed. A
-                // title with several servers had no way to pick a different
-                // one from the error screen at all: the control exists, on the
-                // bar, which is not on screen when playback never started.
-                if (_affordances.hasServers &&
-                    !(_inParty && !_isPartyHost)) ...[
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: _openServerSheet,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white38),
-                    ),
-                    icon: const Icon(Icons.dns_rounded, size: 18),
-                    label: Text('player.change_server'.tr()),
-                  ),
-                ],
-                if (!_isLive && !(_inParty && !_isPartyHost)) ...[
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: _openAlternateSources,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      side: const BorderSide(color: Colors.white24),
-                    ),
-                    icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                    label: Text('player.alt_sources'.tr()),
-                  ),
-                ],
-                // Tested against the RAW failure, not the translated one —
-                // see [_errorRaw]. Against `_errorMessage` this never matched.
-                if (_cfWall != null ||
-                    isCloudflareError(_errorRaw ?? _errorMessage)) ...[
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      // The stream's own host when that is what the challenge
-                      // stands in front of; the source's site otherwise.
-                      final ok = _cfWall != null
-                          ? await _solveStreamWall()
-                          : await requestCloudflareSolve(
-                              context,
-                              widget.args.provider,
-                            );
-                      if (ok && mounted) _retry();
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      side: const BorderSide(color: Colors.white24),
-                    ),
-                    icon: const Icon(Icons.shield_outlined, size: 18),
-                    label: Text('cloudflare.solve'.tr()),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                // Straight to a playback request, with this title, source and
-                // the player log already attached (the viewer can remove it).
-                TextButton.icon(
-                  onPressed: () => context.push(
-                    '/support/new',
-                    extra: SupportRequestArgs(
-                      category: SupportCategory.playback,
-                      provider: widget.args.provider,
-                      content: _supportContentLabel,
-                      screen: 'player',
-                    ),
-                  ),
-                  style: TextButton.styleFrom(foregroundColor: Colors.white60),
-                  icon: const Icon(Icons.support_agent_rounded, size: 18),
-                  label: Text('support.contact_support'.tr()),
-                ),
-                TextButton.icon(
-                  onPressed: () => LogViewerSheet.show(context),
-                  style: TextButton.styleFrom(foregroundColor: Colors.white60),
-                  icon: const Icon(Icons.bug_report_outlined, size: 18),
-                  label: Text('player.view_logs'.tr()),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+    if (_errorMessage != null) return _buildErrorView();
     final c = _controller;
     if (c == null || !c.value.isInitialized) {
       return const ColoredBox(color: Colors.black);
@@ -1048,14 +1135,37 @@ extension _PlayerControls on _PlayerPageState {
       _controlsAnimation.reverse();
       _hideTimer?.cancel();
     });
+    _showLockPill();
   }
 
   void _unlock() {
     if (isMobilePlatform) HapticFeedback.mediumImpact();
+    _lockPillTimer?.cancel();
+    _lockPill.hide();
     setState(() => _locked = false);
   }
 
+  /// Brings the unlock pill back for [LockPill.visibleFor].
+  void _showLockPill() {
+    if (!_locked) return;
+    _lockPill.show(_now);
+    _lockPillTimer?.cancel();
+    _lockPillTimer = Timer(_lockPill.visibleFor, () {
+      if (mounted) setState(() {});
+    });
+    setState(() {});
+  }
+
+  void _onUnlockPillTap() {
+    if (_lockPill.tapPill(_now)) {
+      _unlock();
+    } else {
+      _showLockPill();
+    }
+  }
+
   Widget _buildLockOverlay() {
+    final visible = _lockPill.isVisible(_now);
     return Positioned(
       bottom: 0,
       left: 0,
@@ -1064,41 +1174,49 @@ extension _PlayerControls on _PlayerPageState {
         child: Padding(
           padding: const EdgeInsets.only(bottom: 24),
           child: Center(
-            child: _unlockPill(
-              GestureDetector(
-                onTap: _unlock,
-                // Words on it, so the deeper dimming: white 12pt text keeps
-                // AA over a white frame.
-                child: MediaGlass(
-                  radius: 24,
-                  dim: Colors.black.withValues(alpha: 0.6),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 10,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.lock_rounded,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'player.tap_to_unlock'.tr(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: !visible
+                  ? const SizedBox(key: ValueKey('pill-off'), height: 40)
+                  : KeyedSubtree(
+                      key: const ValueKey('pill-on'),
+                      child: _unlockPill(
+                        GestureDetector(
+                          onTap: _onUnlockPillTap,
+                          // Words on it, so the deeper dimming: white 12pt text keeps
+                          // AA over a white frame.
+                          child: MediaGlass(
+                            radius: 24,
+                            dim: Colors.black.withValues(alpha: 0.6),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 10,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.lock_rounded,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'player.tap_to_unlock'.tr(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-              ),
             ),
           ),
         ),
@@ -1624,7 +1742,7 @@ extension _PlayerControls on _PlayerPageState {
         title: 'player.tap_to_unlock'.tr(),
         semanticLabel: 'player.tap_to_unlock'.tr(),
         glyph: 13,
-        onPressed: _unlock,
+        onPressed: _onUnlockPillTap,
       ),
     ],
     fallback: (_) => flutter,
@@ -1647,6 +1765,7 @@ extension _PlayerControls on _PlayerPageState {
               alignment: Alignment.centerLeft,
               child: _DesktopVolumeControl(
                 volume: _volume,
+                max: _maxVolume,
                 onChanged: _setPlayerVolume,
                 onToggleMute: _toggleMute,
               ),

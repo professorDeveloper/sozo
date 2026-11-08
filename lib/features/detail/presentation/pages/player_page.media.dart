@@ -263,6 +263,8 @@ extension _PlayerMedia on _PlayerPageState {
     // row would count as one.
     _countedComplete = false;
     _endHandled = false;
+    _endOfStream.reset();
+    _stallWatch.reset();
     _videoTrackAppliedFor = null;
     // The previous episode's playhead is no place to retry this one from.
     _lastPlayedPosition = Duration.zero;
@@ -348,16 +350,8 @@ extension _PlayerMedia on _PlayerPageState {
         final raw = error.toString().replaceFirst('Exception: ', '');
         setState(() {
           _initializing = false;
-          // img_2e4886 is Dio's own English sentence about a reset connection
-          // ("…This indicates an error which most likely cannot be solved by
-          // the library."), wrong about the remedy as well as in the wrong
-          // language. A dropped connection is said as the network fault in the
-          // viewer's language; a provider's own message (no mirrors, a 422)
-          // keeps its words.
-          final fault = PlaybackFault.classify(raw);
-          _errorMessage = fault.kind == PlaybackFaultKind.network
-              ? fault.messageKey.tr()
-              : raw;
+          // Translated headline; the provider's own words go under Details.
+          _errorMessage = _resolveFailureMessage(raw);
           _errorRaw = raw;
         });
         return null;
@@ -670,7 +664,7 @@ extension _PlayerMedia on _PlayerPageState {
   bool get _onPlatformPlayer =>
       _preferPlatformPlayer ||
       isAndroidEmulator ||
-      resolvePlayerEngine() == PlayerEngine.native;
+      (resolvePlayerEngine() == PlayerEngine.native && !_mpvForSession);
 
   /// Starts a fresh walk. Called wherever what is playing genuinely changes —
   /// a new episode, a new movie, an explicit pick — never on a retry, which is
@@ -1553,6 +1547,7 @@ extension _PlayerMedia on _PlayerPageState {
       controller = PlayerController.networkUrl(
         fileUri,
         preferPlatform: _preferPlatformPlayer,
+        preferMediaKit: _mpvForSession,
         formatHint: VideoFormat.hls,
         videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
       );
@@ -1564,6 +1559,7 @@ extension _PlayerMedia on _PlayerPageState {
       controller = PlayerController.file(
         file,
         preferPlatform: _preferPlatformPlayer,
+        preferMediaKit: _mpvForSession,
         videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
       );
       _headers = const {};
@@ -1588,13 +1584,22 @@ extension _PlayerMedia on _PlayerPageState {
           : null;
       if (drm != null) _plog('drm: $drm');
 
-      PlayerController.mpvHlsBitrate = PlayerController.hlsBitrateFor(
-        _qualityPreference,
-      );
+      PlayerController.mpvHlsBitrate =
+          (_qualityPreference == QualityPreference.auto
+              ? _autoBitrate
+              : null) ??
+          MpvAutoQuality.startBitrate(
+            preference: _qualityPreference,
+            network: _qualityPreference == QualityPreference.auto
+                ? await _networkKind()
+                : NetworkKind.unknown,
+          );
+      if (!mounted || generation != _mediaGeneration) return;
       controller = PlayerController.networkUrl(
         uri,
         httpHeaders: mergedHeaders,
         preferPlatform: _preferPlatformPlayer,
+        preferMediaKit: _mpvForSession,
         formatHint: isHls
             ? VideoFormat.hls
             : isDash
@@ -1697,6 +1702,7 @@ extension _PlayerMedia on _PlayerPageState {
           _playbackSpeed = party.rate;
         }
         await controller.setPlaybackSpeed(_playbackSpeed);
+        await _reapplyVolume(controller);
         if (!mounted || generation != _mediaGeneration) return;
         if (!_isLive) {
           final expected = party.expectedPositionAt(DateTime.now());
@@ -1712,6 +1718,7 @@ extension _PlayerMedia on _PlayerPageState {
         }
       } else {
         await controller.setPlaybackSpeed(_playbackSpeed);
+        await _reapplyVolume(controller);
         if (!mounted || generation != _mediaGeneration) return;
         if (resumeAt > Duration.zero && !_isLive) {
           await controller.seekTo(resumeAt);
@@ -1914,13 +1921,17 @@ extension _PlayerMedia on _PlayerPageState {
   /// A failure, in the viewer's language.
   ///
   /// Classification lives in [PlaybackFault] where it can be tested without a
-  /// widget; this only renders it. `unknown` keeps the engine's own words —
-  /// an untranslated detail is more use than a translated non-answer.
-  String _faultMessage(PlaybackFault fault) {
-    if (fault.kind == PlaybackFaultKind.unknown && fault.raw.isNotEmpty) {
-      return fault.raw;
-    }
-    return fault.messageKey.tr();
+  /// widget; this only renders it. The engine's own words are kept in
+  /// [_errorRaw] and shown under Details on the error screen.
+  String _faultMessage(PlaybackFault fault) => fault.messageKey.tr();
+
+  /// A failed resolve, as a headline: a named fault when there is one, else
+  /// "no link from this source". The raw message is the error's details.
+  String _resolveFailureMessage(String raw) {
+    final fault = PlaybackFault.classify(raw);
+    return fault.kind == PlaybackFaultKind.unknown
+        ? 'player.fault.resolve_failed'.tr()
+        : fault.messageKey.tr();
   }
 
   String _humanizeError(String raw) =>
@@ -2049,6 +2060,24 @@ extension _PlayerMedia on _PlayerPageState {
         // deliberately returns false for it, so without this the walk stopped
         // here with untried mirrors left and the viewer had to open Quality and
         // pick one by hand.
+        // mpv that played and then failed: once, the same stream at the same
+        // place with software decoding, before this server is given up on.
+        if (!_autoRetrying &&
+            !_isLive &&
+            c.isMpv &&
+            !_mpvSoftwareRetried &&
+            _lastPlayedPosition > Duration.zero &&
+            PlaybackFault.classify(msg).kind != PlaybackFaultKind.network) {
+          _mpvSoftwareRetried = true;
+          PlayerController.mpvHwdec = 'no';
+          _autoRetrying = true;
+          _plog(
+            'mpv failed mid-playback — reopening with hwdec=no',
+            level: LogLevel.warn,
+          );
+          unawaited(_reopenAt(_lastPlayedPosition, autoplay: true));
+          return;
+        }
         if (!_autoRetrying && _isDecoderError(msg)) {
           _decoderAvoidCodec =
               _currentSourceIndex >= 0 &&
@@ -2105,6 +2134,14 @@ extension _PlayerMedia on _PlayerPageState {
     if (v.isBuffering != _wasBuffering) {
       _wasBuffering = v.isBuffering;
       changed = true;
+      if (v.isBuffering) _onBufferingStall(c);
+    }
+    if (v.isInitialized &&
+        !identical(_orientedFor, c) &&
+        v.size.width > 0 &&
+        v.size.height > 0) {
+      _orientedFor = c;
+      _autoOrient(v.size);
     }
     _maybeOfferNativeControls();
 
@@ -2129,42 +2166,198 @@ extension _PlayerMedia on _PlayerPageState {
       _tickEpisodeSocial(v.position);
       _maybePrefetchNext(v.position, v.duration);
 
-      final remaining = v.duration - v.position;
-      final isEnding = remaining <= const Duration(seconds: 2);
-      if (isEnding) {
-        // Guests in a party never self-advance — they wait for the host's
-        // next party:content. The host auto-advances and emits it.
-        final guestInParty = _inParty && !_isPartyHost;
-        // Auto-advance is opt-out, not opt-in: it is what the player has
-        // always done. Turning it off leaves the episode parked on its last
-        // frame, which is also what makes the history entry below correct.
-        // A sleep timer set to "end of episode" parks here rather than
-        // advancing. It deliberately reuses the auto-advance-off path below,
-        // so the episode is marked finished exactly as it would be for someone
-        // who turned auto-advance off — the timer changes when playback stops,
-        // not what counts as watched.
-        if (!guestInParty &&
-            !_sleepAtEpisodeEnd &&
-            !_upNextDismissed &&
-            _hive.autoPlayNextEpisode &&
-            widget.args.isSerial &&
-            _hasNextEpisode) {
-          _saveHistoryForNextEpisode();
-          // Marks the next load as a continuation rather than an opening, so
-          // "start paused" does not stop a run that is already going.
-          _autoAdvanced = true;
-          _loadEpisode(_episodeIndex + 1);
-          return;
-        }
-        if (!_endHandled) {
-          _endHandled = true;
-          _recordFinishedWithoutAdvancing();
-        }
-        if (_sleepAtEpisodeEnd) unawaited(_fireSleepTimer());
-      }
+      if (_checkEnd()) return;
     }
 
     if (changed && mounted) setState(() {});
+  }
+
+  /// Looks for the end of the episode: the last two seconds, the engine's
+  /// completion, or a playhead stuck just short of the end (an overstated
+  /// duration). Also run once a second, since a stuck playhead sends no
+  /// updates. True when it moved on to the next episode.
+  bool _checkEnd() {
+    final c = _controller;
+    if (c == null || !mounted || _isLive) return false;
+    final v = c.value;
+    if (!v.isInitialized || v.hasError || v.duration <= Duration.zero) {
+      return false;
+    }
+    final ended = _endOfStream.observe(
+      position: v.position,
+      duration: v.duration,
+      isCompleted: v.isCompleted,
+      isPlaying: v.isPlaying,
+      isBuffering: v.isBuffering,
+      now: _now,
+    );
+    if (!ended) return false;
+    _plog('episode ended at ${v.position} of ${v.duration}');
+    return _onEpisodeEnded();
+  }
+
+  bool _onEpisodeEnded() {
+    // Guests in a party never self-advance — they wait for the host's next
+    // party:content. The host auto-advances and emits it.
+    final guestInParty = _inParty && !_isPartyHost;
+    // Auto-advance is opt-out. A sleep timer set to "end of episode" parks
+    // here instead, through the same path as auto-advance being off, so the
+    // episode is marked finished either way.
+    if (!guestInParty &&
+        !_sleepAtEpisodeEnd &&
+        !_upNextDismissed &&
+        _hive.autoPlayNextEpisode &&
+        widget.args.isSerial &&
+        _hasNextEpisode) {
+      _saveHistoryForNextEpisode();
+      // A continuation, so "start paused" does not stop a run in progress.
+      _autoAdvanced = true;
+      _loadEpisode(_episodeIndex + 1);
+      return true;
+    }
+    if (!_endHandled) {
+      _endHandled = true;
+      _recordFinishedWithoutAdvancing();
+    }
+    if (_sleepAtEpisodeEnd) unawaited(_fireSleepTimer());
+    return false;
+  }
+
+  /// mpv Auto: a stall during playback counts toward stepping down a rung.
+  void _onBufferingStall(PlayerController c) {
+    if (!c.isMpv ||
+        _isLive ||
+        !_isHls ||
+        _qualityPreference != QualityPreference.auto ||
+        _lastPlayedPosition <= Duration.zero ||
+        _autoRetrying) {
+      return;
+    }
+    if (_stallWatch.recordStall(_now)) unawaited(_lowerAutoQuality(c));
+  }
+
+  Future<void> _lowerAutoQuality(PlayerController c) async {
+    final current = PlayerController.mpvHlsBitrate;
+    final size = c.value.size;
+    final next = MpvAutoQuality.stepDown(
+      currentHeight: QualityPreference.displayHeight(
+        size.width.round(),
+        size.height.round(),
+      ),
+      current: current,
+    );
+    if (next == null) return;
+    _autoBitrateBefore ??= current;
+    _autoBitrate = next;
+    _plog(
+      'repeated stalls — hls-bitrate $current -> $next',
+      level: LogLevel.warn,
+    );
+    _toast(
+      'player.quality_lowered'.tr(),
+      icon: Icons.network_check_rounded,
+      duration: const Duration(seconds: 6),
+      action: 'player.undo'.tr(),
+      onAction: () => unawaited(_undoLowerQuality()),
+    );
+    _autoRetrying = true;
+    await _reopenAt(
+      _retryPosition,
+      autoplay: c.value.isPlaying || c.value.isBuffering,
+    );
+  }
+
+  Future<void> _undoLowerQuality() async {
+    final before = _autoBitrateBefore;
+    if (before == null) return;
+    _stallWatch.disable();
+    _autoBitrate = before;
+    _autoBitrateBefore = null;
+    _plog('lowered quality undone — hls-bitrate $before');
+    final v = _controller?.value;
+    await _reopenAt(
+      _retryPosition,
+      autoplay: v == null || v.isPlaying || v.isBuffering,
+    );
+  }
+
+  /// Wi-Fi or a cable, mobile data, or unknown — for Auto's starting rung.
+  Future<NetworkKind> _networkKind() async {
+    try {
+      final r = await Connectivity().checkConnectivity().timeout(
+        const Duration(milliseconds: 600),
+      );
+      if (r.contains(ConnectivityResult.wifi) ||
+          r.contains(ConnectivityResult.ethernet)) {
+        return NetworkKind.unmetered;
+      }
+      if (r.contains(ConnectivityResult.mobile)) return NetworkKind.cellular;
+    } catch (_) {}
+    return NetworkKind.unknown;
+  }
+
+  /// Opens what is playing again, on the same server, at [at]: a lower mpv
+  /// rung, software decoding, or another engine.
+  Future<void> _reopenAt(Duration at, {required bool autoplay}) async {
+    if (!mounted) return;
+    final url = _playSourceUrl ?? _videoUrl;
+    if (url == null) {
+      _autoRetrying = false;
+      return;
+    }
+    final headers = _playSourceUrl != null ? _playSourceHeaders : _headers;
+    final type = _playSourceType;
+    _autoplayOverride = autoplay;
+    setState(() {
+      _initializing = true;
+      _stage = _LoadingStage.loading;
+      _errorMessage = null;
+      _errorRaw = null;
+      _isCodecError = false;
+    });
+    final generation = await _disposeController();
+    if (!mounted || generation != _mediaGeneration) return;
+    await _initializeWith(
+      intentGeneration: generation,
+      url: url,
+      headers: headers,
+      type: type,
+      resumeAt: at,
+    );
+    if (mounted && generation == _mediaGeneration) _autoRetrying = false;
+  }
+
+  /// "Try with the mpv engine" on the error screen: this stream, from where it
+  /// was, on media_kit. Only for this player.
+  Future<void> _tryWithMpv() async {
+    _plog('codec fault on the native engine — trying mpv for this session');
+    _mpvForSession = true;
+    _preferPlatformPlayer = false;
+    await _reopenAt(_retryPosition, autoplay: true);
+  }
+
+  /// A vertical clip turns the phone to portrait, and the next landscape
+  /// video turns it back. A choice the viewer made by hand is left alone.
+  void _autoOrient(Size size) {
+    if (!isMobilePlatform || isTvPlatform || _isPip) return;
+    final vertical = size.width / size.height < 1;
+    if (vertical && !_isPortrait) {
+      _autoPortrait = true;
+      unawaited(_toggleOrientation());
+    } else if (!vertical && _isPortrait && _autoPortrait) {
+      _autoPortrait = false;
+      unawaited(_toggleOrientation());
+    }
+  }
+
+  Future<void> _reapplyVolume(PlayerController controller) async {
+    if (!isDesktopPlatform) return;
+    try {
+      await _desktopVolume.applyTo(
+        controller.setVolume,
+        max: controller.maxVolume,
+      );
+    } catch (_) {}
   }
 
   /// What history says once an episode has played out and nothing advanced.
@@ -2270,6 +2463,7 @@ extension _PlayerMedia on _PlayerPageState {
         _currentQuality = next.quality;
         _serverSwitch = step;
       });
+      _tvFocusStopSwitch();
       try {
         final generation = await _disposeController();
         await Future<void>.delayed(const Duration(milliseconds: 350));
@@ -2291,6 +2485,13 @@ extension _PlayerMedia on _PlayerPageState {
       return;
     }
 
+    // Nothing else to switch to: the same source again, re-resolved for a
+    // serial or reopened for a film, on the same screen as a switch, with the
+    // attempt count and Stop.
+    final again = ServerSwitch.retrySame(
+      to: _currentServer ?? _episodeTitle(),
+      attempt: _lifetimeRetries,
+    );
     setState(() {
       _initializing = true;
       _stage = widget.args.isSerial
@@ -2299,35 +2500,52 @@ extension _PlayerMedia on _PlayerPageState {
       _errorMessage = null;
       _errorRaw = null;
       _isCodecError = false;
+      _serverSwitch = again;
     });
-    final generation = await _disposeController();
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!mounted || generation != _mediaGeneration) return;
-    if (widget.args.isSerial) {
-      _autoRetrying = false;
-      await _loadEpisode(
-        _episodeIndex,
-        keepRetryCount: true,
-        resumeAt: keepPosition,
-      );
-      return;
-    } else if (_videoUrl != null) {
+    _tvFocusStopSwitch();
+    try {
+      final generation = await _disposeController();
+      await Future<void>.delayed(const Duration(milliseconds: 350));
       if (!mounted || generation != _mediaGeneration) return;
-      await _initializeWith(
-        intentGeneration: generation,
-        // Same reason as the manual retry: re-run what produced the stream,
-        // not the stream. See [_playSourceUrl].
-        url: _playSourceUrl ?? _videoUrl!,
-        headers: _playSourceUrl != null ? _playSourceHeaders : _headers,
-        type: _playSourceType,
-        resumeAt: keepPosition,
-      );
-    } else {
-      _autoRetrying = false;
-      await _bootstrap();
-      return;
+      if (widget.args.isSerial) {
+        _autoRetrying = false;
+        await _loadEpisode(
+          _episodeIndex,
+          keepRetryCount: true,
+          resumeAt: keepPosition,
+        );
+        return;
+      } else if (_videoUrl != null) {
+        await _initializeWith(
+          intentGeneration: generation,
+          // Same reason as the manual retry: re-run what produced the stream,
+          // not the stream. See [_playSourceUrl].
+          url: _playSourceUrl ?? _videoUrl!,
+          headers: _playSourceUrl != null ? _playSourceHeaders : _headers,
+          type: _playSourceType,
+          resumeAt: keepPosition,
+        );
+      } else {
+        _autoRetrying = false;
+        await _bootstrap();
+        return;
+      }
+      if (mounted && generation == _mediaGeneration) _autoRetrying = false;
+    } finally {
+      if (mounted && identical(_serverSwitch, again)) {
+        setState(() => _serverSwitch = null);
+      }
     }
-    if (mounted && generation == _mediaGeneration) _autoRetrying = false;
+  }
+
+  /// On TV, the Stop of an automatic switch takes focus as it appears.
+  void _tvFocusStopSwitch() {
+    if (!isTvPlatform) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _tvStopSwitchFocus.context != null) {
+        _tvStopSwitchFocus.requestFocus();
+      }
+    });
   }
 
   /// The viewer's Stop on an automatic server switch.
@@ -2411,14 +2629,7 @@ extension _PlayerMedia on _PlayerPageState {
       _errorRaw = null;
       _isCodecError = false;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('player.reconnecting'.tr()),
-        backgroundColor: Colors.black87,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    _toast('player.reconnecting'.tr(), icon: Icons.wifi_rounded);
     await Future<void>.delayed(RetryPolicy.networkBackoff(attempt - 1));
     await _awaitConnectivity(const Duration(seconds: 30));
     if (!mounted || intent != _mediaGeneration) return;
