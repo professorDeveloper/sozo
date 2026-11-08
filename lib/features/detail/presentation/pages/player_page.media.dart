@@ -1989,6 +1989,7 @@ extension _PlayerMedia on _PlayerPageState {
     final v = c.value;
 
     _syncWakelock(v.isPlaying);
+    _syncPlayerSystem();
     _syncTraktScrobble(v.isPlaying);
     _applyEmbeddedSubtitleChoice();
     _applyPendingAudioChoice();

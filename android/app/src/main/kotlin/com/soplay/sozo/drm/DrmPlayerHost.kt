@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.Surface
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -221,6 +222,14 @@ class DrmPlayerHost(
                     .setDrmSessionManagerProvider { drmManager },
             )
             .build()
+        player.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                .build(),
+            /* handleAudioFocus = */ true,
+        )
+        player.setHandleAudioBecomingNoisy(true)
 
         val entry = textures.createSurfaceTexture()
         val surface = Surface(entry.surfaceTexture())

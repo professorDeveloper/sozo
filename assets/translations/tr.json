@@ -714,6 +714,8 @@
     "brightness_gesture_desc": "Sol tarafta yukarı ve aşağı kaydır",
     "volume_gesture": "Ses kaydırma",
     "volume_gesture_desc": "Sağ tarafta yukarı ve aşağı kaydır",
+    "auto_pip": "Otomatik resim içinde resim",
+    "auto_pip_desc": "Video oynarken Ana ekran tuşuna basınca küçük bir pencerede oynamaya devam eder",
     "seconds_short": "{} sn",
     "subtitle_style_note": "Bunlar her video için geçerlidir. Altyazı zamanlaması bölüm başına kalır ve oynatıcı içinde ayarlanır.",
     "searching_all_sources": "tüm kaynaklarda aranıyor",

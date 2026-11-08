@@ -714,6 +714,8 @@
     "brightness_gesture_desc": "喺左邊上下掃",
     "volume_gesture": "音量滑動",
     "volume_gesture_desc": "喺右邊上下掃",
+    "auto_pip": "自動畫中畫",
+    "auto_pip_desc": "播放影片時撳主畫面，影片會喺細視窗繼續播",
     "seconds_short": "{}秒",
     "subtitle_style_note": "呢啲設定套用喺所有影片。字幕時間就每集獨立，要喺播放器入面調。",
     "searching_all_sources": "搜尋緊所有來源",

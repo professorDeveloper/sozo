@@ -194,6 +194,8 @@ dependencies {
     // FrameExtractor: seek-bar frames for HLS (preview/HlsFramePreview.kt).
     implementation("androidx.media3:media3-inspector:$media3")
     implementation("androidx.media3:media3-datasource-okhttp:$media3")
+    // MediaSessionCompat for the player: headset and Bluetooth buttons.
+    implementation("androidx.media:media:1.7.0")
 
     // CloudStream provider runtime (Android-only feature). The `library` module
     // carries MainAPI/APIHolder/`app` HTTP client/extractors/BasePlugin so .cs3

@@ -714,6 +714,8 @@
     "brightness_gesture_desc": "Geser naik-turun di sisi kiri",
     "volume_gesture": "Geser untuk volume",
     "volume_gesture_desc": "Geser naik-turun di sisi kanan",
+    "auto_pip": "Gambar-dalam-gambar otomatis",
+    "auto_pip_desc": "Menekan Beranda saat video diputar membuatnya tetap berjalan di jendela kecil",
     "seconds_short": "{} dtk",
     "subtitle_style_note": "Ini berlaku untuk semua video. Sinkron subtitle tetap per episode dan diatur di dalam pemutar.",
     "searching_all_sources": "mencari di semua sumber",
