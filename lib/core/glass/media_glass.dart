@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../native/player_controls_style.dart';
 import 'app_glass.dart';
 import 'glass_sense.dart';
 import 'glass_surface.dart';
@@ -116,11 +117,14 @@ class MediaGlass extends StatelessWidget {
 /// the shader: an iPhone whose OS has `UIGlassEffect` with its clear style,
 /// and Reduce Transparency off. An older iPhone keeps the shader, not the
 /// system blur material, which frosts the picture the controls stand on.
+/// The classic glass [style] keeps the shader everywhere.
 bool mediaGlassGoesNative({
   required TargetPlatform platform,
   required NativeGlassCapability capability,
   required bool reduceTransparency,
+  PlayerControlsStyle? style,
 }) =>
+    style != PlayerControlsStyle.classicGlass &&
     nativeGlassDraw(
       platform: platform,
       capability: capability,
@@ -167,6 +171,7 @@ class _MediaGlassLayerState extends State<MediaGlassLayer> {
           _said ??
           NativeGlassCapability.absent,
       reduceTransparency: GlassSense.reduceTransparencyOf(context),
+      style: PlayerControlsStyleScope.maybeOf(context),
     );
     // Hosted glass never stands inside a refracting group: the shader would
     // read a backdrop with the hosted view cut out of it (NativeGlass).

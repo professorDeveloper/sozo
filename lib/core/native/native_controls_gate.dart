@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import '../glass/glass_sense.dart';
 import '../glass/native_glass.dart';
 import '../system/platform_utils.dart';
+import 'player_controls_style.dart';
 
 /// Whether the player's controls are the phone's own glass buttons
 /// (ios/Runner/NativePlayerBar.swift) rather than Flutter's.
@@ -62,14 +63,25 @@ abstract final class NativeControls {
     return decide(context);
   }
 
-  /// The decision from the capability and the switches, ignoring any scope.
-  static bool decide(BuildContext context) => nativeControlsDraw(
-    isIOS: defaultTargetPlatform == TargetPlatform.iOS,
-    isTv: isTvPlatform,
-    isDesktop: debugNativeControlsDesktopOverride ?? isDesktopPlatform,
-    cap: NativeGlassScope.of(context) ?? _known ?? NativeGlassCapability.absent,
-    reduceTransparency: GlassSense.reduceTransparencyOf(context),
-  );
+  /// The decision from the capability and the switches, ignoring any scope;
+  /// only the native [chosen] style draws the native bars.
+  static bool decide(
+    BuildContext context, {
+    PlayerControlsStyle chosen = PlayerControlsStyle.native,
+  }) =>
+      effectivePlayerControlsStyle(
+        chosen: chosen,
+        isIOS: defaultTargetPlatform == TargetPlatform.iOS,
+        isTv: isTvPlatform,
+        isDesktop: debugNativeControlsDesktopOverride ?? isDesktopPlatform,
+        cap: capabilityOf(context),
+        reduceTransparency: GlassSense.reduceTransparencyOf(context),
+      ) ==
+      PlayerControlsStyle.native;
+
+  /// What the phone said, or [NativeGlassCapability.absent] before it has.
+  static NativeGlassCapability capabilityOf(BuildContext context) =>
+      NativeGlassScope.of(context) ?? _known ?? NativeGlassCapability.absent;
 }
 
 /// One decision for everything under it.

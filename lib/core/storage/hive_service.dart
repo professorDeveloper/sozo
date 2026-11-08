@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/app_constants.dart';
+import '../native/player_controls_style.dart';
 import '../player/quality_preference.dart';
 import 'profile_scope.dart';
 import '../subtitles/subtitle_languages.dart';
@@ -615,6 +616,14 @@ class HiveService {
   Future<void> saveDefaultPlayerFit(String fit) async {
     await _settingsBox.put(AppConstants.defaultPlayerFitKey, fit);
   }
+
+  /// How the player's controls are drawn on an iPhone; stored by name.
+  PlayerControlsStyle get playerControlsStyle => PlayerControlsStyle.fromName(
+    _settingsBox.get(AppConstants.playerControlsStyleKey),
+  );
+
+  Future<void> setPlayerControlsStyle(PlayerControlsStyle style) =>
+      _settingsBox.put(AppConstants.playerControlsStyleKey, style.name);
 
   /// A [QualityPreference] value; anything unknown reads as Auto.
   int get preferredQuality => QualityPreference.normalize(

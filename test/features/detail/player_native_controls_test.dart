@@ -156,6 +156,17 @@ void main() {
     expect(source, contains('final menu = _nativeBars ? _sleepMenu : null;'));
   });
 
+  test('the player latches the chosen controls style', () {
+    final source = read('player_page.dart');
+    expect(source, contains('_hive.playerControlsStyle'));
+    expect(source, contains('chosen: _controlsStyle'));
+    expect(source, contains('PlayerControlsStyleScope('));
+    expect(
+      read('player_page.sheets.dart'),
+      contains('bool get _iosSheets => _nativeControls;'),
+    );
+  });
+
   test('every player sheet goes through the one that knows the iOS look', () {
     for (final name in [
       'player_page.panels.dart',
