@@ -67,7 +67,7 @@ class NativeBarItem {
     this.hidden = false,
     this.extent,
     this.size,
-    this.glyph = 20,
+    this.glyph = 17,
     this.fontSize = 12,
     this.hasGlyph = true,
     this.group = 0,
@@ -147,7 +147,7 @@ class NativeGlassBar extends StatefulWidget {
     this.spread = BarSpread.packed,
     this.maxExtent = double.infinity,
     this.accent = const Color(0xFFFFFFFF),
-    this.dim = const Color(0x38000000),
+    this.dim = const Color(0x00000000),
     this.onMenuOpen,
     this.onMenuClose,
   });

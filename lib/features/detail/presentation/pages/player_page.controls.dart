@@ -1442,7 +1442,7 @@ extension _PlayerControls on _PlayerPageState {
           hidden: shown == null,
           enabled: enabled,
           extent: 52,
-          glyph: 22,
+          glyph: 17,
           onPressed: () => _partyEpisodeNav(to),
         );
     return _Selected<(bool, bool)>(
@@ -1473,7 +1473,7 @@ extension _PlayerControls on _PlayerPageState {
                   symbol: rewindSymbol(step),
                   semanticLabel: 'player.rewind_by'.tr(args: ['$step']),
                   extent: 52,
-                  glyph: 24,
+                  glyph: 22,
                   onPressed: rewind,
                 ),
                 NativeBarItem(
@@ -1482,7 +1482,7 @@ extension _PlayerControls on _PlayerPageState {
                   semanticLabel: (state.$1 ? 'player.pause' : 'player.play')
                       .tr(),
                   extent: 72,
-                  glyph: 32,
+                  glyph: 28,
                   prominent: true,
                   busy: state.$2,
                   onPressed: _togglePlay,
@@ -1492,7 +1492,7 @@ extension _PlayerControls on _PlayerPageState {
                   symbol: forwardSymbol(step),
                   semanticLabel: 'player.forward_by'.tr(args: ['$step']),
                   extent: 52,
-                  glyph: 24,
+                  glyph: 22,
                   onPressed: forward,
                 ),
                 if (episodes)
@@ -1621,7 +1621,7 @@ extension _PlayerControls on _PlayerPageState {
         symbol: playerSymbol('unlock'),
         title: 'player.tap_to_unlock'.tr(),
         semanticLabel: 'player.tap_to_unlock'.tr(),
-        glyph: 16,
+        glyph: 13,
         onPressed: _unlock,
       ),
     ],

@@ -81,7 +81,7 @@ private final class BarRoot: UIView {
   var buttons: [BarButton] = []
 
   override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-    guard alpha > 0.01 else { return false }
+    guard !isHidden else { return false }
     return buttons.contains {
       !$0.isHidden && $0.point(inside: convert(point, to: $0), with: event)
     }
@@ -204,7 +204,7 @@ final class NativePlayerBarView: NSObject, FlutterPlatformView {
   private let channel: FlutterMethodChannel
 
   private var look = "capsule"
-  private var dim = UIColor.black.withAlphaComponent(0.22)
+  private var dim = UIColor.clear
   private var ids: [String] = []
   private var items: [String: [String: Any]] = [:]
   private var buttons: [String: BarButton] = [:]
@@ -213,7 +213,9 @@ final class NativePlayerBarView: NSObject, FlutterPlatformView {
   init(frame: CGRect, id: Int64, args: [String: Any], messenger: FlutterBinaryMessenger) {
     root = BarRoot(frame: frame)
     let effect = UIGlassContainerEffect()
-    effect.spacing = 8
+    // Separate circles at 12 apart, as the system's own glass buttons
+    // stand; closer, they melt into one shape too soon.
+    effect.spacing = 12
     container = UIVisualEffectView(effect: effect)
     channel = FlutterMethodChannel(
       name: "\(NativePlayerBar.viewType)/\(id)", binaryMessenger: messenger)
@@ -226,8 +228,7 @@ final class NativePlayerBarView: NSObject, FlutterPlatformView {
     container.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     root.addSubview(container)
     setItems(args)
-    let shown = args["shown"] as? Bool ?? true
-    root.alpha = shown ? 1 : 0
+    root.isHidden = !(args["shown"] as? Bool ?? true)
     channel.setMethodCallHandler { [weak self] call, result in
       self?.handle(call, result: result)
     }
@@ -256,18 +257,45 @@ final class NativePlayerBarView: NSObject, FlutterPlatformView {
     case "setShown":
       let shown = args["shown"] as? Bool ?? true
       let ms = (args["ms"] as? NSNumber)?.doubleValue ?? 0
-      let target: CGFloat = shown ? 1 : 0
-      if ms <= 0 {
-        root.alpha = target
-      } else {
-        UIView.animate(
-          withDuration: ms / 1000, delay: 0,
-          options: [.beginFromCurrentState, .curveEaseInOut, .allowUserInteraction]
-        ) { self.root.alpha = target }
-      }
+      setShown(shown, seconds: ms / 1000)
       result(nil)
     default:
       result(FlutterMethodNotImplemented)
+    }
+  }
+
+  /// Shows or hides the bar without an alpha on the glass: a
+  /// UIVisualEffectView, or anything above it, at an alpha below 1 draws its
+  /// effect wrongly or not at all. The capsules dematerialise by losing their
+  /// effect inside the animation, the buttons fade, and the hidden bar leaves
+  /// the window's rendering altogether.
+  private func setShown(_ shown: Bool, seconds: Double) {
+    let glass = { () -> UIGlassEffect in
+      let g = UIGlassEffect(style: .clear)
+      g.isInteractive = false
+      g.tintColor = self.dim.cgColor.alpha > 0 ? self.dim : nil
+      return g
+    }
+    if shown {
+      guard root.isHidden else { return }
+      capsules.forEach { $0.effect = nil }
+      buttons.values.forEach { $0.alpha = 0 }
+      root.isHidden = false
+      UIView.animate(withDuration: seconds, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
+        self.capsules.forEach { $0.effect = glass() }
+        self.buttons.values.forEach { $0.alpha = 1 }
+      }
+    } else {
+      guard !root.isHidden else { return }
+      UIView.animate(withDuration: seconds, delay: 0, options: [.curveEaseIn, .beginFromCurrentState]) {
+        self.capsules.forEach { $0.effect = nil }
+        self.buttons.values.forEach { $0.alpha = 0 }
+      } completion: { _ in
+        guard self.buttons.values.allSatisfy({ $0.alpha == 0 }) else { return }
+        self.root.isHidden = true
+        self.capsules.forEach { $0.effect = glass() }
+        self.buttons.values.forEach { $0.alpha = 1 }
+      }
     }
   }
 
@@ -352,10 +380,12 @@ final class NativePlayerBarView: NSObject, FlutterPlatformView {
       capsules.removeLast().removeFromSuperview()
     }
     for capsule in capsules
-    where (capsule.effect as? UIGlassEffect)?.tintColor != dim {
+    where capsule.effect == nil || (capsule.effect as? UIGlassEffect)?.tintColor != (dim.cgColor.alpha > 0 ? dim : nil) {
       let glass = UIGlassEffect(style: .clear)
       glass.isInteractive = false
-      glass.tintColor = dim
+      // Apple's material as it is: a dark wash turns the glass into a pill.
+      // Only a caller that needs the contrast (the unlock pill) sends one.
+      glass.tintColor = dim.cgColor.alpha > 0 ? dim : nil
       capsule.effect = glass
     }
     for (i, rect) in rects.enumerated() {
@@ -395,7 +425,7 @@ final class NativePlayerBarView: NSObject, FlutterPlatformView {
     // The colour is baked into the glyph: a glass configuration recolours a
     // template image with its own foreground, which lost the active accent.
     if let name = item["symbol"] as? String, !name.isEmpty {
-      let symbol = UIImage.SymbolConfiguration(pointSize: glyph, weight: .semibold)
+      let symbol = UIImage.SymbolConfiguration(pointSize: glyph, weight: .medium)
       if let image = UIImage(systemName: name, withConfiguration: symbol) {
         config.image = image.withTintColor(tint, renderingMode: .alwaysOriginal)
       } else {
