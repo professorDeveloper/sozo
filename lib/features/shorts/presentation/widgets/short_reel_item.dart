@@ -378,6 +378,13 @@ class _ShortReelItemState extends State<ShortReelItem>
             child: Image.network(
               thumb,
               fit: BoxFit.cover,
+              // Blurred behind the video: a third of the screen's pixels is
+              // more than the blur leaves visible.
+              cacheWidth:
+                  (MediaQuery.sizeOf(context).width *
+                          MediaQuery.devicePixelRatioOf(context) /
+                          3)
+                      .round(),
               errorBuilder: (_, e, s) => const ColoredBox(color: Colors.black),
             ),
           ),
@@ -685,6 +692,8 @@ class _ShortReelItemState extends State<ShortReelItem>
                 Image.network(
                   s.contentThumbnail,
                   fit: BoxFit.cover,
+                  cacheWidth: (48 * MediaQuery.devicePixelRatioOf(context))
+                      .round(),
                   errorBuilder: (_, e, st) => Container(
                     color: AppColors.surfaceVariant,
                     child: const Icon(
@@ -860,6 +869,9 @@ class _ShortReelItemState extends State<ShortReelItem>
                     ? Image.network(
                         s.contentThumbnail,
                         fit: BoxFit.cover,
+                        cacheWidth:
+                            (36 * MediaQuery.devicePixelRatioOf(context))
+                                .round(),
                         errorBuilder: (_, e, st) => const Center(
                           child: Icon(
                             Icons.movie_rounded,

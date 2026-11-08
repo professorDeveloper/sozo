@@ -1,7 +1,6 @@
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/catalogue_logo.dart';
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +19,7 @@ import 'package:soplay/features/notifications/domain/repositories/notifications_
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/profile/presentation/widgets/provider_quick_switch.dart';
+import 'package:soplay/core/glass/reducible_blur.dart';
 
 class HomeTopBar extends StatelessWidget {
   const HomeTopBar({super.key, required this.blurProgress});
@@ -110,8 +110,9 @@ class _TopBarBackground extends StatelessWidget {
     }
 
     return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14 * progress, sigmaY: 14 * progress),
+      child: ReducibleBlur(
+        sigma: 14 * progress,
+        reducedFill: AppColors.navBackground.withValues(alpha: 0.2 * progress),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: AppColors.navBackground.withValues(alpha: 0.72 * progress),

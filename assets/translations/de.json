@@ -34,7 +34,9 @@
     "remove": "Entfernen",
     "show": "Anzeigen",
     "hide": "Ausblenden",
-    "installed": "Installiert"
+    "installed": "Installiert",
+    "load_more_failed": "Mehr konnte nicht geladen werden",
+    "go_home": "Zur Startseite"
   },
   "auth": {
     "login": "Anmelden",
@@ -600,7 +602,9 @@
     "try_mpv": "Mit der mpv-Engine versuchen",
     "ok_to_skip": "OK zum Überspringen",
     "quality_lowered": "Qualität reduziert",
-    "undo": "Rückgängig"
+    "undo": "Rückgängig",
+    "crash_log": "Absturzprotokoll",
+    "crash_log_empty": "Keine Abstürze aufgezeichnet"
   },
   "profile": {
     "title": "Profil",
@@ -2082,7 +2086,8 @@
     "title": "Meine Listen",
     "remove": "Entfernen",
     "empty_title": "Noch nichts gespeichert",
-    "empty_subtitle": "Titel, die du speicherst, erscheinen hier."
+    "empty_subtitle": "Titel, die du speicherst, erscheinen hier.",
+    "load_failed": "Diese Liste konnte nicht geladen werden."
   },
   "torrent": {
     "title": "Torrents",
@@ -3164,7 +3169,8 @@
     "error_attachment_count": "Höchstens 5 Screenshots pro Nachricht.",
     "suggest": "Passiert das öfter? Schreib dem Support",
     "error_offline": "Du bist offline oder die Verbindung ist abgebrochen. Prüfe dein Internet und versuche es erneut.",
-    "not_sent": "Nicht gesendet: {}"
+    "not_sent": "Nicht gesendet: {}",
+    "diag_crash_log": "Absturzprotokoll ansehen"
   },
   "zangetsu": {
     "title": "Zangetsu-Quellen",

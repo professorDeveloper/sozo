@@ -14,6 +14,7 @@ import 'package:soplay/features/home/presentation/bloc/view_all/view_all_state.d
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/home/presentation/widgets/home_ui_helpers.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
+import 'package:soplay/core/widgets/load_more_failed_footer.dart';
 
 class ActorArgs {
   final String id;
@@ -304,6 +305,7 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
             childCount: state.items.length,
           ),
           gridDelegate: responsiveGridDelegate(
+            context: context,
             mobileCrossAxisCount: 3,
             mainAxisSpacing: 14,
             crossAxisSpacing: 8,
@@ -324,6 +326,14 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
                   color: AppColors.primary,
                 ),
               ),
+            ),
+          ),
+        ),
+      if (state.loadMoreFailed)
+        SliverToBoxAdapter(
+          child: LoadMoreFailedFooter(
+            onRetry: () => context.read<ViewAllBloc>().add(
+              ViewAllLoadMore(retry: true),
             ),
           ),
         ),

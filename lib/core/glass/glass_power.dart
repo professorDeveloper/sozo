@@ -143,6 +143,18 @@ final class GlassPowerReading {
   }
 
   /// What one frame has on this phone's panel ([GlassStepDown]).
+  /// Whether the always-on blurs (nav bars, scroll headers) should give way
+  /// to a plain translucent fill. Narrower than [affordsRefraction]: a phone
+  /// that only lacks Vulkan blurs fine, while a small, Go or GL ES 2 phone, or
+  /// one in Battery Saver, pays for every blurred frame.
+  bool get reducesEffects {
+    if (lowRam) return true;
+    if (powerSave) return true;
+    if (glEs != null && glEs! < 3) return true;
+    if (memoryBytes != null && memoryBytes! < leastMemoryBytes) return true;
+    return false;
+  }
+
   GlassFrameBudget get budget => refreshHz == null
       ? GlassFrameBudget.sixty
       : GlassFrameBudget.ofRefreshRate(refreshHz!);
@@ -227,6 +239,19 @@ class GlassPower extends StatefulWidget {
   /// frame was drawn, and what the frames it drew then showed
   /// ([GlassFrameWatch]). Both are read off the scope rather than one off a
   /// static, so that a glass depending on this is told when either turns.
+  /// See [GlassPowerReading.reducesEffects].
+  static bool reducesEffectsAt(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_GlassPowerScope>()
+          ?.reading
+          .reducesEffects ??
+      false;
+
+  /// Puts [reading] in scope without asking the platform.
+  @visibleForTesting
+  static Widget withReading(GlassPowerReading reading, {required Widget child}) =>
+      _GlassPowerScope(reading: reading, steppedDown: false, child: child);
+
   static bool affordsAt(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_GlassPowerScope>()?.affords ??
       true;
@@ -333,7 +358,9 @@ class _GlassPowerScope extends InheritedWidget {
   /// that changed in some field the gate does not look at — a core count, a
   /// refresh rate — is no reason to build every glass on the screen again.
   @override
-  bool updateShouldNotify(_GlassPowerScope old) => old.affords != affords;
+  bool updateShouldNotify(_GlassPowerScope old) =>
+      old.affords != affords ||
+      old.reading.reducesEffects != reading.reducesEffects;
 }
 
 /// The measured half of the gate: whether the phone the gate let through is

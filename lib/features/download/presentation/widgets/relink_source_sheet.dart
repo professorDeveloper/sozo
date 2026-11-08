@@ -397,6 +397,9 @@ class _SourceRow extends StatelessWidget {
                           imageUrl: poster,
                           httpHeaders: posterImageHeaders(poster),
                           fit: BoxFit.cover,
+                          memCacheWidth:
+                              (52 * MediaQuery.devicePixelRatioOf(context))
+                                  .round(),
                           errorWidget: (_, _, _) => const Icon(
                             Icons.broken_image_outlined,
                             color: AppColors.textHint,

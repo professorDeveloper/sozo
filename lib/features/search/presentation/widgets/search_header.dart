@@ -1,9 +1,9 @@
-import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
+import 'package:soplay/core/glass/reducible_blur.dart';
 
 class SearchStickyHeader extends StatelessWidget {
   const SearchStickyHeader({
@@ -124,8 +124,8 @@ class SearchStickyHeader extends StatelessWidget {
     if (!blurred) return surface;
 
     return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20 * progress, sigmaY: 20 * progress),
+      child: ReducibleBlur(
+        sigma: 20 * progress,
         child: surface,
       ),
     );

@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -10,10 +9,15 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/sources/domain/source_failure.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/features/home/presentation/bloc/view_all/view_all_bloc.dart';
+import 'package:soplay/features/home/presentation/bloc/view_all/view_all_event.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_state.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/home/presentation/widgets/home_ui_helpers.dart';
 import 'package:soplay/core/widgets/poster_hero.dart';
+import 'package:soplay/core/glass/reducible_blur.dart';
+import 'package:soplay/core/widgets/load_more_failed_footer.dart';
 
 class ViewAllAppBar extends StatelessWidget {
   const ViewAllAppBar({
@@ -75,8 +79,9 @@ class ViewAllAppBar extends StatelessWidget {
     if (progress < 0.01) return content;
 
     return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20 * progress, sigmaY: 20 * progress),
+      child: ReducibleBlur(
+        sigma: 20 * progress,
+        reducedFill: AppColors.background.withValues(alpha: 0.08 * progress),
         child: content,
       ),
     );
@@ -147,6 +152,7 @@ class ViewAllGrid extends StatelessWidget {
               childCount: state.items.length,
             ),
             gridDelegate: responsiveGridDelegate(
+              context: context,
               mobileCrossAxisCount: 3,
               // 14 read as a gap between unrelated blocks rather than the
               // seam between two rows of one grid.
@@ -169,6 +175,14 @@ class ViewAllGrid extends StatelessWidget {
                     color: AppColors.primary,
                   ),
                 ),
+              ),
+            ),
+          ),
+        if (state.loadMoreFailed)
+          SliverToBoxAdapter(
+            child: LoadMoreFailedFooter(
+              onRetry: () => context.read<ViewAllBloc>().add(
+                ViewAllLoadMore(retry: true),
               ),
             ),
           ),
@@ -354,6 +368,7 @@ class ViewAllSkeleton extends StatelessWidget {
                 childCount: 15,
               ),
               gridDelegate: responsiveGridDelegate(
+                context: context,
                 mobileCrossAxisCount: 3,
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 8,

@@ -44,6 +44,7 @@ class DetailCastTab extends StatelessWidget {
               // 0.78 left the cell exactly as tall as its contents, so any
               // two-line name or a bumped system font size overflowed it.
               gridDelegate: responsiveGridDelegate(
+                context: context,
                 mobileCrossAxisCount: 3,
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 14,

@@ -34,7 +34,9 @@
     "remove": "Retirer",
     "show": "Afficher",
     "hide": "Masquer",
-    "installed": "Installé"
+    "installed": "Installé",
+    "load_more_failed": "Impossible d’en charger plus",
+    "go_home": "Retour à l’accueil"
   },
   "auth": {
     "login": "Connexion",
@@ -600,7 +602,9 @@
     "try_mpv": "Essayer avec le moteur mpv",
     "ok_to_skip": "OK pour passer",
     "quality_lowered": "Qualité réduite",
-    "undo": "Annuler"
+    "undo": "Annuler",
+    "crash_log": "Journal des plantages",
+    "crash_log_empty": "Aucun plantage enregistré"
   },
   "profile": {
     "title": "Profil",
@@ -2082,7 +2086,8 @@
     "title": "Mes listes",
     "remove": "Retirer",
     "empty_title": "Rien d’enregistré pour l’instant",
-    "empty_subtitle": "Les titres que tu enregistres apparaissent ici."
+    "empty_subtitle": "Les titres que tu enregistres apparaissent ici.",
+    "load_failed": "Impossible de charger cette liste."
   },
   "torrent": {
     "title": "Torrents",
@@ -3164,7 +3169,8 @@
     "error_attachment_count": "5 captures maximum par message.",
     "suggest": "Ça se reproduit ? Écris au support",
     "error_offline": "Vous êtes hors ligne ou la connexion a été coupée. Vérifiez votre connexion et réessayez.",
-    "not_sent": "Non envoyé : {}"
+    "not_sent": "Non envoyé : {}",
+    "diag_crash_log": "Voir le journal des plantages"
   },
   "zangetsu": {
     "title": "Sources Zangetsu",

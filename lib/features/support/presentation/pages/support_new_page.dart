@@ -13,6 +13,7 @@ import 'package:soplay/features/support/data/support_models.dart';
 import 'package:soplay/features/support/data/support_repository.dart';
 import 'package:soplay/features/support/presentation/support_style.dart';
 import 'package:soplay/features/support/presentation/widgets/support_screenshots.dart';
+import 'package:soplay/core/diagnostics/log_viewer_sheet.dart';
 
 /// A new request to support.
 ///
@@ -419,6 +420,14 @@ class _DiagnosticsCard extends StatelessWidget {
                           fontSize: 12.5,
                         ),
                       ),
+                    ),
+                  if (log != null &&
+                      log.contains(SupportDiagnostics.crashHeader))
+                    TextButton.icon(
+                      onPressed: () =>
+                          LogViewerSheet.show(context, crash: true),
+                      icon: const Icon(Icons.report_rounded, size: 18),
+                      label: Text('support.diag_crash_log'.tr()),
                     ),
                 ],
               ),
