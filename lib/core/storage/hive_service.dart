@@ -618,9 +618,21 @@ class HiveService {
   }
 
   /// How the player's controls are drawn on an iPhone; stored by name.
-  PlayerControlsStyle get playerControlsStyle => PlayerControlsStyle.fromName(
-    _settingsBox.get(AppConstants.playerControlsStyleKey),
-  );
+  PlayerControlsStyle get playerControlsStyle =>
+      storedPlayerControlsStyle ?? PlayerControlsStyle.fallback;
+
+  /// The style the viewer chose, or null when they never have.
+  PlayerControlsStyle? get storedPlayerControlsStyle {
+    final raw = _settingsBox.get(AppConstants.playerControlsStyleKey);
+    return raw == null ? null : PlayerControlsStyle.fromName(raw);
+  }
+
+  /// Whether the player has offered the native controls already.
+  bool get nativeControlsOffered =>
+      _settingsBox.get(AppConstants.nativeControlsOfferedKey) == true;
+
+  Future<void> markNativeControlsOffered() =>
+      _settingsBox.put(AppConstants.nativeControlsOfferedKey, true);
 
   Future<void> setPlayerControlsStyle(PlayerControlsStyle style) =>
       _settingsBox.put(AppConstants.playerControlsStyleKey, style.name);

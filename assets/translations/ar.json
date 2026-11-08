@@ -587,7 +587,11 @@
     "reaction_text_hint": "اكتب شيئاً قصيراً…",
     "reaction_wait": "انتظر بضع ثوانٍ قبل التفاعل مجدداً",
     "reaction_limit": "وصلت إلى حد التفاعلات لهذه الحلقة",
-    "reaction_failed": "تعذّر إرسال التفاعل"
+    "reaction_failed": "تعذّر إرسال التفاعل",
+    "native_offer_title": "هل تريد تجربة المشغّل الجديد؟",
+    "native_offer_body": "أزرار وقوائم Liquid Glass من Apple. يمكنك تغيير ذلك في أي وقت من الإعدادات ← المشغّل.",
+    "native_offer_try": "جرّبه",
+    "native_offer_not_now": "ليس الآن"
   },
   "profile": {
     "title": "حسابي",

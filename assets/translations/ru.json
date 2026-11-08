@@ -587,7 +587,11 @@
     "reaction_text_hint": "Коротко…",
     "reaction_wait": "Подождите несколько секунд перед следующей реакцией",
     "reaction_limit": "Лимит реакций для этой серии исчерпан",
-    "reaction_failed": "Не удалось отправить реакцию"
+    "reaction_failed": "Не удалось отправить реакцию",
+    "native_offer_title": "Попробовать новый плеер?",
+    "native_offer_body": "Кнопки и меню Liquid Glass от Apple. Это можно изменить в любой момент в Настройки → Плеер.",
+    "native_offer_try": "Попробовать",
+    "native_offer_not_now": "Не сейчас"
   },
   "profile": {
     "title": "Профиль",

@@ -587,7 +587,11 @@
     "reaction_text_hint": "Kurz etwas sagen…",
     "reaction_wait": "Warte ein paar Sekunden, bevor du erneut reagierst",
     "reaction_limit": "Du hast das Reaktionslimit für diese Folge erreicht",
-    "reaction_failed": "Reaktion konnte nicht gesendet werden"
+    "reaction_failed": "Reaktion konnte nicht gesendet werden",
+    "native_offer_title": "Den neuen Player ausprobieren?",
+    "native_offer_body": "Apples Liquid-Glass-Bedienelemente und -Menüs. Du kannst das jederzeit unter Einstellungen → Player ändern.",
+    "native_offer_try": "Ausprobieren",
+    "native_offer_not_now": "Nicht jetzt"
   },
   "profile": {
     "title": "Profil",

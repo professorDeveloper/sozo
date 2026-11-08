@@ -41,13 +41,16 @@ PlayerControlsStyle _effective(
   reduceTransparency: rt,
 );
 
-bool _mediaNative(PlayerControlsStyle style, NativeGlassCapability cap, bool rt) =>
-    mediaGlassGoesNative(
-      platform: TargetPlatform.iOS,
-      capability: cap,
-      reduceTransparency: rt,
-      style: style,
-    );
+bool _mediaNative(
+  PlayerControlsStyle style,
+  NativeGlassCapability cap,
+  bool rt,
+) => mediaGlassGoesNative(
+  platform: TargetPlatform.iOS,
+  capability: cap,
+  reduceTransparency: rt,
+  style: style,
+);
 
 void main() {
   const native = PlayerControlsStyle.native;
@@ -71,15 +74,18 @@ void main() {
     };
     expected.forEach((key, want) {
       final (chosen, ios26, rt) = key;
-      test('${chosen.name}, iOS ${ios26 ? 26 : 18}, RT $rt -> ${want.name}', () {
-        final cap = ios26 ? _ios26 : _ios18;
-        expect(_effective(chosen, cap: cap, rt: rt), want);
-        // The media glass is the phone's own only on the two iOS 26 styles.
-        expect(
-          _mediaNative(chosen, cap, rt),
-          want == native || want == system,
-        );
-      });
+      test(
+        '${chosen.name}, iOS ${ios26 ? 26 : 18}, RT $rt -> ${want.name}',
+        () {
+          final cap = ios26 ? _ios26 : _ios18;
+          expect(_effective(chosen, cap: cap, rt: rt), want);
+          // The media glass is the phone's own only on the two iOS 26 styles.
+          expect(
+            _mediaNative(chosen, cap, rt),
+            want == native || want == system,
+          );
+        },
+      );
     });
   });
 
@@ -111,13 +117,81 @@ void main() {
     expect(playerControlsStyleAvailable(classic, _ios18), isTrue);
   });
 
-  test('the stored name reads back, and anything else is native', () {
-    for (final s in PlayerControlsStyle.values) {
-      expect(PlayerControlsStyle.fromName(s.name), s);
-    }
-    expect(PlayerControlsStyle.fromName(null), native);
-    expect(PlayerControlsStyle.fromName('glass'), native);
-    expect(PlayerControlsStyle.fromName(3), native);
+  test(
+    'the stored name reads back, and anything else is the classic glass',
+    () {
+      expect(PlayerControlsStyle.fallback, classic);
+      for (final s in PlayerControlsStyle.values) {
+        expect(PlayerControlsStyle.fromName(s.name), s);
+      }
+      expect(PlayerControlsStyle.fromName(null), classic);
+      expect(PlayerControlsStyle.fromName('glass'), classic);
+      expect(PlayerControlsStyle.fromName(3), classic);
+    },
+  );
+
+  group('the one-time native offer', () {
+    bool offer({
+      bool isIOS = true,
+      bool isTv = false,
+      bool isDesktop = false,
+      NativeGlassCapability cap = _ios26,
+      bool rt = false,
+      PlayerControlsStyle? stored,
+      bool shown = false,
+    }) => shouldOfferNativeControls(
+      isIOS: isIOS,
+      isTv: isTv,
+      isDesktop: isDesktop,
+      cap: cap,
+      reduceTransparency: rt,
+      stored: stored,
+      alreadyOffered: shown,
+    );
+
+    test('offered on iOS 26 to a viewer who never chose', () {
+      expect(offer(), isTrue);
+    });
+
+    test('never off an iPhone or iPad', () {
+      expect(offer(isIOS: false), isFalse);
+      expect(offer(isTv: true), isFalse);
+      expect(offer(isDesktop: true), isFalse);
+    });
+
+    test('never where native cannot be drawn', () {
+      expect(offer(cap: _ios18), isFalse);
+      expect(offer(cap: NativeGlassCapability.absent), isFalse);
+      const noBars = NativeGlassCapability(
+        systemVersion: '26.0',
+        majorVersion: 26,
+        systemGlass: true,
+        styles: {'regular', 'clear'},
+        materials: {'thin'},
+        reduceTransparency: false,
+      );
+      expect(offer(cap: noBars), isFalse);
+    });
+
+    test('never under Reduce Transparency', () {
+      expect(offer(rt: true), isFalse);
+    });
+
+    test('never once a style is stored', () {
+      for (final s in PlayerControlsStyle.values) {
+        expect(offer(stored: s), isFalse, reason: s.name);
+      }
+    });
+
+    test('never twice', () {
+      expect(offer(shown: true), isFalse);
+    });
+
+    test('Try it is native; Not now and any dismissal are classic', () {
+      expect(nativeOfferOutcome(true), native);
+      expect(nativeOfferOutcome(false), classic);
+      expect(nativeOfferOutcome(null), classic);
+    });
   });
 
   test('no style keeps the old media glass decision', () {

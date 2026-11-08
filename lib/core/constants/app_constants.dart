@@ -288,6 +288,7 @@ class AppConstants {
   /// Open the player without starting it.
   static const String startPausedKey = 'start_paused';
   static const String playerControlsStyleKey = 'player_controls_style';
+  static const String nativeControlsOfferedKey = 'native_controls_offered';
   static const String doubleTapSeekSecondsKey = 'double_tap_seek_seconds';
   static const String longPressBoostKey = 'long_press_boost';
   static const String brightnessGestureKey = 'brightness_gesture';

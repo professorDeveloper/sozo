@@ -587,7 +587,11 @@
     "reaction_text_hint": "講句簡短嘅…",
     "reaction_wait": "等幾秒先再反應",
     "reaction_limit": "呢集嘅反應已經到上限",
-    "reaction_failed": "送唔到個反應"
+    "reaction_failed": "送唔到個反應",
+    "native_offer_title": "試吓新播放器？",
+    "native_offer_body": "Apple 嘅 Liquid Glass 控制同選單。你隨時可以喺 設定 → 播放器 度改返。",
+    "native_offer_try": "試吓",
+    "native_offer_not_now": "遲啲先"
   },
   "profile": {
     "title": "個人檔案",

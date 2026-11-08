@@ -587,7 +587,11 @@
     "reaction_text_hint": "कुछ छोटा लिखें…",
     "reaction_wait": "फिर से प्रतिक्रिया देने से पहले कुछ सेकंड रुकें",
     "reaction_limit": "इस एपिसोड के लिए प्रतिक्रियाओं की सीमा पूरी हो गई",
-    "reaction_failed": "प्रतिक्रिया नहीं भेजी जा सकी"
+    "reaction_failed": "प्रतिक्रिया नहीं भेजी जा सकी",
+    "native_offer_title": "नया प्लेयर आज़माएँ?",
+    "native_offer_body": "Apple के Liquid Glass कंट्रोल और मेन्यू। आप इसे कभी भी सेटिंग्स → प्लेयर में बदल सकते हैं।",
+    "native_offer_try": "आज़माएँ",
+    "native_offer_not_now": "अभी नहीं"
   },
   "profile": {
     "title": "प्रोफ़ाइल",

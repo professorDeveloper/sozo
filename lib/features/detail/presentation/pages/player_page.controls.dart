@@ -76,6 +76,7 @@ extension _PlayerControls on _PlayerPageState {
     if (_controlsVisible) {
       _controlsAnimation.forward();
       _scheduleHide();
+      _maybeOfferNativeControls();
     } else {
       _controlsAnimation.reverse();
       _hideTimer?.cancel();

@@ -587,7 +587,11 @@
     "reaction_text_hint": "Say something short…",
     "reaction_wait": "Wait a few seconds before reacting again",
     "reaction_limit": "You've reached the reaction limit for this episode",
-    "reaction_failed": "Couldn't send the reaction"
+    "reaction_failed": "Couldn't send the reaction",
+    "native_offer_title": "Try the new player?",
+    "native_offer_body": "Apple's Liquid Glass controls and menus. You can change this anytime in Settings → Player.",
+    "native_offer_try": "Try it",
+    "native_offer_not_now": "Not now"
   },
   "profile": {
     "title": "Profile",

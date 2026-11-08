@@ -587,7 +587,11 @@
     "reaction_text_hint": "شتێکی کورت بنووسە…",
     "reaction_wait": "چەند چرکەیەک چاوەڕێ بکە پێش کاردانەوەی دووبارە",
     "reaction_limit": "گەیشتیتە سنووری کاردانەوەکان بۆ ئەم ئەڵقەیە",
-    "reaction_failed": "نەتوانرا کاردانەوەکە بنێردرێت"
+    "reaction_failed": "نەتوانرا کاردانەوەکە بنێردرێت",
+    "native_offer_title": "لێدەری نوێ تاقی دەکەیتەوە؟",
+    "native_offer_body": "دوگمە و لیستەکانی Liquid Glassی Apple. هەر کاتێک دەتوانیت لە ڕێکخستنەکان ← لێدەر بیگۆڕیت.",
+    "native_offer_try": "تاقیکردنەوە",
+    "native_offer_not_now": "ئێستا نا"
   },
   "profile": {
     "title": "پرۆفایل",

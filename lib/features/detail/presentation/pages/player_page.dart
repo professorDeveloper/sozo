@@ -82,6 +82,7 @@ import 'package:soplay/core/native/player_controls_style.dart';
 import 'package:soplay/core/native/native_glass_bar.dart';
 import 'package:soplay/core/native/sf_symbols.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_control_face.dart';
+import 'package:soplay/features/detail/presentation/widgets/native_controls_offer.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_menus.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_sheet_look.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
@@ -172,6 +173,7 @@ part 'player_page.upnext.dart';
 part 'player_page.reactions.dart';
 part 'player_page.menus.dart';
 part 'player_page.sheets.dart';
+part 'player_page.native_offer.dart';
 
 /// Hard ceiling on auto-retries per episode — see [_PlayerPageState._lifetimeRetries].
 const int _kMaxLifetimeRetries = RetryPolicy.maxLifetimeRetries;
@@ -505,8 +507,11 @@ class _PlayerPageState extends State<PlayerPage>
   bool _nativeControls = false;
   bool? _nativeDecidedUnder;
 
-  /// Settings → Player → Controls style, read once as the page opens.
-  late final PlayerControlsStyle _controlsStyle = _hive.playerControlsStyle;
+  /// Settings → Player → Controls style, read once as the page opens; only
+  /// a yes to the one-time offer changes it while the page is up.
+  late PlayerControlsStyle _controlsStyle = _hive.playerControlsStyle;
+  bool _nativeOfferPending = true;
+  bool _nativeOfferOpen = false;
 
   /// The small players draw no native bars: the corner player is moved and
   /// clipped as a whole, which a hosted view cannot follow.

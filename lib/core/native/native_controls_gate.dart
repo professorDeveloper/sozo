@@ -79,6 +79,22 @@ abstract final class NativeControls {
       ) ==
       PlayerControlsStyle.native;
 
+  /// Whether to offer the native controls once, on the same switches as
+  /// [decide].
+  static bool shouldOffer(
+    BuildContext context, {
+    required PlayerControlsStyle? stored,
+    required bool alreadyOffered,
+  }) => shouldOfferNativeControls(
+    isIOS: defaultTargetPlatform == TargetPlatform.iOS,
+    isTv: isTvPlatform,
+    isDesktop: debugNativeControlsDesktopOverride ?? isDesktopPlatform,
+    cap: capabilityOf(context),
+    reduceTransparency: GlassSense.reduceTransparencyOf(context),
+    stored: stored,
+    alreadyOffered: alreadyOffered,
+  );
+
   /// What the phone said, or [NativeGlassCapability.absent] before it has.
   static NativeGlassCapability capabilityOf(BuildContext context) =>
       NativeGlassScope.of(context) ?? _known ?? NativeGlassCapability.absent;

@@ -167,6 +167,20 @@ void main() {
     );
   });
 
+  test('a yes to the offer swaps the controls in place', () {
+    final source = read('player_page.native_offer.dart');
+    expect(source, contains('NativeControls.decide(context, chosen: style)'));
+    expect(source, contains('_controlsStyle = style;'));
+    expect(
+      read('player_page.controls.dart'),
+      contains('_maybeOfferNativeControls();'),
+    );
+    expect(
+      read('player_page.media.dart'),
+      contains('_maybeOfferNativeControls();'),
+    );
+  });
+
   test('every player sheet goes through the one that knows the iOS look', () {
     for (final name in [
       'player_page.panels.dart',

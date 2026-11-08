@@ -2106,6 +2106,7 @@ extension _PlayerMedia on _PlayerPageState {
       _wasBuffering = v.isBuffering;
       changed = true;
     }
+    _maybeOfferNativeControls();
 
     if (v.isInitialized && v.duration.inMilliseconds > 0) {
       if (WatchProgress.isWatched(v.position, v.duration)) {

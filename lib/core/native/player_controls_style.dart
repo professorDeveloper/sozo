@@ -15,13 +15,12 @@ enum PlayerControlsStyle {
   /// Flutter's buttons on the Flutter shader glass, with the Flutter sheets.
   classicGlass;
 
-  static const PlayerControlsStyle fallback = PlayerControlsStyle.native;
+  /// The 3.2.1 look, until the viewer picks another.
+  static const PlayerControlsStyle fallback = PlayerControlsStyle.classicGlass;
 
   /// Stored by name; anything unknown reads as [fallback].
-  static PlayerControlsStyle fromName(Object? name) => values.firstWhere(
-    (s) => s.name == name,
-    orElse: () => fallback,
-  );
+  static PlayerControlsStyle fromName(Object? name) =>
+      values.firstWhere((s) => s.name == name, orElse: () => fallback);
 }
 
 /// Whether the phone has the clear system glass (iOS 26+) that the system
@@ -38,6 +37,29 @@ bool playerControlsStyleAvailable(
   PlayerControlsStyle.systemGlass => systemGlassAvailable(cap),
   PlayerControlsStyle.classicGlass => true,
 };
+
+/// Whether the player should offer the native controls once: an iPhone or
+/// iPad that can draw them, a viewer who never chose a style, and an offer
+/// not shown before.
+bool shouldOfferNativeControls({
+  required bool isIOS,
+  required bool isTv,
+  required bool isDesktop,
+  required NativeGlassCapability cap,
+  required bool reduceTransparency,
+  required PlayerControlsStyle? stored,
+  required bool alreadyOffered,
+}) {
+  if (!isIOS || isTv || isDesktop || reduceTransparency) return false;
+  if (stored != null || alreadyOffered) return false;
+  return playerControlsStyleAvailable(PlayerControlsStyle.native, cap);
+}
+
+/// What the offer's answer stores: "Try it" is [PlayerControlsStyle.native],
+/// and "Not now" or any other dismissal keeps the classic glass for good.
+PlayerControlsStyle nativeOfferOutcome(bool? accepted) => accepted == true
+    ? PlayerControlsStyle.native
+    : PlayerControlsStyle.classicGlass;
 
 /// The style the player actually draws for [chosen]: classic glass off an
 /// iPhone, under Reduce Transparency, and below iOS 26. The native choice on

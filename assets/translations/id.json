@@ -587,7 +587,11 @@
     "reaction_text_hint": "Tulis sesuatu yang singkat…",
     "reaction_wait": "Tunggu beberapa detik sebelum bereaksi lagi",
     "reaction_limit": "Kamu sudah mencapai batas reaksi untuk episode ini",
-    "reaction_failed": "Gagal mengirim reaksi"
+    "reaction_failed": "Gagal mengirim reaksi",
+    "native_offer_title": "Coba pemutar baru?",
+    "native_offer_body": "Kontrol dan menu Liquid Glass dari Apple. Anda bisa mengubahnya kapan saja di Pengaturan → Pemutar.",
+    "native_offer_try": "Coba",
+    "native_offer_not_now": "Nanti saja"
   },
   "profile": {
     "title": "Profil",

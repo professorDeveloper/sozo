@@ -587,7 +587,11 @@
     "reaction_text_hint": "Qisqa yozing…",
     "reaction_wait": "Qayta reaksiya bildirishdan oldin bir necha soniya kuting",
     "reaction_limit": "Bu qism uchun reaksiyalar limiti tugadi",
-    "reaction_failed": "Reaksiyani yuborib bo'lmadi"
+    "reaction_failed": "Reaksiyani yuborib bo'lmadi",
+    "native_offer_title": "Yangi pleyerni sinab ko‘rasizmi?",
+    "native_offer_body": "Apple’ning Liquid Glass tugmalari va menyulari. Buni istalgan vaqt Sozlamalar → Pleyer bo‘limida o‘zgartirishingiz mumkin.",
+    "native_offer_try": "Sinab ko‘rish",
+    "native_offer_not_now": "Hozir emas"
   },
   "profile": {
     "title": "Profil",

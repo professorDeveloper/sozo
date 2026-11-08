@@ -587,7 +587,11 @@
     "reaction_text_hint": "Viết ngắn thôi…",
     "reaction_wait": "Chờ vài giây trước khi bày tỏ tiếp",
     "reaction_limit": "Bạn đã đạt giới hạn cảm xúc cho tập này",
-    "reaction_failed": "Không gửi được cảm xúc"
+    "reaction_failed": "Không gửi được cảm xúc",
+    "native_offer_title": "Dùng thử trình phát mới?",
+    "native_offer_body": "Nút điều khiển và menu Liquid Glass của Apple. Bạn có thể thay đổi bất cứ lúc nào trong Cài đặt → Trình phát.",
+    "native_offer_try": "Dùng thử",
+    "native_offer_not_now": "Để sau"
   },
   "profile": {
     "title": "Hồ sơ",

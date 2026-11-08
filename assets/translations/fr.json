@@ -587,7 +587,11 @@
     "reaction_text_hint": "Un mot rapide…",
     "reaction_wait": "Attendez quelques secondes avant de réagir à nouveau",
     "reaction_limit": "Vous avez atteint la limite de réactions pour cet épisode",
-    "reaction_failed": "Impossible d'envoyer la réaction"
+    "reaction_failed": "Impossible d'envoyer la réaction",
+    "native_offer_title": "Essayer le nouveau lecteur ?",
+    "native_offer_body": "Les commandes et menus Liquid Glass d’Apple. Vous pouvez changer cela à tout moment dans Réglages → Lecteur.",
+    "native_offer_try": "Essayer",
+    "native_offer_not_now": "Plus tard"
   },
   "profile": {
     "title": "Profil",

@@ -587,7 +587,11 @@
     "reaction_text_hint": "Iets korts…",
     "reaction_wait": "Wacht een paar seconden voordat je opnieuw reageert",
     "reaction_limit": "Je hebt het reactielimiet voor deze aflevering bereikt",
-    "reaction_failed": "Kon de reactie niet versturen"
+    "reaction_failed": "Kon de reactie niet versturen",
+    "native_offer_title": "De nieuwe speler proberen?",
+    "native_offer_body": "De Liquid Glass-bediening en -menu’s van Apple. Je kunt dit altijd wijzigen via Instellingen → Speler.",
+    "native_offer_try": "Proberen",
+    "native_offer_not_now": "Niet nu"
   },
   "profile": {
     "title": "Profiel",

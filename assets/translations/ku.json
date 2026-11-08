@@ -587,7 +587,11 @@
     "reaction_text_hint": "Tiştekî kurt binivîse…",
     "reaction_wait": "Berî ku dîsa bertek bidî çend saniyan bisekine",
     "reaction_limit": "Te sînorê berteka vê beşê tije kir",
-    "reaction_failed": "Bertek nehat şandin"
+    "reaction_failed": "Bertek nehat şandin",
+    "native_offer_title": "Lêdara nû biceribînî?",
+    "native_offer_body": "Bişkok û menuyên Liquid Glass ên Apple. Tu dikarî vê her dem di Mîheng → Lêdar de biguherînî.",
+    "native_offer_try": "Biceribîne",
+    "native_offer_not_now": "Ne niha"
   },
   "profile": {
     "title": "Profîl",
