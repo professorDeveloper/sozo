@@ -2925,6 +2925,8 @@
     "priming_title": "Ne ratez plus aucun épisode",
     "priming_body": "Sozo vous prévient dès qu’un titre que vous suivez a un nouvel épisode ou chapitre — et rien que vous n’ayez pas demandé.",
     "priming_body_title": "Soyez prévenu dès que « {} » a un nouvel épisode — et rien que vous n’ayez pas demandé.",
+    "priming_download_title": "Sachez quand votre téléchargement est terminé",
+    "priming_download_body": "Sozo affiche la progression du téléchargement dans vos notifications et vous prévient quand il est prêt à regarder hors ligne. Il peut aussi vous signaler les nouveaux épisodes de ce que vous suivez.",
     "priming_point_releases": "Nouveaux épisodes, avec l’affiche",
     "priming_point_quiet": "Heures calmes",
     "priming_point_control": "Coupez n’importe quel titre",

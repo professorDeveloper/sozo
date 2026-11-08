@@ -46,6 +46,9 @@ import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 import 'package:soplay/features/private_list/presentation/private_unlock.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:soplay/core/deeplink/deeplink_links.dart';
+import 'package:soplay/features/download/domain/repositories/download_repository.dart';
+import 'package:soplay/features/notifications/presentation/widgets/notification_priming.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_relations_tab.dart';
 import 'package:soplay/features/detail/domain/entities/source_notice.dart';
@@ -112,6 +115,8 @@ class DetailPage extends StatelessWidget {
         provider: provider,
         autoPlay: args.autoPlay,
         resumeEpisodeIndex: args.resumeEpisodeIndex,
+        startEpisode: args.startEpisode,
+        startPositionMs: args.startPositionMs,
         preview: args.preview,
         heroTag: args.heroTag,
         focusEpisode: args.focusEpisode,
@@ -126,6 +131,8 @@ class _DetailScaffold extends StatelessWidget {
     this.provider,
     this.autoPlay = false,
     this.resumeEpisodeIndex,
+    this.startEpisode,
+    this.startPositionMs,
     this.preview,
     this.heroTag,
     this.focusEpisode,
@@ -134,6 +141,8 @@ class _DetailScaffold extends StatelessWidget {
   final String? provider;
   final bool autoPlay;
   final int? resumeEpisodeIndex;
+  final int? startEpisode;
+  final int? startPositionMs;
 
   /// What the caller already knew about this title — poster, name, year.
   /// Enough to draw the top of the page before the request lands.
@@ -224,6 +233,8 @@ class _DetailScaffold extends StatelessWidget {
                         offline: offline,
                         autoPlay: autoPlay,
                         resumeEpisodeIndex: resumeEpisodeIndex,
+                        startEpisode: startEpisode,
+                        startPositionMs: startPositionMs,
                         heroTag: heroTag,
                         focusEpisode: focusEpisode,
                       );
@@ -284,6 +295,8 @@ class _DetailView extends StatefulWidget {
     this.offline = false,
     this.autoPlay = false,
     this.resumeEpisodeIndex,
+    this.startEpisode,
+    this.startPositionMs,
     this.heroTag,
     this.focusEpisode,
   });
@@ -300,6 +313,10 @@ class _DetailView extends StatefulWidget {
   final bool resolvingSource;
   final bool autoPlay;
   final int? resumeEpisodeIndex;
+
+  /// From a `/play` link. See [DetailArgs.startEpisode].
+  final int? startEpisode;
+  final int? startPositionMs;
   final String? heroTag;
 
   /// The new episode a release notification was about. See
@@ -366,6 +383,18 @@ class _DetailViewState extends State<_DetailView>
   /// this page is somebody choosing to browse.
   late bool _resumeOnOpen =
       widget.autoPlay && widget.resumeEpisodeIndex != null;
+
+  /// A `/play` link's place, spent by the first play it starts.
+  late int? _linkEpisode = widget.startEpisode;
+  late int? _linkPositionMs = widget.startPositionMs;
+
+  /// The link's position if one is still unspent, else [fallback].
+  Duration _startOr(Duration fallback) {
+    final ms = _linkPositionMs;
+    _linkPositionMs = null;
+    _linkEpisode = null;
+    return ms == null ? fallback : Duration(milliseconds: ms);
+  }
 
   @override
   void initState() {
@@ -625,7 +654,9 @@ class _DetailViewState extends State<_DetailView>
         movieUrl: local.url,
         type: local.type,
         showDownloadAction: false,
-        resumePosition: Duration(milliseconds: history?.positionMs ?? 0),
+        resumePosition: _startOr(
+          Duration(milliseconds: history?.positionMs ?? 0),
+        ),
       ),
     );
   }
@@ -788,6 +819,14 @@ class _DetailViewState extends State<_DetailView>
     );
     if (!mounted) return;
     _showSnack(downloadOutcomeMessage(outcome));
+    if (outcome == EnqueueOutcome.started) {
+      unawaited(
+        primeNotificationsForFirstDownload(
+          context,
+          titleHint: widget.detail.title,
+        ),
+      );
+    }
   }
 
   void _toggleMyList() {
@@ -1045,12 +1084,10 @@ class _DetailViewState extends State<_DetailView>
   }
 
   /// The public link to this title — the one Share sends and Copy hands over.
-  String get _shareLink {
-    final params = <String, String>{'url': widget.detail.contentUrl};
-    final provider = widget.detail.provider.trim();
-    if (provider.isNotEmpty) params['provider'] = provider;
-    return Uri.https('sozo.azamov.me', '/detail', params).toString();
-  }
+  String get _shareLink => buildShareLink(
+    contentUrl: widget.detail.contentUrl,
+    provider: widget.detail.provider,
+  );
 
   void _onShare() {
     Share.share('${widget.detail.title}\n$_shareLink');
@@ -1184,6 +1221,10 @@ class _DetailViewState extends State<_DetailView>
   void _openEpisodes(PlaybackEntity playback) {
     final resume = _resumeOnOpen;
     _resumeOnOpen = false;
+    final linkEpisode = _linkEpisode;
+    final linkPositionMs = linkEpisode == null ? null : _linkPositionMs;
+    _linkEpisode = null;
+    _linkPositionMs = null;
     context.push(
       '/episodes',
       extra: EpisodesArgs(
@@ -1199,9 +1240,11 @@ class _DetailViewState extends State<_DetailView>
         size: playback.size,
         total: playback.total,
         totalPages: playback.totalPages,
-        resumeFromHistory: resume,
+        resumeFromHistory: resume && linkEpisode == null,
         offline: _episodesOffline,
         focusEpisode: _takeFocus(),
+        playEpisode: linkEpisode,
+        startPositionMs: linkPositionMs,
       ),
     );
   }
@@ -1249,6 +1292,7 @@ class _DetailViewState extends State<_DetailView>
     if (historyItem != null) {
       resumePos = Duration(milliseconds: historyItem.positionMs);
     }
+    resumePos = _startOr(resumePos);
     if (!await confirmPlayerEngine(context) || !mounted) return;
     context.push(
       '/player',
@@ -1337,6 +1381,7 @@ class _DetailViewState extends State<_DetailView>
         if (historyItem != null) {
           resumePos = Duration(milliseconds: historyItem.positionMs);
         }
+        resumePos = _startOr(resumePos);
         if (!await confirmPlayerEngine(context) || !mounted) return;
         context.push(
           '/player',

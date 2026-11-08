@@ -2925,6 +2925,8 @@
     "priming_title": "No te pierdas ni un episodio",
     "priming_body": "Sozo te avisa en cuanto algo que sigues tenga un episodio o capítulo nuevo, y nada que no hayas pedido.",
     "priming_body_title": "Entérate en cuanto «{}» tenga un episodio nuevo, y nada que no hayas pedido.",
+    "priming_download_title": "Entérate cuando termine tu descarga",
+    "priming_download_body": "Sozo muestra el progreso de la descarga en tus notificaciones y te avisa cuando esté lista para ver sin conexión. También puede avisarte de nuevos episodios de lo que sigues.",
     "priming_point_releases": "Episodios nuevos, con póster",
     "priming_point_quiet": "Horas de silencio",
     "priming_point_control": "Silencia cualquier título",
