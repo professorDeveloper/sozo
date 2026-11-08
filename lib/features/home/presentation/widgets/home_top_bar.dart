@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/foreground_poller.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/download/domain/entities/download_status.dart';
@@ -229,7 +230,12 @@ class _NotificationsIndicatorState extends State<_NotificationsIndicator>
 
   final NotificationsRepository _repo = getIt<NotificationsRepository>();
   final HiveService _hive = getIt<HiveService>();
-  Timer? _timer;
+
+  /// Off while the app is in the background.
+  late final ForegroundPoller _poller = ForegroundPoller(
+    period: const Duration(seconds: 60),
+    onTick: _refresh,
+  );
   int _count = 0;
 
   @override
@@ -238,19 +244,19 @@ class _NotificationsIndicatorState extends State<_NotificationsIndicator>
     WidgetsBinding.instance.addObserver(this);
     _count = _cachedCount;
     _refresh();
-    _timer = Timer.periodic(const Duration(seconds: 60), (_) => _refresh());
+    _poller.start();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _timer?.cancel();
+    _poller.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _refresh();
+    _poller.handleLifecycle(state);
   }
 
   /// [force] skips the cool-down (but never the in-flight coalescing) — used

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PredictiveBackEvent;
 import 'package:flutter/material.dart';
 
 /// How a title's page arrives: it blooms.
@@ -34,7 +36,14 @@ class BloomPageTransition extends StatefulWidget {
   State<BloomPageTransition> createState() => _BloomPageTransitionState();
 }
 
-class _BloomPageTransitionState extends State<BloomPageTransition> {
+/// On Android the back gesture drives the bloom backwards, as
+/// [PredictiveBackPageTransitionsBuilder] does for a plain page: a
+/// [CustomTransitionPage] never consults the theme, so without this the page
+/// only popped on release.
+class _BloomPageTransitionState extends State<BloomPageTransition>
+    with WidgetsBindingObserver {
+  ModalRoute<Object?>? _route;
+  bool _tracking = false;
   late CurvedAnimation _settle;
   late CurvedAnimation _fade;
   late CurvedAnimation _behind;
@@ -43,6 +52,50 @@ class _BloomPageTransitionState extends State<BloomPageTransition> {
   void initState() {
     super.initState();
     _attach();
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      WidgetsBinding.instance.addObserver(this);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+  }
+
+  @override
+  bool handleStartBackGesture(PredictiveBackEvent backEvent) {
+    final route = _route;
+    if (backEvent.isButtonEvent ||
+        route == null ||
+        !route.isCurrent ||
+        !route.popGestureEnabled) {
+      return false;
+    }
+    _tracking = true;
+    route.handleStartBackGesture(progress: 1 - backEvent.progress);
+    return true;
+  }
+
+  @override
+  void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
+    if (_tracking) {
+      _route?.handleUpdateBackGestureProgress(progress: 1 - backEvent.progress);
+    }
+  }
+
+  @override
+  void handleCancelBackGesture() {
+    if (!_tracking) return;
+    _tracking = false;
+    _route?.handleCancelBackGesture();
+  }
+
+  @override
+  void handleCommitBackGesture() {
+    if (!_tracking) return;
+    _tracking = false;
+    _route?.handleCommitBackGesture();
   }
 
   @override
@@ -80,6 +133,7 @@ class _BloomPageTransitionState extends State<BloomPageTransition> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _detach();
     super.dispose();
   }
