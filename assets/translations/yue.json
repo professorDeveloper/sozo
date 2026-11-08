@@ -34,7 +34,9 @@
     "remove": "移除",
     "show": "顯示",
     "hide": "隱藏",
-    "installed": "已安裝"
+    "installed": "已安裝",
+    "load_more_failed": "載入唔到更多",
+    "go_home": "返去主頁"
   },
   "auth": {
     "login": "登入",
@@ -591,7 +593,9 @@
     "native_offer_title": "試吓新播放器？",
     "native_offer_body": "Apple 嘅 Liquid Glass 控制同選單。你隨時可以喺 設定 → 播放器 度改返。",
     "native_offer_try": "試吓",
-    "native_offer_not_now": "遲啲先"
+    "native_offer_not_now": "遲啲先",
+    "crash_log": "當機記錄",
+    "crash_log_empty": "冇當機記錄"
   },
   "profile": {
     "title": "個人檔案",
@@ -2071,7 +2075,8 @@
     "title": "我嘅清單",
     "remove": "移除",
     "empty_title": "仲未儲存任何嘢",
-    "empty_subtitle": "你儲存咗嘅作品會喺呢度出現。"
+    "empty_subtitle": "你儲存咗嘅作品會喺呢度出現。",
+    "load_failed": "載入唔到呢個清單。"
   },
   "torrent": {
     "title": "Torrent",
@@ -3153,7 +3158,8 @@
     "error_attachment_count": "每條訊息最多 5 張截圖。",
     "suggest": "成日都係咁？搵支援",
     "error_offline": "你而家離線，或者連線斷咗。請檢查網絡再試。",
-    "not_sent": "未送出：{}"
+    "not_sent": "未送出：{}",
+    "diag_crash_log": "睇當機記錄"
   },
   "zangetsu": {
     "title": "Zangetsu 來源",

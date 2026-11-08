@@ -49,6 +49,8 @@ import 'package:soplay/core/storage/secure_boxes.dart';
 import 'package:soplay/features/jellyfin/data/jellyfin_server_store.dart';
 import 'package:soplay/features/profiles/data/profile_session.dart';
 import 'package:soplay/features/app_lock/presentation/app_lock_gate.dart';
+import 'package:soplay/core/diagnostics/crash_log.dart';
+import 'package:soplay/core/diagnostics/friendly_error_widget.dart';
 import 'app.dart';
 
 /// [args] is what the OS handed the process, and on Windows and Linux that is
@@ -119,6 +121,9 @@ void main(List<String> args) async {
 
   PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   await _initFirebaseSafely();
+  // Off Android, where Crashlytics does not run: a local crash log instead.
+  await CrashLog.install();
+  FriendlyErrorWidget.install(onGoHome: () => AppRouter.router.go('/main'));
   await configureDependencies();
   // Before anything can navigate — the deep-link and push handlers below, and
   // the first frame — so every way in lands under the lock.
@@ -163,10 +168,8 @@ void main(List<String> args) async {
     () => AppRouter.router.routerDelegate.navigatorKey.currentContext,
   );
   unawaited(
-    AppOrientation.set([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]).catchError((Object _) {}),
+    // Phones only: a tablet or an unfolded foldable is left free to rotate.
+    AppOrientation.set(AppOrientation.appDefault).catchError((Object _) {}),
   );
   unawaited(
     SystemChrome.setEnabledSystemUIMode(

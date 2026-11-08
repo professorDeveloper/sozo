@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -53,6 +52,7 @@ import 'package:soplay/features/achievements/presentation/widgets/achievements_e
 import 'package:soplay/features/progress/data/progress_service.dart';
 import 'package:soplay/features/progress/domain/progress.dart';
 import 'package:soplay/features/progress/presentation/widgets/user_badge_line.dart';
+import 'package:soplay/core/glass/reducible_blur.dart';
 
 // Split into parts the way player_page.dart is: the page was 2721 lines
 // across nine sections, which is past the point where anyone can find
@@ -297,10 +297,10 @@ class _ProfileViewState extends State<_ProfileView> {
                 );
                 if (progress < 0.01) return content;
                 return ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(
-                      sigmaX: 20 * progress,
-                      sigmaY: 20 * progress,
+                  child: ReducibleBlur(
+                    sigma: 20 * progress,
+                    reducedFill: AppColors.navBackground.withValues(
+                      alpha: 0.15 * progress,
                     ),
                     child: content,
                   ),

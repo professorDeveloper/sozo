@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:soplay/core/diagnostics/crash_log.dart';
 import 'package:soplay/core/diagnostics/player_log.dart';
 import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/features/support/data/support_models.dart';
@@ -57,11 +58,31 @@ class SupportDiagnostics {
     }
     if (includeLog) {
       final log = PlayerLog.instance;
-      if (log.lines.isNotEmpty) {
-        put('log', log.formatForSupport(maxLines: logLines));
-      }
+      final player = log.lines.isNotEmpty
+          ? log.formatForSupport(maxLines: logLines)
+          : null;
+      put(
+        'log',
+        withCrashLog(player, CrashLog.instance?.read(maxChars: crashChars)),
+      );
     }
     return out;
+  }
+
+  /// The crash log's newest end, appended to the player log. The server keeps
+  /// only named fields and trims a long `log` from the front, so riding at the
+  /// end of `log` is how it arrives intact without a server change.
+  static const int crashChars = 16 * 1024;
+
+  static const String crashHeader = '===== crash log =====';
+
+  static String? withCrashLog(String? playerLog, String? crash) {
+    final c = crash?.trim();
+    if (c == null || c.isEmpty) return playerLog;
+    final head = playerLog == null || playerLog.trim().isEmpty
+        ? ''
+        : '${playerLog.trimRight()}\n\n';
+    return '$head$crashHeader\n$c';
   }
 
   static String _utcOffset(Duration offset) {

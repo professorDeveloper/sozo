@@ -34,7 +34,9 @@
     "remove": "Kaldır",
     "show": "Göster",
     "hide": "Gizle",
-    "installed": "Yüklendi"
+    "installed": "Yüklendi",
+    "load_more_failed": "Daha fazlası yüklenemedi",
+    "go_home": "Ana sayfaya dön"
   },
   "auth": {
     "login": "Giriş yap",
@@ -591,7 +593,9 @@
     "native_offer_title": "Yeni oynatıcıyı denemek ister misiniz?",
     "native_offer_body": "Apple’ın Liquid Glass kontrolleri ve menüleri. Bunu istediğiniz zaman Ayarlar → Oynatıcı bölümünden değiştirebilirsiniz.",
     "native_offer_try": "Dene",
-    "native_offer_not_now": "Şimdi değil"
+    "native_offer_not_now": "Şimdi değil",
+    "crash_log": "Çökme kaydı",
+    "crash_log_empty": "Kayıtlı çökme yok"
   },
   "profile": {
     "title": "Profil",
@@ -2071,7 +2075,8 @@
     "title": "Listelerim",
     "remove": "Kaldır",
     "empty_title": "Henüz bir şey kaydedilmedi",
-    "empty_subtitle": "Kaydettiğin yapımlar burada görünür."
+    "empty_subtitle": "Kaydettiğin yapımlar burada görünür.",
+    "load_failed": "Bu liste yüklenemedi."
   },
   "torrent": {
     "title": "Torrentler",
@@ -3153,7 +3158,8 @@
     "error_attachment_count": "Mesaj başına en fazla 5 ekran görüntüsü.",
     "suggest": "Tekrarlıyor mu? Desteğe yaz",
     "error_offline": "Çevrimdışısın veya bağlantı koptu. İnternetini kontrol edip tekrar dene.",
-    "not_sent": "Gönderilmedi: {}"
+    "not_sent": "Gönderilmedi: {}",
+    "diag_crash_log": "Çökme kaydını görüntüle"
   },
   "zangetsu": {
     "title": "Zangetsu Kaynakları",

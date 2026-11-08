@@ -34,7 +34,9 @@
     "remove": "Gỡ",
     "show": "Hiện",
     "hide": "Ẩn",
-    "installed": "Đã cài"
+    "installed": "Đã cài",
+    "load_more_failed": "Không thể tải thêm",
+    "go_home": "Về trang chủ"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -591,7 +593,9 @@
     "native_offer_title": "Dùng thử trình phát mới?",
     "native_offer_body": "Nút điều khiển và menu Liquid Glass của Apple. Bạn có thể thay đổi bất cứ lúc nào trong Cài đặt → Trình phát.",
     "native_offer_try": "Dùng thử",
-    "native_offer_not_now": "Để sau"
+    "native_offer_not_now": "Để sau",
+    "crash_log": "Nhật ký sự cố",
+    "crash_log_empty": "Chưa ghi nhận sự cố nào"
   },
   "profile": {
     "title": "Hồ sơ",
@@ -2071,7 +2075,8 @@
     "title": "Danh sách của tôi",
     "remove": "Xóa",
     "empty_title": "Chưa lưu gì",
-    "empty_subtitle": "Các phim bạn lưu sẽ hiện ở đây."
+    "empty_subtitle": "Các phim bạn lưu sẽ hiện ở đây.",
+    "load_failed": "Không thể tải danh sách này."
   },
   "torrent": {
     "title": "Torrent",
@@ -3153,7 +3158,8 @@
     "error_attachment_count": "Tối đa 5 ảnh mỗi tin nhắn.",
     "suggest": "Vẫn tiếp diễn? Hãy viết cho bộ phận hỗ trợ",
     "error_offline": "Bạn đang ngoại tuyến hoặc kết nối bị ngắt. Hãy kiểm tra internet rồi thử lại.",
-    "not_sent": "Chưa gửi được: {}"
+    "not_sent": "Chưa gửi được: {}",
+    "diag_crash_log": "Xem nhật ký sự cố"
   },
   "zangetsu": {
     "title": "Nguồn Zangetsu",

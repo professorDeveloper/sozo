@@ -34,7 +34,9 @@
     "remove": "Hapus",
     "show": "Tampilkan",
     "hide": "Sembunyikan",
-    "installed": "Terpasang"
+    "installed": "Terpasang",
+    "load_more_failed": "Tidak dapat memuat lebih banyak",
+    "go_home": "Ke beranda"
   },
   "auth": {
     "login": "Masuk",
@@ -591,7 +593,9 @@
     "native_offer_title": "Coba pemutar baru?",
     "native_offer_body": "Kontrol dan menu Liquid Glass dari Apple. Anda bisa mengubahnya kapan saja di Pengaturan → Pemutar.",
     "native_offer_try": "Coba",
-    "native_offer_not_now": "Nanti saja"
+    "native_offer_not_now": "Nanti saja",
+    "crash_log": "Log kerusakan",
+    "crash_log_empty": "Tidak ada kerusakan tercatat"
   },
   "profile": {
     "title": "Profil",
@@ -2071,7 +2075,8 @@
     "title": "Daftar saya",
     "remove": "Singkirkan",
     "empty_title": "Belum ada yang disimpan",
-    "empty_subtitle": "Judul yang kamu simpan muncul di sini."
+    "empty_subtitle": "Judul yang kamu simpan muncul di sini.",
+    "load_failed": "Tidak dapat memuat daftar ini."
   },
   "torrent": {
     "title": "Torrent",
@@ -3153,7 +3158,8 @@
     "error_attachment_count": "Maksimal 5 tangkapan layar per pesan.",
     "suggest": "Terus terjadi? Hubungi dukungan",
     "error_offline": "Kamu sedang offline atau koneksi terputus. Periksa internet lalu coba lagi.",
-    "not_sent": "Tidak terkirim: {}"
+    "not_sent": "Tidak terkirim: {}",
+    "diag_crash_log": "Lihat log kerusakan"
   },
   "zangetsu": {
     "title": "Sumber Zangetsu",

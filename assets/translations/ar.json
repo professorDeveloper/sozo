@@ -34,7 +34,9 @@
     "remove": "إزالة",
     "show": "إظهار",
     "hide": "إخفاء",
-    "installed": "مثبّت"
+    "installed": "مثبّت",
+    "load_more_failed": "تعذّر تحميل المزيد",
+    "go_home": "العودة إلى الرئيسية"
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -591,7 +593,9 @@
     "native_offer_title": "هل تريد تجربة المشغّل الجديد؟",
     "native_offer_body": "أزرار وقوائم Liquid Glass من Apple. يمكنك تغيير ذلك في أي وقت من الإعدادات ← المشغّل.",
     "native_offer_try": "جرّبه",
-    "native_offer_not_now": "ليس الآن"
+    "native_offer_not_now": "ليس الآن",
+    "crash_log": "سجل الأعطال",
+    "crash_log_empty": "لم تُسجَّل أي أعطال"
   },
   "profile": {
     "title": "حسابي",
@@ -2075,7 +2079,8 @@
     "title": "قوائمي",
     "remove": "إزالة",
     "empty_title": "لا شيء محفوظ بعد",
-    "empty_subtitle": "ستظهر هنا الأعمال التي تحفظها."
+    "empty_subtitle": "ستظهر هنا الأعمال التي تحفظها.",
+    "load_failed": "تعذّر تحميل هذه القائمة."
   },
   "torrent": {
     "title": "التورنت",
@@ -3157,7 +3162,8 @@
     "error_attachment_count": "5 لقطات شاشة كحد أقصى في الرسالة.",
     "suggest": "تتكرر المشكلة؟ راسل الدعم",
     "error_offline": "أنت غير متصل أو انقطع الاتصال. تحقق من الإنترنت ثم حاول مرة أخرى.",
-    "not_sent": "لم يُرسل: {}"
+    "not_sent": "لم يُرسل: {}",
+    "diag_crash_log": "عرض سجل الأعطال"
   },
   "zangetsu": {
     "title": "مصادر Zangetsu",

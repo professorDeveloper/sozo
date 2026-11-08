@@ -26,6 +26,9 @@ class ViewAllLoaded extends ViewAllState {
   final int totalPages;
   final bool isLoadingMore;
 
+  /// The last next-page request failed; the grid shows a retry footer.
+  final bool loadMoreFailed;
+
   bool get hasMore => currentPage < totalPages;
 
   ViewAllLoaded({
@@ -33,8 +36,15 @@ class ViewAllLoaded extends ViewAllState {
     required this.currentPage,
     required this.totalPages,
     this.isLoadingMore = false,
+    this.loadMoreFailed = false,
   });
 
   @override
-  List<Object?> get props => [items, currentPage, totalPages, isLoadingMore];
+  List<Object?> get props => [
+    items,
+    currentPage,
+    totalPages,
+    isLoadingMore,
+    loadMoreFailed,
+  ];
 }

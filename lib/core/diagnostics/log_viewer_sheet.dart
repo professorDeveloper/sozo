@@ -4,12 +4,16 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soplay/core/system/responsive.dart';
 
+import 'crash_log.dart';
 import 'player_log.dart';
 
 class LogViewerSheet extends StatefulWidget {
-  const LogViewerSheet({super.key});
+  const LogViewerSheet({super.key, this.crash = false});
 
-  static Future<void> show(BuildContext context) {
+  /// Opens on the crash log instead of the player log.
+  final bool crash;
+
+  static Future<void> show(BuildContext context, {bool crash = false}) {
     return showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF0E0E0E),
@@ -17,7 +21,7 @@ class LogViewerSheet extends StatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (_) => const LogViewerSheet(),
+      builder: (_) => LogViewerSheet(crash: crash),
     );
   }
 
@@ -29,9 +33,36 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
   final _scroll = ScrollController();
   final _log = PlayerLog.instance;
 
+  /// Showing the crash log rather than the player log. Only offered where a
+  /// crash log exists (off Android).
+  bool _crash = false;
+  String _crashText = '';
+
+  void _toggleCrash() {
+    setState(() {
+      _crash = !_crash;
+      if (_crash) _crashText = CrashLog.instance?.read() ?? '';
+    });
+  }
+
+  String get _shareText => _crash ? _crashText : _log.formatForShare();
+
+  void _clear() {
+    if (_crash) {
+      CrashLog.instance?.clear();
+      setState(() => _crashText = '');
+    } else {
+      _log.clear();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    if (widget.crash && CrashLog.instance != null) {
+      _crash = true;
+      _crashText = CrashLog.instance!.read();
+    }
     _log.revision.addListener(_onChange);
     WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToEnd());
   }
@@ -55,7 +86,7 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
   }
 
   Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: _log.formatForShare()));
+    await Clipboard.setData(ClipboardData(text: _shareText));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -66,7 +97,10 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
   }
 
   Future<void> _share() async {
-    await Share.share(_log.formatForShare(), subject: 'Sozo player logs');
+    await Share.share(
+      _shareText,
+      subject: _crash ? 'Sozo crash log' : 'Sozo player logs',
+    );
   }
 
   Color _colorFor(LogLevel level) => switch (level) {
@@ -78,6 +112,8 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
   @override
   Widget build(BuildContext context) {
     final lines = _log.lines;
+    final hasCrashLog = CrashLog.instance != null;
+    final empty = _crash ? _crashText.isEmpty : lines.isEmpty;
     final height = MediaQuery.of(context).size.height;
     return SafeArea(
       child: ConstrainedBox(
@@ -96,7 +132,9 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'Player logs (${lines.length})',
+                    _crash
+                        ? 'player.crash_log'.tr()
+                        : 'Player logs (${lines.length})',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 15,
@@ -104,6 +142,22 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
                     ),
                   ),
                   const Spacer(),
+                  if (hasCrashLog)
+                    IconButton(
+                      tooltip: 'player.crash_log'.tr(),
+                      isSelected: _crash,
+                      icon: const Icon(
+                        Icons.report_gmailerrorred_rounded,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
+                      selectedIcon: const Icon(
+                        Icons.report_rounded,
+                        color: Color(0xFFFF6B6B),
+                        size: 20,
+                      ),
+                      onPressed: _toggleCrash,
+                    ),
                   IconButton(
                     tooltip: 'general.copy'.tr(),
                     icon: const Icon(
@@ -111,7 +165,7 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
                       color: Colors.white70,
                       size: 20,
                     ),
-                    onPressed: lines.isEmpty ? null : _copy,
+                    onPressed: empty ? null : _copy,
                   ),
                   IconButton(
                     tooltip: 'general.share'.tr(),
@@ -120,7 +174,7 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
                       color: Colors.white70,
                       size: 20,
                     ),
-                    onPressed: lines.isEmpty ? null : _share,
+                    onPressed: empty ? null : _share,
                   ),
                   IconButton(
                     tooltip: 'general.clear'.tr(),
@@ -129,19 +183,34 @@ class _LogViewerSheetState extends State<LogViewerSheet> {
                       color: Colors.white70,
                       size: 20,
                     ),
-                    onPressed: lines.isEmpty ? null : _log.clear,
+                    onPressed: empty ? null : _clear,
                   ),
                 ],
               ),
             ),
             const Divider(color: Colors.white12, height: 1),
             Flexible(
-              child: lines.isEmpty
+              child: empty
                   ? Padding(
                       padding: const EdgeInsets.symmetric(vertical: 48),
                       child: Text(
-                        'player.logs_empty'.tr(),
+                        _crash
+                            ? 'player.crash_log_empty'.tr()
+                            : 'player.logs_empty'.tr(),
                         style: const TextStyle(color: Colors.white38),
+                      ),
+                    )
+                  : _crash
+                  ? SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                      child: SelectableText(
+                        _crashText,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11.5,
+                          height: 1.35,
+                          color: Colors.white70,
+                        ),
                       ),
                     )
                   : Scrollbar(

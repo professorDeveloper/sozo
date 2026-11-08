@@ -34,7 +34,9 @@
     "remove": "Verwijderen",
     "show": "Tonen",
     "hide": "Verbergen",
-    "installed": "Geïnstalleerd"
+    "installed": "Geïnstalleerd",
+    "load_more_failed": "Kon niet meer laden",
+    "go_home": "Naar start"
   },
   "auth": {
     "login": "Inloggen",
@@ -591,7 +593,9 @@
     "native_offer_title": "De nieuwe speler proberen?",
     "native_offer_body": "De Liquid Glass-bediening en -menu’s van Apple. Je kunt dit altijd wijzigen via Instellingen → Speler.",
     "native_offer_try": "Proberen",
-    "native_offer_not_now": "Niet nu"
+    "native_offer_not_now": "Niet nu",
+    "crash_log": "Crashlogboek",
+    "crash_log_empty": "Geen crashes vastgelegd"
   },
   "profile": {
     "title": "Profiel",
@@ -2071,7 +2075,8 @@
     "title": "Mijn lijsten",
     "remove": "Verwijderen",
     "empty_title": "Nog niets opgeslagen",
-    "empty_subtitle": "Titels die je opslaat verschijnen hier."
+    "empty_subtitle": "Titels die je opslaat verschijnen hier.",
+    "load_failed": "Kon deze lijst niet laden."
   },
   "torrent": {
     "title": "Torrents",
@@ -3153,7 +3158,8 @@
     "error_attachment_count": "Maximaal 5 screenshots per bericht.",
     "suggest": "Blijft het gebeuren? Schrijf support",
     "error_offline": "Je bent offline of de verbinding is verbroken. Controleer je internet en probeer het opnieuw.",
-    "not_sent": "Niet verzonden: {}"
+    "not_sent": "Niet verzonden: {}",
+    "diag_crash_log": "Crashlogboek bekijken"
   },
   "zangetsu": {
     "title": "Zangetsu-bronnen",

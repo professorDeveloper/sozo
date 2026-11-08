@@ -34,7 +34,9 @@
     "remove": "Olib tashlash",
     "show": "Ko‘rsatish",
     "hide": "Yashirish",
-    "installed": "O‘rnatilgan"
+    "installed": "O‘rnatilgan",
+    "load_more_failed": "Ko‘proq yuklab bo‘lmadi",
+    "go_home": "Bosh sahifaga"
   },
   "auth": {
     "login": "Kirish",
@@ -591,7 +593,9 @@
     "native_offer_title": "Yangi pleyerni sinab ko‘rasizmi?",
     "native_offer_body": "Apple’ning Liquid Glass tugmalari va menyulari. Buni istalgan vaqt Sozlamalar → Pleyer bo‘limida o‘zgartirishingiz mumkin.",
     "native_offer_try": "Sinab ko‘rish",
-    "native_offer_not_now": "Hozir emas"
+    "native_offer_not_now": "Hozir emas",
+    "crash_log": "Nosozliklar jurnali",
+    "crash_log_empty": "Nosozliklar qayd etilmagan"
   },
   "profile": {
     "title": "Profil",
@@ -2071,7 +2075,8 @@
     "title": "Ro‘yxatlarim",
     "remove": "O‘chirish",
     "empty_title": "Hozircha hech narsa yo‘q",
-    "empty_subtitle": "Saqlaganlaringiz shu yerda ko‘rinadi."
+    "empty_subtitle": "Saqlaganlaringiz shu yerda ko‘rinadi.",
+    "load_failed": "Bu ro‘yxatni yuklab bo‘lmadi."
   },
   "torrent": {
     "title": "Torrentlar",
@@ -3153,7 +3158,8 @@
     "error_attachment_count": "Bitta xabarga ko‘pi bilan 5 ta skrinshot.",
     "suggest": "Takrorlanyaptimi? Support’ga yozing",
     "error_offline": "Internet yo'q yoki aloqa uzildi. Internetni tekshirib, qayta urinib ko'ring.",
-    "not_sent": "Yuborilmadi: {}"
+    "not_sent": "Yuborilmadi: {}",
+    "diag_crash_log": "Nosozliklar jurnalini ko‘rish"
   },
   "zangetsu": {
     "title": "Zangetsu manbalari",

@@ -92,6 +92,7 @@ class _UserListTab extends StatefulWidget {
 class _UserListTabState extends State<_UserListTab>
     with AutomaticKeepAliveClientMixin {
   List<FavoriteEntity>? _items;
+  bool _failed = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -107,7 +108,21 @@ class _UserListTabState extends State<_UserListTab>
   Future<void> _load() async {
     final result = await getIt<UserListsRepository>().getList(widget.kind);
     if (!mounted) return;
-    setState(() => _items = result.getOrNull() ?? const []);
+    setState(() {
+      final items = result.getOrNull();
+      if (items != null) {
+        _items = items;
+        _failed = false;
+      } else if (_items == null) {
+        // Nothing cached: an empty list here would claim the list is empty.
+        _failed = true;
+      }
+    });
+  }
+
+  void _retry() {
+    setState(() => _failed = false);
+    _load();
   }
 
   Future<void> _remove(FavoriteEntity item) async {
@@ -131,6 +146,9 @@ class _UserListTabState extends State<_UserListTab>
   Widget build(BuildContext context) {
     super.build(context);
     final items = _items;
+    if (items == null && _failed) {
+      return UserListLoadError(onRetry: _retry);
+    }
     if (items == null) {
       return Center(
         child: CircularProgressIndicator(color: AppColors.primary),
@@ -233,6 +251,50 @@ class _UserListRow extends StatelessWidget {
                 size: 20,
               ),
               onPressed: onRemove,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when the list could not be fetched and nothing was cached.
+class UserListLoadError extends StatelessWidget {
+  const UserListLoadError({super.key, required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              color: AppColors.textHint,
+              size: 48,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'user_lists.load_failed'.tr(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+              child: Text('general.retry'.tr()),
             ),
           ],
         ),

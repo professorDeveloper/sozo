@@ -57,7 +57,7 @@ class _ActivityPageState extends State<ActivityPage> {
             SettingsNavTile(
               icon: Icons.history_rounded,
               title: 'profile.watch_history'.tr(),
-              value: countLabel(_history.getAll().length),
+              value: countLabel(_history.count),
               onTap: () => context.push('/history'),
             ),
             const SettingsDivider(),

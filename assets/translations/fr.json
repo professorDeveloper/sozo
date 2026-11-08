@@ -34,7 +34,9 @@
     "remove": "Retirer",
     "show": "Afficher",
     "hide": "Masquer",
-    "installed": "Installé"
+    "installed": "Installé",
+    "load_more_failed": "Impossible d’en charger plus",
+    "go_home": "Retour à l’accueil"
   },
   "auth": {
     "login": "Connexion",
@@ -591,7 +593,9 @@
     "native_offer_title": "Essayer le nouveau lecteur ?",
     "native_offer_body": "Les commandes et menus Liquid Glass d’Apple. Vous pouvez changer cela à tout moment dans Réglages → Lecteur.",
     "native_offer_try": "Essayer",
-    "native_offer_not_now": "Plus tard"
+    "native_offer_not_now": "Plus tard",
+    "crash_log": "Journal des plantages",
+    "crash_log_empty": "Aucun plantage enregistré"
   },
   "profile": {
     "title": "Profil",
@@ -2071,7 +2075,8 @@
     "title": "Mes listes",
     "remove": "Retirer",
     "empty_title": "Rien d’enregistré pour l’instant",
-    "empty_subtitle": "Les titres que tu enregistres apparaissent ici."
+    "empty_subtitle": "Les titres que tu enregistres apparaissent ici.",
+    "load_failed": "Impossible de charger cette liste."
   },
   "torrent": {
     "title": "Torrents",
@@ -3153,7 +3158,8 @@
     "error_attachment_count": "5 captures maximum par message.",
     "suggest": "Ça se reproduit ? Écris au support",
     "error_offline": "Vous êtes hors ligne ou la connexion a été coupée. Vérifiez votre connexion et réessayez.",
-    "not_sent": "Non envoyé : {}"
+    "not_sent": "Non envoyé : {}",
+    "diag_crash_log": "Voir le journal des plantages"
   },
   "zangetsu": {
     "title": "Sources Zangetsu",

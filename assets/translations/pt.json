@@ -34,7 +34,9 @@
     "remove": "Remover",
     "show": "Mostrar",
     "hide": "Ocultar",
-    "installed": "Instalado"
+    "installed": "Instalado",
+    "load_more_failed": "Não foi possível carregar mais",
+    "go_home": "Ir para o início"
   },
   "auth": {
     "login": "Entrar",
@@ -591,7 +593,9 @@
     "native_offer_title": "Experimentar o novo player?",
     "native_offer_body": "Os controles e menus Liquid Glass da Apple. Você pode mudar isso a qualquer momento em Configurações → Player.",
     "native_offer_try": "Experimentar",
-    "native_offer_not_now": "Agora não"
+    "native_offer_not_now": "Agora não",
+    "crash_log": "Registro de falhas",
+    "crash_log_empty": "Nenhuma falha registrada"
   },
   "profile": {
     "title": "Perfil",
@@ -2071,7 +2075,8 @@
     "title": "Minhas listas",
     "remove": "Remover",
     "empty_title": "Nada salvo ainda",
-    "empty_subtitle": "Os títulos que você salvar aparecem aqui."
+    "empty_subtitle": "Os títulos que você salvar aparecem aqui.",
+    "load_failed": "Não foi possível carregar esta lista."
   },
   "torrent": {
     "title": "Torrents",
@@ -3153,7 +3158,8 @@
     "error_attachment_count": "No máximo 5 capturas por mensagem.",
     "suggest": "Continua acontecendo? Fale com o suporte",
     "error_offline": "Você está offline ou a conexão caiu. Verifique a internet e tente novamente.",
-    "not_sent": "Não enviado: {}"
+    "not_sent": "Não enviado: {}",
+    "diag_crash_log": "Ver registro de falhas"
   },
   "zangetsu": {
     "title": "Fontes Zangetsu",

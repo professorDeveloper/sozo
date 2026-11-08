@@ -34,7 +34,9 @@
     "remove": "हटाएँ",
     "show": "दिखाएँ",
     "hide": "छिपाएँ",
-    "installed": "इंस्टॉल है"
+    "installed": "इंस्टॉल है",
+    "load_more_failed": "और लोड नहीं हो सका",
+    "go_home": "होम पर जाएँ"
   },
   "auth": {
     "login": "साइन इन",
@@ -591,7 +593,9 @@
     "native_offer_title": "नया प्लेयर आज़माएँ?",
     "native_offer_body": "Apple के Liquid Glass कंट्रोल और मेन्यू। आप इसे कभी भी सेटिंग्स → प्लेयर में बदल सकते हैं।",
     "native_offer_try": "आज़माएँ",
-    "native_offer_not_now": "अभी नहीं"
+    "native_offer_not_now": "अभी नहीं",
+    "crash_log": "क्रैश लॉग",
+    "crash_log_empty": "कोई क्रैश दर्ज नहीं"
   },
   "profile": {
     "title": "प्रोफ़ाइल",
@@ -2071,7 +2075,8 @@
     "title": "मेरी लिस्ट",
     "remove": "हटाएँ",
     "empty_title": "अभी तक कुछ सेव नहीं किया",
-    "empty_subtitle": "आपके सेव किए गए टाइटल यहाँ दिखेंगे।"
+    "empty_subtitle": "आपके सेव किए गए टाइटल यहाँ दिखेंगे।",
+    "load_failed": "यह सूची लोड नहीं हो सकी।"
   },
   "torrent": {
     "title": "टोरेंट",
@@ -3153,7 +3158,8 @@
     "error_attachment_count": "एक मैसेज में ज़्यादा से ज़्यादा 5 स्क्रीनशॉट।",
     "suggest": "बार-बार हो रहा है? सपोर्ट को लिखें",
     "error_offline": "आप ऑफ़लाइन हैं या कनेक्शन टूट गया। इंटरनेट जाँचें और फिर से कोशिश करें।",
-    "not_sent": "नहीं भेजा गया: {}"
+    "not_sent": "नहीं भेजा गया: {}",
+    "diag_crash_log": "क्रैश लॉग देखें"
   },
   "zangetsu": {
     "title": "Zangetsu स्रोत",

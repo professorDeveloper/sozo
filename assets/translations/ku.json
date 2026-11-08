@@ -34,7 +34,9 @@
     "remove": "Rake",
     "show": "Nîşan bide",
     "hide": "Veşêre",
-    "installed": "Sazkirî"
+    "installed": "Sazkirî",
+    "load_more_failed": "Bêtir nehat barkirin",
+    "go_home": "Biçe destpêkê"
   },
   "auth": {
     "login": "Têkeve",
@@ -591,7 +593,9 @@
     "native_offer_title": "Lêdara nû biceribînî?",
     "native_offer_body": "Bişkok û menuyên Liquid Glass ên Apple. Tu dikarî vê her dem di Mîheng → Lêdar de biguherînî.",
     "native_offer_try": "Biceribîne",
-    "native_offer_not_now": "Ne niha"
+    "native_offer_not_now": "Ne niha",
+    "crash_log": "Tomara têkçûnan",
+    "crash_log_empty": "Tu têkçûn nehatiye tomarkirin"
   },
   "profile": {
     "title": "Profîl",
@@ -2071,7 +2075,8 @@
     "title": "Lîsteyên min",
     "remove": "Rake",
     "empty_title": "Hîn tiştek nehatiye tomarkirin",
-    "empty_subtitle": "Sernavên ku tu tomar dikî li vir xuya dibin."
+    "empty_subtitle": "Sernavên ku tu tomar dikî li vir xuya dibin.",
+    "load_failed": "Ev lîste nehat barkirin."
   },
   "torrent": {
     "title": "Torrent",
@@ -3153,7 +3158,8 @@
     "error_attachment_count": "Di peyamekê de herî zêde 5 dîmenên ekranê.",
     "suggest": "Dubare dibe? Ji piştgiriyê re binivîse",
     "error_offline": "Tu offline î an girêdan qut bû. Înternetê kontrol bike û dîsa biceribîne.",
-    "not_sent": "Nehat şandin: {}"
+    "not_sent": "Nehat şandin: {}",
+    "diag_crash_log": "Tomara têkçûnan bibîne"
   },
   "zangetsu": {
     "title": "Çavkaniyên Zangetsu",

@@ -29,6 +29,7 @@ class DetailScreenshotsSection extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16),
         gridDelegate: responsiveGridDelegate(
+          context: context,
           mobileCrossAxisCount: 2,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,

@@ -1,10 +1,10 @@
-import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/glass/reducible_blur.dart';
 
 /// The order My List is shown in. Remembered on the device.
 enum MyListSort {
@@ -112,8 +112,9 @@ class MyListHeader extends StatelessWidget {
     if (progress < 0.01) return content;
 
     return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20 * progress, sigmaY: 20 * progress),
+      child: ReducibleBlur(
+        sigma: 20 * progress,
+        reducedFill: AppColors.navBackground.withValues(alpha: 0.15 * progress),
         child: content,
       ),
     );

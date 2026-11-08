@@ -886,6 +886,9 @@ Future<void> configureDependencies() async {
     UserListsRepositoryImpl(
       getIt<UserListsRemoteDataSource>(),
       getIt<HiveService>(),
+      reconnects: Connectivity().onConnectivityChanged.where(
+        (r) => r.any((c) => c != ConnectivityResult.none),
+      ),
     ),
   );
 
