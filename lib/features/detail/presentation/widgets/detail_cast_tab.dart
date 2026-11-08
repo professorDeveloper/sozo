@@ -194,6 +194,8 @@ class _CastAvatar extends StatelessWidget {
           ? CachedNetworkImage(
               imageUrl: imageUrl,
               fit: BoxFit.cover,
+              memCacheWidth: (64 * MediaQuery.devicePixelRatioOf(context))
+                  .round(),
               fadeInDuration: const Duration(milliseconds: 160),
               errorWidget: (_, _, _) => _Initials(initials: _initials),
               placeholder: (_, _) => _Initials(initials: _initials),

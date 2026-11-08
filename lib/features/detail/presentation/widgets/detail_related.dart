@@ -160,18 +160,26 @@ class _RelatedThumbnail extends StatelessWidget {
     // Cached: these posters are the same ones the home rows already fetched,
     // and re-downloading them made every "Similar" strip repaint grey on the
     // way back to a title.
-    return CachedNetworkImage(
-      imageUrl: url!,
-      fit: BoxFit.cover,
-      fadeInDuration: const Duration(milliseconds: 180),
-      placeholder: (_, _) => ColoredBox(color: AppColors.surfaceVariant),
-      errorWidget: (_, _, _) => Container(
-        color: AppColors.surfaceVariant,
-        child: const Center(
-          child: Icon(
-            Icons.movie_outlined,
-            color: AppColors.textHint,
-            size: 28,
+    // Decoded at the width it is drawn at: thirty full-size posters decoded
+    // at once was a hitch every time the tab opened.
+    return LayoutBuilder(
+      builder: (context, constraints) => CachedNetworkImage(
+        imageUrl: url!,
+        fit: BoxFit.cover,
+        memCacheWidth: constraints.maxWidth.isFinite
+            ? (constraints.maxWidth * MediaQuery.devicePixelRatioOf(context))
+                  .round()
+            : null,
+        fadeInDuration: const Duration(milliseconds: 180),
+        placeholder: (_, _) => ColoredBox(color: AppColors.surfaceVariant),
+        errorWidget: (_, _, _) => Container(
+          color: AppColors.surfaceVariant,
+          child: const Center(
+            child: Icon(
+              Icons.movie_outlined,
+              color: AppColors.textHint,
+              size: 28,
+            ),
           ),
         ),
       ),
