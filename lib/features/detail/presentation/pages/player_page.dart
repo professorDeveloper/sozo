@@ -81,6 +81,8 @@ import 'package:soplay/core/native/native_controls_gate.dart';
 import 'package:soplay/core/native/native_glass_bar.dart';
 import 'package:soplay/core/native/sf_symbols.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_control_face.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_menus.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_sheet_look.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/mal/data/mal_tracker.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
@@ -167,6 +169,8 @@ part 'player_page.tv.dart';
 part 'player_page.jellyfin.dart';
 part 'player_page.upnext.dart';
 part 'player_page.reactions.dart';
+part 'player_page.menus.dart';
+part 'player_page.sheets.dart';
 
 /// Hard ceiling on auto-retries per episode — see [_PlayerPageState._lifetimeRetries].
 const int _kMaxLifetimeRetries = RetryPolicy.maxLifetimeRetries;

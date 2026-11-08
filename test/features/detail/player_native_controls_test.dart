@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/core/native/native_glass_bar.dart';
 import 'package:soplay/features/detail/domain/player_controls_layout.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_control_face.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_menus.dart';
 
 /// The player page cannot be stood up in a test (a resolved stream, getIt, a
 /// controller), so its wiring of the native bars is read from the source, as
@@ -64,6 +65,28 @@ void main() {
       expect(item.fontSize, 11);
     });
 
+    test('a menu makes the native button a pull-down, the rest kept', () {
+      final plain = face(label: '1x');
+      expect(identical(plain.withMenu(null), plain), isTrue);
+      expect(plain.toNative().menuPrimary, isFalse);
+
+      var picked = -1;
+      final menu = choiceMenu<int>(
+        values: const [1, 2],
+        isCurrent: (v) => v == 1,
+        label: (v) => '${v}x',
+        onPick: (v) => picked = v,
+      );
+      final item = plain.withMenu(menu).toNative(group: 1);
+      expect(item.menuPrimary, isTrue);
+      expect(item.menu!.map((r) => r.title), ['1x', '2x']);
+      expect(item.title, '1x');
+      expect(item.group, 1);
+      expect(item.onPressed, isNotNull);
+      item.onMenuSelected!(1);
+      expect(picked, 2);
+    });
+
     test('an active control wears its filled face', () {
       expect(
         face(id: 'stats', active: true).toNative().symbol,
@@ -112,5 +135,34 @@ void main() {
     // The unlock pill is the one bar that does not follow the controls.
     expect(bars, 6);
     expect(told, bars - 1);
+  });
+
+  test('the flat choices open as native menus, on the native path only', () {
+    final source = read('player_page.controls.dart');
+    for (final menu in [
+      '_langMenu',
+      '_subtitleMenu',
+      '_speedMenu',
+      '_serverMenu',
+      '_qualityMenu',
+      '_fitMenu',
+    ]) {
+      expect(
+        source,
+        contains('.withMenu(_nativeBars ? $menu : null)'),
+        reason: menu,
+      );
+    }
+    expect(source, contains('final menu = _nativeBars ? _sleepMenu : null;'));
+  });
+
+  test('every player sheet goes through the one that knows the iOS look', () {
+    for (final name in [
+      'player_page.panels.dart',
+      'player_page.sleep.dart',
+      'player_page.subtitles.dart',
+    ]) {
+      expect(read(name), isNot(contains('showAdaptiveModal')), reason: name);
+    }
   });
 }

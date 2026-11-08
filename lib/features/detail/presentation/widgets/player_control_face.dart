@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:soplay/core/native/native_glass_bar.dart';
 import 'package:soplay/core/native/sf_symbols.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_menus.dart';
 
 /// One player control as it stands on a bar right now: what it shows, what it
 /// does, whether it is on. The player builds one per control and draws it
@@ -26,6 +27,7 @@ class PlayerControlFace {
     this.active = false,
     this.enabled = true,
     this.menu,
+    this.menuPrimary = false,
     this.onMenu,
   });
 
@@ -55,9 +57,35 @@ class PlayerControlFace {
 
   /// The rows a hold opens on the native button.
   final List<NativeMenuRow>? menu;
+
+  /// The native button opens [menu] on a tap as well ([NativeBarItem.menuPrimary]).
+  final bool menuPrimary;
   final ValueChanged<int>? onMenu;
 
   bool get labelled => label != null;
+
+  /// This face with [menu] as its native pull-down: a tap on the native
+  /// button opens it. Null leaves the face as it is.
+  PlayerControlFace withMenu(PlayerMenu? menu) => menu == null
+      ? this
+      : PlayerControlFace(
+          id: id,
+          icon: icon,
+          semanticLabel: semanticLabel,
+          symbol: symbol,
+          label: label,
+          compactLabel: compactLabel,
+          compact: compact,
+          pill: pill,
+          tooltip: tooltip,
+          onTap: onTap,
+          onLongPress: onLongPress,
+          active: active,
+          enabled: enabled,
+          menu: menu.rows,
+          menuPrimary: true,
+          onMenu: menu.pick,
+        );
 
   NativeBarItem toNative({int group = 0}) {
     final wordsOnly = compact && compactLabel != null;
@@ -82,6 +110,7 @@ class PlayerControlFace {
       onPressed: onTap,
       onLongPress: onLongPress,
       menu: menu,
+      menuPrimary: menuPrimary,
       onMenuSelected: onMenu,
     );
   }

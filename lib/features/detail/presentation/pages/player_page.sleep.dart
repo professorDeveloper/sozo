@@ -130,71 +130,46 @@ extension _PlayerSleepTimer on _PlayerPageState {
   }
 
   void _openSleepSheet() {
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    _showSheet<void>(
       builder: (sheetContext) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.bedtime_outlined,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'player.sleep_timer'.tr(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(color: Colors.white12, height: 1),
-              _SleepOptionTile(
-                label: 'general.off'.tr(),
-                selected: !_sleepArmed,
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _cancelSleepTimer();
-                },
-              ),
-              for (final d in _PlayerSleepTimer._presets)
+              ..._sheetHead(Icons.bedtime_outlined, 'player.sleep_timer'.tr()),
+              ..._sheetGroup([
                 _SleepOptionTile(
-                  label: d.inMinutes < 60
-                      ? 'player.sleep_minutes'.tr(args: ['${d.inMinutes}'])
-                      : 'player.sleep_hours'.tr(args: ['${d.inHours}']),
-                  selected: false,
+                  label: 'general.off'.tr(),
+                  selected: !_sleepArmed,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _armSleepDuration(d);
+                    _cancelSleepTimer();
                   },
                 ),
-              // Only meaningful for a series: on a film "end of episode" and
-              // "end of file" are the same thing, and the player already stops
-              // there on its own.
-              if (widget.args.isSerial)
-                _SleepOptionTile(
-                  label: 'player.sleep_episode_end'.tr(),
-                  selected: _sleepAtEpisodeEnd,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _armSleepAtEpisodeEnd();
-                  },
-                ),
+                for (final d in _PlayerSleepTimer._presets)
+                  _SleepOptionTile(
+                    label: d.inMinutes < 60
+                        ? 'player.sleep_minutes'.tr(args: ['${d.inMinutes}'])
+                        : 'player.sleep_hours'.tr(args: ['${d.inHours}']),
+                    selected: false,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _armSleepDuration(d);
+                    },
+                  ),
+                // Only meaningful for a series: on a film "end of episode" and
+                // "end of file" are the same thing, and the player already stops
+                // there on its own.
+                if (widget.args.isSerial)
+                  _SleepOptionTile(
+                    label: 'player.sleep_episode_end'.tr(),
+                    selected: _sleepAtEpisodeEnd,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _armSleepAtEpisodeEnd();
+                    },
+                  ),
+              ]),
               const SizedBox(height: 8),
             ],
           ),
@@ -217,6 +192,15 @@ class _SleepOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (PlayerSheetLook.of(context)) {
+      return IosSheetRow(
+        title: label,
+        accessory: IosRowAccessory.check,
+        selected: selected,
+        choice: true,
+        onTap: onTap,
+      );
+    }
     return ListTile(
       dense: true,
       onTap: onTap,

@@ -78,4 +78,74 @@ void main() {
       ..hear('menuClose', 'fit');
     expect(said, ['open', 'close']);
   });
+
+  testOnIPhone('a pull-down menu says so, with its rows in full', (
+    tester,
+  ) async {
+    final host = FakeNativeHost();
+    final pressed = <String>[];
+    await tester.pumpWidget(
+      barHarness(
+        Center(
+          child: NativeGlassBar(
+            look: NativeBarLook.capsule,
+            fallback: (_) => const SizedBox(),
+            items: [
+              NativeBarItem(
+                id: 'subtitles',
+                symbol: 'captions.bubble',
+                semanticLabel: 'Subtitles',
+                onPressed: () => pressed.add('subtitles'),
+                menuPrimary: true,
+                menu: const [
+                  NativeMenuRow(title: 'Off', checked: true, key: 'off'),
+                  NativeMenuRow(
+                    title: 'English',
+                    subtitle: 'In the video',
+                    checked: false,
+                    key: 'en',
+                  ),
+                  NativeMenuRow(
+                    title: 'More options',
+                    symbol: 'ellipsis.circle',
+                    breakBefore: true,
+                    section: 'More',
+                    disabled: true,
+                    key: 'more',
+                  ),
+                ],
+                onMenuSelected: (_) {},
+              ),
+              // Asks for a pull-down with nothing to pull down: a plain button.
+              NativeBarItem(
+                id: 'settings',
+                symbol: 'gearshape',
+                semanticLabel: 'Settings',
+                menuPrimary: true,
+                onPressed: () => pressed.add('settings'),
+              ),
+            ],
+          ),
+        ),
+        host: host,
+      ),
+    );
+    await tester.pump();
+    final items = host.views.single.params['items']! as List;
+    final subtitles = items[0] as Map;
+    expect(subtitles['menuPrimary'], isTrue);
+    expect(items[1]['menuPrimary'], isFalse);
+    final rows = subtitles['menu'] as List;
+    expect(rows[0], containsPair('checked', true));
+    expect(rows[1], containsPair('subtitle', 'In the video'));
+    expect(rows[2], containsPair('section', 'More'));
+    expect(rows[2], containsPair('disabled', true));
+    expect(rows[2], containsPair('symbol', 'ellipsis.circle'));
+
+    // VoiceOver cannot reach UIKit's menu; its tap opens the sheet instead.
+    final semantics = tester.ensureSemantics();
+    tester.semantics.tap(find.semantics.byLabel('Subtitles'));
+    expect(pressed, ['subtitles']);
+    semantics.dispose();
+  });
 }

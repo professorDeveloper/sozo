@@ -22,7 +22,8 @@ import UIKit
 ///   rebuilt only when the ids change), `setItem {id, …changed}`,
 ///   `setShown {shown, ms}`.
 /// - here → Flutter: `press id`, `longPress id`, `select {id, row}` once the
-///   menu has gone, `menuOpen id`, `menuClose id`.
+///   menu has gone, `menuOpen id`, `menuClose id`. An item sent `menuPrimary`
+///   opens its menu on a tap, as a pull-down button does.
 ///
 /// Flutter owns semantics: none of these buttons is an accessibility element.
 enum NativePlayerBar {
@@ -426,10 +427,8 @@ final class NativePlayerBarView: NSObject, FlutterPlatformView {
     // template image with its own foreground, which lost the active accent.
     if let name = item["symbol"] as? String, !name.isEmpty {
       let symbol = UIImage.SymbolConfiguration(pointSize: glyph, weight: .medium)
-      if let image = UIImage(systemName: name, withConfiguration: symbol) {
+      if let image = NativeSymbol.image(name, configuration: symbol) {
         config.image = image.withTintColor(tint, renderingMode: .alwaysOriginal)
-      } else {
-        assertionFailure("No SF Symbol named \(name)")
       }
       config.imagePlacement = .leading
       config.imagePadding = 4
@@ -462,6 +461,8 @@ final class NativePlayerBarView: NSObject, FlutterPlatformView {
     } else {
       button.menu = nil
     }
+    // A pull-down button opens its menu on a tap too, and then says no press.
+    button.showsMenuAsPrimaryAction = button.menu != nil && item["menuPrimary"] as? Bool == true
     // A menu opens on its own hold; only a button without one hears this.
     button.hold.isEnabled = button.menu == nil && item["longPress"] as? Bool == true
 

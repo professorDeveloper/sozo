@@ -21,20 +21,32 @@ enum NativeBarLook {
 class NativeMenuRow {
   const NativeMenuRow({
     required this.title,
+    this.subtitle,
     this.symbol,
     this.checked,
     this.breakBefore = false,
+    this.section,
     this.destructive = false,
+    this.disabled = false,
     this.key,
   });
 
   final String title;
+
+  /// A second line under the title, smaller.
+  final String? subtitle;
   final String? symbol;
 
-  /// Null draws no check column; false an empty one.
+  /// Null draws no check column; false an empty one. VoiceOver reads a
+  /// checked row as selected.
   final bool? checked;
   final bool breakBefore;
+
+  /// The heading over the run of rows this one starts (with [breakBefore],
+  /// or as the first row).
+  final String? section;
   final bool destructive;
+  final bool disabled;
 
   /// What the row stands for, so a choice made while the rows changed under
   /// the open menu still lands on the row the viewer saw. The title without.
@@ -45,10 +57,13 @@ class NativeMenuRow {
 
   Map<String, Object?> toWire() => {
     'title': title,
+    'subtitle': subtitle,
     'symbol': symbol,
     'checked': checked,
     'breakBefore': breakBefore,
+    'section': section,
     'destructive': destructive,
+    'disabled': disabled,
   };
 }
 
@@ -74,6 +89,7 @@ class NativeBarItem {
     this.onPressed,
     this.onLongPress,
     this.menu,
+    this.menuPrimary = false,
     this.onMenuSelected,
   });
 
@@ -115,6 +131,11 @@ class NativeBarItem {
 
   /// Opened by a hold, as UIKit's own buttons open theirs.
   final List<NativeMenuRow>? menu;
+
+  /// The [menu] opens on a tap as well, as a pull-down button's does; the
+  /// button then says no `press`. VoiceOver's tap still runs [onPressed],
+  /// the Flutter sheet holding the same choices.
+  final bool menuPrimary;
   final ValueChanged<int>? onMenuSelected;
 
   BarSlotSpec get _slot => BarSlotSpec(
@@ -268,6 +289,7 @@ class _NativeGlassBarState extends State<NativeGlassBar>
     'rect': [rect.left, rect.top, rect.width, rect.height],
     'group': item.group,
     'menu': item.menu?.map((r) => r.toWire()).toList(),
+    'menuPrimary': item.menuPrimary && item.menu != null,
     'longPress': item.onLongPress != null,
   };
 

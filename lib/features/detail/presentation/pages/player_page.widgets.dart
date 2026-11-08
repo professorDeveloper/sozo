@@ -1177,6 +1177,15 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final disabled = onTap == null;
+    if (PlayerSheetLook.of(context)) {
+      return IosSheetRow(
+        leading: Icon(cupertinoIconFor(icon)),
+        title: label,
+        value: value,
+        accessory: IosRowAccessory.chevron,
+        onTap: onTap,
+      );
+    }
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
@@ -1260,6 +1269,17 @@ class _OptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (PlayerSheetLook.of(context)) {
+      return IosSheetRow(
+        title: label,
+        subtitle: subtitle,
+        accessory: IosRowAccessory.check,
+        selected: selected,
+        choice: true,
+        onTap: onTap,
+        onLongPress: onLongPress,
+      );
+    }
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
@@ -1381,6 +1401,12 @@ class _SheetSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (PlayerSheetLook.of(context)) {
+      return Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(32, 14, 32, 2),
+        child: Text(label.toUpperCase(), style: IosSheet.footnote),
+      );
+    }
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(20, 14, 16, 6),
       child: Text(

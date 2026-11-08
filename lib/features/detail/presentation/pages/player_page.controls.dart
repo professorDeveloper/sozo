@@ -348,10 +348,11 @@ extension _PlayerControls on _PlayerPageState {
     _PlayerFit.fill => Icons.fit_screen_rounded,
   };
 
+  /// AVKit's own pair for fit and zoom, and the stretch arrows for fill.
   static String _fitSymbol(_PlayerFit fit) => switch (fit) {
     _PlayerFit.contain => 'aspectratio',
-    _PlayerFit.cover => 'viewfinder',
-    _PlayerFit.fill => 'arrow.up.left.and.arrow.down.right',
+    _PlayerFit.cover => 'arrow.up.left.and.arrow.down.right',
+    _PlayerFit.fill => 'rectangle.arrowtriangle.2.outward',
   };
 
   String _fitLabel(_PlayerFit fit) {
@@ -2128,54 +2129,8 @@ extension _PlayerControls on _PlayerPageState {
     );
   }
 
-  /// The speed presets as a native menu, the current one checked.
-  List<NativeMenuRow> get _speedRows => [
-    for (final s in _PlayerPanels._speedPresets)
-      NativeMenuRow(
-        title: _speedLabel(s),
-        checked: (s - _playbackSpeed).abs() < 0.01,
-        key: s,
-      ),
-  ];
-
-  void _pickSpeed(int i) => _setSpeed(_PlayerPanels._speedPresets[i]);
-
-  List<NativeMenuRow> get _fitRows => [
-    for (final f in _PlayerFit.values)
-      NativeMenuRow(title: _fitLabel(f), checked: f == _fit, key: f),
-  ];
-
-  void _pickFit(int i) => _setFit(_PlayerFit.values[i]);
-
-  /// What the sleep button's hold offers: everything its sheet does.
-  List<(NativeMenuRow, VoidCallback)> get _sleepChoices => [
-    if (_sleepArmed)
-      (NativeMenuRow(title: 'general.off'.tr(), key: 'off'), _cancelSleepTimer),
-    for (final d in _PlayerSleepTimer._presets)
-      (
-        NativeMenuRow(
-          title: d.inMinutes < 60
-              ? 'player.sleep_minutes'.tr(args: ['${d.inMinutes}'])
-              : 'player.sleep_hours'.tr(args: ['${d.inHours}']),
-          breakBefore: _sleepArmed && d == _PlayerSleepTimer._presets.first,
-          key: d,
-        ),
-        () => _armSleepDuration(d),
-      ),
-    if (widget.args.isSerial)
-      (
-        NativeMenuRow(
-          title: 'player.sleep_episode_end'.tr(),
-          checked: _sleepAtEpisodeEnd,
-          breakBefore: true,
-          key: 'episode',
-        ),
-        _armSleepAtEpisodeEnd,
-      ),
-  ];
-
   PlayerControlFace _sleepFace({String? label}) {
-    final choices = _sleepChoices;
+    final menu = _nativeBars ? _sleepMenu : null;
     return PlayerControlFace(
       id: 'sleep',
       icon: Icons.bedtime_rounded,
@@ -2184,8 +2139,9 @@ extension _PlayerControls on _PlayerPageState {
       // Filled while armed, but not tinted: the Flutter button never was.
       symbol: _sleepArmed ? 'moon.zzz.fill' : 'moon.zzz',
       onTap: _openSleepSheet,
-      menu: [for (final c in choices) c.$1],
-      onMenu: (i) => choices[i].$2(),
+      menu: menu?.rows,
+      menuPrimary: menu != null,
+      onMenu: menu?.pick,
     );
   }
 
@@ -2203,14 +2159,14 @@ extension _PlayerControls on _PlayerPageState {
           pill: true,
           label: (_currentLang ?? _kSubLang).toUpperCase(),
           onTap: _openLangSheet,
-        );
+        ).withMenu(_nativeBars ? _langMenu : null);
       case 'subtitles':
         return PlayerControlFace(
           id: id,
           icon: Icons.closed_caption_rounded,
           semanticLabel: name,
           onTap: _openSubtitleSheet,
-        );
+        ).withMenu(_nativeBars ? _subtitleMenu : null);
       case 'settings':
         return PlayerControlFace(
           id: id,
@@ -2222,6 +2178,7 @@ extension _PlayerControls on _PlayerPageState {
         return PlayerControlFace(
           id: id,
           icon: Icons.screen_rotation_rounded,
+          symbol: orientationSymbol(portrait: _isPortrait),
           semanticLabel: name,
           onTap: _toggleOrientation,
         );
@@ -2251,9 +2208,7 @@ extension _PlayerControls on _PlayerPageState {
           semanticLabel: name,
           onTap: _cycleSpeed,
           onLongPress: _openSpeedSheet,
-          menu: _speedRows,
-          onMenu: _pickSpeed,
-        );
+        ).withMenu(_nativeBars ? _speedMenu : null);
       case 'server':
         if (!a.hasServers) return null;
         return PlayerControlFace(
@@ -2261,7 +2216,7 @@ extension _PlayerControls on _PlayerPageState {
           icon: Icons.dns_rounded,
           semanticLabel: name,
           onTap: _openServerSheet,
-        );
+        ).withMenu(_nativeBars ? _serverMenu : null);
       case 'quality':
         if (!a.hasQualities) return null;
         return PlayerControlFace(
@@ -2269,7 +2224,7 @@ extension _PlayerControls on _PlayerPageState {
           icon: Icons.high_quality_rounded,
           semanticLabel: name,
           onTap: () => _openPanel(_SidePanel.quality),
-        );
+        ).withMenu(_nativeBars ? _qualityMenu : null);
       case 'episodes':
         if (!a.hasEpisodes) return null;
         return PlayerControlFace(
@@ -2314,13 +2269,11 @@ extension _PlayerControls on _PlayerPageState {
           // Forward on a tap, back on a hold. Three modes and a glyph that
           // names the current one leaves nothing for a dialog to add — and a
           // hold that steps backwards is worth more than one that opens a list
-          // of what the taps already walk through. The native button's hold
-          // opens all three instead, with the current one checked.
+          // of what the taps already walk through. The native button opens
+          // all three as its menu instead, the current one checked.
           onTap: _cycleFit,
           onLongPress: () => _cycleFit(step: -1),
-          menu: _fitRows,
-          onMenu: _pickFit,
-        );
+        ).withMenu(_nativeBars ? _fitMenu : null);
       case 'sleep':
         if (_isLive) return null;
         return _sleepFace();
@@ -2451,9 +2404,7 @@ extension _PlayerControls on _PlayerPageState {
           compact: compact,
           onTap: _openSpeedSheet,
           onLongPress: _openSpeedSheet,
-          menu: _speedRows,
-          onMenu: _pickSpeed,
-        );
+        ).withMenu(_nativeBars ? _speedMenu : null);
       case 'server':
         if (isTvPlatform || !a.hasServers) return null;
         return PlayerControlFace(
@@ -2463,7 +2414,7 @@ extension _PlayerControls on _PlayerPageState {
           label: _currentServer ?? '—',
           compact: compact,
           onTap: _openServerSheet,
-        );
+        ).withMenu(_nativeBars ? _serverMenu : null);
       case 'quality':
         if (isTvPlatform || !a.hasQualities) return null;
         return PlayerControlFace(
@@ -2476,7 +2427,7 @@ extension _PlayerControls on _PlayerPageState {
           compactLabel: _qualityChipShort,
           compact: compact,
           onTap: () => _openPanel(_SidePanel.quality),
-        );
+        ).withMenu(_nativeBars ? _qualityMenu : null);
       case 'episodes':
         if (isTvPlatform || !a.hasEpisodes) return null;
         return PlayerControlFace(
@@ -2516,9 +2467,7 @@ extension _PlayerControls on _PlayerPageState {
           // the button itself answers. No toast either: the label IS the
           // feedback, and a snackbar repeating it is one message too many.
           onTap: () => _cycleFit(toast: false),
-          menu: _fitRows,
-          onMenu: _pickFit,
-        );
+        ).withMenu(_nativeBars ? _fitMenu : null);
       case 'sleep':
         if (!_roomForExtras || _isLive) return null;
         return _sleepFace(label: _sleepValueLabel);
