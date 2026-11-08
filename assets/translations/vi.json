@@ -570,6 +570,8 @@
     "subtitle_n": "Phụ đề {}",
     "subtitle_in_video": "Trong video",
     "rewind": "Tua lại",
+    "rewind_by": "Tua lại {} giây",
+    "forward_by": "Tua tới {} giây",
     "mini_restore": "Trở về cửa sổ đầy đủ",
     "pip_unavailable": "Không thể bật hình trong hình cho video này.",
     "scrub_release_cancel": "Thả ra để hủy",

@@ -570,6 +570,8 @@
     "subtitle_n": "Ondertiteling {}",
     "subtitle_in_video": "In de video",
     "rewind": "Terugspoelen",
+    "rewind_by": "{} s terug",
+    "forward_by": "{} s vooruit",
     "mini_restore": "Terug naar het volledige venster",
     "pip_unavailable": "Beeld-in-beeld kon voor deze video niet starten.",
     "scrub_release_cancel": "Loslaten om te annuleren",

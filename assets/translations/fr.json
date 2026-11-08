@@ -570,6 +570,8 @@
     "subtitle_n": "Sous-titres {}",
     "subtitle_in_video": "Dans la vidéo",
     "rewind": "Reculer",
+    "rewind_by": "Reculer de {} s",
+    "forward_by": "Avancer de {} s",
     "mini_restore": "Revenir à la fenêtre complète",
     "pip_unavailable": "Impossible de lancer l’image dans l’image pour cette vidéo.",
     "scrub_release_cancel": "Relâchez pour annuler",

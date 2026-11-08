@@ -570,6 +570,8 @@
     "subtitle_n": "सबटाइटल {}",
     "subtitle_in_video": "वीडियो में",
     "rewind": "रिवाइंड",
+    "rewind_by": "{} सेकंड पीछे",
+    "forward_by": "{} सेकंड आगे",
     "mini_restore": "वापस पूरी विंडो में",
     "pip_unavailable": "इस वीडियो के लिए पिक्चर-इन-पिक्चर शुरू नहीं हो पाया।",
     "scrub_release_cancel": "रद्द करने के लिए छोड़ें",

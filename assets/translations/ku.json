@@ -570,6 +570,8 @@
     "subtitle_n": "Binnivîs {}",
     "subtitle_in_video": "Di vîdyoyê de",
     "rewind": "Paşve bibe",
+    "rewind_by": "{}s paş",
+    "forward_by": "{}s pêş",
     "mini_restore": "Vegere pencereya tevahî",
     "pip_unavailable": "Wêne di nav wêneyê de ji bo vê vîdyoyê dest pê nekir.",
     "scrub_release_cancel": "Ji bo betalkirinê berde",

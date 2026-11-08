@@ -570,6 +570,8 @@
     "subtitle_n": "Subtitel {}",
     "subtitle_in_video": "Di dalam video",
     "rewind": "Mundur",
+    "rewind_by": "Mundur {} dtk",
+    "forward_by": "Maju {} dtk",
     "mini_restore": "Kembali ke jendela penuh",
     "pip_unavailable": "Gambar-dalam-gambar tidak bisa dimulai untuk video ini.",
     "scrub_release_cancel": "Lepas untuk membatalkan",

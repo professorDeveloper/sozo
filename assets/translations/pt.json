@@ -570,6 +570,8 @@
     "subtitle_n": "Legenda {}",
     "subtitle_in_video": "No vídeo",
     "rewind": "Voltar",
+    "rewind_by": "Voltar {} s",
+    "forward_by": "Avançar {} s",
     "mini_restore": "Voltar à janela inteira",
     "pip_unavailable": "Não foi possível iniciar o picture-in-picture para este vídeo.",
     "scrub_release_cancel": "Solte para cancelar",

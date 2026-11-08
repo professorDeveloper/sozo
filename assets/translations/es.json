@@ -570,6 +570,8 @@
     "subtitle_n": "Subtítulo {}",
     "subtitle_in_video": "En el vídeo",
     "rewind": "Retroceder",
+    "rewind_by": "Retroceder {} s",
+    "forward_by": "Adelantar {} s",
     "mini_restore": "Volver a la ventana completa",
     "pip_unavailable": "No se pudo iniciar imagen en imagen para este vídeo.",
     "scrub_release_cancel": "Suelta para cancelar",

@@ -130,6 +130,11 @@ private final class BarButton: UIButton {
     ring.path = UIBezierPath(ovalIn: bounds.insetBy(dx: inset, dy: inset)).cgPath
   }
 
+  override func didMoveToWindow() {
+    super.didMoveToWindow()
+    if busy, window != nil, ring.animation(forKey: "spin") == nil { spin() }
+  }
+
   private func spin() {
     ring.isHidden = false
     let turn = CABasicAnimation(keyPath: "transform.rotation.z")
@@ -137,6 +142,8 @@ private final class BarButton: UIButton {
     turn.toValue = CGFloat.pi * 2
     turn.duration = 0.9
     turn.repeatCount = .infinity
+    // Kept through a trip to the background or out of the window.
+    turn.isRemovedOnCompletion = false
     ring.add(turn, forKey: "spin")
   }
 
@@ -197,6 +204,7 @@ final class NativePlayerBarView: NSObject, FlutterPlatformView {
   private let channel: FlutterMethodChannel
 
   private var look = "capsule"
+  private var dim = UIColor.black.withAlphaComponent(0.22)
   private var ids: [String] = []
   private var items: [String: [String: Any]] = [:]
   private var buttons: [String: BarButton] = [:]
@@ -276,6 +284,7 @@ final class NativePlayerBarView: NSObject, FlutterPlatformView {
     look = newLook
     ids = newIds
     if rebuild { build() }
+    if let raw = args["dim"] as? NSNumber { dim = color(raw.uint32Value) }
     placeCapsules(args["capsules"] as? [[NSNumber]] ?? [])
     for id in ids {
       if let button = buttons[id], let item = items[id] {
@@ -334,16 +343,20 @@ final class NativePlayerBarView: NSObject, FlutterPlatformView {
       return
     }
     while capsules.count < rects.count {
-      let glass = UIGlassEffect(style: .clear)
-      glass.isInteractive = false
-      glass.tintColor = UIColor.black.withAlphaComponent(0.22)
-      let capsule = UIVisualEffectView(effect: glass)
+      let capsule = UIVisualEffectView(effect: nil)
       capsule.cornerConfiguration = .capsule()
       container.contentView.addSubview(capsule)
       capsules.append(capsule)
     }
     while capsules.count > rects.count {
       capsules.removeLast().removeFromSuperview()
+    }
+    for capsule in capsules
+    where (capsule.effect as? UIGlassEffect)?.tintColor != dim {
+      let glass = UIGlassEffect(style: .clear)
+      glass.isInteractive = false
+      glass.tintColor = dim
+      capsule.effect = glass
     }
     for (i, rect) in rects.enumerated() {
       let r = cgRect(rect)

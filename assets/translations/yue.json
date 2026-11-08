@@ -570,6 +570,8 @@
     "subtitle_n": "字幕 {}",
     "subtitle_in_video": "影片內置",
     "rewind": "倒帶",
+    "rewind_by": "倒帶 {} 秒",
+    "forward_by": "快進 {} 秒",
     "mini_restore": "返去大視窗",
     "pip_unavailable": "呢條片開唔到子母畫面。",
     "scrub_release_cancel": "鬆手就取消",

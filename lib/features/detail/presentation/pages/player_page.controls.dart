@@ -348,6 +348,12 @@ extension _PlayerControls on _PlayerPageState {
     _PlayerFit.fill => Icons.fit_screen_rounded,
   };
 
+  static String _fitSymbol(_PlayerFit fit) => switch (fit) {
+    _PlayerFit.contain => 'aspectratio',
+    _PlayerFit.cover => 'viewfinder',
+    _PlayerFit.fill => 'arrow.up.left.and.arrow.down.right',
+  };
+
   String _fitLabel(_PlayerFit fit) {
     switch (fit) {
       case _PlayerFit.contain:
@@ -1465,7 +1471,7 @@ extension _PlayerControls on _PlayerPageState {
                 NativeBarItem(
                   id: 'rewind',
                   symbol: rewindSymbol(step),
-                  semanticLabel: 'player.rewind'.tr(),
+                  semanticLabel: 'player.rewind_by'.tr(args: ['$step']),
                   extent: 52,
                   glyph: 24,
                   onPressed: rewind,
@@ -1484,7 +1490,7 @@ extension _PlayerControls on _PlayerPageState {
                 NativeBarItem(
                   id: 'forward',
                   symbol: forwardSymbol(step),
-                  semanticLabel: 'player.forward'.tr(),
+                  semanticLabel: 'player.forward_by'.tr(args: ['$step']),
                   extent: 52,
                   glyph: 24,
                   onPressed: forward,
@@ -1608,6 +1614,7 @@ extension _PlayerControls on _PlayerPageState {
   /// whatever the controls' fade is doing.
   Widget _unlockPill(Widget flutter) => NativeGlassBar(
     look: NativeBarLook.capsule,
+    dim: Colors.black.withValues(alpha: 0.6),
     items: [
       NativeBarItem(
         id: 'unlock',
@@ -2302,6 +2309,7 @@ extension _PlayerControls on _PlayerPageState {
         return PlayerControlFace(
           id: id,
           icon: _fitIcon(_fit),
+          symbol: _fitSymbol(_fit),
           semanticLabel: name,
           // Forward on a tap, back on a hold. Three modes and a glyph that
           // names the current one leaves nothing for a dialog to add — and a
@@ -2499,6 +2507,7 @@ extension _PlayerControls on _PlayerPageState {
         return PlayerControlFace(
           id: id,
           icon: _fitIcon(_fit),
+          symbol: _fitSymbol(_fit),
           semanticLabel: name,
           label: _fitLabel(_fit),
           // Cycles. There are three fits, the button is already showing which

@@ -570,6 +570,8 @@
     "subtitle_n": "Subtitr {}",
     "subtitle_in_video": "Videoning ichida",
     "rewind": "Orqaga",
+    "rewind_by": "{}s orqaga",
+    "forward_by": "{}s oldinga",
     "mini_restore": "Katta oynaga qaytish",
     "pip_unavailable": "Bu video uchun “rasm ichida rasm” ishga tushmadi.",
     "scrub_release_cancel": "Qo‘yib yuborsangiz bekor bo‘ladi",

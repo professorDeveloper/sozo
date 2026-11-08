@@ -570,6 +570,8 @@
     "subtitle_n": "Untertitel {}",
     "subtitle_in_video": "Im Video",
     "rewind": "Zurückspulen",
+    "rewind_by": "{} s zurück",
+    "forward_by": "{} s vor",
     "mini_restore": "Zurück zum großen Fenster",
     "pip_unavailable": "Bild-in-Bild konnte für dieses Video nicht gestartet werden.",
     "scrub_release_cancel": "Loslassen zum Abbrechen",

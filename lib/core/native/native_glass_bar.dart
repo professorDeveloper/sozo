@@ -147,6 +147,7 @@ class NativeGlassBar extends StatefulWidget {
     this.spread = BarSpread.packed,
     this.maxExtent = double.infinity,
     this.accent = const Color(0xFFFFFFFF),
+    this.dim = const Color(0x38000000),
     this.onMenuOpen,
     this.onMenuClose,
   });
@@ -169,6 +170,9 @@ class NativeGlassBar extends StatefulWidget {
   /// A cap under the room the parent gives.
   final double maxExtent;
   final Color accent;
+
+  /// The capsule glass's tint; words on it want a deeper one.
+  final Color dim;
   final VoidCallback? onMenuOpen;
   final VoidCallback? onMenuClose;
 
@@ -273,6 +277,7 @@ class _NativeGlassBarState extends State<NativeGlassBar>
         _itemWire(widget.items[i], layout.slots[i]),
     ],
     'look': widget.look.name,
+    'dim': widget.dim.toARGB32(),
     'dir': _dir == TextDirection.rtl ? 'rtl' : 'ltr',
     'axis': widget.axis.name,
     'capsules': [
@@ -442,7 +447,7 @@ class _NativeGlassBarState extends State<NativeGlassBar>
     container: true,
     button: true,
     label: item.semanticLabel,
-    value: item.title,
+    value: item.title == item.semanticLabel ? null : item.title,
     enabled: item.enabled,
     selected: item.active,
     onTap: item.enabled ? item.onPressed : null,
