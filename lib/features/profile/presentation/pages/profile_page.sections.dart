@@ -55,7 +55,7 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
   void _reload() {
     if (!mounted) return;
     setState(() {
-      _historyCount = _historyService.getAll().length;
+      _historyCount = _historyService.count;
       _downloadCount = _downloadService().length;
     });
   }

@@ -73,6 +73,7 @@ import UIKit
     // platform view, so its factory has to be registered on the registrar
     // and not only on the method channel GlassSense owns.
     NativeGlass.register(with: registrar)
+    NativePlayerBar.register(with: registrar)
     NativePip.register(messenger: registrar.messenger())
 
     let previewChannel = FlutterMethodChannel(

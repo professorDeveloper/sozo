@@ -34,7 +34,9 @@
     "remove": "Verwijderen",
     "show": "Tonen",
     "hide": "Verbergen",
-    "installed": "Geïnstalleerd"
+    "installed": "Geïnstalleerd",
+    "load_more_failed": "Kon niet meer laden",
+    "go_home": "Naar start"
   },
   "auth": {
     "login": "Inloggen",
@@ -306,7 +308,11 @@
       "no_source": "Geen bron voor deze aflevering.",
       "empty_url": "Deze bron gaf geen videoadres terug.",
       "engine_unavailable": "De speler is niet gestart. Start de app volledig opnieuw op.",
-      "unknown": "Video kon niet worden geladen."
+      "unknown": "Video kon niet worden geladen.",
+      "not_found": "Deze video staat niet meer op deze server. Probeer een andere server.",
+      "server_error": "De videoserver heeft problemen. Probeer het zo opnieuw of kies een andere server.",
+      "resolve_failed": "Kon geen videolink van deze bron krijgen.",
+      "details": "Details"
     },
     "play": "Afspelen",
     "pause": "Pauze",
@@ -570,6 +576,8 @@
     "subtitle_n": "Ondertiteling {}",
     "subtitle_in_video": "In de video",
     "rewind": "Terugspoelen",
+    "rewind_by": "{} s terug",
+    "forward_by": "{} s vooruit",
     "mini_restore": "Terug naar het volledige venster",
     "pip_unavailable": "Beeld-in-beeld kon voor deze video niet starten.",
     "scrub_release_cancel": "Loslaten om te annuleren",
@@ -585,7 +593,18 @@
     "reaction_text_hint": "Iets korts…",
     "reaction_wait": "Wacht een paar seconden voordat je opnieuw reageert",
     "reaction_limit": "Je hebt het reactielimiet voor deze aflevering bereikt",
-    "reaction_failed": "Kon de reactie niet versturen"
+    "reaction_failed": "Kon de reactie niet versturen",
+    "native_offer_title": "De nieuwe speler proberen?",
+    "native_offer_body": "De Liquid Glass-bediening en -menu’s van Apple. Je kunt dit altijd wijzigen via Instellingen → Speler.",
+    "native_offer_try": "Proberen",
+    "native_offer_not_now": "Niet nu",
+    "trying_again": "Opnieuw proberen (poging {})",
+    "try_mpv": "Proberen met de mpv-engine",
+    "ok_to_skip": "OK om over te slaan",
+    "quality_lowered": "Kwaliteit verlaagd",
+    "undo": "Ongedaan maken",
+    "crash_log": "Crashlogboek",
+    "crash_log_empty": "Geen crashes vastgelegd"
   },
   "profile": {
     "title": "Profiel",
@@ -677,6 +696,15 @@
     "player_engine_section": "AFSPEELENGINE",
     "ask_engine_on_play": "Elke keer vragen",
     "ask_engine_on_play_desc": "Kies de engine telkens als een video start",
+    "controls_style": "STIJL VAN DE SPELERKNOPPEN",
+    "controls_style_desc": "Geldt vanaf de volgende keer dat je de speler opent.",
+    "controls_style_native": "Native (iOS 26)",
+    "controls_style_native_desc": "De eigen Liquid Glass-knoppen, -menu's en -panelen van de telefoon",
+    "controls_style_system": "Systeemglas",
+    "controls_style_system_desc": "De knoppen van de app op het Liquid Glass van de telefoon",
+    "controls_style_classic": "Klassiek glas",
+    "controls_style_classic_desc": "Het eigen glas van de app, zoals in eerdere versies",
+    "controls_style_needs_ios26": "Vereist iOS 26 of nieuwer",
     "playback_section": "AFSPELEN",
     "default_speed": "Standaardsnelheid",
     "default_speed_desc": "Snelheid waarmee elke video begint",
@@ -699,6 +727,8 @@
     "brightness_gesture_desc": "Veeg omhoog en omlaag aan de linkerkant",
     "volume_gesture": "Volume vegen",
     "volume_gesture_desc": "Veeg omhoog en omlaag aan de rechterkant",
+    "auto_pip": "Automatisch beeld-in-beeld",
+    "auto_pip_desc": "Als je tijdens een video op Home drukt, speelt hij verder in een klein venster",
     "seconds_short": "{} s",
     "subtitle_style_note": "Dit geldt voor elke video. De ondertiteltiming blijft per aflevering en wordt in de speler ingesteld.",
     "searching_all_sources": "alle bronnen doorzoeken",
@@ -2056,7 +2086,8 @@
     "title": "Mijn lijsten",
     "remove": "Verwijderen",
     "empty_title": "Nog niets opgeslagen",
-    "empty_subtitle": "Titels die je opslaat verschijnen hier."
+    "empty_subtitle": "Titels die je opslaat verschijnen hier.",
+    "load_failed": "Kon deze lijst niet laden."
   },
   "torrent": {
     "title": "Torrents",
@@ -2910,6 +2941,8 @@
     "priming_title": "Mis nooit meer een nieuwe aflevering",
     "priming_body": "Sozo laat het je weten zodra iets wat je volgt een nieuwe aflevering of een nieuw hoofdstuk krijgt — en niets waar je niet om hebt gevraagd.",
     "priming_body_title": "Hoor het meteen wanneer ‘{}’ een nieuwe aflevering krijgt — en niets waar je niet om hebt gevraagd.",
+    "priming_download_title": "Weet wanneer je download klaar is",
+    "priming_download_body": "Sozo toont de downloadvoortgang in je meldingen en laat weten wanneer je offline kunt kijken. Ook kan Sozo je melden wanneer iets wat je volgt een nieuwe aflevering krijgt.",
     "priming_point_releases": "Nieuwe afleveringen, met poster",
     "priming_point_quiet": "Stille uren",
     "priming_point_control": "Elke titel dempen",
@@ -3138,7 +3171,8 @@
     "error_attachment_count": "Maximaal 5 screenshots per bericht.",
     "suggest": "Blijft het gebeuren? Schrijf support",
     "error_offline": "Je bent offline of de verbinding is verbroken. Controleer je internet en probeer het opnieuw.",
-    "not_sent": "Niet verzonden: {}"
+    "not_sent": "Niet verzonden: {}",
+    "diag_crash_log": "Crashlogboek bekijken"
   },
   "zangetsu": {
     "title": "Zangetsu-bronnen",

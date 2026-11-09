@@ -113,6 +113,11 @@ extension _PlayerTv on _PlayerPageState {
   /// dead until the next tap.
   void _tvHandOffFocusToRoot() {
     if (!isTvPlatform) return;
+    // The Up Next card keeps focus while the controls come and go; it leaves
+    // with the card.
+    if (_upNextShown && !_upNextDismissed && _tvUpNextFocus.hasPrimaryFocus) {
+      return;
+    }
     final current = FocusManager.instance.primaryFocus;
     if (current != null && current != _tvRootFocus) {
       // Disposition.scope hands primary focus to the enclosing scope, which is
@@ -187,6 +192,11 @@ extension _PlayerTv on _PlayerPageState {
     if (_locked) {
       setState(() => _locked = false);
       _tvReveal(force: true);
+      return;
+    }
+    if (_upNextShown && !_upNextDismissed) {
+      _dismissUpNext();
+      _tvHandOffFocusToRoot();
       return;
     }
     if (_panel != _SidePanel.none) {
@@ -276,6 +286,10 @@ extension _PlayerTv on _PlayerPageState {
       unawaited(_stopAutoSwitch());
       return KeyEventResult.handled;
     }
+    if (_isTvSelect(k) && _tvUpNextFocus.hasPrimaryFocus) {
+      _playNextNow();
+      return KeyEventResult.handled;
+    }
 
     if (_locked) {
       // The lock affordance is not built on TV (see _buildControlsOverlay), so
@@ -312,6 +326,13 @@ extension _PlayerTv on _PlayerPageState {
         return KeyEventResult.handled;
       }
       if (_isTvSelect(k)) {
+        // An offered skip is what OK means while it is on screen; the pill
+        // says so.
+        final skip = _activeSkip;
+        if (skip != null && _controlsCanShowSkip) {
+          unawaited(_takeSkip(skip));
+          return KeyEventResult.handled;
+        }
         _togglePlay();
         _tvReveal();
         return KeyEventResult.handled;

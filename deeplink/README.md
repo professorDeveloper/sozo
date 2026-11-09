@@ -85,3 +85,21 @@ So'ng `sozo.azamov.me` DNS yozuvini backend'ning IP'siga yo'naltirish kerak
 
 `detail.html` ichida iOS App Store URL'i hozircha `id0000000000` —
 haqiqiy `id...` ni ilova chiqqach almashtiring.
+
+## `/play` links (for sozo-web)
+
+The app now reads these parameters on `/play` (and `/detail`):
+
+| Param | Meaning |
+|---|---|
+| `url` | content URL (required) |
+| `provider` | source id; used for this navigation only, never saved as the current source |
+| `ep` | episode number as shown to the viewer (1-based), `/play` only |
+| `t` | start position in seconds (`95`, `1:35` and `1m35s` are all accepted), `/play` only |
+
+Example: `https://sozo.azamov.me/play?url=…&provider=hdrezka&ep=12&t=754`
+
+The web fallback page for `/play` (and `/detail`) must forward the **whole**
+query string to `sozo://play…`, not only `url`. `detail.html` in this folder
+does that now; the copy deployed by the sozo-web repo needs the same change.
+`apple-app-site-association` already lists `/play` and `/play/*`.

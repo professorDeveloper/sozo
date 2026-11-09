@@ -79,49 +79,27 @@ extension _PlayerPanels on _PlayerPageState {
   void _openLangSheet() {
     final langs = _availableLangsForCurrentEpisode();
     if (langs.isEmpty) return;
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    _showSheet<void>(
       builder: (sheetContext) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.translate_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'player.audio_language'.tr(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
+              ..._sheetHead(
+                Icons.translate_rounded,
+                'player.audio_language'.tr(),
               ),
-              const Divider(color: Colors.white12, height: 1),
-              for (final l in langs)
-                _OptionTile(
-                  label: _langLabel(l),
-                  selected: l == _currentLang,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _switchLang(l);
-                  },
-                ),
+              ..._sheetGroup([
+                for (final l in langs)
+                  _OptionTile(
+                    label: _langLabel(l),
+                    selected: l == _currentLang,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _switchLang(l);
+                    },
+                  ),
+              ]),
               const SizedBox(height: 8),
             ],
           ),
@@ -281,7 +259,9 @@ extension _PlayerPanels on _PlayerPageState {
     final pinned =
         source.height ?? VideoOptionGroups.resolutionOf(source.quality);
     if (pinned != null) return '${playing ?? pinned}p';
-    if (!_hasParsedSiblings(source.quality)) return _qualityLabel(source.quality);
+    if (!_hasParsedSiblings(source.quality)) {
+      return _qualityLabel(source.quality);
+    }
     // On the platform player Auto is ExoPlayer's own ABR, and video_player
     // reports only the size it started at. "Auto · 1080p" stayed on screen
     // while the picture adapted down to the lowest rung, which is how
@@ -335,53 +315,28 @@ extension _PlayerPanels on _PlayerPageState {
     final labels = _sourceLabels;
     final servers = _sourceServers;
     if (servers.length < 2) return;
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    _showSheet<void>(
       builder: (sheetContext) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.dns_outlined,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'player.server'.tr(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(color: Colors.white12, height: 1),
-              for (final server in servers)
-                _ServerTile(
-                  label: server,
-                  qualities: VideoOptionGroups.qualitiesFor(
-                    labels,
-                    server,
-                  ).join(' · '),
-                  selected: server == _currentServer,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _switchServer(server);
-                  },
-                ),
+              ..._sheetHead(Icons.dns_outlined, 'player.server'.tr()),
+              ..._sheetGroup([
+                for (final server in servers)
+                  _ServerTile(
+                    label: server,
+                    qualities: VideoOptionGroups.qualitiesFor(
+                      labels,
+                      server,
+                    ).join(' · '),
+                    selected: server == _currentServer,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _switchServer(server);
+                    },
+                  ),
+              ], inset: 56),
               const SizedBox(height: 8),
             ],
           ),
@@ -415,13 +370,7 @@ extension _PlayerPanels on _PlayerPageState {
   void _openSettingsSheet() {
     final a = _affordances;
     final hasLangs = a.hasLangs;
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    _showSheet<void>(
       // StatefulBuilder so a row can change its own value without the sheet
       // closing and reopening — see the aspect-ratio tile below.
       builder: (sheetContext) => StatefulBuilder(
@@ -430,334 +379,311 @@ extension _PlayerPanels on _PlayerPageState {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.settings_outlined,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'general.settings'.tr(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(color: Colors.white12, height: 1),
-                // Switching provider without losing your place.
-                //
-                // The app carries the same title on several ecosystems at once,
-                // and until now the only way to leave a struggling source was to
-                // back out and start the episode again somewhere else. Offered
-                // here rather than only on the error screen, because a source
-                // that is buffering badly has not failed yet — that is exactly
-                // when someone wants out, and exactly when they have a position
-                // worth keeping.
-                //
-                // Not for live: a channel is one stream, and there is no other
-                // provider carrying the same minute of it.
-                if (!_isLive)
+                ..._sheetHead(Icons.settings_outlined, 'general.settings'.tr()),
+                ..._sheetGroup([
+                  // Switching provider without losing your place.
+                  //
+                  // The app carries the same title on several ecosystems at once,
+                  // and until now the only way to leave a struggling source was to
+                  // back out and start the episode again somewhere else. Offered
+                  // here rather than only on the error screen, because a source
+                  // that is buffering badly has not failed yet — that is exactly
+                  // when someone wants out, and exactly when they have a position
+                  // worth keeping.
+                  //
+                  // Not for live: a channel is one stream, and there is no other
+                  // provider carrying the same minute of it.
+                  if (!_isLive)
+                    _SettingsTile(
+                      icon: Icons.swap_horiz_rounded,
+                      label: 'player.change_source'.tr(),
+                      value: _providerLabel,
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _openAlternateSources(keepPosition: true);
+                      },
+                    ),
+                  // Speed, server, quality and subtitles used to sit here as well
+                  // as on the bar, calling the very same functions. A settings list
+                  // is where things go when they have nowhere else; those all have
+                  // a button one tap away, so the copies were padding a list that
+                  // was already nineteen rows long. Removed, not moved.
+                  //
+                  // Download is the exception and stays: the bar button for it is
+                  // in the PHONE branch only, so on desktop this sheet is the only
+                  // way to start one. Removing it took the feature off Windows,
+                  // macOS and Linux entirely.
+                  if (isDesktopPlatform && a.canDownload)
+                    _SettingsTile(
+                      icon: Icons.download_rounded,
+                      label: 'movie.download'.tr(),
+                      value: '',
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _startDownload();
+                      },
+                    ),
+                  // Three values, stepped in place.
+                  //
+                  // This opened a SECOND sheet over the first to choose one of
+                  // three — a whole modal, covering the video, for a setting whose
+                  // entire interaction is "the next one". The row cycles now and
+                  // shows where it landed, and the sheet it is in stays open so
+                  // two steps cost two taps.
                   _SettingsTile(
-                    icon: Icons.swap_horiz_rounded,
-                    label: 'player.change_source'.tr(),
-                    value: _providerLabel,
+                    icon: Icons.aspect_ratio_rounded,
+                    label: 'player.aspect'.tr(),
+                    value: _fitLabel(_fit),
                     onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _openAlternateSources(keepPosition: true);
+                      _cycleFit(toast: false);
+                      setSheetState(() {});
                     },
                   ),
-                // Speed, server, quality and subtitles used to sit here as well
-                // as on the bar, calling the very same functions. A settings list
-                // is where things go when they have nowhere else; those all have
-                // a button one tap away, so the copies were padding a list that
-                // was already nineteen rows long. Removed, not moved.
-                //
-                // Download is the exception and stays: the bar button for it is
-                // in the PHONE branch only, so on desktop this sheet is the only
-                // way to start one. Removing it took the feature off Windows,
-                // macOS and Linux entirely.
-                if (isDesktopPlatform && a.canDownload)
-                  _SettingsTile(
-                    icon: Icons.download_rounded,
-                    label: 'movie.download'.tr(),
-                    value: '',
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _startDownload();
-                    },
-                  ),
-                // Three values, stepped in place.
-                //
-                // This opened a SECOND sheet over the first to choose one of
-                // three — a whole modal, covering the video, for a setting whose
-                // entire interaction is "the next one". The row cycles now and
-                // shows where it landed, and the sheet it is in stays open so
-                // two steps cost two taps.
-                _SettingsTile(
-                  icon: Icons.aspect_ratio_rounded,
-                  label: 'player.aspect'.tr(),
-                  value: _fitLabel(_fit),
-                  onTap: () {
-                    _cycleFit(toast: false);
-                    setSheetState(() {});
-                  },
-                ),
-                if (!isDesktopPlatform &&
-                    !_preferPlatformPlayer &&
-                    (_controller?.supportsVideoTracks ?? false))
-                  _SettingsTile(
-                    icon: Icons.play_circle_outline,
-                    label: 'profile.player_engine_native'.tr(),
-                    value: '',
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _playWithSystemPlayer();
-                    },
-                  ),
-                // Absent on the platform player, which has no runtime picture
-                // control at all. Offering a menu that silently does nothing
-                // teaches people the app is broken rather than that the feature
-                // is unavailable here.
-                if (_controller?.supportsColorProfile ?? false)
-                  _SettingsTile(
-                    icon: Icons.tune_rounded,
-                    label: 'player.color_profile'.tr(),
-                    value: _colorProfile.labelKey.tr(),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _openColorSheet();
-                    },
-                  ),
-                // Only on libmpv, which is the one backend that can read a frame
-                // back. The platform player and the DRM one keep their pixels in
-                // a texture the Dart side never sees, so the row is absent there
-                // rather than present and producing nothing.
-                //
-                // Live has no frame worth sharing and no title to attach it to.
-                if (!_isLive && (_controller?.supportsShaders ?? false))
-                  _SettingsTile(
-                    icon: Icons.photo_camera_outlined,
-                    label: 'player.share_frame'.tr(),
-                    value: '',
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _shareCurrentFrame();
-                    },
-                  ),
-                // Sharing and keeping are different intentions, and routing
-                // "keep" through the share sheet made it a three-tap detour via
-                // whichever app the system decided could save a file. The frame
-                // people wanted was also the one the system screenshot key could
-                // not give them: that one carries the controls, the seek bar and
-                // the status bar burnt into it, at the screen's resolution
-                // rather than the video's.
-                if (!_isLive && (_controller?.supportsShaders ?? false))
-                  _SettingsTile(
-                    icon: Icons.save_alt_rounded,
-                    label: 'player.save_frame'.tr(),
-                    value: '',
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _saveCurrentFrame();
-                    },
-                  ),
-                // Always listed, disabled where it cannot run.
-                //
-                // It used to disappear entirely on the platform player, which is
-                // the default on most devices — so Anime4K, sharpen, deblur and
-                // denoise were invisible to the people most likely to want them,
-                // with nothing on screen to say the feature existed or why it was
-                // absent. A row that explains itself beats a row that is not
-                // there.
-                if (_controller?.supportsShaders ?? false)
-                  _SettingsTile(
-                    icon: Icons.auto_awesome_rounded,
-                    label: 'player.shaders'.tr(),
-                    value: _shaderPreset.isOff
-                        ? 'general.off'.tr()
-                        : _shaderPreset.labelKey.tr(),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _openShaderSheet();
-                    },
-                  )
-                else
-                  _SettingsTile(
-                    icon: Icons.auto_awesome_rounded,
-                    label: 'player.shaders'.tr(),
-                    value: _mediaKitMissing(),
-                    onTap: null,
-                  ),
-                // Shown here, and not only in Settings, so a mode that suppresses
-                // history cannot sit on unnoticed for weeks: the sheet is the one
-                // surface a viewer opens mid-episode, and this is where they will
-                // wonder why nothing is in Continue Watching.
-                if (_hive.isIncognito)
-                  _SettingsTile(
-                    icon: Icons.visibility_off_outlined,
-                    label: 'profile.incognito'.tr(),
-                    value: 'general.on'.tr(),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _hive.setIncognito(false);
-                      if (!mounted) return;
-                      setState(() {});
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('profile.incognito_off'.tr()),
-                          behavior: SnackBarBehavior.floating,
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                  ),
-                // Hidden rather than disabled when the stream cannot be cast — a
-                // torrent handle or a downloaded file has no address a device on
-                // the network could fetch, and a greyed-out row invites a tap
-                // that can only ever explain itself.
-                if (_canCast)
-                  _SettingsTile(
-                    icon: _cast.isCasting
-                        ? Icons.cast_connected_rounded
-                        : Icons.cast_rounded,
-                    label: 'player.cast'.tr(),
-                    value: _cast.device?.name ?? '—',
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      if (_cast.isCasting) {
-                        _stopCasting();
-                      } else {
-                        _openCastSheet();
-                      }
-                    },
-                  ),
-                // Not offered for live TV: a broadcast has no end to stop at, and
-                // a countdown that pauses a channel is just a mute button with
-                // extra steps.
-                if (!_isLive)
-                  _SettingsTile(
-                    icon: Icons.bedtime_outlined,
-                    label: 'player.sleep_timer'.tr(),
-                    value: _sleepValueLabel,
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _openSleepSheet();
-                    },
-                  ),
-                if (hasLangs)
-                  _SettingsTile(
-                    icon: Icons.translate_rounded,
-                    label: 'player.audio_language'.tr(),
-                    value: _currentLang == null
-                        ? '—'
-                        : _langLabel(_currentLang!),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _openLangSheet();
-                    },
-                  ),
-                if (_subtitles.isNotEmpty ||
-                    (_controller?.subtitleTracks.isNotEmpty ?? false))
-                  _SettingsTile(
-                    icon: Icons.text_fields_rounded,
-                    label: 'player.subtitle_style'.tr(),
-                    value: '${_subtitleStyle.fontSize.round()}px',
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _openSubtitleAppearanceSheet();
-                    },
-                  ),
-                // Audio tracks are a media_kit capability: video_player exposes no
-                // track-selection API at all. Under the default engine the tile
-                // stays disabled and says why, rather than opening an empty sheet.
-                if (!hasLangs)
-                  Builder(
-                    builder: (_) {
-                      final c = _controller;
-                      final supported = c?.supportsAudioTracks ?? false;
-                      final tracks =
-                          c?.audioTracks ?? const <PlayerAudioTrack>[];
-                      if (!supported) {
+                  if (!isDesktopPlatform &&
+                      !_preferPlatformPlayer &&
+                      (_controller?.supportsVideoTracks ?? false))
+                    _SettingsTile(
+                      icon: Icons.play_circle_outline,
+                      label: 'profile.player_engine_native'.tr(),
+                      value: '',
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _playWithSystemPlayer();
+                      },
+                    ),
+                  // Absent on the platform player, which has no runtime picture
+                  // control at all. Offering a menu that silently does nothing
+                  // teaches people the app is broken rather than that the feature
+                  // is unavailable here.
+                  if (_controller?.supportsColorProfile ?? false)
+                    _SettingsTile(
+                      icon: Icons.tune_rounded,
+                      label: 'player.color_profile'.tr(),
+                      value: _colorProfile.labelKey.tr(),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _openColorSheet();
+                      },
+                    ),
+                  // Only on libmpv, which is the one backend that can read a frame
+                  // back. The platform player and the DRM one keep their pixels in
+                  // a texture the Dart side never sees, so the row is absent there
+                  // rather than present and producing nothing.
+                  //
+                  // Live has no frame worth sharing and no title to attach it to.
+                  if (!_isLive && (_controller?.supportsShaders ?? false))
+                    _SettingsTile(
+                      icon: Icons.photo_camera_outlined,
+                      label: 'player.share_frame'.tr(),
+                      value: '',
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _shareCurrentFrame();
+                      },
+                    ),
+                  // Sharing and keeping are different intentions, and routing
+                  // "keep" through the share sheet made it a three-tap detour via
+                  // whichever app the system decided could save a file. The frame
+                  // people wanted was also the one the system screenshot key could
+                  // not give them: that one carries the controls, the seek bar and
+                  // the status bar burnt into it, at the screen's resolution
+                  // rather than the video's.
+                  if (!_isLive && (_controller?.supportsShaders ?? false))
+                    _SettingsTile(
+                      icon: Icons.save_alt_rounded,
+                      label: 'player.save_frame'.tr(),
+                      value: '',
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _saveCurrentFrame();
+                      },
+                    ),
+                  // Always listed, disabled where it cannot run.
+                  //
+                  // It used to disappear entirely on the platform player, which is
+                  // the default on most devices — so Anime4K, sharpen, deblur and
+                  // denoise were invisible to the people most likely to want them,
+                  // with nothing on screen to say the feature existed or why it was
+                  // absent. A row that explains itself beats a row that is not
+                  // there.
+                  if (_controller?.supportsShaders ?? false)
+                    _SettingsTile(
+                      icon: Icons.auto_awesome_rounded,
+                      label: 'player.shaders'.tr(),
+                      value: _shaderPreset.isOff
+                          ? 'general.off'.tr()
+                          : _shaderPreset.labelKey.tr(),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _openShaderSheet();
+                      },
+                    )
+                  else
+                    _SettingsTile(
+                      icon: Icons.auto_awesome_rounded,
+                      label: 'player.shaders'.tr(),
+                      value: _mediaKitMissing(),
+                      onTap: null,
+                    ),
+                  // Shown here, and not only in Settings, so a mode that suppresses
+                  // history cannot sit on unnoticed for weeks: the sheet is the one
+                  // surface a viewer opens mid-episode, and this is where they will
+                  // wonder why nothing is in Continue Watching.
+                  if (_hive.isIncognito)
+                    _SettingsTile(
+                      icon: Icons.visibility_off_outlined,
+                      label: 'profile.incognito'.tr(),
+                      value: 'general.on'.tr(),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _hive.setIncognito(false);
+                        if (!mounted) return;
+                        setState(() {});
+                        _toast('profile.incognito_off'.tr());
+                      },
+                    ),
+                  // Hidden rather than disabled when the stream cannot be cast — a
+                  // torrent handle or a downloaded file has no address a device on
+                  // the network could fetch, and a greyed-out row invites a tap
+                  // that can only ever explain itself.
+                  if (_canCast)
+                    _SettingsTile(
+                      icon: _cast.isCasting
+                          ? Icons.cast_connected_rounded
+                          : Icons.cast_rounded,
+                      label: 'player.cast'.tr(),
+                      value: _cast.device?.name ?? '—',
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        if (_cast.isCasting) {
+                          _stopCasting();
+                        } else {
+                          _openCastSheet();
+                        }
+                      },
+                    ),
+                  // Not offered for live TV: a broadcast has no end to stop at, and
+                  // a countdown that pauses a channel is just a mute button with
+                  // extra steps.
+                  if (!_isLive)
+                    _SettingsTile(
+                      icon: Icons.bedtime_outlined,
+                      label: 'player.sleep_timer'.tr(),
+                      value: _sleepValueLabel,
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _openSleepSheet();
+                      },
+                    ),
+                  if (hasLangs)
+                    _SettingsTile(
+                      icon: Icons.translate_rounded,
+                      label: 'player.audio_language'.tr(),
+                      value: _currentLang == null
+                          ? '—'
+                          : _langLabel(_currentLang!),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _openLangSheet();
+                      },
+                    ),
+                  if (_subtitles.isNotEmpty ||
+                      (_controller?.subtitleTracks.isNotEmpty ?? false))
+                    _SettingsTile(
+                      icon: Icons.text_fields_rounded,
+                      label: 'player.subtitle_style'.tr(),
+                      value: '${_subtitleStyle.fontSize.round()}px',
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _openSubtitleAppearanceSheet();
+                      },
+                    ),
+                  // Audio tracks are a media_kit capability: video_player exposes no
+                  // track-selection API at all. Under the default engine the tile
+                  // stays disabled and says why, rather than opening an empty sheet.
+                  if (!hasLangs)
+                    Builder(
+                      builder: (_) {
+                        final c = _controller;
+                        final supported = c?.supportsAudioTracks ?? false;
+                        final tracks =
+                            c?.audioTracks ?? const <PlayerAudioTrack>[];
+                        if (!supported) {
+                          return _SettingsTile(
+                            icon: Icons.audiotrack_outlined,
+                            label: 'player.audio_track'.tr(),
+                            value: _mediaKitMissing(onlyLabel: true),
+                            onTap: null,
+                          );
+                        }
                         return _SettingsTile(
                           icon: Icons.audiotrack_outlined,
                           label: 'player.audio_track'.tr(),
-                          value: _mediaKitMissing(onlyLabel: true),
-                          onTap: null,
+                          value: tracks.length < 2
+                              ? 'player.audio_track_single'.tr()
+                              : _activeAudioTrackLabel(),
+                          onTap: tracks.length < 2
+                              ? null
+                              : () {
+                                  Navigator.of(sheetContext).pop();
+                                  _openAudioTrackSheet();
+                                },
                         );
-                      }
-                      return _SettingsTile(
-                        icon: Icons.audiotrack_outlined,
-                        label: 'player.audio_track'.tr(),
-                        value: tracks.length < 2
-                            ? 'player.audio_track_single'.tr()
-                            : _activeAudioTrackLabel(),
-                        onTap: tracks.length < 2
-                            ? null
-                            : () {
-                                Navigator.of(sheetContext).pop();
-                                _openAudioTrackSheet();
-                              },
-                      );
+                      },
+                    ),
+                  if (ExternalPlayer.isSupported && _videoUrl != null)
+                    _SettingsTile(
+                      icon: Icons.open_in_new_rounded,
+                      label: 'player.external_player'.tr(),
+                      value: '',
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _handOffToExternalPlayer();
+                      },
+                    ),
+                  // Was `showDownloadAction && provider != 'uzmovi'` — the url
+                  // Beside the diagnostics log, which answers the same question
+                  // for whoever wrote the player. This one answers it for whoever
+                  // is watching — and is small enough to screenshot into a report.
+                  _SettingsTile(
+                    icon: Icons.info_outline_rounded,
+                    label: 'player.info_title'.tr(),
+                    value: _showPlayerInfo
+                        ? 'player.on'.tr()
+                        : 'player.off'.tr(),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      setState(() => _showPlayerInfo = !_showPlayerInfo);
                     },
                   ),
-                if (ExternalPlayer.isSupported && _videoUrl != null)
                   _SettingsTile(
-                    icon: Icons.open_in_new_rounded,
-                    label: 'player.external_player'.tr(),
+                    icon: Icons.tune_rounded,
+                    label: 'player.info_fields_title'.tr(),
                     value: '',
                     onTap: () {
                       Navigator.of(sheetContext).pop();
-                      _handOffToExternalPlayer();
+                      _openInfoFieldsPicker();
                     },
                   ),
-                // Was `showDownloadAction && provider != 'uzmovi'` — the url
-                // Beside the diagnostics log, which answers the same question
-                // for whoever wrote the player. This one answers it for whoever
-                // is watching — and is small enough to screenshot into a report.
-                _SettingsTile(
-                  icon: Icons.info_outline_rounded,
-                  label: 'player.info_title'.tr(),
-                  value: _showPlayerInfo ? 'player.on'.tr() : 'player.off'.tr(),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    setState(() => _showPlayerInfo = !_showPlayerInfo);
-                  },
-                ),
-                _SettingsTile(
-                  icon: Icons.tune_rounded,
-                  label: 'player.info_fields_title'.tr(),
-                  value: '',
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _openInfoFieldsPicker();
-                  },
-                ),
-                _SettingsTile(
-                  icon: Icons.dashboard_customize_outlined,
-                  label: 'player.layout_title'.tr(),
-                  value: '',
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _openControlsLayoutPage();
-                  },
-                ),
-                _SettingsTile(
-                  icon: Icons.bug_report_outlined,
-                  label: 'player.diagnostics_logs'.tr(),
-                  value: '',
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    LogViewerSheet.show(context);
-                  },
-                ),
+                  _SettingsTile(
+                    icon: Icons.dashboard_customize_outlined,
+                    label: 'player.layout_title'.tr(),
+                    value: '',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _openControlsLayoutPage();
+                    },
+                  ),
+                  _SettingsTile(
+                    icon: Icons.bug_report_outlined,
+                    label: 'player.diagnostics_logs'.tr(),
+                    value: '',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      LogViewerSheet.show(context);
+                    },
+                  ),
+                ], inset: 56),
                 const SizedBox(height: 8),
               ],
             ),
@@ -794,49 +720,27 @@ extension _PlayerPanels on _PlayerPageState {
     if (c == null || !c.supportsAudioTracks) return;
     final tracks = c.audioTracks;
     if (tracks.length < 2) return;
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    _showSheet<void>(
       builder: (sheetContext) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.audiotrack_outlined,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'player.audio_track'.tr(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
+              ..._sheetHead(
+                Icons.audiotrack_outlined,
+                'player.audio_track'.tr(),
               ),
-              const Divider(color: Colors.white12, height: 1),
-              for (final t in tracks)
-                _OptionTile(
-                  label: _audioTrackLabel(t),
-                  selected: t.id == c.activeAudioTrackId,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _switchAudioTrack(t.id);
-                  },
-                ),
+              ..._sheetGroup([
+                for (final t in tracks)
+                  _OptionTile(
+                    label: _audioTrackLabel(t),
+                    selected: t.id == c.activeAudioTrackId,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _switchAudioTrack(t.id);
+                    },
+                  ),
+              ]),
               const SizedBox(height: 8),
             ],
           ),
@@ -908,6 +812,7 @@ extension _PlayerPanels on _PlayerPageState {
           if (j != _activeSubtitleIndex) j,
       ])
         if (_subtitles[i].file.startsWith('http') &&
+            _subtitles[i].cipher == null &&
             ExternalPlayer.gatingHeaders(_subtitles[i].headers).isEmpty)
           (url: _subtitles[i].file, label: _subtitles[i].label),
     ];
@@ -918,58 +823,34 @@ extension _PlayerPanels on _PlayerPageState {
       subtitles: handed,
     );
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('player.external_player_none'.tr())),
-      );
+      _toast('player.external_player_none'.tr());
     }
   }
 
+  /// The speeds the sheet lists, and the native speed button's menu.
+  static const List<double> _speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
   void _openSpeedSheet() {
-    const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    const speeds = _speedPresets;
+    _showSheet<void>(
       builder: (sheetContext) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.speed_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'player.speed'.tr(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(color: Colors.white12, height: 1),
-              for (final s in speeds)
-                _OptionTile(
-                  label:
-                      '${s.toStringAsFixed(s == s.roundToDouble() ? 0 : 2)}x',
-                  selected: s == _playbackSpeed,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _setSpeed(s);
-                  },
-                ),
+              ..._sheetHead(Icons.speed_rounded, 'player.speed'.tr()),
+              ..._sheetGroup([
+                for (final s in speeds)
+                  _OptionTile(
+                    label:
+                        '${s.toStringAsFixed(s == s.roundToDouble() ? 0 : 2)}x',
+                    selected: s == _playbackSpeed,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _setSpeed(s);
+                    },
+                  ),
+              ]),
               const SizedBox(height: 8),
             ],
           ),
@@ -986,53 +867,28 @@ extension _PlayerPanels on _PlayerPageState {
   /// an approximation of it, so there is no way to get stuck somewhere worse
   /// than where you started.
   void _openColorSheet() {
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    _showSheet<void>(
       builder: (sheetContext) => SafeArea(
         child: SingleChildScrollView(
           child: StatefulBuilder(
             builder: (context, setSheetState) => Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.tune_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'player.color_profile'.tr(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(color: Colors.white12, height: 1),
-                for (final profile in ColorProfile.all)
-                  _OptionTile(
-                    label: profile.labelKey.tr(),
-                    selected: profile.id == _colorProfile.id,
-                    // The sheet stays open. Comparing two looks means switching
-                    // back and forth, and a menu that closes on every tap makes
-                    // that four gestures instead of one.
-                    onTap: () {
-                      _setColorProfile(profile);
-                      setSheetState(() {});
-                    },
-                  ),
+                ..._sheetHead(Icons.tune_rounded, 'player.color_profile'.tr()),
+                ..._sheetGroup([
+                  for (final profile in ColorProfile.all)
+                    _OptionTile(
+                      label: profile.labelKey.tr(),
+                      selected: profile.id == _colorProfile.id,
+                      // The sheet stays open. Comparing two looks means switching
+                      // back and forth, and a menu that closes on every tap makes
+                      // that four gestures instead of one.
+                      onTap: () {
+                        _setColorProfile(profile);
+                        setSheetState(() {});
+                      },
+                    ),
+                ]),
                 const SizedBox(height: 8),
               ],
             ),
@@ -1054,13 +910,7 @@ extension _PlayerPanels on _PlayerPageState {
   /// part of the same judgement — "is this better, and does it still run
   /// smoothly" — and that can only be made while something is playing.
   void _openShaderSheet() {
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    _showSheet<void>(
       builder: (sheetContext) => SafeArea(
         child: SingleChildScrollView(
           child: StatefulBuilder(
@@ -1360,6 +1210,38 @@ extension _PlayerPanels on _PlayerPageState {
             ),
           );
 
+    final title = isQuality ? 'player.quality'.tr() : 'player.episodes'.tr();
+    if (asSheet && _iosSheets) {
+      return Positioned(
+        left: 0,
+        right: 0,
+        bottom: 0,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.55,
+          ),
+          child: PlayerSheetLook(
+            ios: true,
+            child: IosSheetFrame(
+              child: SafeArea(
+                top: false,
+                child: FocusScope(
+                  node: _tvPanelFocus,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IosSheetHeader(title: title, onClose: _closePanel),
+                      Flexible(child: list),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final body = Column(
       mainAxisSize: asSheet ? MainAxisSize.min : MainAxisSize.max,
       children: [
@@ -1378,7 +1260,7 @@ extension _PlayerPanels on _PlayerPageState {
           child: Row(
             children: [
               Text(
-                isQuality ? 'player.quality'.tr() : 'player.episodes'.tr(),
+                title,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -1457,6 +1339,17 @@ class _ServerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (PlayerSheetLook.of(context)) {
+      return IosSheetRow(
+        leading: ServerBadge(name: label, selected: selected),
+        title: label,
+        subtitle: qualities,
+        accessory: IosRowAccessory.check,
+        selected: selected,
+        choice: true,
+        onTap: onTap,
+      );
+    }
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,

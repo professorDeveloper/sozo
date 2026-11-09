@@ -34,7 +34,9 @@
     "remove": "Kaldır",
     "show": "Göster",
     "hide": "Gizle",
-    "installed": "Yüklendi"
+    "installed": "Yüklendi",
+    "load_more_failed": "Daha fazlası yüklenemedi",
+    "go_home": "Ana sayfaya dön"
   },
   "auth": {
     "login": "Giriş yap",
@@ -306,7 +308,11 @@
       "no_source": "Bu bölüm için kaynak yok.",
       "empty_url": "Bu kaynak hiçbir video adresi döndürmedi.",
       "engine_unavailable": "Oynatıcı başlamadı. Lütfen uygulamayı tamamen yeniden başlat.",
-      "unknown": "Video yüklenemedi."
+      "unknown": "Video yüklenemedi.",
+      "not_found": "Bu video artık bu sunucuda yok. Başka bir sunucu deneyin.",
+      "server_error": "Video sunucusunda sorun var. Birazdan tekrar deneyin veya başka bir sunucu seçin.",
+      "resolve_failed": "Bu kaynaktan video bağlantısı alınamadı.",
+      "details": "Ayrıntılar"
     },
     "play": "Oynat",
     "pause": "Duraklat",
@@ -570,6 +576,8 @@
     "subtitle_n": "Altyazı {}",
     "subtitle_in_video": "Videonun içinde",
     "rewind": "Geri sar",
+    "rewind_by": "{} sn geri",
+    "forward_by": "{} sn ileri",
     "mini_restore": "Tam pencereye dön",
     "pip_unavailable": "Bu video için resim içinde resim başlatılamadı.",
     "scrub_release_cancel": "İptal için bırak",
@@ -585,7 +593,18 @@
     "reaction_text_hint": "Kısa bir şey yaz…",
     "reaction_wait": "Tekrar tepki vermeden önce birkaç saniye bekle",
     "reaction_limit": "Bu bölüm için tepki sınırına ulaştın",
-    "reaction_failed": "Tepki gönderilemedi"
+    "reaction_failed": "Tepki gönderilemedi",
+    "native_offer_title": "Yeni oynatıcıyı denemek ister misiniz?",
+    "native_offer_body": "Apple’ın Liquid Glass kontrolleri ve menüleri. Bunu istediğiniz zaman Ayarlar → Oynatıcı bölümünden değiştirebilirsiniz.",
+    "native_offer_try": "Dene",
+    "native_offer_not_now": "Şimdi değil",
+    "trying_again": "Yeniden deneniyor ({}. deneme)",
+    "try_mpv": "mpv motoruyla dene",
+    "ok_to_skip": "Atlamak için OK",
+    "quality_lowered": "Kalite düşürüldü",
+    "undo": "Geri al",
+    "crash_log": "Çökme kaydı",
+    "crash_log_empty": "Kayıtlı çökme yok"
   },
   "profile": {
     "title": "Profil",
@@ -677,6 +696,15 @@
     "player_engine_section": "OYNATMA MOTORU",
     "ask_engine_on_play": "Her seferinde sor",
     "ask_engine_on_play_desc": "Her video başlarken motoru seç",
+    "controls_style": "OYNATICI KONTROL STİLİ",
+    "controls_style_desc": "Oynatıcıyı bir sonraki açışınızda geçerli olur.",
+    "controls_style_native": "Yerel (iOS 26)",
+    "controls_style_native_desc": "Telefonun kendi Liquid Glass düğmeleri, menüleri ve sayfaları",
+    "controls_style_system": "Sistem camı",
+    "controls_style_system_desc": "Uygulamanın düğmeleri telefonun kendi Liquid Glass'ı üzerinde",
+    "controls_style_classic": "Klasik cam",
+    "controls_style_classic_desc": "Uygulamanın kendi camı, önceki sürümlerdeki gibi",
+    "controls_style_needs_ios26": "iOS 26 veya üstü gerekir",
     "playback_section": "OYNATMA",
     "default_speed": "Varsayılan hız",
     "default_speed_desc": "Her videonun başlayacağı hız",
@@ -699,6 +727,8 @@
     "brightness_gesture_desc": "Sol tarafta yukarı ve aşağı kaydır",
     "volume_gesture": "Ses kaydırma",
     "volume_gesture_desc": "Sağ tarafta yukarı ve aşağı kaydır",
+    "auto_pip": "Otomatik resim içinde resim",
+    "auto_pip_desc": "Video oynarken Ana ekran tuşuna basınca küçük bir pencerede oynamaya devam eder",
     "seconds_short": "{} sn",
     "subtitle_style_note": "Bunlar her video için geçerlidir. Altyazı zamanlaması bölüm başına kalır ve oynatıcı içinde ayarlanır.",
     "searching_all_sources": "tüm kaynaklarda aranıyor",
@@ -2056,7 +2086,8 @@
     "title": "Listelerim",
     "remove": "Kaldır",
     "empty_title": "Henüz bir şey kaydedilmedi",
-    "empty_subtitle": "Kaydettiğin yapımlar burada görünür."
+    "empty_subtitle": "Kaydettiğin yapımlar burada görünür.",
+    "load_failed": "Bu liste yüklenemedi."
   },
   "torrent": {
     "title": "Torrentler",
@@ -2910,6 +2941,8 @@
     "priming_title": "Hiçbir yeni bölümü kaçırma",
     "priming_body": "Takip ettiğin bir şeye yeni bölüm ya da kısım gelir gelmez Sozo haber verir — istemediğin hiçbir şey gelmez.",
     "priming_body_title": "“{}” yeni bölüm alır almaz haberin olsun — istemediğin hiçbir şey gelmez.",
+    "priming_download_title": "İndirmenin bittiğini öğren",
+    "priming_download_body": "Sozo indirme ilerlemesini bildirimlerde gösterir ve çevrimdışı izlemeye hazır olduğunda haber verir. Takip ettiklerinin yeni bölümlerini de bildirebilir.",
     "priming_point_releases": "Afişiyle yeni bölümler",
     "priming_point_quiet": "Sessiz saatler",
     "priming_point_control": "İstediğin yapımı sessize al",
@@ -3138,7 +3171,8 @@
     "error_attachment_count": "Mesaj başına en fazla 5 ekran görüntüsü.",
     "suggest": "Tekrarlıyor mu? Desteğe yaz",
     "error_offline": "Çevrimdışısın veya bağlantı koptu. İnternetini kontrol edip tekrar dene.",
-    "not_sent": "Gönderilmedi: {}"
+    "not_sent": "Gönderilmedi: {}",
+    "diag_crash_log": "Çökme kaydını görüntüle"
   },
   "zangetsu": {
     "title": "Zangetsu Kaynakları",

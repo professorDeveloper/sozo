@@ -34,10 +34,9 @@
 </div>
 <script>
   (function () {
-    var params = new URLSearchParams(location.search);
-    var url = params.get('url') || '';
+    // Every query parameter is forwarded: /play carries provider, ep and t.
     var path = location.pathname.replace(/^\/+|\/+$/g, '') || 'detail';
-    var deepLink = 'sozo://' + path + (url ? '?url=' + encodeURIComponent(url) : '');
+    var deepLink = 'sozo://' + path + location.search;
     document.getElementById('openApp').href = deepLink;
     setTimeout(function () { location.href = deepLink; }, 50);
   })();

@@ -34,7 +34,9 @@
     "remove": "Hapus",
     "show": "Tampilkan",
     "hide": "Sembunyikan",
-    "installed": "Terpasang"
+    "installed": "Terpasang",
+    "load_more_failed": "Tidak dapat memuat lebih banyak",
+    "go_home": "Ke beranda"
   },
   "auth": {
     "login": "Masuk",
@@ -306,7 +308,11 @@
       "no_source": "Tidak ada sumber untuk episode ini.",
       "empty_url": "Sumber ini tidak mengembalikan alamat video.",
       "engine_unavailable": "Pemutar tidak jalan. Mulai ulang aplikasi sepenuhnya.",
-      "unknown": "Video tidak bisa dimuat."
+      "unknown": "Video tidak bisa dimuat.",
+      "not_found": "Video ini sudah tidak ada di server ini. Coba server lain.",
+      "server_error": "Server video sedang bermasalah. Coba lagi sebentar lagi atau pilih server lain.",
+      "resolve_failed": "Tidak bisa mendapatkan tautan video dari sumber ini.",
+      "details": "Detail"
     },
     "play": "Putar",
     "pause": "Jeda",
@@ -570,6 +576,8 @@
     "subtitle_n": "Subtitel {}",
     "subtitle_in_video": "Di dalam video",
     "rewind": "Mundur",
+    "rewind_by": "Mundur {} dtk",
+    "forward_by": "Maju {} dtk",
     "mini_restore": "Kembali ke jendela penuh",
     "pip_unavailable": "Gambar-dalam-gambar tidak bisa dimulai untuk video ini.",
     "scrub_release_cancel": "Lepas untuk membatalkan",
@@ -585,7 +593,18 @@
     "reaction_text_hint": "Tulis sesuatu yang singkat…",
     "reaction_wait": "Tunggu beberapa detik sebelum bereaksi lagi",
     "reaction_limit": "Kamu sudah mencapai batas reaksi untuk episode ini",
-    "reaction_failed": "Gagal mengirim reaksi"
+    "reaction_failed": "Gagal mengirim reaksi",
+    "native_offer_title": "Coba pemutar baru?",
+    "native_offer_body": "Kontrol dan menu Liquid Glass dari Apple. Anda bisa mengubahnya kapan saja di Pengaturan → Pemutar.",
+    "native_offer_try": "Coba",
+    "native_offer_not_now": "Nanti saja",
+    "trying_again": "Mencoba lagi (percobaan {})",
+    "try_mpv": "Coba dengan mesin mpv",
+    "ok_to_skip": "OK untuk melewati",
+    "quality_lowered": "Kualitas diturunkan",
+    "undo": "Urungkan",
+    "crash_log": "Log kerusakan",
+    "crash_log_empty": "Tidak ada kerusakan tercatat"
   },
   "profile": {
     "title": "Profil",
@@ -677,6 +696,15 @@
     "player_engine_section": "MESIN PEMUTARAN",
     "ask_engine_on_play": "Tanya setiap kali",
     "ask_engine_on_play_desc": "Pilih mesinnya setiap kali video dimulai",
+    "controls_style": "GAYA KONTROL PEMUTAR",
+    "controls_style_desc": "Berlaku saat pemutar dibuka berikutnya.",
+    "controls_style_native": "Bawaan (iOS 26)",
+    "controls_style_native_desc": "Tombol, menu, dan lembar Liquid Glass milik ponsel sendiri",
+    "controls_style_system": "Kaca sistem",
+    "controls_style_system_desc": "Tombol aplikasi di atas Liquid Glass milik ponsel",
+    "controls_style_classic": "Kaca klasik",
+    "controls_style_classic_desc": "Kaca milik aplikasi, seperti di versi sebelumnya",
+    "controls_style_needs_ios26": "Perlu iOS 26 atau lebih baru",
     "playback_section": "PEMUTARAN",
     "default_speed": "Kecepatan bawaan",
     "default_speed_desc": "Kecepatan awal setiap video",
@@ -699,6 +727,8 @@
     "brightness_gesture_desc": "Geser naik-turun di sisi kiri",
     "volume_gesture": "Geser untuk volume",
     "volume_gesture_desc": "Geser naik-turun di sisi kanan",
+    "auto_pip": "Gambar-dalam-gambar otomatis",
+    "auto_pip_desc": "Menekan Beranda saat video diputar membuatnya tetap berjalan di jendela kecil",
     "seconds_short": "{} dtk",
     "subtitle_style_note": "Ini berlaku untuk semua video. Sinkron subtitle tetap per episode dan diatur di dalam pemutar.",
     "searching_all_sources": "mencari di semua sumber",
@@ -2056,7 +2086,8 @@
     "title": "Daftar saya",
     "remove": "Singkirkan",
     "empty_title": "Belum ada yang disimpan",
-    "empty_subtitle": "Judul yang kamu simpan muncul di sini."
+    "empty_subtitle": "Judul yang kamu simpan muncul di sini.",
+    "load_failed": "Tidak dapat memuat daftar ini."
   },
   "torrent": {
     "title": "Torrent",
@@ -2910,6 +2941,8 @@
     "priming_title": "Jangan lewatkan episode baru",
     "priming_body": "Sozo memberi tahu begitu judul yang kamu ikuti punya episode atau bab baru — tanpa hal lain yang tidak kamu minta.",
     "priming_body_title": "Langsung tahu begitu “{}” punya episode baru — tanpa hal lain yang tidak kamu minta.",
+    "priming_download_title": "Ketahui saat unduhanmu selesai",
+    "priming_download_body": "Sozo menampilkan progres unduhan di notifikasi dan memberi tahu saat siap ditonton offline. Sozo juga bisa memberi tahu episode baru dari yang kamu ikuti.",
     "priming_point_releases": "Episode baru, lengkap dengan poster",
     "priming_point_quiet": "Jam tenang",
     "priming_point_control": "Bisukan judul mana pun",
@@ -3138,7 +3171,8 @@
     "error_attachment_count": "Maksimal 5 tangkapan layar per pesan.",
     "suggest": "Terus terjadi? Hubungi dukungan",
     "error_offline": "Kamu sedang offline atau koneksi terputus. Periksa internet lalu coba lagi.",
-    "not_sent": "Tidak terkirim: {}"
+    "not_sent": "Tidak terkirim: {}",
+    "diag_crash_log": "Lihat log kerusakan"
   },
   "zangetsu": {
     "title": "Sumber Zangetsu",

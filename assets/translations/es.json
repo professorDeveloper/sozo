@@ -34,7 +34,9 @@
     "remove": "Quitar",
     "show": "Mostrar",
     "hide": "Ocultar",
-    "installed": "Instalado"
+    "installed": "Instalado",
+    "load_more_failed": "No se pudo cargar más",
+    "go_home": "Ir al inicio"
   },
   "auth": {
     "login": "Iniciar sesión",
@@ -306,7 +308,11 @@
       "no_source": "No hay fuente para este episodio.",
       "empty_url": "Esta fuente no devolvió ninguna dirección de vídeo.",
       "engine_unavailable": "El reproductor no arrancó. Reinicia la app por completo.",
-      "unknown": "No se pudo cargar el vídeo."
+      "unknown": "No se pudo cargar el vídeo.",
+      "not_found": "Este vídeo ya no está en este servidor. Prueba con otro servidor.",
+      "server_error": "El servidor de vídeo tiene problemas. Vuelve a intentarlo en un momento o elige otro servidor.",
+      "resolve_failed": "No se pudo obtener un enlace de vídeo de esta fuente.",
+      "details": "Detalles"
     },
     "play": "Reproducir",
     "pause": "Pausar",
@@ -570,6 +576,8 @@
     "subtitle_n": "Subtítulo {}",
     "subtitle_in_video": "En el vídeo",
     "rewind": "Retroceder",
+    "rewind_by": "Retroceder {} s",
+    "forward_by": "Adelantar {} s",
     "mini_restore": "Volver a la ventana completa",
     "pip_unavailable": "No se pudo iniciar imagen en imagen para este vídeo.",
     "scrub_release_cancel": "Suelta para cancelar",
@@ -585,7 +593,18 @@
     "reaction_text_hint": "Di algo breve…",
     "reaction_wait": "Espera unos segundos antes de volver a reaccionar",
     "reaction_limit": "Has alcanzado el límite de reacciones de este episodio",
-    "reaction_failed": "No se pudo enviar la reacción"
+    "reaction_failed": "No se pudo enviar la reacción",
+    "native_offer_title": "¿Probar el nuevo reproductor?",
+    "native_offer_body": "Los controles y menús Liquid Glass de Apple. Puedes cambiarlo cuando quieras en Ajustes → Reproductor.",
+    "native_offer_try": "Probar",
+    "native_offer_not_now": "Ahora no",
+    "trying_again": "Reintentando (intento {})",
+    "try_mpv": "Probar con el motor mpv",
+    "ok_to_skip": "OK para saltar",
+    "quality_lowered": "Calidad reducida",
+    "undo": "Deshacer",
+    "crash_log": "Registro de fallos",
+    "crash_log_empty": "No hay fallos registrados"
   },
   "profile": {
     "title": "Perfil",
@@ -677,6 +696,15 @@
     "player_engine_section": "MOTOR DE REPRODUCCIÓN",
     "ask_engine_on_play": "Preguntar siempre",
     "ask_engine_on_play_desc": "Elige el motor cada vez que empieza un vídeo",
+    "controls_style": "ESTILO DE LOS CONTROLES DEL REPRODUCTOR",
+    "controls_style_desc": "Se aplica la próxima vez que abras el reproductor.",
+    "controls_style_native": "Nativo (iOS 26)",
+    "controls_style_native_desc": "Los botones, menús y hojas Liquid Glass del propio teléfono",
+    "controls_style_system": "Cristal del sistema",
+    "controls_style_system_desc": "Los botones de la app sobre el Liquid Glass del teléfono",
+    "controls_style_classic": "Cristal clásico",
+    "controls_style_classic_desc": "El cristal propio de la app, como en versiones anteriores",
+    "controls_style_needs_ios26": "Requiere iOS 26 o posterior",
     "playback_section": "REPRODUCCIÓN",
     "default_speed": "Velocidad por defecto",
     "default_speed_desc": "Velocidad con la que empieza cada vídeo",
@@ -699,6 +727,8 @@
     "brightness_gesture_desc": "Desliza arriba y abajo en el lado izquierdo",
     "volume_gesture": "Deslizar para el volumen",
     "volume_gesture_desc": "Desliza arriba y abajo en el lado derecho",
+    "auto_pip": "Imagen en imagen automática",
+    "auto_pip_desc": "Al pulsar Inicio mientras se reproduce un vídeo, sigue en una ventana pequeña",
     "seconds_short": "{} s",
     "subtitle_style_note": "Esto vale para todos los vídeos. La sincronía de subtítulos se guarda por episodio y se ajusta dentro del reproductor.",
     "searching_all_sources": "buscando en todas las fuentes",
@@ -2056,7 +2086,8 @@
     "title": "Mis listas",
     "remove": "Quitar",
     "empty_title": "Nada guardado todavía",
-    "empty_subtitle": "Los títulos que guardes aparecerán aquí."
+    "empty_subtitle": "Los títulos que guardes aparecerán aquí.",
+    "load_failed": "No se pudo cargar esta lista."
   },
   "torrent": {
     "title": "Torrents",
@@ -2910,6 +2941,8 @@
     "priming_title": "No te pierdas ni un episodio",
     "priming_body": "Sozo te avisa en cuanto algo que sigues tenga un episodio o capítulo nuevo, y nada que no hayas pedido.",
     "priming_body_title": "Entérate en cuanto «{}» tenga un episodio nuevo, y nada que no hayas pedido.",
+    "priming_download_title": "Entérate cuando termine tu descarga",
+    "priming_download_body": "Sozo muestra el progreso de la descarga en tus notificaciones y te avisa cuando esté lista para ver sin conexión. También puede avisarte de nuevos episodios de lo que sigues.",
     "priming_point_releases": "Episodios nuevos, con póster",
     "priming_point_quiet": "Horas de silencio",
     "priming_point_control": "Silencia cualquier título",
@@ -3138,7 +3171,8 @@
     "error_attachment_count": "Como máximo 5 capturas por mensaje.",
     "suggest": "¿Sigue pasando? Escribe a soporte",
     "error_offline": "No tienes conexión o se cortó. Revisa tu internet e inténtalo de nuevo.",
-    "not_sent": "No se envió: {}"
+    "not_sent": "No se envió: {}",
+    "diag_crash_log": "Ver registro de fallos"
   },
   "zangetsu": {
     "title": "Fuentes de Zangetsu",

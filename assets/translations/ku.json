@@ -34,7 +34,9 @@
     "remove": "Rake",
     "show": "Nîşan bide",
     "hide": "Veşêre",
-    "installed": "Sazkirî"
+    "installed": "Sazkirî",
+    "load_more_failed": "Bêtir nehat barkirin",
+    "go_home": "Biçe destpêkê"
   },
   "auth": {
     "login": "Têkeve",
@@ -306,7 +308,11 @@
       "no_source": "Ji bo vê beşê çavkanî tune.",
       "empty_url": "Vê çavkaniyê tu navnîşana vîdyoyê neda.",
       "engine_unavailable": "Lêdar dest pê nekir. Ji kerema xwe sepanê bi tevahî ji nû ve bide destpêkirin.",
-      "unknown": "Vîdyo nehat barkirin."
+      "unknown": "Vîdyo nehat barkirin.",
+      "not_found": "Ev vîdyo êdî li ser vê serverê nîne. Serverek din biceribîne.",
+      "server_error": "Servera vîdyoyê pirsgirêk heye. Piştî demekê dîsa biceribîne an serverek din hilbijêre.",
+      "resolve_failed": "Ji vê çavkaniyê girêdana vîdyoyê nehat wergirtin.",
+      "details": "Hûrgilî"
     },
     "play": "Lê bide",
     "pause": "Rawestîne",
@@ -570,6 +576,8 @@
     "subtitle_n": "Binnivîs {}",
     "subtitle_in_video": "Di vîdyoyê de",
     "rewind": "Paşve bibe",
+    "rewind_by": "{}s paş",
+    "forward_by": "{}s pêş",
     "mini_restore": "Vegere pencereya tevahî",
     "pip_unavailable": "Wêne di nav wêneyê de ji bo vê vîdyoyê dest pê nekir.",
     "scrub_release_cancel": "Ji bo betalkirinê berde",
@@ -585,7 +593,18 @@
     "reaction_text_hint": "Tiştekî kurt binivîse…",
     "reaction_wait": "Berî ku dîsa bertek bidî çend saniyan bisekine",
     "reaction_limit": "Te sînorê berteka vê beşê tije kir",
-    "reaction_failed": "Bertek nehat şandin"
+    "reaction_failed": "Bertek nehat şandin",
+    "native_offer_title": "Lêdara nû biceribînî?",
+    "native_offer_body": "Bişkok û menuyên Liquid Glass ên Apple. Tu dikarî vê her dem di Mîheng → Lêdar de biguherînî.",
+    "native_offer_try": "Biceribîne",
+    "native_offer_not_now": "Ne niha",
+    "trying_again": "Dîsa tê ceribandin (ceribandina {})",
+    "try_mpv": "Bi motora mpv biceribîne",
+    "ok_to_skip": "Ji bo derbaskirinê OK",
+    "quality_lowered": "Kalîte hat kêmkirin",
+    "undo": "Paşve vegerîne",
+    "crash_log": "Tomara têkçûnan",
+    "crash_log_empty": "Tu têkçûn nehatiye tomarkirin"
   },
   "profile": {
     "title": "Profîl",
@@ -679,6 +698,15 @@
     "player_engine_section": "MOTORA LÊDANÊ",
     "ask_engine_on_play": "Her car bipirse",
     "ask_engine_on_play_desc": "Her car ku vîdyoyek dest pê dike motorê hilbijêre",
+    "controls_style": "ŞÊWAZA BIŞKOJÊN LÊXISTOKÊ",
+    "controls_style_desc": "Gava cara din lêxistokê vekî dê derbasdar bibe.",
+    "controls_style_native": "Xwecihî (iOS 26)",
+    "controls_style_native_desc": "Bişkok, menû û rûpelên Liquid Glass ên telefonê bi xwe",
+    "controls_style_system": "Cama pergalê",
+    "controls_style_system_desc": "Bişkojên sepanê li ser Liquid Glass a telefonê",
+    "controls_style_classic": "Cama klasîk",
+    "controls_style_classic_desc": "Cama sepanê bi xwe, wek di guhertoyên berê de",
+    "controls_style_needs_ios26": "iOS 26 an nûtir pêwîst e",
     "playback_section": "LÊDAN",
     "default_speed": "Leza standard",
     "default_speed_desc": "Leza ku her vîdyo pê dest pê dike",
@@ -701,6 +729,8 @@
     "brightness_gesture_desc": "Li aliyê çepê ber bi jor û jêr bişemitîne",
     "volume_gesture": "Şemitandina deng",
     "volume_gesture_desc": "Li aliyê rastê ber bi jor û jêr bişemitîne",
+    "auto_pip": "Wêne di nav wêneyê de bixweber",
+    "auto_pip_desc": "Dema vîdyo dilîze û tu Destpêkê bitikînî, ew di pencereyeke biçûk de didome",
     "seconds_short": "{}s",
     "subtitle_style_note": "Ev ji bo her vîdyoyê derbasdar in. Demkirina binnivîsê ji bo her beşê cuda dimîne û di nav lêdarê de tê sazkirin.",
     "searching_all_sources": "li hemû çavkaniyan tê gerîn",
@@ -2056,7 +2086,8 @@
     "title": "Lîsteyên min",
     "remove": "Rake",
     "empty_title": "Hîn tiştek nehatiye tomarkirin",
-    "empty_subtitle": "Sernavên ku tu tomar dikî li vir xuya dibin."
+    "empty_subtitle": "Sernavên ku tu tomar dikî li vir xuya dibin.",
+    "load_failed": "Ev lîste nehat barkirin."
   },
   "torrent": {
     "title": "Torrent",
@@ -2910,6 +2941,8 @@
     "priming_title": "Tu carî beşeke nû ji dest nede",
     "priming_body": "Sozo di kêliya ku tiştekî ku tu dişopînî beşeke an fesleke nû distîne de ji te re dibêje — û tiştekî ku te nexwestiye na.",
     "priming_body_title": "Di kêliya ku {} beşeke nû distîne de agahdar bibe — û tiştekî ku te nexwestiye na.",
+    "priming_download_title": "Bizane kengê daxistina te diqede",
+    "priming_download_body": "Sozo pêşketina daxistinê di agahdariyan de nîşan dide û dema ku ji bo temaşekirina bê înternet amade be ji te re dibêje. Ew dikare li ser beşên nû yên tiştên ku tu dişopînî jî te agahdar bike.",
     "priming_point_releases": "Beşên nû, bi posterê",
     "priming_point_quiet": "Saetên bêdeng",
     "priming_point_control": "Her sernavê bêdeng bike",
@@ -3138,7 +3171,8 @@
     "error_attachment_count": "Di peyamekê de herî zêde 5 dîmenên ekranê.",
     "suggest": "Dubare dibe? Ji piştgiriyê re binivîse",
     "error_offline": "Tu offline î an girêdan qut bû. Înternetê kontrol bike û dîsa biceribîne.",
-    "not_sent": "Nehat şandin: {}"
+    "not_sent": "Nehat şandin: {}",
+    "diag_crash_log": "Tomara têkçûnan bibîne"
   },
   "zangetsu": {
     "title": "Çavkaniyên Zangetsu",

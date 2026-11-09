@@ -1,3 +1,4 @@
+import 'package:soplay/core/js/js_value.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'cast_model.dart';
 import 'related_model.dart';
@@ -27,39 +28,45 @@ class DetailModel extends DetailEntity {
   });
 
   factory DetailModel.fromJson(Map<String, dynamic> json) {
-    final castList = (json['cast'] as List? ?? [])
-        .map((e) => CastModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+    // Zangetsu sources pass cast and screenshots through as they give them:
+    // a screenshot is often a bare url, and a cast member may be a bare name.
+    final castList = [
+      for (final e in _list(json['cast'])) ?CastModel.tryParse(e),
+    ];
 
-    final screenshotList = (json['screenshots'] as List? ?? [])
-        .map((e) => ScreenshotModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final screenshotList = [
+      for (final e in _list(json['screenshots'])) ?ScreenshotModel.tryParse(e),
+    ];
 
-    final relatedList = (json['related'] as List? ?? [])
-        .map((e) => RelatedModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final relatedList = jsonMaps(
+      json['related'],
+    ).map(RelatedModel.fromJson).toList();
 
-    final genreList = (json['genres'] as List? ?? [])
-        .map((e) => e?.toString() ?? '')
-        .where((g) => g.isNotEmpty)
-        .toList();
+    final genreList = [
+      for (final e in _list(json['genres']))
+        ?jsonText(e is Map ? e['name'] ?? e['label'] : e),
+    ];
 
     return DetailModel(
-      provider: json['provider'] as String? ?? '',
-      contentId: json['contentId'] as String? ?? '',
-      contentUrl: json['contentUrl'] as String? ?? '',
-      title: json['title'] as String? ?? '',
-      description: json['description'] as String? ?? '',
-      thumbnail: json['thumbnail'] as String?,
-      year: (json['year'] as num?)?.toInt(),
-      duration: _nonEmpty(json['duration'] as String?),
-      country: _nonEmpty(json['country'] as String?),
-      director: _nonEmpty(json['director'] as String?),
+      provider: jsonText(json['provider']) ?? '',
+      contentId: jsonText(json['contentId']) ?? '',
+      contentUrl: jsonText(json['contentUrl']) ?? '',
+      title: jsonText(json['title']) ?? '',
+      description: json['description'] is String
+          ? json['description'] as String
+          : '',
+      thumbnail: json['thumbnail'] is String
+          ? json['thumbnail'] as String
+          : null,
+      year: jsonInt(json['year']),
+      duration: _nonEmpty(json['duration']),
+      country: _nonEmpty(json['country']),
+      director: _nonEmpty(json['director']),
       genres: genreList,
       cast: castList,
-      likes: (json['likes'] as num?)?.toInt() ?? 0,
-      dislikes: (json['dislikes'] as num?)?.toInt() ?? 0,
-      isSerial: json['isSerial'] as bool? ?? false,
+      likes: jsonInt(json['likes']) ?? 0,
+      dislikes: jsonInt(json['dislikes']) ?? 0,
+      isSerial: _nullableBool(json['isSerial']) ?? false,
       isFavorited: _nullableBool(json['isFavorited']),
       screenshots: screenshotList,
       related: relatedList,
@@ -94,8 +101,11 @@ class DetailModel extends DetailEntity {
     return null;
   }
 
-  static String? _nonEmpty(String? value) {
-    if (value == null || value.trim().isEmpty) return null;
+  static List<Object?> _list(Object? value) => value is List ? value : const [];
+
+  /// Text only: a number here would be a unit nobody can name.
+  static String? _nonEmpty(Object? value) {
+    if (value is! String || value.trim().isEmpty) return null;
     return value.trim();
   }
 }

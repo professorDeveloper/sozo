@@ -41,6 +41,13 @@ class _HistoryPageState extends State<HistoryPage> {
     super.dispose();
   }
 
+  /// Pull-to-refresh: waits out a sync already running, then runs one.
+  Future<void> _refresh() async {
+    await _syncService.settle();
+    await _syncService.sync();
+    _reload();
+  }
+
   void _reload() {
     final items = _historyService.getAll();
     if (!mounted) return;
@@ -120,79 +127,83 @@ class _HistoryPageState extends State<HistoryPage> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          // Pinned: "Clear all" and the back button are the only controls on
-          // this screen, and a long history scrolled them out of reach.
-          SliverAppBar(
-            pinned: true,
-            automaticallyImplyLeading: false,
-            backgroundColor: AppColors.background,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            titleSpacing: 16,
-            title: Row(
-              children: [
-                _CircleBackButton(
-                  onTap: () => context.canPop()
-                      ? context.pop()
-                      : context.go('/main'),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'profile.watch_history'.tr(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        backgroundColor: AppColors.surface,
+        onRefresh: _refresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // Pinned: "Clear all" and the back button are the only controls on
+            // this screen, and a long history scrolled them out of reach.
+            SliverAppBar(
+              pinned: true,
+              automaticallyImplyLeading: false,
+              backgroundColor: AppColors.background,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              titleSpacing: 16,
+              title: Row(
+                children: [
+                  _CircleBackButton(
+                    onTap: () =>
+                        context.canPop() ? context.pop() : context.go('/main'),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'profile.watch_history'.tr(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                ),
-                if (_items.isNotEmpty)
-                  _PillButton(
-                    label: 'history.clear_all'.tr(),
-                    onTap: _clearHistory,
-                  ),
-              ],
+                  if (_items.isNotEmpty)
+                    _PillButton(
+                      label: 'history.clear_all'.tr(),
+                      onTap: _clearHistory,
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          if (_items.isEmpty)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: _EmptyState(),
-            )
-          else
-            SliverList.separated(
-              itemCount: _items.length,
-              separatorBuilder: (_, _) =>
-                  Divider(color: AppColors.divider, height: 1, indent: 82),
-              itemBuilder: (_, i) {
-                final item = _items[i];
-                return _HistoryRow(
-                  item: item,
-                  onTap: () {
-                    context.push(
-                      '/detail',
-                      extra: DetailArgs(
-                        contentUrl: item.contentUrl,
-                        autoPlay: true,
-                        resumeEpisodeIndex: item.episodeIndex,
-                        provider: item.provider,
-                      ),
-                    );
-                  },
-                  onDismissed: () => _removeItem(item),
-                );
-              },
-            ),
-          SliverToBoxAdapter(child: SizedBox(height: bottomPad + 24)),
-        ],
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            if (_items.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyState(),
+              )
+            else
+              SliverList.separated(
+                itemCount: _items.length,
+                separatorBuilder: (_, _) =>
+                    Divider(color: AppColors.divider, height: 1, indent: 82),
+                itemBuilder: (_, i) {
+                  final item = _items[i];
+                  return _HistoryRow(
+                    item: item,
+                    onTap: () {
+                      context.push(
+                        '/detail',
+                        extra: DetailArgs(
+                          contentUrl: item.contentUrl,
+                          autoPlay: true,
+                          resumeEpisodeIndex: item.episodeIndex,
+                          provider: item.provider,
+                        ),
+                      );
+                    },
+                    onDismissed: () => _removeItem(item),
+                  );
+                },
+              ),
+            SliverToBoxAdapter(child: SizedBox(height: bottomPad + 24)),
+          ],
+        ),
       ),
     );
   }
@@ -330,125 +341,125 @@ class _HistoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final row = InkWell(
-        onTap: onTap,
-        onLongPress: isDesktopPlatform ? null : () => _showActions(context),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 54,
-                  height: 76,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      HomeNetworkImage(
-                        url: item.thumbnail,
-                        borderRadius: BorderRadius.zero,
-                        placeholderIcon: Icons.movie_outlined,
+      onTap: onTap,
+      onLongPress: isDesktopPlatform ? null : () => _showActions(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 54,
+                height: 76,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    HomeNetworkImage(
+                      url: item.thumbnail,
+                      borderRadius: BorderRadius.zero,
+                      placeholderIcon: Icons.movie_outlined,
+                    ),
+                    if (item.progress > 0)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: LinearProgressIndicator(
+                          value: item.progress,
+                          minHeight: 3,
+                          backgroundColor: Colors.black45,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.primary,
+                          ),
+                        ),
                       ),
-                      if (item.progress > 0)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: LinearProgressIndicator(
-                            value: item.progress,
-                            minHeight: 3,
-                            backgroundColor: Colors.black45,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.primary,
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (item.isSerial && item.episodeNumber != null) ...[
+                        Text(
+                          'EP ${item.episodeNumber}',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (item.episodeLabel != null &&
+                            item.episodeLabel!.trim().isNotEmpty)
+                          Expanded(
+                            child: Text(
+                              ' · ${item.episodeLabel}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 11,
+                              ),
                             ),
+                          ),
+                      ],
+                      if (!item.isSerial && item.durationMs > 0)
+                        Text(
+                          _formatProgress(item),
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
                           ),
                         ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                      ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _watchedAgo(context, item.watchedAt),
+                    style: const TextStyle(
+                      color: AppColors.textHint,
+                      fontSize: 10,
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (item.isSerial && item.episodeNumber != null) ...[
-                          Text(
-                            'EP ${item.episodeNumber}',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (item.episodeLabel != null &&
-                              item.episodeLabel!.trim().isNotEmpty)
-                            Expanded(
-                              child: Text(
-                                ' · ${item.episodeLabel}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                        ],
-                        if (!item.isSerial && item.durationMs > 0)
-                          Text(
-                            _formatProgress(item),
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 11,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _watchedAgo(context, item.watchedAt),
-                      style: const TextStyle(
-                        color: AppColors.textHint,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.play_arrow_rounded,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
               ),
-            ],
-          ),
+              child: Icon(
+                Icons.play_arrow_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
 
     if (isDesktopPlatform) {
       return Row(
@@ -456,8 +467,10 @@ class _HistoryRow extends StatelessWidget {
           Expanded(child: row),
           IconButton(
             tooltip: 'history.remove'.tr(),
-            icon: const Icon(Icons.delete_outline_rounded,
-                color: AppColors.textHint),
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: AppColors.textHint,
+            ),
             onPressed: onDismissed,
           ),
           const SizedBox(width: 8),
@@ -516,7 +529,11 @@ class _SwipeToRemoveBackground extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 22),
+          const Icon(
+            Icons.delete_outline_rounded,
+            color: Colors.white,
+            size: 22,
+          ),
           const SizedBox(width: 8),
           Text(
             label,
@@ -541,8 +558,11 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.history_rounded,
-              color: AppColors.textHint, size: 52),
+          const Icon(
+            Icons.history_rounded,
+            color: AppColors.textHint,
+            size: 52,
+          ),
           const SizedBox(height: 14),
           Text(
             'history.empty_title'.tr(),

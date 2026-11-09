@@ -11,12 +11,15 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Rect
 import android.net.Uri
 import android.media.AudioManager
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Rational
+import androidx.lifecycle.Lifecycle
 import androidx.annotation.RequiresApi
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -66,6 +69,20 @@ class MainActivity : FlutterFragmentActivity() {
     private var glassPower: GlassPower? = null
     private var deeplinkSettingsChannel: MethodChannel? = null
     private var pipReceiver: BroadcastReceiver? = null
+
+    private val playerSystemChannelName = "soplay/player_system"
+    private var playerSystemChannel: MethodChannel? = null
+    private var audioFocus: AudioFocusHelper? = null
+    private var mediaSession: PlayerMediaSession? = null
+
+    // Auto-enter PiP on Home while playing. On 12+ the system does it from
+    // the params; before that, onUserLeaveHint does.
+    private var autoPip = false
+    private var pipAspect = Rational(16, 9)
+    private var pipSourceRect: Rect? = null
+    private var pipActions: List<RemoteAction> = emptyList()
+    private var pipLabels: Map<String, String> = emptyMap()
+    private var pipExitPending = false
     private var notificationPermissionResult: MethodChannel.Result? = null
 
     // CloudStream plugin host (Android-only feature). Lazy so the runtime only
@@ -224,9 +241,22 @@ class MainActivity : FlutterFragmentActivity() {
                     val isPlaying = call.argument<Boolean>("isPlaying") ?: true
                     val hasPrev = call.argument<Boolean>("hasPrev") ?: false
                     val hasNext = call.argument<Boolean>("hasNext") ?: false
+                    val seekSeconds = call.argument<Number>("seekSeconds")?.toInt() ?: 10
+                    call.argument<Map<String, String>>("labels")?.let { pipLabels = it }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        applyPipActions(isPlaying, hasPrev, hasNext)
+                        applyPipActions(isPlaying, hasPrev, hasNext, seekSeconds)
                     }
+                    result.success(true)
+                }
+                "setAutoPip" -> {
+                    autoPip = call.argument<Boolean>("enabled") ?: false
+                    val num = call.argument<Number>("numerator")?.toInt() ?: 16
+                    val den = call.argument<Number>("denominator")?.toInt() ?: 9
+                    if (num > 0 && den > 0) pipAspect = Rational(num, den)
+                    pipSourceRect = call.argument<List<Number>>("sourceRect")
+                        ?.takeIf { it.size == 4 }
+                        ?.let { Rect(it[0].toInt(), it[1].toInt(), it[2].toInt(), it[3].toInt()) }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) applyPipParams()
                     result.success(true)
                 }
                 else -> result.notImplemented()
@@ -452,6 +482,62 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(ExtensionDns.apply(applicationContext, id))
                 }
                 "getExtensionDns" -> result.success(ExtensionDns.current())
+                else -> result.notImplemented()
+            }
+        }
+
+        playerSystemChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            playerSystemChannelName
+        )
+        playerSystemChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "attach" -> {
+                    val focus = audioFocus ?: AudioFocusHelper(applicationContext) { event ->
+                        runOnUiThread { playerSystemChannel?.invokeMethod("audioFocus", event) }
+                    }.also { audioFocus = it }
+                    focus.watchNoisy()
+                    val session = mediaSession ?: PlayerMediaSession(this) { action, pos ->
+                        runOnUiThread {
+                            playerSystemChannel?.invokeMethod(
+                                "mediaCommand",
+                                mapOf("action" to action, "positionMs" to pos)
+                            )
+                        }
+                    }.also { mediaSession = it }
+                    session.start()
+                    result.success(true)
+                }
+                "detach" -> {
+                    audioFocus?.release()
+                    mediaSession?.stop()
+                    result.success(true)
+                }
+                "requestAudioFocus" -> result.success(audioFocus?.request() ?: true)
+                "abandonAudioFocus" -> {
+                    audioFocus?.abandon()
+                    result.success(true)
+                }
+                "setMetadata" -> {
+                    mediaSession?.setMetadata(
+                        call.argument<String>("title") ?: "",
+                        call.argument<String>("subtitle"),
+                        call.argument<Number>("durationMs")?.toLong() ?: 0L,
+                        call.argument<String>("artworkUrl"),
+                    )
+                    result.success(true)
+                }
+                "setPlaybackState" -> {
+                    mediaSession?.setState(
+                        call.argument<Boolean>("playing") ?: false,
+                        call.argument<Number>("positionMs")?.toLong() ?: 0L,
+                        call.argument<Number>("speed")?.toFloat() ?: 1f,
+                        call.argument<Boolean>("hasPrev") ?: false,
+                        call.argument<Boolean>("hasNext") ?: false,
+                        call.argument<Boolean>("seekable") ?: true,
+                    )
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -1226,14 +1312,19 @@ class MainActivity : FlutterFragmentActivity() {
         audio.setStreamVolume(AudioManager.STREAM_MUSIC, level, 0)
     }
 
+    // The window override is the truth once the player has set one. Before
+    // that, the system level is only a guess: its range is 0..255 on most
+    // phones but not all, and under auto-brightness it is stale.
     private fun getWindowBrightness(): Double {
         val windowValue = window.attributes.screenBrightness
         if (windowValue >= 0f) return windowValue.toDouble().coerceIn(0.0, 1.0)
         return try {
-            Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS)
-                .toDouble()
-                .div(255.0)
-                .coerceIn(0.0, 1.0)
+            val auto = Settings.System.getInt(
+                contentResolver,
+                Settings.System.SCREEN_BRIGHTNESS_MODE
+            ) == Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC
+            val raw = Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+            if (auto || raw !in 0..255) 0.5 else (raw / 255.0).coerceIn(0.05, 1.0)
         } catch (_: Exception) {
             0.5
         }
@@ -1348,72 +1439,131 @@ class MainActivity : FlutterFragmentActivity() {
     private fun applyPipActions(
         isPlaying: Boolean,
         hasPrev: Boolean,
-        hasNext: Boolean
+        hasNext: Boolean,
+        seekSeconds: Int
     ) {
+        fun label(key: String, fallback: String) = pipLabels[key]?.takeIf { it.isNotBlank() } ?: fallback
         val actions = mutableListOf<RemoteAction>()
-
-        if (hasPrev) {
-            actions.add(
-                makeAction(
-                    android.R.drawable.ic_media_previous,
-                    "Previous",
-                    "Previous episode",
-                    ACTION_PREV,
-                    REQ_PREV
-                )
-            )
+        // Most windows take three; the episode buttons only when there is room.
+        val room = maxNumPictureInPictureActions
+        val showPrev = hasPrev && room >= 5
+        val showNext = hasNext && room >= 4
+        if (showPrev) {
+            val t = label("prev", "Previous")
+            actions.add(makeAction(R.drawable.ic_pip_prev, t, t, ACTION_PREV, REQ_PREV))
         }
+        val rewind = label("rewind", "Rewind ${seekSeconds}s")
         actions.add(
-            makeAction(
-                android.R.drawable.ic_media_rew,
-                "Rewind 10",
-                "Rewind 10 seconds",
-                ACTION_REWIND,
-                REQ_REWIND
-            )
+            makeAction(replayIcon(seekSeconds), rewind, rewind, ACTION_REWIND, REQ_REWIND)
         )
+        val playPause = if (isPlaying) label("pause", "Pause") else label("play", "Play")
         actions.add(
             makeAction(
-                if (isPlaying)
-                    android.R.drawable.ic_media_pause
-                else
-                    android.R.drawable.ic_media_play,
-                if (isPlaying) "Pause" else "Play",
-                if (isPlaying) "Pause" else "Play",
+                if (isPlaying) R.drawable.ic_pip_pause else R.drawable.ic_pip_play,
+                playPause,
+                playPause,
                 ACTION_PLAY_PAUSE,
                 REQ_PLAY_PAUSE
             )
         )
+        val forward = label("forward", "Forward ${seekSeconds}s")
         actions.add(
-            makeAction(
-                android.R.drawable.ic_media_ff,
-                "Forward 10",
-                "Forward 10 seconds",
-                ACTION_FORWARD,
-                REQ_FORWARD
-            )
+            makeAction(forwardIcon(seekSeconds), forward, forward, ACTION_FORWARD, REQ_FORWARD)
         )
-        if (hasNext) {
-            actions.add(
-                makeAction(
-                    android.R.drawable.ic_media_next,
-                    "Next",
-                    "Next episode",
-                    ACTION_NEXT,
-                    REQ_NEXT
-                )
-            )
+        if (showNext) {
+            val t = label("next", "Next")
+            actions.add(makeAction(R.drawable.ic_pip_next, t, t, ACTION_NEXT, REQ_NEXT))
         }
+        pipActions = actions
+        applyPipParams()
+    }
 
-        val params = PictureInPictureParams.Builder()
-            .setActions(actions)
-            .build()
+    private fun replayIcon(seconds: Int) = when (seconds) {
+        5 -> R.drawable.ic_pip_replay_5
+        10 -> R.drawable.ic_pip_replay_10
+        30 -> R.drawable.ic_pip_replay_30
+        else -> R.drawable.ic_pip_replay
+    }
 
+    private fun forwardIcon(seconds: Int) = when (seconds) {
+        5 -> R.drawable.ic_pip_forward_5
+        10 -> R.drawable.ic_pip_forward_10
+        30 -> R.drawable.ic_pip_forward_30
+        else -> R.drawable.ic_pip_forward
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun buildPipParams(): PictureInPictureParams {
+        val builder = PictureInPictureParams.Builder()
+            .setActions(pipActions)
+            .setAspectRatio(pipAspect)
+        pipSourceRect?.let { builder.setSourceRectHint(it) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setAutoEnterEnabled(autoPip)
+            builder.setSeamlessResizeEnabled(true)
+        }
+        return builder.build()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun applyPipParams() {
         try {
-            setPictureInPictureParams(params)
+            setPictureInPictureParams(buildPipParams())
         } catch (_: Exception) {
             // Activity may not be in a state to receive PiP params yet
         }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (!autoPip || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return
+        if (isInPictureInPictureMode) return
+        try {
+            enterPictureInPictureMode(buildPipParams())
+        } catch (_: Exception) {
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        if (isInPictureInPictureMode) {
+            pipExitPending = false
+            sendPipMode(inPip = true, dismissed = false)
+            return
+        }
+        // Closed with its X, the activity is already stopped (12+) or about
+        // to be (older: onStop follows). Expanded, it resumes instead.
+        val stopped = !lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        if (stopped || isFinishing) {
+            sendPipMode(inPip = false, dismissed = true)
+        } else {
+            pipExitPending = true
+            sendPipMode(inPip = false, dismissed = false)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        pipExitPending = false
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (pipExitPending) {
+            pipExitPending = false
+            sendPipMode(inPip = false, dismissed = true)
+        }
+    }
+
+    private fun sendPipMode(inPip: Boolean, dismissed: Boolean) {
+        methodChannel?.invokeMethod(
+            "onPipModeChanged",
+            mapOf("inPip" to inPip, "dismissed" to dismissed)
+        )
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -1494,6 +1644,10 @@ class MainActivity : FlutterFragmentActivity() {
         // with one secure decoder that is the next playback failing to start.
         drmPlayerHost?.dispose()
         drmPlayerHost = null
+        audioFocus?.release()
+        audioFocus = null
+        mediaSession?.dispose()
+        mediaSession = null
         try { bridgeServer?.stop() } catch (_: Throwable) {}
         bridgeServer = null
         pipReceiver?.let {

@@ -228,6 +228,7 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
           width: size,
           height: size,
           fit: BoxFit.cover,
+          cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
           errorBuilder: (_, _, _) => Container(
             width: size,
             height: size,

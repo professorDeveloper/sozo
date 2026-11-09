@@ -22,11 +22,25 @@ enum SystemControls {
   /// rebuilding it per call loses the first change of every gesture.
   private static var volumeView: MPVolumeView?
 
+  /// The system brightness before the player first changed it. iOS has no
+  /// per-window override: the change is global and outlives the app unless
+  /// it is put back.
+  private static var savedBrightness: CGFloat?
+  private static var resignObserver: NSObjectProtocol?
+
   static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(
       name: channelName,
       binaryMessenger: registrar.messenger()
     )
+
+    if resignObserver == nil {
+      resignObserver = NotificationCenter.default.addObserver(
+        forName: UIApplication.willResignActiveNotification,
+        object: nil,
+        queue: .main
+      ) { _ in restoreBrightness() }
+    }
 
     channel.setMethodCallHandler { call, result in
       // UIScreen and UIWindow are main-thread only, and Flutter does not
@@ -38,12 +52,12 @@ enum SystemControls {
 
         case "setBrightness":
           let value = doubleArg(call, "value") ?? 0.5
+          if savedBrightness == nil { savedBrightness = UIScreen.main.brightness }
           UIScreen.main.brightness = CGFloat(max(0, min(1, value)))
           result(Double(UIScreen.main.brightness))
 
         case "resetBrightness":
-          // No per-window override on iOS the way Android has one, so there is
-          // nothing to hand back to the system — the user's last swipe stands.
+          restoreBrightness()
           result(true)
 
         case "getVolume":
@@ -59,6 +73,12 @@ enum SystemControls {
         }
       }
     }
+  }
+
+  private static func restoreBrightness() {
+    guard let saved = savedBrightness else { return }
+    savedBrightness = nil
+    UIScreen.main.brightness = saved
   }
 
   private static func doubleArg(_ call: FlutterMethodCall, _ key: String) -> Double? {

@@ -453,12 +453,7 @@ extension _PlayerHistory on _PlayerPageState {
     if (!mounted) return null;
 
     if (sniffed == null || sniffed.url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('detail.download_needs_playback'.tr()),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _toast('detail.download_needs_playback'.tr());
       return null;
     }
     return DownloadChoice(
@@ -535,12 +530,6 @@ extension _PlayerHistory on _PlayerPageState {
       ),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(downloadOutcomeMessage(outcome)),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    _toast(downloadOutcomeMessage(outcome), icon: Icons.download_rounded);
   }
 }

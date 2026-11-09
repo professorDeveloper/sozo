@@ -34,7 +34,9 @@
     "remove": "Remove",
     "show": "Show",
     "hide": "Hide",
-    "installed": "Installed"
+    "installed": "Installed",
+    "load_more_failed": "Couldn't load more",
+    "go_home": "Go home"
   },
   "auth": {
     "login": "Login",
@@ -306,7 +308,11 @@
       "no_source": "No source for this episode.",
       "empty_url": "This source returned no video address.",
       "engine_unavailable": "The player did not start. Please fully restart the app.",
-      "unknown": "Could not load video."
+      "unknown": "Could not load video.",
+      "not_found": "This video is no longer on this server. Try another server.",
+      "server_error": "The video server is having problems. Try again in a moment, or pick another server.",
+      "resolve_failed": "Couldn't get a video link from this source.",
+      "details": "Details"
     },
     "play": "Play",
     "pause": "Pause",
@@ -570,6 +576,8 @@
     "subtitle_n": "Subtitle {}",
     "subtitle_in_video": "In the video",
     "rewind": "Rewind",
+    "rewind_by": "Rewind {}s",
+    "forward_by": "Forward {}s",
     "mini_restore": "Back to the full window",
     "pip_unavailable": "Picture-in-picture could not start for this video.",
     "scrub_release_cancel": "Release to cancel",
@@ -585,7 +593,18 @@
     "reaction_text_hint": "Say something short…",
     "reaction_wait": "Wait a few seconds before reacting again",
     "reaction_limit": "You've reached the reaction limit for this episode",
-    "reaction_failed": "Couldn't send the reaction"
+    "reaction_failed": "Couldn't send the reaction",
+    "native_offer_title": "Try the new player?",
+    "native_offer_body": "Apple's Liquid Glass controls and menus. You can change this anytime in Settings → Player.",
+    "native_offer_try": "Try it",
+    "native_offer_not_now": "Not now",
+    "trying_again": "Trying again (attempt {})",
+    "try_mpv": "Try with the mpv engine",
+    "ok_to_skip": "OK to skip",
+    "quality_lowered": "Lowered quality",
+    "undo": "Undo",
+    "crash_log": "Crash log",
+    "crash_log_empty": "No crashes recorded"
   },
   "profile": {
     "title": "Profile",
@@ -679,6 +698,15 @@
     "player_engine_section": "PLAYBACK ENGINE",
     "ask_engine_on_play": "Ask every time",
     "ask_engine_on_play_desc": "Choose the engine each time a video starts",
+    "controls_style": "PLAYER CONTROLS STYLE",
+    "controls_style_desc": "Takes effect the next time you open the player.",
+    "controls_style_native": "Native (iOS 26)",
+    "controls_style_native_desc": "The phone's own Liquid Glass buttons, menus and sheets",
+    "controls_style_system": "System glass",
+    "controls_style_system_desc": "The app's buttons on the phone's own Liquid Glass",
+    "controls_style_classic": "Classic glass",
+    "controls_style_classic_desc": "The app's own glass, as in earlier versions",
+    "controls_style_needs_ios26": "Needs iOS 26 or later",
     "playback_section": "PLAYBACK",
     "default_speed": "Default speed",
     "default_speed_desc": "Speed every video starts at",
@@ -701,6 +729,8 @@
     "brightness_gesture_desc": "Swipe up and down on the left side",
     "volume_gesture": "Volume swipe",
     "volume_gesture_desc": "Swipe up and down on the right side",
+    "auto_pip": "Auto picture-in-picture",
+    "auto_pip_desc": "Pressing Home while a video plays keeps it playing in a small window",
     "seconds_short": "{}s",
     "subtitle_style_note": "These apply to every video. Subtitle timing stays per episode and is set inside the player.",
     "searching_all_sources": "searching all sources",
@@ -2056,7 +2086,8 @@
     "title": "My Lists",
     "remove": "Remove",
     "empty_title": "Nothing saved yet",
-    "empty_subtitle": "Titles you save show up here."
+    "empty_subtitle": "Titles you save show up here.",
+    "load_failed": "Couldn't load this list."
   },
   "torrent": {
     "title": "Torrents",
@@ -2910,6 +2941,8 @@
     "priming_title": "Never miss a new episode",
     "priming_body": "Sozo tells you the moment something you follow gets a new episode or chapter — and nothing you haven't asked for.",
     "priming_body_title": "Get a heads-up the moment {} gets a new episode — and nothing you haven't asked for.",
+    "priming_download_title": "Know when your download is done",
+    "priming_download_body": "Sozo shows download progress in your notifications and tells you when it's ready to watch offline. It can also tell you about new episodes of what you follow.",
     "priming_point_releases": "New episodes, with the poster",
     "priming_point_quiet": "Quiet hours",
     "priming_point_control": "Mute any title",
@@ -3138,7 +3171,8 @@
     "error_attachment_count": "At most 5 screenshots per message.",
     "suggest": "Keeps happening? Write to support",
     "error_offline": "You're offline or the connection dropped. Check your internet and try again.",
-    "not_sent": "Not sent: {}"
+    "not_sent": "Not sent: {}",
+    "diag_crash_log": "View crash log"
   },
   "zangetsu": {
     "title": "Zangetsu Sources",

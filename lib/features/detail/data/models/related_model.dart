@@ -1,3 +1,4 @@
+import 'package:soplay/core/js/js_value.dart';
 import 'package:soplay/features/detail/domain/entities/related_entity.dart';
 
 class RelatedModel extends RelatedEntity {
@@ -23,11 +24,12 @@ class RelatedModel extends RelatedEntity {
     slug: json['slug'] as String? ?? '',
     contentUrl: json['contentUrl'] as String? ?? json['url'] as String? ?? '',
     thumbnail: json['thumbnail'] as String?,
-    year: (json['year'] as num?)?.toInt(),
-    rating: (json['rating'] as num?)?.toInt() ?? 0,
-    qualities: json['qualities'] != null
-        ? List<String>.from(json['qualities'] as List)
-        : const [],
+    year: jsonInt(json['year']),
+    rating: jsonInt(json['rating']) ?? 0,
+    qualities: [
+      if (json['qualities'] case final List q)
+        for (final e in q) ?jsonText(e),
+    ],
     category: json['category'] as String? ?? '',
   );
 }

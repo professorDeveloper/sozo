@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/app_constants.dart';
+import '../native/player_controls_style.dart';
 import '../player/quality_preference.dart';
 import 'profile_scope.dart';
 import '../subtitles/subtitle_languages.dart';
@@ -616,6 +617,26 @@ class HiveService {
     await _settingsBox.put(AppConstants.defaultPlayerFitKey, fit);
   }
 
+  /// How the player's controls are drawn on an iPhone; stored by name.
+  PlayerControlsStyle get playerControlsStyle =>
+      storedPlayerControlsStyle ?? PlayerControlsStyle.fallback;
+
+  /// The style the viewer chose, or null when they never have.
+  PlayerControlsStyle? get storedPlayerControlsStyle {
+    final raw = _settingsBox.get(AppConstants.playerControlsStyleKey);
+    return raw == null ? null : PlayerControlsStyle.fromName(raw);
+  }
+
+  /// Whether the player has offered the native controls already.
+  bool get nativeControlsOffered =>
+      _settingsBox.get(AppConstants.nativeControlsOfferedKey) == true;
+
+  Future<void> markNativeControlsOffered() =>
+      _settingsBox.put(AppConstants.nativeControlsOfferedKey, true);
+
+  Future<void> setPlayerControlsStyle(PlayerControlsStyle style) =>
+      _settingsBox.put(AppConstants.playerControlsStyleKey, style.name);
+
   /// A [QualityPreference] value; anything unknown reads as Auto.
   int get preferredQuality => QualityPreference.normalize(
     _settingsBox.get(AppConstants.preferredQualityKey),
@@ -734,6 +755,17 @@ class HiveService {
 
   Future<void> saveLongPressBoost(double rate) async {
     await _settingsBox.put(AppConstants.longPressBoostKey, rate);
+  }
+
+  /// The desktop player's own volume (1.0 = 100%, up to 1.5 on mpv) and mute.
+  ({Object? level, Object? muted}) getDesktopVolume() => (
+    level: _settingsBox.get(AppConstants.desktopVolumeKey),
+    muted: _settingsBox.get(AppConstants.desktopMutedKey),
+  );
+
+  Future<void> saveDesktopVolume(double level, bool muted) async {
+    await _settingsBox.put(AppConstants.desktopVolumeKey, level);
+    await _settingsBox.put(AppConstants.desktopMutedKey, muted);
   }
 
   /// Whether to remind before an episode on the AniList list airs.
@@ -910,6 +942,13 @@ class HiveService {
   Future<void> setVolumeGestureEnabled(bool value) async {
     await _settingsBox.put(AppConstants.volumeGestureKey, value);
   }
+
+  /// Android: Home while a video plays shrinks it into picture-in-picture.
+  bool get autoPipEnabled =>
+      _settingsBox.get(AppConstants.autoPipKey, defaultValue: true) == true;
+
+  Future<void> setAutoPipEnabled(bool value) =>
+      _settingsBox.put(AppConstants.autoPipKey, value);
 
   /// Explicit on/off answers for the player info overlay, or null when the
   /// viewer has never opened the picker.
@@ -1513,4 +1552,11 @@ class HiveService {
     }
     await _settingsBox.put('sub_rate::$key', rate);
   }
+
+  /// Whether the first download has offered notification permission.
+  bool get downloadPrimingShown =>
+      _settingsBox.get('download_priming_shown', defaultValue: false) == true;
+
+  Future<void> markDownloadPrimingShown() =>
+      _settingsBox.put('download_priming_shown', true);
 }

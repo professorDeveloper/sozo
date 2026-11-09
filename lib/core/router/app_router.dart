@@ -166,6 +166,11 @@ Page<void> _bloomPage(GoRouterState state, Widget child) {
   );
 }
 
+/// Null when the route got the `extra` it needs, else `/main`: a route that
+/// only makes sense with args (a restored stack, a stray link) goes Home
+/// instead of throwing on the cast.
+String? extraOr<T>(GoRouterState state) => state.extra is T ? null : '/main';
+
 class AppRouter {
   AppRouter._();
 
@@ -237,6 +242,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/episodes',
+        redirect: (context, state) => extraOr<EpisodesArgs>(state),
         pageBuilder: (context, state) {
           final args = state.extra as EpisodesArgs;
           return _bloomPage(state, EpisodesPage(args: args));
@@ -253,6 +259,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/actor',
+        redirect: (context, state) => extraOr<ActorArgs>(state),
         pageBuilder: (context, state) {
           final args = state.extra as ActorArgs;
           return _bloomPage(state, ActorPage(args: args));
@@ -260,6 +267,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/player',
+        redirect: (context, state) => extraOr<PlayerArgs>(state),
         builder: (context, state) {
           final args = state.extra as PlayerArgs;
           // Through PlayerRoute, which keys the page: on the desktop it may be
@@ -269,6 +277,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/reader',
+        redirect: (context, state) => extraOr<ReaderArgs>(state),
         builder: (context, state) {
           final args = state.extra as ReaderArgs;
           return ReaderPage(args: args);
@@ -487,7 +496,10 @@ class AppRouter {
         },
       ),
       // Help & Support. `new` before `:id`, which would otherwise take it.
-      GoRoute(path: '/support', builder: (context, state) => const SupportPage()),
+      GoRoute(
+        path: '/support',
+        builder: (context, state) => const SupportPage(),
+      ),
       GoRoute(
         path: '/support/new',
         builder: (context, state) => SupportNewPage(

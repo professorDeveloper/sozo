@@ -50,10 +50,13 @@ enum NativeGlass {
   static func capability() -> [String: Any] {
     let os = ProcessInfo.processInfo.operatingSystemVersion
     var styles: [String] = []
+    var controls = false
     if #available(iOS 26.0, *) {
       // Both styles ship together; there is no partial adoption to probe
       // for, so the availability check *is* the probe.
       styles = ["regular", "clear"]
+      // The player's own glass buttons (NativePlayerBar.swift).
+      controls = true
     }
     return [
       "systemVersion": UIDevice.current.systemVersion,
@@ -63,6 +66,7 @@ enum NativeGlass {
       // the one fact Dart cannot work out for itself.
       "systemGlass": !styles.isEmpty,
       "glassStyles": styles,
+      "glassControls": controls,
       // The blur materials the fallback may ask for. All of these are
       // iOS 13+, so on anything that can run this app the list is the same
       // — it is sent anyway so that a phone which ever stops offering one

@@ -34,7 +34,9 @@
     "remove": "Gỡ",
     "show": "Hiện",
     "hide": "Ẩn",
-    "installed": "Đã cài"
+    "installed": "Đã cài",
+    "load_more_failed": "Không thể tải thêm",
+    "go_home": "Về trang chủ"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -306,7 +308,11 @@
       "no_source": "Tập này không có nguồn.",
       "empty_url": "Nguồn này không trả về địa chỉ video.",
       "engine_unavailable": "Trình phát không khởi động được. Vui lòng khởi động lại hẳn ứng dụng.",
-      "unknown": "Không tải được video."
+      "unknown": "Không tải được video.",
+      "not_found": "Video này không còn trên máy chủ này. Hãy thử máy chủ khác.",
+      "server_error": "Máy chủ video đang gặp sự cố. Hãy thử lại sau giây lát hoặc chọn máy chủ khác.",
+      "resolve_failed": "Không lấy được liên kết video từ nguồn này.",
+      "details": "Chi tiết"
     },
     "play": "Phát",
     "pause": "Tạm dừng",
@@ -570,6 +576,8 @@
     "subtitle_n": "Phụ đề {}",
     "subtitle_in_video": "Trong video",
     "rewind": "Tua lại",
+    "rewind_by": "Tua lại {} giây",
+    "forward_by": "Tua tới {} giây",
     "mini_restore": "Trở về cửa sổ đầy đủ",
     "pip_unavailable": "Không thể bật hình trong hình cho video này.",
     "scrub_release_cancel": "Thả ra để hủy",
@@ -585,7 +593,18 @@
     "reaction_text_hint": "Viết ngắn thôi…",
     "reaction_wait": "Chờ vài giây trước khi bày tỏ tiếp",
     "reaction_limit": "Bạn đã đạt giới hạn cảm xúc cho tập này",
-    "reaction_failed": "Không gửi được cảm xúc"
+    "reaction_failed": "Không gửi được cảm xúc",
+    "native_offer_title": "Dùng thử trình phát mới?",
+    "native_offer_body": "Nút điều khiển và menu Liquid Glass của Apple. Bạn có thể thay đổi bất cứ lúc nào trong Cài đặt → Trình phát.",
+    "native_offer_try": "Dùng thử",
+    "native_offer_not_now": "Để sau",
+    "trying_again": "Đang thử lại (lần {})",
+    "try_mpv": "Thử với trình phát mpv",
+    "ok_to_skip": "Nhấn OK để bỏ qua",
+    "quality_lowered": "Đã giảm chất lượng",
+    "undo": "Hoàn tác",
+    "crash_log": "Nhật ký sự cố",
+    "crash_log_empty": "Chưa ghi nhận sự cố nào"
   },
   "profile": {
     "title": "Hồ sơ",
@@ -679,6 +698,15 @@
     "player_engine_section": "CÔNG CỤ PHÁT",
     "ask_engine_on_play": "Luôn hỏi",
     "ask_engine_on_play_desc": "Chọn công cụ phát mỗi khi bắt đầu video",
+    "controls_style": "KIỂU NÚT ĐIỀU KHIỂN TRÌNH PHÁT",
+    "controls_style_desc": "Áp dụng từ lần mở trình phát tiếp theo.",
+    "controls_style_native": "Gốc (iOS 26)",
+    "controls_style_native_desc": "Nút, menu và bảng Liquid Glass của chính điện thoại",
+    "controls_style_system": "Kính hệ thống",
+    "controls_style_system_desc": "Nút của ứng dụng trên Liquid Glass của điện thoại",
+    "controls_style_classic": "Kính cổ điển",
+    "controls_style_classic_desc": "Lớp kính riêng của ứng dụng, như các phiên bản trước",
+    "controls_style_needs_ios26": "Cần iOS 26 trở lên",
     "playback_section": "PHÁT LẠI",
     "default_speed": "Tốc độ mặc định",
     "default_speed_desc": "Tốc độ khi bắt đầu mỗi video",
@@ -701,6 +729,8 @@
     "brightness_gesture_desc": "Vuốt lên xuống ở bên trái",
     "volume_gesture": "Vuốt chỉnh âm lượng",
     "volume_gesture_desc": "Vuốt lên xuống ở bên phải",
+    "auto_pip": "Tự động hình trong hình",
+    "auto_pip_desc": "Nhấn Màn hình chính khi đang phát video sẽ tiếp tục phát trong cửa sổ nhỏ",
     "seconds_short": "{} giây",
     "subtitle_style_note": "Áp dụng cho mọi video. Thời gian phụ đề được đặt riêng cho từng tập ngay trong trình phát.",
     "searching_all_sources": "đang tìm mọi nguồn",
@@ -2056,7 +2086,8 @@
     "title": "Danh sách của tôi",
     "remove": "Xóa",
     "empty_title": "Chưa lưu gì",
-    "empty_subtitle": "Các phim bạn lưu sẽ hiện ở đây."
+    "empty_subtitle": "Các phim bạn lưu sẽ hiện ở đây.",
+    "load_failed": "Không thể tải danh sách này."
   },
   "torrent": {
     "title": "Torrent",
@@ -2910,6 +2941,8 @@
     "priming_title": "Không bỏ lỡ tập mới nào",
     "priming_body": "Sozo báo ngay khi nội dung bạn theo dõi có tập hoặc chương mới — và không gửi gì bạn chưa yêu cầu.",
     "priming_body_title": "Nhận thông báo ngay khi {} có tập mới — và không gửi gì bạn chưa yêu cầu.",
+    "priming_download_title": "Biết khi nào tải xuống hoàn tất",
+    "priming_download_body": "Sozo hiển thị tiến trình tải xuống trong thông báo và báo cho bạn khi có thể xem ngoại tuyến. Sozo cũng có thể báo tập mới của những gì bạn theo dõi.",
     "priming_point_releases": "Tập mới, kèm áp phích",
     "priming_point_quiet": "Giờ yên tĩnh",
     "priming_point_control": "Tắt tiếng từng phim",
@@ -3138,7 +3171,8 @@
     "error_attachment_count": "Tối đa 5 ảnh mỗi tin nhắn.",
     "suggest": "Vẫn tiếp diễn? Hãy viết cho bộ phận hỗ trợ",
     "error_offline": "Bạn đang ngoại tuyến hoặc kết nối bị ngắt. Hãy kiểm tra internet rồi thử lại.",
-    "not_sent": "Chưa gửi được: {}"
+    "not_sent": "Chưa gửi được: {}",
+    "diag_crash_log": "Xem nhật ký sự cố"
   },
   "zangetsu": {
     "title": "Nguồn Zangetsu",

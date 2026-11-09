@@ -80,6 +80,64 @@ void main() {
       }
     });
 
+    test("Dio's timeouts are network faults", () {
+      for (final raw in const [
+        'The request connection took longer than 0:00:15.000000 and it was '
+            'aborted.',
+        'The receiving data took longer than 0:00:30.000000.',
+      ]) {
+        expect(
+          PlaybackFault.classify(raw).kind,
+          PlaybackFaultKind.network,
+          reason: raw,
+        );
+      }
+    });
+
+    test('HTTP statuses are classified by what they mean', () {
+      const cases = {
+        'This exception was thrown because the response has a status code of '
+                '404 and RequestOptions.validateStatus was configured to throw':
+            PlaybackFaultKind.notFound,
+        'Source error: InvalidResponseCodeException: Response code: 410':
+            PlaybackFaultKind.notFound,
+        'HTTP error 403 Forbidden': PlaybackFaultKind.sourceBlocked,
+        'Response code: 401': PlaybackFaultKind.sourceBlocked,
+        'Server returned 503 Service Unavailable':
+            PlaybackFaultKind.serverError,
+        'status code of 429': PlaybackFaultKind.serverError,
+        'Server returned 5XX Server Error reply': PlaybackFaultKind.serverError,
+      };
+      cases.forEach((raw, kind) {
+        expect(PlaybackFault.classify(raw).kind, kind, reason: raw);
+      });
+    });
+
+    test('error page bodies name their status', () {
+      expect(
+        PlaybackFault.classify(
+          '<html><title>403 Forbidden</title></html>',
+        ).kind,
+        PlaybackFaultKind.sourceBlocked,
+      );
+      expect(
+        PlaybackFault.classify('<h1>404 Not Found</h1> nginx').kind,
+        PlaybackFaultKind.notFound,
+      );
+      expect(
+        PlaybackFault.classify('502 Bad Gateway').kind,
+        PlaybackFaultKind.serverError,
+      );
+    });
+
+    test('a number in an address is not a status', () {
+      expect(
+        PlaybackFault.httpStatusOf('failed: https://cdn.example/404/ep.m3u8'),
+        isNull,
+      );
+      expect(PlaybackFault.httpStatusOf('status code of 200'), isNull);
+    });
+
     test('anything unrecognised falls through to unknown', () {
       expect(
         PlaybackFault.classify('something nobody has seen yet').kind,

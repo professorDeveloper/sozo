@@ -28,6 +28,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:soplay/core/glass/glass_sense.dart';
 import 'package:soplay/core/glass/native_glass.dart';
+import 'package:soplay/core/native/native_glass_bar.dart';
 
 void say(String line) => debugPrint('NATIVE_GLASS $line');
 
@@ -119,5 +120,56 @@ void main() {
       reason: 'UIKit built no glass view: the factory soplay/native_glass is '
           'not registered, or the effect could not be made',
     );
+  });
+
+  testWidgets('an iOS 26 phone builds the player\'s glass bar', (tester) async {
+    final said = await NativeGlass.capability();
+    say('glassControls=${said.glassControls}');
+    final before =
+        await GlassSense.channel.invokeMethod<int>('glassControlsBuilt') ?? 0;
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: GlassSense(
+          child: Center(
+            child: NativeGlassBar(
+              look: NativeBarLook.capsule,
+              fallback: (_) => const SizedBox(key: Key('barFallback')),
+              items: const [
+                NativeBarItem(
+                  id: 'settings',
+                  symbol: 'gearshape',
+                  semanticLabel: 'Settings',
+                ),
+                NativeBarItem(
+                  id: 'speed',
+                  symbol: 'gauge.with.dots.needle.67percent',
+                  semanticLabel: 'Speed',
+                  title: '1.25x',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final after =
+        await GlassSense.channel.invokeMethod<int>('glassControlsBuilt') ?? 0;
+    say('glassControlsBuilt=$before->$after');
+
+    if (said.majorVersion >= 26) {
+      expect(said.glassControls, isTrue, reason: 'iOS 26 has the bar factory');
+      expect(
+        after - before,
+        1,
+        reason:
+            'UIKit built no bar: soplay/native_player_bar is not '
+            'registered',
+      );
+    } else {
+      expect(said.glassControls, isFalse);
+      expect(find.byKey(const Key('barFallback')), findsOneWidget);
+    }
   });
 }

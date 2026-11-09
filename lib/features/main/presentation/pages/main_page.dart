@@ -1,6 +1,5 @@
 import 'dart:async';
 import '../widgets/scroll_compact_navigation.dart';
-import 'dart:ui';
 import 'dart:ui' as ui show TextDirection;
 
 import 'package:easy_localization/easy_localization.dart';
@@ -33,6 +32,7 @@ import 'package:showcaseview/showcaseview.dart';
 
 import '../../../../core/navigation/app_tab.dart';
 import '../../../../core/navigation/nav_controller.dart';
+import 'package:soplay/core/glass/reducible_blur.dart';
 
 /// Addressed by name, never through `ShowcaseView.get()`: that returns the most recently
 /// registered instance, so opening a detail page — which registers its own private scope —
@@ -505,7 +505,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           },
           child: isTvPlatform
               ? _buildTvShell(tabs, defs)
-              : isDesktopPlatform
+              // A tablet or unfolded foldable in landscape gets the rail.
+              : isDesktopPlatform || SozoWidth.of(context).isExpanded
               ? _buildDesktopShell(tabs, defs)
               : Scaffold(
                   backgroundColor: AppColors.background,
@@ -1208,8 +1209,9 @@ class _SozoClassicBar extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+      child: ReducibleBlur(
+        sigma: 22,
+        reducedFill: AppColors.surface.withValues(alpha: 0.6),
         child: Container(
           height: 68 + bottomPad,
           decoration: BoxDecoration(
@@ -1415,8 +1417,9 @@ class _SozoFloatingNav extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: radius,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: ReducibleBlur(
+          sigma: 22,
+          reducedFill: AppColors.surface.withValues(alpha: 0.6),
           child: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(

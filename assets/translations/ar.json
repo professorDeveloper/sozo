@@ -34,7 +34,9 @@
     "remove": "إزالة",
     "show": "إظهار",
     "hide": "إخفاء",
-    "installed": "مثبّت"
+    "installed": "مثبّت",
+    "load_more_failed": "تعذّر تحميل المزيد",
+    "go_home": "العودة إلى الرئيسية"
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -306,7 +308,11 @@
       "no_source": "لا يوجد مصدر لهذه الحلقة.",
       "empty_url": "لم يُرجِع هذا المصدر عنوان فيديو.",
       "engine_unavailable": "لم يبدأ المشغّل. أعد تشغيل التطبيق بالكامل.",
-      "unknown": "تعذّر تحميل الفيديو."
+      "unknown": "تعذّر تحميل الفيديو.",
+      "not_found": "لم يعد هذا الفيديو موجودًا على هذا الخادم. جرّب خادمًا آخر.",
+      "server_error": "يواجه خادم الفيديو مشكلة. حاول مجددًا بعد قليل أو اختر خادمًا آخر.",
+      "resolve_failed": "تعذّر الحصول على رابط الفيديو من هذا المصدر.",
+      "details": "التفاصيل"
     },
     "play": "تشغيل",
     "pause": "إيقاف مؤقت",
@@ -570,6 +576,8 @@
     "subtitle_n": "ترجمة {}",
     "subtitle_in_video": "ضمن الفيديو",
     "rewind": "ترجيع",
+    "rewind_by": "ترجيع {} ثانية",
+    "forward_by": "تقديم {} ثانية",
     "mini_restore": "العودة إلى النافذة الكاملة",
     "pip_unavailable": "تعذّر تشغيل صورة داخل صورة لهذا الفيديو.",
     "scrub_release_cancel": "اترك للإلغاء",
@@ -585,7 +593,18 @@
     "reaction_text_hint": "اكتب شيئاً قصيراً…",
     "reaction_wait": "انتظر بضع ثوانٍ قبل التفاعل مجدداً",
     "reaction_limit": "وصلت إلى حد التفاعلات لهذه الحلقة",
-    "reaction_failed": "تعذّر إرسال التفاعل"
+    "reaction_failed": "تعذّر إرسال التفاعل",
+    "native_offer_title": "هل تريد تجربة المشغّل الجديد؟",
+    "native_offer_body": "أزرار وقوائم Liquid Glass من Apple. يمكنك تغيير ذلك في أي وقت من الإعدادات ← المشغّل.",
+    "native_offer_try": "جرّبه",
+    "native_offer_not_now": "ليس الآن",
+    "trying_again": "إعادة المحاولة (المحاولة {})",
+    "try_mpv": "جرّب باستخدام محرك mpv",
+    "ok_to_skip": "اضغط OK للتخطي",
+    "quality_lowered": "تم خفض الجودة",
+    "undo": "تراجع",
+    "crash_log": "سجل الأعطال",
+    "crash_log_empty": "لم تُسجَّل أي أعطال"
   },
   "profile": {
     "title": "حسابي",
@@ -677,6 +696,15 @@
     "player_engine_section": "محرّك التشغيل",
     "ask_engine_on_play": "اسأل في كل مرة",
     "ask_engine_on_play_desc": "اختر المحرّك عند بدء كل فيديو",
+    "controls_style": "نمط أزرار المشغّل",
+    "controls_style_desc": "يُطبَّق في المرة القادمة التي تفتح فيها المشغّل.",
+    "controls_style_native": "أصلي (iOS 26)",
+    "controls_style_native_desc": "أزرار وقوائم ونوافذ Liquid Glass الخاصة بالهاتف",
+    "controls_style_system": "زجاج النظام",
+    "controls_style_system_desc": "أزرار التطبيق على زجاج Liquid Glass الخاص بالهاتف",
+    "controls_style_classic": "زجاج كلاسيكي",
+    "controls_style_classic_desc": "زجاج التطبيق الخاص، كما في الإصدارات السابقة",
+    "controls_style_needs_ios26": "يتطلب iOS 26 أو أحدث",
     "playback_section": "التشغيل",
     "default_speed": "السرعة الافتراضية",
     "default_speed_desc": "السرعة التي يبدأ بها كل فيديو",
@@ -699,6 +727,8 @@
     "brightness_gesture_desc": "اسحب لأعلى وأسفل على الجانب الأيسر",
     "volume_gesture": "سحب الصوت",
     "volume_gesture_desc": "اسحب لأعلى وأسفل على الجانب الأيمن",
+    "auto_pip": "صورة داخل صورة تلقائيًا",
+    "auto_pip_desc": "عند الضغط على زر الشاشة الرئيسية أثناء تشغيل فيديو، يستمر في نافذة صغيرة",
     "seconds_short": "{}ث",
     "subtitle_style_note": "تنطبق هذه على كل فيديو. أمّا توقيت الترجمة فيبقى لكل حلقة ويُضبط داخل المشغّل.",
     "searching_all_sources": "البحث في كل المصادر",
@@ -2060,7 +2090,8 @@
     "title": "قوائمي",
     "remove": "إزالة",
     "empty_title": "لا شيء محفوظ بعد",
-    "empty_subtitle": "ستظهر هنا الأعمال التي تحفظها."
+    "empty_subtitle": "ستظهر هنا الأعمال التي تحفظها.",
+    "load_failed": "تعذّر تحميل هذه القائمة."
   },
   "torrent": {
     "title": "التورنت",
@@ -2914,6 +2945,8 @@
     "priming_title": "لا تفوّت أي حلقة جديدة",
     "priming_body": "يخبرك Sozo فور صدور حلقة أو فصل جديد لما تتابعه — ولا شيء لم تطلبه.",
     "priming_body_title": "اعرف فور صدور حلقة جديدة من «{}» — ولا شيء لم تطلبه.",
+    "priming_download_title": "اعرف متى يكتمل التنزيل",
+    "priming_download_body": "يعرض Sozo تقدّم التنزيل في الإشعارات ويخبرك عندما يصبح جاهزًا للمشاهدة دون اتصال. ويمكنه أيضًا إعلامك بالحلقات الجديدة لما تتابعه.",
     "priming_point_releases": "حلقات جديدة مع الملصق",
     "priming_point_quiet": "ساعات الهدوء",
     "priming_point_control": "كتم أي عمل",
@@ -3142,7 +3175,8 @@
     "error_attachment_count": "5 لقطات شاشة كحد أقصى في الرسالة.",
     "suggest": "تتكرر المشكلة؟ راسل الدعم",
     "error_offline": "أنت غير متصل أو انقطع الاتصال. تحقق من الإنترنت ثم حاول مرة أخرى.",
-    "not_sent": "لم يُرسل: {}"
+    "not_sent": "لم يُرسل: {}",
+    "diag_crash_log": "عرض سجل الأعطال"
   },
   "zangetsu": {
     "title": "مصادر Zangetsu",

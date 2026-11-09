@@ -1,3 +1,4 @@
+import 'package:soplay/core/js/js_value.dart';
 import 'package:soplay/features/detail/data/models/subtitle_model.dart';
 import 'package:soplay/features/detail/data/models/thumbnails_model.dart';
 import 'package:soplay/features/detail/data/models/video_source_model.dart';
@@ -20,14 +21,14 @@ class MediaResolveModel extends MediaResolveEntity {
 
   factory MediaResolveModel.fromJson(Map<String, dynamic> json) {
     final typeRaw = json['type'] as String?;
-    final sources = (json['videoSources'] as List? ?? const [])
-        .whereType<Map<String, dynamic>>()
-        .map(VideoSourceModel.fromJson)
-        .toList(growable: false);
-    final subs = (json['subtitles'] as List? ?? const [])
-        .whereType<Map<String, dynamic>>()
-        .map(SubtitleModel.fromJson)
-        .toList(growable: false);
+    // Every map, whatever its type arguments: whereType<Map<String, dynamic>>
+    // silently dropped each source a platform channel delivered.
+    final sources = jsonMaps(
+      json['videoSources'],
+    ).map(VideoSourceModel.fromJson).toList(growable: false);
+    final subs = jsonMaps(
+      json['subtitles'],
+    ).map(SubtitleModel.fromJson).toList(growable: false);
     return MediaResolveModel(
       videoUrl: json['videoUrl'] as String? ?? '',
       type: typeRaw == null || typeRaw.isEmpty ? null : typeRaw.toLowerCase(),

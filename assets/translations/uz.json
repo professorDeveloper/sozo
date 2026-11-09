@@ -34,7 +34,9 @@
     "remove": "Olib tashlash",
     "show": "Ko‘rsatish",
     "hide": "Yashirish",
-    "installed": "O‘rnatilgan"
+    "installed": "O‘rnatilgan",
+    "load_more_failed": "Ko‘proq yuklab bo‘lmadi",
+    "go_home": "Bosh sahifaga"
   },
   "auth": {
     "login": "Kirish",
@@ -306,7 +308,11 @@
       "no_source": "Bu qism uchun manba topilmadi.",
       "empty_url": "Bu manba video manzilini qaytarmadi.",
       "engine_unavailable": "Pleyer ishga tushmadi. Ilovani butunlay qayta ishga tushiring.",
-      "unknown": "Videoni yuklab bo‘lmadi."
+      "unknown": "Videoni yuklab bo‘lmadi.",
+      "not_found": "Bu video endi ushbu serverda yo‘q. Boshqa serverni tanlang.",
+      "server_error": "Video serverida muammo bor. Birozdan so‘ng qayta urinib ko‘ring yoki boshqa serverni tanlang.",
+      "resolve_failed": "Bu manbadan video havolasini olib bo‘lmadi.",
+      "details": "Tafsilotlar"
     },
     "play": "O'ynash",
     "pause": "To'xtatish",
@@ -570,6 +576,8 @@
     "subtitle_n": "Subtitr {}",
     "subtitle_in_video": "Videoning ichida",
     "rewind": "Orqaga",
+    "rewind_by": "{}s orqaga",
+    "forward_by": "{}s oldinga",
     "mini_restore": "Katta oynaga qaytish",
     "pip_unavailable": "Bu video uchun “rasm ichida rasm” ishga tushmadi.",
     "scrub_release_cancel": "Qo‘yib yuborsangiz bekor bo‘ladi",
@@ -585,7 +593,18 @@
     "reaction_text_hint": "Qisqa yozing…",
     "reaction_wait": "Qayta reaksiya bildirishdan oldin bir necha soniya kuting",
     "reaction_limit": "Bu qism uchun reaksiyalar limiti tugadi",
-    "reaction_failed": "Reaksiyani yuborib bo'lmadi"
+    "reaction_failed": "Reaksiyani yuborib bo'lmadi",
+    "native_offer_title": "Yangi pleyerni sinab ko‘rasizmi?",
+    "native_offer_body": "Apple’ning Liquid Glass tugmalari va menyulari. Buni istalgan vaqt Sozlamalar → Pleyer bo‘limida o‘zgartirishingiz mumkin.",
+    "native_offer_try": "Sinab ko‘rish",
+    "native_offer_not_now": "Hozir emas",
+    "trying_again": "Qayta urinilmoqda ({}-urinish)",
+    "try_mpv": "mpv dvigateli bilan sinash",
+    "ok_to_skip": "O‘tkazish uchun OK",
+    "quality_lowered": "Sifat pasaytirildi",
+    "undo": "Bekor qilish",
+    "crash_log": "Nosozliklar jurnali",
+    "crash_log_empty": "Nosozliklar qayd etilmagan"
   },
   "profile": {
     "title": "Profil",
@@ -679,6 +698,15 @@
     "player_engine_section": "IJRO DVIGATELI",
     "ask_engine_on_play": "Har safar so‘ralsin",
     "ask_engine_on_play_desc": "Video boshlanganda pleyerni tanlash",
+    "controls_style": "PLEYER TUGMALARI USLUBI",
+    "controls_style_desc": "Pleyer keyingi safar ochilganda kuchga kiradi.",
+    "controls_style_native": "Tizimniki (iOS 26)",
+    "controls_style_native_desc": "Telefonning o'z Liquid Glass tugmalari, menyulari va oynalari",
+    "controls_style_system": "Tizim shishasi",
+    "controls_style_system_desc": "Ilova tugmalari telefonning o'z Liquid Glass shishasida",
+    "controls_style_classic": "Klassik shisha",
+    "controls_style_classic_desc": "Ilovaning o'z shishasi, avvalgi versiyalardagidek",
+    "controls_style_needs_ios26": "iOS 26 yoki yangisi kerak",
     "playback_section": "IJRO",
     "default_speed": "Standart tezlik",
     "default_speed_desc": "Har bir video shu tezlikda boshlanadi",
@@ -701,6 +729,8 @@
     "brightness_gesture_desc": "Chap tomonda yuqoriga-pastga surish",
     "volume_gesture": "Ovoz surish",
     "volume_gesture_desc": "O‘ng tomonda yuqoriga-pastga surish",
+    "auto_pip": "Avtomatik «rasm ichida rasm»",
+    "auto_pip_desc": "Video ijro etilayotganda Home tugmasi bosilsa, u kichik oynada davom etadi",
     "seconds_short": "{} s",
     "subtitle_style_note": "Bular barcha videolarga tegishli. Subtitr vaqti esa har bir qism uchun alohida va pleyer ichida sozlanadi.",
     "searching_all_sources": "barcha manbalar bo‘yicha qidirilmoqda",
@@ -2056,7 +2086,8 @@
     "title": "Ro‘yxatlarim",
     "remove": "O‘chirish",
     "empty_title": "Hozircha hech narsa yo‘q",
-    "empty_subtitle": "Saqlaganlaringiz shu yerda ko‘rinadi."
+    "empty_subtitle": "Saqlaganlaringiz shu yerda ko‘rinadi.",
+    "load_failed": "Bu ro‘yxatni yuklab bo‘lmadi."
   },
   "torrent": {
     "title": "Torrentlar",
@@ -2910,6 +2941,8 @@
     "priming_title": "Yangi qismni o‘tkazib yubormang",
     "priming_body": "Kuzatayotgan asaringizda yangi qism yoki bob chiqishi bilan Sozo xabar beradi — so‘ramagan narsangiz bilan bezovta qilmaydi.",
     "priming_body_title": "«{}»ning yangi qismi chiqishi bilan xabar oling — ortiqcha hech narsa yo‘q.",
+    "priming_download_title": "Yuklab olish tugaganini biling",
+    "priming_download_body": "Sozo yuklab olish jarayonini bildirishnomalarda ko‘rsatadi va oflayn ko‘rishga tayyor bo‘lganda xabar beradi. Kuzatayotganlaringizning yangi qismlari haqida ham aytib turadi.",
     "priming_point_releases": "Yangi qismlar, posteri bilan",
     "priming_point_quiet": "Sokin soatlar",
     "priming_point_control": "Istalgan asarni ovozsiz qilish",
@@ -3138,7 +3171,8 @@
     "error_attachment_count": "Bitta xabarga ko‘pi bilan 5 ta skrinshot.",
     "suggest": "Takrorlanyaptimi? Support’ga yozing",
     "error_offline": "Internet yo'q yoki aloqa uzildi. Internetni tekshirib, qayta urinib ko'ring.",
-    "not_sent": "Yuborilmadi: {}"
+    "not_sent": "Yuborilmadi: {}",
+    "diag_crash_log": "Nosozliklar jurnalini ko‘rish"
   },
   "zangetsu": {
     "title": "Zangetsu manbalari",

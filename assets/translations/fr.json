@@ -34,7 +34,9 @@
     "remove": "Retirer",
     "show": "Afficher",
     "hide": "Masquer",
-    "installed": "Installé"
+    "installed": "Installé",
+    "load_more_failed": "Impossible d’en charger plus",
+    "go_home": "Retour à l’accueil"
   },
   "auth": {
     "login": "Connexion",
@@ -306,7 +308,11 @@
       "no_source": "Aucune source pour cet épisode.",
       "empty_url": "Cette source n’a renvoyé aucune adresse vidéo.",
       "engine_unavailable": "Le lecteur n’a pas démarré. Redémarre complètement l’appli.",
-      "unknown": "Impossible de charger la vidéo."
+      "unknown": "Impossible de charger la vidéo.",
+      "not_found": "Cette vidéo n'est plus sur ce serveur. Essayez un autre serveur.",
+      "server_error": "Le serveur vidéo rencontre des problèmes. Réessayez dans un instant ou choisissez un autre serveur.",
+      "resolve_failed": "Impossible d'obtenir un lien vidéo depuis cette source.",
+      "details": "Détails"
     },
     "play": "Lire",
     "pause": "Pause",
@@ -570,6 +576,8 @@
     "subtitle_n": "Sous-titres {}",
     "subtitle_in_video": "Dans la vidéo",
     "rewind": "Reculer",
+    "rewind_by": "Reculer de {} s",
+    "forward_by": "Avancer de {} s",
     "mini_restore": "Revenir à la fenêtre complète",
     "pip_unavailable": "Impossible de lancer l’image dans l’image pour cette vidéo.",
     "scrub_release_cancel": "Relâchez pour annuler",
@@ -585,7 +593,18 @@
     "reaction_text_hint": "Un mot rapide…",
     "reaction_wait": "Attendez quelques secondes avant de réagir à nouveau",
     "reaction_limit": "Vous avez atteint la limite de réactions pour cet épisode",
-    "reaction_failed": "Impossible d'envoyer la réaction"
+    "reaction_failed": "Impossible d'envoyer la réaction",
+    "native_offer_title": "Essayer le nouveau lecteur ?",
+    "native_offer_body": "Les commandes et menus Liquid Glass d’Apple. Vous pouvez changer cela à tout moment dans Réglages → Lecteur.",
+    "native_offer_try": "Essayer",
+    "native_offer_not_now": "Plus tard",
+    "trying_again": "Nouvel essai (tentative {})",
+    "try_mpv": "Essayer avec le moteur mpv",
+    "ok_to_skip": "OK pour passer",
+    "quality_lowered": "Qualité réduite",
+    "undo": "Annuler",
+    "crash_log": "Journal des plantages",
+    "crash_log_empty": "Aucun plantage enregistré"
   },
   "profile": {
     "title": "Profil",
@@ -677,6 +696,15 @@
     "player_engine_section": "MOTEUR DE LECTURE",
     "ask_engine_on_play": "Demander à chaque fois",
     "ask_engine_on_play_desc": "Choisir le moteur à chaque démarrage de vidéo",
+    "controls_style": "STYLE DES COMMANDES DU LECTEUR",
+    "controls_style_desc": "S'applique à la prochaine ouverture du lecteur.",
+    "controls_style_native": "Natif (iOS 26)",
+    "controls_style_native_desc": "Les boutons, menus et feuilles Liquid Glass du téléphone",
+    "controls_style_system": "Verre système",
+    "controls_style_system_desc": "Les boutons de l'app sur le Liquid Glass du téléphone",
+    "controls_style_classic": "Verre classique",
+    "controls_style_classic_desc": "Le verre propre à l'app, comme dans les versions précédentes",
+    "controls_style_needs_ios26": "Nécessite iOS 26 ou version ultérieure",
     "playback_section": "LECTURE",
     "default_speed": "Vitesse par défaut",
     "default_speed_desc": "Vitesse à laquelle chaque vidéo démarre",
@@ -699,6 +727,8 @@
     "brightness_gesture_desc": "Glisse de haut en bas sur le côté gauche",
     "volume_gesture": "Glisser pour le volume",
     "volume_gesture_desc": "Glisse de haut en bas sur le côté droit",
+    "auto_pip": "Image dans l’image automatique",
+    "auto_pip_desc": "Appuyer sur Accueil pendant une vidéo la poursuit dans une petite fenêtre",
     "seconds_short": "{} s",
     "subtitle_style_note": "Cela vaut pour toutes les vidéos. Le calage des sous-titres reste propre à chaque épisode et se règle dans le lecteur.",
     "searching_all_sources": "recherche dans toutes les sources",
@@ -2056,7 +2086,8 @@
     "title": "Mes listes",
     "remove": "Retirer",
     "empty_title": "Rien d’enregistré pour l’instant",
-    "empty_subtitle": "Les titres que tu enregistres apparaissent ici."
+    "empty_subtitle": "Les titres que tu enregistres apparaissent ici.",
+    "load_failed": "Impossible de charger cette liste."
   },
   "torrent": {
     "title": "Torrents",
@@ -2910,6 +2941,8 @@
     "priming_title": "Ne ratez plus aucun épisode",
     "priming_body": "Sozo vous prévient dès qu’un titre que vous suivez a un nouvel épisode ou chapitre — et rien que vous n’ayez pas demandé.",
     "priming_body_title": "Soyez prévenu dès que « {} » a un nouvel épisode — et rien que vous n’ayez pas demandé.",
+    "priming_download_title": "Sachez quand votre téléchargement est terminé",
+    "priming_download_body": "Sozo affiche la progression du téléchargement dans vos notifications et vous prévient quand il est prêt à regarder hors ligne. Il peut aussi vous signaler les nouveaux épisodes de ce que vous suivez.",
     "priming_point_releases": "Nouveaux épisodes, avec l’affiche",
     "priming_point_quiet": "Heures calmes",
     "priming_point_control": "Coupez n’importe quel titre",
@@ -3138,7 +3171,8 @@
     "error_attachment_count": "5 captures maximum par message.",
     "suggest": "Ça se reproduit ? Écris au support",
     "error_offline": "Vous êtes hors ligne ou la connexion a été coupée. Vérifiez votre connexion et réessayez.",
-    "not_sent": "Non envoyé : {}"
+    "not_sent": "Non envoyé : {}",
+    "diag_crash_log": "Voir le journal des plantages"
   },
   "zangetsu": {
     "title": "Sources Zangetsu",

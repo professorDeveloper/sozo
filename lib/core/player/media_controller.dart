@@ -37,6 +37,10 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
   /// quality preference; [hlsBitrateFor] maps one to the other.
   static String mpvHlsBitrate = 'max';
 
+  /// mpv's `hwdec` for the next stream, or null for the default. Set to 'no'
+  /// for a single retry after mpv failed mid-playback.
+  static String? mpvHwdec;
+
   /// The `hls-bitrate` for a preferred height (see QualityPreference): the
   /// top rendition for Auto, the bottom for Data saver, and otherwise a
   /// ceiling a little above what that height usually streams at, so mpv opens
@@ -62,6 +66,7 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     vp.VideoPlayerOptions? videoPlayerOptions,
     DrmConfig? drm,
     bool preferPlatform = false,
+    bool preferMediaKit = false,
   }) {
     // Encryption decides the backend before anything else does. libmpv cannot
     // decrypt CENC at all and `video_player` exposes no way to configure it, so
@@ -102,7 +107,9 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     // reaches here — the player page hands off before building a controller —
     // but if it somehow does, falling through to the native backend is the
     // safe answer, not a crash.
-    if (!preferPlatform && _useMediaKit() && _mediaKitUsable()) {
+    if (!preferPlatform &&
+        (preferMediaKit || _useMediaKit()) &&
+        _mediaKitUsable()) {
       return _MediaKitController(
         _MediaKitSource.uri(url, httpHeaders, formatHint: formatHint),
       );
@@ -121,8 +128,11 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     File file, {
     vp.VideoPlayerOptions? videoPlayerOptions,
     bool preferPlatform = false,
+    bool preferMediaKit = false,
   }) {
-    if (!preferPlatform && _useMediaKit() && _mediaKitUsable()) {
+    if (!preferPlatform &&
+        (preferMediaKit || _useMediaKit()) &&
+        _mediaKitUsable()) {
       return _MediaKitController(_MediaKitSource.path(file.path));
     }
     return _NativeController(
@@ -141,7 +151,17 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
   Future<void> setVolume(double volume);
   Future<void> setLooping(bool looping);
 
+  /// The loudest [setVolume] accepts: 1.0, or 1.5 where libmpv amplifies.
+  double get maxVolume => 1.0;
+
+  /// Whether libmpv is the engine actually playing (not its platform fallback).
+  bool get isMpv => false;
+
   bool get letterboxesInternally;
+
+  /// Whether the engine takes and gives up Android audio focus itself.
+  /// Requesting it on top of one that does steals focus from it.
+  bool get handlesAudioFocus => false;
 
   /// Whether this backend can enumerate and switch audio tracks at all.
   ///
@@ -577,6 +597,10 @@ class _NativeController extends PlayerController {
   @override
   bool get letterboxesInternally => false;
 
+  /// video_player's ExoPlayer is built with handleAudioFocus on.
+  @override
+  bool get handlesAudioFocus => true;
+
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) => vp.VideoPlayer(_inner);
 
@@ -778,6 +802,24 @@ class _MediaKitController extends PlayerController {
       // here because nothing sets a --vf filter (colour profiles and shaders
       // act in the VO), the one case mpv's manual says framedrop can skip
       // the target frame.
+      // Up to 150%, for quiet sources. Only claimed once mpv accepted it.
+      try {
+        await platform.setProperty(
+          'volume-max',
+          '${(_boostMax * 100).round()}',
+        );
+        _boostReady = true;
+      } catch (e) {
+        debugPrint('[player] volume-max not applied: $e');
+      }
+      final hwdec = PlayerController.mpvHwdec;
+      if (hwdec != null) {
+        try {
+          await platform.setProperty('hwdec', hwdec);
+        } catch (e) {
+          debugPrint('[player] hwdec not applied: $e');
+        }
+      }
       try {
         await platform.setProperty('hr-seek-framedrop', 'yes');
       } catch (e) {
@@ -1276,6 +1318,9 @@ class _MediaKitController extends PlayerController {
   Future<void> play() => _fallback?.play() ?? _player.play();
 
   @override
+  bool get handlesAudioFocus => _fallback?.handlesAudioFocus ?? false;
+
+  @override
   Future<void> pause() => _fallback?.pause() ?? _player.pause();
 
   @override
@@ -1303,10 +1348,21 @@ class _MediaKitController extends PlayerController {
   Future<void> setPlaybackSpeed(double speed) =>
       _fallback?.setPlaybackSpeed(speed) ?? _player.setRate(speed);
 
+  static const double _boostMax = 1.5;
+  bool _boostReady = false;
+
+  @override
+  double get maxVolume => _fallback != null
+      ? _fallback!.maxVolume
+      : (_boostReady ? _boostMax : 1.0);
+
+  @override
+  bool get isMpv => _fallback == null;
+
   @override
   Future<void> setVolume(double volume) => _fallback != null
       ? _fallback!.setVolume(volume)
-      : _player.setVolume((volume * 100).clamp(0.0, 100.0));
+      : _player.setVolume((volume * 100).clamp(0.0, maxVolume * 100));
 
   @override
   Future<void> setLooping(bool looping) => _fallback != null

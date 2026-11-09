@@ -186,6 +186,7 @@ class _PosterGridSk extends StatelessWidget {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: responsiveGridDelegate(
+          context: context,
           mobileCrossAxisCount: 3,
           crossAxisSpacing: 8,
           mainAxisSpacing: 14,

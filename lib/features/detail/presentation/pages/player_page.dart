@@ -27,7 +27,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:dio/dio.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:floating/floating.dart';
 import 'package:gal/gal.dart';
 import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
@@ -55,10 +55,17 @@ import 'package:soplay/core/player/source_ladder.dart';
 import 'package:soplay/features/detail/domain/download_choices.dart';
 import 'package:soplay/features/detail/domain/player_affordances.dart';
 import 'package:soplay/features/detail/domain/playback/episode_window.dart';
+import 'package:soplay/features/detail/domain/playback/desktop_volume.dart';
+import 'package:soplay/features/detail/domain/playback/end_of_stream.dart';
+import 'package:soplay/features/detail/domain/playback/lock_pill.dart';
+import 'package:soplay/features/detail/domain/playback/tap_seek.dart';
+import 'package:soplay/core/player/mpv_auto_quality.dart';
 import 'package:soplay/features/detail/domain/playback/playback_fault.dart';
 import 'package:soplay/features/detail/domain/playback/retry_policy.dart';
 import 'package:soplay/features/detail/domain/playback/skip_offers.dart';
 import 'package:soplay/features/detail/domain/playback/wakelock_holds.dart';
+import 'package:soplay/features/detail/domain/playback/player_system_policy.dart';
+import 'package:soplay/core/system/system_controls.dart';
 import 'package:soplay/features/detail/domain/playback/watch_progress.dart';
 import 'package:soplay/features/detail/domain/player_controls_layout.dart';
 import 'package:soplay/features/detail/domain/playback/party_rules.dart';
@@ -73,7 +80,18 @@ import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/system/star_prompt.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/glass/glass_hold.dart';
 import 'package:soplay/core/glass/media_glass.dart';
+import 'package:soplay/core/glass/glass_sense.dart';
+import 'package:soplay/core/native/native_bar_layout.dart' show BarSpread;
+import 'package:soplay/core/native/native_controls_gate.dart';
+import 'package:soplay/core/native/player_controls_style.dart';
+import 'package:soplay/core/native/native_glass_bar.dart';
+import 'package:soplay/core/native/sf_symbols.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_control_face.dart';
+import 'package:soplay/features/detail/presentation/widgets/native_controls_offer.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_menus.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_sheet_look.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/mal/data/mal_tracker.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
@@ -160,6 +178,11 @@ part 'player_page.tv.dart';
 part 'player_page.jellyfin.dart';
 part 'player_page.upnext.dart';
 part 'player_page.reactions.dart';
+part 'player_page.menus.dart';
+part 'player_page.sheets.dart';
+part 'player_page.native_offer.dart';
+part 'player_page.system.dart';
+part 'player_page.toast.dart';
 
 /// Hard ceiling on auto-retries per episode — see [_PlayerPageState._lifetimeRetries].
 const int _kMaxLifetimeRetries = RetryPolicy.maxLifetimeRetries;
@@ -258,7 +281,18 @@ class _PlayerPageState extends State<PlayerPage>
   final FocusNode _keyFocus = FocusNode(debugLabel: 'desktopPlayerKeys');
   final ValueNotifier<bool> _miniHover = ValueNotifier<bool>(false);
   bool _resumeAfterPause = false;
-  bool _lastPipPlaying = false;
+
+  /// Android PiP, audio focus, media session and brightness bookkeeping.
+  /// See player_page.system.dart.
+  final AndroidPipTracker _pipTracker = AndroidPipTracker();
+  final AudioFocusPolicy _audioFocusPolicy = AudioFocusPolicy();
+  final BrightnessKeeper _brightnessKeeper = BrightnessKeeper();
+  final MediaSessionGate _mediaGate = MediaSessionGate();
+  bool _systemPlaying = false;
+  bool _autoPipArmed = false;
+  late final bool _autoPipSetting;
+  String? _mediaMetaKey;
+  bool _brightnessHandedBack = false;
 
   PlayerController? _controller;
   bool _preferPlatformPlayer = false;
@@ -486,6 +520,22 @@ class _PlayerPageState extends State<PlayerPage>
   bool get _hasPrevEpisode => _window.hasPrev;
   bool _controlsVisible = true;
   bool _locked = false;
+
+  /// Whether the controls are the phone's own glass buttons (iOS 26+),
+  /// decided once on the first build so Flutter and UIKit never swap under
+  /// the viewer — again only when Reduce Transparency is thrown.
+  bool _nativeControls = false;
+  bool? _nativeDecidedUnder;
+
+  /// Settings → Player → Controls style, read once as the page opens; only
+  /// a yes to the one-time offer changes it while the page is up.
+  late PlayerControlsStyle _controlsStyle = _hive.playerControlsStyle;
+  bool _nativeOfferPending = true;
+  bool _nativeOfferOpen = false;
+
+  /// The small players draw no native bars: the corner player is moved and
+  /// clipped as a whole, which a hosted view cannot follow.
+  bool get _nativeBars => _nativeControls && !_compact;
   _SidePanel _panel = _SidePanel.none;
 
   String? _currentLang;
@@ -599,6 +649,10 @@ class _PlayerPageState extends State<PlayerPage>
   /// See _pushSystemLevels in player_page.pip.dart.
   bool _brightnessDirty = false;
   bool _volumeDirty = false;
+
+  /// A swipe's starting level is being read; see _rebaseSwipeLevel.
+  bool _swipeLevelReady = true;
+  int _swipeToken = 0;
   Timer? _systemLevelTimer;
   final ValueNotifier<_SwipeIndicator?> _swipeIndicator =
       ValueNotifier<_SwipeIndicator?>(null);
@@ -750,6 +804,46 @@ class _PlayerPageState extends State<PlayerPage>
   /// guard that protects against accidental BACK.
   bool _tvPopAllowed = false;
 
+  /// Monotonic time for the tap, lock and end-of-stream state machines.
+  final Stopwatch _clock = Stopwatch()..start();
+  Duration get _now => _clock.elapsed;
+
+  final TapSeekTracker _tapSeek = TapSeekTracker();
+  Timer? _tapTimer;
+
+  final LockPill _lockPill = LockPill();
+  Timer? _lockPillTimer;
+
+  final EndOfStreamDetector _endOfStream = EndOfStreamDetector();
+  Timer? _endWatch;
+
+  /// mpv Auto: stalls counted for a step down, and the `hls-bitrate` in force
+  /// after one (null = the start choice). [_autoBitrateBefore] is for Undo.
+  final StallWatchdog _stallWatch = StallWatchdog();
+  String? _autoBitrate;
+  String? _autoBitrateBefore;
+
+  /// "Try with the mpv engine" after a codec fault on the native engine. For
+  /// this player only; the engine setting is untouched.
+  bool _mpvForSession = false;
+
+  /// mpv failed mid-playback once and was reopened with `hwdec=no`.
+  bool _mpvSoftwareRetried = false;
+
+  /// The orientation was turned to portrait for a vertical clip, so a
+  /// landscape episode after it turns it back.
+  bool _autoPortrait = false;
+  PlayerController? _orientedFor;
+
+  DesktopVolume _desktopVolume = const DesktopVolume();
+
+  final ValueNotifier<_PlayerToast?> _toastNote = ValueNotifier(null);
+  Timer? _toastTimer;
+  bool _errorDetailsOpen = false;
+
+  final FocusNode _tvUpNextFocus = FocusNode(debugLabel: 'tvUpNext');
+  bool _upNextShown = false;
+
   @override
   void initState() {
     super.initState();
@@ -770,6 +864,13 @@ class _PlayerPageState extends State<PlayerPage>
     _longPressBoost = _hive.getLongPressBoost();
     _brightnessGestureEnabled = _hive.brightnessGestureEnabled;
     _volumeGestureEnabled = _hive.volumeGestureEnabled;
+    _autoPipSetting = _hive.autoPipEnabled;
+    if (isDesktopPlatform) {
+      final stored = _hive.getDesktopVolume();
+      _desktopVolume = DesktopVolume.restore(stored.level, stored.muted);
+      _volume = _desktopVolume.applied;
+    }
+    _endWatch = Timer.periodic(const Duration(seconds: 1), (_) => _checkEnd());
     _window = _window.at(
       widget.args.initialEpisodeIndex.clamp(
         0,
@@ -800,6 +901,7 @@ class _PlayerPageState extends State<PlayerPage>
     WidgetsBinding.instance.addObserver(this);
     _pipChannel.setMethodCallHandler(_onPipMethodCall);
     if (isIosPlatform) _iosPipChannel.setMethodCallHandler(_onIosPipCall);
+    _attachPlayerSystem();
     unawaited(_loadSystemControlValues());
     PlayerLog.instance
       ..clear()
@@ -832,13 +934,16 @@ class _PlayerPageState extends State<PlayerPage>
         if (isDesktopPlatform && state == AppLifecycleState.inactive) {
           unawaited(_floatWhenLeaving());
         }
-        if (!isDesktopPlatform &&
-            c.value.isInitialized &&
-            c.value.isPlaying &&
-            !_isPip) {
+        final leaving = pausesOnLifecycle(
+          state,
+          desktop: isDesktopPlatform,
+          inPip: _isPip || _pipTracker.active,
+        );
+        if (leaving && c.value.isInitialized && c.value.isPlaying) {
           _resumeAfterPause = true;
           c.pause();
         }
+        if (leaving) _handBackBrightness();
         // Backgrounded is the last callback Android reliably delivers before
         // it is free to kill the process, and `dispose` is not delivered at
         // all when it does. Keeping playing in PiP or on the desktop does not
@@ -852,9 +957,11 @@ class _PlayerPageState extends State<PlayerPage>
         // always-on-top mini window, or on the app around the corner player —
         // and clearing _isPip there drew the full control bar into a 426-px
         // window, under and over the mini controls.
+        _pipTracker.onResumed();
         if (_isPip && !_compact && mounted) {
           setState(() => _isPip = false);
         }
+        _reapplyBrightness();
         if (_resumeAfterPause && c.value.isInitialized) {
           c.play();
         }
@@ -921,6 +1028,7 @@ class _PlayerPageState extends State<PlayerPage>
     _partyDispose();
     WidgetsBinding.instance.removeObserver(this);
     _pipChannel.setMethodCallHandler(null);
+    _detachPlayerSystem();
     if (isIosPlatform) {
       _iosPipChannel.setMethodCallHandler(null);
       // Leaving the player while the floating window is up: it goes too.
@@ -930,6 +1038,13 @@ class _PlayerPageState extends State<PlayerPage>
     _hideTimer?.cancel();
     _historyTimer?.cancel();
     _seekRippleTimer?.cancel();
+    _tapTimer?.cancel();
+    _lockPillTimer?.cancel();
+    _endWatch?.cancel();
+    _toastTimer?.cancel();
+    _toastNote.dispose();
+    _tvUpNextFocus.dispose();
+    PlayerController.mpvHwdec = null;
     _systemLevelTimer?.cancel();
     _tvSeekCommit?.cancel();
     _tvRootFocus.dispose();
@@ -963,6 +1078,19 @@ class _PlayerPageState extends State<PlayerPage>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final rt = GlassSense.reduceTransparencyOf(context);
+    if (_nativeDecidedUnder != rt) {
+      _nativeDecidedUnder = rt;
+      _nativeControls = NativeControls.decide(
+        context,
+        chosen: _controlsStyle,
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_docked) _reportDockAspect();
     return PopScope(
@@ -971,8 +1099,13 @@ class _PlayerPageState extends State<PlayerPage>
       // controls -> exit) rather than dumping the viewer out mid-episode.
       // _exit() latches _tvPopAllowed when the exit is genuinely intended.
       // Phone and desktop keep the unconditional pop they ship today.
-      canPop: !isTvPlatform || _tvPopAllowed,
+      // Locked, a phone's BACK only brings the unlock pill back.
+      canPop: (!isTvPlatform && !_locked) || _tvPopAllowed,
       onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _locked && !isTvPlatform) {
+          _showLockPill();
+          return;
+        }
         if (didPop || !isTvPlatform) {
           // Docking pops the route too, but the page plays on in the corner:
           // its wakelock and window state are still in use.
@@ -1016,23 +1149,27 @@ class _PlayerPageState extends State<PlayerPage>
                   // As an ancestor these recognisers are in the hit-test path for
                   // every touch, whatever is drawn on top.
                   behavior: HitTestBehavior.opaque,
-                  onTap: _locked
+                  // Touch screens resolve taps themselves (_onVideoTap), so a
+                  // single tap waits only when a double tap could follow.
+                  onTap: _tapTap
                       ? null
+                      : _locked
+                      ? _showLockPill
                       : _compact
                       ? _togglePlay
                       : _toggleControls,
-                  onDoubleTapDown: _locked || isDesktopPlatform
-                      ? null
-                      : (d) => _onDoubleTapDown(d, constraints),
-                  onDoubleTap: _locked
+                  onTapUp: _tapTap
+                      ? (d) => _locked
+                            ? _showLockPill()
+                            : _onVideoTap(d.localPosition, constraints)
+                      : null,
+                  onDoubleTap: _locked || _tapTap
                       ? null
                       : _docked
                       ? _expandFromDock
                       : _desktopMini
                       ? _toggleDesktopMini
-                      : isDesktopPlatform
-                      ? _toggleFullscreen
-                      : () {},
+                      : _toggleFullscreen,
                   // Scale, not pan: Flutter asserts if both are registered, since
                   // scale is a superset. One finger is routed straight back into
                   // the old pan handlers — see _onScaleUpdate — so brightness,
@@ -1066,47 +1203,54 @@ class _PlayerPageState extends State<PlayerPage>
                       }
                     },
                     onPointerCancel: (_) => _pointerCancelled = true,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        _buildVideoLayer(),
-                        _buildSubtitleOverlay(),
-                        if (!_locked) _buildReactionLane(),
-                        if (!_locked) _buildSeekRipple(),
-                        if (_locked)
-                          _buildLockOverlay()
-                        else
-                          _buildControlsOverlay(),
-                        if (!_locked) _buildScrubOverlay(),
-                        if (!_locked) _buildSpeedBoostBadge(),
-                        if (!_locked) _buildSwipeIndicator(),
-                        // Renders nothing unless the URL is a local torrent stream,
-                        // so it is safe to hand it every playback unconditionally.
-                        // It keeps showing while the controls are hidden if the
-                        // pre-buffer is still filling — that is precisely when the
-                        // picture is frozen and the user needs to know why.
-                        TorrentStatsOverlay(
-                          videoUrl: _videoUrl,
-                          visible: _controlsVisible && !_locked,
+                    child: NativeControlsScope(
+                      native: _nativeBars,
+                      child: PlayerControlsStyleScope(
+                        style: _controlsStyle,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            _buildVideoLayer(),
+                            _buildSubtitleOverlay(),
+                            if (!_locked) _buildReactionLane(),
+                            if (!_locked) _buildSeekRipple(),
+                            if (_locked)
+                              _buildLockOverlay()
+                            else
+                              _buildControlsOverlay(),
+                            if (!_locked) _buildScrubOverlay(),
+                            if (!_locked) _buildSpeedBoostBadge(),
+                            if (!_locked) _buildSwipeIndicator(),
+                            // Renders nothing unless the URL is a local torrent stream,
+                            // so it is safe to hand it every playback unconditionally.
+                            // It keeps showing while the controls are hidden if the
+                            // pre-buffer is still filling — that is precisely when the
+                            // picture is frozen and the user needs to know why.
+                            TorrentStatsOverlay(
+                              videoUrl: _videoUrl,
+                              visible: _controlsVisible && !_locked,
+                            ),
+                            // Above the controls layer so it is reachable while they are
+                            // hidden — the offer is at its most useful to a viewer who has
+                            // not touched the screen. Renders nothing when no interval is
+                            // active, so it costs nothing on non-anime playback.
+                            if (!_locked) _buildPlayerInfoOverlay(),
+                            if (!_locked) _buildSkipButton(),
+                            if (!_locked) _buildUpNextPrompt(),
+                            if (!_locked) _buildEpisodeSocialRail(),
+                            if (!_locked && _panel != _SidePanel.none)
+                              _buildSidePanel(),
+                            if (!_locked && _inParty) _buildPartyReactionsLayer(),
+                            if (_compact) _buildDesktopMiniOverlay(),
+                            if (!_compact) _buildPlayerToast(),
+                            // Last, so it covers everything: while a television is
+                            // playing this episode the phone is a remote, and leaving the
+                            // local controls reachable underneath would let someone
+                            // scrub a surface nobody is watching.
+                            _buildCastOverlay(),
+                          ],
                         ),
-                        // Above the controls layer so it is reachable while they are
-                        // hidden — the offer is at its most useful to a viewer who has
-                        // not touched the screen. Renders nothing when no interval is
-                        // active, so it costs nothing on non-anime playback.
-                        if (!_locked) _buildPlayerInfoOverlay(),
-                        if (!_locked) _buildSkipButton(),
-                        if (!_locked) _buildUpNextPrompt(),
-                        if (!_locked) _buildEpisodeSocialRail(),
-                        if (!_locked && _panel != _SidePanel.none)
-                          _buildSidePanel(),
-                        if (!_locked && _inParty) _buildPartyReactionsLayer(),
-                        if (_compact) _buildDesktopMiniOverlay(),
-                        // Last, so it covers everything: while a television is
-                        // playing this episode the phone is a remote, and leaving the
-                        // local controls reachable underneath would let someone
-                        // scrub a surface nobody is watching.
-                        _buildCastOverlay(),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -1129,6 +1273,18 @@ class _PlayerPageState extends State<PlayerPage>
       return FocusScope(
         node: _tvRootFocus,
         onKeyEvent: _onTvPlayerKey,
+        child: child,
+      );
+    }
+    if (isAndroidPlatform) {
+      // A phone or tablet with a hardware keyboard: Space and the arrows.
+      return Focus(
+        focusNode: _keyFocus,
+        autofocus: true,
+        onKeyEvent: (node, event) =>
+            node.hasPrimaryFocus && _kAndroidPlayerKeys.contains(event.logicalKey)
+            ? _onPlayerKey(node, event)
+            : KeyEventResult.ignored,
         child: child,
       );
     }
@@ -1663,4 +1819,14 @@ const _kDockKeys = <LogicalKeyboardKey>[
   LogicalKeyboardKey.keyM,
   LogicalKeyboardKey.keyP,
   LogicalKeyboardKey.keyN,
+];
+
+/// The keys a hardware keyboard drives on an Android phone or tablet.
+/// Media keys are left to the media session.
+const _kAndroidPlayerKeys = <LogicalKeyboardKey>[
+  LogicalKeyboardKey.space,
+  LogicalKeyboardKey.arrowLeft,
+  LogicalKeyboardKey.arrowRight,
+  LogicalKeyboardKey.arrowUp,
+  LogicalKeyboardKey.arrowDown,
 ];

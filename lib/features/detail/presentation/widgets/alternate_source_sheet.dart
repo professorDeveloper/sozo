@@ -15,7 +15,6 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/matching/title_match.dart';
 import 'package:soplay/core/network/image_headers.dart';
 import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/detail/data/source_choice_store.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -749,13 +748,17 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
             ),
           ),
           const Divider(color: Colors.white12, height: 1),
+          // One viewport for everything, so the grid and the unmatched list
+          // build only the rows on screen. Still shrink-wrapped, so a short
+          // result keeps the sheet short.
           Flexible(
-            child: ListView(
+            child: CustomScrollView(
               shrinkWrap: true,
-              children: [
-                if (!_reads && (list.isNotEmpty || _searching)) _autoTile(),
+              slivers: [
+                if (!_reads && (list.isNotEmpty || _searching))
+                  SliverToBoxAdapter(child: _autoTile()),
                 if (list.isNotEmpty) _matchGrid(list),
-                if (list.isEmpty) _emptyBlock(),
+                if (list.isEmpty) SliverToBoxAdapter(child: _emptyBlock()),
                 if (quiet.isNotEmpty) ..._silentSection(quiet),
               ],
             ),
@@ -778,21 +781,25 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// Sized by the widest a tile may be rather than by a column count, so a
   /// phone lands on three and a tablet or a desktop window takes four or more
   /// without a second layout being written for them.
-  Widget _matchGrid(List<_Row> rows) => GridView.builder(
+  static const double _tileMaxWidth = 132;
+
+  Widget _matchGrid(List<_Row> rows) => SliverPadding(
     padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    itemCount: rows.length,
-    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-      maxCrossAxisExtent: 132,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 10,
-      // The poster's own 2:3 plus room for two lines of caption, which grows
-      // with the text scale rather than clipping at it.
-      mainAxisExtent:
-          132 * 1.5 + 34 + MediaQuery.textScalerOf(context).scale(12) * 1.6,
+    sliver: SliverGrid.builder(
+      itemCount: rows.length,
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: _tileMaxWidth,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 10,
+        // The poster's own 2:3 plus room for two lines of caption, which grows
+        // with the text scale rather than clipping at it.
+        mainAxisExtent:
+            _tileMaxWidth * 1.5 +
+            34 +
+            MediaQuery.textScalerOf(context).scale(12) * 1.6,
+      ),
+      itemBuilder: (context, i) => _matchTile(rows[i]),
     ),
-    itemBuilder: (context, i) => _matchTile(rows[i]),
   );
 
   Widget _matchTile(_Row row) {
@@ -828,6 +835,10 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
                           imageUrl: poster,
                           httpHeaders: posterImageHeaders(poster),
                           fit: BoxFit.cover,
+                          memCacheWidth:
+                              (_tileMaxWidth *
+                                      MediaQuery.devicePixelRatioOf(context))
+                                  .round(),
                           fadeInDuration: const Duration(milliseconds: 180),
                           errorWidget: (_, _, _) => const Icon(
                             Icons.broken_image_outlined,
@@ -1029,6 +1040,17 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// correction to be needed.
   List<Widget> _silentSection(List<ProviderEntity> quiet) {
     return [
+      SliverList.list(children: _silentHeader(quiet)),
+      if (_showSilent)
+        SliverList.builder(
+          itemCount: quiet.length,
+          itemBuilder: (context, i) => _silentTile(quiet[i]),
+        ),
+    ];
+  }
+
+  List<Widget> _silentHeader(List<ProviderEntity> quiet) {
+    return [
       const Divider(color: Colors.white12, height: 1),
       InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -1058,7 +1080,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
           ),
         ),
       ),
-      if (_showSilent) ...[
+      if (_showSilent)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Text(
@@ -1066,30 +1088,29 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
             style: const TextStyle(color: Colors.white38, fontSize: 11),
           ),
         ),
-        for (final p in quiet)
-          ListTile(
-            dense: true,
-            enabled: _preparing == null && _walk == null,
-            onTap: () => _correct(ProviderRef.fromEntity(p)),
-            leading: const Icon(
-              Icons.search_off_rounded,
-              color: Colors.white30,
-              size: 20,
-            ),
-            title: Text(
-              p.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
-            ),
-            subtitle: Text(
-              'player.alt_search_by_hand'.tr(),
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-          ),
-      ],
     ];
   }
+
+  Widget _silentTile(ProviderEntity p) => ListTile(
+    dense: true,
+    enabled: _preparing == null && _walk == null,
+    onTap: () => _correct(ProviderRef.fromEntity(p)),
+    leading: const Icon(
+      Icons.search_off_rounded,
+      color: Colors.white30,
+      size: 20,
+    ),
+    title: Text(
+      p.name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(color: Colors.white70, fontSize: 13),
+    ),
+    subtitle: Text(
+      'player.alt_search_by_hand'.tr(),
+      style: const TextStyle(color: Colors.white38, fontSize: 11),
+    ),
+  );
 
   Widget _emptyBlock() {
     return Padding(

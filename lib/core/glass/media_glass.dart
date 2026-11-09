@@ -1,8 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../native/player_controls_style.dart';
 import 'app_glass.dart';
+import 'glass_sense.dart';
 import 'glass_surface.dart';
+import 'native_glass.dart';
 
 /// The plate a control stands on over video — the player's buttons, its
 /// pills — as an iPhone draws controls over a picture: clear glass.
@@ -45,29 +48,90 @@ class MediaGlass extends StatelessWidget {
   /// Whether controls over video are drawn as glass here.
   static bool get drawsGlass => defaultTargetPlatform == TargetPlatform.iOS;
 
+  /// The tint laid in the phone's own clear glass: lighter than [glyphDim],
+  /// because the system glass adapts its own dimming to the picture under
+  /// it and keeps a white glyph legible on its own.
+  static const double nativeDim = 0.22;
+
   @override
   Widget build(BuildContext context) {
     final fill = dim ?? _plate.withValues(alpha: glyphDim);
-    final plate = Positioned.fill(
-      child: _Plate(radius: radius, color: fill, glass: drawsGlass),
-    );
     if (!drawsGlass) {
-      return Stack(children: [plate, child]);
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: _Plate(radius: radius, color: fill, glass: false),
+          ),
+          child,
+        ],
+      );
     }
-    final piece = Stack(
+    final layer = _InLayer.maybeOf(context);
+    if (layer == null) {
+      // A piece standing alone is a layer of its own; built again inside it
+      // so it knows which glass that layer draws.
+      return MediaGlassLayer(
+        child: MediaGlass(radius: radius, dim: dim, child: child),
+      );
+    }
+    if (layer.native) {
+      // The phone's own clear glass (UIGlassEffect, iOS 26+): the real
+      // material the shader below imitates, refracting the video and the
+      // page alike. One hosted view per piece, with no Flutter glass in it.
+      final tint = dim ?? _plate.withValues(alpha: nativeDim);
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: LayoutBuilder(
+              builder: (context, box) => NativeGlass(
+                style: NativeGlassStyle.clear,
+                borderRadius: BorderRadius.circular(
+                  radius ?? box.biggest.shortestSide / 2,
+                ),
+                tint: tint,
+                fallback: (_) =>
+                    _Plate(radius: radius, color: fill, glass: false),
+              ),
+            ),
+          ),
+          child,
+        ],
+      );
+    }
+    return Stack(
       children: [
         // Laid before the shape: the renderer paints its layer's glass first
         // whatever the order, so the dimming lands over the bent picture and
         // under the glass's tint and its lit rim — the rim stays a light.
-        plate,
+        Positioned.fill(
+          child: _Plate(radius: radius, color: fill, glass: true),
+        ),
         Positioned.fill(child: GlassShape(radius: radius)),
         child,
       ],
     );
-    if (_InLayer.of(context)) return piece;
-    return MediaGlassLayer(child: piece);
   }
 }
+
+/// Whether a [MediaGlassLayer] draws the phone's own clear glass rather than
+/// the shader: an iPhone whose OS has `UIGlassEffect` with its clear style,
+/// and Reduce Transparency off. An older iPhone keeps the shader, not the
+/// system blur material, which frosts the picture the controls stand on.
+/// The classic glass [style] keeps the shader everywhere.
+bool mediaGlassGoesNative({
+  required TargetPlatform platform,
+  required NativeGlassCapability capability,
+  required bool reduceTransparency,
+  PlayerControlsStyle? style,
+}) =>
+    style != PlayerControlsStyle.classicGlass &&
+    nativeGlassDraw(
+      platform: platform,
+      capability: capability,
+      style: NativeGlassStyle.clear,
+      reduceTransparency: reduceTransparency,
+    ) ==
+    NativeGlassDraw.systemGlass;
 
 /// One read of the picture for the [MediaGlass] pieces of one row: on an
 /// iPhone a group of the clear glass ([GlassGroup], [GlassKind.clear]);
@@ -76,31 +140,62 @@ class MediaGlass extends StatelessWidget {
 /// The whole row fades as one: the renderer draws a group's glass through
 /// the group, not through an opacity between the group and a piece, so a
 /// piece faded on its own inside a row would leave its glass behind.
-class MediaGlassLayer extends StatelessWidget {
+class MediaGlassLayer extends StatefulWidget {
   const MediaGlassLayer({super.key, required this.child});
 
   final Widget child;
 
   @override
+  State<MediaGlassLayer> createState() => _MediaGlassLayerState();
+}
+
+class _MediaGlassLayerState extends State<MediaGlassLayer> {
+  NativeGlassCapability? _said;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!MediaGlass.drawsGlass) return;
+    NativeGlass.capability().then((said) {
+      if (mounted) setState(() => _said = said);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (!MediaGlass.drawsGlass) return child;
+    if (!MediaGlass.drawsGlass) return widget.child;
+    final native = mediaGlassGoesNative(
+      platform: defaultTargetPlatform,
+      capability:
+          NativeGlassScope.of(context) ??
+          _said ??
+          NativeGlassCapability.absent,
+      reduceTransparency: GlassSense.reduceTransparencyOf(context),
+      style: PlayerControlsStyleScope.maybeOf(context),
+    );
+    // Hosted glass never stands inside a refracting group: the shader would
+    // read a backdrop with the hosted view cut out of it (NativeGlass).
+    if (native) return _InLayer(native: true, child: widget.child);
     return GlassGroup(
       kind: GlassKind.clear,
-      child: _InLayer(child: child),
+      child: _InLayer(native: false, child: widget.child),
     );
   }
 }
 
 /// Marks what stands in a [MediaGlassLayer], so a piece in it is a shape of
-/// that layer rather than a layer — glass on glass — of its own.
+/// that layer rather than a layer — glass on glass — of its own, and says
+/// which glass the layer draws.
 class _InLayer extends InheritedWidget {
-  const _InLayer({required super.child});
+  const _InLayer({required this.native, required super.child});
 
-  static bool of(BuildContext context) =>
-      context.getInheritedWidgetOfExactType<_InLayer>() != null;
+  final bool native;
+
+  static _InLayer? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_InLayer>();
 
   @override
-  bool updateShouldNotify(_InLayer oldWidget) => false;
+  bool updateShouldNotify(_InLayer oldWidget) => oldWidget.native != native;
 }
 
 /// The dimming: in the glass's own shape on an iPhone, and the plain circle

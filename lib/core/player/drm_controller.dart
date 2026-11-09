@@ -170,6 +170,10 @@ class DrmController extends PlayerController {
   @override
   bool get letterboxesInternally => false;
 
+  /// DrmPlayerHost builds its ExoPlayer with handleAudioFocus on.
+  @override
+  bool get handlesAudioFocus => true;
+
   /// Not exposed by this backend yet.
   ///
   /// ExoPlayer does have track selection, and a DRM stream is precisely the

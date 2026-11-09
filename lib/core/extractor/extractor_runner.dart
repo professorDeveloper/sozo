@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:soplay/core/js/js_value.dart';
 import 'package:soplay/core/system/webview_env.dart';
 
 import 'extractor_entity.dart';
@@ -92,7 +93,8 @@ try {
       throw Exception('Extractor returned null');
     }
 
-    final decoded = jsonDecode(result) as Map<String, dynamic>;
+    final decoded = jsObjectFrom(result);
+    if (decoded == null) throw Exception('Extractor returned no object');
     if (decoded['__error'] == true) {
       throw Exception(decoded['message'] as String? ?? 'JS execution error');
     }

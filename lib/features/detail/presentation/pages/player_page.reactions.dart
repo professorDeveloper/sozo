@@ -105,9 +105,7 @@ extension _PlayerEpisodeSocial on _PlayerPageState {
 
   void _socialSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-    );
+    _toast(message);
   }
 
   Future<void> _openReactionPicker() async {
@@ -193,33 +191,62 @@ extension _PlayerEpisodeSocial on _PlayerPageState {
 
   /// React and Comments, on the end edge while the controls are up.
   Widget _buildEpisodeSocialRail() {
-    if (_compact || !_controlsVisible || _socialContentUrl == null) {
+    // The native rail stays built while hidden, so UIKit can fade it out.
+    if (_compact ||
+        (!_controlsVisible && !_nativeBars) ||
+        _socialContentUrl == null) {
       return const SizedBox.shrink();
     }
+    Widget flutter(BuildContext _) {
+      if (!_controlsVisible) return const SizedBox.shrink();
+      return FadeTransition(
+        opacity: _controlsAnimation,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _IconButton(
+              icon: Icons.add_reaction_outlined,
+              tooltip: 'player.react'.tr(),
+              onTap: _openReactionPicker,
+            ),
+            const SizedBox(height: 8),
+            _IconButton(
+              icon: Icons.forum_outlined,
+              tooltip: 'player.comments'.tr(),
+              onTap: _openEpisodeComments,
+            ),
+          ],
+        ),
+      );
+    }
+
     return PositionedDirectional(
       end: 8,
       top: 0,
       bottom: 0,
       child: Center(
-        child: FadeTransition(
-          opacity: _controlsAnimation,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _IconButton(
-                icon: Icons.add_reaction_outlined,
-                tooltip: 'player.react'.tr(),
-                onTap: _openReactionPicker,
-              ),
-              const SizedBox(height: 8),
-              _IconButton(
-                icon: Icons.forum_outlined,
-                tooltip: 'player.comments'.tr(),
-                onTap: _openEpisodeComments,
-              ),
-            ],
-          ),
-        ),
+        child: _nativeBars
+            ? NativeGlassBar(
+                look: NativeBarLook.capsule,
+                axis: Axis.vertical,
+                shown: _controlsVisible,
+                items: [
+                  NativeBarItem(
+                    id: 'react',
+                    symbol: playerSymbol('react'),
+                    semanticLabel: 'player.react'.tr(),
+                    onPressed: _openReactionPicker,
+                  ),
+                  NativeBarItem(
+                    id: 'comments',
+                    symbol: playerSymbol('comments'),
+                    semanticLabel: 'player.comments'.tr(),
+                    onPressed: _openEpisodeComments,
+                  ),
+                ],
+                fallback: flutter,
+              )
+            : flutter(context),
       ),
     );
   }
