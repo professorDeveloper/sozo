@@ -408,6 +408,7 @@
     "subtitle_preview_text": "Pa's wijze lynx bezag vroom het fikse aquaduct",
     "server": "Server",
     "change_server": "Server wisselen",
+    "cannot_seek_server": "Op deze server kun je niet vooruitspoelen. Kijk vanaf het begin of kies een andere server.",
     "stream_not_found": "Deze bron verstopt zijn stream achter een beveiligde speler. Probeer een andere bron of open hem in je browser.",
     "subtitle_translation": "Ondertitelvertaling",
     "auto_translate": "Automatisch vertalen",

@@ -1689,6 +1689,7 @@ extension _PlayerMedia on _PlayerPageState {
       // Preview decoding starts only when the viewer scrubs. Eager warming
       // opens a second video decoder while a high-resolution stream starts.
       controller.addListener(_onMajorChange);
+      controller.seekRefused.addListener(_onSeekRefused);
       await controller.setLooping(false);
       if (!mounted || generation != _mediaGeneration) return;
       if (party != null) {
@@ -2687,6 +2688,7 @@ extension _PlayerMedia on _PlayerPageState {
     unawaited(FramePreviewService.close());
     if (c != null) {
       c.removeListener(_onMajorChange);
+      c.seekRefused.removeListener(_onSeekRefused);
       try {
         await c.pause();
       } catch (_) {}

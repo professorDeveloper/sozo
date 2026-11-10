@@ -408,6 +408,7 @@
     "subtitle_preview_text": "Franz jagt im komplett verwahrlosten Taxi quer durch Bayern",
     "server": "Server",
     "change_server": "Server wechseln",
+    "cannot_seek_server": "Auf diesem Server kann man nicht vorspulen. Schau von Anfang an oder wähle einen anderen Server.",
     "stream_not_found": "Diese Quelle versteckt ihren Stream hinter einem geschützten Player. Probiere eine andere Quelle oder öffne sie im Browser.",
     "subtitle_translation": "Untertitelübersetzung",
     "auto_translate": "Automatisch übersetzen",

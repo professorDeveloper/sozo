@@ -1066,6 +1066,7 @@ class _PlayerPageState extends State<PlayerPage>
     final c = _controller;
     if (c != null) {
       c.removeListener(_onMajorChange);
+      c.seekRefused.removeListener(_onSeekRefused);
       try {
         c.pause();
       } catch (_) {}

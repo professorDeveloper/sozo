@@ -408,6 +408,7 @@
     "subtitle_preview_text": "Um pequeno jabuti xereta viu dez cegonhas felizes",
     "server": "Servidor",
     "change_server": "Trocar de servidor",
+    "cannot_seek_server": "Este servidor não permite avançar. Assista desde o início ou escolha outro servidor.",
     "stream_not_found": "Esta fonte esconde o stream atrás de um player protegido. Tente outra fonte ou abra no navegador.",
     "subtitle_translation": "Tradução de legendas",
     "auto_translate": "Traduzir automaticamente",

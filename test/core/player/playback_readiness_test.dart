@@ -388,4 +388,15 @@ void main() {
     expect(isDecodeGlitch('Could not open codec.'), isFalse);
     expect(isDecodeGlitch('tcp: ffurl_read returned 0xffffff92'), isFalse);
   });
+
+  test('a refused seek is a notice, not a playback failure', () {
+    // UHD Movies' Google links ignore byte ranges (support ticket, 2026-11-09).
+    expect(isSeekRefusal('Cannot seek in this stream.'), isTrue);
+    expect(
+      isSeekRefusal("You can force it with '--force-seekable=yes'."),
+      isTrue,
+    );
+    expect(isSeekRefusal('tcp: ffurl_read returned 0xffffff92'), isFalse);
+    expect(isSeekRefusal('Failed to open https://example.com/a.mkv.'), isFalse);
+  });
 }
