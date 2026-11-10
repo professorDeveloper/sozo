@@ -40,7 +40,7 @@ import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/presentation/pages/actor_page.dart';
 import 'package:soplay/features/detail/presentation/pages/detail_page.dart';
 import 'package:soplay/features/detail/presentation/pages/episodes_page.dart';
-import 'package:soplay/features/detail/presentation/pages/player_page.dart';
+import 'package:soplay/features/detail/presentation/pages/player_route.dart';
 import 'package:soplay/features/download/presentation/pages/downloads_page.dart';
 import 'package:soplay/features/history/presentation/pages/history_page.dart';
 import 'package:soplay/features/home/domain/entities/view_all.dart';
@@ -110,6 +110,7 @@ import '../../features/home/presentation/pages/home_view_all_page.dart';
 import '../../features/home/presentation/pages/genres_page.dart';
 import '../../features/search/domain/entities/genre_entity.dart';
 import 'package:soplay/features/achievements/presentation/pages/achievements_page.dart';
+import 'package:soplay/features/progress/presentation/pages/progress_page.dart';
 
 /// The arrival every "opening a thing" route shares.
 ///
@@ -164,6 +165,11 @@ Page<void> _bloomPage(GoRouterState state, Widget child) {
         ),
   );
 }
+
+/// Null when the route got the `extra` it needs, else `/main`: a route that
+/// only makes sense with args (a restored stack, a stray link) goes Home
+/// instead of throwing on the cast.
+String? extraOr<T>(GoRouterState state) => state.extra is T ? null : '/main';
 
 class AppRouter {
   AppRouter._();
@@ -236,6 +242,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/episodes',
+        redirect: (context, state) => extraOr<EpisodesArgs>(state),
         pageBuilder: (context, state) {
           final args = state.extra as EpisodesArgs;
           return _bloomPage(state, EpisodesPage(args: args));
@@ -252,6 +259,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/actor',
+        redirect: (context, state) => extraOr<ActorArgs>(state),
         pageBuilder: (context, state) {
           final args = state.extra as ActorArgs;
           return _bloomPage(state, ActorPage(args: args));
@@ -259,13 +267,17 @@ class AppRouter {
       ),
       GoRoute(
         path: '/player',
+        redirect: (context, state) => extraOr<PlayerArgs>(state),
         builder: (context, state) {
           final args = state.extra as PlayerArgs;
-          return PlayerPage(args: args);
+          // Through PlayerRoute, which keys the page: on the desktop it may be
+          // the one already playing in the corner, handed back with its state.
+          return PlayerRoute(args: args);
         },
       ),
       GoRoute(
         path: '/reader',
+        redirect: (context, state) => extraOr<ReaderArgs>(state),
         builder: (context, state) {
           final args = state.extra as ReaderArgs;
           return ReaderPage(args: args);
@@ -442,6 +454,10 @@ class AppRouter {
       ),
       GoRoute(path: '/streak', builder: (context, state) => const StreakPage()),
       GoRoute(
+        path: '/progress',
+        builder: (context, state) => const ProgressPage(),
+      ),
+      GoRoute(
         path: '/achievements',
         builder: (context, state) => const AchievementsPage(),
       ),
@@ -480,7 +496,10 @@ class AppRouter {
         },
       ),
       // Help & Support. `new` before `:id`, which would otherwise take it.
-      GoRoute(path: '/support', builder: (context, state) => const SupportPage()),
+      GoRoute(
+        path: '/support',
+        builder: (context, state) => const SupportPage(),
+      ),
       GoRoute(
         path: '/support/new',
         builder: (context, state) => SupportNewPage(

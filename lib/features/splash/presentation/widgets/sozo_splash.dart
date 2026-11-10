@@ -49,15 +49,27 @@ import 'package:soplay/core/widgets/sozo_mark.dart';
 /// The artwork's own, never the accent the user picked. The accent is
 /// theirs; the logo is the brand.
 class SozoSplash extends StatefulWidget {
-  const SozoSplash({super.key, required this.onSettled, required this.onDone});
+  const SozoSplash({
+    super.key,
+    this.onSettled,
+    required this.onDone,
+    this.ready,
+  });
 
-  /// The letter is complete and the rest is the hold. The route resolves from
-  /// here rather than at the end, so the work overlaps the last second instead
-  /// of starting after it.
-  final VoidCallback onSettled;
+  /// The letter is complete and the rest is the hold.
+  final VoidCallback? onSettled;
 
   /// The animation is over and the screen may be replaced.
   final VoidCallback onDone;
+
+  /// Completes when the app behind the splash is ready. From then on, and
+  /// after [minimum], the rest of the performance plays faster: the drawing
+  /// hurries to the finished logo, the foot is skipped unless it is already
+  /// moving, and the logo fades. Null plays it in full.
+  final Future<Object?>? ready;
+
+  /// The least the splash is on screen, however early the app is ready.
+  static const Duration minimum = Duration(milliseconds: 800);
 
   @override
   State<SozoSplash> createState() => _SozoSplashState();
@@ -71,6 +83,9 @@ class _SozoSplashState extends State<SozoSplash>
   );
 
   bool _settled = false;
+  bool _hurrying = false;
+  bool _done = false;
+  final Stopwatch _shown = Stopwatch()..start();
   SozoMarkGeometry? _geometry;
 
   // TEMPORARY review loop — replays forever so the animation can be judged.
@@ -98,6 +113,18 @@ class _SozoSplashState extends State<SozoSplash>
     }
     _c.addListener(_watch);
     _play();
+    final ready = widget.ready;
+    if (ready != null) _whenReady(ready);
+  }
+
+  /// A failure is the route's to report, when the full performance ends.
+  Future<void> _whenReady(Future<Object?> ready) async {
+    try {
+      await ready;
+    } catch (_) {
+      return;
+    }
+    await _readyNow();
   }
 
   void _play() {
@@ -108,8 +135,40 @@ class _SozoSplashState extends State<SozoSplash>
         if (mounted) _play();
         return;
       }
-      widget.onDone();
+      _finish();
     });
+  }
+
+  void _finish() {
+    if (_done) return;
+    _done = true;
+    widget.onDone();
+  }
+
+  Future<void> _readyNow() async {
+    if (_reviewLoop) return;
+    final wait = SozoSplash.minimum - _shown.elapsed;
+    if (wait > Duration.zero) await Future<void>.delayed(wait);
+    if (!mounted || _hurrying || _done) return;
+    _hurrying = true;
+    final plan = hurryPlan(_c.value * _Beats.total);
+    if (plan == null) return;
+    if (plan.catchUp != null) {
+      await _c.animateTo(
+        plan.catchUpTo / _Beats.total,
+        duration: plan.catchUp!,
+        curve: Curves.linear,
+      );
+      if (!mounted) return;
+    }
+    // A still frame to a still frame: the logo at rest looks the same either
+    // side of the foot, so the jump is not seen.
+    _c.value = _Beats.fadeFrom / _Beats.total;
+    await _c.animateTo(
+      1,
+      duration: const Duration(milliseconds: _Beats.total - _Beats.fadeFrom),
+    );
+    if (mounted) _finish();
   }
 
   /// The letter completing, reported once.
@@ -120,7 +179,7 @@ class _SozoSplashState extends State<SozoSplash>
   void _watch() {
     if (_settled || _c.value * _Beats.total < _Beats.paintTo) return;
     _settled = true;
-    widget.onSettled();
+    widget.onSettled?.call();
   }
 
   @override
@@ -261,6 +320,40 @@ abstract final class _Beats {
   static const int fadeFrom = settleTo + 180;
   static const int total = fadeFrom + 240;
 }
+
+/// How a splash at [ms] reaches its fade once the app is ready, or null when
+/// it is already fading.
+///
+/// Before the logo is finished, the drawing and paint play out at up to
+/// [hurryCap] in total; during the foot, the foot finishes at its own speed —
+/// cutting a blow off mid-swing reads as a glitch. Otherwise straight to the
+/// fade.
+@visibleForTesting
+({Duration? catchUp, int catchUpTo})? hurryPlan(double ms) {
+  if (ms >= _Beats.fadeFrom) return null;
+  if (ms < _Beats.holdFrom) {
+    final left = (_Beats.holdFrom - ms).round();
+    return (
+      catchUp: Duration(milliseconds: math.min(left, hurryCap)),
+      catchUpTo: _Beats.holdFrom,
+    );
+  }
+  if (ms > _Beats.pressFrom && ms < _Beats.settleTo) {
+    return (
+      catchUp: Duration(milliseconds: (_Beats.settleTo - ms).round()),
+      catchUpTo: _Beats.settleTo,
+    );
+  }
+  return (catchUp: null, catchUpTo: _Beats.fadeFrom);
+}
+
+/// The longest the drawing takes to finish once the app is ready.
+@visibleForTesting
+const int hurryCap = 380;
+
+/// The full performance, for tests.
+@visibleForTesting
+const int splashTotalMs = _Beats.total;
 
 /// The black field the logo sits on. Separated so both branches share it and
 /// neither can drift from the window's own background colour.

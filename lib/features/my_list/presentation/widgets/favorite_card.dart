@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/system/responsive.dart';
+import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
@@ -29,7 +30,9 @@ class FavoriteCard extends StatelessWidget {
     final title =
         item.title.trim().isEmpty ? 'my_list.untitled'.tr() : item.title.trim();
     final description = item.description.trim();
-    final meta = description.isNotEmpty ? description : item.provider.trim();
+    final meta = description.isNotEmpty
+        ? description
+        : Catalogue.displayName(item.provider.trim());
 
     return HoverTap(
       onTap: onTap,

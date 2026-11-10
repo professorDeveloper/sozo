@@ -1,7 +1,6 @@
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/core/content/catalogue_logo.dart';
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/foreground_poller.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/download/domain/entities/download_status.dart';
@@ -20,6 +20,7 @@ import 'package:soplay/features/notifications/domain/repositories/notifications_
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/profile/presentation/widgets/provider_quick_switch.dart';
+import 'package:soplay/core/glass/reducible_blur.dart';
 
 class HomeTopBar extends StatelessWidget {
   const HomeTopBar({super.key, required this.blurProgress});
@@ -110,8 +111,9 @@ class _TopBarBackground extends StatelessWidget {
     }
 
     return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14 * progress, sigmaY: 14 * progress),
+      child: ReducibleBlur(
+        sigma: 14 * progress,
+        reducedFill: AppColors.navBackground.withValues(alpha: 0.2 * progress),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: AppColors.navBackground.withValues(alpha: 0.72 * progress),
@@ -229,7 +231,12 @@ class _NotificationsIndicatorState extends State<_NotificationsIndicator>
 
   final NotificationsRepository _repo = getIt<NotificationsRepository>();
   final HiveService _hive = getIt<HiveService>();
-  Timer? _timer;
+
+  /// Off while the app is in the background.
+  late final ForegroundPoller _poller = ForegroundPoller(
+    period: const Duration(seconds: 60),
+    onTick: _refresh,
+  );
   int _count = 0;
 
   @override
@@ -238,19 +245,19 @@ class _NotificationsIndicatorState extends State<_NotificationsIndicator>
     WidgetsBinding.instance.addObserver(this);
     _count = _cachedCount;
     _refresh();
-    _timer = Timer.periodic(const Duration(seconds: 60), (_) => _refresh());
+    _poller.start();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _timer?.cancel();
+    _poller.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _refresh();
+    _poller.handleLifecycle(state);
   }
 
   /// [force] skips the cool-down (but never the in-flight coalescing) — used

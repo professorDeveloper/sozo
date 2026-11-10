@@ -33,6 +33,8 @@ class CommentAvatar extends StatelessWidget {
           ? Image.network(
               url,
               fit: BoxFit.cover,
+              cacheWidth: (size * MediaQuery.devicePixelRatioOf(context))
+                  .round(),
               errorBuilder: (_, _, _) => _placeholder(),
               loadingBuilder: (_, child, chunk) =>
                   chunk == null ? child : _placeholder(),

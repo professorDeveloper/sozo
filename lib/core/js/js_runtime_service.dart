@@ -11,6 +11,7 @@ import 'dart_fetch.dart';
 import 'extractor_cache.dart';
 import 'extractor_remote.dart';
 import 'js_log.dart';
+import 'js_value.dart';
 import 'js_timeouts.dart';
 import 'provider_registry.dart';
 
@@ -50,6 +51,9 @@ class JsRuntimeService {
   window.dartFetch = function(req) {
     return window.flutter_inappwebview.callHandler('dartFetch', req);
   };
+  // What this build of the player can do that older ones cannot, for the served
+  // scripts to read.
+  window.__sozoCaps = { imageWrappedSegments: true };
   window.__sozoReady = true;
 </script></body></html>
 ''';
@@ -169,6 +173,7 @@ class JsRuntimeService {
       await _ensureExtractor(
         extractor.name,
         extractor.version,
+        extractor.url,
       ).timeout(kJsCallTimeout);
       // Refusals and challenges are numbered on DartFetch; everything after
       // this mark happened while THIS call was running. Other calls may be in
@@ -180,6 +185,9 @@ class JsRuntimeService {
       // cross-search legs can be in flight at once and their network waits
       // overlap instead of queueing — which is what made searching several
       // sources feel frozen.
+      //
+      // The answer comes back as JSON text so iOS reads it as Android does:
+      // WebKit's own conversion hands over Map<Object?, Object?> and doubles.
       var result = await _controller!
           .callAsyncJavaScript(
             functionBody: r'''
@@ -193,7 +201,7 @@ class JsRuntimeService {
               throw new Error('Provider.' + fnName + ' is not implemented');
             }
             const __r = await __fn.apply(__p, fnArgs);
-            return __r === undefined ? null : __r;
+            return __r === undefined ? null : JSON.stringify(__r);
           ''',
             arguments: {
               'providerName': extractor.name,
@@ -231,7 +239,7 @@ class JsRuntimeService {
                   throw new Error('Provider.' + fnName + ' is not implemented');
                 }
                 const __r = await __fn.apply(__p, fnArgs);
-                return __r === undefined ? null : __r;
+                return __r === undefined ? null : JSON.stringify(__r);
               ''',
                 arguments: {
                   'providerName': extractor.name,
@@ -260,7 +268,7 @@ class JsRuntimeService {
         );
         throw Exception(blocked ?? error);
       }
-      final map = _coerceMap(result.value);
+      final map = jsObjectFrom(result.value);
       JsLog.res(
         tag,
         fn,
@@ -272,19 +280,6 @@ class JsRuntimeService {
       JsLog.err(tag, '$fn — $e');
       rethrow;
     }
-  }
-
-  Map<String, dynamic>? _coerceMap(dynamic value) {
-    if (value == null) return null;
-    if (value is Map) return value.cast<String, dynamic>();
-    if (value is String) {
-      if (value.isEmpty || value == 'null') return null;
-      try {
-        final decoded = jsonDecode(value);
-        if (decoded is Map) return decoded.cast<String, dynamic>();
-      } catch (_) {}
-    }
-    return null;
   }
 
   String _summarizeArgs(List<Object?> args) {
@@ -403,15 +398,19 @@ class JsRuntimeService {
   /// Evaluates [name] into the page if it is not already there.
   ///
   /// Returns as soon as the extractor is registered; repeat calls are free.
-  Future<void> _ensureExtractor(String name, int wantedVersion) {
+  Future<void> _ensureExtractor(String name, int wantedVersion, String url) {
     final pending = _registering[name];
     if (pending != null) return pending;
-    final run = _registerExtractor(name, wantedVersion);
+    final run = _registerExtractor(name, wantedVersion, url);
     _registering[name] = run;
     return run.whenComplete(() => _registering.remove(name));
   }
 
-  Future<void> _registerExtractor(String name, int wantedVersion) async {
+  Future<void> _registerExtractor(
+    String name,
+    int wantedVersion,
+    String url,
+  ) async {
     final manifest = _manifest ??= await remote.fetchManifest();
     final entry = manifest.byName(name);
     final version = entry?.version ?? wantedVersion;
@@ -423,7 +422,12 @@ class JsRuntimeService {
       code = cache.readCode(name, version);
     }
     if (code == null || code.isEmpty) {
-      final fetched = await remote.fetchExtractor(name);
+      // External Zangetsu sources are not in the manifest; their ref carries
+      // the composed bundle's path.
+      final fetched = await remote.fetchExtractor(
+        name,
+        path: entry == null && name.startsWith('zx-') ? url : null,
+      );
       code = fetched.code;
       final effective = version > 0 ? version : fetched.version;
       await cache.writeCode(

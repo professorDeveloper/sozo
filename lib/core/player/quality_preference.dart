@@ -31,6 +31,28 @@ abstract final class QualityPreference {
     return atOrBelow.isNotEmpty ? atOrBelow.last : heights.first;
   }
 
+  /// The height to pin a parsed master to, or [auto] to let the engine choose.
+  ///
+  /// The viewer's [preference] first — a pick, a remembered height or the
+  /// standing setting. Failing that, on an engine that adapts on its own
+  /// ([adaptiveEngine]: ExoPlayer, AVPlayer) the height the source's own label
+  /// names. Such an engine starts a master from a bandwidth estimate, which
+  /// on mobile data is the bottom rung, so a server labelled "1080p" played
+  /// at 320p under a button that said 1080p. Pinning the named height makes
+  /// the label true. libmpv is left alone: its Auto opens the top rendition
+  /// (PlayerController.hlsBitrateFor) and never adapts afterwards.
+  static int pinFor({
+    required int preference,
+    required int? labelledHeight,
+    required bool adaptiveEngine,
+  }) {
+    if (preference != auto) return preference;
+    if (adaptiveEngine && labelledHeight != null && labelledHeight > 0) {
+      return labelledHeight;
+    }
+    return auto;
+  }
+
   /// Whether the source playing is a lone adaptive stream whose master is
   /// worth reading for renditions.
   ///

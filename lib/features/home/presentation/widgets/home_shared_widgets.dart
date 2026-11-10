@@ -57,13 +57,25 @@ class HomeNetworkImage extends StatelessWidget {
           : File(imageUrl);
       return ClipRRect(
         borderRadius: borderRadius,
-        child: Image.file(
-          file,
-          fit: fit,
-          width: double.infinity,
-          height: double.infinity,
-          errorBuilder: (_, _, _) =>
-              HomeImagePlaceholder(icon: placeholderIcon),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final w =
+                memCacheWidth ??
+                (constraints.maxWidth.isFinite
+                    ? (constraints.maxWidth *
+                              MediaQuery.devicePixelRatioOf(context))
+                          .round()
+                    : null);
+            return Image.file(
+              file,
+              fit: fit,
+              width: double.infinity,
+              height: double.infinity,
+              cacheWidth: (w != null && w > 0) ? w : null,
+              errorBuilder: (_, _, _) =>
+                  HomeImagePlaceholder(icon: placeholderIcon),
+            );
+          },
         ),
       );
     }

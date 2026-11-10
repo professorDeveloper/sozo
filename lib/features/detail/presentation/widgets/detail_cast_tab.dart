@@ -44,6 +44,7 @@ class DetailCastTab extends StatelessWidget {
               // 0.78 left the cell exactly as tall as its contents, so any
               // two-line name or a bumped system font size overflowed it.
               gridDelegate: responsiveGridDelegate(
+                context: context,
                 mobileCrossAxisCount: 3,
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 14,
@@ -194,6 +195,8 @@ class _CastAvatar extends StatelessWidget {
           ? CachedNetworkImage(
               imageUrl: imageUrl,
               fit: BoxFit.cover,
+              memCacheWidth: (64 * MediaQuery.devicePixelRatioOf(context))
+                  .round(),
               fadeInDuration: const Duration(milliseconds: 160),
               errorWidget: (_, _, _) => _Initials(initials: _initials),
               placeholder: (_, _) => _Initials(initials: _initials),

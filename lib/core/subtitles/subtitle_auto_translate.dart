@@ -76,8 +76,14 @@ abstract final class SubtitleAutoTranslate {
     if (needle.isEmpty) return false;
     final hay = label.toLowerCase();
 
+    final first = _wordsOf(hay).firstOrNull;
     for (final word in _wordsOf(hay)) {
-      if (word == needle) return true;
+      if (word == needle) {
+        // After a language, `HI` means hearing impaired: `English (HI)` is
+        // English, and matching it as Hindi would stop the real translation.
+        if (needle != 'hi' || word == first) return true;
+        continue;
+      }
       // `en-US`, `pt_BR`: the region is a variant of the same language.
       final dash = word.indexOf(RegExp('[-_]'));
       if (dash > 0 && word.substring(0, dash) == needle) return true;
@@ -137,6 +143,8 @@ abstract final class SubtitleAutoTranslate {
     'dut': 'nl',
     'pol': 'pl',
     'ind': 'id',
+    'vie': 'vi',
+    'hin': 'hi',
     'uzb': 'uz',
   };
 
@@ -158,6 +166,8 @@ abstract final class SubtitleAutoTranslate {
     'pl': ['polski', 'polish'],
     'uk': ['українськ', 'ukrainian'],
     'id': ['indonesia', 'indonesian'],
+    'vi': ['tiếng việt', 'tieng viet', 'vietnamese', 'vietsub'],
+    'hi': ['हिन्दी', 'हिंदी', 'hindi'],
     'ja': ['日本語', 'japanese'],
     'ko': ['한국어', 'korean'],
     'zh': ['中文', 'chinese'],

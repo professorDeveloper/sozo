@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/progress/presentation/widgets/user_badge_line.dart';
 import 'package:soplay/features/social/data/social_service.dart';
 import 'package:soplay/features/social/domain/social_models.dart';
 import 'package:soplay/features/social/presentation/cursor_pager.dart';
@@ -449,9 +450,11 @@ class _Header extends StatelessWidget {
           children: [
             SocialAvatar(user: user, size: 84),
             const SizedBox(height: 12),
-            Text(
-              user.name,
-              textAlign: TextAlign.center,
+            UserBadgeLine(
+              name: user.name,
+              decoration: user.decoration,
+              showTitle: true,
+              center: true,
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 19,

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
@@ -93,6 +94,7 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
     ExtensionRepoKind.manga => MangaChannel.isSupported,
     ExtensionRepoKind.mangayomi =>
       source.jsRuntime && MangayomiRuntime.isSupported,
+    ExtensionRepoKind.zangetsu => false,
   };
 
   ProviderEntity? _installed(CatalogSourceEntity source) {
@@ -103,6 +105,7 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
       ExtensionRepoKind.aniyomi => 'an:',
       ExtensionRepoKind.manga => 'mn:',
       ExtensionRepoKind.mangayomi => 'my:',
+      ExtensionRepoKind.zangetsu => 'zx-',
     };
     for (final provider in state.providers) {
       if (!provider.id.startsWith(prefix)) continue;
@@ -577,8 +580,10 @@ class _TypeFilterRow extends StatelessWidget {
         itemBuilder: (context, i) {
           final (type, key) = _options[i];
           final active = type == selected;
-          return GestureDetector(
+          return HoverTap(
             onTap: () => onSelected(type),
+            scale: 1.03,
+            borderRadius: 17,
             child: AnimatedContainer(
               duration: Duration(
                 milliseconds: MediaQuery.disableAnimationsOf(context) ? 0 : 120,
@@ -647,8 +652,10 @@ class _CatalogLanguageRow extends StatelessWidget {
           final active = code == 'all'
               ? selected.isEmpty
               : selected.any((c) => srclang.normalizeLang(c) == code);
-          return GestureDetector(
+          return HoverTap(
             onTap: () => onToggle(code),
+            scale: 1.03,
+            borderRadius: 17,
             child: AnimatedContainer(
               duration: Duration(
                 milliseconds: MediaQuery.disableAnimationsOf(context) ? 0 : 120,

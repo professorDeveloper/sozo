@@ -81,6 +81,7 @@ dependencies:
 
   # Security
   crypto: ^3.0.6
+  cryptography: ^2.9.0
   local_auth: ^2.3.0
 
   # Localization
@@ -139,7 +140,12 @@ dependencies:
   media_kit_libs_macos_video: ^1.1.4
   media_kit_libs_linux: ^1.2.1
   liquid_glass_widgets: ^0.18.4
+  # Exact pin: a dev release, and lib/core/glass is written against its API.
+  liquid_glass_renderer: 0.2.0-dev.4
   mobile_scanner: ^7.4.0
+  # Reader page translation, Android and iOS only. 0.17+ needs AGP 9 and 1.x
+  # needs Swift Package Manager; the app is on AGP 8 and CocoaPods.
+  google_mlkit_text_recognition: ^0.16.0
   # The TV's pairing code, painted rather than pulled in as a widget package.
   qr: ^3.0.2
   firebase_auth: ^5.7.0

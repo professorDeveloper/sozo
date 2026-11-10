@@ -14,10 +14,12 @@ import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/matching/title_match.dart';
 import 'package:soplay/core/network/image_headers.dart';
+import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/detail/data/source_choice_store.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
+import 'package:soplay/features/detail/domain/services/auto_resolve_walk.dart';
 import 'package:soplay/features/detail/presentation/widgets/source_search_sheet.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
@@ -64,6 +66,7 @@ class AlternateSourceSheet extends StatefulWidget {
     required this.provider,
     required this.category,
     required this.episodeNumber,
+    this.seasonEpisode,
     this.resumeAt = Duration.zero,
   }) : candidates = null,
        choices = null;
@@ -81,6 +84,7 @@ class AlternateSourceSheet extends StatefulWidget {
     required this.provider,
     required this.category,
     required this.episodeNumber,
+    this.seasonEpisode,
     this.resumeAt = Duration.zero,
     required this.candidates,
     required this.choices,
@@ -90,6 +94,10 @@ class AlternateSourceSheet extends StatefulWidget {
   final String provider;
   final String category;
   final int? episodeNumber;
+
+  /// The episode's season and its number in that season, when the source
+  /// playing it lists seasons — see [AlternateSourceService.buildArgs].
+  final SeasonEpisode? seasonEpisode;
 
   /// Where the viewer is now, carried onto the source they pick.
   ///
@@ -110,6 +118,7 @@ class AlternateSourceSheet extends StatefulWidget {
     required String provider,
     required String category,
     required int? episodeNumber,
+    SeasonEpisode? seasonEpisode,
     Duration resumeAt = Duration.zero,
   }) async {
     final picked = await _open(
@@ -118,6 +127,7 @@ class AlternateSourceSheet extends StatefulWidget {
       provider: provider,
       category: category,
       episodeNumber: episodeNumber,
+      seasonEpisode: seasonEpisode,
       resumeAt: resumeAt,
     );
     return picked is PlayerArgs ? picked : null;
@@ -149,6 +159,7 @@ class AlternateSourceSheet extends StatefulWidget {
     required String provider,
     required String category,
     required int? episodeNumber,
+    SeasonEpisode? seasonEpisode,
     Duration resumeAt = Duration.zero,
   }) {
     return showAdaptiveModal<Object>(
@@ -163,6 +174,7 @@ class AlternateSourceSheet extends StatefulWidget {
         provider: provider,
         category: category,
         episodeNumber: episodeNumber,
+        seasonEpisode: seasonEpisode,
         resumeAt: resumeAt,
       ),
     );
@@ -212,6 +224,15 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// Play button that did nothing at all.
   ({String provider, String message})? _failed;
 
+  /// Non-null while Auto is going down the list looking for one that plays.
+  AutoResolveWalk<_Row, PlayerArgs>? _walk;
+
+  /// How the last Auto run ended, when it ended without playing anything.
+  AutoWalkEnd? _autoEnd;
+
+  /// What the current or last Auto run moved past, and why.
+  List<AutoSkip<_Row>> _autoSkipped = const [];
+
   /// How the run ended, so the empty state can say which kind of empty.
   AlternateSearchOutcome? _outcome;
 
@@ -220,8 +241,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// the same list the automatic one used.
   List<ProviderEntity> _candidates = const [];
 
-  late final SourceChoiceStore _choices =
-      widget.choices ?? SourceChoiceStore();
+  late final SourceChoiceStore _choices = widget.choices ?? SourceChoiceStore();
 
   /// The viewer's corrections for this title, by provider id.
   final Map<String, SourceChoice> _corrections = {};
@@ -302,6 +322,9 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
 
   @override
   void dispose() {
+    final walk = _walk;
+    _walk = null;
+    walk?.stop();
     _sub?.cancel();
     super.dispose();
   }
@@ -377,9 +400,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
             (!_reads || p.id.contentMode == widget.provider.contentMode))
           p,
     ];
-    out.sort(
-      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-    );
+    out.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     return out;
   }
 
@@ -404,7 +425,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   bool get _reads => widget.provider.contentMode != ContentMode.video;
 
   Future<void> _pick(AlternateSource source) async {
-    if (_preparing != null) return;
+    if (_preparing != null || _walk != null) return;
     if (_reads) {
       Navigator.of(context).pop(source);
       return;
@@ -416,6 +437,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     final args = await getIt<AlternateSourceService>().buildArgs(
       source: source,
       episodeNumber: widget.episodeNumber,
+      seasonEpisode: widget.seasonEpisode,
       resumeAt: widget.resumeAt,
     );
     if (!mounted) return;
@@ -435,6 +457,204 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     }
     Navigator.of(context).pop(args);
   }
+
+  /// Auto: the first source, best match first, that can actually be played.
+  ///
+  /// The list asked the viewer to pick a row and press it, and when that
+  /// source had the show but not the episode, to pick the next. Auto does
+  /// that walk itself — corrections first, then the matches it can trust in
+  /// score order, taking each source as it answers rather than waiting for
+  /// the slowest. [AutoResolveWalk] holds the cap and the stop.
+  Future<void> _runAuto() async {
+    if (_walk != null || _preparing != null) return;
+    final service = getIt<AlternateSourceService>();
+    late final AutoResolveWalk<_Row, PlayerArgs> walk;
+    walk = AutoResolveWalk<_Row, PlayerArgs>(
+      candidates: () => _rows,
+      searching: () => _searching,
+      idOf: (r) => r.provider.id,
+      isEligible: (r) => r.chosen || r.source.isTrustworthy,
+      attempt: (r) async {
+        final result = await service.resolveArgs(
+          source: r.source,
+          episodeNumber: widget.episodeNumber,
+          seasonEpisode: widget.seasonEpisode,
+          resumeAt: widget.resumeAt,
+        );
+        final args = result.args;
+        if (args != null) return AutoAttempt.found(args);
+        return AutoAttempt.skipped(
+          result.failure == AlternateArgsFailure.noEpisode
+              ? AutoSkipReason.noEpisode
+              : AutoSkipReason.error,
+        );
+      },
+      onChange: () {
+        if (mounted && identical(_walk, walk)) setState(() {});
+      },
+    );
+    setState(() {
+      _walk = walk;
+      _autoEnd = null;
+      _autoSkipped = const [];
+      _failed = null;
+    });
+    final result = await walk.run();
+    if (!mounted) return;
+    if (result.end == AutoWalkEnd.found) {
+      Navigator.of(context).pop(result.value);
+      return;
+    }
+    setState(() {
+      _walk = null;
+      _autoEnd = result.end;
+      _autoSkipped = walk.skipped;
+    });
+  }
+
+  void _stopAuto() => _walk?.stop();
+
+  String _autoSubtitle() {
+    final walk = _walk;
+    if (walk != null) {
+      final current = walk.current;
+      if (current == null) return 'player.alt_auto_waiting'.tr();
+      return 'player.alt_auto_checking'.tr(
+        args: [current.provider.name, '${walk.index}', '${walk.total}'],
+      );
+    }
+    return switch (_autoEnd) {
+      AutoWalkEnd.exhausted => 'player.alt_auto_missed'.tr(),
+      AutoWalkEnd.capped => 'player.alt_auto_capped'.tr(
+        args: ['${AutoResolveWalk.maxCandidates}'],
+      ),
+      AutoWalkEnd.stopped => 'player.alt_auto_stopped'.tr(),
+      _ => 'player.alt_auto_hint'.tr(),
+    };
+  }
+
+  /// The row that offers [_runAuto], above the matches.
+  Widget _autoTile() {
+    final running = _walk != null;
+    final ended = _autoEnd != null;
+    final missed =
+        _autoEnd == AutoWalkEnd.exhausted || _autoEnd == AutoWalkEnd.capped;
+    final Widget trailing;
+    if (running) {
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 4),
+          TextButton(
+            // The row it replaces stops being focusable once Auto runs, so a
+            // remote would otherwise be left with nothing focused.
+            autofocus: isTvPlatform,
+            onPressed: _stopAuto,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            child: Text('player.alt_auto_stop'.tr()),
+          ),
+        ],
+      );
+    } else if (ended) {
+      trailing = TextButton.icon(
+        autofocus: isTvPlatform,
+        onPressed: _preparing != null ? null : _runAuto,
+        style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+        icon: const Icon(Icons.refresh_rounded, size: 18),
+        label: Text('general.try_again'.tr()),
+      );
+    } else {
+      trailing = const Icon(Icons.play_arrow_rounded, color: Colors.white70);
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          onTap: running || _preparing != null ? null : _runAuto,
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.auto_awesome_rounded,
+              color: AppColors.primary,
+              size: 20,
+            ),
+          ),
+          title: Text(
+            'player.alt_auto'.tr(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          subtitle: Text(
+            _autoSubtitle(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: missed ? AppColors.error : Colors.white54,
+              fontSize: 12,
+            ),
+          ),
+          trailing: trailing,
+        ),
+        if ((running ? _walk!.skipped : _autoSkipped).isNotEmpty)
+          _autoSkippedList(running ? _walk!.skipped : _autoSkipped),
+      ],
+    );
+  }
+
+  /// What Auto already moved past, one short line each.
+  Widget _autoSkippedList(List<AutoSkip<_Row>> skipped) {
+    const shown = 8;
+    const style = TextStyle(color: Colors.white54, fontSize: 11.5);
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(72, 0, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'player.alt_auto_tried'.tr(),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          for (final s in skipped.take(shown))
+            Text(
+              '${s.candidate.provider.name} — ${_skipLabel(s.reason)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
+          if (skipped.length > shown)
+            Text('+${skipped.length - shown}', style: style),
+        ],
+      ),
+    );
+  }
+
+  static String _skipLabel(AutoSkipReason reason) => switch (reason) {
+    AutoSkipReason.noMatch => 'player.alt_skip_no_match'.tr(),
+    AutoSkipReason.noEpisode => 'player.alt_skip_no_episode'.tr(),
+    AutoSkipReason.error => 'player.alt_skip_error'.tr(),
+  };
 
   /// Hand the question to the viewer: search this one source, take their pick.
   ///
@@ -528,12 +748,17 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
             ),
           ),
           const Divider(color: Colors.white12, height: 1),
+          // One viewport for everything, so the grid and the unmatched list
+          // build only the rows on screen. Still shrink-wrapped, so a short
+          // result keeps the sheet short.
           Flexible(
-            child: ListView(
+            child: CustomScrollView(
               shrinkWrap: true,
-              children: [
+              slivers: [
+                if (!_reads && (list.isNotEmpty || _searching))
+                  SliverToBoxAdapter(child: _autoTile()),
                 if (list.isNotEmpty) _matchGrid(list),
-                if (list.isEmpty) _emptyBlock(),
+                if (list.isEmpty) SliverToBoxAdapter(child: _emptyBlock()),
                 if (quiet.isNotEmpty) ..._silentSection(quiet),
               ],
             ),
@@ -556,26 +781,31 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// Sized by the widest a tile may be rather than by a column count, so a
   /// phone lands on three and a tablet or a desktop window takes four or more
   /// without a second layout being written for them.
-  Widget _matchGrid(List<_Row> rows) => GridView.builder(
+  static const double _tileMaxWidth = 132;
+
+  Widget _matchGrid(List<_Row> rows) => SliverPadding(
     padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    itemCount: rows.length,
-    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-      maxCrossAxisExtent: 132,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 10,
-      // The poster's own 2:3 plus room for two lines of caption, which grows
-      // with the text scale rather than clipping at it.
-      mainAxisExtent:
-          132 * 1.5 + 34 + MediaQuery.textScalerOf(context).scale(12) * 1.6,
+    sliver: SliverGrid.builder(
+      itemCount: rows.length,
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: _tileMaxWidth,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 10,
+        // The poster's own 2:3 plus room for two lines of caption, which grows
+        // with the text scale rather than clipping at it.
+        mainAxisExtent:
+            _tileMaxWidth * 1.5 +
+            34 +
+            MediaQuery.textScalerOf(context).scale(12) * 1.6,
+      ),
+      itemBuilder: (context, i) => _matchTile(rows[i]),
     ),
-    itemBuilder: (context, i) => _matchTile(rows[i]),
   );
 
   Widget _matchTile(_Row row) {
-    final busy = _preparing == row.provider.id;
-    final enabled = _preparing == null;
+    final busy =
+        (_preparing ?? _walk?.current?.provider.id) == row.provider.id;
+    final enabled = _preparing == null && _walk == null;
     final failure = _failed?.provider == row.provider.id
         ? _failed!.message
         : null;
@@ -586,151 +816,154 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
     // escape hatch away from exactly the reader most likely to need it.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ColoredBox(
-                      color: const Color(0xFF1C1C1C),
-                      child: poster == null || poster.isEmpty
-                          ? const Icon(
-                              Icons.image_not_supported_outlined,
-                              color: Colors.white24,
-                              size: 22,
-                            )
-                          : CachedNetworkImage(
-                              imageUrl: poster,
-                              httpHeaders: posterImageHeaders(poster),
-                              fit: BoxFit.cover,
-                              fadeInDuration: const Duration(milliseconds: 180),
-                              errorWidget: (_, _, _) => const Icon(
-                                Icons.broken_image_outlined,
-                                color: Colors.white24,
-                                size: 22,
-                              ),
-                            ),
-                    ),
-                    // A scrim under the play mark and the badges, so both stay
-                    // legible on a bright cover as well as a dark one.
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0x99000000), Color(0x00000000)],
-                          stops: [0, 0.55],
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: busy
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white70,
-                              ),
-                            )
-                          : Icon(
-                              // A manga opens to be read, not played.
-                              _reads
-                                  ? Icons.menu_book_rounded
-                                  : Icons.play_circle_fill_rounded,
-                              color: Colors.white70,
-                              size: 34,
-                            ),
-                    ),
-                    Positioned.fill(
-                      child: Material(
-                        color: Colors.transparent,
-                        child: Semantics(
-                          button: true,
-                          label:
-                              '${row.provider.name}, ${row.source.item.title}',
-                          child: InkWell(
-                            onTap: enabled ? () => _pick(row.source) : null,
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ColoredBox(
+                  color: const Color(0xFF1C1C1C),
+                  child: poster == null || poster.isEmpty
+                      ? const Icon(
+                          Icons.image_not_supported_outlined,
+                          color: Colors.white24,
+                          size: 22,
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: poster,
+                          httpHeaders: posterImageHeaders(poster),
+                          fit: BoxFit.cover,
+                          memCacheWidth:
+                              (_tileMaxWidth *
+                                      MediaQuery.devicePixelRatioOf(context))
+                                  .round(),
+                          fadeInDuration: const Duration(milliseconds: 180),
+                          errorWidget: (_, _, _) => const Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.white24,
+                            size: 22,
                           ),
                         ),
-                      ),
-                    ),
-                    PositionedDirectional(
-                      top: 4,
-                      start: 4,
-                      child: Wrap(spacing: 4, children: _badge(row)),
-                    ),
-                    // On the tile that failed, over its own poster, where the
-                    // finger already is.
-                    if (failure != null)
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.82),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.error_outline_rounded,
-                                  color: Colors.white70,
-                                  size: 22,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  failure,
-                                  textAlign: TextAlign.center,
-                                  maxLines: 4,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    height: 1.25,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    // The escape hatch keeps its own target in the corner: the
-                    // tile's own tap is still "play this", and a cover that
-                    // opened a search when somebody meant to watch would be a
-                    // worse bug than the one it is here to fix.
-                    PositionedDirectional(
-                      top: 0,
-                      end: 0,
-                      child: _wrongTitleButton(row.provider),
-                    ),
-                  ],
                 ),
-              ),
+                // A scrim under the play mark and the badges, so both stay
+                // legible on a bright cover as well as a dark one.
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x99000000), Color(0x00000000)],
+                      stops: [0, 0.55],
+                    ),
+                  ),
+                ),
+                Center(
+                  child: busy
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white70,
+                          ),
+                        )
+                      : Icon(
+                          // A manga opens to be read, not played.
+                          _reads
+                              ? Icons.menu_book_rounded
+                              : Icons.play_circle_fill_rounded,
+                          color: Colors.white70,
+                          size: 34,
+                        ),
+                ),
+                Positioned.fill(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Semantics(
+                      button: true,
+                      label: '${row.provider.name}, ${row.source.item.title}',
+                      child: InkWell(
+                        onTap: enabled ? () => _pick(row.source) : null,
+                      ),
+                    ),
+                  ),
+                ),
+                PositionedDirectional(
+                  top: 4,
+                  start: 4,
+                  child: Wrap(spacing: 4, children: _badge(row)),
+                ),
+                // On the tile that failed, over its own poster, where the
+                // finger already is.
+                if (failure != null)
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.82),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              color: Colors.white70,
+                              size: 22,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              failure,
+                              textAlign: TextAlign.center,
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                height: 1.25,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                // The escape hatch keeps its own target in the corner: the
+                // tile's own tap is still "play this", and a cover that
+                // opened a search when somebody meant to watch would be a
+                // worse bug than the one it is here to fix.
+                PositionedDirectional(
+                  top: 0,
+                  end: 0,
+                  child: _wrongTitleButton(row.provider),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              row.provider.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            // The source's own title for the show, not ours. Two catalogues
-            // spell the same series differently, and seeing which one this
-            // source means is how the viewer tells a real match from a near
-            // miss before committing.
-            Text(
-              row.source.item.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          row.provider.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        // The source's own title for the show, not ours. Two catalogues
+        // spell the same series differently, and seeing which one this
+        // source means is how the viewer tells a real match from a near
+        // miss before committing.
+        Text(
+          row.source.item.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: Colors.white54, fontSize: 11.5),
         ),
       ],
@@ -784,16 +1017,14 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
         label: label,
         child: ExcludeSemantics(
           child: InkWell(
-            onTap: _preparing == null ? () => _correct(provider) : null,
+            onTap: _preparing == null && _walk == null
+                ? () => _correct(provider)
+                : null,
             customBorder: const CircleBorder(),
             child: const SizedBox(
               width: 48,
               height: 48,
-              child: Icon(
-                Icons.edit_outlined,
-                color: Colors.white70,
-                size: 17,
-              ),
+              child: Icon(Icons.edit_outlined, color: Colors.white70, size: 17),
             ),
           ),
         ),
@@ -808,6 +1039,17 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
   /// source whose automatic match failed is the single most likely place for a
   /// correction to be needed.
   List<Widget> _silentSection(List<ProviderEntity> quiet) {
+    return [
+      SliverList.list(children: _silentHeader(quiet)),
+      if (_showSilent)
+        SliverList.builder(
+          itemCount: quiet.length,
+          itemBuilder: (context, i) => _silentTile(quiet[i]),
+        ),
+    ];
+  }
+
+  List<Widget> _silentHeader(List<ProviderEntity> quiet) {
     return [
       const Divider(color: Colors.white12, height: 1),
       InkWell(
@@ -838,7 +1080,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
           ),
         ),
       ),
-      if (_showSilent) ...[
+      if (_showSilent)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Text(
@@ -846,30 +1088,29 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
             style: const TextStyle(color: Colors.white38, fontSize: 11),
           ),
         ),
-        for (final p in quiet)
-          ListTile(
-            dense: true,
-            enabled: _preparing == null,
-            onTap: () => _correct(ProviderRef.fromEntity(p)),
-            leading: const Icon(
-              Icons.search_off_rounded,
-              color: Colors.white30,
-              size: 20,
-            ),
-            title: Text(
-              p.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
-            ),
-            subtitle: Text(
-              'player.alt_search_by_hand'.tr(),
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-          ),
-      ],
     ];
   }
+
+  Widget _silentTile(ProviderEntity p) => ListTile(
+    dense: true,
+    enabled: _preparing == null && _walk == null,
+    onTap: () => _correct(ProviderRef.fromEntity(p)),
+    leading: const Icon(
+      Icons.search_off_rounded,
+      color: Colors.white30,
+      size: 20,
+    ),
+    title: Text(
+      p.name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(color: Colors.white70, fontSize: 13),
+    ),
+    subtitle: Text(
+      'player.alt_search_by_hand'.tr(),
+      style: const TextStyle(color: Colors.white38, fontSize: 11),
+    ),
+  );
 
   Widget _emptyBlock() {
     return Padding(

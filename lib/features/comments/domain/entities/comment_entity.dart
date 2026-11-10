@@ -14,6 +14,14 @@ class CommentEntity {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// Null for a title-level comment.
+  final String? episodeKey;
+  final bool spoiler;
+
+  /// The second of the episode the comment was written at, when it was
+  /// written from the player.
+  final int? atSec;
+
   const CommentEntity({
     required this.id,
     required this.provider,
@@ -27,6 +35,9 @@ class CommentEntity {
     required this.replyCount,
     required this.createdAt,
     required this.updatedAt,
+    this.episodeKey,
+    this.spoiler = false,
+    this.atSec,
   });
 
   bool get isTopLevel => parentId == null;
@@ -38,6 +49,7 @@ class CommentEntity {
     bool? edited,
     int? replyCount,
     DateTime? updatedAt,
+    bool? spoiler,
   }) =>
       CommentEntity(
         id: id,
@@ -52,5 +64,8 @@ class CommentEntity {
         replyCount: replyCount ?? this.replyCount,
         createdAt: createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
+        episodeKey: episodeKey,
+        spoiler: spoiler ?? this.spoiler,
+        atSec: atSec,
       );
 }

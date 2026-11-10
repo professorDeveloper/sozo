@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:soplay/core/system/app_dates.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/progress/presentation/widgets/user_badge_line.dart';
 import 'package:soplay/features/social/domain/social_models.dart';
 
 String socialErrorText(Object? error) {
@@ -103,7 +104,7 @@ class SocialAvatar extends StatelessWidget {
         ),
       ),
     );
-    return Container(
+    final avatar = Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
@@ -121,6 +122,11 @@ class SocialAvatar extends StatelessWidget {
               placeholder: (_, _) => placeholder,
               errorWidget: (_, _, _) => placeholder,
             ),
+    );
+    return FramedAvatar(
+      size: size,
+      frame: user.decoration?.frame,
+      child: avatar,
     );
   }
 }
@@ -155,10 +161,9 @@ class SocialUserTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    user.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  UserBadgeLine(
+                    name: user.name,
+                    decoration: user.decoration,
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 14.5,

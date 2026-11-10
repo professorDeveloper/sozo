@@ -42,7 +42,7 @@ extension _PlayerCast on _PlayerPageState {
         : const <SubtitleEntity>[];
     final subtitles = [
       for (final s in active)
-        if (CastHandoff.isSendable(s.file))
+        if (CastHandoff.isSendable(s.file) && s.cipher == null)
           CastSubtitle(
             url: s.file,
             label: s.label,
@@ -78,23 +78,26 @@ extension _PlayerCast on _PlayerPageState {
     final cast = _cast;
     cast.startDiscovery();
 
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (sheetContext) => AnimatedBuilder(
-        animation: cast,
-        builder: (context, _) => _CastSheet(
-          cast: cast,
-          onPick: (device) async {
-            Navigator.of(sheetContext).pop();
-            await _castTo(device, media);
-          },
-        ),
+    Widget sheet(BuildContext sheetContext) => AnimatedBuilder(
+      animation: cast,
+      builder: (context, _) => _CastSheet(
+        cast: cast,
+        onPick: (device) async {
+          Navigator.of(sheetContext).pop();
+          await _castTo(device, media);
+        },
       ),
     );
+    await (_iosSheets
+        ? _showSheet<void>(builder: sheet)
+        : showModalBottomSheet<void>(
+            context: context,
+            backgroundColor: AppColors.background,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+            ),
+            builder: sheet,
+          ));
     cast.stopDiscovery();
   }
 

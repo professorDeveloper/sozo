@@ -34,6 +34,30 @@ void main() {
     expect(kBorrowedLanguages.toSet(), {'yue', 'ku', 'ckb'});
   });
 
+  testWidgets('Hindi needs no borrowing: Flutter ships its strings and dates', (
+    tester,
+  ) async {
+    expect(kBorrowedLanguages, isNot(contains('hi')));
+    late BuildContext ctx;
+    await tester.pumpWidget(
+      _app(
+        const Locale('hi'),
+        builder: (c) {
+          ctx = c;
+          return const SizedBox();
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(MaterialLocalizations.of(ctx).cancelButtonLabel, 'रद्द करें');
+    expect(Directionality.of(ctx), TextDirection.ltr);
+    expect(
+      DateFormat.yMMMd('hi').format(DateTime(2026, 3, 1)),
+      contains('2026'),
+    );
+  });
+
   for (final (code, cancel, direction) in const [
     // Hong Kong reads Traditional characters, so the neighbour Cantonese
     // borrows from has to be zh-Hant and not zh-Hans.

@@ -11,9 +11,14 @@ import 'package:soplay/core/player/player_video_track.dart';
 import 'package:soplay/core/player/drm_controller.dart';
 import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/player/playback_readiness.dart';
+import 'package:soplay/core/player/shader_presets.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:video_player/video_player.dart' as vp;
 
+// Beside the controllers they bound: whoever builds one to play a network
+// stream also decides how long it may take to start.
+export 'package:soplay/core/player/playback_readiness.dart'
+    show startupBudget, withinStartupBudget;
 export 'package:video_player/video_player.dart'
     show
         VideoPlayerValue,
@@ -31,6 +36,10 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
   /// 'min', or a ceiling in bits per second. Set by the player page from the
   /// quality preference; [hlsBitrateFor] maps one to the other.
   static String mpvHlsBitrate = 'max';
+
+  /// mpv's `hwdec` for the next stream, or null for the default. Set to 'no'
+  /// for a single retry after mpv failed mid-playback.
+  static String? mpvHwdec;
 
   /// The `hls-bitrate` for a preferred height (see QualityPreference): the
   /// top rendition for Auto, the bottom for Data saver, and otherwise a
@@ -57,6 +66,7 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     vp.VideoPlayerOptions? videoPlayerOptions,
     DrmConfig? drm,
     bool preferPlatform = false,
+    bool preferMediaKit = false,
   }) {
     // Encryption decides the backend before anything else does. libmpv cannot
     // decrypt CENC at all and `video_player` exposes no way to configure it, so
@@ -97,7 +107,9 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     // reaches here — the player page hands off before building a controller —
     // but if it somehow does, falling through to the native backend is the
     // safe answer, not a crash.
-    if (!preferPlatform && _useMediaKit() && _mediaKitUsable()) {
+    if (!preferPlatform &&
+        (preferMediaKit || _useMediaKit()) &&
+        _mediaKitUsable()) {
       return _MediaKitController(
         _MediaKitSource.uri(url, httpHeaders, formatHint: formatHint),
       );
@@ -116,8 +128,11 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     File file, {
     vp.VideoPlayerOptions? videoPlayerOptions,
     bool preferPlatform = false,
+    bool preferMediaKit = false,
   }) {
-    if (!preferPlatform && _useMediaKit() && _mediaKitUsable()) {
+    if (!preferPlatform &&
+        (preferMediaKit || _useMediaKit()) &&
+        _mediaKitUsable()) {
       return _MediaKitController(_MediaKitSource.path(file.path));
     }
     return _NativeController(
@@ -136,7 +151,17 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
   Future<void> setVolume(double volume);
   Future<void> setLooping(bool looping);
 
+  /// The loudest [setVolume] accepts: 1.0, or 1.5 where libmpv amplifies.
+  double get maxVolume => 1.0;
+
+  /// Whether libmpv is the engine actually playing (not its platform fallback).
+  bool get isMpv => false;
+
   bool get letterboxesInternally;
+
+  /// Whether the engine takes and gives up Android audio focus itself.
+  /// Requesting it on top of one that does steals focus from it.
+  bool get handlesAudioFocus => false;
 
   /// Whether this backend can enumerate and switch audio tracks at all.
   ///
@@ -232,6 +257,14 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
   Future<Uint8List?> grabFrame() async => null;
 
   Widget buildView({BoxFit fit = BoxFit.contain});
+
+  /// Fires when [initialize], still running, has handed the stream to another
+  /// backend — libmpv giving way to the platform player.
+  ///
+  /// For a caller that bounds the start (see `withinStartupBudget`): the
+  /// engine that takes over has to open the stream from scratch, and timing it
+  /// from when the first one began would fail it for the first one's delay.
+  Stream<void> get backendSwitches => const Stream<void>.empty();
 
   @override
   Future<void> dispose();
@@ -426,6 +459,19 @@ class PlayerSubtitleTrack extends PlayerAudioTrack {
 bool _useMediaKit() =>
     !isAndroidEmulator && resolvePlayerEngine() == PlayerEngine.mediaKit;
 
+/// Linux decodes through `auto-copy`, not media_kit's default `auto`.
+///
+/// `auto` hands decoded frames straight to the GPU through an OpenGL interop.
+/// On an NVIDIA laptop that showed a solid blue picture with working audio
+/// (issue #53). `auto-copy` still decodes on the GPU, then copies each frame to
+/// system memory, so no interop is involved. The cost is some extra CPU.
+@visibleForTesting
+mkv.VideoControllerConfiguration mediaKitVideoConfiguration({
+  required bool isLinux,
+}) => isLinux
+    ? const mkv.VideoControllerConfiguration(hwdec: 'auto-copy')
+    : const mkv.VideoControllerConfiguration();
+
 /// media_kit needs its native side initialised exactly once before the first
 /// [mk.Player]. `main()` does this eagerly on desktop; on Android the engine is
 /// opt-in, so it is done by [warmUpPlayerEngine] at startup when the user has
@@ -466,6 +512,20 @@ bool _mediaKitFailed = false;
 /// rest of the session, which is a worse outcome than a few seconds spent once
 /// on a device that is about to show a black screen either way.
 const Duration _firstFrameTimeout = Duration(seconds: 5);
+
+/// How long libmpv may hold a stream whose video track it has already found
+/// without producing a picture, before the platform player is tried instead.
+///
+/// The track list exists only once the container has been read, so this is
+/// not a slow network: it is a decoder that has stalled. It used to be caught
+/// only by the 30 s readiness wait, which a player page that moves to the next
+/// server after 25 s (see `startupBudget`) never reaches.
+const Duration _pictureTimeout = Duration(seconds: 12);
+
+/// How long a playing stream may stall on a held `tcp:` error before it is
+/// reported. Above `network-timeout` (see [_MediaKitController.initialize]),
+/// so ffmpeg's own reconnect gets its go first.
+const Duration _networkGrace = Duration(seconds: 25);
 
 /// Set as the error when libmpv plays but cannot display.
 ///
@@ -536,6 +596,10 @@ class _NativeController extends PlayerController {
 
   @override
   bool get letterboxesInternally => false;
+
+  /// video_player's ExoPlayer is built with handleAudioFocus on.
+  @override
+  bool get handlesAudioFocus => true;
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) => vp.VideoPlayer(_inner);
@@ -608,7 +672,10 @@ class _MediaKitController extends PlayerController {
     // A black first frame is an annoyance. A crash is not, so this stays on the
     // library's default until the black frame has a fix that does not touch
     // native lifetimes.
-    _videoController = mkv.VideoController(_player);
+    _videoController = mkv.VideoController(
+      _player,
+      configuration: mediaKitVideoConfiguration(isLinux: Platform.isLinux),
+    );
   }
 
   final _MediaKitSource _src;
@@ -637,6 +704,22 @@ class _MediaKitController extends PlayerController {
   Future<void>? _disposal;
   final _closed = Completer<void>();
   String? _error;
+
+  /// A `tcp:` error ffmpeg logged that has not (yet) been judged fatal. See
+  /// [_holdNetworkError].
+  String? _heldNetworkError;
+
+  /// The last `tcp:` error since this stream opened. Judging a stall
+  /// recovered forgets [_heldNetworkError], but the file can still end early
+  /// on it once the cache runs dry.
+  String? _lastNetworkError;
+  Duration _stalledAt = Duration.zero;
+  Timer? _networkGraceTimer;
+  final StreamController<void> _backendSwitches =
+      StreamController<void>.broadcast(sync: true);
+
+  @override
+  Stream<void> get backendSwitches => _backendSwitches.stream;
 
   /// How often mpv's playhead reaches listeners.
   ///
@@ -719,10 +802,54 @@ class _MediaKitController extends PlayerController {
       // here because nothing sets a --vf filter (colour profiles and shaders
       // act in the VO), the one case mpv's manual says framedrop can skip
       // the target frame.
+      // Up to 150%, for quiet sources. Only claimed once mpv accepted it.
+      try {
+        await platform.setProperty(
+          'volume-max',
+          '${(_boostMax * 100).round()}',
+        );
+        _boostReady = true;
+      } catch (e) {
+        debugPrint('[player] volume-max not applied: $e');
+      }
+      final hwdec = PlayerController.mpvHwdec;
+      if (hwdec != null) {
+        try {
+          await platform.setProperty('hwdec', hwdec);
+        } catch (e) {
+          debugPrint('[player] hwdec not applied: $e');
+        }
+      }
       try {
         await platform.setProperty('hr-seek-framedrop', 'yes');
       } catch (e) {
         debugPrint('[player] hr-seek-framedrop not applied: $e');
+      }
+      // media_kit opens every Player with network-timeout=5 (media_kit 1.2.6,
+      // player/native/player/real.dart). On mobile data a five-second stall is
+      // routine: log_045e01 has mp4upload starts that died 5.3 s after
+      // "loading url", and log_2e4886 a vidapi episode killed a minute in by
+      // "tcp: ffurl_read returned 0xffffff92" — ETIMEDOUT, i.e. that timer.
+      // mpv's own default is 60; 15 survives a handover and still turns a
+      // dead host into an error well inside the page's startup budget.
+      //
+      // The reconnect flags are for progressive files (mp4upload, playmogo):
+      // a dropped connection resumes at its byte offset instead of ending the
+      // stream, and a failed connect is tried again a couple of times.
+      // reconnect_delay_max=5 caps that at about three attempts. HLS segments
+      // are retried by seg_max_retry=5, which media_kit puts in
+      // demuxer-lavf-o; that property is deliberately not set here, because
+      // setting it replaces media_kit's whole list, protocol_whitelist
+      // included.
+      try {
+        await platform.setProperty('network-timeout', '15');
+        await platform.setProperty(
+          'stream-lavf-o',
+          'reconnect=1,reconnect_streamed=1,'
+              'reconnect_on_network_error=1,reconnect_delay_max=5',
+        );
+      } catch (e) {
+        debugPrint('[player] network options not applied: $e');
       }
     }
     final recovered = await initializeWithDecoderFallback(
@@ -762,6 +889,34 @@ class _MediaKitController extends PlayerController {
       return;
     }
 
+    // The surface exists; the texture showing it may not yet. media_kit_video
+    // 1.3.1 attaches mpv to the Android surface (--wid) only when the native
+    // side answers SetSurfaceSize with VideoOutput.Resize, and its listener for
+    // that ends in `player.seek(Duration.zero)`
+    // (android_video_controller/real.dart, widListener) — the library's own
+    // repaint. Returning before it ran left two gaps: the page's resume seek
+    // could land first and be undone by the library's seek to 0:00, and a
+    // texture that never arrived meant audio under a black rectangle with
+    // nothing reporting it.
+    //
+    // So: wait, bounded, for the texture; let the library's seek go first;
+    // then repaint where we are. Ordinary player commands only — nothing here
+    // moves when the render context is created or torn down, which is what
+    // androidAttachSurfaceAfterVideoParameters=false broke (see constructor).
+    if (!kIsWeb && Platform.isAndroid && w > 0 && h > 0) {
+      final attached = await _repaintOnceAttached();
+      if (_disposed) return;
+      if (!attached) {
+        debugPrint(
+          '[player] libmpv texture never attached — trying platform playback',
+        );
+        await _swapToPlatformBackend();
+        return;
+      }
+    }
+
+    // Whatever ffmpeg complained about on the way in, the stream started.
+    _heldNetworkError = null;
     value = value.copyWith(
       isInitialized: _error == null,
       duration: _player.state.duration,
@@ -794,6 +949,7 @@ class _MediaKitController extends PlayerController {
     replacement.addListener(() {
       if (!_disposed) value = replacement.value;
     });
+    if (!_backendSwitches.isClosed) _backendSwitches.add(null);
     await replacement.initialize();
     if (_disposed) {
       await replacement.dispose();
@@ -815,6 +971,99 @@ class _MediaKitController extends PlayerController {
     }
   }
 
+  /// Waits for the video texture, then redraws the frame mpv is on.
+  /// False when no texture arrived: audio would play under a black rectangle.
+  Future<bool> _repaintOnceAttached() async {
+    final id = _videoController.id;
+    if (id.value == null) {
+      final attached = Completer<void>();
+      void onId() {
+        if (id.value != null && !attached.isCompleted) attached.complete();
+      }
+
+      id.addListener(onId);
+      try {
+        await Future.any([
+          attached.future,
+          _closed.future,
+        ]).timeout(_firstFrameTimeout, onTimeout: () {});
+      } finally {
+        id.removeListener(onId);
+      }
+    }
+    if (_disposed) return true;
+    if (id.value == null) return false;
+    // media_kit's surface listener runs under its own lock and ends in
+    // seek(0). It is a handful of property writes, so a short wait puts this
+    // seek after it rather than before, and the page's resume seek after both.
+    // The lock is not public (AndroidVideoController is not exported), so this
+    // is ordering by time, not by handshake.
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (_disposed) return true;
+    // Not on a live or unknown-length stream, where a seek means rejoining
+    // the edge rather than redrawing a frame.
+    if (_player.state.duration <= Duration.zero) return true;
+    try {
+      await _player.seek(_player.state.position);
+    } catch (e) {
+      debugPrint('[player] repaint seek failed: $e');
+    }
+    return true;
+  }
+
+  /// Holds a `tcp:` error rather than reporting it.
+  ///
+  /// media_kit turns every error-level line ffmpeg logs under `tcp:` into an
+  /// error event (media_kit 1.2.6 real.dart, the log-message handler). Most
+  /// are stalls the HLS demuxer re-requests and the http layer reconnects
+  /// past, and reported at once one of them ended the episode: log_2e4886,
+  /// 21:10:11, a minute into a vidapi stream that was playing.
+  ///
+  /// Before the first frame the start's own bounds judge it: a host that never
+  /// answers ends in mpv's "Failed to open", reported as before, or in the
+  /// readiness timeout, which then reports the held error (see
+  /// [_awaitReady]) rather than blaming a decoder. Once playing, it is
+  /// reported only if playback is still stuck after [_networkGrace].
+  void _holdNetworkError(String e) {
+    _heldNetworkError = e;
+    _lastNetworkError = e;
+    if (!value.isInitialized) return;
+    if (_networkGraceTimer?.isActive ?? false) return;
+    _stalledAt = _player.state.position;
+    _networkGraceTimer = Timer(_networkGrace, _judgeNetworkStall);
+  }
+
+  void _judgeNetworkStall() {
+    _networkGraceTimer?.cancel();
+    _networkGraceTimer = null;
+    final held = _heldNetworkError;
+    if (_disposed || _fallback != null || held == null) return;
+    final state = _player.state;
+    switch (judgeNetworkStall(
+      stalledAt: _stalledAt,
+      position: state.position,
+      playing: state.playing,
+      completed: state.completed,
+      duration: state.duration,
+    )) {
+      case NetworkStall.recovered:
+        _heldNetworkError = null;
+      case NetworkStall.fatal:
+        _heldNetworkError = null;
+        _reportError(held);
+      case NetworkStall.undecided:
+        // Paused where it stalled: look again later rather than dropping it,
+        // or a viewer who paused through the stall would come back to a
+        // spinner nothing reports.
+        _networkGraceTimer = Timer(_networkGrace, _judgeNetworkStall);
+    }
+  }
+
+  void _reportError(String e) {
+    _error = e;
+    _emit(value.copyWith(errorDescription: e));
+  }
+
   void _wire() {
     _subs
       ..add(_player.stream.position.listen(_onPosition))
@@ -834,9 +1083,16 @@ class _MediaKitController extends PlayerController {
         ),
       )
       ..add(
-        _player.stream.completed.listen(
-          (c) => _emit(value.copyWith(isCompleted: c)),
-        ),
+        _player.stream.completed.listen((c) {
+          // An end of file right after a network error may be the connection
+          // ending the file early rather than the episode ending: judge it now
+          // instead of after the grace.
+          if (c && value.isInitialized) {
+            _heldNetworkError ??= _lastNetworkError;
+            if (_heldNetworkError != null) _judgeNetworkStall();
+          }
+          _emit(value.copyWith(isCompleted: c));
+        }),
       )
       ..add(_player.stream.width.listen((_) => _emitSize()))
       ..add(_player.stream.height.listen((_) => _emitSize()))
@@ -871,8 +1127,27 @@ class _MediaKitController extends PlayerController {
       )
       ..add(
         _player.stream.error.listen((e) {
-          _error = e;
-          _emit(value.copyWith(errorDescription: e));
+          // A live stream has no length and no cache to ride out a stall
+          // on: once it plays, a dropped connection is reported at once so
+          // the page reconnects instead of showing a frozen picture.
+          if (e.startsWith('tcp:') &&
+              (!value.isInitialized ||
+                  _player.state.duration > Duration.zero)) {
+            _holdNetworkError(e);
+            return;
+          }
+          // One damaged audio or video packet once playing: mpv drops it and
+          // plays on (ad_lavc / vd_lavc), but media_kit forwards the line as
+          // an error, and reported it put a black card over a film that was
+          // still playing under it. Held like a network stall, it is only
+          // reported if playback really stops on it. Before the first frame
+          // it is reported at once, so a stream that cannot decode at all
+          // still moves on to another mirror.
+          if (value.isInitialized && isDecodeGlitch(e)) {
+            _holdNetworkError(e);
+            return;
+          }
+          _reportError(e);
         }),
       );
   }
@@ -1000,7 +1275,22 @@ class _MediaKitController extends PlayerController {
     value = v;
   }
 
-  Future<void> _awaitReady() => awaitPlaybackReadiness(
+  Future<void> _awaitReady() async {
+    try {
+      await _awaitReadiness();
+    } on TimeoutException {
+      // A start that stalled on the network is the network's failure, not a
+      // decoder's. Reported as a timeout it would hand the stream to the
+      // platform player (initializeWithDecoderFallback) to fetch the same
+      // unreachable bytes; reported as what ffmpeg said, the page walks on to
+      // another server.
+      final held = _heldNetworkError;
+      if (held != null) throw StateError(held);
+      rethrow;
+    }
+  }
+
+  Future<void> _awaitReadiness() => awaitPlaybackReadiness(
     read: () => PlaybackReadiness(
       width: _player.state.width ?? 0,
       height: _player.state.height ?? 0,
@@ -1021,10 +1311,14 @@ class _MediaKitController extends PlayerController {
       _player.stream.error,
     ],
     canceled: _closed.future,
+    pictureTimeout: _pictureTimeout,
   );
 
   @override
   Future<void> play() => _fallback?.play() ?? _player.play();
+
+  @override
+  bool get handlesAudioFocus => _fallback?.handlesAudioFocus ?? false;
 
   @override
   Future<void> pause() => _fallback?.pause() ?? _player.pause();
@@ -1054,10 +1348,21 @@ class _MediaKitController extends PlayerController {
   Future<void> setPlaybackSpeed(double speed) =>
       _fallback?.setPlaybackSpeed(speed) ?? _player.setRate(speed);
 
+  static const double _boostMax = 1.5;
+  bool _boostReady = false;
+
+  @override
+  double get maxVolume => _fallback != null
+      ? _fallback!.maxVolume
+      : (_boostReady ? _boostMax : 1.0);
+
+  @override
+  bool get isMpv => _fallback == null;
+
   @override
   Future<void> setVolume(double volume) => _fallback != null
       ? _fallback!.setVolume(volume)
-      : _player.setVolume((volume * 100).clamp(0.0, 100.0));
+      : _player.setVolume((volume * 100).clamp(0.0, maxVolume * 100));
 
   @override
   Future<void> setLooping(bool looping) => _fallback != null
@@ -1109,10 +1414,11 @@ class _MediaKitController extends PlayerController {
         await platform.setProperty('glsl-shaders', '');
         return;
       }
-      // Separated by ':', which is what mpv's list properties take on every
-      // platform this runs on. A path containing one would break the list, and
-      // these are filenames this app chose, so none can.
-      await platform.setProperty('glsl-shaders', paths.join(':'));
+      // Separator per platform — see [shaderChainProperty].
+      await platform.setProperty(
+        'glsl-shaders',
+        shaderChainProperty(paths, windows: !kIsWeb && Platform.isWindows),
+      );
     } catch (e) {
       // An enhancement is never worth losing the episode over. A shader that
       // will not compile on this GPU should cost the sharpening, not playback.
@@ -1251,6 +1557,7 @@ class _MediaKitController extends PlayerController {
   Future<void> _disposeOnce() async {
     if (!_closed.isCompleted) _closed.complete();
     await _teardownMpv();
+    await _backendSwitches.close();
     await _fallback?.dispose();
   }
 
@@ -1266,6 +1573,9 @@ class _MediaKitController extends PlayerController {
     // the fallback.
     _positionFlush?.cancel();
     _positionFlush = null;
+    // Nor a held network error judged against a player that is gone.
+    _networkGraceTimer?.cancel();
+    _networkGraceTimer = null;
     for (final s in _subs) {
       await s.cancel();
     }

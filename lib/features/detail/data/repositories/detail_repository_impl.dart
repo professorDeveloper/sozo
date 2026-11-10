@@ -17,6 +17,8 @@ import 'package:soplay/features/detail/data/models/playback_model.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
+import 'package:soplay/features/detail/domain/entities/source_notice.dart';
+import 'package:soplay/features/detail/domain/episode_seasons.dart';
 import 'package:soplay/features/detail/domain/repositories/detail_repository.dart';
 
 class DetailRepositoryImpl implements DetailRepository {
@@ -361,6 +363,24 @@ class DetailRepositoryImpl implements DetailRepository {
     } on DioException catch (e) {
       final code = e.response?.statusCode;
       if (code == 422) {
+        // The backend says WHY a title cannot be resolved, and this used to
+        // discard the whole body and answer with one technical sentence in one
+        // language. A source that has moved a title into its own app, a page
+        // that never had a player and a serial resolved as a film are three
+        // different situations with three different next steps, and only the
+        // reason can tell them apart. The code arrives at the head of the
+        // message because the API's error handler forwards only `message`.
+        final notice =
+            SourceNotice.read(_noticeFrom(e)) ??
+            SourceNotice.read(_messageFrom(e));
+        if (notice != null) {
+          return Failure(
+            SourceNoticeException(
+              notice,
+              providerNotice: _providerNoticeFrom(e),
+            ),
+          );
+        }
         return Failure(Exception('Video URL aniqlanmadi'));
       }
       if (code == 501) {
@@ -442,8 +462,10 @@ class DetailRepositoryImpl implements DetailRepository {
     // Copy before sorting: `sort` mutates in place and throws
     // "Cannot modify an unmodifiable list" on a const/fixed-length list, which
     // several of the host adapters can legitimately produce.
-    final eps = model.episodes.toList();
-    if (eps.length < 2) return model;
+    // Numbered by season first: two seasons that both start at 1 would
+    // otherwise sort into each other here.
+    final eps = EpisodeSeasons.number(model.episodes).toList();
+    if (eps.length < 2) return model.copyWithEpisodes(eps);
     final desc = sort.toLowerCase() == 'desc';
     final orig = Map<Object?, int>.identity();
     for (var i = 0; i < eps.length; i++) {
@@ -465,6 +487,27 @@ class DetailRepositoryImpl implements DetailRepository {
     }
     if (raw.contains('No servers found')) return 'Episode uchun server yo\'q';
     return raw.replaceFirst('Exception: ', '');
+  }
+
+  /// The reason code an error body names in a field of its own, for the day the
+  /// API's error handler forwards one. Until then it is absent and the code is
+  /// read out of the message instead.
+  String? _noticeFrom(DioException e) {
+    final data = e.response?.data;
+    if (data is! Map) return null;
+    for (final key in const ['noticeCode', 'playableReason', 'code']) {
+      final raw = data[key];
+      if (raw is String && raw.isNotEmpty) return raw;
+    }
+    return null;
+  }
+
+  /// The site's own notice, when the body carries it — for a log, never for the
+  /// viewer. See [SourceNoticeException.providerNotice].
+  String? _providerNoticeFrom(DioException e) {
+    final data = e.response?.data;
+    final raw = data is Map ? data['providerNotice'] : null;
+    return raw is String && raw.trim().isNotEmpty ? raw.trim() : null;
   }
 
   String _messageFrom(DioException e) {

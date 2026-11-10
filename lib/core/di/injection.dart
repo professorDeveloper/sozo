@@ -1,3 +1,4 @@
+import 'package:soplay/core/player/player_dock.dart';
 import 'package:soplay/core/player/download_media_probe.dart';
 import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
@@ -57,6 +58,9 @@ import 'package:soplay/features/streak/data/streak_remote_data_source.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/watch_party/data/watch_party_remote_data_source.dart';
 import 'package:soplay/features/watch_party/data/watch_party_service.dart';
+import 'package:soplay/features/watch_party/domain/pending_party_code.dart';
+import 'package:hive_flutter/hive_flutter.dart' show Hive;
+import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/features/download/data/datasources/download_local_data_source.dart';
 import 'package:soplay/features/download/data/datasources/download_native_data_source.dart';
 import 'package:soplay/features/download/data/datasources/download_transfer_data_source.dart';
@@ -83,6 +87,7 @@ import 'package:soplay/features/history/data/history_sync_remote_data_source.dar
 import 'package:soplay/features/history/data/history_sync_service.dart';
 import 'package:soplay/core/network/profile_interceptor.dart';
 import 'package:soplay/core/storage/profile_storage.dart';
+import 'package:soplay/features/profiles/data/profile_pin_store.dart';
 import 'package:soplay/features/profiles/data/profile_session.dart';
 import 'package:soplay/features/profiles/data/profiles_remote_data_source.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
@@ -94,6 +99,7 @@ import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/tracker/data/tracker_outbox.dart';
 import 'package:soplay/features/detail/data/aniskip_service.dart';
 import 'package:soplay/features/profile/data/backup_service.dart';
+import 'package:soplay/features/profile/data/contributors_service.dart';
 import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
 import 'package:soplay/features/profile/domain/services/provider_probe.dart';
 import 'package:soplay/features/auth/data/services/google_auth_service.dart';
@@ -105,6 +111,7 @@ import 'package:soplay/features/auth/domain/usecases/verify_otp_usecase.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/app_lock/data/datasources/app_lock_local_data_source.dart';
+import 'package:soplay/features/app_lock/data/pin_secrets.dart';
 import 'package:soplay/features/app_lock/data/repositories/app_lock_repository_impl.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/app_lock/presentation/app_lock_gate.dart';
@@ -117,6 +124,7 @@ import 'package:soplay/features/banners/data/repositories/banners_repository_imp
 import 'package:soplay/features/banners/domain/repositories/banners_repository.dart';
 import 'package:soplay/features/banners/presentation/bloc/banners_bloc.dart';
 import 'package:soplay/features/comments/data/datasources/comments_data_source.dart';
+import 'package:soplay/features/comments/data/datasources/timed_reactions_data_source.dart';
 import 'package:soplay/features/comments/data/repositories/comments_repository_impl.dart';
 import 'package:soplay/features/comments/domain/repositories/comments_repository.dart';
 import 'package:soplay/features/comments/presentation/blocs/comments_bloc/comments_bloc.dart';
@@ -134,6 +142,7 @@ import 'package:soplay/features/jellyfin/data/jellyfin_bridge.dart';
 import 'package:soplay/features/jellyfin/data/jellyfin_reporter.dart';
 import 'package:soplay/features/jellyfin/data/jellyfin_server_store.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
+import 'package:soplay/features/extensions/data/zangetsu_repo_store.dart';
 import 'package:soplay/features/sources/data/source_browse_repository.dart';
 import 'package:soplay/features/sources/data/source_check_store.dart';
 import 'package:soplay/features/sources/domain/source_check_service.dart';
@@ -245,6 +254,9 @@ import 'package:soplay/features/social/data/social_service.dart';
 import 'package:soplay/features/achievements/data/achievements_remote_data_source.dart';
 import 'package:soplay/features/achievements/data/achievements_service.dart';
 import 'package:soplay/features/achievements/domain/achievements.dart';
+import 'package:soplay/features/progress/data/progress_remote_data_source.dart';
+import 'package:soplay/features/progress/data/progress_service.dart';
+import 'package:soplay/features/progress/data/watch_time_uploader.dart';
 import 'package:soplay/features/home_widget/home_widget_sync.dart';
 
 final getIt = GetIt.instance;
@@ -396,6 +408,17 @@ Future<void> configureDependencies() async {
       hive: getIt<HiveService>(),
     ),
   );
+  final progressRemote = ProgressRemoteDataSource(dio: getIt<Dio>());
+  getIt.registerSingleton<ProgressService>(
+    ProgressService(remote: progressRemote, hive: getIt<HiveService>()),
+  );
+  getIt.registerSingleton<WatchTimeUploader>(
+    WatchTimeUploader(
+      remote: progressRemote,
+      hive: getIt<HiveService>(),
+      progress: getIt<ProgressService>(),
+    )..start(),
+  );
   getIt.registerSingleton<HistorySyncService>(
     HistorySyncService(
       remote: getIt<HistorySyncRemoteDataSource>(),
@@ -406,11 +429,20 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<ProfilesRemoteDataSource>(
     ProfilesRemoteDataSource(dio: getIt<Dio>()),
   );
+  getIt.registerSingleton<DeviceBiometrics>(DeviceBiometrics());
   getIt.registerSingleton<ProfileSession>(
     ProfileSession(
       remote: getIt<ProfilesRemoteDataSource>(),
       isLoggedIn: () => getIt<HiveService>().isLoggedIn,
-      beforeSwitch: () => getIt<HistorySyncService>().settle(),
+      pins: ProfilePinStore(biometrics: getIt<DeviceBiometrics>()),
+      accountId: () => getIt<HiveService>().getUser()?.id,
+      // The corner player first: closing it saves its history, which has to
+      // land in the profile it was watched in, before the sync settles.
+      beforeSwitch: () async {
+        await PlayerDock.instance.close();
+        await getIt<WatchTimeUploader>().flush();
+        await getIt<HistorySyncService>().settle();
+      },
       onScopeChanged: _onProfileScopeChanged,
     ),
   );
@@ -429,6 +461,9 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<RemoteControlService>(
     () => RemoteControlService(dio: getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<ContributorsService>(
+    () => ContributorsService(dio: getIt<Dio>()),
   );
   getIt.registerSingleton<AnilistLinkStore>(AnilistLinkStore());
   getIt.registerSingleton<AnilistService>(
@@ -525,7 +560,13 @@ Future<void> configureDependencies() async {
     ProviderDataSource(dio: getIt<Dio>()),
   );
   getIt.registerSingleton<ProviderRegistry>(
-    ProviderRegistry(source: getIt<ProviderDataSource>()),
+    ProviderRegistry(
+      source: getIt<ProviderDataSource>(),
+      external: (id) => getIt<ZangetsuRepoStore>().providerById(
+        id,
+        allowAdult: getIt<HiveService>().showAdultContent,
+      ),
+    ),
   );
   getIt.registerSingleton<ExtractorRemote>(ExtractorRemote(dio: getIt<Dio>()));
   getIt.registerSingleton<ExtractorCache>(ExtractorCache());
@@ -567,6 +608,14 @@ Future<void> configureDependencies() async {
       tokenRefresher: getIt<TokenRefresher>(),
     ),
   );
+  getIt.registerLazySingleton<PendingPartyCode>(() {
+    const key = 'pending_party_code';
+    final box = Hive.box(AppConstants.settingsBox);
+    return PendingPartyCode(
+      read: () => box.get(key) as String?,
+      write: (v) => v == null ? box.delete(key) : box.put(key, v),
+    );
+  });
   getIt.registerLazySingleton<WatchServicesDataSource>(
     () => WatchServicesDataSource(dio: getIt<Dio>()),
   );
@@ -592,6 +641,9 @@ Future<void> configureDependencies() async {
   // exist here (iOS/macOS/Windows extension support).
   getIt.registerLazySingleton<MangayomiRepoStore>(
     () => MangayomiRepoStore(dio: getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<ZangetsuRepoStore>(
+    () => ZangetsuRepoStore(dio: getIt<Dio>(), cache: getIt<ExtractorCache>()),
   );
   getIt.registerLazySingleton<MangayomiRuntime>(
     () => MangayomiRuntime(
@@ -749,6 +801,9 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<CommentsDataSource>(
     CommentsDataSource(dio: getIt<Dio>()),
   );
+  getIt.registerSingleton<TimedReactionsDataSource>(
+    TimedReactionsDataSource(dio: getIt<Dio>()),
+  );
   getIt.registerSingleton<ShortsRemoteDataSource>(
     ShortsRemoteDataSource(dio: getIt<Dio>()),
   );
@@ -831,6 +886,9 @@ Future<void> configureDependencies() async {
     UserListsRepositoryImpl(
       getIt<UserListsRemoteDataSource>(),
       getIt<HiveService>(),
+      reconnects: Connectivity().onConnectivityChanged.where(
+        (r) => r.any((c) => c != ConnectivityResult.none),
+      ),
     ),
   );
 
@@ -948,11 +1006,16 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<GetPagesUseCase>(
     GetPagesUseCase(getIt<DetailRepository>()),
   );
+  // One probe for both questions: is a mirror playable media, and does a
+  // direct file turn out to be a web page (refused at tap time, not minutes
+  // later in the list).
+  final downloadProbe = DownloadMediaProbe(getIt<DartFetch>().dio);
   getIt.registerSingleton<DownloadRequestBuilder>(
     DownloadRequestBuilder(
       resolve: getIt<ResolveMediaUseCase>(),
       getPages: getIt<GetPagesUseCase>(),
-      canDownload: DownloadMediaProbe(getIt<DartFetch>().dio).accepts,
+      canDownload: downloadProbe.accepts,
+      servesWebPage: downloadProbe.servesWebPage,
       resolveEmbed: (media) async {
         final stream = await getIt<WebViewStreamExtractor>().extract(
           pageUrl: media.videoUrl,
@@ -1206,7 +1269,10 @@ Future<void> configureDependencies() async {
   );
 
   getIt.registerSingleton<AppLockLocalDataSource>(
-    AppLockLocalDataSource(hiveService: getIt<HiveService>()),
+    AppLockLocalDataSource(
+      hiveService: getIt<HiveService>(),
+      biometrics: getIt<DeviceBiometrics>(),
+    ),
   );
   getIt.registerSingleton<AppLockRepository>(
     AppLockRepositoryImpl(
@@ -1240,6 +1306,7 @@ Future<void> _onProfileScopeChanged({required bool resync}) async {
   getIt<FollowService>().revision.value++;
   getIt<ReleaseWatch>().onProfileChanged();
   getIt<AchievementsService>().reload();
+  getIt<ProgressService>().reload();
   if (!resync || !hive.isLoggedIn) return;
   // Push goes to whichever profile registered last, so every switch
   // re-registers under the new X-Sozo-Profile.

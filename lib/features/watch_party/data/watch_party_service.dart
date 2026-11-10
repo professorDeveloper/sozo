@@ -15,6 +15,8 @@ import 'package:soplay/features/watch_party/domain/entities/party_playback.dart'
 import 'package:soplay/features/watch_party/domain/entities/party_reaction.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_room.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_state.dart';
+import 'package:soplay/features/watch_party/domain/party_clock.dart';
+import 'package:soplay/features/watch_party/domain/party_wait_policy.dart';
 
 /// Live watch-party session. Registered as an eager get_it singleton and is the
 /// single source of truth via [state]. Mirrors `StreakService`'s shape
@@ -37,6 +39,20 @@ class WatchPartyService with WidgetsBindingObserver {
 
   final ValueNotifier<PartyState> state =
       ValueNotifier<PartyState>(PartyState.empty);
+
+  /// The room's chat as shown: history from `party:state`, then live lines.
+  final ValueNotifier<List<PartyChatMessage>> chatLog =
+      ValueNotifier<List<PartyChatMessage>>(const <PartyChatMessage>[]);
+  static const int _chatLogMax = 200;
+
+  final PartyClock clock = PartyClock();
+  final PartyWaitPolicy waitPolicy = PartyWaitPolicy();
+  static const Duration _pingPeriod = Duration(seconds: 10);
+  Timer? _pingTimer;
+
+  // When each member was first seen buffering, on this device's clock.
+  final Map<String, DateTime> _bufferingSince = <String, DateTime>{};
+  bool? _reportedBuffering;
 
   final StreamController<PartyChatMessage> _chatCtrl =
       StreamController<PartyChatMessage>.broadcast();
@@ -81,15 +97,26 @@ class WatchPartyService with WidgetsBindingObserver {
   // ---------------------------------------------------------------------------
 
   /// REST create → connect → join (join emitted on the `connect` event).
-  Future<PartyRoom> createParty({PartyContent? content}) async {
+  Future<PartyRoom> createParty({
+    PartyContent? content,
+    int? maxMembers,
+    bool? onlyHostControls,
+    bool? waitForAll,
+  }) async {
     // New session gets a fresh one-shot handshake recovery.
     _handshakeRetried = false;
-    final body = await remote.createParty(content: content);
+    final body = await remote.createParty(
+      content: content,
+      maxMembers: maxMembers,
+      onlyHostControls: onlyHostControls,
+      waitForAll: waitForAll,
+    );
     final rawParty = body['party'];
     final partyJson =
         rawParty is Map ? Map<String, dynamic>.from(rawParty) : body;
     final room = PartyRoom.fromRest(partyJson);
     _currentCode = room.code;
+    _resetSession();
     state.value = state.value.copyWith(
       room: room,
       phase: PartyPhase.joining,
@@ -111,6 +138,7 @@ class WatchPartyService with WidgetsBindingObserver {
   Future<void> joinParty(String code) async {
     // New session gets a fresh one-shot handshake recovery.
     _handshakeRetried = false;
+    if (_currentCode != code) _resetSession();
     _currentCode = code;
     state.value = state.value.copyWith(
       phase: PartyPhase.joining,
@@ -138,7 +166,9 @@ class WatchPartyService with WidgetsBindingObserver {
       _socket.emit('party:leave', <String, dynamic>{'code': code});
     }
     _currentCode = null;
+    _stopPing();
     _socket.disconnect();
+    _resetSession();
     state.value = PartyState.empty;
   }
 
@@ -154,15 +184,115 @@ class WatchPartyService with WidgetsBindingObserver {
       rethrow;
     } finally {
       _currentCode = null;
+      _stopPing();
       _socket.disconnect();
+      _resetSession();
       state.value = PartyState.empty;
     }
   }
 
-  Future<void> invite(String userId) async {
+  /// Host-only push invite. Returns the seconds until [userId] can be invited
+  /// again; throws [PartyInviteCooldown] when they still are cooling down.
+  Future<int> invite(String userId) async {
     final code = _currentCode ?? state.value.code;
-    if (code == null) return;
-    await remote.invite(code, userId);
+    if (code == null) return 0;
+    return remote.invite(code, userId);
+  }
+
+  /// The caller's invite cooldowns as `[{userId, retryAfterSec}]`.
+  Future<List<dynamic>> inviteCooldowns() async {
+    final code = _currentCode ?? state.value.code;
+    if (code == null) return const <dynamic>[];
+    return remote.inviteStatus(code);
+  }
+
+  /// Host-only. Only the fields given change; the server clamps [maxMembers].
+  void updateSettings({
+    int? maxMembers,
+    bool? onlyHostControls,
+    bool? locked,
+    bool? waitForAll,
+  }) {
+    if (!_canEmit) return;
+    _socket.emit('party:settings', <String, dynamic>{
+      'code': _currentCode,
+      'maxMembers': ?maxMembers,
+      'onlyHostControls': ?onlyHostControls,
+      'locked': ?locked,
+      'waitForAll': ?waitForAll,
+    });
+  }
+
+  /// Host-only: removes [userId] and keeps them out of this room.
+  void kick(String userId) {
+    if (!_canEmit) return;
+    _socket.emit('party:kick', <String, dynamic>{
+      'code': _currentCode,
+      'userId': userId,
+    });
+  }
+
+  /// Host-only: hands the host role to [userId].
+  void transferHost(String userId) {
+    if (!_canEmit) return;
+    _socket.emit('party:transfer', <String, dynamic>{
+      'code': _currentCode,
+      'userId': userId,
+    });
+  }
+
+  /// Tells the room whether this device's player is stalled. Sent only on
+  /// change.
+  void reportBuffering(bool buffering) {
+    if (!_canEmit || _reportedBuffering == buffering) return;
+    _reportedBuffering = buffering;
+    _socket.emit('party:buffering', <String, dynamic>{
+      'code': _currentCode,
+      'buffering': buffering,
+    });
+  }
+
+  /// Host side of "wait for everyone", run from the player's tick. Drives the
+  /// local player through [pause]/[play] and tells the room. Returns true when
+  /// it has just paused.
+  bool waitForAllTick({
+    required bool localPlaying,
+    required double positionSec,
+    required void Function() pause,
+    required void Function() play,
+  }) {
+    final s = state.value;
+    final action = waitPolicy.tick(
+      enabled: s.room?.waitForAll ?? false,
+      isHost: s.isHost && s.inParty,
+      localPlaying: localPlaying,
+      bufferingSince: othersBufferingSince(),
+      now: DateTime.now(),
+    );
+    switch (action) {
+      case PartyWaitAction.pause:
+        pause();
+        sendControl(action: 'pause', positionSec: positionSec);
+        return true;
+      case PartyWaitAction.resume:
+        play();
+        sendControl(action: 'play', positionSec: positionSec);
+        return false;
+      case PartyWaitAction.none:
+        return false;
+    }
+  }
+
+  /// When each OTHER online member started buffering.
+  Iterable<DateTime> othersBufferingSince() {
+    final me = _myUserId;
+    final online = <String>{
+      for (final m in state.value.room?.members ?? const <PartyMember>[])
+        if (m.online) m.userId,
+    };
+    return _bufferingSince.entries
+        .where((e) => e.key != me && online.contains(e.key))
+        .map((e) => e.value);
   }
 
   void sendControl({required String action, double? positionSec, double? rate}) {
@@ -209,22 +339,22 @@ class WatchPartyService with WidgetsBindingObserver {
         'clientId': clientId,
       });
     }
+    final me = hive.getUser();
+    final local = PartyChatMessage(
+      userId: _myUserId ?? '',
+      username: me?.username ?? me?.displayName,
+      photoURL: me?.photoURL,
+      text: capped,
+      ts: DateTime.now().millisecondsSinceEpoch,
+    );
+    _appendLog(local);
     // Optimistic local echo: show instantly instead of waiting for the server
     // round-trip (which can be slow on a distant server), and — crucially —
     // render the sender's own message even during a brief reconnect so it never
     // looks like the chat is dead. The server echoes our clientId back; _onChat
     // suppresses only the matching pending entry on THIS device, so a second
     // device on the same account still renders the message.
-    if (!_chatCtrl.isClosed) {
-      final me = hive.getUser();
-      _chatCtrl.add(PartyChatMessage(
-        userId: _myUserId ?? '',
-        username: me?.username ?? me?.displayName,
-        photoURL: me?.photoURL,
-        text: capped,
-        ts: DateTime.now().millisecondsSinceEpoch,
-      ));
-    }
+    if (!_chatCtrl.isClosed) _chatCtrl.add(local);
   }
 
   void sendReaction(String emoji) {
@@ -292,10 +422,73 @@ class WatchPartyService with WidgetsBindingObserver {
     _socket.on('party:reaction', _onReaction);
     _socket.on('party:closed', _onClosed);
     _socket.on('party:error', _onErrorEvent);
+    _socket.on('party:settings', _onSettings);
+    _socket.on('party:system', _onSystem);
+    _socket.on('party:buffering', _onBuffering);
+    _socket.on('party:pong', _onPong);
+  }
+
+  void _resetSession() {
+    chatLog.value = const <PartyChatMessage>[];
+    _bufferingSince.clear();
+    _reportedBuffering = null;
+    waitPolicy.release();
+    clock.reset();
+  }
+
+  void _startPing() {
+    _pingTimer?.cancel();
+    _ping();
+    _pingTimer = Timer.periodic(_pingPeriod, (_) => _ping());
+  }
+
+  void _stopPing() {
+    _pingTimer?.cancel();
+    _pingTimer = null;
+  }
+
+  void _ping() {
+    if (!_socket.connected) return;
+    _socket.emit('party:ping', <String, dynamic>{
+      't0': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  void _appendLog(PartyChatMessage msg) {
+    final next = <PartyChatMessage>[...chatLog.value, msg];
+    chatLog.value = next.length > _chatLogMax
+        ? next.sublist(next.length - _chatLogMax)
+        : next;
+  }
+
+  /// [pb] re-based from "when it arrived" to "when the server meant it".
+  PartyPlayback _aligned(PartyPlayback pb, Map<String, dynamic> json) =>
+      PartyPlayback(
+        positionSec: pb.positionSec,
+        isPlaying: pb.isPlaying,
+        rate: pb.rate,
+        receivedAt: clock.align(
+          serverTime: (json['serverTime'] as num?)?.toInt(),
+          receivedAt: pb.receivedAt,
+        ),
+      );
+
+  void _syncBuffering(List<PartyMember> members) {
+    final now = DateTime.now();
+    final buffering = <String>{
+      for (final m in members)
+        if (m.online && m.buffering) m.userId,
+    };
+    _bufferingSince.removeWhere((id, _) => !buffering.contains(id));
+    for (final id in buffering) {
+      _bufferingSince.putIfAbsent(id, () => now);
+    }
   }
 
   void _handleConnect() {
     _handshakeRetried = false;
+    _reportedBuffering = null;
+    _startPing();
     state.value = state.value.copyWith(connection: PartyConnection.connected);
     // Room membership is bound to the socket — (re)join after every connect.
     final code = _currentCode;
@@ -325,6 +518,7 @@ class WatchPartyService with WidgetsBindingObserver {
 
   void _handleDisconnect() {
     if (_disposed) return;
+    _stopPing();
     if (_currentCode != null && state.value.phase != PartyPhase.closed) {
       // socket.io will auto-reconnect; reflect that in the UI.
       state.value =
@@ -339,7 +533,18 @@ class WatchPartyService with WidgetsBindingObserver {
   void _onState(dynamic d) {
     final j = _asMap(d);
     if (j == null) return;
-    final room = PartyRoom.fromSnapshot(j);
+    var room = PartyRoom.fromSnapshot(j);
+    final pbJson = _asMap(j['playback']);
+    if (pbJson != null) {
+      room = room.copyWith(playback: _aligned(room.playback, pbJson));
+    }
+    if (j.containsKey('chat')) {
+      final history = PartyChatMessage.listFrom(j['chat']);
+      chatLog.value = history.length > _chatLogMax
+          ? history.sublist(history.length - _chatLogMax)
+          : history;
+    }
+    _syncBuffering(room.members);
     state.value = state.value.copyWith(
       room: room,
       phase: PartyPhase.inRoom,
@@ -354,7 +559,10 @@ class WatchPartyService with WidgetsBindingObserver {
     if (j == null) return;
     final pbJson = _asMap(j['playback']);
     if (pbJson == null) return;
-    final pb = PartyPlayback.fromJson(pbJson, receivedAt: DateTime.now());
+    final pb = _aligned(
+      PartyPlayback.fromJson(pbJson, receivedAt: DateTime.now()),
+      pbJson,
+    );
     final room = state.value.room;
     if (room != null) {
       state.value = state.value.copyWith(room: room.copyWith(playback: pb));
@@ -370,7 +578,10 @@ class WatchPartyService with WidgetsBindingObserver {
         contentJson != null ? PartyContent.fromJson(contentJson) : null;
     final pbJson = _asMap(j['playback']);
     final pb = pbJson != null
-        ? PartyPlayback.fromJson(pbJson, receivedAt: DateTime.now())
+        ? _aligned(
+            PartyPlayback.fromJson(pbJson, receivedAt: DateTime.now()),
+            pbJson,
+          )
         : null;
     final room = state.value.room;
     if (room != null) {
@@ -387,6 +598,7 @@ class WatchPartyService with WidgetsBindingObserver {
     if (j == null) return;
     final members = PartyMember.listFrom(j['members']);
     final hostUserId = j['hostUserId'] as String?;
+    _syncBuffering(members);
     final room = state.value.room;
     if (room != null) {
       state.value = state.value.copyWith(
@@ -410,7 +622,58 @@ class WatchPartyService with WidgetsBindingObserver {
       // Legacy fallback for a server that doesn't echo the clientId.
       return;
     }
+    _appendLog(msg);
     if (!_chatCtrl.isClosed) _chatCtrl.add(msg);
+  }
+
+  void _onSystem(dynamic d) {
+    final j = _asMap(d);
+    if (j == null) return;
+    final msg = PartyChatMessage.tryParse(j);
+    if (msg == null || !msg.isSystem) return;
+    _appendLog(msg);
+  }
+
+  void _onSettings(dynamic d) {
+    final j = _asMap(d);
+    final room = state.value.room;
+    if (j == null || room == null) return;
+    final settings = _asMap(j['settings']) ?? const <String, dynamic>{};
+    state.value = state.value.copyWith(
+      room: room.copyWith(
+        onlyHostControls: settings['onlyHostControls'] as bool?,
+        locked: settings['locked'] as bool?,
+        waitForAll: settings['waitForAll'] as bool?,
+        maxMembers: (j['maxMembers'] as num?)?.toInt(),
+        maxMembersLimit: (j['maxMembersLimit'] as num?)?.toInt(),
+      ),
+    );
+  }
+
+  void _onBuffering(dynamic d) {
+    final j = _asMap(d);
+    final room = state.value.room;
+    final userId = j?['userId'] as String?;
+    if (j == null || room == null || userId == null) return;
+    final buffering = j['buffering'] == true;
+    final members = [
+      for (final m in room.members)
+        m.userId == userId ? m.copyWith(buffering: buffering) : m,
+    ];
+    _syncBuffering(members);
+    state.value = state.value.copyWith(room: room.copyWith(members: members));
+  }
+
+  void _onPong(dynamic d) {
+    final j = _asMap(d);
+    final t0 = (j?['t0'] as num?)?.toInt();
+    final serverTime = (j?['serverTime'] as num?)?.toInt();
+    if (t0 == null || serverTime == null) return;
+    clock.add(
+      sentAt: t0,
+      serverTime: serverTime,
+      receivedAt: DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   void _onReaction(dynamic d) {
@@ -435,6 +698,7 @@ class WatchPartyService with WidgetsBindingObserver {
       closedReason: reason,
     );
     _currentCode = null;
+    _stopPing();
     _socket.disconnect();
   }
 
@@ -494,9 +758,11 @@ class WatchPartyService with WidgetsBindingObserver {
 
   void dispose() {
     _disposed = true;
+    _stopPing();
     WidgetsBinding.instance.removeObserver(this);
     _socket.dispose();
     state.dispose();
+    chatLog.dispose();
     _chatCtrl.close();
     _reactionCtrl.close();
     _contentCtrl.close();

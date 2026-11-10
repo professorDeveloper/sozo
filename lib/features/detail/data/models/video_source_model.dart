@@ -17,6 +17,8 @@ class VideoSourceModel extends VideoSourceEntity {
     super.rawLabel,
     super.warnings,
     super.useLocalProxy,
+    super.dropSegments,
+    super.hardsub,
     super.type,
     super.headers,
     super.localProxy,
@@ -31,7 +33,9 @@ class VideoSourceModel extends VideoSourceEntity {
       quality: json['quality'] as String? ?? '',
       videoUrl: json['videoUrl'] as String? ?? '',
       isDefault: json['isDefault'] as bool? ?? false,
-      accessible: json['accessible'] as bool? ?? false,
+      // False only when a probe refused it. Providers do not probe, and reading
+      // absent as false left SourceLadder with nothing to walk.
+      accessible: json['accessible'] as bool? ?? true,
       // All optional and all absent from older providers, so every one falls
       // back to "not stated" rather than to a guess — a source that does not
       // say it is Dolby Vision must not be labelled as anything.
@@ -44,6 +48,8 @@ class VideoSourceModel extends VideoSourceEntity {
       rawLabel: _nonEmpty(json['rawLabel'] as String?),
       warnings: _stringList(json['warnings']),
       useLocalProxy: json['useLocalProxy'] as bool? ?? false,
+      dropSegments: _nonEmpty(json['dropSegments'] as String?),
+      hardsub: _nonEmpty(json['hardsub'] as String?),
       type: typeRaw == null || typeRaw.isEmpty ? null : typeRaw.toLowerCase(),
       headers: _parseHeaders(json['headers']),
       localProxy: _parseDynamicMap(json['localProxy']),

@@ -15,21 +15,85 @@ import 'package:soplay/features/my_list/data/private_list_service.dart';
 class HistoryService {
   final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
-  Box get _box => Hive.box(ProfileScope.box(AppConstants.historyBox));
+  /// Decoded rows, keyed by box key and reused while the stored string is the
+  /// same instance. Hive keeps values in memory, so an unchanged row hands back
+  /// the identical string and its decode can be skipped.
+  final Map<dynamic, (String, HistoryItem)> _decoded = {};
+
+  /// The last [getAll] result, dropped on any change to the box.
+  List<HistoryItem>? _sorted;
+  Box? _watched;
+  StreamSubscription<BoxEvent>? _watch;
+
+  Box get _box {
+    final box = Hive.box(ProfileScope.box(AppConstants.historyBox));
+    if (!identical(box, _watched)) {
+      // A profile switch or a reopened box: nothing cached describes it.
+      _watch?.cancel();
+      _watched = box;
+      _invalidate();
+      _watch = box.watch().listen((event) {
+        _decoded.remove(event.key);
+        _sorted = null;
+      });
+    }
+    return box;
+  }
+
+  void _invalidate([Object? key]) {
+    if (key == null) {
+      _decoded.clear();
+    } else {
+      _decoded.remove(key);
+    }
+    _sorted = null;
+  }
+
+  /// Decode count, for tests.
+  @visibleForTesting
+  int decodes = 0;
+
+  HistoryItem? _decode(Object? key, Object? raw) {
+    if (raw is! String) return null;
+    final hit = _decoded[key];
+    if (hit != null && identical(hit.$1, raw)) return hit.$2;
+    try {
+      decodes++;
+      final item = HistoryItem.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      _decoded[key] = (raw, item);
+      return item;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// How many rows are stored, without decoding any of them. The box also
+  /// holds the manga reader's chapter marks, which are not rows.
+  int get count {
+    final box = _box;
+    final cached = _sorted;
+    if (cached != null) return cached.length;
+    var n = 0;
+    for (final key in box.keys) {
+      if (key is String && key.startsWith(_chapterMarkPrefix)) continue;
+      n++;
+    }
+    return n;
+  }
+
+  static const _chapterMarkPrefix = 'chapters_read:';
 
   List<HistoryItem> getAll() {
+    final box = _box;
+    final cached = _sorted;
+    if (cached != null) return List.of(cached);
     final items = <HistoryItem>[];
-    for (final key in _box.keys) {
-      try {
-        final raw = _box.get(key);
-        if (raw is String) {
-          items.add(
-            HistoryItem.fromJson(jsonDecode(raw) as Map<String, dynamic>),
-          );
-        }
-      } catch (_) {}
+    for (final key in box.keys) {
+      final item = _decode(key, box.get(key));
+      if (item != null) items.add(item);
     }
     items.sort((a, b) => b.watchedAt.compareTo(a.watchedAt));
+    _sorted = List.unmodifiable(items);
     return items;
   }
 
@@ -40,12 +104,10 @@ class HistoryService {
       episodeIndex: episodeIndex,
       episodeNumber: episodeNumber,
     );
-    final raw = _box.get(key) ?? _box.get(contentUrl);
-    if (raw is String) {
-      try {
-        return HistoryItem.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-      } catch (_) {}
-    }
+    final box = _box;
+    final direct =
+        _decode(key, box.get(key)) ?? _decode(contentUrl, box.get(contentUrl));
+    if (direct != null) return direct;
     if (episodeIndex == null && episodeNumber == null) {
       return _getLatestForContent(contentUrl);
     }
@@ -55,18 +117,14 @@ class HistoryService {
   HistoryItem? _getLatestForContent(String contentUrl) {
     final prefix = '$contentUrl::episode::';
     HistoryItem? latest;
-    for (final key in _box.keys) {
+    final box = _box;
+    for (final key in box.keys) {
       if (key is! String || !key.startsWith(prefix)) continue;
-      try {
-        final raw = _box.get(key);
-        if (raw is! String) continue;
-        final item = HistoryItem.fromJson(
-          jsonDecode(raw) as Map<String, dynamic>,
-        );
-        if (latest == null || item.watchedAt > latest.watchedAt) {
-          latest = item;
-        }
-      } catch (_) {}
+      final item = _decode(key, box.get(key));
+      if (item == null) continue;
+      if (latest == null || item.watchedAt > latest.watchedAt) {
+        latest = item;
+      }
     }
     return latest;
   }
@@ -106,7 +164,9 @@ class HistoryService {
         getIt<PrivateListService>().contains(item.contentUrl)) {
       return;
     }
+    _invalidate(item.storageKey);
     await _box.put(item.storageKey, jsonEncode(item.toJson()));
+    _invalidate(item.storageKey);
     await _trimIfNeeded();
     if (notify) {
       _quietPending = false;
@@ -118,15 +178,7 @@ class HistoryService {
 
   /// Reads a row back so a delete can be described to the server before the
   /// local copy is gone.
-  HistoryItem? _read(String key) {
-    final raw = _box.get(key);
-    if (raw is! String) return null;
-    try {
-      return HistoryItem.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    } catch (_) {
-      return null;
-    }
-  }
+  HistoryItem? _read(String key) => _decode(key, _box.get(key));
 
   /// Deleting locally is only half of it: the row also exists on the account,
   /// and until the server is told, signing out and back in simply downloads it
@@ -147,6 +199,7 @@ class HistoryService {
     final item = _read(key);
     if (item != null) await _rememberDeleted([item]);
     await _box.delete(key);
+    _invalidate(key);
     revision.value++;
   }
 
@@ -160,6 +213,7 @@ class HistoryService {
     );
     for (final k in keys) {
       await _box.delete(k);
+      _invalidate(k);
     }
     if (keys.isNotEmpty) revision.value++;
   }
@@ -172,6 +226,7 @@ class HistoryService {
   /// for each one into whichever account signs in next.
   Future<void> clearLocalOnly() async {
     await _box.clear();
+    _invalidate();
     revision.value++;
   }
 
@@ -182,6 +237,7 @@ class HistoryService {
       unawaited(sync.sync());
     }
     await _box.clear();
+    _invalidate();
     revision.value++;
   }
 
@@ -203,6 +259,7 @@ class HistoryService {
     ]);
     for (final key in doomed) {
       await _box.delete(key);
+      _invalidate(key);
     }
   }
 }

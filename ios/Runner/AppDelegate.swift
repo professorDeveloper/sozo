@@ -68,6 +68,12 @@ import UIKit
     // contract as the Android host, so the Flutter side is platform-agnostic.
     RepoFileImport.register(messenger: registrar.messenger())
     SystemControls.register(with: registrar)
+    GlassSense.register(with: registrar)
+    // The hosted glass surface (lib/core/glass/native_glass.dart) is a
+    // platform view, so its factory has to be registered on the registrar
+    // and not only on the method channel GlassSense owns.
+    NativeGlass.register(with: registrar)
+    NativePlayerBar.register(with: registrar)
     NativePip.register(messenger: registrar.messenger())
 
     let previewChannel = FlutterMethodChannel(

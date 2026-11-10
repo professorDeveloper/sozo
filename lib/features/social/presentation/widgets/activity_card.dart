@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
+import 'package:soplay/features/progress/presentation/widgets/user_badge_line.dart';
 import 'package:soplay/features/social/domain/social_models.dart';
 import 'package:soplay/features/social/presentation/widgets/social_widgets.dart';
 import 'package:soplay/features/achievements/domain/achievements.dart';
@@ -257,6 +258,7 @@ class _ActorLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final level = actor.decoration?.level ?? 0;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => context.push('/u/${Uri.encodeComponent(actor.username)}'),
@@ -270,11 +272,21 @@ class _ActorLine extends StatelessWidget {
                 children: [
                   TextSpan(
                     text: actor.name,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
+                    style: TextStyle(
+                      color:
+                          Cosmetics.nameColor(actor.decoration?.nameColor) ??
+                          AppColors.textPrimary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+                  if (level > 0)
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsetsDirectional.only(start: 5),
+                        child: LevelChip(level: level, fontSize: 9),
+                      ),
+                    ),
                   TextSpan(text: ' $verb'),
                 ],
               ),

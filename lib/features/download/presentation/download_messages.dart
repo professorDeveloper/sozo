@@ -1,10 +1,12 @@
 import 'package:easy_localization/easy_localization.dart';
 
+import 'package:soplay/features/download/domain/entities/download_failure.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/download/domain/entities/download_kind.dart';
 import 'package:soplay/features/download/domain/entities/download_location.dart';
 import 'package:soplay/features/download/domain/entities/download_status.dart';
 import 'package:soplay/features/download/domain/repositories/download_repository.dart';
+import 'package:soplay/features/download/domain/usecases/download_request_builder.dart';
 
 /// What to say after asking for a download.
 ///
@@ -19,6 +21,20 @@ String downloadOutcomeMessage(EnqueueOutcome outcome) => switch (outcome) {
       EnqueueOutcome.notDownloadable =>
         'detail.download_needs_playback'.tr(),
       EnqueueOutcome.refused => 'detail.download_needs_permission'.tr(),
+    };
+
+/// What to say when an episode could not be turned into a download.
+///
+/// A web page gets the same sentence a row that failed on one shows, at tap
+/// time instead of minutes later in the list.
+String downloadBuildFailureMessage(DownloadBuildFailure failure) =>
+    switch (failure) {
+      DownloadBuildFailure.needsPlayback =>
+        'detail.download_needs_playback'.tr(),
+      DownloadBuildFailure.webPage =>
+        DownloadFailureKind.notMedia.messageKey.tr(),
+      DownloadBuildFailure.resolveFailed ||
+      DownloadBuildFailure.pagesFailed => 'detail.download_resolve_failed'.tr(),
     };
 
 /// The one-line state of a row, in the viewer's language.

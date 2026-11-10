@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/navigation/app_tab.dart';
@@ -29,11 +31,10 @@ class MyListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) =>
-          MyListBloc(
-            useCase: getIt<GetFavoritesUseCase>(),
-            private: getIt<PrivateListService>(),
-          )..add(const MyListLoad()),
+      create: (_) => MyListBloc(
+        useCase: getIt<GetFavoritesUseCase>(),
+        private: getIt<PrivateListService>(),
+      )..add(const MyListLoad()),
       child: const _MyListView(),
     );
   }
@@ -53,6 +54,28 @@ class _MyListViewState extends State<_MyListView>
   late final NavController _navController;
   late final MyListLocalDataSource _localFavorites;
   late final PrivateListService _privateFavorites;
+
+  static const _sortKey = 'my_list_sort';
+  MyListSort _sort = MyListSort.parse(_settings?.get(_sortKey));
+
+  static Box? get _settings => Hive.isBoxOpen(AppConstants.settingsBox)
+      ? Hive.box(AppConstants.settingsBox)
+      : null;
+
+  void _setSort(MyListSort sort) {
+    setState(() => _sort = sort);
+    unawaited(_settings?.put(_sortKey, sort.name));
+  }
+
+  /// [items] in the picked order. They arrive newest-added first.
+  List<FavoriteEntity> _sorted(List<FavoriteEntity> items) => switch (_sort) {
+    MyListSort.added => items,
+    MyListSort.oldest => items.reversed.toList(),
+    MyListSort.title =>
+      items.toList()..sort(
+        (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      ),
+  };
 
   @override
   bool get wantKeepAlive => true;
@@ -128,7 +151,10 @@ class _MyListViewState extends State<_MyListView>
   }
 
   void _openDetail(FavoriteEntity item) {
-    context.push('/detail', extra: DetailArgs(contentUrl: item.contentUrl, provider: item.provider));
+    context.push(
+      '/detail',
+      extra: DetailArgs(contentUrl: item.contentUrl, provider: item.provider),
+    );
   }
 
   @override
@@ -171,6 +197,8 @@ class _MyListViewState extends State<_MyListView>
                 topPad: topPad,
                 blurProgress: blur,
                 onRefresh: _refresh,
+                sort: _sort,
+                onSort: _setSort,
               ),
             ),
           ),
@@ -182,23 +210,24 @@ class _MyListViewState extends State<_MyListView>
   Widget _buildBody(MyListState state, double bottomPad) {
     return switch (state) {
       MyListInitial() || MyListLoading() => const MyListSkeleton(),
-      MyListLoaded(:final items) =>
-        items.isEmpty
-            ? const SliverFillRemaining(
-                hasScrollBody: false,
-                child: MyListEmptyView(),
-              )
-            : SliverPadding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPad + 96),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 142,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 0.56,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, i) {
+      MyListLoaded(items: final loaded) => switch (_sorted(loaded)) {
+        final items =>
+          items.isEmpty
+              ? const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: MyListEmptyView(),
+                )
+              : SliverPadding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPad + 96),
+                  sliver: SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 142,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 10,
+                          childAspectRatio: 0.56,
+                        ),
+                    delegate: SliverChildBuilderDelegate((context, i) {
                       final item = items[i];
                       return ItemAppear(
                         index: i,
@@ -216,11 +245,10 @@ class _MyListViewState extends State<_MyListView>
                           onTap: () => _openDetail(item),
                         ),
                       );
-                    },
-                    childCount: items.length,
+                    }, childCount: items.length),
                   ),
                 ),
-              ),
+      },
       MyListUnauthorized() => SliverFillRemaining(
         hasScrollBody: false,
         child: MyListUnauthorizedView(onLogin: () => context.push('/login')),

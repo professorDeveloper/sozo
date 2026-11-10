@@ -158,8 +158,12 @@ extension _PlayerSubtitles on _PlayerPageState {
         _toast('player.subtitle_failed_download'.tr());
         return null;
       }
+      var bytes = response.data ?? const <int>[];
+      final cipher = sub.cipher;
+      if (cipher != null) bytes = await cipher.decryptBytes(bytes);
+      if (!mounted) return null;
       result = parseSubtitleBytes(
-        response.data ?? const <int>[],
+        bytes,
         url: sub.file,
         declaredFormat: declaredFormat,
       );
@@ -239,91 +243,66 @@ extension _PlayerSubtitles on _PlayerPageState {
   }
 
   void _openSubtitleSheet() {
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    _showSheet<void>(
       builder: (sheetContext) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.subtitles_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'player.subtitles'.tr(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(color: Colors.white12, height: 1),
-              _OptionTile(
-                label: 'player.off'.tr(),
-                selected:
-                    _activeSubtitleIndex == -1 &&
-                    _controller?.activeSubtitleTrackId == null,
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _disableSubtitle();
-                },
-              ),
-              // The stream's own tracks — an MKV's, an HLS master's. They
-              // were drawn by the engine in a fixed style, could not be turned
-              // off, and never appeared here.
-              for (final track
-                  in _controller?.subtitleTracks ??
-                      const <PlayerSubtitleTrack>[])
+              ..._sheetHead(Icons.subtitles_rounded, 'player.subtitles'.tr()),
+              ..._sheetGroup([
                 _OptionTile(
-                  label: track.hasMetadata
-                      ? track.label
-                      : 'player.subtitle_n'.tr(args: ['${track.ordinal}']),
-                  subtitle: 'player.subtitle_in_video'.tr(),
+                  label: 'player.off'.tr(),
                   selected:
                       _activeSubtitleIndex == -1 &&
-                      _controller?.activeSubtitleTrackId == track.id,
+                      _controller?.activeSubtitleTrackId == null,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _selectEmbeddedSubtitle(track);
+                    _disableSubtitle();
                   },
                 ),
-              for (var i = 0; i < _subtitles.length; i++)
-                _OptionTile(
-                  label: _subtitles[i].label,
-                  // Named only when it IS the second track, so the row reads
-                  // normally for everyone who never uses this.
-                  subtitle: i == _secondarySubtitleIndex
-                      ? 'player.second_track'.tr()
-                      : null,
-                  selected: i == _activeSubtitleIndex,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _loadSubtitle(i);
-                  },
-                  // Long-press adds it as a SECOND track rather than replacing
-                  // the first — the two languages side by side, which is what
-                  // somebody learning one of them is here for. A separate
-                  // picker would have been a second list of the same tracks.
-                  onLongPress: () {
-                    Navigator.of(sheetContext).pop();
-                    _toggleSecondarySubtitle(i);
-                  },
-                ),
+                // The stream's own tracks — an MKV's, an HLS master's. They
+                // were drawn by the engine in a fixed style, could not be turned
+                // off, and never appeared here.
+                for (final track
+                    in _controller?.subtitleTracks ??
+                        const <PlayerSubtitleTrack>[])
+                  _OptionTile(
+                    label: track.hasMetadata
+                        ? track.label
+                        : 'player.subtitle_n'.tr(args: ['${track.ordinal}']),
+                    subtitle: 'player.subtitle_in_video'.tr(),
+                    selected:
+                        _activeSubtitleIndex == -1 &&
+                        _controller?.activeSubtitleTrackId == track.id,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _selectEmbeddedSubtitle(track);
+                    },
+                  ),
+                for (var i = 0; i < _subtitles.length; i++)
+                  _OptionTile(
+                    label: _subtitles[i].label,
+                    // Named only when it IS the second track, so the row reads
+                    // normally for everyone who never uses this.
+                    subtitle: i == _secondarySubtitleIndex
+                        ? 'player.second_track'.tr()
+                        : null,
+                    selected: i == _activeSubtitleIndex,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _loadSubtitle(i);
+                    },
+                    // Long-press adds it as a SECOND track rather than replacing
+                    // the first — the two languages side by side, which is what
+                    // somebody learning one of them is here for. A separate
+                    // picker would have been a second list of the same tracks.
+                    onLongPress: () {
+                      Navigator.of(sheetContext).pop();
+                      _toggleSecondarySubtitle(i);
+                    },
+                  ),
+              ]),
               // Otherwise the gesture is undiscoverable: nothing on a list of
               // track names suggests that holding one does something else.
               if (_subtitles.length > 1)
@@ -509,37 +488,6 @@ extension _PlayerSubtitles on _PlayerPageState {
     );
   }
 
-  void _toast(String message, {IconData icon = Icons.info_outline_rounded}) {
-    if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.clearSnackBars();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, size: 18, color: AppColors.primaryLight),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(fontSize: 13, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF1C1C1E),
-        behavior: SnackBarBehavior.floating,
-        elevation: 8,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   /// TMDB id + type parsed from the content url, for finding and publishing
   /// translations by the media they belong to.
   ({String id, String type})? _tmdbRef() {
@@ -654,13 +602,7 @@ extension _PlayerSubtitles on _PlayerPageState {
       text: widget.args.title.replaceAll(RegExp(r'\(.*?\)'), '').trim(),
     );
 
-    await showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    await _showSheet<void>(
       desktopMaxWidth: 520,
       builder: (sheetCtx) {
         var started = false;
@@ -711,6 +653,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                   isSerial: widget.args.isSerial,
                   season: _currentSeasonNumber(),
                   episode: _currentEpisodeNumber(),
+                  want: _hive.getSubtitleTranslateLang(),
                 );
                 if (!ctx.mounted) return;
                 setSheet(() {
@@ -1010,6 +953,8 @@ extension _PlayerSubtitles on _PlayerPageState {
       'de': 'Deutsch',
       'fr': 'Français',
       'es': 'Español',
+      'vi': 'Tiếng Việt',
+      'hi': 'हिन्दी',
     };
     return map[code.toLowerCase()] ?? code.toUpperCase();
   }
@@ -1119,6 +1064,8 @@ extension _PlayerSubtitles on _PlayerPageState {
       'dut': 'nl',
       'pol': 'pl',
       'ind': 'id',
+      'vie': 'vi',
+      'hin': 'hi',
     };
     return map[code];
   }
@@ -1136,6 +1083,12 @@ extension _PlayerSubtitles on _PlayerPageState {
   Future<void> _maybeAutoTranslate() async {
     final target = _hive.getSubtitleTranslateLang();
     if (target.isEmpty || _isLive || _autoTranslateDone) return;
+    // Already in the picture: a second copy would be drawn over the first.
+    final playing =
+        _currentSourceIndex >= 0 && _currentSourceIndex < _videoSources.length
+        ? _videoSources[_currentSourceIndex]
+        : null;
+    if (playing?.hardsub?.toLowerCase() == target.toLowerCase()) return;
     // Already readable. Checked before the network call, not after — the
     // common case must cost nothing.
     if (SubtitleAutoTranslate.anyMatches(
@@ -1197,6 +1150,7 @@ extension _PlayerSubtitles on _PlayerPageState {
         isSerial: widget.args.isSerial,
         season: _currentSeasonNumber(),
         episode: _currentEpisodeNumber(),
+        want: _hive.getSubtitleTranslateLang(),
       );
     } catch (_) {
       if (mounted) _toast('player.translate_failed'.tr());
@@ -1206,6 +1160,15 @@ extension _PlayerSubtitles on _PlayerPageState {
     if (results.isEmpty) {
       _toast('player.no_subtitles_found'.tr());
       return;
+    }
+    // Somebody's own subtitle in the wanted language beats a machine's copy of
+    // an English one, and costs no allowance.
+    final target = _hive.getSubtitleTranslateLang();
+    for (final r in results) {
+      if (SubtitleAutoTranslate.labelMatchesLanguage(r.language, target)) {
+        await _applyOnlineSubtitle(r);
+        return;
+      }
     }
     // Prefer an English source — it is what the providers carry most of and
     // what the models translate best.
@@ -1352,8 +1315,10 @@ extension _PlayerSubtitles on _PlayerPageState {
       }
     } catch (e) {
       _plog('subtitle translate error: $e', level: LogLevel.warn);
+      // Past the first slice the track stays, and the rest of the file is still
+      // in the source language, which the viewer should not have to discover.
+      if (mounted) _toast('player.translate_failed'.tr());
       if (mounted && applied == 0) {
-        _toast('player.translate_failed'.tr());
         // The same cleanup the limit branch does, which this one did not.
         //
         // The track is seeded with a COPY OF THE SOURCE so cues can be filled
@@ -1434,13 +1399,7 @@ extension _PlayerSubtitles on _PlayerPageState {
   ];
 
   void _openSubtitleSyncSheet() {
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    _showSheet<void>(
       desktopMaxWidth: 460,
       builder: (sheetContext) {
         return StatefulBuilder(
@@ -1676,13 +1635,7 @@ extension _PlayerSubtitles on _PlayerPageState {
   }
 
   void _openSubtitleAppearanceSheet() {
-    showAdaptiveModal<void>(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    _showSheet<void>(
       desktopMaxWidth: 520,
       builder: (sheetContext) {
         return StatefulBuilder(

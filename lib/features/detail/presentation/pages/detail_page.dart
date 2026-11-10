@@ -3,6 +3,7 @@ import 'package:soplay/core/content/content_mode.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_about_tab.dart';
 import 'package:soplay/core/content/catalogue.dart';
 import 'package:soplay/features/detail/domain/services/catalogue_resolver.dart';
+import 'package:soplay/features/download/presentation/download_messages.dart';
 import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
@@ -16,6 +17,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/widgets/star_prompt_banner.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
 import 'package:soplay/features/banners/presentation/widgets/banners_carousel.dart';
@@ -44,11 +46,17 @@ import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 import 'package:soplay/features/private_list/presentation/private_unlock.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:soplay/core/deeplink/deeplink_links.dart';
+import 'package:soplay/features/download/domain/repositories/download_repository.dart';
+import 'package:soplay/features/notifications/presentation/widgets/notification_priming.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_relations_tab.dart';
+import 'package:soplay/features/detail/domain/entities/source_notice.dart';
 import 'package:soplay/features/detail/presentation/widgets/alternate_source_sheet.dart';
+import 'package:soplay/features/detail/presentation/widgets/source_notice_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_cast_tab.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_comments_tab.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_tab_panes.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_hero.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_info.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_more_menu.dart';
@@ -66,7 +74,6 @@ import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
 import 'package:soplay/features/download/domain/usecases/enqueue_download_usecase.dart';
 import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
-import 'package:soplay/features/download/presentation/download_messages.dart';
 import 'package:soplay/features/download/presentation/widgets/offline_copy_banner.dart';
 import 'package:showcaseview/showcaseview.dart';
 import 'package:soplay/features/support/presentation/widgets/support_suggestion.dart';
@@ -108,6 +115,8 @@ class DetailPage extends StatelessWidget {
         provider: provider,
         autoPlay: args.autoPlay,
         resumeEpisodeIndex: args.resumeEpisodeIndex,
+        startEpisode: args.startEpisode,
+        startPositionMs: args.startPositionMs,
         preview: args.preview,
         heroTag: args.heroTag,
         focusEpisode: args.focusEpisode,
@@ -122,6 +131,8 @@ class _DetailScaffold extends StatelessWidget {
     this.provider,
     this.autoPlay = false,
     this.resumeEpisodeIndex,
+    this.startEpisode,
+    this.startPositionMs,
     this.preview,
     this.heroTag,
     this.focusEpisode,
@@ -130,6 +141,8 @@ class _DetailScaffold extends StatelessWidget {
   final String? provider;
   final bool autoPlay;
   final int? resumeEpisodeIndex;
+  final int? startEpisode;
+  final int? startPositionMs;
 
   /// What the caller already knew about this title — poster, name, year.
   /// Enough to draw the top of the page before the request lands.
@@ -147,6 +160,10 @@ class _DetailScaffold extends StatelessWidget {
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: AppColors.background,
+        bottomNavigationBar: const StarPromptBanner(
+          margin: EdgeInsets.fromLTRB(12, 0, 12, 12),
+          safeBottom: true,
+        ),
         body: BlocListener<DetailBloc, DetailState>(
           listenWhen: (prev, curr) {
             if (curr is! DetailLoaded) return false;
@@ -216,6 +233,8 @@ class _DetailScaffold extends StatelessWidget {
                         offline: offline,
                         autoPlay: autoPlay,
                         resumeEpisodeIndex: resumeEpisodeIndex,
+                        startEpisode: startEpisode,
+                        startPositionMs: startPositionMs,
                         heroTag: heroTag,
                         focusEpisode: focusEpisode,
                       );
@@ -276,6 +295,8 @@ class _DetailView extends StatefulWidget {
     this.offline = false,
     this.autoPlay = false,
     this.resumeEpisodeIndex,
+    this.startEpisode,
+    this.startPositionMs,
     this.heroTag,
     this.focusEpisode,
   });
@@ -292,6 +313,10 @@ class _DetailView extends StatefulWidget {
   final bool resolvingSource;
   final bool autoPlay;
   final int? resumeEpisodeIndex;
+
+  /// From a `/play` link. See [DetailArgs.startEpisode].
+  final int? startEpisode;
+  final int? startPositionMs;
   final String? heroTag;
 
   /// The new episode a release notification was about. See
@@ -358,6 +383,18 @@ class _DetailViewState extends State<_DetailView>
   /// this page is somebody choosing to browse.
   late bool _resumeOnOpen =
       widget.autoPlay && widget.resumeEpisodeIndex != null;
+
+  /// A `/play` link's place, spent by the first play it starts.
+  late int? _linkEpisode = widget.startEpisode;
+  late int? _linkPositionMs = widget.startPositionMs;
+
+  /// The link's position if one is still unspent, else [fallback].
+  Duration _startOr(Duration fallback) {
+    final ms = _linkPositionMs;
+    _linkPositionMs = null;
+    _linkEpisode = null;
+    return ms == null ? fallback : Duration(milliseconds: ms);
+  }
 
   @override
   void initState() {
@@ -430,9 +467,10 @@ class _DetailViewState extends State<_DetailView>
     unawaited(getIt<HiveService>().markPrivateShowcaseSeen());
   }
 
+  /// No setState: [DetailTabPanes] listens to the controller itself, and
+  /// rebuilding this page rebuilt the header and both bars on every switch.
   void _onTabChanged() {
     if (!_tabController.indexIsChanging) return;
-    if (mounted) setState(() {});
     _settleOnTabs();
   }
 
@@ -531,43 +569,26 @@ class _DetailViewState extends State<_DetailView>
     _ => tab,
   };
 
-  Widget _buildTabContent(DetailEntity detail) {
-    final tab = _tabs[_tabController.index];
-    // Tabs used to cut over on the frame the index changed, which on a page
-    // this dense reads as a flicker rather than a change of view. Aligned to
-    // the top so the outgoing and incoming panes do not slide against each
-    // other while they cross-fade.
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 160),
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
-      layoutBuilder: (current, previous) => Stack(
-        alignment: Alignment.topCenter,
-        children: [...previous, ?current],
-      ),
-      child: KeyedSubtree(
-        key: ValueKey('detail-tab-$tab'),
-        child: switch (tab) {
-          'About' => DetailAboutTab(record: detail.record!),
-          'Similar' => DetailRelatedSection(related: detail.related),
-          'Relations' => DetailRelationsTab(
-            provider: detail.provider,
-            contentUrl: detail.contentUrl,
-            title: detail.title,
-          ),
-          'Cast' => DetailCastTab(cast: detail.cast, director: detail.director),
-          'Comments' => DetailCommentsTab(
-            provider: detail.provider,
-            contentUrl: detail.contentUrl,
-          ),
-          'Screenshots' => DetailScreenshotsSection(
-            screenshots: detail.screenshots,
-          ),
-          _ => const SizedBox.shrink(),
-        },
-      ),
-    );
-  }
+  Widget _buildTabPane(DetailEntity detail, String tab) => switch (tab) {
+    'About' => DetailAboutTab(record: detail.record!),
+    'Similar' => DetailRelatedSection(related: detail.related),
+    'Relations' => DetailRelationsTab(
+      provider: detail.provider,
+      contentUrl: detail.contentUrl,
+      title: detail.title,
+      year: detail.year,
+      isSerial: detail.isSerial,
+      tmdbId: detail.record?.tmdbId,
+      anilistId: detail.record?.anilistId,
+    ),
+    'Cast' => DetailCastTab(cast: detail.cast, director: detail.director),
+    'Comments' => DetailCommentsTab(
+      provider: detail.provider,
+      contentUrl: detail.contentUrl,
+    ),
+    'Screenshots' => DetailScreenshotsSection(screenshots: detail.screenshots),
+    _ => const SizedBox.shrink(),
+  };
 
   void _goBack() {
     if (context.canPop()) {
@@ -633,13 +654,24 @@ class _DetailViewState extends State<_DetailView>
         movieUrl: local.url,
         type: local.type,
         showDownloadAction: false,
-        resumePosition: Duration(milliseconds: history?.positionMs ?? 0),
+        resumePosition: _startOr(
+          Duration(milliseconds: history?.positionMs ?? 0),
+        ),
       ),
     );
   }
 
   /// The last episode list came from the saved copy; the list page says so.
   bool _episodesOffline = false;
+
+  /// What the source said about this title, once it has said anything.
+  ///
+  /// Kept in state because the answer only arrives when the playback payload
+  /// does — after Play has been pressed once — and a Play button that is known
+  /// to lead nowhere should not keep offering itself. Set only for a notice the
+  /// source called unplayable; a serial resolved as a film still plays, through
+  /// its episode list.
+  SourceNotice? _unplayable;
 
   /// Play and download need the same thing first — the provider's playback
   /// payload — and it arrives asynchronously through the bloc. Rather than a
@@ -667,6 +699,12 @@ class _DetailViewState extends State<_DetailView>
   /// worse than showing the list where each row has its own button and several
   /// can be picked at once.
   void _handleDownload(PlaybackEntity playback) {
+    // Nothing to download either, for the same reason there is nothing to
+    // play: the source has said it holds no file for this title.
+    if (!playback.playable) {
+      _onSourceNotice(playback.notice ?? SourceNotice.noPlayer, playback);
+      return;
+    }
     if (playback.provider.opensReader || playback.isSerial) {
       if (playback.episodes.isEmpty) {
         _showSnack('detail.no_episodes'.tr());
@@ -713,7 +751,7 @@ class _DetailViewState extends State<_DetailView>
         if (!mounted) return;
         final media = prepared.media;
         if (media == null) {
-          _showSnack('detail.download_needs_playback'.tr());
+          _showSnack(downloadBuildFailureMessage(prepared.failure!));
           return;
         }
         url = media.videoUrl;
@@ -748,7 +786,7 @@ class _DetailViewState extends State<_DetailView>
       if (!mounted) return;
       final media = prepared.media;
       if (media == null) {
-        _showSnack('detail.download_needs_playback'.tr());
+        _showSnack(downloadBuildFailureMessage(prepared.failure!));
         return;
       }
       url = media.videoUrl;
@@ -781,6 +819,14 @@ class _DetailViewState extends State<_DetailView>
     );
     if (!mounted) return;
     _showSnack(downloadOutcomeMessage(outcome));
+    if (outcome == EnqueueOutcome.started) {
+      unawaited(
+        primeNotificationsForFirstDownload(
+          context,
+          titleHint: widget.detail.title,
+        ),
+      );
+    }
   }
 
   void _toggleMyList() {
@@ -1038,12 +1084,10 @@ class _DetailViewState extends State<_DetailView>
   }
 
   /// The public link to this title — the one Share sends and Copy hands over.
-  String get _shareLink {
-    final params = <String, String>{'url': widget.detail.contentUrl};
-    final provider = widget.detail.provider.trim();
-    if (provider.isNotEmpty) params['provider'] = provider;
-    return Uri.https('sozo.azamov.me', '/detail', params).toString();
-  }
+  String get _shareLink => buildShareLink(
+    contentUrl: widget.detail.contentUrl,
+    provider: widget.detail.provider,
+  );
 
   void _onShare() {
     Share.share('${widget.detail.title}\n$_shareLink');
@@ -1100,6 +1144,14 @@ class _DetailViewState extends State<_DetailView>
   }
 
   void _handlePlayback(PlaybackEntity playback) {
+    // The source has declared this title unplayable. Starting a player against
+    // it would spin on nothing, and the episode list behind it is empty by the
+    // same declaration, so the honest move is to say what happened and offer
+    // the one step that can still work.
+    if (!playback.playable) {
+      _onSourceNotice(playback.notice ?? SourceNotice.noPlayer, playback);
+      return;
+    }
     // A reading source ALWAYS goes through the chapter list, even when it
     // reports a single chapter (one-shots, and Mangayomi novels that expose one
     // entry). Falling through to the movie path would hand a chapter url to the
@@ -1142,9 +1194,37 @@ class _DetailViewState extends State<_DetailView>
     _playMovieDirect(playback);
   }
 
+  /// Acts on a reason the source gave for not playing a title.
+  ///
+  /// [playback] is whatever payload is in hand, so the one recoverable case can
+  /// recover: a serial's page resolved as a film has its episodes already, and
+  /// the list is where they play from.
+  void _onSourceNotice(SourceNotice notice, PlaybackEntity? playback) {
+    if (notice == SourceNotice.isSeries &&
+        playback != null &&
+        playback.episodes.isNotEmpty) {
+      _openEpisodes(playback);
+      return;
+    }
+    if (!notice.playable && _unplayable != notice) {
+      setState(() => _unplayable = notice);
+    }
+    unawaited(
+      showSourceNoticeSheet(
+        context,
+        notice: notice,
+        onFindOther: _onFindOtherSources,
+      ),
+    );
+  }
+
   void _openEpisodes(PlaybackEntity playback) {
     final resume = _resumeOnOpen;
     _resumeOnOpen = false;
+    final linkEpisode = _linkEpisode;
+    final linkPositionMs = linkEpisode == null ? null : _linkPositionMs;
+    _linkEpisode = null;
+    _linkPositionMs = null;
     context.push(
       '/episodes',
       extra: EpisodesArgs(
@@ -1160,9 +1240,11 @@ class _DetailViewState extends State<_DetailView>
         size: playback.size,
         total: playback.total,
         totalPages: playback.totalPages,
-        resumeFromHistory: resume,
+        resumeFromHistory: resume && linkEpisode == null,
         offline: _episodesOffline,
         focusEpisode: _takeFocus(),
+        playEpisode: linkEpisode,
+        startPositionMs: linkPositionMs,
       ),
     );
   }
@@ -1210,6 +1292,7 @@ class _DetailViewState extends State<_DetailView>
     if (historyItem != null) {
       resumePos = Duration(milliseconds: historyItem.positionMs);
     }
+    resumePos = _startOr(resumePos);
     if (!await confirmPlayerEngine(context) || !mounted) return;
     context.push(
       '/player',
@@ -1298,6 +1381,7 @@ class _DetailViewState extends State<_DetailView>
         if (historyItem != null) {
           resumePos = Duration(milliseconds: historyItem.positionMs);
         }
+        resumePos = _startOr(resumePos);
         if (!await confirmPlayerEngine(context) || !mounted) return;
         context.push(
           '/player',
@@ -1320,6 +1404,13 @@ class _DetailViewState extends State<_DetailView>
           ),
         );
       case Failure(:final error):
+        // A resolve that failed for a reason the source named is not an error
+        // to flash past in a snackbar: it is a fact about this title on this
+        // source, and it decides what the page offers from here on.
+        if (error is SourceNoticeException) {
+          _onSourceNotice(error.notice, playback);
+          return;
+        }
         _showSnack(error.toString().replaceFirst('Exception: ', ''));
     }
   }
@@ -1479,6 +1570,7 @@ class _DetailViewState extends State<_DetailView>
                   resolvingSource: widget.resolvingSource,
                   onChangeSource: widget.via == null ? null : _changeSource,
                   onFindSource: _onFindOtherSources,
+                  unplayable: _unplayable,
                 ),
               ),
               if (widget.offline)
@@ -1546,7 +1638,11 @@ class _DetailViewState extends State<_DetailView>
                                     36)
                                 .clamp(0.0, double.infinity),
                       ),
-                      child: _buildTabContent(detail),
+                      child: DetailTabPanes(
+                        controller: _tabController,
+                        tabs: _tabs,
+                        paneBuilder: (_, tab) => _buildTabPane(detail, tab),
+                      ),
                     ),
                   ),
                 ),

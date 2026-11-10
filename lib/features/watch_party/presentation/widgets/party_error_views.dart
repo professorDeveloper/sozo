@@ -150,6 +150,8 @@ class PartyErrorView extends StatelessWidget {
           'watch_party.error_not_found',
         ),
       'full' => (Icons.group_off_rounded, 'watch_party.error_full'),
+      'locked' => (Icons.lock_rounded, 'watch_party.error_locked'),
+      'banned' => (Icons.block_rounded, 'watch_party.error_banned'),
       'forbidden' => (Icons.lock_outline_rounded, 'watch_party.error_forbidden'),
       'rate' => (Icons.timer_outlined, 'watch_party.error_rate'),
       'unauthorized' => (
@@ -185,9 +187,11 @@ class PartyClosedView extends StatelessWidget {
     return PartyStateView(
       icon: Icons.meeting_room_outlined,
       title: 'watch_party.room_closed'.tr(),
-      message: reason == 'empty'
-          ? 'watch_party.room_closed_empty'.tr()
-          : null,
+      message: switch (reason) {
+        'empty' => 'watch_party.room_closed_empty'.tr(),
+        'kicked' => 'watch_party.room_closed_kicked'.tr(),
+        _ => null,
+      },
       actionLabel: actionLabel,
       onAction: onAction,
     );

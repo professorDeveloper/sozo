@@ -4,13 +4,15 @@ enum ExtensionRepoKind {
   cloudstream,
   aniyomi,
   manga,
-  mangayomi;
+  mangayomi,
+  zangetsu;
 
   static ExtensionRepoKind? parse(String? raw) => switch (raw?.trim()) {
         'cloudstream' => ExtensionRepoKind.cloudstream,
         'aniyomi' => ExtensionRepoKind.aniyomi,
         'manga' => ExtensionRepoKind.manga,
         'mangayomi' => ExtensionRepoKind.mangayomi,
+        'zangetsu' => ExtensionRepoKind.zangetsu,
         _ => null,
       };
 

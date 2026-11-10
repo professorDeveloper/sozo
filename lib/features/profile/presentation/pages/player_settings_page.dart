@@ -6,17 +6,22 @@ import 'package:flutter/material.dart';
 import 'package:soplay/features/detail/presentation/pages/player_controls_page.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_info_fields_sheet.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/glass/native_glass.dart';
+import 'package:soplay/core/native/player_controls_style.dart';
 import 'package:soplay/core/player/media_controller.dart'
     show warmUpPlayerEngine;
 import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/player/quality_preference.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/subtitles/subtitle_languages.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/subtitle_size_control.dart';
+import 'package:soplay/features/profile/presentation/widgets/player_controls_style_section.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
+import 'package:soplay/features/comments/data/social_playback_prefs.dart';
 
 /// Settings → Player. Every control here seeds a knob that already exists
 /// inside the fullscreen player.
@@ -57,13 +62,19 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
   late double _boost;
   late bool _brightnessGesture;
   late bool _volumeGesture;
+  late bool _autoPip;
   late bool _heroTrailer;
   late bool _keepScreenOn;
   late bool _incognito;
   late bool _autoSkipIntro;
+  final SocialPlaybackPrefs _social = const SocialPlaybackPrefs();
+  late bool _reactionsOverlay;
+  late bool _hideSpoilers;
   late SubtitleStyle _subtitle;
   late bool _autoTranslate;
   late String _translateLang;
+  late PlayerControlsStyle _controlsStyle;
+  NativeGlassCapability _glass = NativeGlassCapability.absent;
 
   static const List<double> _speedChoices = [
     0.5,
@@ -96,15 +107,24 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
     _startPaused = _hive.startPaused;
     _incognito = _hive.isIncognito;
     _autoSkipIntro = _hive.autoSkipIntro;
+    _reactionsOverlay = _social.reactionsOverlay;
+    _hideSpoilers = _social.hideUnwatchedSpoilers;
     _seekSeconds = _hive.getDoubleTapSeekSeconds();
     _boost = _hive.getLongPressBoost();
     _brightnessGesture = _hive.brightnessGestureEnabled;
     _volumeGesture = _hive.volumeGestureEnabled;
+    _autoPip = _hive.autoPipEnabled;
     _heroTrailer = _hive.heroTrailerAutoplay;
     _keepScreenOn = _hive.keepScreenOn;
     _subtitle = _hive.getSubtitleStyle();
     _autoTranslate = _hive.getSubtitleAutoTranslate();
     _translateLang = _hive.getSubtitleTranslateLang();
+    _controlsStyle = _hive.playerControlsStyle;
+    if (PlayerControlsStyleSection.shown) {
+      NativeGlass.capability().then((c) {
+        if (mounted) setState(() => _glass = c);
+      });
+    }
     if (kDebugMode) {
       final readMs = _openWatch.elapsedMilliseconds;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -206,6 +226,18 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
             const SizedBox(height: 22),
           ],
 
+          if (PlayerControlsStyleSection.shown) ...[
+            PlayerControlsStyleSection(
+              chosen: _controlsStyle,
+              capability: _glass,
+              onChanged: (v) {
+                setState(() => _controlsStyle = v);
+                _hive.setPlayerControlsStyle(v);
+              },
+            ),
+            const SizedBox(height: 22),
+          ],
+
           SettingsLabel('profile.playback_section'.tr()),
           SettingsCard(
             children: [
@@ -289,6 +321,28 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
                 onChanged: (v) {
                   setState(() => _autoSkipIntro = v);
                   _hive.setAutoSkipIntro(v);
+                },
+              ),
+              const SettingsDivider(),
+              SettingsSwitchTile(
+                icon: Icons.add_reaction_outlined,
+                title: 'profile.reactions_overlay'.tr(),
+                subtitle: 'profile.reactions_overlay_desc'.tr(),
+                value: _reactionsOverlay,
+                onChanged: (v) {
+                  setState(() => _reactionsOverlay = v);
+                  _social.setReactionsOverlay(v);
+                },
+              ),
+              const SettingsDivider(),
+              SettingsSwitchTile(
+                icon: Icons.speaker_notes_off_outlined,
+                title: 'profile.hide_spoilers'.tr(),
+                subtitle: 'profile.hide_spoilers_desc'.tr(),
+                value: _hideSpoilers,
+                onChanged: (v) {
+                  setState(() => _hideSpoilers = v);
+                  _social.setHideUnwatchedSpoilers(v);
                 },
               ),
               const SettingsDivider(),
@@ -377,6 +431,19 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
                   _hive.setVolumeGestureEnabled(v);
                 },
               ),
+              if (isAndroidPlatform && !isTvPlatform) ...[
+                const SettingsDivider(),
+                SettingsSwitchTile(
+                  icon: Icons.picture_in_picture_alt_rounded,
+                  title: 'profile.auto_pip'.tr(),
+                  subtitle: 'profile.auto_pip_desc'.tr(),
+                  value: _autoPip,
+                  onChanged: (v) {
+                    setState(() => _autoPip = v);
+                    _hive.setAutoPipEnabled(v);
+                  },
+                ),
+              ],
               const SettingsDivider(),
               // A video that starts on its own, on a page somebody opened to
               // read — worth offering, worth being able to refuse. Turning it

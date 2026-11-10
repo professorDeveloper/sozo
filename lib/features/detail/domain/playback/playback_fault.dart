@@ -35,6 +35,12 @@ enum PlaybackFaultKind {
   /// The stream could not be fetched. The connection is the first suspect.
   network('player.fault.network'),
 
+  /// The server answered 404 or 410: the file is gone from this mirror.
+  notFound('player.fault.not_found'),
+
+  /// The server answered 5xx or 429: its problem, not the device's.
+  serverError('player.fault.server_error'),
+
   /// The resolve produced no playable source for this episode.
   noSourceForEpisode('player.fault.no_source'),
 
@@ -90,19 +96,97 @@ class PlaybackFault {
     if (lower.contains('mediacodec') ||
         lower.contains('could not open codec') ||
         lower.contains('decoder') ||
+        lower.contains('error decoding') ||
+        lower.contains('error while decoding') ||
         lower.contains('renderer')) {
       return PlaybackFault(PlaybackFaultKind.decoder, raw: raw);
     }
+    final status = httpStatusOf(lower);
+    if (status != null) {
+      if (status == 404 || status == 410) {
+        return PlaybackFault(PlaybackFaultKind.notFound, raw: raw);
+      }
+      if (status >= 500 || status == 429) {
+        return PlaybackFault(PlaybackFaultKind.serverError, raw: raw);
+      }
+      return PlaybackFault(PlaybackFaultKind.sourceBlocked, raw: raw);
+    }
+    if (lower.contains('5xx server error')) {
+      return PlaybackFault(PlaybackFaultKind.serverError, raw: raw);
+    }
+    // libmpv's "Failed to open <url>": the host answered with a refusal
+    // (often a 403 without the Referer it expects) or not at all. The raw
+    // line, with its long address, read as the whole message on screen.
     if (lower.contains('source error') ||
+        lower.contains('failed to open http') ||
         lower.contains('failed to recognize file format') ||
         lower.contains('unrecognizedinputformat') ||
         lower.contains('nodeclaredbrand')) {
       return PlaybackFault(PlaybackFaultKind.sourceBlocked, raw: raw);
     }
-    if (lower.contains('http data source')) {
+    // A connection that dropped or never came up. Said as advice about the
+    // network in the viewer's language, rather than as ffmpeg's or Dio's
+    // English: img_2e4886 is Dio's "The connection errored: Connection reset
+    // by peer This indicates an error which most likely cannot be solved by
+    // the library." on the error screen, wrong about the remedy as well as in
+    // the wrong language.
+    if (lower.contains('http data source') ||
+        lower.contains('ffurl_read') ||
+        lower.contains('connection reset') ||
+        lower.contains('connection timed out') ||
+        lower.contains('connection errored') ||
+        // Dio's timeouts: "The request connection took longer than 0:00:15…".
+        lower.contains('took longer than') ||
+        lower.contains('failed to resolve hostname') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('network is unreachable') ||
+        lower.contains('network connection was lost')) {
       return PlaybackFault(PlaybackFaultKind.network, raw: raw);
     }
     return PlaybackFault(PlaybackFaultKind.unknown, raw: raw);
+  }
+
+  static final RegExp _statusAfterLabel = RegExp(
+    r'(?:status code(?: of)?|response code|http error|server returned|'
+    r'statuscode|http/\d(?:\.\d)?)[:=\s]*(\d{3})\b',
+  );
+  static final RegExp _statusBeforeReason = RegExp(
+    r'\b([45]\d{2})\s*[-:]?\s*(?:forbidden|not found|gone|unauthorized|'
+    r'bad request|too many requests|internal server error|bad gateway|'
+    r'service unavailable|gateway time-?out)',
+  );
+
+  /// The HTTP status a failure names, from Dio, ExoPlayer, ffmpeg or an error
+  /// page's body, or null. Only 4xx and 5xx; a bare number is not enough.
+  static int? httpStatusOf(String lower) {
+    for (final re in [_statusAfterLabel, _statusBeforeReason]) {
+      for (final m in re.allMatches(lower)) {
+        final code = int.tryParse(m.group(1)!);
+        if (code != null && code >= 400 && code < 600) return code;
+      }
+    }
+    return null;
+  }
+
+  /// The key for what the error screen says once nothing is left to try, or
+  /// null to say what [classify] makes of [raw].
+  ///
+  /// The last failure alone is a poor summary of a walk across several
+  /// servers: four mirrors that each failed in their own way ended on the
+  /// fourth one's raw sentence, which reads as though only that one was
+  /// tried. A dropped connection is still named as such — it is the one cause
+  /// the viewer can do something about — and a start that never produced a
+  /// frame says so rather than quoting a Dart TimeoutException.
+  static String? exhaustedKey(
+    String raw, {
+    required bool timedOut,
+    required int serversTried,
+  }) {
+    final fault = classify(raw);
+    if (fault.kind == PlaybackFaultKind.network) return fault.messageKey;
+    if (serversTried > 1) return 'player.all_servers_failed';
+    if (timedOut) return 'player.resolve_timeout';
+    return null;
   }
 
   /// Whether the device cannot play this stream as encoded, so the browser is

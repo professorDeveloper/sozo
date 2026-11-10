@@ -66,6 +66,9 @@ class ProfileScope {
     'follow_sync_outbox',
     'follow_sync_tombstones',
     'follow_sync_at',
+    'progress_view',
+    'progress_seen_level',
+    'progress_watch_sent',
   };
 
   static String box(String base) => boxFor(base, _namespace);

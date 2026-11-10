@@ -2,18 +2,52 @@
 part of 'player_page.dart';
 
 extension _PlayerGestures on _PlayerPageState {
-  void _onDoubleTapDown(TapDownDetails details, BoxConstraints constraints) {
-    final dx = details.localPosition.dx;
-    final width = constraints.maxWidth;
-    final leftEdge = width * 0.3;
-    final rightEdge = width * 0.7;
-    final step = _seekStep;
-    if (dx < leftEdge) {
-      _seekRelative(-step);
-      _showSeekRipple(-1);
-    } else if (dx > rightEdge) {
-      _seekRelative(step);
-      _showSeekRipple(1);
+  /// Phones and tablets: taps are resolved here rather than by a double-tap
+  /// recogniser, which held every single tap back by 300 ms.
+  bool get _tapTap => !isDesktopPlatform && !_compact;
+
+  void _onVideoTap(Offset at, BoxConstraints constraints) {
+    final c = _controller;
+    final ready =
+        c != null &&
+        c.value.isInitialized &&
+        !_initializing &&
+        _errorMessage == null;
+    final action = _tapSeek.onTap(
+      TapSeekTracker.zoneOf(at.dx, constraints.maxWidth),
+      _now,
+      canSeek: ready && !_isLive && _panel == _SidePanel.none,
+      centreTogglesPlay: ready && _panel == _SidePanel.none,
+    );
+    _tapTimer?.cancel();
+    if (action == TapAction.pending) {
+      _tapTimer = Timer(_tapSeek.doubleTapWindow, () {
+        if (!mounted) return;
+        final late = _tapSeek.flush(_now);
+        if (late != null) _runTapAction(late);
+      });
+      return;
+    }
+    _runTapAction(action);
+  }
+
+  void _runTapAction(TapAction action) {
+    switch (action) {
+      case TapAction.pending:
+        return;
+      case TapAction.toggleControls:
+        _toggleControls();
+      case TapAction.togglePlay:
+        _togglePlay();
+        if (isMobilePlatform) HapticFeedback.selectionClick();
+      case TapAction.seekBack:
+      case TapAction.seekForward:
+        final dir = action == TapAction.seekBack ? -1 : 1;
+        _seekRelative(_seekStep * dir);
+        _showSeekRipple(dir);
+        // The ripple is on the far side of the thumb; the tick is what says
+        // the tap landed while the eyes stay on the picture.
+        if (isMobilePlatform) HapticFeedback.selectionClick();
     }
   }
 
@@ -122,7 +156,7 @@ extension _PlayerGestures on _PlayerPageState {
     setState(() => _seekRippleDirection = direction);
     _seekRippleController.forward(from: 0);
     _seekRippleTimer?.cancel();
-    _seekRippleTimer = Timer(const Duration(milliseconds: 700), () {
+    _seekRippleTimer = Timer(_tapSeek.rippleWindow, () {
       if (!mounted) return;
       setState(() {
         _seekRippleDirection = 0;
@@ -224,6 +258,19 @@ extension _PlayerGestures on _PlayerPageState {
   }
 
   void _onPanStart(DragStartDetails d, BoxConstraints constraints) {
+    // A swipe from the system's own gesture edges (back, home, the shade)
+    // belongs to the system, not to brightness, volume or the scrub.
+    final from = _pointerDownAt ?? d.localPosition;
+    if (startsInSystemGestureArea(
+      from,
+      constraints.biggest,
+      MediaQuery.of(context).systemGestureInsets,
+    )) {
+      _dragStart = null;
+      _dragIsHorizontal = null;
+      _dragSwipeType = null;
+      return;
+    }
     _dragStart = d.localPosition;
     _dragIsHorizontal = null;
     _dragSwipeType = null;
@@ -260,6 +307,7 @@ extension _PlayerGestures on _PlayerPageState {
       } else {
         final isLeft = start.dx < constraints.maxWidth * 0.5;
         _dragSwipeType = isLeft ? _SwipeType.brightness : _SwipeType.volume;
+        if (!isDesktopPlatform) unawaited(_rebaseSwipeLevel(_dragSwipeType!));
       }
     }
 
@@ -276,16 +324,49 @@ extension _PlayerGestures on _PlayerPageState {
       final delta = -(d.delta.dy) / (constraints.maxHeight * 0.7);
       if (_dragSwipeType == _SwipeType.brightness) {
         _brightness = (_brightness + delta).clamp(0.0, 1.0).toDouble();
-        _pushSystemLevels(brightness: true);
+        if (_swipeLevelReady) _pushSystemLevels(brightness: true);
         _swipeIndicator.value = _SwipeIndicator(
           _SwipeType.brightness,
           _brightness,
         );
       } else {
         _volume = (_volume + delta).clamp(0.0, 1.0).toDouble();
-        _pushSystemLevels(volume: true);
+        if (_swipeLevelReady) _pushSystemLevels(volume: true);
         _swipeIndicator.value = _SwipeIndicator(_SwipeType.volume, _volume);
       }
+    }
+  }
+
+  /// The level a swipe starts from, read fresh: the volume keys and
+  /// auto-brightness move them while the player is open. Movement made while
+  /// the read is in flight is kept and added on top.
+  Future<void> _rebaseSwipeLevel(_SwipeType type) async {
+    final token = ++_swipeToken;
+    final brightness = type == _SwipeType.brightness;
+    final startLevel = brightness ? _brightness : _volume;
+    _swipeLevelReady = false;
+    double? fresh;
+    try {
+      fresh = await _systemControlsChannel.invokeMethod<double>(
+        brightness ? 'getBrightness' : 'getVolume',
+      );
+    } catch (_) {}
+    if (!mounted || token != _swipeToken) return;
+    _swipeLevelReady = true;
+    final moved = (brightness ? _brightness : _volume) - startLevel;
+    if (fresh != null) {
+      final level = (fresh + moved).clamp(0.0, 1.0).toDouble();
+      if (brightness) {
+        _brightness = level;
+      } else {
+        _volume = level;
+      }
+      if (_dragSwipeType == type) {
+        _swipeIndicator.value = _SwipeIndicator(type, level);
+      }
+    }
+    if (moved != 0) {
+      _pushSystemLevels(brightness: brightness, volume: !brightness);
     }
   }
 
@@ -315,3 +396,10 @@ extension _PlayerGestures on _PlayerPageState {
     _dragSwipeType = null;
   }
 }
+
+/// Whether [at] lies in the strips the system keeps for its own gestures.
+bool startsInSystemGestureArea(Offset at, Size size, EdgeInsets insets) =>
+    at.dx < insets.left ||
+    at.dx > size.width - insets.right ||
+    at.dy < insets.top ||
+    at.dy > size.height - insets.bottom;

@@ -28,6 +28,11 @@ class EpisodesArgs {
   /// marks it.
   final int? focusEpisode;
 
+  /// Opened from a `/play` link: play this episode number straight away,
+  /// from [startPositionMs] when given.
+  final int? playEpisode;
+  final int? startPositionMs;
+
   const EpisodesArgs({
     required this.title,
     required this.episodes,
@@ -42,5 +47,7 @@ class EpisodesArgs {
     this.resumeFromHistory = false,
     this.offline = false,
     this.focusEpisode,
+    this.playEpisode,
+    this.startPositionMs,
   });
 }

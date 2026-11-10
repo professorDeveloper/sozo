@@ -1,0 +1,389 @@
+{
+  "home": {
+    "provider": "sample",
+    "banner": [
+      {
+        "provider": "sample",
+        "externalId": "https://site.invalid/v/title-1",
+        "title": "Title 1",
+        "description": null,
+        "slug": "title-1",
+        "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-1",
+        "thumbnail": "https://img.invalid/1.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": "anime"
+      },
+      {
+        "provider": "sample",
+        "externalId": "https://site.invalid/v/title-2",
+        "title": "Title 2",
+        "description": null,
+        "slug": "title-2",
+        "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-2",
+        "thumbnail": "https://img.invalid/2.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": "anime"
+      }
+    ],
+    "sections": [
+      {
+        "key": "row-0",
+        "label": "Row 1",
+        "viewAll": {
+          "type": "category",
+          "slug": "row-0"
+        },
+        "items": [
+          {
+            "provider": "sample",
+            "externalId": "https://site.invalid/v/title-1",
+            "title": "Title 1",
+            "description": null,
+            "slug": "title-1",
+            "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-1",
+            "thumbnail": "https://img.invalid/1.jpg",
+            "year": null,
+            "rating": 0,
+            "qualities": [],
+            "genres": [],
+            "category": "anime"
+          },
+          {
+            "provider": "sample",
+            "externalId": "https://site.invalid/v/title-2",
+            "title": "Title 2",
+            "description": null,
+            "slug": "title-2",
+            "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-2",
+            "thumbnail": "https://img.invalid/2.jpg",
+            "year": null,
+            "rating": 0,
+            "qualities": [],
+            "genres": [],
+            "category": "anime"
+          }
+        ]
+      },
+      {
+        "key": "row-1",
+        "label": "Row 2",
+        "viewAll": {
+          "type": "category",
+          "slug": "row-1"
+        },
+        "items": [
+          {
+            "provider": "sample",
+            "externalId": "https://site.invalid/v/title-1",
+            "title": "Title 1",
+            "description": null,
+            "slug": "title-1",
+            "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-1",
+            "thumbnail": "https://img.invalid/1.jpg",
+            "year": null,
+            "rating": 0,
+            "qualities": [],
+            "genres": [],
+            "category": "anime"
+          },
+          {
+            "provider": "sample",
+            "externalId": "https://site.invalid/v/title-2",
+            "title": "Title 2",
+            "description": null,
+            "slug": "title-2",
+            "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-2",
+            "thumbnail": "https://img.invalid/2.jpg",
+            "year": null,
+            "rating": 0,
+            "qualities": [],
+            "genres": [],
+            "category": "anime"
+          }
+        ]
+      }
+    ]
+  },
+  "category": {
+    "provider": "sample",
+    "items": [
+      {
+        "provider": "sample",
+        "externalId": "https://site.invalid/v/title-1",
+        "title": "Title 1",
+        "description": null,
+        "slug": "title-1",
+        "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-1",
+        "thumbnail": "https://img.invalid/1.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": "anime"
+      },
+      {
+        "provider": "sample",
+        "externalId": "https://site.invalid/v/title-2",
+        "title": "Title 2",
+        "description": null,
+        "slug": "title-2",
+        "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-2",
+        "thumbnail": "https://img.invalid/2.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": "anime"
+      }
+    ],
+    "page": 1,
+    "totalPages": 1,
+    "category": "row-0"
+  },
+  "search": {
+    "provider": "sample",
+    "items": [
+      {
+        "provider": "sample",
+        "externalId": "https://site.invalid/v/title-3",
+        "title": "Title 3",
+        "description": null,
+        "slug": "title-3",
+        "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-3",
+        "thumbnail": "https://img.invalid/3.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": "anime"
+      },
+      {
+        "provider": "sample",
+        "externalId": "https://site.invalid/v/title-4",
+        "title": "Title 4",
+        "description": null,
+        "slug": "title-4",
+        "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-4",
+        "thumbnail": "https://img.invalid/4.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": "anime"
+      }
+    ],
+    "page": 1,
+    "totalPages": 1,
+    "query": "title"
+  },
+  "detail": {
+    "provider": "sample",
+    "contentId": "https://site.invalid/v/title-1",
+    "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-1",
+    "title": "Title 1",
+    "description": "A placeholder description.",
+    "thumbnail": "https://img.invalid/1.jpg",
+    "banner": "https://img.invalid/1.jpg",
+    "year": null,
+    "duration": null,
+    "country": null,
+    "director": null,
+    "genres": [
+      "Genre A",
+      "Genre B"
+    ],
+    "cast": [],
+    "likes": 0,
+    "dislikes": 0,
+    "isSerial": true,
+    "screenshots": [],
+    "related": [
+      {
+        "provider": "sample",
+        "externalId": "https://site.invalid/v/title-5",
+        "title": "Title 5",
+        "description": null,
+        "slug": "title-5",
+        "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-5",
+        "thumbnail": "https://img.invalid/5.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": "anime"
+      },
+      {
+        "provider": "sample",
+        "externalId": "https://site.invalid/v/title-6",
+        "title": "Title 6",
+        "description": null,
+        "slug": "title-6",
+        "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-6",
+        "thumbnail": "https://img.invalid/6.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": "anime"
+      }
+    ],
+    "extra": {
+      "status": null
+    }
+  },
+  "episodes": {
+    "provider": "sample",
+    "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-1",
+    "isSerial": true,
+    "episodes": [
+      {
+        "episode": 1,
+        "label": "Title 1",
+        "mediaRef": "sample:ep:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-1"
+      }
+    ]
+  },
+  "media": {
+    "provider": "sample",
+    "videoUrl": "https://cdn.example.invalid/a/1080.m3u8",
+    "type": "hls",
+    "headers": {
+      "User-Agent": "UA",
+      "Referer": "https://site.invalid/v/title-1",
+      "Origin": "https://site.invalid"
+    },
+    "videoSources": [
+      {
+        "quality": "1080p",
+        "videoUrl": "https://cdn.example.invalid/a/1080.m3u8",
+        "isDefault": true,
+        "accessible": true,
+        "type": "hls",
+        "headers": {
+          "User-Agent": "UA",
+          "Referer": "https://site.invalid/v/title-1",
+          "Origin": "https://site.invalid"
+        }
+      },
+      {
+        "quality": "720p",
+        "videoUrl": "https://cdn.example.invalid/a/720.m3u8",
+        "isDefault": false,
+        "accessible": true,
+        "type": "hls",
+        "headers": {
+          "User-Agent": "UA",
+          "Referer": "https://site.invalid/v/title-1",
+          "Origin": "https://site.invalid"
+        }
+      }
+    ],
+    "subtitles": []
+  },
+  "genre": {
+    "provider": "sample",
+    "items": [],
+    "page": 1,
+    "totalPages": 1
+  },
+  "server_detail": {
+    "provider": "sample-server",
+    "contentId": "sample-server:k1",
+    "contentUrl": "sample-server:https%3A%2F%2Fsite.invalid%2Fwatch%3Fk%3Dk1",
+    "title": "Title 9",
+    "description": "A placeholder description.",
+    "thumbnail": "https://img.invalid/9.jpg",
+    "banner": "https://img.invalid/9.jpg",
+    "year": 2024,
+    "duration": "12 min",
+    "country": null,
+    "director": null,
+    "genres": [
+      "Genre A",
+      "Genre B"
+    ],
+    "cast": [
+      {
+        "id": "performer-1",
+        "name": "Performer One",
+        "image": "https://img.invalid/p1.jpg",
+        "url": "https://site.invalid/model/performer-1"
+      },
+      {
+        "id": "performer-2",
+        "name": "Performer Two",
+        "image": null,
+        "url": "https://site.invalid/model/performer-2"
+      }
+    ],
+    "likes": 0,
+    "dislikes": 0,
+    "isSerial": false,
+    "screenshots": [
+      "https://img.invalid/9/1.jpg",
+      "https://img.invalid/9/2.jpg"
+    ],
+    "related": [
+      {
+        "provider": "sample-server",
+        "externalId": "https://site.invalid/v/title-3",
+        "title": "Title 3",
+        "description": null,
+        "slug": "title-3",
+        "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-3",
+        "thumbnail": "https://img.invalid/3.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": "anime"
+      }
+    ],
+    "extra": {
+      "noTmdb": true,
+      "views": 1200,
+      "likeCount": 34,
+      "uploader": {
+        "name": "Uploader",
+        "url": "https://site.invalid/u/1",
+        "avatar": "https://img.invalid/u1.jpg"
+      },
+      "uploadDate": "2024-05-01",
+      "tags": [
+        {
+          "name": "Tag A",
+          "url": "https://site.invalid/t/a"
+        }
+      ],
+      "status": null
+    }
+  },
+  "server_actor": {
+    "provider": "sample-server",
+    "items": [
+      {
+        "provider": "sample-server",
+        "externalId": "https://site.invalid/v/title-3",
+        "title": "Title 3",
+        "description": null,
+        "slug": "title-3",
+        "contentUrl": "sample:https%3A%2F%2Fsite.invalid%2Fv%2Ftitle-3",
+        "thumbnail": "https://img.invalid/3.jpg",
+        "year": null,
+        "rating": 0,
+        "qualities": [],
+        "genres": [],
+        "category": "anime"
+      }
+    ],
+    "page": 1,
+    "totalPages": 2,
+    "actor": "Performer One"
+  }
+}

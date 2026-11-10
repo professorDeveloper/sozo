@@ -29,4 +29,10 @@ class ExtractorCache {
     await _box.put(_codeKey(name, version), code);
     await _box.put(_versionKey(name), version);
   }
+
+  Future<void> clear(String name) async {
+    final version = readVersion(name);
+    if (version != null) await _box.delete(_codeKey(name, version));
+    await _box.delete(_versionKey(name));
+  }
 }

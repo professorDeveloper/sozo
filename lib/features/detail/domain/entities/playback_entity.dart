@@ -1,4 +1,5 @@
 import 'episode_entity.dart';
+import 'source_notice.dart';
 import 'thumbnails_entity.dart';
 import 'video_source_entity.dart';
 
@@ -18,6 +19,16 @@ class PlaybackEntity {
   final int totalPages;
   final String sort;
 
+  /// Whether the source says this title can be played at all.
+  ///
+  /// Defaults to true: a source that says nothing is a source with nothing
+  /// wrong, and every host but the backend's own providers says nothing.
+  final bool playable;
+
+  /// Why, when it cannot — or why the page is the wrong one to play from.
+  /// Null when the source raised nothing.
+  final SourceNotice? notice;
+
   const PlaybackEntity({
     required this.provider,
     required this.contentUrl,
@@ -33,5 +44,7 @@ class PlaybackEntity {
     this.total = 0,
     this.totalPages = 1,
     this.sort = 'asc',
+    this.playable = true,
+    this.notice,
   });
 }

@@ -57,6 +57,87 @@ void main() {
       );
     });
 
+    test('a dropped connection is a network fault, whoever reports it', () {
+      // log_2e4886 (libmpv) and img_2e4886 (Dio, on the re-resolve): both
+      // reached the viewer as English library sentences.
+      for (final raw in const [
+        'tcp: ffurl_read returned 0xffffff92',
+        'tcp: Failed to resolve hostname premiumleadgeneration.site: '
+            'No address associated with hostname',
+        'tcp: Connection to tcp://premiumleadgeneration.site:443 failed: '
+            'Connection timed out',
+        'The connection errored: Connection reset by peer This indicates an '
+            'error which most likely cannot be solved by the library.',
+        'SocketException: Failed host lookup: \'cdn.example\'',
+        'Network is unreachable',
+        'The network connection was lost.',
+      ]) {
+        expect(
+          PlaybackFault.classify(raw).kind,
+          PlaybackFaultKind.network,
+          reason: raw,
+        );
+      }
+    });
+
+    test("Dio's timeouts are network faults", () {
+      for (final raw in const [
+        'The request connection took longer than 0:00:15.000000 and it was '
+            'aborted.',
+        'The receiving data took longer than 0:00:30.000000.',
+      ]) {
+        expect(
+          PlaybackFault.classify(raw).kind,
+          PlaybackFaultKind.network,
+          reason: raw,
+        );
+      }
+    });
+
+    test('HTTP statuses are classified by what they mean', () {
+      const cases = {
+        'This exception was thrown because the response has a status code of '
+                '404 and RequestOptions.validateStatus was configured to throw':
+            PlaybackFaultKind.notFound,
+        'Source error: InvalidResponseCodeException: Response code: 410':
+            PlaybackFaultKind.notFound,
+        'HTTP error 403 Forbidden': PlaybackFaultKind.sourceBlocked,
+        'Response code: 401': PlaybackFaultKind.sourceBlocked,
+        'Server returned 503 Service Unavailable':
+            PlaybackFaultKind.serverError,
+        'status code of 429': PlaybackFaultKind.serverError,
+        'Server returned 5XX Server Error reply': PlaybackFaultKind.serverError,
+      };
+      cases.forEach((raw, kind) {
+        expect(PlaybackFault.classify(raw).kind, kind, reason: raw);
+      });
+    });
+
+    test('error page bodies name their status', () {
+      expect(
+        PlaybackFault.classify(
+          '<html><title>403 Forbidden</title></html>',
+        ).kind,
+        PlaybackFaultKind.sourceBlocked,
+      );
+      expect(
+        PlaybackFault.classify('<h1>404 Not Found</h1> nginx').kind,
+        PlaybackFaultKind.notFound,
+      );
+      expect(
+        PlaybackFault.classify('502 Bad Gateway').kind,
+        PlaybackFaultKind.serverError,
+      );
+    });
+
+    test('a number in an address is not a status', () {
+      expect(
+        PlaybackFault.httpStatusOf('failed: https://cdn.example/404/ep.m3u8'),
+        isNull,
+      );
+      expect(PlaybackFault.httpStatusOf('status code of 200'), isNull);
+    });
+
     test('anything unrecognised falls through to unknown', () {
       expect(
         PlaybackFault.classify('something nobody has seen yet').kind,
@@ -103,6 +184,65 @@ void main() {
     });
   });
 
+  group('once nothing is left to try', () {
+    test('a dropped connection is named, however many servers failed', () {
+      expect(
+        PlaybackFault.exhaustedKey(
+          'tcp: ffurl_read returned 0xffffff92',
+          timedOut: false,
+          serversTried: 4,
+        ),
+        PlaybackFaultKind.network.messageKey,
+      );
+    });
+
+    test('several failed servers are said as such', () {
+      expect(
+        PlaybackFault.exhaustedKey(
+          'Failed to open https://cdn.example/x.mp4.',
+          timedOut: false,
+          serversTried: 3,
+        ),
+        'player.all_servers_failed',
+      );
+      expect(
+        PlaybackFault.exhaustedKey(
+          'TimeoutException after 0:00:25.000000: Playback did not start',
+          timedOut: true,
+          serversTried: 2,
+        ),
+        'player.all_servers_failed',
+      );
+    });
+
+    test('one server that never started says it timed out', () {
+      expect(
+        PlaybackFault.exhaustedKey(
+          'TimeoutException after 0:00:25.000000: Playback did not start',
+          timedOut: true,
+          serversTried: 1,
+        ),
+        'player.resolve_timeout',
+      );
+    });
+
+    test('one server that failed keeps its own message', () {
+      expect(
+        PlaybackFault.exhaustedKey(
+          'Source error',
+          timedOut: false,
+          serversTried: 1,
+        ),
+        isNull,
+      );
+    });
+
+    test('the keys it returns exist in English', () {
+      final en = File('assets/translations/en.json').readAsStringSync();
+      expect(en.contains('"resolve_timeout"'), isTrue);
+    });
+  });
+
   group('localisation contract', () {
     test('every kind carries a distinct player.fault.* key', () {
       final keys = PlaybackFaultKind.values.map((k) => k.messageKey).toList();
@@ -129,6 +269,14 @@ void main() {
         }
       }
     });
+  });
+
+  test("mpv's Failed to open is a blocked source, not the raw address", () {
+    final fault = PlaybackFault.classify(
+      'Bad state: Failed to open https://fetch.example/anime/a/b/master.m3u8.',
+    );
+    expect(fault.kind, PlaybackFaultKind.sourceBlocked);
+    expect(fault.raw, contains('master.m3u8'));
   });
 
   test('the domain layer stays free of Flutter', () {

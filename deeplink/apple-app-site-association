@@ -8,7 +8,10 @@
           "/detail",
           "/detail/*",
           "/play",
-          "/play/*"
+          "/play/*",
+          "/party/*",
+          "/link/*",
+          "/pair/*"
         ]
       }
     ]

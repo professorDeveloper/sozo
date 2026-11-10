@@ -266,6 +266,8 @@ class AppConstants {
   static const String subtitleStyleKey = 'subtitle_style';
   static const String subtitleAutoTranslateKey = 'subtitle_auto_translate';
   static const String subtitleTranslateLangKey = 'subtitle_translate_lang';
+  static const String mangaTranslateLangKey = 'manga_translate_lang';
+  static const String mangaAutoTranslateKey = 'manga_auto_translate';
 
   /// Ask which engine to use every time playback starts, instead of silently
   /// using [playerEngineKey]. Absent ⇒ off, so an existing install keeps the
@@ -285,8 +287,12 @@ class AppConstants {
 
   /// Open the player without starting it.
   static const String startPausedKey = 'start_paused';
+  static const String playerControlsStyleKey = 'player_controls_style';
+  static const String nativeControlsOfferedKey = 'native_controls_offered';
   static const String doubleTapSeekSecondsKey = 'double_tap_seek_seconds';
   static const String longPressBoostKey = 'long_press_boost';
+  static const String desktopVolumeKey = 'desktop_player_volume';
+  static const String desktopMutedKey = 'desktop_player_muted';
   static const String brightnessGestureKey = 'brightness_gesture';
 
   /// Whether the detail header plays a title's trailer by itself.
@@ -303,6 +309,7 @@ class AppConstants {
   /// in the app that makes something private visible to other people.
   static const String discordPresenceKey = 'discord_presence_enabled';
   static const String volumeGestureKey = 'volume_gesture';
+  static const String autoPipKey = 'auto_pip';
 
   /// Explicit on/off per player-info row, as `{fieldId: bool}`. Explicit rather
   /// than a list of enabled ids so a row added in a later release can be told
@@ -325,6 +332,14 @@ class AppConstants {
 
   /// Feature ids the viewer has already opened.
   static const String whatsNewSeenKey = 'whats_new_seen';
+
+  /// Completed-episode counter and answers for the GitHub star prompt.
+  static const String starPromptKey = 'star_prompt';
+
+  /// Last contributor list from the backend, for the About page offline.
+  static const String contributorsCacheKey = 'contributors_cache';
+
+  static const String sozoRepoUrl = 'https://github.com/professorDeveloper/sozo';
 
   static const String streakBox = 'streak_box';
   static const String streakStateKey = 'streak_state';

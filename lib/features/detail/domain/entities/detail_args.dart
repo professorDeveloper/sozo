@@ -26,6 +26,12 @@ class DetailArgs {
   /// opens on it.
   final int? focusEpisode;
 
+  /// Opened from a `/play` link: the episode number to start, and where in
+  /// it (or in the film). Unlike [resumeEpisodeIndex], these are the sharer's
+  /// place, not this viewer's history.
+  final int? startEpisode;
+  final int? startPositionMs;
+
   const DetailArgs({
     required this.contentUrl,
     this.preview,
@@ -34,5 +40,7 @@ class DetailArgs {
     this.provider,
     this.heroTag,
     this.focusEpisode,
+    this.startEpisode,
+    this.startPositionMs,
   });
 }

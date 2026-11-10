@@ -33,6 +33,11 @@ object HlsFramePreview {
     private const val MAX_W = 360
     private const val LINGER_MS = 60_000L
 
+    // A playlist, a whole segment and a decode on whatever connection there is.
+    // 5 seconds was never enough for a 2 MB segment on mobile data, and giving
+    // up meant paying for it again. Stays below the Dart side's frame allowance.
+    private const val FRAME_WAIT_MS = 18_000L
+
     private val lock = Any()
     private val main = Handler(Looper.getMainLooper())
     private var extractor: FrameExtractor? = null
@@ -40,7 +45,7 @@ object HlsFramePreview {
     private var generation = 0L
     private val release = Runnable { replace(null, null) }
 
-    fun open(context: Context, url: String, sessionId: Long): Boolean {
+    fun open(context: Context, url: String, sessionId: Long, progressive: Boolean = false): Boolean {
         synchronized(lock) {
             if (sessionId < generation) return false
             generation = sessionId
@@ -54,7 +59,7 @@ object HlsFramePreview {
             // a progressive file and failed on every frame.
             val item = MediaItem.Builder()
                 .setUri(url)
-                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .apply { if (!progressive) setMimeType(MimeTypes.APPLICATION_M3U8) }
                 .build()
             val built = FrameExtractor.Builder(context.applicationContext, item)
                 .setSeekParameters(SeekParameters.CLOSEST_SYNC)
@@ -93,7 +98,7 @@ object HlsFramePreview {
             return null
         }
         return try {
-            val frame = pending.get(5, TimeUnit.SECONDS)
+            val frame = pending.get(FRAME_WAIT_MS, TimeUnit.MILLISECONDS)
             if (synchronized(lock) { sessionId != generation }) null else encode(frame.bitmap)
         } catch (t: java.util.concurrent.TimeoutException) {
             // The extractor runs its requests one after another; one left

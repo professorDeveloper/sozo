@@ -48,9 +48,9 @@ void main() {
     // every assertion about the method silently vacuous.
     // The brace that opens the BODY, which is the one after the parameter
     // list's `)`. The signature's own `{` is the parameter list's.
-    final bodyOpen = RegExp(r'\)\s*(async\s*)?\{').firstMatch(
-      source.substring(start),
-    );
+    final bodyOpen = RegExp(
+      r'\)\s*(async\s*)?\{',
+    ).firstMatch(source.substring(start));
     final from = bodyOpen == null ? start : start + bodyOpen.end;
     final end = source.indexOf('\n$indent}', from);
     if (end == -1) {
@@ -163,7 +163,9 @@ void main() {
 
     void gate(String signature) {
       final body = bodyOf(media, signature);
-      final capture = body.indexOf('_controller?.value.position');
+      // Through [_retryPosition], which reads the controller and falls back
+      // to the last position seen while playing — gated below.
+      final capture = body.indexOf('_retryPosition');
       final teardown = body.indexOf('_disposeController');
       expect(
         capture,
@@ -201,11 +203,24 @@ void main() {
           reason: 'this reload inside $signature restarts from zero:\n$call',
         );
       }
+    }
 
+    test('the position a retry keeps survives the engine forgetting it', () {
+      final getter = bodyOf(media, 'Duration get _retryPosition');
       // A live channel has no position worth returning to, and resuming one an
       // hour behind the edge would stall on a window the CDN has dropped.
-      expect(body, contains('_isLive'));
-    }
+      expect(getter, contains('_isLive'));
+      expect(getter, contains('_controller?.value'));
+      // ExoPlayer zeroes its whole value on an error
+      // (VideoPlayerValue.erroneous), so the controller alone sent a drop
+      // thirty minutes in back to 0:00.
+      expect(getter, contains('_lastPlayedPosition'));
+      expect(getter, contains('_pendingResume'));
+    });
+
+    test('the in-place reconnect after a dropped connection', () {
+      gate('Future<void> _reconnectInPlace()');
+    });
 
     test('the automatic retry after a network drop', () {
       gate('Future<void> _autoRetry()');

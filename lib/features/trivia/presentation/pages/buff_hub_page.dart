@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
@@ -113,11 +114,11 @@ class _Masthead extends StatelessWidget {
                   'navigation.buff'.tr(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    height: 1.1,
+                    height: lineHeightFor(context, 1.1),
                   ),
                 ),
               ),
@@ -660,11 +661,11 @@ class _SectionHeader extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
-                    height: 1.1,
+                    height: lineHeightFor(context, 1.1),
                   ),
                 ),
               ),
@@ -866,11 +867,11 @@ class _HowItWorksCard extends StatelessWidget {
             'trivia.how_it_works'.tr(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.w800,
-              height: 1.1,
+              height: lineHeightFor(context, 1.1),
             ),
           ),
           const SizedBox(height: 16),

@@ -24,6 +24,17 @@ class EpisodeEntity {
   /// same chapter once per group; the chapter list filters by it.
   final String? scanlator;
 
+  /// The season this episode belongs to, when the source lists more than one
+  /// in a single run — a CloudStream series hands every season over at once.
+  /// Null for a single-season list, so nothing about those changes.
+  final int? season;
+
+  /// The episode's number within [season], as the source wrote it. [episode]
+  /// is then the position in the whole run: two seasons both start at 1, and
+  /// the number is what downloads, history and the player tell episodes apart
+  /// by — Lupin's S2E1 used to be a second "episode 1", sorted in among S1's.
+  final int? numberInSeason;
+
   const EpisodeEntity({
     required this.episode,
     required this.label,
@@ -37,5 +48,11 @@ class EpisodeEntity {
     this.overview,
     this.webUrl,
     this.scanlator,
+    this.season,
+    this.numberInSeason,
   });
+
+  /// "S2 E1" for an episode of a multi-season run, the plain number otherwise.
+  String get numberLabel =>
+      season == null ? '$episode' : 'S$season E${numberInSeason ?? episode}';
 }

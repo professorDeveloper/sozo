@@ -1,3 +1,4 @@
+import 'package:soplay/core/js/js_value.dart';
 import 'package:soplay/features/home/domain/entities/home_data_entity.dart';
 
 import 'content_filter_model.dart';
@@ -20,18 +21,14 @@ class HomeDataModel extends HomeDataEntity {
   }) {
     return HomeDataModel(
       provider: json['provider'] as String? ?? '',
-      banner: (json['banner'] as List? ?? [])
-          .map((e) => MovieModel.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      sections: (json['sections'] as List? ?? [])
-          .map((e) => HomeSectionModel.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      categories: categories
-          .map((e) => ContentFilterModel.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      genres: genres
-          .map((e) => ContentFilterModel.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      banner: jsonMaps(json['banner']).map(MovieModel.fromJson).toList(),
+      sections: jsonMaps(
+        json['sections'],
+      ).map(HomeSectionModel.fromJson).toList(),
+      categories: jsonMaps(
+        categories,
+      ).map(ContentFilterModel.fromJson).toList(),
+      genres: jsonMaps(genres).map(ContentFilterModel.fromJson).toList(),
     );
   }
 }

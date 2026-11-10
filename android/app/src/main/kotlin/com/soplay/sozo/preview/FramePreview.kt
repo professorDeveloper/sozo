@@ -7,15 +7,18 @@ import android.util.Log
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import android.os.Handler
+import android.os.Looper
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * A single, demand-driven seek-preview decoder. Never warms or prefetches frames.
+ * A single seek-preview decoder for progressive files, driven frame by frame by
+ * the Dart side, which also fills the background grid through it.
  * A blocked setDataSource must not create a growing collection of retrievers as
- * the user scrubs. All native work shares one try-lock; close only invalidates
- * the generation and schedules release, so it never waits on a network/codec call.
+ * the user scrubs. All native work shares one try-lock; close only schedules the
+ * release, so it never waits on a network/codec call.
  */
 object FramePreview {
     private const val TAG = "FramePreview"
@@ -33,6 +36,16 @@ object FramePreview {
     private var active: Session? = null
     private val retired = ArrayList<MediaMetadataRetriever>()
     private val cleanupScheduled = AtomicBoolean(false)
+
+    // Kept between drags, as HlsFramePreview keeps its extractor. Reading a
+    // file's index is most of what a frame costs on a slow host, and released
+    // when the finger lifted, every drag read it again.
+    private const val LINGER_MS = 60_000L
+    private val main = Handler(Looper.getMainLooper())
+    private val release = Runnable { retireActive() }
+
+    /** What was asked for last: an open that took its time still counts for it. */
+    private var wanted: Pair<String, Map<String, String>>? = null
     private val cleanup = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "preview-release").apply { isDaemon = true }
     }
@@ -47,10 +60,21 @@ object FramePreview {
     @Suppress("UNUSED_PARAMETER")
     fun open(url: String, headers: Map<String, String>, warmMs: Long = -1L,
              sessionId: Long = generation.get() + 1): Boolean {
-        if (!accept(sessionId) || !work.tryLock()) return false
+        if (!accept(sessionId)) return false
+        synchronized(state) { wanted = url to headers }
+        main.removeCallbacks(release)
+        if (!work.tryLock()) return false
         try {
-            val existing = synchronized(state) { active }
-            if (existing?.generation == sessionId && existing.url == url && existing.headers == headers) return true
+            val reused = synchronized(state) {
+                val existing = active
+                if (existing != null && existing.url == url && existing.headers == headers) {
+                    active = existing.copy(generation = sessionId)
+                    true
+                } else {
+                    false
+                }
+            }
+            if (reused) return true
             synchronized(state) {
                 active?.let { retired.add(it.retriever) }
                 active = null
@@ -62,8 +86,8 @@ object FramePreview {
                 if (headers.isEmpty()) retriever.setDataSource(url)
                 else retriever.setDataSource(url, headers)
                 val installed = synchronized(state) {
-                    if (generation.get() != sessionId) false else {
-                        active = Session(sessionId, url, headers.toMap(), retriever)
+                    if (wanted != url to headers) false else {
+                        active = Session(generation.get(), url, headers.toMap(), retriever)
                         true
                     }
                 }
@@ -99,6 +123,14 @@ object FramePreview {
         synchronized(state) {
             if (sessionId < generation.get()) return
             generation.set(sessionId)
+        }
+        main.removeCallbacks(release)
+        main.postDelayed(release, LINGER_MS)
+    }
+
+    private fun retireActive() {
+        synchronized(state) {
+            wanted = null
             active?.let { retired.add(it.retriever) }
             active = null
         }

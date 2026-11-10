@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -8,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/stats/presentation/watch_stats_page.dart';
@@ -49,6 +49,10 @@ import 'package:soplay/core/storage/profile_scope.dart';
 import 'package:soplay/features/social/data/social_service.dart';
 import 'package:soplay/features/social/domain/social_models.dart';
 import 'package:soplay/features/achievements/presentation/widgets/achievements_entry_card.dart';
+import 'package:soplay/features/progress/data/progress_service.dart';
+import 'package:soplay/features/progress/domain/progress.dart';
+import 'package:soplay/features/progress/presentation/widgets/user_badge_line.dart';
+import 'package:soplay/core/glass/reducible_blur.dart';
 
 // Split into parts the way player_page.dart is: the page was 2721 lines
 // across nine sections, which is past the point where anyone can find
@@ -293,10 +297,10 @@ class _ProfileViewState extends State<_ProfileView> {
                 );
                 if (progress < 0.01) return content;
                 return ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(
-                      sigmaX: 20 * progress,
-                      sigmaY: 20 * progress,
+                  child: ReducibleBlur(
+                    sigma: 20 * progress,
+                    reducedFill: AppColors.navBackground.withValues(
+                      alpha: 0.15 * progress,
                     ),
                     child: content,
                   ),
@@ -505,33 +509,36 @@ class _SettingsNavItemState extends State<_SettingsNavItem> {
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: active
-                ? AppColors.primary.withValues(alpha: 0.12)
-                : (_hover
-                      ? Colors.white.withValues(alpha: 0.05)
-                      : Colors.transparent),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: [
-              Icon(widget.icon, color: color, size: 18),
-              const SizedBox(width: 12),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 14,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+        child: HoverTap(
+          onTap: widget.onTap,
+          scale: 1,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: active
+                  ? AppColors.primary.withValues(alpha: 0.12)
+                  : (_hover
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.transparent),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(widget.icon, color: color, size: 18),
+                const SizedBox(width: 12),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 14,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

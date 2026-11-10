@@ -1,3 +1,4 @@
+import 'package:soplay/core/subtitles/subtitle_cipher.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 
 class SubtitleModel extends SubtitleEntity {
@@ -6,6 +7,7 @@ class SubtitleModel extends SubtitleEntity {
     required super.file,
     required super.isDefault,
     super.headers,
+    super.cipher,
   });
 
   factory SubtitleModel.fromJson(Map<String, dynamic> json) => SubtitleModel(
@@ -21,6 +23,7 @@ class SubtitleModel extends SubtitleEntity {
         '',
     isDefault: json['default'] as bool? ?? json['isDefault'] as bool? ?? false,
     headers: _parseHeaders(json['headers']),
+    cipher: SubtitleCipher.fromJson(json['cipher']),
   );
 
   static Map<String, String> _parseHeaders(dynamic raw) {

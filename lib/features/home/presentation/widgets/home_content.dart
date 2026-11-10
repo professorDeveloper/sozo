@@ -119,10 +119,12 @@ class _HomeContentState extends State<HomeContent> {
   /// sat at the front of Watch's Home, and a film at the front of Manga's.
   void _loadHistory() {
     final mode = ContentMode.fromId(getIt<HiveService>().getContentMode());
-    final items = [
-      for (final item in _historyService.getAll())
-        if (item.provider.contentMode == mode) item,
-    ];
+    final items = _historyService.count == 0
+        ? const <HistoryItem>[]
+        : [
+            for (final item in _historyService.getAll())
+              if (item.provider.contentMode == mode) item,
+          ];
     if (!mounted) return;
     setState(() => _historyItems = items);
   }

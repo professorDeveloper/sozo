@@ -1,3 +1,4 @@
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/features/download/presentation/widgets/download_choice_sheet.dart';
 import 'dart:async';
 import 'dart:ui';
@@ -10,6 +11,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/features/notifications/presentation/widgets/notification_priming.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/domain/episode_blocks.dart';
 import 'package:soplay/core/error/result.dart';
@@ -18,6 +20,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/data/title_prefs_store.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
+import 'package:soplay/features/detail/domain/episode_seasons.dart';
 import 'package:soplay/features/manga/data/chapter_read_store.dart';
 import 'package:soplay/features/detail/domain/entities/episodes_args.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -35,6 +38,10 @@ import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.d
 import 'package:soplay/features/download/presentation/download_messages.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
+import 'package:soplay/features/comments/domain/episode_key.dart';
+import 'package:soplay/features/comments/domain/repositories/comments_repository.dart';
+import 'package:soplay/features/comments/domain/repositories/episode_comments_repository.dart';
+import 'package:soplay/features/comments/presentation/widgets/episode_comments_sheet.dart';
 
 /// Focus highlight for the full-width rows on this page.
 ///
@@ -101,6 +108,48 @@ class _EpisodesPageState extends State<EpisodesPage> {
   late final bool _showImages;
 
   HistoryItem? _historyItem;
+
+  /// Top-level comments per episode key; empty until (and unless) it loads.
+  Map<String, int> _commentCounts = const {};
+
+  Future<void> _loadCommentCounts() async {
+    if (_isManga || widget.args.offline || widget.args.contentUrl.isEmpty) {
+      return;
+    }
+    if (!getIt.isRegistered<CommentsRepository>()) return;
+    final repo = switch (getIt<CommentsRepository>()) {
+      final EpisodeCommentsRepository r => r,
+      _ => null,
+    };
+    if (repo == null) return;
+    final result = await repo.episodeCounts(
+      provider: widget.args.provider,
+      contentUrl: widget.args.contentUrl,
+    );
+    if (!mounted) return;
+    if (result case Success(:final value) when value.isNotEmpty) {
+      setState(() => _commentCounts = value);
+    }
+  }
+
+  int _commentCountFor(int i) =>
+      _commentCounts[EpisodeKey.of(
+        isSerial: true,
+        episodeNumber: _episodes[i].episode,
+      )] ??
+      0;
+
+  Future<void> _openEpisodeComments(int i) async {
+    final episode = _episodes[i];
+    await showEpisodeComments(
+      context,
+      provider: widget.args.provider,
+      contentUrl: widget.args.contentUrl,
+      episodeKey: EpisodeKey.of(isSerial: true, episodeNumber: episode.episode),
+      title: 'player.episode_comments'.tr(args: [episode.numberLabel]),
+    );
+    if (mounted) unawaited(_loadCommentCounts());
+  }
 
   /// Indices picked in multi-select. Empty means normal browsing.
   ///
@@ -203,6 +252,49 @@ class _EpisodesPageState extends State<EpisodesPage> {
     }
   }
 
+  /// The season the list shows, for a source that lists several in one run.
+  /// Null until picked: the season of the episode being watched, else the
+  /// first.
+  int? _season;
+
+  /// The seasons among the loaded episodes, in order, with their counts.
+  List<(int, int)> get _seasons => EpisodeSeasons.of(_episodes);
+
+  /// The season on screen, or null when the run has only one.
+  int? get _activeSeason {
+    final seasons = _seasons;
+    if (seasons.length < 2) return null;
+    final picked = _season;
+    if (picked != null && seasons.any((s) => s.$1 == picked)) return picked;
+    final watching = _indexOfHistoryEpisode();
+    if (watching >= 0) {
+      final s = _episodes[watching].season;
+      if (s != null) return s;
+    }
+    return seasons.first.$1;
+  }
+
+  void _setSeason(int season) {
+    if (season == _activeSeason) return;
+    setState(() {
+      _season = season;
+      _invalidateDerived();
+    });
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  /// Puts the season holding [index] on screen, so a row being flashed or
+  /// played from history is in the list to be seen.
+  void _showSeasonOf(int index) {
+    if (index < 0 || index >= _episodes.length) return;
+    final s = _episodes[index].season;
+    if (s == null || s == _activeSeason) return;
+    setState(() {
+      _season = s;
+      _invalidateDerived();
+    });
+  }
+
   List<EpisodeBlock>? _blocksCache;
 
   /// Which block the reader is looking at, as opposed to where the window
@@ -237,7 +329,12 @@ class _EpisodesPageState extends State<EpisodesPage> {
     _refreshHistory();
     _refreshRead();
     _maybeAutoFill();
-    if (widget.args.resumeFromHistory) {
+    unawaited(_loadCommentCounts());
+    if (widget.args.playEpisode != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_playLinkedEpisode(widget.args.playEpisode!));
+      });
+    } else if (widget.args.resumeFromHistory) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_resumeFromHistory());
       });
@@ -253,6 +350,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
   Future<void> _focusOn(int number) async {
     final index = _episodes.indexWhere((e) => e.episode == number);
     if (index >= 0) {
+      _showSeasonOf(index);
       _flashRow(index, hold: const Duration(milliseconds: 3200));
       return;
     }
@@ -291,6 +389,29 @@ class _EpisodesPageState extends State<EpisodesPage> {
       if (index < 0) return;
     }
     await _playFrom(index);
+  }
+
+  /// Plays the episode a `/play` link named, at the link's position. A number
+  /// the run does not have leaves the list on screen.
+  Future<void> _playLinkedEpisode(int number) async {
+    var index = _episodes.indexWhere((e) => e.episode == number);
+    if (index < 0) {
+      final block = blockContaining(
+        number,
+        total: _total,
+        size: _size,
+        descending: _sort == 'desc',
+        firstNumber: _firstNumber,
+      );
+      if (block == null || !await _jumpToBlock(block) || !mounted) return;
+      index = _episodes.indexWhere((e) => e.episode == number);
+      if (index < 0) return;
+    }
+    final ms = widget.args.startPositionMs;
+    await _playFrom(
+      index,
+      start: ms == null ? null : Duration(milliseconds: ms),
+    );
   }
 
   int _indexOfHistoryEpisode() {
@@ -545,7 +666,12 @@ class _EpisodesPageState extends State<EpisodesPage> {
     final group = _group != null && _groups.any((g) => g.$1 == _group)
         ? _group
         : null;
-    bool inGroup(int i) => group == null || _episodes[i].scanlator == group;
+    // A typed search looks through every season: "Chapter 6" is wherever it
+    // is, not only in the season on screen.
+    final season = _query.isEmpty ? _activeSeason : null;
+    bool inGroup(int i) =>
+        (group == null || _episodes[i].scanlator == group) &&
+        (season == null || _episodes[i].season == season);
     if (_query.isEmpty) {
       return [
         for (var i = 0; i < _episodes.length; i++)
@@ -812,7 +938,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
     }
   }
 
-  Future<void> _playFrom(int index) async {
+  Future<void> _playFrom(int index, {Duration? start}) async {
     if (widget.args.offline) {
       await _playOffline(index);
       return;
@@ -836,7 +962,9 @@ class _EpisodesPageState extends State<EpisodesPage> {
       return;
     }
 
-    final resumeMs = isHistoryEntry ? _historyItem!.positionMs : 0;
+    final resumeMs =
+        start?.inMilliseconds ??
+        (isHistoryEntry ? _historyItem!.positionMs : 0);
     // The engine question belongs before the player exists — see
     // confirmPlayerEngine.
     if (!await confirmPlayerEngine(context) || !mounted) return;
@@ -962,11 +1090,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
       // needsPlayback: playing the episode once runs the WebView sniff, and
       // the player can then download the resolved stream.
       if (!quiet) {
-        _toast(
-          resolved.failure == DownloadBuildFailure.needsPlayback
-              ? 'detail.download_needs_playback'.tr()
-              : 'detail.download_resolve_failed'.tr(),
-        );
+        _toast(downloadBuildFailureMessage(resolved.failure!));
       }
       return false;
     }
@@ -989,6 +1113,14 @@ class _EpisodesPageState extends State<EpisodesPage> {
       ),
     );
 
+    if (outcome == EnqueueOutcome.started && mounted) {
+      unawaited(
+        primeNotificationsForFirstDownload(
+          context,
+          titleHint: widget.args.title,
+        ),
+      );
+    }
     if (outcome != EnqueueOutcome.started && !quiet && mounted) {
       _toast(downloadOutcomeMessage(outcome));
     }
@@ -1248,6 +1380,15 @@ class _EpisodesPageState extends State<EpisodesPage> {
                               onPick: _jumpToBlock,
                             ),
                           ),
+                        // Seasons, when the source lists them all in one run.
+                        if (_seasons.length > 1)
+                          SliverToBoxAdapter(
+                            child: _SeasonStrip(
+                              seasons: _seasons,
+                              selected: _activeSeason,
+                              onPick: _setSeason,
+                            ),
+                          ),
                         // Translation groups, when the source lists more than
                         // one — the same chapter three times over otherwise.
                         if (_isManga && _groups.length > 1)
@@ -1346,6 +1487,10 @@ class _EpisodesPageState extends State<EpisodesPage> {
                               read:
                                   _isManga &&
                                   _read.contains(_episodes[i].episode),
+                              commentCount: _commentCountFor(i),
+                              onComments: _isManga || widget.args.offline
+                                  ? null
+                                  : () => _openEpisodeComments(i),
                             );
                             if (!widget.args.offline || _isDownloaded(i)) {
                               return row;
@@ -1856,11 +2001,11 @@ class _EpisodesAppBar extends StatelessWidget {
           title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            height: 1.1,
+            height: lineHeightFor(context, 1.1),
           ),
         ),
       ),
@@ -2052,7 +2197,8 @@ String episodeRowTitle(EpisodeEntity episode) {
   // it threw during build, which took the whole episode list down rather than
   // one row's title.
   final number = match.group(1) ?? match.group(2);
-  if (number != null && int.tryParse(number) == episode.episode) {
+  if (number != null &&
+      int.tryParse(number) == (episode.numberInSeason ?? episode.episode)) {
     return '';
   }
   return label;
@@ -2075,6 +2221,8 @@ class _EpisodeRow extends StatelessWidget {
     this.progress,
     this.onDownload,
     this.read = false,
+    this.commentCount = 0,
+    this.onComments,
   });
 
   final EpisodeEntity episode;
@@ -2118,6 +2266,10 @@ class _EpisodeRow extends StatelessWidget {
   /// ticks. The row stays fully tappable — re-reading is normal.
   final bool read;
 
+  /// Shown as a small chip when there is at least one; a tap opens the thread.
+  final int commentCount;
+  final VoidCallback? onComments;
+
   @override
   Widget build(BuildContext context) {
     final hasSub = episode.hasSub == true;
@@ -2152,7 +2304,7 @@ class _EpisodeRow extends StatelessWidget {
                   if (showImage) ...[
                     _EpisodeThumb(
                       image: episode.image,
-                      episode: episode.episode,
+                      episode: episode.numberInSeason ?? episode.episode,
                       headers: headers,
                     ),
                     const SizedBox(width: 12),
@@ -2168,7 +2320,9 @@ class _EpisodeRow extends StatelessWidget {
                     ConstrainedBox(
                       constraints: const BoxConstraints(minWidth: 44),
                       child: Text(
-                        _episodeNumberLabel(episode.episode),
+                        _episodeNumberLabel(
+                          episode.numberInSeason ?? episode.episode,
+                        ),
                         maxLines: 1,
                         style: TextStyle(
                           color: progress != null
@@ -2222,6 +2376,8 @@ class _EpisodeRow extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (commentCount > 0 && onComments != null && !selecting)
+                    _CommentCountChip(count: commentCount, onTap: onComments!),
                   if (hasSub) const _LangChip(label: 'SUB', primary: true),
                   if (hasSub && hasDub) const SizedBox(width: 4),
                   if (hasDub) const _LangChip(label: 'DUB', primary: false),
@@ -2302,6 +2458,47 @@ class _EpisodeRow extends StatelessWidget {
     if (air != null && air.isNotEmpty) parts.add(air);
     if (run != null && run.isNotEmpty) parts.add(run);
     return parts.join(' · ');
+  }
+}
+
+class _CommentCountChip extends StatelessWidget {
+  const _CommentCountChip({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(end: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        focusColor: _kTvRowFocusFill,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 13,
+                color: AppColors.textHint,
+              ),
+              const SizedBox(width: 3),
+              Text(
+                count > 999 ? '999+' : '$count',
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -2766,6 +2963,60 @@ class _GroupStrip extends StatelessWidget {
           chip('episodes.all_groups'.tr(), active == null, () => onPick(null)),
           for (final (name, count) in groups)
             chip('$name · $count', active == name, () => onPick(name)),
+        ],
+      ),
+    );
+  }
+}
+
+/// One chip per season, for a source that lists every season in one run.
+class _SeasonStrip extends StatelessWidget {
+  const _SeasonStrip({
+    required this.seasons,
+    required this.selected,
+    required this.onPick,
+  });
+
+  final List<(int, int)> seasons;
+  final int? selected;
+  final ValueChanged<int> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 46,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+        children: [
+          for (final (season, count) in seasons)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 8),
+              child: ChoiceChip(
+                label: Text(
+                  '${season == 0 ? 'episodes.specials'.tr() : 'episodes.season_n'.tr(args: ['$season'])} · $count',
+                  maxLines: 1,
+                ),
+                selected: season == selected,
+                showCheckmark: false,
+                onSelected: (_) => onPick(season),
+                selectedColor: AppColors.primary.withValues(alpha: 0.22),
+                backgroundColor: AppColors.surface,
+                side: BorderSide(
+                  color: season == selected
+                      ? AppColors.primary
+                      : AppColors.border,
+                  width: 0.8,
+                ),
+                labelStyle: TextStyle(
+                  color: season == selected
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                ),
+              ),
+            ),
         ],
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'package:soplay/core/localization/line_height.dart';
 import 'package:soplay/core/network/image_headers.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -112,7 +113,7 @@ class GenreTile extends StatelessWidget {
                 color: AppColors.textPrimary,
                 fontSize: labelSize,
                 fontWeight: FontWeight.w700,
-                height: 1.15,
+                height: lineHeightFor(context, 1.15),
                 letterSpacing: -0.2,
                 shadows: [Shadow(color: Colors.black87, blurRadius: 6)],
               ),
