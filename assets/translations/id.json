@@ -408,6 +408,7 @@
     "subtitle_preview_text": "Muharjo seorang xenofobia universal yang takut pada kelinci",
     "server": "Server",
     "change_server": "Ganti server",
+    "cannot_seek_server": "Server ini tidak bisa dipercepat. Tonton dari awal atau pilih server lain.",
     "stream_not_found": "Sumber ini menyembunyikan alirannya di balik pemutar terlindungi. Coba sumber lain, atau buka di peramban.",
     "subtitle_translation": "Terjemahan subtitle",
     "auto_translate": "Terjemahkan otomatis",

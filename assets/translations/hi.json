@@ -422,6 +422,7 @@
     "subtitle_preview_text": "The quick brown fox jumps over the lazy dog",
     "server": "सर्वर",
     "change_server": "सर्वर बदलें",
+    "cannot_seek_server": "इस सर्वर पर आगे नहीं बढ़ा सकते। शुरू से देखें या कोई दूसरा सर्वर चुनें।",
     "stream_not_found": "यह सोर्स अपनी स्ट्रीम को एक सुरक्षित प्लेयर के पीछे छिपाता है। कोई दूसरा सोर्स आज़माएँ या इसे अपने ब्राउज़र में खोलें।",
     "subtitle_translation": "सबटाइटल अनुवाद",
     "auto_translate": "ऑटो-अनुवाद",

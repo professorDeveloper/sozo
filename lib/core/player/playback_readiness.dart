@@ -242,3 +242,12 @@ bool isDecodeGlitch(String error) {
   final l = error.toLowerCase();
   return l.startsWith('error decoding') || l.contains('error while decoding');
 }
+
+/// mpv's notice that the server ignores byte ranges: "Cannot seek in this
+/// stream." and its "--force-seekable=yes" hint. The file keeps playing; only a
+/// jump is refused, so it is not a playback error.
+bool isSeekRefusal(String error) {
+  final l = error.toLowerCase();
+  return l.contains('cannot seek in this stream') ||
+      l.contains('force-seekable');
+}

@@ -422,6 +422,7 @@
     "subtitle_preview_text": "Con cáo nâu nhanh nhẹn nhảy qua chú chó lười",
     "server": "Máy chủ",
     "change_server": "Đổi máy chủ",
+    "cannot_seek_server": "Máy chủ này không tua được. Hãy xem từ đầu hoặc chọn máy chủ khác.",
     "stream_not_found": "Nguồn này giấu luồng phát sau một trình phát được bảo vệ. Hãy thử nguồn khác hoặc mở trong trình duyệt.",
     "subtitle_translation": "Dịch phụ đề",
     "auto_translate": "Tự động dịch",

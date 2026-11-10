@@ -223,6 +223,10 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
   /// subtitle style, the same way it draws a downloaded subtitle file.
   ValueListenable<String> get embeddedSubtitleText => _noEmbeddedText;
 
+  /// Turns true when the server refused a jump: the stream plays, but only
+  /// from where it is. mpv only; it never fires on the platform player.
+  ValueListenable<bool> get seekRefused => _neverRefused;
+
   /// Whether this backend can adjust the picture while playing.
   ///
   /// libmpv only. The platform player exposes no runtime video equalizer at
@@ -438,6 +442,7 @@ class PlayerAudioTrack {
 }
 
 final ValueNotifier<String> _noEmbeddedText = ValueNotifier<String>('');
+final ValueNotifier<bool> _neverRefused = ValueNotifier<bool>(false);
 
 /// One subtitle track inside the stream.
 class PlayerSubtitleTrack extends PlayerAudioTrack {
@@ -696,6 +701,7 @@ class _MediaKitController extends PlayerController {
   List<PlayerSubtitleTrack> _subtitleTracks = const <PlayerSubtitleTrack>[];
   String? _activeSubtitleTrackId;
   final ValueNotifier<String> _embeddedText = ValueNotifier<String>('');
+  final ValueNotifier<bool> _seekRefused = ValueNotifier<bool>(false);
   String? _activeVideoTrackId;
   final List<StreamSubscription<dynamic>> _subs =
       <StreamSubscription<dynamic>>[];
@@ -1127,6 +1133,13 @@ class _MediaKitController extends PlayerController {
       )
       ..add(
         _player.stream.error.listen((e) {
+          // Reported as an error, it reopened the url at 0:00 — "skip 30 s
+          // starts it from the start" on UHD Movies' Google links, which
+          // ignore byte ranges. The film itself plays on.
+          if (isSeekRefusal(e)) {
+            _seekRefused.value = true;
+            return;
+          }
           // A live stream has no length and no cache to ride out a stall
           // on: once it plays, a dropped connection is reported at once so
           // the page reconnects instead of showing a frozen picture.
@@ -1495,6 +1508,10 @@ class _MediaKitController extends PlayerController {
       _fallback != null ? _noEmbeddedText : _embeddedText;
 
   @override
+  ValueListenable<bool> get seekRefused =>
+      _fallback != null ? _neverRefused : _seekRefused;
+
+  @override
   Future<void> setSubtitleTrack(String id) async {
     if (_fallback != null) return;
     if (id == PlayerSubtitleTrack.off) {
@@ -1556,6 +1573,7 @@ class _MediaKitController extends PlayerController {
 
   Future<void> _disposeOnce() async {
     if (!_closed.isCompleted) _closed.complete();
+    _seekRefused.dispose();
     await _teardownMpv();
     await _backendSwitches.close();
     await _fallback?.dispose();

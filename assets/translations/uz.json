@@ -408,6 +408,7 @@
     "subtitle_preview_text": "Tez qo’ng’ir tulki yalqov itning ustidan sakraydi",
     "server": "Server",
     "change_server": "Serverni almashtirish",
+    "cannot_seek_server": "Bu serverda oldinga o'tkazib bo'lmaydi. Boshidan ko'ring yoki boshqa server tanlang.",
     "stream_not_found": "Bu manba oqimini himoyalangan pleyer ortida yashiradi. Boshqa manbani tanlang yoki brauzerda oching.",
     "subtitle_translation": "Subtitr tarjimasi",
     "auto_translate": "Avtomatik tarjima",

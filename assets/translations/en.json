@@ -422,6 +422,7 @@
     "subtitle_preview_text": "The quick brown fox jumps over the lazy dog",
     "server": "Server",
     "change_server": "Change server",
+    "cannot_seek_server": "This server can't skip ahead. Play from the start, or pick another server.",
     "stream_not_found": "This source hides its stream behind a protected player. Try another source, or open it in your browser.",
     "subtitle_translation": "Subtitle translation",
     "auto_translate": "Auto-translate",

@@ -24,6 +24,22 @@ extension _PlayerToasts on _PlayerPageState {
     });
   }
 
+  /// The server ignores byte ranges: the film plays, but a skip cannot land.
+  /// Said once per stream, with the way out when this title has other servers.
+  void _onSeekRefused() {
+    final c = _controller;
+    if (c == null || !c.seekRefused.value) return;
+    _plog('stream is not seekable on this server', level: LogLevel.warn);
+    final servers = _affordances.hasServers;
+    _toast(
+      'player.cannot_seek_server'.tr(),
+      icon: Icons.fast_forward_rounded,
+      duration: const Duration(seconds: 6),
+      action: servers ? 'player.change_server'.tr() : null,
+      onAction: servers ? _openServerSheet : null,
+    );
+  }
+
   void _dismissToast() {
     _toastTimer?.cancel();
     _toastNote.value = null;
