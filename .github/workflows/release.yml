@@ -677,7 +677,8 @@ jobs:
     # Desktop is not part of a mobile release. Skipping the job skips the whole
     # runner, which is the only saving that is ever 100%.
     if: ${{ inputs.platforms == '' || inputs.platforms == 'all' }}
-    runs-on: ubuntu-latest
+    # Same as ci.yml build-linux: 26.04's clang fails flutter_secure_storage_linux.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
