@@ -93,6 +93,9 @@ env:
   # declare cmake_minimum_required(VERSION < 3.5) (e.g. firebase_cpp_sdk).
   CMAKE_POLICY_VERSION_MINIMUM: '3.5'
 
+
+# Flutter is pinned: 3.50.0 (stable, Nov 2026) needs Gradle 9.3.1 and breaks the
+# liquid_glass shader. Raise it together with those fixes.
 jobs:
   # ---------------------------------------------------------------- Version ----
   # Decides what this release IS, and is the only job allowed to change it.
@@ -429,6 +432,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
           cache: ${{ runner.environment == 'github-hosted' }}
       - name: Create .env (declared as a pubspec asset — the build fails without it)
         run: printf '%s' "${{ secrets.DOTENV }}" > .env
@@ -627,6 +631,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
           cache: true
       - name: Ensure NuGet (flutter_inappwebview_windows fetches WebView2 with it)
         uses: NuGet/setup-nuget@v2
@@ -704,6 +709,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
           cache: true
       - name: Install Linux desktop + plugin system deps
         run: |
@@ -793,6 +799,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
           cache: true
       - name: Create .env (from secret, or empty placeholder)
         run: printf '%s' "${{ secrets.DOTENV }}" > .env

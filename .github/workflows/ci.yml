@@ -24,6 +24,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+
+# Flutter is pinned: 3.50.0 (stable, Nov 2026) needs Gradle 9.3.1 and breaks the
+# liquid_glass shader. Raise it together with those fixes.
 jobs:
   analyze:
     runs-on: ubuntu-latest
@@ -35,6 +38,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
           cache: true
 
       # `.env` is declared as a pubspec asset, so its absence fails the build
@@ -94,6 +98,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
           cache: true
 
       # The same reason as in `analyze`: `.env` is a declared pubspec asset and
@@ -121,6 +126,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
           cache: true
 
       # Gradle's own caches, which flutter-action does not cover — it caches the
@@ -168,6 +174,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
           cache: true
 
       # Kept in step with the same list in release.yml's linux job; a build that
