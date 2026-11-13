@@ -27,6 +27,11 @@ run-name: >-
 #                       The Bot API cannot message a person by @username; each
 #                       recipient must press Start on the bot once. Get your id
 #                       from @userinfobot.
+#   SOZO_MOBILE_RELEASE_TOKEN  backend release token (X-Release-Token), the same
+#                       value as the backend repo's secret of that name. It may
+#                       only publish `android`. Without it the APKs are not put
+#                       on the CDN and the admin panel is left alone (warning).
+# Optional variable: SOZO_API_BASE_URL (default https://apisozo.azamov.me/api).
 
 on:
   workflow_dispatch:
@@ -67,6 +72,11 @@ on:
           - draft          # attach the builds, leave it unpublished to write
           - publish        # publish immediately, as it used to
           - skip           # build only; artifacts stay on the run
+      admin:
+        description: 'Put the APKs on the CDN download page and offer them to the in-app updater'
+        type: choice
+        default: publish
+        options: [publish, skip]
       announce:
         description: 'Post the builds to Telegram (off to quietly replace the files of a release that is already out)'
         type: boolean
@@ -83,6 +93,9 @@ env:
   # declare cmake_minimum_required(VERSION < 3.5) (e.g. firebase_cpp_sdk).
   CMAKE_POLICY_VERSION_MINIMUM: '3.5'
 
+
+# Flutter is pinned: 3.50.0 (stable, Nov 2026) needs Gradle 9.3.1 and breaks the
+# liquid_glass shader. Raise it together with those fixes.
 jobs:
   # ---------------------------------------------------------------- Version ----
   # Decides what this release IS, and is the only job allowed to change it.
@@ -419,6 +432,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
           cache: ${{ runner.environment == 'github-hosted' }}
       - name: Create .env (declared as a pubspec asset — the build fails without it)
         run: printf '%s' "${{ secrets.DOTENV }}" > .env
@@ -617,6 +631,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
           cache: true
       - name: Ensure NuGet (flutter_inappwebview_windows fetches WebView2 with it)
         uses: NuGet/setup-nuget@v2
@@ -662,7 +677,8 @@ jobs:
     # Desktop is not part of a mobile release. Skipping the job skips the whole
     # runner, which is the only saving that is ever 100%.
     if: ${{ inputs.platforms == '' || inputs.platforms == 'all' }}
-    runs-on: ubuntu-latest
+    # Same as ci.yml build-linux: 26.04's clang fails flutter_secure_storage_linux.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -694,6 +710,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
           cache: true
       - name: Install Linux desktop + plugin system deps
         run: |
@@ -783,6 +800,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
           cache: true
       - name: Create .env (from secret, or empty placeholder)
         run: printf '%s' "${{ secrets.DOTENV }}" > .env
@@ -940,6 +958,150 @@ jobs:
   # moment the version is known for certain, and the release body is generated
   # from the same source. Nothing is typed by hand, so nothing can be typed
   # wrong.
+  # ------------------------------------------------------------ CDN + admin ----
+  # Puts the Android APKs on the R2 CDN, replaces the old builds on the public
+  # download page, and points the in-app updater at the new arm64 APK. Only
+  # version, downloadUrl and releaseNotes change on the updater row: minVersion,
+  # forceUpdate and active stay whatever the admin panel says.
+  #
+  # `release: skip` is a build-only run, so it touches nothing public here either.
+  admin:
+    needs: [version, android]
+    if: >-
+      ${{ always() && !cancelled() && needs.android.result == 'success'
+          && (inputs.admin || 'publish') == 'publish'
+          && (inputs.release || 'publish') != 'skip' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      status: ${{ steps.cdn.outputs.status }}
+      url: ${{ steps.cdn.outputs.arm64 }}
+      updater: ${{ steps.updater.outputs.status }}
+    env:
+      SOZO_MOBILE_RELEASE_TOKEN: ${{ secrets.SOZO_MOBILE_RELEASE_TOKEN }}
+      API: ${{ vars.SOZO_API_BASE_URL || 'https://apisozo.azamov.me/api' }}
+      NAME: ${{ needs.version.outputs.name }}
+      CODE: ${{ needs.version.outputs.build }}
+      NOTES: ${{ inputs.notes }}
+      APK_CONTENT_TYPE: application/vnd.android.package-archive
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: sozo-android
+          path: dist
+
+      # Re-running this job is safe: the CDN key gets a counter and the new row
+      # replaces the one the first attempt created.
+      - name: Upload the APKs to the CDN download page
+        id: cdn
+        run: |
+          set -euo pipefail
+          if [ -z "${SOZO_MOBILE_RELEASE_TOKEN}" ]; then
+            echo "status=skipped" >> "$GITHUB_OUTPUT"
+            echo "::warning title=CDN skipped::SOZO_MOBILE_RELEASE_TOKEN is not set, so the APKs were not uploaded and the admin panel was not touched."
+            exit 0
+          fi
+          API="${API%/}"
+          echo "### CDN" >> "$GITHUB_STEP_SUMMARY"
+
+          # x86_64 is for emulators and has no row on the download page.
+          for pair in arm64-v8a:arm64 armeabi-v7a:armv7; do
+            ABI="${pair%%:*}"; ARCH="${pair##*:}"
+            APK="dist/app-${ABI}-release.apk"
+            if [ ! -f "${APK}" ]; then
+              echo "::error title=APK missing::${APK} is not in the sozo-android artifact"
+              exit 1
+            fi
+            SIZE="$(wc -c < "${APK}" | tr -d ' ')"
+
+            jq -n --arg filename "$(basename "${APK}")" --arg ct "${APK_CONTENT_TYPE}" \
+                  --arg version "${NAME}" --arg arch "${ARCH}" --argjson size "${SIZE}" \
+                  '{platform: "android", filename: $filename, contentType: $ct,
+                    size: $size, version: $version, arch: $arch}' > presign-req.json
+            HTTP="$(curl -sS --max-time 30 -X POST "${API}/admin/downloads/upload-url" \
+                      -H "X-Release-Token: ${SOZO_MOBILE_RELEASE_TOKEN}" -H 'Content-Type: application/json' \
+                      --data @presign-req.json -o presign.json -w '%{http_code}')" || HTTP=000
+            if [ "${HTTP}" != 200 ]; then
+              echo "::error title=CDN upload URL::POST /admin/downloads/upload-url (${ARCH}) returned HTTP ${HTTP}: $(head -c 300 presign.json 2>/dev/null)"
+              exit 1
+            fi
+            UPLOAD_URL="$(jq -er .uploadUrl presign.json)"
+            echo "::add-mask::${UPLOAD_URL}"
+            KEY="$(jq -er .key presign.json)"
+            PUBLIC_URL="$(jq -er .publicUrl presign.json)"
+
+            # Content-Type is part of the signature: it must match what was presigned.
+            HTTP="$(curl -sS --max-time 900 --upload-file "${APK}" \
+                      -H "Content-Type: ${APK_CONTENT_TYPE}" \
+                      -o put.txt -w '%{http_code}' "${UPLOAD_URL}")" || HTTP=000
+            if [ "${HTTP}" != 200 ]; then
+              echo "::error title=CDN upload::PUT to R2 (${ARCH}) returned HTTP ${HTTP}: $(head -c 300 put.txt 2>/dev/null)"
+              exit 1
+            fi
+
+            jq -n --arg version "${NAME}" --arg arch "${ARCH}" --arg url "${PUBLIC_URL}" \
+                  --arg key "${KEY}" --argjson size "${SIZE}" --arg notes "${NOTES}" \
+                  '{platform: "android", version: $version, arch: $arch, format: "apk",
+                    fileUrl: $url, fileKey: $key, fileSize: $size, releaseNotes: $notes,
+                    active: true, replacePrevious: true}' > download-req.json
+            HTTP="$(curl -sS --max-time 30 -X POST "${API}/admin/downloads" \
+                      -H "X-Release-Token: ${SOZO_MOBILE_RELEASE_TOKEN}" -H 'Content-Type: application/json' \
+                      --data @download-req.json -o download.json -w '%{http_code}')" || HTTP=000
+            if [ "${HTTP}" != 201 ]; then
+              echo "::error title=Download row::POST /admin/downloads (${ARCH}) returned HTTP ${HTTP}: $(head -c 300 download.json 2>/dev/null). The file is on the CDN at ${PUBLIC_URL} but not listed."
+              exit 1
+            fi
+
+            echo "${ARCH}=${PUBLIC_URL}" >> "$GITHUB_OUTPUT"
+            echo "- ${ARCH}: ${PUBLIC_URL}" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "status=uploaded" >> "$GITHUB_OUTPUT"
+
+      # The PUT replaces the whole row, so the current one is read first.
+      # The updater has a single URL and nearly every phone is arm64.
+      - name: Point the in-app updater at the new APK
+        id: updater
+        if: steps.cdn.outputs.status == 'uploaded'
+        env:
+          URL: ${{ steps.cdn.outputs.arm64 }}
+        run: |
+          set -euo pipefail
+          API="${API%/}"
+          HTTP="$(curl -sS --max-time 30 "${API}/admin/app-versions/android" \
+                    -H "X-Release-Token: ${SOZO_MOBILE_RELEASE_TOKEN}" \
+                    -o current.json -w '%{http_code}')" || HTTP=000
+          case "${HTTP}" in
+            200) ;;
+            404) echo '{"minVersion": 1, "forceUpdate": false, "active": true}' > current.json ;;
+            *)
+              echo "::error title=Updater read::GET /admin/app-versions/android returned HTTP ${HTTP}: $(head -c 300 current.json 2>/dev/null)"
+              exit 1
+              ;;
+          esac
+
+          if [ -z "${NOTES}" ]; then NOTES="Sozo v${NAME}"; fi
+          jq --argjson code "${CODE}" --arg url "${URL}" --arg notes "${NOTES}" \
+             '{version: $code,
+               minVersion: (.minVersion // 1),
+               downloadUrl: $url,
+               storeUrl: null,
+               releaseNotes: $notes,
+               forceUpdate: (.forceUpdate // false),
+               active: (.active != false)}' current.json > updater-req.json
+          if [ "$(jq -r .active updater-req.json)" != true ]; then
+            echo "::warning title=Updater row inactive::The android row is switched off in the admin panel and stays off; phones will not be offered build ${CODE} until it is switched on."
+          fi
+
+          HTTP="$(curl -sS --max-time 30 -X PUT "${API}/admin/app-versions/android" \
+                    -H "X-Release-Token: ${SOZO_MOBILE_RELEASE_TOKEN}" -H 'Content-Type: application/json' \
+                    --data @updater-req.json -o updated.json -w '%{http_code}')" || HTTP=000
+          if [ "${HTTP}" != 200 ]; then
+            echo "::error title=Updater write::PUT /admin/app-versions/android returned HTTP ${HTTP}: $(head -c 300 updated.json 2>/dev/null)"
+            exit 1
+          fi
+          echo "status=published" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Updater::android now offers ${NAME} (build ${CODE}); minVersion $(jq -r .minVersion updated.json), forceUpdate $(jq -r .forceUpdate updated.json)"
+
   publish:
     needs: [version, android, windows, linux, macos]
     # Publish whatever succeeded. A Windows build that failed should not hold
@@ -1164,7 +1326,7 @@ jobs:
 
   # ------------------------------------------------- Deliver (Telegram) --------
   deliver:
-    needs: [version, android, windows, linux, macos, publish]
+    needs: [version, android, windows, linux, macos, publish, admin]
     # Deliver whatever succeeded, even if one platform's build failed — but not
     # if the run was cancelled.
     #
@@ -1206,6 +1368,10 @@ jobs:
           VERSION_BUILD: ${{ needs.version.outputs.build }}
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
           RELEASE_NOTES: ${{ inputs.notes }}
+          CDN_STATUS: ${{ needs.admin.outputs.status }}
+          CDN_URL: ${{ needs.admin.outputs.url }}
+          UPDATER: ${{ needs.admin.outputs.updater }}
+          ADMIN_RESULT: ${{ needs.admin.result }}
         run: |
           set -uo pipefail
 
@@ -1248,6 +1414,13 @@ jobs:
           if [ -n "${RELEASE_NOTES}" ]; then
             HEAD="$(printf '%s\n\n📝 %s' "${HEAD}" "${RELEASE_NOTES}")"
           fi
+
+          case "${CDN_STATUS}:${UPDATER}" in
+            uploaded:published) HEAD="${HEAD}$(printf '\n\n⬇️ CDN (arm64): %s\n🔄 Ilova ichidagi yangilanish va yuklab olish sahifasi yangilandi.' "${CDN_URL}")" ;;
+            uploaded:*)         HEAD="${HEAD}$(printf '\n\n⬇️ CDN (arm64): %s\n⚠️ Ilova ichidagi yangilanish YANGILANMADI.' "${CDN_URL}")" ;;
+            skipped:*)          HEAD="${HEAD}$(printf '\n\n⚠️ CDN/adminka: o'"'"'tkazib yuborildi (SOZO_MOBILE_RELEASE_TOKEN yo'"'"'q).')" ;;
+            *) [ "${ADMIN_RESULT}" = failure ] && HEAD="${HEAD}$(printf '\n\n❌ CDN/adminka yangilash YIQILDI: %s' "${RUN_URL}")" ;;
+          esac
 
           # macOS is ad-hoc signed (no Apple cert), so first open needs one step.
           HEAD="${HEAD}$(printf '\n\n🍎 macOS: agar "damaged/ochilmadi" chiqsa, Applications ga qo'"'"'ying va Terminal da: xattr -dr com.apple.quarantine /Applications/Sozo.app (yo'"'"'riqnoma DMG ichida).')"
