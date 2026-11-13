@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:soplay/core/player/quality_preference.dart';
 import 'package:soplay/features/detail/data/title_prefs_store.dart';
 import 'package:soplay/features/detail/domain/video_option_groups.dart';
@@ -72,8 +73,14 @@ class SourceLadder {
     if ((s.type == 'iframe' || s.type == 'webview-extract') && !hasDirective) {
       return false;
     }
+    // AVPlayer, the only player on iPhone, cannot open Matroska: picking one
+    // is a black screen and a codec error, not a slow start.
+    if (s.type?.toLowerCase() == 'mkv' && !playsMatroska) return false;
     return true;
   }
+
+  static bool get playsMatroska =>
+      kIsWeb || defaultTargetPlatform != TargetPlatform.iOS;
 
   /// Every candidate still worth trying, best first, as indices into [sources].
   ///

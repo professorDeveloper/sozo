@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/core/player/source_ladder.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
@@ -23,6 +24,15 @@ VideoSourceEntity src(
 
 void main() {
   group('isPlayable', () {
+    test('Matroska is skipped on iPhone and kept elsewhere', () {
+      final mkv = src('4K', type: 'mkv');
+      expect(SourceLadder.isPlayable(mkv, hasDirective: false), isTrue);
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      expect(SourceLadder.isPlayable(mkv, hasDirective: false), isFalse);
+      expect(SourceLadder.isPlayable(src('1080p', type: 'hls'), hasDirective: false), isTrue);
+    });
+
     test('an unreachable mirror is never offered', () {
       // The backend already probed it. Trying anyway costs a spinner and a
       // failure the viewer has to sit through.
