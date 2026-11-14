@@ -313,9 +313,21 @@ jobs:
           PY
           grep -E '^version:' pubspec.yaml
 
+          # The release banner, committed with the bump so the release page can
+          # show it from this exact commit. One already in the repository (drawn
+          # by hand, or by an earlier attempt at this version) is kept.
+          BANNER="docs/images/v${NAME}/banner.svg"
+          PREV="$(git tag --merged HEAD --sort=-v:refname --list 'v*' | head -1)"
+          git log ${PREV:+"${PREV}..HEAD"} --first-parent --format=%s > "${RUNNER_TEMP}/changes.txt"
+          python3 tool/release_banner.py --version "${NAME}" --out "${BANNER}" \
+            --log "${RUNNER_TEMP}/changes.txt" --keep \
+            || echo "::warning title=No banner::the release page will have none"
+
           git config user.name  "${GITHUB_ACTOR}"
           git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          git commit -am "chore: ${NAME}+${BUILD}"
+          git add pubspec.yaml
+          [ -f "${BANNER}" ] && git add "${BANNER}"
+          git commit -m "chore: ${NAME}+${BUILD}"
           git tag "${TAG}"
 
           # Pushed with GITHUB_TOKEN, which deliberately does NOT re-trigger
@@ -1122,6 +1134,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.version.outputs.sha }}
+          # Tags and history: the notes list what was merged since the last tag.
+          fetch-depth: 0
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
@@ -1184,83 +1198,23 @@ jobs:
 
           echo; echo "Release payload:"; ls -lh rel
 
+      # docs/releases/v<version>.md when somebody wrote it; otherwise a page
+      # in the same layout (banner, badges, what's new by area, downloads,
+      # community) built from the titles merged since the previous tag.
       - name: Compose the release notes
         env:
           V: ${{ needs.version.outputs.name }}
-          BUILD: ${{ needs.version.outputs.build }}
           NOTES: ${{ inputs.notes }}
           SHA: ${{ needs.version.outputs.sha }}
           TAG: ${{ needs.version.outputs.tag }}
         run: |
           set -euo pipefail
-          # Hand-written notes and screenshots, when this version has them.
-          status=0
+          PREV="$(git tag --merged "${SHA}" --sort=-v:refname --list 'v*' | grep -vx "${TAG}" | head -1 || true)"
+          git log ${PREV:+"${PREV}..${SHA}"} --first-parent --format=%s > changes.txt
           python3 tool/compose_release_notes.py --version "${V}" --sha "${SHA}" \
             --repo "${GITHUB_REPOSITORY}" --tag "${TAG}" --assets rel \
-            --out RELEASE_NOTES.md || status=$?
-          if [ "${status}" -eq 0 ]; then
-            echo "── notes ──"; cat RELEASE_NOTES.md
-            exit 0
-          elif [ "${status}" -ne 3 ]; then
-            exit "${status}"
-          fi
-          {
-            if [ -n "${NOTES}" ]; then
-              printf '%s\n\n' "${NOTES}"
-            fi
-
-            cat <<'MD'
-          ## ⬇️ Qaysi faylni yuklab olay?
-
-          | Fayl | Kimga |
-          |---|---|
-          | 🟢 **`arm64-v8a.apk`** | Zamonaviy 64-bit Android telefonlar — **ko'pchilikka shu** |
-          | 🟡 `armeabi-v7a.apk` | Eski 32-bit qurilmalar |
-          | 🔵 `universal.apk` | Qaysi birini olishni bilmasangiz — hammasida ishlaydi, faqat kattaroq |
-          | 📺 `tv-arm64-v8a.apk` | Android TV / Google TV / Shield — TV ga sideload qiling |
-          | 🪟 `Windows-Setup.exe` | Windows o'rnatuvchisi |
-          | 🪟 `Windows-portable.zip` | O'rnatmasdan ishlatish |
-          | 🐧 `Linux-x64.tar.gz` | Linux x64 |
-          | 🍎 `macOS.dmg` | macOS (imzosiz — pastga qarang) |
-
-          `SHA256SUMS.txt` — yuklab olingan faylni tekshirish uchun.
-
-          ---
-
-          <details>
-          <summary>🍎 macOS: "damaged / ochilmadi" chiqsa</summary>
-
-          DMG Apple sertifikati bilan imzolanmagan. Terminal'da bir marta:
-
-          ```
-          xattr -dr com.apple.quarantine /Applications/Sozo.app
-          ```
-
-          Yoki Applications'da Sozo.app → o'ng tugma → Open → Open.
-          </details>
-
-          <details>
-          <summary>📺 Android TV haqida</summary>
-
-          TV uchun alohida build yo'q — bu **bir xil APK**. Manifest'da
-          `LEANBACK_LAUNCHER` e'lon qilingan, shuning uchun bitta binary ham
-          telefonda, ham televizorda ishlaydi. `tv-` prefiksi shunchaki
-          televizor oldida turgan odam uchun bitta aniq fayl bo'lsin degani.
-          </details>
-
-          <details>
-          <summary>🐛 Biror narsa ishlamayaptimi?</summary>
-
-          - Manba/provider muammosi → [Manba ishlamayapti](../../issues/new?template=source_not_working.yml)
-          - Ilova xatosi → [Xato haqida xabar](../../issues/new?template=bug_report.yml)
-          - Savol → [Telegram](https://telegram.me/sozoapp) · [Discord](https://discord.gg/n22URhYvMR)
-          </details>
-
-          MD
-
-            printf '\n---\n\n<sub>Build %s · yuklab olingan faylni `SHA256SUMS.txt` bilan tekshirish mumkin.</sub>\n' "${BUILD}"
-          } > RELEASE_NOTES.md
-
+            --previous "${PREV}" --log changes.txt --intro "${NOTES}" --auto \
+            --out RELEASE_NOTES.md
           echo "── notes ──"; cat RELEASE_NOTES.md
 
       - name: Create or update the GitHub Release
@@ -1341,6 +1295,11 @@ jobs:
     if: ${{ always() && !cancelled() && needs.version.result != 'skipped' && inputs.announce != false }}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+          fetch-depth: 0
+
       # Not fatal: when every build failed there is nothing to download, and the
       # message saying so is exactly what this job now exists to send.
       - name: Download all build artifacts
@@ -1359,6 +1318,38 @@ jobs:
           echo "Collected:"
           ls -lh out || true
 
+      # The banner as a picture (Telegram cannot show SVG) and the caption.
+      # Neither is fatal: without them the announcement goes out as text.
+      - name: Banner and caption for Telegram
+        if: always()
+        continue-on-error: true
+        env:
+          V: ${{ needs.version.outputs.name }}
+          SHA: ${{ needs.version.outputs.sha }}
+          TAG: ${{ needs.version.outputs.tag }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          set -uo pipefail
+          PREV="$(git tag --merged "${SHA}" --sort=-v:refname --list 'v*' | grep -vx "${TAG}" | head -1 || true)"
+          git log ${PREV:+"${PREV}..${SHA}"} --first-parent --format=%s > changes.txt
+          python3 tool/compose_release_notes.py --version "${V}" --log changes.txt \
+            --intro "${NOTES}" --telegram caption.html
+          python3 tool/release_banner.py --version "${V}" --still --log changes.txt --out banner.svg
+          # The banner is set in Inter; without it the runner falls back to Liberation Sans.
+          timeout 120 sudo apt-get install -y -qq fonts-inter >/dev/null 2>&1 || true
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -n "${CHROME}" ]; then
+            "${CHROME}" --headless=new --no-sandbox --disable-gpu --hide-scrollbars \
+              --window-size=1280,640 --force-device-scale-factor=2 \
+              --screenshot="${PWD}/banner.png" "file://${PWD}/banner.svg" || true
+          fi
+          if [ ! -s banner.png ]; then
+            timeout 120 sudo apt-get install -y -qq librsvg2-bin >/dev/null 2>&1 \
+              && rsvg-convert -w 2560 -h 1280 banner.svg -o banner.png || true
+          fi
+          ls -l banner.png caption.html || true
+          echo "── caption ──"; cat caption.html || true
+
       - name: Send to Telegram
         if: always()
         env:
@@ -1372,6 +1363,7 @@ jobs:
           CDN_URL: ${{ needs.admin.outputs.url }}
           UPDATER: ${{ needs.admin.outputs.updater }}
           ADMIN_RESULT: ${{ needs.admin.result }}
+          RELEASE_MODE: ${{ inputs.release || 'publish' }}
         run: |
           set -uo pipefail
 
@@ -1402,46 +1394,87 @@ jobs:
             echo "::warning title=Nothing to deliver::The run produced no artifacts; a failure notice was sent instead."
             exit 0
           fi
-          # The version job is the single source of this number, so the message
-          # cannot disagree with what is actually inside the APKs.
           # The Release page, not the Actions run: a run URL is only visible to
-          # collaborators, so everybody else in the channel got a 404 where the
-          # desktop builds were supposed to be.
+          # collaborators. A draft's page is not public either, so a draft gets
+          # no release button.
           REL_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG}"
-          HEAD="$(printf '🎬 Sozo %s (build %s)\n\n📦 Barcha fayllar (Android / Windows / Linux / macOS):\n%s' \
-                  "${VERSION_NAME}" "${VERSION_BUILD}" "${REL_URL}")"
 
-          if [ -n "${RELEASE_NOTES}" ]; then
-            HEAD="$(printf '%s\n\n📝 %s' "${HEAD}" "${RELEASE_NOTES}")"
-          fi
+          # 1. The announcement: the banner with the caption under it, and
+          #    buttons. The caption says what changed; the status of the CDN and
+          #    the platform notes go with the files below it.
+          BUTTONS="$(jq -cn --arg cdn "${CDN_URL}" --arg rel "${REL_URL}" \
+            --arg cdnok "${CDN_STATUS}" --arg mode "${RELEASE_MODE}" '
+            [ (if $cdnok == "uploaded" and $cdn != "" then [{text: "⬇️ Android (arm64)", url: $cdn}] else empty end),
+              (if $mode == "publish" then [{text: "📦 Barcha platformalar", url: $rel}] else empty end),
+              [{text: "📣 Kanal", url: "https://t.me/sozoapp"}, {text: "💬 Discord", url: "https://discord.gg/n22URhYvMR"}] ]
+            | {inline_keyboard: .}')"
+          PLAIN="$(printf '🐉 Sozo %s (build %s)' "${VERSION_NAME}" "${VERSION_BUILD}")"
+          if [ -n "${RELEASE_NOTES}" ]; then PLAIN="$(printf '%s\n\n📝 %s' "${PLAIN}" "${RELEASE_NOTES}")"; fi
 
+          # 2. Under the files: what a person needs to install them.
+          FOOT="$(printf '🐉 <b>Sozo %s</b> · build %s' "${VERSION_NAME}" "${VERSION_BUILD}")"
           case "${CDN_STATUS}:${UPDATER}" in
-            uploaded:published) HEAD="${HEAD}$(printf '\n\n⬇️ CDN (arm64): %s\n🔄 Ilova ichidagi yangilanish va yuklab olish sahifasi yangilandi.' "${CDN_URL}")" ;;
-            uploaded:*)         HEAD="${HEAD}$(printf '\n\n⬇️ CDN (arm64): %s\n⚠️ Ilova ichidagi yangilanish YANGILANMADI.' "${CDN_URL}")" ;;
-            skipped:*)          HEAD="${HEAD}$(printf '\n\n⚠️ CDN/adminka: o'"'"'tkazib yuborildi (SOZO_MOBILE_RELEASE_TOKEN yo'"'"'q).')" ;;
-            *) [ "${ADMIN_RESULT}" = failure ] && HEAD="${HEAD}$(printf '\n\n❌ CDN/adminka yangilash YIQILDI: %s' "${RUN_URL}")" ;;
+            uploaded:published) FOOT="${FOOT}$(printf '\n🔄 Ilova ichidagi yangilanish va yuklab olish sahifasi yangilandi.')" ;;
+            uploaded:*)         FOOT="${FOOT}$(printf '\n⚠️ Ilova ichidagi yangilanish YANGILANMADI.')" ;;
+            skipped:*)          FOOT="${FOOT}$(printf '\n⚠️ CDN/adminka: o‘tkazib yuborildi (SOZO_MOBILE_RELEASE_TOKEN yo‘q).')" ;;
+            *) [ "${ADMIN_RESULT}" = failure ] && FOOT="${FOOT}$(printf '\n❌ CDN/adminka yangilash YIQILDI: %s' "${RUN_URL}")" ;;
           esac
+          FOOT="${FOOT}$(printf '\n\n🟢 <b>arm64-v8a</b>: ko‘pchilik telefonlar · 🟡 <b>armeabi-v7a</b>: eski telefonlar\n📺 <b>Android TV</b>: alohida build yo‘q, xuddi shu APK — <code>tv-arm64-v8a</code> (eski boks: <code>tv-armeabi-v7a</code>)\n🍎 <b>macOS</b> “damaged” desa: <code>xattr -dr com.apple.quarantine /Applications/Sozo.app</code>')"
 
-          # macOS is ad-hoc signed (no Apple cert), so first open needs one step.
-          HEAD="${HEAD}$(printf '\n\n🍎 macOS: agar "damaged/ochilmadi" chiqsa, Applications ga qo'"'"'ying va Terminal da: xattr -dr com.apple.quarantine /Applications/Sozo.app (yo'"'"'riqnoma DMG ichida).')"
-
-          # Android TV is the SAME APK (the manifest carries LEANBACK_LAUNCHER),
-          # so say it in plain terms — otherwise people hunt the run artifacts
-          # for a separate "TV build" that was never produced.
-          HEAD="${HEAD}$(printf '\n\n📺 Android TV: alohida build yo'"'"'q — bir xil APK, faqat aniq nom bilan. Release sahifasidan Sozo-v%s-tv-arm64-v8a.apk ni oling (eski/arzon boks bo'"'"'lsa tv-armeabi-v7a).' "${VERSION_NAME}")"
-
-          # Files too big for the bot are only listed (the run artifacts have them).
+          # Files too big for the bot are only listed (the Release page has them).
           BIG=""
+          SMALL=()
           for f in out/*; do
             [ -f "${f}" ] || continue
             sz="$(stat -c%s "${f}")"
             if [ "${sz}" -gt "${MAX}" ]; then
               BIG="${BIG}\n• $(basename "${f}") ($((sz/1024/1024)) MB)"
+            else
+              SMALL+=("${f}")
             fi
           done
           if [ -n "${BIG}" ]; then
-            HEAD="${HEAD}$(printf '\n\n⬇️ Telegram limiti (50MB) dan katta, run artifacts dan oling:%b' "${BIG}")"
+            FOOT="${FOOT}$(printf '\n\n📦 50 MB dan katta, Release sahifasida:%b' "${BIG}")"
           fi
+
+          announce() {
+            local chat="$1"
+            if [ -s banner.png ] && [ -s caption.html ]; then
+              curl -sS --fail-with-body -X POST "${API}/sendPhoto" \
+                -F "chat_id=${chat}" -F "photo=@banner.png" -F "caption=<caption.html" \
+                -F "parse_mode=HTML" -F "reply_markup=${BUTTONS}" -o /tmp/tg_msg.json && return 0
+              echo "::warning::sendPhoto ${chat}: $(cat /tmp/tg_msg.json) — sending text instead"
+            fi
+            local text="${PLAIN}"
+            local mode=()
+            if [ -s caption.html ]; then text="$(cat caption.html)"; mode=(--data "parse_mode=HTML"); fi
+            curl -sS --fail-with-body -X POST "${API}/sendMessage" \
+              --data-urlencode "chat_id=${chat}" --data-urlencode "text=${text}" \
+              --data-urlencode "reply_markup=${BUTTONS}" ${mode[@]+"${mode[@]}"} \
+              --data "disable_web_page_preview=true" -o /tmp/tg_msg.json && return 0
+            # Last resort: no HTML, no buttons.
+            curl -sS --fail-with-body -X POST "${API}/sendMessage" \
+              --data-urlencode "chat_id=${chat}" --data-urlencode "text=${PLAIN}"$'\n\n'"${REL_URL}" \
+              -o /tmp/tg_msg.json
+          }
+
+          # The files one by one (a single request carrying several 40 MB APKs
+          # is past what the Bot API takes), the install notes under the last.
+          send_files() {
+            local chat="$1" n="${#SMALL[@]}" i=0
+            for f in "${SMALL[@]+"${SMALL[@]}"}"; do
+              i=$((i + 1))
+              local extra=()
+              if [ "${i}" -eq "${n}" ]; then extra=(-F "caption=${FOOT}" -F "parse_mode=HTML"); fi
+              curl -sS --fail-with-body -X POST "${API}/sendDocument" -F "chat_id=${chat}" \
+                -F "document=@${f}" ${extra[@]+"${extra[@]}"} -o /tmp/tg_doc.json || return 1
+              echo "    ✓ $(basename "${f}")"
+            done
+            if [ "${n}" -eq 0 ]; then
+              curl -sS --fail-with-body -X POST "${API}/sendMessage" --data-urlencode "chat_id=${chat}" \
+                --data-urlencode "text=${FOOT}" --data "parse_mode=HTML" -o /tmp/tg_doc.json || return 1
+            fi
+          }
 
           fail=0
           IFS=',' read -ra CHATS <<< "${TELEGRAM_CHAT_IDS}"
@@ -1449,25 +1482,7 @@ jobs:
             chat="$(echo "${raw}" | xargs)"
             [ -z "${chat}" ] && continue
             echo "──▶ ${chat}"
-
-            curl -sS --fail-with-body -X POST "${API}/sendMessage" \
-              --data-urlencode "chat_id=${chat}" \
-              --data-urlencode "text=${HEAD}" \
-              --data "disable_web_page_preview=true" -o /tmp/tg_msg.json \
-              || { echo "::error::sendMessage ${chat}: $(cat /tmp/tg_msg.json)"; fail=1; }
-
-            for f in out/*; do
-              [ -f "${f}" ] || continue
-              name="$(basename "${f}")"
-              size="$(stat -c%s "${f}")"
-              [ "${size}" -gt "${MAX}" ] && continue   # too big — already listed
-              if curl -sS --fail-with-body -X POST "${API}/sendDocument" \
-                   -F "chat_id=${chat}" -F "document=@${f}" -o /tmp/tg_doc.json; then
-                echo "    ✓ ${name} ($((size/1024/1024)) MB)"
-              else
-                echo "::error::sendDocument ${chat}/${name}: $(cat /tmp/tg_doc.json)"
-                fail=1
-              fi
-            done
+            announce "${chat}" || { echo "::error::announcement ${chat}: $(cat /tmp/tg_msg.json)"; fail=1; }
+            send_files "${chat}" || { echo "::error::files ${chat}: $(cat /tmp/tg_doc.json)"; fail=1; }
           done
           exit "${fail}"
