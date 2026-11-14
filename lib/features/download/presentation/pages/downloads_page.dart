@@ -33,6 +33,7 @@ import 'package:soplay/features/download/presentation/widgets/relink_source_shee
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
@@ -390,19 +391,12 @@ class _DownloadsViewState extends State<_DownloadsView> {
   }
 
   String _providerName(BuildContext context, DownloadedTitle title) {
-    final saved = title.snapshot?.providerName;
-    if (saved != null && saved.isNotEmpty) return saved;
+    var live = const <ProviderEntity>[];
     try {
       final state = context.read<ProviderBloc>().state;
-      if (state is ProviderLoaded) {
-        for (final p in state.providers) {
-          if (p.id == title.provider) return p.name;
-        }
-      }
+      if (state is ProviderLoaded) live = state.providers;
     } catch (_) {}
-    final id = title.provider;
-    final colon = id.indexOf(':');
-    return colon >= 0 ? id.substring(colon + 1) : id;
+    return downloadSourceName(title, live);
   }
 
   void _openTitle(BuildContext context, DownloadedTitle title) {
@@ -872,4 +866,23 @@ class _CircleBackButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The source name a download is shown under.
+///
+/// The installed source's current name first: the one saved with the download
+/// is the name it had that day, and a source can be renamed since (VidAPI
+/// became VixSrc in November 2026). The saved name is for a source that is no
+/// longer installed, and the bare id for a download from before names were
+/// saved.
+@visibleForTesting
+String downloadSourceName(DownloadedTitle title, List<ProviderEntity> live) {
+  for (final p in live) {
+    if (p.id == title.provider && p.name.trim().isNotEmpty) return p.name;
+  }
+  final saved = title.snapshot?.providerName;
+  if (saved != null && saved.isNotEmpty) return saved;
+  final id = title.provider;
+  final colon = id.indexOf(':');
+  return colon >= 0 ? id.substring(colon + 1) : id;
 }

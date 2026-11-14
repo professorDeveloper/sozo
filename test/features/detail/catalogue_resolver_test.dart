@@ -145,6 +145,71 @@ void main() {
       expect(searched, isFalse);
     });
 
+    test('a remembered link shows its source under its current name', () async {
+      final hive = _Hive();
+      final resolver = CatalogueResolver(
+        hive: hive,
+        providers: () async => [
+          ProviderEntity(
+            id: 'vidapi',
+            name: 'VixSrc',
+            image: 'https://vixsrc.to/favicon.ico',
+            url: '',
+            description: '',
+            domains: const [],
+            category: 'tmdb',
+          ),
+        ],
+        finder: ({required title, required candidates, onOutcome}) =>
+            const Stream.empty(),
+      );
+      await hive.setCatalogueLink(
+        'cat:tmdb|u',
+        const CatalogueLink(
+          providerId: 'vidapi',
+          providerName: 'VidAPI',
+          providerImage: 'https://vidapi.ru/favicon.ico',
+          contentUrl: 'x',
+        ).encode(),
+      );
+      final link = await resolver.resolve(
+        catalogueId: 'cat:tmdb',
+        contentUrl: 'u',
+        hint: _movie('Anything', category: 'movie'),
+      );
+      expect(link?.providerName, 'VixSrc');
+      expect(link?.providerImage, 'https://vixsrc.to/favicon.ico');
+      expect(link?.contentUrl, 'x');
+      expect(link?.catalogueId, 'cat:tmdb');
+    });
+
+    test(
+      'a remembered link to a source that is gone keeps its saved name',
+      () async {
+        final hive = _Hive();
+        final resolver = CatalogueResolver(
+          hive: hive,
+          providers: () async => const [],
+          finder: ({required title, required candidates, onOutcome}) =>
+              const Stream.empty(),
+        );
+        await hive.setCatalogueLink(
+          'cat:tmdb|u',
+          const CatalogueLink(
+            providerId: 'vidapi',
+            providerName: 'VidAPI',
+            contentUrl: 'x',
+          ).encode(),
+        );
+        final link = await resolver.resolve(
+          catalogueId: 'cat:tmdb',
+          contentUrl: 'u',
+          hint: _movie('Anything', category: 'movie'),
+        );
+        expect(link?.providerName, 'VidAPI');
+      },
+    );
+
     test('the year breaks a tie between a title and its remake', () async {
       final resolver = CatalogueResolver(
         hive: _Hive(),
@@ -439,15 +504,16 @@ void main() {
 
     test('with only manga readers the novel shelf asks nobody', () async {
       List<ProviderEntity>? asked;
-      final out = await build(
-        installed: [_provider('mn:comics')],
-        answers: [_found('mn:comics', 'Spice and Wolf', 1.0)],
-        onAsk: (c) => asked = c,
-      ).locate(
-        catalogueId: 'cat:anilist-novel',
-        contentUrl: 'u',
-        hint: _movie('Spice and Wolf', category: 'novel'),
-      );
+      final out =
+          await build(
+            installed: [_provider('mn:comics')],
+            answers: [_found('mn:comics', 'Spice and Wolf', 1.0)],
+            onAsk: (c) => asked = c,
+          ).locate(
+            catalogueId: 'cat:anilist-novel',
+            contentUrl: 'u',
+            hint: _movie('Spice and Wolf', category: 'novel'),
+          );
       expect(asked, isNull);
       expect(out.found, isFalse);
       expect(out.miss, CatalogueMiss.noSourcesOfKind);
