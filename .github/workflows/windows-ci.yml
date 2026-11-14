@@ -1,0 +1,60 @@
+name: Windows build
+
+# ci.yml builds Android and Linux but not Windows, so when #46 (2026-11-10)
+# broke the Windows build, nothing caught it until two releases shipped
+# without Windows. This runs only on changes that can break the Windows
+# build, because a Windows runner costs twice as much as a Linux one.
+on:
+  pull_request:
+    paths:
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'windows/**'
+      - 'assets/shaders/**'
+      - '.github/workflows/windows-ci.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'windows/**'
+      - 'assets/shaders/**'
+      - '.github/workflows/windows-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: windows-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      # Same as release.yml's windows job.
+      CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+      CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.9
+          cache: true
+      - name: Ensure NuGet (flutter_inappwebview_windows fetches WebView2 with it)
+        uses: NuGet/setup-nuget@v2
+      - name: Empty .env (a pubspec asset; the build fails without it)
+        shell: bash
+        run: touch .env
+      - run: flutter pub get
+      - run: flutter build windows --release
+
+      # When it fails, show what MSBuild actually ran and what the tool printed,
+      # which `flutter build` filters down to the error lines.
+      - name: Diagnose flutter_assemble
+        if: failure()
+        shell: pwsh
+        run: |
+          Select-String -Path build\windows\x64\flutter\flutter_assemble.vcxproj -Pattern 'tool_backend' | Select-Object -First 4 | ForEach-Object { $_.Line.Trim() }
+          cmake --build build\windows\x64 --config Release --target flutter_assemble 2>&1 |
+            Select-String -Pattern 'tool_backend|SkSL|error|impellerc' -Context 1,1 | Select-Object -First 60
