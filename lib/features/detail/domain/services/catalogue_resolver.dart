@@ -44,6 +44,16 @@ class CatalogueLink {
   /// found source is the one thing this flag exists to prevent.
   final bool approximate;
 
+  /// The same link under the name and icon the source has now.
+  CatalogueLink withProvider(String name, String image) => CatalogueLink(
+    providerId: providerId,
+    providerName: name.trim().isEmpty ? providerName : name,
+    contentUrl: contentUrl,
+    catalogueId: catalogueId,
+    providerImage: image.trim().isEmpty ? providerImage : image,
+    approximate: approximate,
+  );
+
   CatalogueLink withCatalogue(String id) => CatalogueLink(
     providerId: providerId,
     providerName: providerName,
@@ -446,6 +456,23 @@ class CatalogueResolver {
     return null;
   }
 
+  /// [link] under its source's current name and icon.
+  ///
+  /// A stored link keeps the name the source had when it was saved, and a
+  /// source can be renamed on the server since: VidAPI became VixSrc in
+  /// November 2026, and pages linked before that still said VidAPI. The
+  /// installed entry wins whenever there is one; a source that is gone, or a
+  /// list that does not come in time, leaves the saved name.
+  Future<CatalogueLink> _current(CatalogueLink link) async {
+    try {
+      final list = await _providers().timeout(const Duration(seconds: 2));
+      for (final p in list) {
+        if (p.id == link.providerId) return link.withProvider(p.name, p.image);
+      }
+    } catch (_) {}
+    return link;
+  }
+
   /// The source to open [hint] on, or which of the four ways it was missing.
   Future<CatalogueResolution> locate({
     required String catalogueId,
@@ -455,7 +482,10 @@ class CatalogueResolver {
     final catalogue = Catalogue.fromId(catalogueId);
     final known = remembered(catalogueId, contentUrl);
     if (known != null) {
-      return CatalogueResolution(catalogue: catalogue, link: known);
+      return CatalogueResolution(
+        catalogue: catalogue,
+        link: await _current(known),
+      );
     }
     if (catalogue == null || hint == null || hint.title.trim().isEmpty) {
       return CatalogueResolution(
