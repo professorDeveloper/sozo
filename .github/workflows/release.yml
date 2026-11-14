@@ -1160,6 +1160,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write   # starts mirror-release.yml
     steps:
       - uses: actions/checkout@v4
         with:
@@ -1263,6 +1264,7 @@ jobs:
           V: ${{ needs.version.outputs.name }}
           SHA: ${{ needs.version.outputs.sha }}
           MODE: ${{ inputs.release || 'publish' }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           # A draft is the default for a dispatched release: the builds are
@@ -1324,6 +1326,14 @@ jobs:
             fi
             gh release view "${TAG}" --json url --jq .url
           } >> "$GITHUB_STEP_SUMMARY"
+
+          # The Sozo-app organization's copy. What GITHUB_TOKEN publishes or
+          # uploads starts no workflow, so it is started here; a draft is
+          # copied when somebody presses Publish.
+          if [ "$(gh release view "${TAG}" --json isDraft --jq .isDraft)" = false ]; then
+            gh workflow run mirror-release.yml --ref "${DEFAULT_BRANCH}" -f tag="${TAG}" \
+              || echo "::warning title=Not mirrored::Run 'Mirror release → Sozo-app' for ${TAG} by hand."
+          fi
 
   # ------------------------------------------------- Deliver (Telegram) --------
   deliver:
