@@ -8,8 +8,11 @@
 # tool exited 0. liquid_glass_renderer's shaders do this; they only run on
 # Impeller, never on desktop.
 #
-# Those compiler lines ("error: <line>: ...") are reworded. The exit code is the
-# tool's own, so a shader that really fails still fails the build.
+# Inside that warning, from "is incompatible with SkSL" to its closing
+# 'Full "..." error output written to' line, "error" is reworded. The block has
+# "SkSL Error:", the generated SkSL source and "error: <line>: ..." lines, and
+# MSBuild flags more than one shape of them. The exit code is the tool's own,
+# so a shader that really fails still fails the build.
 param(
   [Parameter(Mandatory = $true)][string]$Backend,
   [Parameter(ValueFromRemainingArguments = $true)][string[]]$BackendArgs
@@ -21,11 +24,15 @@ $Backend = $Backend -replace '/', '\'
 $quotedArgs = ($BackendArgs | ForEach-Object { '"' + $_ + '"' }) -join ' '
 [Console]::Out.WriteLine("tool_backend.ps1: $Backend $quotedArgs")
 
+$inSkslWarning = $false
 cmd.exe /d /s /c "`"$Backend`" $quotedArgs 2>&1" | ForEach-Object {
   $line = [string]$_
-  if ($line -match '^\s*error:\s*\d+:') {
-    $line = $line -replace '^(\s*)error:', '$1shader compiler (Skia):'
+  if ($line -match 'is incompatible with SkSL') { $inSkslWarning = $true }
+  $closes = $line -match '^\s*Full ".*" error output written'
+  if ($inSkslWarning -or $line -match '^\s*error:\s*\d+:') {
+    $line = $line -replace '(?i)\berror\b', 'issue'
   }
+  if ($closes) { $inSkslWarning = $false }
   [Console]::Out.WriteLine($line)
 }
 exit $LASTEXITCODE
