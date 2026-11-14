@@ -48,3 +48,13 @@ jobs:
         run: touch .env
       - run: flutter pub get
       - run: flutter build windows --release
+
+      # When it fails, show what MSBuild actually ran and what the tool printed,
+      # which `flutter build` filters down to the error lines.
+      - name: Diagnose flutter_assemble
+        if: failure()
+        shell: pwsh
+        run: |
+          Select-String -Path build\windows\x64\flutter\flutter_assemble.vcxproj -Pattern 'tool_backend' | Select-Object -First 4 | ForEach-Object { $_.Line.Trim() }
+          cmake --build build\windows\x64 --config Release --target flutter_assemble 2>&1 |
+            Select-String -Pattern 'tool_backend|SkSL|error|impellerc' -Context 1,1 | Select-Object -First 60
