@@ -15,8 +15,8 @@ With --auto, a version that has no notes file still gets a full page in the
 same layout, built from the titles of what was merged since the last tag.
 
 --telegram writes the caption of the Telegram announcement (HTML, at most 1024
-characters): the Uzbek summary of the notes when they have one, otherwise the
-merged changes.
+visible characters): the notes' hidden `<!-- telegram -->` block when they have
+one, else the bold titles of the notes, else the merged changes.
 
 Exit codes: 0 written, 3 no notes file for this version and no --auto.
 """
@@ -251,7 +251,10 @@ def generate(version, sha, repo, tag, previous, assets, repo_root, log_lines, in
 # ---------------------------------------------------------------- Telegram ----
 
 CAPTION_LIMIT = 1024
-UZ_SUMMARY = re.compile(r"<summary>[^<]*🇺🇿.*?</summary>(.*?)</details>", re.S)
+DISCORD = "https://discord.gg/n22URhYvMR"
+TG_BLOCK = re.compile(r"<!--\s*telegram\s*\n(.*?)-->", re.S)
+HEADLINE = re.compile(r"^\s*(?:\|\s*|[-*]\s+)(?:[^\w\s*|]+\s*)?\*\*(.+?)\*\*(:?)")
+NOT_NEWS = re.compile(r"(?i)\bdownload\s*$|community")
 
 
 def md_to_tg(text):
@@ -262,46 +265,86 @@ def md_to_tg(text):
     return re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
 
 
-def shorten(md, limit=230):
-    """Cuts a markdown bullet at a sentence end, never inside **bold**."""
-    if len(md) <= limit:
-        return md
-    for m in reversed(list(re.finditer(r"[.!?](?=\s)", md[:limit]))):
-        head = md[:m.end()]
-        if head.count("**") % 2 == 0 and head.count("[") == head.count("]"):
-            return head
-    return md
+def visible_length(caption):
+    """What Telegram counts against the limit: text without tags, in UTF-16 units."""
+    text = html.unescape(re.sub(r"<[^>]+>", "", caption))
+    return len(text.encode("utf-16-le")) // 2
 
 
-def telegram_caption(version, notes_text, log_lines, intro=""):
+def telegram_lines(notes_text):
+    """(tagline, bullets) from a hidden `<!-- telegram -->` block in the notes.
+
+    <!-- telegram
+    tagline: Fixes for what you reported.
+    - No more endless "Video loading".
+    -->
+    """
+    m = TG_BLOCK.search(notes_text or "")
+    if not m:
+        return "", []
+    tagline, bullets = "", []
+    for line in m.group(1).splitlines():
+        line = line.strip()
+        if line.lower().startswith("tagline:"):
+            tagline = line.split(":", 1)[1].strip()
+        elif line.startswith("- "):
+            bullets.append(line[2:].strip())
+    return tagline, bullets
+
+
+def headlines(notes_text, most=7):
+    """The bold titles of the notes' rows and bullets: one per section in turn.
+
+    A bold label such as `**Windows:**` names a platform, not a change, and the
+    download and community sections are not news; both are left out.
+    """
+    sections, skip = [[]], False
+    for line in (notes_text or "").splitlines():
+        if line.startswith("## "):
+            sections.append([])
+            skip = bool(NOT_NEWS.search(line))
+            continue
+        m = HEADLINE.match(line)
+        if m and not skip and not m.group(2) and not m.group(1).rstrip().endswith(":"):
+            title = m.group(1).strip().rstrip(".")
+            if title and all(title not in s for s in sections):
+                sections[-1].append(title)
+    out = []
+    for i in range(max(len(s) for s in sections)):
+        out += [s[i] for s in sections if i < len(s)]
+    return out[:most]
+
+
+def telegram_caption(version, notes_text, log_lines, intro="", release_url="", tv_url=""):
     t = banner_text(version, notes_text, areas(changes(log_lines)))
-    kind = "yamoq (patch)" if kind_of(version) == "PATCH RELEASE" else "yangi versiya"
-    head = [f"🐉 <b>Sozo v{html.escape(version)}</b> · {kind}",
-            f"<i>{html.escape(t['line1'])} {html.escape(t['line2'])}</i>"]
-    if intro.strip():
-        head += ["", f"📝 {html.escape(intro.strip())}"]
-    head += ["", "✨ <b>Nima yangi</b>"]
-    tail = ["", "⬇️ Fayllar shu xabar ostida · 📣 @sozoapp"]
+    tagline, bullets = telegram_lines(notes_text)
+    tagline = intro.strip() or tagline or f"{t['line1']} {t['line2']}"
+    if not bullets:
+        bullets = headlines(notes_text)
+    if not bullets:
+        bullets = [txt for _, group in ordered(changes(log_lines)) for _, txt, _ in group]
+    if not bullets:
+        bullets = ["Fixes and small improvements."]
 
-    bullets = []
-    uz = UZ_SUMMARY.search(notes_text or "")
-    if uz:
-        bullets = [shorten(l.strip()[2:]) for l in uz.group(1).splitlines()
-                   if l.strip().startswith("- ")]
-    if not bullets:
-        bullets = [f"{icon(a)} **{a}**: {txt}" for a, group in ordered(changes(log_lines))
-                   for _, txt, _ in group]
-    if not bullets:
-        bullets = ["Tuzatishlar va kichik yaxshilanishlar."]
+    head = [f"🐉 <b>Sozo {html.escape(version)} is out!</b>", "",
+            f"<i>{html.escape(tagline)}</i>"]
+    tail = [""]
+    if release_url:
+        tail.append(f'<b>All files</b> (<i>Windows, macOS, Linux, iOS, Android</i>): '
+                    f'<a href="{html.escape(release_url)}">Link</a>')
+    if tv_url:
+        tail += ["", f'<b>TV Side</b>: <a href="{html.escape(tv_url)}">Link</a>']
+    tail += ["", f"💬 Discord: {DISCORD}", "🛟 <b>Need help? Profile → Help &amp; Support</b>"]
 
     out = list(head)
     for b in bullets:
-        line = "• " + md_to_tg(b) if not re.match(r"^\W", b) else md_to_tg(b)
-        if len("\n".join(out + [line] + tail)) > CAPTION_LIMIT:
+        line = "- " + md_to_tg(b)
+        if visible_length("\n".join(out + [line] + tail)) > CAPTION_LIMIT:
             break
         out.append(line)
     if len(out) == len(head):
-        out.append(md_to_tg(bullets[0])[:CAPTION_LIMIT - len("\n".join(head + tail)) - 2] + "…")
+        room = CAPTION_LIMIT - visible_length("\n".join(head + tail)) - 4
+        out.append("- " + html.escape(re.sub(r"[*`]", "", bullets[0]))[:max(room, 0)] + "…")
     return "\n".join(out + tail)
 
 
@@ -312,7 +355,8 @@ def read_log(path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", required=True)
-    for name in ("sha", "repo", "tag", "assets", "out", "telegram", "previous", "log"):
+    for name in ("sha", "repo", "tag", "assets", "out", "telegram", "previous", "log",
+                 "release-url", "tv-url"):
         parser.add_argument(f"--{name}", default="")
     parser.add_argument("--intro", default="", help="text from the release form, put on top")
     parser.add_argument("--auto", action="store_true", help="generate a page when there are no notes")
@@ -325,7 +369,8 @@ def main():
         notes = notes_path(root, args.version)
         text = notes.read_text(encoding="utf-8") if notes.is_file() else ""
         Path(args.telegram).write_text(
-            telegram_caption(args.version, text, log_lines, args.intro), encoding="utf-8")
+            telegram_caption(args.version, text, log_lines, args.intro,
+                             args.release_url, args.tv_url), encoding="utf-8")
     if not args.out:
         return 0
 
