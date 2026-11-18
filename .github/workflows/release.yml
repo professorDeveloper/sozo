@@ -1385,12 +1385,19 @@ jobs:
           SHA: ${{ needs.version.outputs.sha }}
           TAG: ${{ needs.version.outputs.tag }}
           NOTES: ${{ inputs.notes }}
+          MODE: ${{ inputs.release || 'publish' }}
+          TV_REPO: ${{ vars.TV_REPO || 'professorDeveloper/sozo-tv' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
           PREV="$(git tag --merged "${SHA}" --sort=-v:refname --list 'v*' | grep -vx "${TAG}" | head -1 || true)"
           git log ${PREV:+"${PREV}..${SHA}"} --first-parent --format=%s > changes.txt
+          # A draft's page is not public yet, so only a published release links to it.
+          REL=""
+          if [ "${MODE}" = publish ]; then REL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${TAG}"; fi
+          TV="$(gh api "repos/${TV_REPO}/releases/latest" --jq .html_url 2>/dev/null || true)"
           python3 tool/compose_release_notes.py --version "${V}" --log changes.txt \
-            --intro "${NOTES}" --telegram caption.html
+            --intro "${NOTES}" --telegram caption.html --release-url "${REL}" --tv-url "${TV}"
           python3 tool/release_banner.py --version "${V}" --still --log changes.txt --out banner.svg
           # The banner is set in Inter; without it the runner falls back to Liberation Sans.
           timeout 120 sudo apt-get install -y -qq fonts-inter >/dev/null 2>&1 || true
@@ -1544,3 +1551,34 @@ jobs:
             send_files "${chat}" || { echo "::error::files ${chat}: $(cat /tmp/tg_doc.json)"; fail=1; }
           done
           exit "${fail}"
+
+      # The public post: the banner with the caption, nothing else. Only for a
+      # release that was published, since the post links to its page.
+      - name: Announce on the channel
+        if: ${{ always() && (inputs.release || 'publish') == 'publish' && needs.publish.result == 'success' }}
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_CHANNEL_BOT_TOKEN || secrets.TELEGRAM_BOT_TOKEN }}
+          CHANNEL: ${{ vars.TELEGRAM_CHANNEL }}
+        run: |
+          set -uo pipefail
+          if [ -z "${CHANNEL}" ] || [ -z "${TELEGRAM_BOT_TOKEN}" ]; then
+            echo "::notice title=Channel post skipped::Set the TELEGRAM_CHANNEL variable (for example @sozoapp) and make the bot an admin of that channel."
+            exit 0
+          fi
+          if [ ! -s caption.html ]; then
+            echo "::warning title=Channel post skipped::No caption was built."
+            exit 0
+          fi
+          API="https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}"
+          if [ -s banner.png ]; then
+            curl -sS --fail-with-body -X POST "${API}/sendPhoto" -F "chat_id=${CHANNEL}" \
+              -F "photo=@banner.png" -F "caption=<caption.html" -F "parse_mode=HTML" \
+              -o /tmp/tg_channel.json && { echo "Posted to ${CHANNEL}"; exit 0; }
+            echo "::warning::sendPhoto ${CHANNEL}: $(cat /tmp/tg_channel.json) — posting the text alone"
+          fi
+          curl -sS --fail-with-body -X POST "${API}/sendMessage" \
+            --data-urlencode "chat_id=${CHANNEL}" --data-urlencode "text=$(cat caption.html)" \
+            --data "parse_mode=HTML" --data "disable_web_page_preview=true" -o /tmp/tg_channel.json \
+            && echo "Posted to ${CHANNEL} without the banner" \
+            || echo "::error title=Channel post failed::$(cat /tmp/tg_channel.json)"

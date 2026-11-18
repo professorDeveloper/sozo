@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import datetime as dt
 import re
 
-from compose_release_notes import changes, compose, generate, telegram_caption
+from compose_release_notes import changes, compose, generate, telegram_caption, visible_length
 from release_banner import banner_text, render, still
 
 SHA = "abc123"
@@ -128,43 +128,75 @@ class GeneratedTest(unittest.TestCase):
         self.assertNotIn("compare/", out)
 
 
-UZ_NOTES = """<!-- banner
+NOTES = """<!-- banner
 line1: Playback that recovers,
 line2: downloads that finish.
 -->
-<details>
-<summary>🇺🇿 <b>O'zbekcha qisqacha</b></summary>
+| | |
+|---|---|
+| ⏱️ **No more endless "Video loading"** | A server now has about 25 seconds. |
+| 🔌 **Dropped connections** | The player reconnects. |
 
-**Sozo v3.2.1: tuzatishlar.**
+## ✨ Added
+- 🌍 **Vietnamese and Hindi**, so Sozo now has 16 languages.
+- 📋 **Sort My List** by recently added.
+- **Windows:** Anime4K no longer goes black.
 
-- ▶️ **Pleer.** Endi <video> cheksiz turmaydi. *Save to Downloads* ishlaydi.
-- 🌍 **Tillar** qo'shildi: [kanal](https://t.me/sozoapp).
-</details>
+## 💬 Join the community
+- 📣 **Telegram**: [@sozoapp](https://telegram.me/sozoapp) for news.
 """
+
+TG_NOTES = NOTES + """<!-- telegram
+tagline: Fixes for what you reported.
+- No more endless <video> loading, see [the channel](https://t.me/sozoapp).
+- **Corner player** on desktop: press **I**.
+-->
+"""
+REL = "https://github.com/o/r/releases/tag/v3.2.1"
+TV = "https://github.com/o/tv/releases/tag/v1.0.4"
 
 
 class TelegramTest(unittest.TestCase):
-    def test_uses_the_uzbek_summary(self):
-        out = telegram_caption("3.2.1", UZ_NOTES, LOG)
-        self.assertIn("🐉 <b>Sozo v3.2.1</b> · yamoq (patch)", out)
+    def test_hand_written_block_wins(self):
+        out = telegram_caption("3.2.1", TG_NOTES, LOG, release_url=REL, tv_url=TV)
+        self.assertTrue(out.startswith("🐉 <b>Sozo 3.2.1 is out!</b>\n\n<i>Fixes for what you reported.</i>\n"))
+        self.assertIn('- No more endless &lt;video&gt; loading, see <a href="https://t.me/sozoapp">the channel</a>.', out)
+        self.assertIn("- <b>Corner player</b> on desktop: press <b>I</b>.", out)
+        self.assertNotIn("Dropped connections", out)
+        self.assertIn(f'<b>All files</b> (<i>Windows, macOS, Linux, iOS, Android</i>): <a href="{REL}">Link</a>', out)
+        self.assertIn(f'<b>TV Side</b>: <a href="{TV}">Link</a>', out)
+        self.assertTrue(out.endswith("🛟 <b>Need help? Profile → Help &amp; Support</b>"))
+
+    def test_bold_titles_of_the_notes_otherwise(self):
+        out = telegram_caption("3.2.1", NOTES, LOG, release_url=REL)
         self.assertIn("<i>Playback that recovers, downloads that finish.</i>", out)
-        self.assertIn("▶️ <b>Pleer.</b> Endi &lt;video&gt; cheksiz turmaydi. <i>Save to Downloads</i> ishlaydi.", out)
-        self.assertIn('<a href="https://t.me/sozoapp">kanal</a>', out)
-        self.assertNotIn("Matroska", out)
+        self.assertIn('- No more endless "Video loading"\n- Vietnamese and Hindi\n- Dropped connections\n- Sort My List\n\n', out)
+        self.assertNotIn("Windows", out.split("All files")[0])
+        self.assertNotIn("Telegram", out)
+        self.assertNotIn("TV Side", out)
 
     def test_falls_back_to_the_merged_changes(self):
-        out = telegram_caption("3.3.0", "", LOG, "Bugun chiqdi")
-        self.assertIn("yangi versiya", out)
-        self.assertIn("📝 Bugun chiqdi", out)
-        self.assertIn("▶️ <b>Player</b>: Skip Matroska on iPhone", out)
+        out = telegram_caption("3.3.0", "", LOG, "Out today")
+        self.assertIn("<i>Out today</i>", out)
+        self.assertIn("- Skip Matroska on iPhone", out)
         self.assertNotIn("CDN", out)
+        self.assertNotIn("All files", out)
 
     def test_never_longer_than_a_caption(self):
-        notes = UZ_NOTES.replace("</details>", "\n".join(f"- **N{i}.** " + "so'z " * 40 for i in range(40)) + "\n</details>")
-        out = telegram_caption("3.2.1", notes, LOG)
-        self.assertLessEqual(len(out), 1024)
+        notes = NOTES + "<!-- telegram\n" + "\n".join(f"- **N{i}** 🎬 " + "word " * 40 for i in range(40)) + "\n-->\n"
+        out = telegram_caption("3.2.1", notes, LOG, release_url=REL, tv_url=TV)
+        self.assertLessEqual(visible_length(out), 1024)
         self.assertEqual(out.count("<b>"), out.count("</b>"))
-        self.assertTrue(out.endswith("@sozoapp"))
+        self.assertIn("TV Side", out)
+
+    def test_one_huge_bullet_is_cut_not_dropped(self):
+        notes = "<!-- telegram\n- " + "long " * 400 + "\n-->"
+        out = telegram_caption("3.2.1", notes, LOG, release_url=REL)
+        self.assertLessEqual(visible_length(out), 1024)
+        self.assertIn("…", out)
+
+    def test_length_counts_what_telegram_counts(self):
+        self.assertEqual(visible_length('<a href="https://x.y/very/long">Link</a> &amp; 🎬'), len("Link & ") + 2)
 
 
 TEMPLATE = Path(__file__).resolve().parent.parent / "docs/images/v3.2.0/banner.svg"
